@@ -1,0 +1,117 @@
+/*
+* custom.css
+******************************************************************************/
+
+.light-style .menu .app-brand.ecom {
+  height: 64px;
+}
+
+.dark-style .menu .app-brand.ecom {
+  height: 64px;
+}
+
+.app-brand-logo.ecom {
+  -ms-flex-align: center;
+  align-items: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  display: -ms-flexbox;
+  display: flex;
+  width: 34px;
+  height: 24px;
+}
+
+.app-brand-logo.ecom svg {
+  width: 35px;
+  height: 24px;
+}
+
+.app-brand-text.ecom {
+  font-size: 1.375rem;
+}
+
+/* ! For .layout-navbar-fixed added fix padding top to .layout-page */
+.layout-navbar-fixed .layout-wrapper:not(.layout-without-menu) .layout-page {
+  padding-top: 64px !important;
+}
+.layout-navbar-fixed .layout-wrapper:not(.layout-horizontal):not(.layout-without-menu) .layout-page {
+  padding-top: 78px !important;
+}
+
+/* Navbar page z-index issue solution */
+.content-wrapper .navbar {
+  z-index: auto;
+}
+
+/*
+* DataTable toggle switch fix
+* Prevents DataTable CSS from overriding Bootstrap form-switch size
+******************************************************************************/
+table.dataTable .form-switch .form-check-input {
+  width: 2rem !important;
+  height: 1rem !important;
+  margin-top: 0.2rem;
+  cursor: pointer;
+}
+
+/*
+* Product image slider
+******************************************************************************/
+.product-main-swiper {
+  height: 300px;
+}
+
+.product-main-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-thumb-slide {
+  width: 70px !important;
+}
+
+.product-thumb-image {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+}
+
+.product-no-image {
+  height: 300px;
+}
+
+.product-no-image-icon {
+  font-size: 3rem;
+}
+
+/*
+* Product image delete button icon fix
+******************************************************************************/
+.btn-delete-image i {
+  font-size: 1rem;
+}
+
+/*
+* DataTable sorting arrows fix
+******************************************************************************/
+table.dataTable thead .sorting::before,
+table.dataTable thead .sorting::after,
+table.dataTable thead .sorting_asc::before,
+table.dataTable thead .sorting_asc::after,
+table.dataTable thead .sorting_desc::before,
+table.dataTable thead .sorting_desc::after {
+    font-family: "tabler-icons" !important;
+    opacity: 0.3 !important;
+}
+
+table.dataTable thead .sorting_asc::before,
+table.dataTable thead .sorting_desc::after {
+    opacity: 1 !important;
+}
+
+table.dataTable thead > tr > th.sorting, 
+table.dataTable thead > tr > th.sorting_asc, 
+table.dataTable thead > tr > th.sorting_desc {
+    padding-right: 30px !important;
+}
