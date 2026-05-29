@@ -3,7 +3,7 @@
     <p class="text-muted">Update role name and permissions</p>
 </div>
 
-<form id="commonModalForm" action="{{ route('admin.roles.update', $role) }}" method="POST">
+<form id="commonModalForm" action="{{ route('admin.roles.update', $role) }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     @method('PUT')
     <div class="mb-4">
@@ -65,8 +65,8 @@
         </table>
     </div>
 
-    <div class="text-center">
-        <button type="submit" class="btn btn-primary me-2">Update Role</button>
-        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+    <div class="d-flex gap-2 mt-auto pt-3 border-top">
+        <button type="submit" class="btn btn-primary w-50">Update Role</button>
+        <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>

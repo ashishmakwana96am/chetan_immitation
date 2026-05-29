@@ -3,7 +3,7 @@
     <p class="text-muted">Fill in the details to create a new customer</p>
 </div>
 
-<form id="commonModalForm" action="{{ route('admin.customers.store') }}" method="POST">
+<form id="commonModalForm" action="{{ route('admin.customers.store') }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     <div class="row g-3">
         <div class="col-12">
@@ -21,11 +21,7 @@
             <input type="email" name="email" class="form-control" placeholder="e.g. john@example.com" />
             <div class="invalid-feedback"></div>
         </div>
-        <div class="col-12">
-            <label class="form-label">Password <span class="text-muted">(optional)</span></label>
-            <input type="password" name="password" class="form-control" placeholder="Minimum 8 characters" />
-            <div class="invalid-feedback"></div>
-        </div>
+
         <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
@@ -35,8 +31,8 @@
         </div>
     </div>
 
-    <div class="text-center mt-4">
-        <button type="submit" class="btn btn-primary me-2">Create Customer</button>
-        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+    <div class="d-flex gap-2 mt-auto pt-3 border-top">
+        <button type="submit" class="btn btn-primary w-50">Create Customer</button>
+        <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>

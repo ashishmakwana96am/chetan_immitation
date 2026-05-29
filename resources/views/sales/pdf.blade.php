@@ -127,7 +127,6 @@
                 <th>SKU</th>
                 <th class="text-right">Price</th>
                 <th class="text-right">Qty</th>
-                <th class="text-right">Discount</th>
                 <th class="text-right">Total</th>
             </tr>
         </thead>
@@ -139,7 +138,6 @@
                     <td>{{ $item->product->sku ?? '-' }}</td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
                     <td class="text-right">{{ $item->quantity }}</td>
-                    <td class="text-right">{{ $item->discount > 0 ? format_price($item->discount) : '-' }}</td>
                     <td class="text-right"><strong>{{ format_price($item->total) }}</strong></td>
                 </tr>
             @endforeach
@@ -154,12 +152,6 @@
                     <td>Items Total</td>
                     <td class="text-right">{{ format_price($order->total_amount) }}</td>
                 </tr>
-                @if($order->discount > 0)
-                    <tr>
-                        <td>Discount</td>
-                        <td class="text-right" style="color:#ea5455;">- {{ format_price($order->discount) }}</td>
-                    </tr>
-                @endif
             </table>
         </div>
         <div class="totals-grand">

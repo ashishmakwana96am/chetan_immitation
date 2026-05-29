@@ -3,7 +3,7 @@
     <p class="text-muted">Update supplier details</p>
 </div>
 
-<form id="commonModalForm" action="{{ route('admin.suppliers.update', $supplier) }}" method="POST">
+<form id="commonModalForm" action="{{ route('admin.suppliers.update', $supplier) }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     @method('PUT')
     <div class="row g-3">
@@ -38,8 +38,8 @@
         </div>
     </div>
 
-    <div class="text-center mt-4">
-        <button type="submit" class="btn btn-primary me-2">Update Supplier</button>
-        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+    <div class="d-flex gap-2 mt-auto pt-3 border-top">
+        <button type="submit" class="btn btn-primary w-50">Update Supplier</button>
+        <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>

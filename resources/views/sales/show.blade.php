@@ -110,12 +110,6 @@
                         <span class="text-muted">Items Total</span>
                         <span>{{ format_price($order->total_amount) }}</span>
                     </div>
-                    @if($order->discount > 0)
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Discount</span>
-                            <span class="text-danger">- {{ format_price($order->discount) }}</span>
-                        </div>
-                    @endif
                     <div class="d-flex justify-content-between">
                         <span class="fw-semibold">Final Amount</span>
                         <span class="fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</span>
@@ -136,7 +130,6 @@
                                 <th>Product</th>
                                 <th class="text-end">Price</th>
                                 <th class="text-end">Qty</th>
-                                <th class="text-end">Discount</th>
                                 <th class="text-end">Total</th>
                             </tr>
                         </thead>
@@ -150,24 +143,17 @@
                                     </td>
                                     <td class="text-end">{{ format_price($item->price) }}</td>
                                     <td class="text-end">{{ $item->quantity }}</td>
-                                    <td class="text-end">{{ $item->discount > 0 ? format_price($item->discount) : '-' }}</td>
                                     <td class="text-end fw-semibold text-primary">{{ format_price($item->total) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <td colspan="5" class="text-end fw-semibold">Items Total</td>
+                                <td colspan="4" class="text-end fw-semibold">Items Total</td>
                                 <td class="text-end fw-bold">{{ format_price($order->total_amount) }}</td>
                             </tr>
-                            @if($order->discount > 0)
-                                <tr>
-                                    <td colspan="5" class="text-end fw-semibold text-danger">Discount</td>
-                                    <td class="text-end fw-bold text-danger">- {{ format_price($order->discount) }}</td>
-                                </tr>
-                            @endif
                             <tr>
-                                <td colspan="5" class="text-end fw-semibold">Final Amount</td>
+                                <td colspan="4" class="text-end fw-semibold">Final Amount</td>
                                 <td class="text-end fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</td>
                             </tr>
                         </tfoot>

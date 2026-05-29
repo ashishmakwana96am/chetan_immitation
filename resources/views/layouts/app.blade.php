@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/node-waves/node-waves.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/typeahead-js/typeahead.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/toastr/toastr.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}" />
 
     @yield('page-css')
 
@@ -76,7 +77,7 @@
     </div>
 
     {{-- Common Side Panel --}}
-    <div class="offcanvas offcanvas-end" id="commonModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="width: 600px;">
+    <div class="offcanvas offcanvas-end" id="commonModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="width: 1000px; max-width: 100vw;">
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title" id="commonModalTitle">Details</h5>
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -90,35 +91,7 @@
 
     @stack('modals')
 
-    {{-- Common Delete Confirmation Modal --}}
-    <div class="modal fade" id="commonDeleteModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 400px">
-            <div class="modal-content p-3 p-md-4">
-                <div class="modal-body text-center">
-                    <span class="ti ti-alert-circle text-danger" style="font-size: 4rem;"></span>
-                    <h4 class="mt-3 mb-1">Are you sure?</h4>
-                    <p class="text-muted mb-4">This action cannot be undone.</p>
-                    <button type="button" class="btn btn-label-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="commonDeleteConfirmBtn">Yes, Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    {{-- Common Confirm Modal --}}
-    <div class="modal fade" id="commonConfirmModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 400px">
-            <div class="modal-content p-3 p-md-4">
-                <div class="modal-body text-center">
-                    <span class="ti ti-alert-circle text-warning" style="font-size: 4rem;"></span>
-                    <h4 class="mt-3 mb-1" id="commonConfirmTitle">Are you sure?</h4>
-                    <p class="text-muted mb-4" id="commonConfirmText"></p>
-                    <button type="button" class="btn btn-label-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn" id="commonConfirmBtn">Confirm</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
@@ -131,6 +104,7 @@
     <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
     <script src="{{ asset('assets/js/main.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/toastr/toastr.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
     <script src="{{ asset('assets/js/common-modal.js') }}"></script>
 
     @yield('page-js')

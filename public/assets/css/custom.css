@@ -115,3 +115,15 @@ table.dataTable thead > tr > th.sorting_asc,
 table.dataTable thead > tr > th.sorting_desc {
     padding-right: 30px !important;
 }
+
+/* Offcanvas form buttons (footer) 50%-50% layout */
+#commonModalBody form > .text-center.mt-4 {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+}
+
+#commonModalBody form > .text-center.mt-4 > button {
+    flex: 1;
+    margin: 0 !important;
+}

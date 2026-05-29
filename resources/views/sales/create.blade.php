@@ -77,29 +77,34 @@
 
                 <!-- Sale Items -->
                 <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Sale Items</h5>
-                        <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">
-                            <i class="ti ti-plus me-1"></i> Add Item
-                        </button>
+                    <div class="card-header border-bottom pb-3" style="z-index: 10;">
+                        <h5 class="mb-3">Sale Items</h5>
+                        <div class="position-relative">
+                            <div class="input-group input-group-merge">
+                                <span class="input-group-text"><i class="ti ti-search"></i></span>
+                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name or SKU..." autocomplete="off">
+                            </div>
+                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
+                                <!-- Search results will appear here -->
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table mb-0" id="itemsTable">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product</th>
-                                        <th width="100">Qty</th>
-                                        <th width="130">Price</th>
-                                        <th width="130">Discount</th>
-                                        <th width="130">Total</th>
-                                        <th width="40"></th>
+                                <thead>
+                                    <tr class="table-light">
+                                        <th width="30%">Product</th>
+                                        <th width="20%">Qty</th>
+                                        <th width="25%">Price</th>
+                                        <th width="20%">Total</th>
+                                        <th width="5%"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="itemsBody"></tbody>
                                 <tfoot>
                                     <tr class="table-light">
-                                        <td colspan="4" class="text-end fw-semibold">Items Total</td>
+                                        <td colspan="3" class="text-end fw-semibold">Items Total</td>
                                         <td class="fw-bold text-primary" id="itemsTotal">{{ currency_symbol() }} 0.00</td>
                                         <td></td>
                                     </tr>
@@ -125,14 +130,6 @@
                             <span class="text-muted">Items Total</span>
                             <span id="summaryItemsTotal" class="fw-semibold">{{ currency_symbol() }} 0.00</span>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Sale Discount <span class="text-muted">(optional)</span></label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">{{ currency_symbol() }}</span>
-                                <input type="number" name="discount" id="orderDiscount"
-                                    class="form-control" placeholder="0.00" step="0.01" min="0" value="0" />
-                            </div>
-                        </div>
                         <hr />
                         <div class="d-flex justify-content-between">
                             <span class="fw-semibold">Final Amount</span>
@@ -156,9 +153,11 @@
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
-                <select name="items[__INDEX__][product_id]" class="form-select form-select-sm product-select">
-                    <option value="">-- Select Product --</option>
-                </select>
+                <div class="d-flex flex-column mb-1">
+                    <span class="product-name-display fw-semibold text-heading"></span>
+                    <small class="product-sku-display text-muted"></small>
+                </div>
+                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
                 <small class="text-muted stock-info-__INDEX__"></small>
             </td>
@@ -172,14 +171,6 @@
                     <span class="input-group-text">{{ currency_symbol() }}</span>
                     <input type="number" name="items[__INDEX__][price]"
                         class="form-control form-control-sm item-price"
-                        placeholder="0.00" step="0.01" min="0" value="0" />
-                </div>
-            </td>
-            <td>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                    <input type="number" name="items[__INDEX__][discount]"
-                        class="form-control form-control-sm item-discount"
                         placeholder="0.00" step="0.01" min="0" value="0" />
                 </div>
             </td>
@@ -217,26 +208,96 @@ $(document).ready(function () {
     };
 
     // -------------------------------------------------------
-    // Add Item Row
+    // Product Search and Selection
     // -------------------------------------------------------
-    $('#addItemBtn').on('click', () => addItemRow());
+    const searchInput = $('#productSearchInput');
+    const searchResults = $('#productSearchResults');
 
-    function addItemRow(data = null) {
+    searchInput.on('input', function() {
+        const query = $(this).val().toLowerCase().trim();
+        searchResults.empty();
+
+        if (query.length === 0) {
+            searchResults.hide();
+            return;
+        }
+
+        const matchedProducts = allProducts.filter(p => 
+            p.label.toLowerCase().includes(query)
+        );
+
+        if (matchedProducts.length === 0) {
+            searchResults.html('<div class="list-group-item text-muted">No products found</div>');
+            searchResults.show();
+            return;
+        }
+
+        matchedProducts.forEach(p => {
+            const item = $(`
+                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
+                    <div>
+                        <div class="fw-semibold">${p.name}</div>
+                        <small class="text-muted">SKU: ${p.sku}</small>
+                    </div>
+                    <span class="badge bg-label-primary">${symbol} ${parseFloat(p.price).toFixed(2)}</span>
+                </a>
+            `);
+            item.data('product', p);
+            searchResults.append(item);
+        });
+
+        searchResults.show();
+    });
+
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#productSearchInput, #productSearchResults').length) {
+            searchResults.hide();
+        }
+    });
+
+    $(document).on('click', '.search-result-item', function() {
+        const product = $(this).data('product');
+        let exists = false;
+        $('.product-id-input').each(function() {
+            if ($(this).val() == product.id) {
+                exists = true;
+            }
+        });
+
+        if (exists) {
+            toastr.warning('Product is already in the list.');
+        } else {
+            addItemRow({
+                product_id: product.id,
+                price: product.price,
+                quantity: 1
+            }, product);
+        }
+
+        searchInput.val('');
+        searchResults.hide().empty();
+        searchInput.focus();
+    });
+
+    function addItemRow(data = null, productObj = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
         $('#itemsBody').append(template);
         $('#noItemsMsg').addClass('d-none');
 
-        syncProductDropdowns();
-
         const row = $('#itemsBody .item-row').last();
 
         if (data) {
-            row.find('.product-select').val(data.product_id);
+            const product = productObj || allProducts.find(p => p.id == data.product_id);
+            row.find('.product-id-input').val(data.product_id);
+            if (product) {
+                row.find('.product-name-display').text(product.name);
+                row.find('.product-sku-display').text('SKU: ' + product.sku);
+            }
             row.find('.item-price').val(data.price);
             row.find('.item-qty').val(data.quantity);
-            row.find('.item-discount').val(data.discount ?? 0);
             updateRowTotal(row);
+            updateStockInfo(row);
         }
 
         itemIndex++;
@@ -252,24 +313,7 @@ $(document).ready(function () {
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
         }
-        syncProductDropdowns();
         updateSummary();
-    });
-
-    // -------------------------------------------------------
-    // Product Select
-    // -------------------------------------------------------
-    $(document).on('change', '.product-select', function () {
-        const row       = $(this).closest('.item-row');
-        const productId = $(this).val();
-        const product   = allProducts.find(p => p.id == productId);
-
-        if (product) {
-            row.find('.item-price').val(product.price);
-        }
-        updateRowTotal(row);
-        syncProductDropdowns();
-        updateStockInfo(row);
     });
 
     function getLocationId() {
@@ -286,7 +330,7 @@ $(document).ready(function () {
     });
 
     function updateStockInfo(row) {
-        const productId  = row.find('.product-select').val();
+        const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const idx        = row.data('index');
 
@@ -306,48 +350,20 @@ $(document).ready(function () {
     }
 
     // -------------------------------------------------------
-    // Sync product dropdowns
+    // Sync product dropdowns (Removed as no longer applicable)
     // -------------------------------------------------------
-    function syncProductDropdowns() {
-        const selectedMap = {};
-        $('.product-select').each(function () {
-            const idx = $(this).closest('.item-row').data('index');
-            const val = $(this).val();
-            if (val) selectedMap[idx] = val;
-        });
-        const allSelected = Object.values(selectedMap);
-
-        $('.product-select').each(function () {
-            const select     = $(this);
-            const currentVal = select.val();
-            select.empty().append('<option value="">-- Select Product --</option>');
-            allProducts.forEach(function (p) {
-                if (p.id == currentVal || !allSelected.includes(String(p.id))) {
-                    select.append($('<option>', {
-                        value        : p.id,
-                        'data-price' : p.price,
-                        text         : p.label,
-                        selected     : p.id == currentVal,
-                    }));
-                }
-            });
-        });
-    }
 
     // -------------------------------------------------------
-    // Price / Qty / Discount change
+    // Price / Qty change
     // -------------------------------------------------------
-    $(document).on('input', '.item-price, .item-qty, .item-discount', function () {
+    $(document).on('input', '.item-price, .item-qty', function () {
         updateRowTotal($(this).closest('.item-row'));
     });
-
-    $(document).on('input', '#orderDiscount', updateSummary);
 
     function updateRowTotal(row) {
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
-        const discount = parseFloat(row.find('.item-discount').val()) || 0;
-        const total    = (price * qty) - discount;
+        const total    = (price * qty);
         row.find('.item-total').text(symbol + ' ' + total.toFixed(2));
         updateSummary();
     }
@@ -358,12 +374,10 @@ $(document).ready(function () {
         $('#itemsBody .item-row').each(function () {
             const price    = parseFloat($(this).find('.item-price').val()) || 0;
             const qty      = parseInt($(this).find('.item-qty').val()) || 0;
-            const discount = parseFloat($(this).find('.item-discount').val()) || 0;
-            itemsTotal += (price * qty) - discount;
+            itemsTotal += (price * qty);
             count++;
         });
-        const orderDiscount = parseFloat($('#orderDiscount').val()) || 0;
-        const finalAmount   = itemsTotal - orderDiscount;
+        const finalAmount   = itemsTotal;
 
         $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + itemsTotal.toFixed(2));
         $('#summaryFinal').text(symbol + ' ' + finalAmount.toFixed(2));
@@ -377,11 +391,6 @@ $(document).ready(function () {
 
         if ($('#itemsBody .item-row').length === 0) {
             toastr.error('Please add at least one item.');
-            return;
-        }
-
-        if (!getLocationId()) {
-            toastr.error('Please select a location.');
             return;
         }
 
@@ -405,7 +414,26 @@ $(document).ready(function () {
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     $.each(errors, function (field, messages) {
-                        toastr.error(messages[0]);
+                        let inputName = field;
+                        if (field.includes('.')) {
+                            let parts = field.split('.');
+                            inputName = parts[0] + '[' + parts.slice(1).join('][') + ']';
+                        }
+                        let input = form.find('[name="' + inputName + '"]');
+                        if (input.length) {
+                            input.addClass('is-invalid');
+                            let feedback = input.siblings('.invalid-feedback');
+                            if (feedback.length === 0 && input.parent('.input-group').length) {
+                                feedback = input.parent('.input-group').siblings('.invalid-feedback');
+                            }
+                            if (feedback.length) {
+                                feedback.text(messages[0]);
+                            } else {
+                                toastr.error(messages[0]);
+                            }
+                        } else {
+                            toastr.error(messages[0]);
+                        }
                     });
                 } else {
                     toastr.error('Something went wrong. Please try again.');

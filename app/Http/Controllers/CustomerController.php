@@ -64,7 +64,6 @@ class CustomerController extends Controller
             'name'     => ['required', 'string', 'max:100'],
             'phone'    => ['nullable', 'string', 'max:20'],
             'email'    => ['nullable', 'email', 'unique:customers,email'],
-            'password' => ['nullable', 'string', 'min:8'],
         ]);
 
         if ($validator->fails()) {
@@ -78,7 +77,6 @@ class CustomerController extends Controller
             'name'     => $request->name,
             'phone'    => $request->phone,
             'email'    => $request->email,
-            'password' => $request->filled('password') ? Hash::make($request->password) : null,
             'status'   => $request->has('status') ? 'active' : 'inactive',
         ]);
 

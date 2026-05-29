@@ -103,12 +103,10 @@ class SaleController extends Controller
             'location_id'        => ['required', 'exists:locations,id'],
             'customer_id'        => ['nullable', 'exists:customers,id'],
             'payment_method'     => ['required', 'string'],
-            'discount'           => ['nullable', 'numeric', 'min:0'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
-            'items.*.discount'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($validator->fails()) {
@@ -133,9 +131,8 @@ class SaleController extends Controller
         }
 
         DB::transaction(function () use ($request) {
-            $orderDiscount = (float) ($request->discount ?? 0);
-            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']) - (float) ($item['discount'] ?? 0));
-            $finalAmount   = $totalAmount - $orderDiscount;
+            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
+            $finalAmount   = $totalAmount;
 
             $order = Order::create([
                 'customer_id'    => $request->customer_id,
@@ -147,19 +144,16 @@ class SaleController extends Controller
                 'payment_status' => $request->payment_method === 'cash' ? 'paid' : 'pending',
                 'payment_method' => $request->payment_method,
                 'total_amount'   => $totalAmount,
-                'discount'       => $orderDiscount,
                 'final_amount'   => $finalAmount,
             ]);
 
             foreach ($request->items as $itemData) {
-                $itemDiscount = (float) ($itemData['discount'] ?? 0);
                 OrderItem::create([
                     'order_id'   => $order->id,
                     'product_id' => $itemData['product_id'],
                     'quantity'   => $itemData['quantity'],
                     'price'      => $itemData['price'],
-                    'discount'   => $itemDiscount,
-                    'total'      => ($itemData['price'] * $itemData['quantity']) - $itemDiscount,
+                    'total'      => ($itemData['price'] * $itemData['quantity']),
                 ]);
 
                 Inventory::where('product_id', $itemData['product_id'])
@@ -224,7 +218,7 @@ class SaleController extends Controller
         })->values();
 
         $existingItems = $sale->items->map(function ($item) {
-            return ['product_id' => $item->product_id, 'price' => $item->price, 'quantity' => $item->quantity, 'discount' => $item->discount];
+            return ['product_id' => $item->product_id, 'price' => $item->price, 'quantity' => $item->quantity];
         })->values();
 
         return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'products' => $products, 'allProducts' => $allProducts, 'existingItems' => $existingItems]);
@@ -242,12 +236,10 @@ class SaleController extends Controller
             'location_id'        => ['required', 'exists:locations,id'],
             'customer_id'        => ['nullable', 'exists:customers,id'],
             'payment_method'     => ['required', 'string'],
-            'discount'           => ['nullable', 'numeric', 'min:0'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
-            'items.*.discount'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($validator->fails()) {
@@ -270,8 +262,7 @@ class SaleController extends Controller
             }
             $sale->items()->delete();
 
-            $orderDiscount = (float) ($request->discount ?? 0);
-            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']) - (float) ($item['discount'] ?? 0));
+            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
 
             $sale->update([
                 'customer_id'    => $request->customer_id,
@@ -279,19 +270,16 @@ class SaleController extends Controller
                 'payment_method' => $request->payment_method,
                 'payment_status' => $request->payment_method === 'cash' ? 'paid' : 'pending',
                 'total_amount'   => $totalAmount,
-                'discount'       => $orderDiscount,
-                'final_amount'   => $totalAmount - $orderDiscount,
+                'final_amount'   => $totalAmount,
             ]);
 
             foreach ($request->items as $itemData) {
-                $itemDiscount = (float) ($itemData['discount'] ?? 0);
                 OrderItem::create([
                     'order_id'   => $sale->id,
                     'product_id' => $itemData['product_id'],
                     'quantity'   => $itemData['quantity'],
                     'price'      => $itemData['price'],
-                    'discount'   => $itemDiscount,
-                    'total'      => ($itemData['price'] * $itemData['quantity']) - $itemDiscount,
+                    'total'      => ($itemData['price'] * $itemData['quantity']),
                 ]);
                 Inventory::where('product_id', $itemData['product_id'])->where('location_id', $request->location_id)->decrement('quantity', $itemData['quantity']);
             }

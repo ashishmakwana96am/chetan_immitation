@@ -16,10 +16,26 @@ $(document).ready(function () {
 
     function showFormErrors(form, errors) {
         $.each(errors, function (field, messages) {
-            form.find('[name="' + field + '"]')
-                .addClass('is-invalid')
-                .siblings('.invalid-feedback')
-                .text(messages[0]);
+            let inputName = field;
+            if (field.includes('.')) {
+                let parts = field.split('.');
+                inputName = parts[0] + '[' + parts.slice(1).join('][') + ']';
+            }
+            let input = form.find('[name="' + inputName + '"], [name="' + inputName + '[]"]');
+            if (input.length) {
+                input.addClass('is-invalid');
+                let feedback = input.siblings('.invalid-feedback');
+                if (feedback.length === 0 && input.parent('.input-group').length) {
+                    feedback = input.parent('.input-group').siblings('.invalid-feedback');
+                }
+                if (feedback.length) {
+                    feedback.text(messages[0]);
+                } else {
+                    toastr.error(messages[0]);
+                }
+            } else {
+                toastr.error(messages[0]);
+            }
         });
     }
 
@@ -32,6 +48,31 @@ $(document).ready(function () {
     function enableBtn(btn) {
         btn.prop('disabled', false)
            .html(btn.data('original-text'));
+    }
+
+    // -------------------------------------------------------
+    // Clear validation error on input/change globally
+    // -------------------------------------------------------
+    $(document).on('input change', '.is-invalid', function () {
+        $(this).removeClass('is-invalid');
+        let feedback = $(this).siblings('.invalid-feedback');
+        if (feedback.length === 0 && $(this).parent('.input-group').length) {
+            feedback = $(this).parent('.input-group').siblings('.invalid-feedback');
+        }
+        feedback.text('');
+    });
+
+    // -------------------------------------------------------
+    // DataTables global pagination fix
+    // -------------------------------------------------------
+    if ($.fn.DataTable) {
+        $(document).on('draw.dt', function (e, settings) {
+            const api = new $.fn.dataTable.Api(settings);
+            const info = api.page.info();
+            if (info.pages > 0 && info.page >= info.pages) {
+                api.page('previous').draw('page');
+            }
+        });
     }
 
     // -------------------------------------------------------
@@ -66,19 +107,18 @@ $(document).ready(function () {
                 if (form.length) {
                     form.addClass('d-flex flex-column flex-grow-1 h-100 mb-0');
                     
-                    // Force single column layout inside side panel
-                    form.find('.col-md-6, .col-sm-6, .col-lg-6, .col-md-4, .col-lg-4')
-                        .removeClass('col-md-6 col-sm-6 col-lg-6 col-md-4 col-lg-4')
-                        .addClass('col-12');
+                    form.find('.row > div')
+                        .removeClass('col-12 col-md-12 col-md-6 col-sm-6 col-lg-6 col-md-4 col-lg-4')
+                        .addClass('col-md-6 col-12');
                     
-                    let btnDiv = form.find('.text-center.mt-4').first();
+                    let btnDiv = form.find('button[type="submit"]').parent();
                     let scrollWrapper = $('<div class="flex-grow-1 p-4" style="overflow-y: auto;"></div>');
                     
                     form.children().not(btnDiv).appendTo(scrollWrapper);
                     form.prepend(scrollWrapper);
                     
                     if(btnDiv.length) {
-                        btnDiv.removeClass('text-center mt-4').addClass('d-flex p-4 border-top gap-3 mt-auto mb-0');
+                        btnDiv.removeClass('text-center mt-4 pt-3 gap-2 border-top').addClass('d-flex p-4 border-top gap-3 mt-auto mb-0');
                         let submitBtn = btnDiv.find('button[type="submit"]');
                         let cancelBtn = btnDiv.find('button[data-bs-dismiss="modal"]');
                         
@@ -146,69 +186,57 @@ $(document).ready(function () {
     });
 
     // -------------------------------------------------------
-    // Delete confirmation modal
+    // Delete confirmation modal (SweetAlert)
     // Trigger : [data-common-delete="url"]
     // Required: [data-row-id="row-element-id"]
     // -------------------------------------------------------
-    let deleteUrl   = null;
-    let deleteRowId = null;
-
     $(document).on('click', '[data-common-delete]', function (e) {
         e.preventDefault();
 
-        deleteUrl   = $(this).attr('data-common-delete');
-        deleteRowId = $(this).attr('data-row-id');
+        const url = $(this).attr('data-common-delete');
+        const rowId = $(this).attr('data-row-id');
 
-        $('#commonDeleteModal').modal('show');
-    });
-
-    $(document).on('click', '#commonDeleteConfirmBtn', function () {
-        if (!deleteUrl) return;
-
-        const btn = $(this);
-        disableBtn(btn, 'Deleting...');
-
-        $.ajax({
-            url  : deleteUrl,
-            type : 'DELETE',
-            data : { _token: csrfToken },
-            success : function (res) {
-                $('#commonDeleteModal').modal('hide');
-                enableBtn(btn);
-                if (res.status === 'success') {
-                    toastr.success(res.message);
-                    if (typeof window.refreshTable === 'function') {
-                        window.refreshTable();
-                    } else if (deleteRowId) {
-                        $('#' + deleteRowId).fadeOut(400, function () { $(this).remove(); });
-                    }
-                }
-                deleteUrl   = null;
-                deleteRowId = null;
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This action cannot be undone.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Delete',
+            customClass: {
+                confirmButton: 'btn btn-danger me-3',
+                cancelButton: 'btn btn-label-secondary'
             },
-            error : function (xhr) {
-                $('#commonDeleteModal').modal('hide');
-                enableBtn(btn);
-                if (xhr.status === 422 && xhr.responseJSON?.message) {
-                    toastr.error(xhr.responseJSON.message);
-                } else {
-                    toastr.error('Something went wrong. Please try again.');
-                }
-                deleteUrl   = null;
-                deleteRowId = null;
+            buttonsStyling: false
+        }).then(function (result) {
+            if (result.value) {
+                $.ajax({
+                    url  : url,
+                    type : 'DELETE',
+                    data : { _token: csrfToken },
+                    success : function (res) {
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            if (typeof window.refreshTable === 'function') {
+                                window.refreshTable();
+                            } else if (rowId) {
+                                $('#' + rowId).fadeOut(400, function () { $(this).remove(); });
+                            }
+                        }
+                    },
+                    error : function (xhr) {
+                        if (xhr.status === 422 && xhr.responseJSON?.message) {
+                            toastr.error(xhr.responseJSON.message);
+                        } else {
+                            toastr.error('Something went wrong. Please try again.');
+                        }
+                    }
+                });
             }
         });
     });
 
-    // Reset delete state on modal dismiss
-    $('#commonDeleteModal').on('hidden.bs.modal', function () {
-        enableBtn($('#commonDeleteConfirmBtn'));
-        deleteUrl   = null;
-        deleteRowId = null;
-    });
-
     // -------------------------------------------------------
-    // Common Confirm Modal
+    // Common Confirm Modal (SweetAlert)
     // Trigger : [data-common-confirm="url"]
     // Required: [data-confirm-method="PATCH|POST|PUT"]
     // Optional: [data-confirm-title="Title text"]
@@ -217,19 +245,15 @@ $(document).ready(function () {
     //           [data-confirm-btn-class="btn-success|btn-warning..."]
     //           [data-confirm-data='{"key":"value"}']
     // -------------------------------------------------------
-    let confirmUrl    = null;
-    let confirmMethod = null;
-    let confirmData   = {};
-
     $(document).on('click', '[data-common-confirm]', function (e) {
         e.preventDefault();
 
-        confirmUrl    = $(this).attr('data-common-confirm');
-        confirmMethod = $(this).attr('data-confirm-method') || 'POST';
-        confirmData   = {};
+        const url    = $(this).attr('data-common-confirm');
+        const method = $(this).attr('data-confirm-method') || 'POST';
+        let data   = {};
 
         try {
-            confirmData = JSON.parse($(this).attr('data-confirm-data') || '{}');
+            data = JSON.parse($(this).attr('data-confirm-data') || '{}');
         } catch (err) {}
 
         const title    = $(this).attr('data-confirm-title')     || 'Are you sure?';
@@ -237,60 +261,52 @@ $(document).ready(function () {
         const btnLabel = $(this).attr('data-confirm-btn')       || 'Confirm';
         const btnClass = $(this).attr('data-confirm-btn-class') || 'btn-primary';
 
-        $('#commonConfirmTitle').text(title);
-        $('#commonConfirmText').text(text);
-        $('#commonConfirmBtn')
-            .text(btnLabel)
-            .attr('class', 'btn ' + btnClass);
-
-        $('#commonConfirmModal').modal('show');
-    });
-
-    $(document).on('click', '#commonConfirmBtn', function () {
-        if (!confirmUrl) return;
-
-        const btn  = $(this);
-        const data = Object.assign({ _token: csrfToken }, confirmData);
-
-        disableBtn(btn, 'Processing...');
-
-        $.ajax({
-            url     : confirmUrl,
-            type    : confirmMethod,
-            data    : data,
-            success : function (res) {
-                $('#commonConfirmModal').modal('hide');
-                enableBtn(btn);
-                if (res.status === 'success') {
-                    toastr.success(res.message);
-                    if (typeof window.onConfirmSuccess === 'function') {
-                        window.onConfirmSuccess(res);
-                    } else {
-                        setTimeout(() => location.reload(), 800);
-                    }
-                }
-                confirmUrl    = null;
-                confirmMethod = null;
-                confirmData   = {};
+        Swal.fire({
+            title: title,
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: btnLabel,
+            customClass: {
+                confirmButton: 'btn ' + btnClass + ' me-3',
+                cancelButton: 'btn btn-label-secondary'
             },
-            error : function (xhr) {
-                $('#commonConfirmModal').modal('hide');
-                enableBtn(btn);
-                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                confirmUrl    = null;
-                confirmMethod = null;
-                confirmData   = {};
+            buttonsStyling: false
+        }).then(function (result) {
+            if (result.value) {
+                Swal.fire({
+                    title: 'Processing...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const ajaxData = Object.assign({ _token: csrfToken }, data);
+
+                $.ajax({
+                    url     : url,
+                    type    : method,
+                    data    : ajaxData,
+                    success : function (res) {
+                        Swal.close();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            if (typeof window.onConfirmSuccess === 'function') {
+                                window.onConfirmSuccess(res);
+                            } else {
+                                setTimeout(() => location.reload(), 800);
+                            }
+                        }
+                    },
+                    error : function (xhr) {
+                        Swal.close();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
             }
         });
-    });
-
-    // Reset confirm state on modal dismiss
-    $('#commonConfirmModal').on('hidden.bs.modal', function () {
-        enableBtn($('#commonConfirmBtn'));
-        confirmUrl    = null;
-        confirmMethod = null;
-        confirmData   = {};
     });
 
 });

@@ -50,24 +50,30 @@
 
                 <!-- Purchase Items -->
                 <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Purchase Items</h5>
-                        <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">
-                            <i class="ti ti-plus me-1"></i> Add Item
-                        </button>
+                    <div class="card-header border-bottom pb-3" style="z-index: 10;">
+                        <h5 class="mb-3">Purchase Items</h5>
+                        <div class="position-relative">
+                            <div class="input-group input-group-merge">
+                                <span class="input-group-text"><i class="ti ti-search"></i></span>
+                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name or SKU..." autocomplete="off">
+                            </div>
+                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
+                                <!-- Search results will appear here -->
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table mb-0" id="itemsTable">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product</th>
-                                        <th width="160">Price</th>
-                                        <th width="100">Qty</th>
-                                        <th width="140">Total</th>
-                                        <th width="40"></th>
-                                    </tr>
-                                </thead>
+                                    <thead>
+                                        <tr class="table-light">
+                                            <th width="30%">Product</th>
+                                            <th width="20%">Qty</th>
+                                            <th width="25%">Price</th>
+                                            <th width="20%">Total</th>
+                                            <th width="5%"></th>
+                                        </tr>
+                                    </thead>
                                 <tbody id="itemsBody"></tbody>
                                 <tfoot>
                                     <tr class="table-light">
@@ -126,17 +132,17 @@
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
-                <select name="items[__INDEX__][product_id]" class="form-select form-select-sm product-select">
-                    <option value="">-- Select Product --</option>
-                    @foreach($products as $product)
-                        <option value="{{ $product->id }}"
-                            data-price="{{ $product->purchase_price }}"
-                            data-name="{{ $product->name }}">
-                            {{ $product->name }} ({{ $product->sku }})
-                        </option>
-                    @endforeach
-                </select>
+                <div class="d-flex flex-column mb-1">
+                    <span class="product-name-display fw-semibold text-heading"></span>
+                    <small class="product-sku-display text-muted"></small>
+                </div>
+                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
+            </td>
+            <td>
+                <input type="number" name="items[__INDEX__][quantity]"
+                    class="form-control form-control-sm item-qty"
+                    placeholder="0" min="1" value="1" />
             </td>
             <td>
                 <div class="input-group input-group-sm">
@@ -145,11 +151,6 @@
                         class="form-control form-control-sm purchase-price"
                         placeholder="0.00" step="0.01" min="0" value="0" />
                 </div>
-            </td>
-            <td>
-                <input type="number" name="items[__INDEX__][quantity]"
-                    class="form-control form-control-sm item-qty"
-                    placeholder="0" min="1" value="1" />
             </td>
             <td>
                 <span class="item-total fw-semibold">{{ currency_symbol() }} 0.00</span>
@@ -169,21 +170,107 @@ $(document).ready(function () {
 
     let itemIndex = 0;
     const symbol    = '{{ currency_symbol() }}';
-    const locations = @json($locations->map(fn($l) => ['id' => $l->id, 'name' => $l->name]));
+    @php
+        $mappedLocations = $locations->map(function($l) {
+            return ['id' => $l->id, 'name' => $l->name];
+        })->values()->all();
+
+        $mappedProducts = $products->map(function($p) {
+            return [
+                'id' => $p->id, 
+                'name' => $p->name, 
+                'sku' => $p->sku, 
+                'purchase_price' => $p->purchase_price
+            ];
+        })->values()->all();
+    @endphp
+    const locations = @json($mappedLocations);
+    const allProducts = @json($mappedProducts);
+
+    // -------------------------------------------------------
+    // Product Search and Selection
+    // -------------------------------------------------------
+    const searchInput = $('#productSearchInput');
+    const searchResults = $('#productSearchResults');
+
+    searchInput.on('input', function() {
+        const query = $(this).val().toLowerCase().trim();
+        searchResults.empty();
+
+        if (query.length === 0) {
+            searchResults.hide();
+            return;
+        }
+
+        const matchedProducts = allProducts.filter(p => 
+            p.name.toLowerCase().includes(query) || 
+            (p.sku && p.sku.toLowerCase().includes(query))
+        );
+
+        if (matchedProducts.length === 0) {
+            searchResults.html('<div class="list-group-item text-muted">No products found</div>');
+            searchResults.show();
+            return;
+        }
+
+        matchedProducts.forEach(p => {
+            const item = $(`
+                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
+                    <div>
+                        <div class="fw-semibold">${p.name}</div>
+                        <small class="text-muted">SKU: ${p.sku}</small>
+                    </div>
+                    <span class="badge bg-label-primary">${symbol} ${parseFloat(p.purchase_price).toFixed(2)}</span>
+                </a>
+            `);
+            item.data('product', p);
+            searchResults.append(item);
+        });
+
+        searchResults.show();
+    });
+
+    // Hide search results when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#productSearchInput, #productSearchResults').length) {
+            searchResults.hide();
+        }
+    });
+
+    // Handle product selection
+    $(document).on('click', '.search-result-item', function() {
+        const product = $(this).data('product');
+        
+        // Check if product already exists
+        let exists = false;
+        $('.product-id-input').each(function() {
+            if ($(this).val() == product.id) {
+                exists = true;
+            }
+        });
+
+        if (exists) {
+            toastr.warning('Product is already in the list.');
+        } else {
+            addItemRow({
+                product_id: product.id,
+                purchase_price: product.purchase_price,
+                quantity: 1
+            }, product);
+        }
+
+        searchInput.val('');
+        searchResults.hide().empty();
+        searchInput.focus();
+    });
 
     // Pre-populate existing items
     const existingItems = @json($existingItems);
 
     existingItems.forEach(item => addItemRow(item));
-    syncProductDropdowns();
     renderAllocationSection(existingItems);
 
-    // -------------------------------------------------------
-    // Add Item Row
-    // -------------------------------------------------------
-    $('#addItemBtn').on('click', () => addItemRow());
-
-    function addItemRow(data = null) {
+    function addItemRow(data = null, productObj = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
         $('#itemsBody').append(template);
@@ -192,15 +279,21 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
 
         if (data) {
-            row.find('.product-select').val(data.product_id);
+            const product = productObj || allProducts.find(p => p.id == data.product_id);
+            row.find('.product-id-input').val(data.product_id);
+            if (product) {
+                row.find('.product-name-display').text(product.name);
+                row.find('.product-sku-display').text('SKU: ' + product.sku);
+                row.data('product-name', product.name);
+            }
             row.find('.purchase-price').val(data.purchase_price);
             row.find('.item-qty').val(data.quantity);
             updateRowTotal(row);
         }
 
         itemIndex++;
-        syncProductDropdowns();
         updateGrandTotal();
+        renderAllocationSection();
     }
 
     // -------------------------------------------------------
@@ -215,47 +308,8 @@ $(document).ready(function () {
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
         }
-        syncProductDropdowns();
         updateGrandTotal();
     });
-
-    // -------------------------------------------------------
-    // Product Select
-    // -------------------------------------------------------
-    $(document).on('change', '.product-select', function () {
-        const row   = $(this).closest('.item-row');
-        const price = $(this).find(':selected').data('price') || 0;
-        row.find('.purchase-price').val(price);
-        updateRowTotal(row);
-        syncProductDropdowns();
-        renderAllocationSection();
-    });
-
-    // -------------------------------------------------------
-    // Sync dropdowns — hide selected products in other rows
-    // -------------------------------------------------------
-    function syncProductDropdowns() {
-        const selected = [];
-        $('.product-select').each(function () {
-            const val = $(this).val();
-            if (val) selected.push(val);
-        });
-
-        $('.product-select').each(function () {
-            const currentVal = $(this).val();
-            $(this).find('option').each(function () {
-                const optVal = $(this).val();
-                if (!optVal) return;
-                if (optVal === currentVal) {
-                    $(this).show();
-                } else if (selected.includes(optVal)) {
-                    $(this).hide();
-                } else {
-                    $(this).show();
-                }
-            });
-        });
-    }
 
     $(document).on('input', '.purchase-price', function () {
         updateRowTotal($(this).closest('.item-row'));
@@ -294,8 +348,8 @@ $(document).ready(function () {
         $('#itemsBody .item-row').each(function (rowLoopIdx) {
             const row         = $(this);
             const idx         = row.data('index');
-            const productId   = row.find('.product-select').val();
-            const productName = row.find('.product-select option:selected').data('name') || row.find('.product-select option:selected').text();
+            const productId   = row.find('.product-id-input').val();
+            const productName = row.data('product-name') || '';
             const qty         = parseInt(row.find('.item-qty').val()) || 0;
 
             if (!productId || qty <= 0) return;
@@ -376,7 +430,7 @@ $(document).ready(function () {
             const row       = $(this);
             const idx       = row.data('index');
             const itemQty   = parseInt(row.find('.item-qty').val()) || 0;
-            const productId = row.find('.product-select').val();
+            const productId = row.find('.product-id-input').val();
             if (!productId) return;
 
             let allocated = 0;
@@ -427,7 +481,20 @@ $(document).ready(function () {
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Update Invoice');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
-                    $.each(errors, function (field, messages) { toastr.error(messages[0]); });
+                    $.each(errors, function (field, messages) {
+                        let inputName = field;
+                        if (field.includes('.')) {
+                            let parts = field.split('.');
+                            inputName = parts[0] + '[' + parts.slice(1).join('][') + ']';
+                        }
+                        let input = form.find('[name="' + inputName + '"]');
+                        if (input.length) {
+                            input.addClass('is-invalid');
+                            input.siblings('.invalid-feedback').text(messages[0]);
+                        } else {
+                            toastr.error(messages[0]);
+                        }
+                    });
                 } else {
                     toastr.error('Something went wrong. Please try again.');
                 }

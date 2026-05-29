@@ -84,8 +84,8 @@ class ProductController extends Controller
             'description'    => ['nullable', 'string'],
             'purchase_price' => ['required', 'numeric', 'min:0'],
             'sale_price'     => ['required', 'numeric', 'min:0'],
-            'primary_image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'images'         => ['nullable', 'array'],
+            'primary_image'  => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'images'         => ['required', 'array', 'min:1'],
             'images.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 

@@ -3,7 +3,7 @@
     <p class="text-muted">Set role name and assign permissions</p>
 </div>
 
-<form id="commonModalForm" action="{{ route('admin.roles.store') }}" method="POST">
+<form id="commonModalForm" action="{{ route('admin.roles.store') }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     <div class="mb-4">
         <label class="form-label" for="roleName">Role Name <span class="text-danger">*</span></label>
@@ -58,8 +58,8 @@
         </table>
     </div>
 
-    <div class="text-center">
-        <button type="submit" class="btn btn-primary me-2">Create Role</button>
-        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+    <div class="d-flex gap-2 mt-auto pt-3 border-top">
+        <button type="submit" class="btn btn-primary w-50">Create Role</button>
+        <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>

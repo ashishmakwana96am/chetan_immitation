@@ -16,7 +16,6 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'total_amount',
-        'discount',
         'final_amount',
     ];
 
@@ -24,7 +23,6 @@ class Order extends Model
     {
         return [
             'total_amount' => 'decimal:2',
-            'discount'     => 'decimal:2',
             'final_amount' => 'decimal:2',
         ];
     }

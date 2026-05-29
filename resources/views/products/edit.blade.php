@@ -52,26 +52,26 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
-                                <div class="input-group">
+                                <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
                                     <input type="number" name="purchase_price" class="form-control"
                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->purchase_price }}" />
+                                    <div class="invalid-feedback"></div>
                                 </div>
-                                <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Sale Price <span class="text-danger">*</span></label>
-                                <div class="input-group">
+                                <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
                                     <input type="number" name="sale_price" class="form-control"
                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->sale_price }}" />
+                                    <div class="invalid-feedback"></div>
                                 </div>
-                                <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Description <span class="text-muted">(optional)</span></label>
-                                <textarea name="description" class="form-control" rows="4"
-                                    placeholder="Enter product description...">{{ $product->description }}</textarea>
+                                <div id="description-editor">{!! $product->description !!}</div>
+                                <textarea name="description" id="description-textarea" class="d-none">{{ $product->description }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
@@ -156,9 +156,27 @@
     </form>
 @endsection
 
+@section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
+@endsection
+
 @section('page-js')
+    <script src="{{ asset('assets/vendor/libs/quill/katex.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/quill/quill.js') }}"></script>
     <script>
         $(document).ready(function () {
+
+            // Initialize Quill Editor
+            const quill = new Quill('#description-editor', {
+                theme: 'snow',
+                placeholder: 'Enter product description...'
+            });
+            
+            quill.on('text-change', function() {
+                $('#description-textarea').val(quill.root.innerHTML === '<p><br></p>' ? '' : quill.root.innerHTML).trigger('input');
+            });
 
             // Primary image preview
             $('#primaryImageInput').on('change', function () {

@@ -3,7 +3,7 @@
     <p class="text-muted">Edit permission as per your requirements.</p>
 </div>
 
-<form id="commonModalForm" action="{{ route('admin.permissions.update', $permission) }}" method="POST">
+<form id="commonModalForm" action="{{ route('admin.permissions.update', $permission) }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     @method('PUT')
     <div class="mb-3">
@@ -12,8 +12,8 @@
             value="{{ $permission->name }}" autofocus />
         <div class="invalid-feedback"></div>
     </div>
-    <div class="text-center">
-        <button type="submit" class="btn btn-primary me-2">Update Permission</button>
-        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+    <div class="d-flex gap-2 mt-auto pt-3 border-top">
+        <button type="submit" class="btn btn-primary w-50">Update Permission</button>
+        <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>
     </div>
 </form>
