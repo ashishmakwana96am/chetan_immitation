@@ -149,9 +149,9 @@ table.dataTable thead > tr > th.sorting_desc {
 }
 
 /*
-* Global Horizontal Scrollbar Prevention Fix
+* Global Horizontal Scrollbar Prevention Fix (Prevents horizontal scrollbar on Select2 dropdown open)
 ******************************************************************************/
-body, .content-wrapper {
+html, body, .layout-wrapper, .layout-container, .layout-page, .content-wrapper {
   overflow-x: hidden !important;
 }
 
