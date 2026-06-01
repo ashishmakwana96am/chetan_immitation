@@ -125,21 +125,25 @@ class SaleController extends Controller
             ], 422);
         }
 
-        foreach ($request->items as $index => $item) {
-            $stock = Inventory::where('product_id', $item['product_id'])
-                ->where('location_id', $request->location_id)
-                ->value('quantity') ?? 0;
+        $isApprove = ($request->status ?? 'pending') === 'approve';
 
-            if ($stock < $item['quantity']) {
-                $product = Product::find($item['product_id']);
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $stock . ' in stock at selected location.']],
-                ], 422);
+        if ($isApprove) {
+            foreach ($request->items as $index => $item) {
+                $stock = Inventory::where('product_id', $item['product_id'])
+                    ->where('location_id', $request->location_id)
+                    ->value('quantity') ?? 0;
+
+                if ($stock < $item['quantity']) {
+                    $product = Product::find($item['product_id']);
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $stock . ' in stock at selected location.']],
+                    ], 422);
+                }
             }
         }
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($request, $isApprove) {
             $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
             $finalAmount   = $totalAmount;
 
@@ -165,9 +169,11 @@ class SaleController extends Controller
                     'total'      => ($itemData['price'] * $itemData['quantity']),
                 ]);
 
-                Inventory::where('product_id', $itemData['product_id'])
-                    ->where('location_id', $request->location_id)
-                    ->decrement('quantity', $itemData['quantity']);
+                if ($isApprove) {
+                    Inventory::where('product_id', $itemData['product_id'])
+                        ->where('location_id', $request->location_id)
+                        ->decrement('quantity', $itemData['quantity']);
+                }
             }
         });
 
@@ -257,23 +263,31 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
-        foreach ($request->items as $index => $item) {
-            $oldItem   = $sale->items->firstWhere('product_id', $item['product_id']);
-            $available = (Inventory::where('product_id', $item['product_id'])->where('location_id', $request->location_id)->value('quantity') ?? 0) + ($oldItem ? $oldItem->quantity : 0);
+        $isApprove = ($request->status ?? 'pending') === 'approve';
 
-            if ($available < $item['quantity']) {
-                $product = Product::find($item['product_id']);
-                return response()->json(['status' => 'error', 'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $available . ' available.']]], 422);
+        if ($isApprove) {
+            foreach ($request->items as $index => $item) {
+                // Since the order was previously 'pending', no stock was deducted.
+                // Thus, the available stock is simply the current inventory quantity.
+                $available = Inventory::where('product_id', $item['product_id'])
+                    ->where('location_id', $request->location_id)
+                    ->value('quantity') ?? 0;
+
+                if ($available < $item['quantity']) {
+                    $product = Product::find($item['product_id']);
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $available . ' available.']],
+                    ], 422);
+                }
             }
         }
 
-        DB::transaction(function () use ($request, $sale) {
-            foreach ($sale->items as $oldItem) {
-                Inventory::where('product_id', $oldItem->product_id)->where('location_id', $sale->location_id)->increment('quantity', $oldItem->quantity);
-            }
+        DB::transaction(function () use ($request, $sale, $isApprove) {
+            // Delete old items (we don't need to increment inventory because they were pending and had no stock deducted)
             $sale->items()->delete();
 
-            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
+            $totalAmount = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
 
             $sale->update([
                 'customer_id'    => $request->customer_id,
@@ -293,7 +307,12 @@ class SaleController extends Controller
                     'price'      => $itemData['price'],
                     'total'      => ($itemData['price'] * $itemData['quantity']),
                 ]);
-                Inventory::where('product_id', $itemData['product_id'])->where('location_id', $request->location_id)->decrement('quantity', $itemData['quantity']);
+
+                if ($isApprove) {
+                    Inventory::where('product_id', $itemData['product_id'])
+                        ->where('location_id', $request->location_id)
+                        ->decrement('quantity', $itemData['quantity']);
+                }
             }
         });
 
@@ -313,25 +332,61 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
-        DB::transaction(function () use ($request, $sale) {
-            if ($request->filled('status')) {
-                $newStatus = $request->status;
-                if ($newStatus === 'decline' && $sale->status !== 'decline') {
-                    foreach ($sale->items as $item) {
-                        Inventory::where('product_id', $item->product_id)->where('location_id', $sale->location_id)->increment('quantity', $item->quantity);
+        try {
+            DB::transaction(function () use ($request, $sale) {
+                if ($request->filled('status')) {
+                    $newStatus = $request->status;
+                    $oldStatus = $sale->status;
+
+                    if ($newStatus !== $oldStatus) {
+                        // 1. Transition TO approve (from pending or decline)
+                        if ($newStatus === 'approve') {
+                            foreach ($sale->items as $item) {
+                                $stock = Inventory::where('product_id', $item->product_id)
+                                    ->where('location_id', $sale->location_id)
+                                    ->value('quantity') ?? 0;
+
+                                if ($stock < $item->quantity) {
+                                    $product = Product::find($item->product_id);
+                                    throw new \Exception('Product "' . $product->name . '" only has ' . $stock . ' units in stock.');
+                                }
+                            }
+
+                            // Deduct stock
+                            foreach ($sale->items as $item) {
+                                Inventory::where('product_id', $item->product_id)
+                                    ->where('location_id', $sale->location_id)
+                                    ->decrement('quantity', $item->quantity);
+                            }
+                        }
+                        // 2. Transition FROM approve (to pending or decline)
+                        elseif ($oldStatus === 'approve') {
+                            // Restore stock
+                            foreach ($sale->items as $item) {
+                                Inventory::where('product_id', $item->product_id)
+                                    ->where('location_id', $sale->location_id)
+                                    ->increment('quantity', $item->quantity);
+                            }
+                        }
+
+                        // Reset payment status to non_paid if declined
+                        if ($newStatus === 'decline') {
+                            $sale->update(['status' => $newStatus, 'payment_status' => 'non_paid']);
+                        } else {
+                            $sale->update(['status' => $newStatus]);
+                        }
                     }
-                    $sale->update(['status' => $newStatus, 'payment_status' => 'non_paid']);
-                } else {
-                    $sale->update(['status' => $newStatus]);
                 }
-            }
 
-            if ($request->filled('payment_status')) {
-                $sale->update(['payment_status' => $request->payment_status]);
-            }
-        });
+                if ($request->filled('payment_status')) {
+                    $sale->update(['payment_status' => $request->payment_status]);
+                }
+            });
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
 
-        return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Sale status updated successfully.']);
     }
 
     public function destroy(Order $sale)
