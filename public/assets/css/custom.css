@@ -175,3 +175,31 @@ html, body, .layout-wrapper, .layout-container, .layout-page, .content-wrapper {
 .input-group > .form-control.is-invalid ~ .invalid-feedback {
   display: block !important;
 }
+
+/*
+* Fix Select2 inside Bootstrap input-group (aligned on one line with buttons)
+******************************************************************************/
+.input-group > .select2-container {
+  flex: 1 1 auto !important;
+  width: 1% !important;
+}
+
+.input-group > .select2-container .select2-selection--single {
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Flatten right border-radius of Select2 selection when followed by a button */
+.input-group > .select2-container:not(:last-child) .select2-selection {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Flatten left border-radius of the button next to Select2 */
+.input-group > .select2-container + button,
+.input-group > .select2-container + .btn {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
