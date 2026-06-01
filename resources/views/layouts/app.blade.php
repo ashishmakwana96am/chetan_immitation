@@ -150,10 +150,14 @@
                     return;
                 }
                 
-                const targets = $('form select:not(.datatables-select):not([name$="_length"]):not(.no-select2):not([name*="status"])');
+                const targets = $('form select:not(.datatables-select):not([name$="_length"]):not(.no-select2):not([name*="status"]):not([name*="payment_method"])');
                 targets.each(function() {
                     const selectEl = $(this);
                     if (selectEl.hasClass('select2-hidden-accessible')) {
+                        return;
+                    }
+                    
+                    if (selectEl.closest('.ql-toolbar').length || selectEl.closest('.ql-container').length || selectEl.closest('.ql-snow').length) {
                         return;
                     }
                     
