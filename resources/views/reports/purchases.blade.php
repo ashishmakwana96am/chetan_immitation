@@ -275,18 +275,76 @@
             $('#purchasesTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
-        // Supplier Chart
+        // Supplier Horizontal Bar Chart
         const supplierData = @json($supplierData);
         const suppliers = Object.keys(supplierData);
         const supplierValues = Object.values(supplierData);
 
         if (suppliers.length > 0) {
             new ApexCharts(document.getElementById('supplierChart'), {
-                chart: { type: 'donut', height: 320 },
-                series: supplierValues,
-                labels: suppliers,
-                legend: { position: 'bottom' },
-                dataLabels: { enabled: true },
+                chart: { type: 'bar', height: 320, toolbar: { show: false } },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '55%',
+                        distributed: true
+                    }
+                },
+                colors: ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+                series: [{
+                    name: 'Purchases',
+                    data: supplierValues
+                }],
+                xaxis: {
+                    categories: suppliers,
+                    labels: {
+                        style: {
+                            colors: '#5d596c',
+                            fontFamily: 'Public Sans'
+                        },
+                        formatter: function(val) {
+                            return '₹' + parseFloat(val).toLocaleString('en-IN');
+                        }
+                    }
+                },
+                yaxis: {
+                    labels: {
+                        style: {
+                            colors: '#5d596c',
+                            fontFamily: 'Public Sans',
+                            fontWeight: 500
+                        }
+                    }
+                },
+                dataLabels: {
+                    enabled: true,
+                    style: {
+                        fontSize: '11px',
+                        fontFamily: 'Public Sans',
+                        fontWeight: '600',
+                        colors: ['#fff']
+                    },
+                    formatter: function(val) {
+                        return '₹' + parseFloat(val).toLocaleString('en-IN');
+                    },
+                    offsetX: 0
+                },
+                legend: { show: false },
+                tooltip: {
+                    y: {
+                        formatter: function(val) {
+                            return '₹' + parseFloat(val).toLocaleString('en-IN');
+                        }
+                    }
+                },
+                grid: {
+                    borderColor: '#e5e5e5',
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: false } },
+                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                },
+                noData: { text: 'No data available' }
             }).render();
         } else {
             $('#supplierChart').html('<div class="text-center py-5 text-muted">No data available</div>');

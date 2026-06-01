@@ -290,13 +290,70 @@
             ],
         }).render();
 
-        // Sales by Location Donut
+        // Sales by Location Horizontal Bar Chart
         new ApexCharts(document.getElementById('locationSalesChart'), {
-            chart   : { type: 'donut', height: 250 },
-            series  : salesByLocation.map(l => parseFloat(l.total_sales) || 0),
-            labels  : salesByLocation.map(l => l.name),
-            legend  : { position: 'bottom' },
-            dataLabels: { enabled: true },
+            chart   : { type: 'bar', height: 280, toolbar: { show: false } },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    barHeight: '55%',
+                    distributed: true
+                }
+            },
+            colors  : ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+            series  : [{
+                name: 'Sales',
+                data: salesByLocation.map(l => parseFloat(l.total_sales) || 0)
+            }],
+            xaxis   : {
+                categories: salesByLocation.map(l => l.name),
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
+                    },
+                    formatter: function(val) {
+                        return '₹' + val.toLocaleString('en-IN');
+                    }
+                }
+            },
+            yaxis   : {
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans',
+                        fontWeight: 500
+                    }
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                style: {
+                    fontSize: '11px',
+                    fontFamily: 'Public Sans',
+                    fontWeight: '600',
+                    colors: ['#fff']
+                },
+                formatter: function(val) {
+                    return '₹' + val.toLocaleString('en-IN');
+                },
+                offsetX: 0
+            },
+            legend: { show: false },
+            tooltip: {
+                y: {
+                    formatter: function(val) {
+                        return '₹' + val.toLocaleString('en-IN');
+                    }
+                }
+            },
+            grid: {
+                borderColor: '#e5e5e5',
+                xaxis: { lines: { show: true } },
+                yaxis: { lines: { show: false } },
+                padding: { top: -15, right: 10, bottom: -10, left: 10 }
+            },
             noData  : { text: 'No sales data yet' },
         }).render();
 

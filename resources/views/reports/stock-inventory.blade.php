@@ -225,17 +225,70 @@
             }, 0);
         });
 
+        // Total Stock per Location Horizontal Bar Chart
         new ApexCharts(document.getElementById('locationStockChart'), {
-            chart  : { type: 'bar', height: 280, toolbar: { show: false } },
+            chart  : { type: 'bar', height: 380, toolbar: { show: false } },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    barHeight: '55%',
+                    distributed: true
+                }
+            },
+            colors  : ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
             series : [{ name: 'Total Stock', data: locationTotals }],
-            xaxis  : { categories: locations },
-            colors : ['#7367f0'],
-            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-            dataLabels : { enabled: true },
+            xaxis  : { 
+                categories: locations,
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
+                    },
+                    formatter: function(val) {
+                        return parseInt(val);
+                    }
+                }
+            },
+            yaxis  : {
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans',
+                        fontWeight: 500
+                    }
+                }
+            },
+            dataLabels : { 
+                enabled: true,
+                style: {
+                    fontSize: '11px',
+                    fontFamily: 'Public Sans',
+                    fontWeight: '600',
+                    colors: ['#fff']
+                },
+                formatter: function(val) {
+                    return parseInt(val);
+                }
+            },
+            legend: { show: false },
+            tooltip: {
+                y: {
+                    formatter: function(val) {
+                        return val + ' Units';
+                    }
+                }
+            },
+            grid: {
+                borderColor: '#e5e5e5',
+                xaxis: { lines: { show: true } },
+                yaxis: { lines: { show: false } },
+                padding: { top: -15, right: 10, bottom: -10, left: 10 }
+            }
         }).render();
 
         // -------------------------------------------------------
-        // Top 10 Products Stacked Bar by Location
+        // Top 10 Products Horizontal Stacked Bar by Location
         // -------------------------------------------------------
         const top10 = products.slice().sort((a, b) => b.total - a.total).slice(0, 10);
 
@@ -247,12 +300,68 @@
         });
 
         new ApexCharts(document.getElementById('stackedStockChart'), {
-            chart  : { type: 'bar', height: 280, stacked: true, toolbar: { show: false } },
+            chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
             series : stackedSeries,
-            xaxis  : { categories: top10.map(p => p.name), labels: { rotate: -30 } },
-            plotOptions: { bar: { borderRadius: 0, columnWidth: '60%' } },
-            dataLabels : { enabled: false },
-            legend     : { position: 'top' },
+            xaxis  : { 
+                categories: top10.map(p => p.name),
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
+                    },
+                    formatter: function(val) {
+                        return parseInt(val);
+                    }
+                }
+            },
+            yaxis  : {
+                labels: {
+                    style: {
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans',
+                        fontWeight: 500
+                    }
+                }
+            },
+            plotOptions: { 
+                bar: { 
+                    horizontal: true,
+                    borderRadius: 4, 
+                    barHeight: '60%' 
+                } 
+            },
+            dataLabels : { 
+                enabled: true,
+                style: {
+                    fontSize: '10px',
+                    fontFamily: 'Public Sans',
+                    fontWeight: '600',
+                    colors: ['#fff']
+                },
+                formatter: function(val) {
+                    return val > 0 ? val : '';
+                }
+            },
+            legend     : { 
+                position: 'bottom',
+                fontFamily: 'Public Sans',
+                fontSize: '11px',
+                labels: { colors: '#5d596c' },
+                itemMargin: { horizontal: 8, vertical: 4 }
+            },
+            grid: {
+                borderColor: '#e5e5e5',
+                xaxis: { lines: { show: true } },
+                yaxis: { lines: { show: false } },
+                padding: { top: -15, right: 10, bottom: -10, left: 10 }
+            },
+            tooltip: {
+                y: {
+                    formatter: function(val) {
+                        return val + ' Units';
+                    }
+                }
+            }
         }).render();
 
     });

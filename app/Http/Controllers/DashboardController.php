@@ -51,7 +51,12 @@ class DashboardController extends Controller
         $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->latest()->take(6)->get();
         $lowStock       = Product::with(['inventories', 'category'])->get()->filter(fn($p) => $p->inventories->sum('quantity') <= 5)->take(5)->values();
         $topProducts    = OrderItem::with('product')->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
-        $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')], 'final_amount')->withCount(['orders as total_orders' => fn($q) => $q->where('order_type', 'sale')])->get();
+        $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')], 'final_amount')
+            ->withCount(['orders as total_orders' => fn($q) => $q->where('order_type', 'sale')])
+            ->get()
+            ->filter(fn($l) => $l->total_sales > 0)
+            ->sortByDesc('total_sales')
+            ->values();
 
         return view('dashboard.super-admin', compact(
             'stats', 'salesStats', 'purchaseStats',
