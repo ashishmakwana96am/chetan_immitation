@@ -110,7 +110,7 @@
                         <p><span class="label">Date:</span> {{ format_date($order->created_at) }}</p>
                         <p><span class="label">Location:</span> {{ $order->location->name ?? '-' }}</p>
                         <p><span class="label">Served By:</span> {{ $order->user->name ?? '-' }}</p>
-                        <p><span class="label">Payment:</span> {{ ucfirst($order->payment_method) }}</p>
+                        <p><span class="label">Payment:</span> {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
                         <p><span class="label">Payment Status:</span> {{ ucfirst($order->payment_status) }}</p>
                     </div>
                 </td>

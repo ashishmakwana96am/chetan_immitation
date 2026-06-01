@@ -95,7 +95,7 @@
                     </div>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">Payment Method</p>
-                        <p class="mb-0 text-capitalize">{{ $order->payment_method }}</p>
+                        <p class="mb-0">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
                     </div>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">Served By</p>

@@ -67,7 +67,7 @@ class SaleController extends Controller
                 'final_amount'   => format_price($order->final_amount),
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
-                'payment_method' => ucfirst($order->payment_method),
+                'payment_method' => ucwords(str_replace('_', ' ', $order->payment_method)),
                 'created_at'     => format_date($order->created_at),
                 'actions'        => $actions,
             ];

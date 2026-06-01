@@ -365,7 +365,7 @@ $(document).ready(function () {
                 locationsHtml.append(`
                     <div class="col-md-6">
                         <div class="d-flex align-items-center gap-2">
-                            <label class="form-label mb-0 text-nowrap" style="min-width:100px;">${loc.name}</label>
+                            <label class="form-label mb-0 text-nowrap" style="min-width:180px; flex-shrink: 0;">${loc.name}</label>
                             <input type="number"
                                 name="items[${idx}][allocations][${locIdx}][quantity]"
                                 class="form-control form-control-sm alloc-qty"
