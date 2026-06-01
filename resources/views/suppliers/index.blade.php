@@ -29,7 +29,9 @@
                         <th>Status</th>
                         <th>Created By</th>
                         <th>Created Date</th>
-                        <th>Actions</th>
+                        @if(auth()->user()->can('edit suppliers') || auth()->user()->can('delete suppliers'))
+                            <th>Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -53,7 +55,9 @@
                     { data: 'status',     orderable: false },
                     { data: 'created_by' },
                     { data: 'created_at' },
-                    { data: 'actions',    orderable: false },
+                    @if(auth()->user()->can('edit suppliers') || auth()->user()->can('delete suppliers'))
+                        { data: 'actions',    orderable: false },
+                    @endif
                 ],
             });
 

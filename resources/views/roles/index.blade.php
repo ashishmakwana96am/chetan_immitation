@@ -27,7 +27,9 @@
                         <th>Permissions</th>
                         <th>Users</th>
                         <th>Created Date</th>
-                        <th>Actions</th>
+                        @if(auth()->user()->can('edit roles') || auth()->user()->can('delete roles'))
+                            <th>Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -49,7 +51,9 @@
                     { data: 'permissions' },
                     { data: 'users' },
                     { data: 'created_at' },
-                    { data: 'actions', orderable: false },
+                    @if(auth()->user()->can('edit roles') || auth()->user()->can('delete roles'))
+                        { data: 'actions', orderable: false },
+                    @endif
                 ],
             });
 

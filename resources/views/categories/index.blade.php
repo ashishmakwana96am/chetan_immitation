@@ -28,7 +28,9 @@
                         <th>Status</th>
                         <th>Created By</th>
                         <th>Created Date</th>
-                        <th>Actions</th>
+                        @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
+                            <th>Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -51,7 +53,9 @@
                     { data: 'status',     orderable: false },
                     { data: 'created_by' },
                     { data: 'created_at' },
-                    { data: 'actions',    orderable: false },
+                    @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
+                        { data: 'actions',    orderable: false },
+                    @endif
                 ],
             });
 

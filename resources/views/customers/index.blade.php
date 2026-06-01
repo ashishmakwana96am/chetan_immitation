@@ -28,7 +28,9 @@
                         <th>Email</th>
                         <th>Status</th>
                         <th>Created Date</th>
-                        <th>Actions</th>
+                        @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
+                            <th>Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -51,7 +53,9 @@
                     { data: 'email' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },
-                    { data: 'actions',    orderable: false },
+                    @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
+                        { data: 'actions',    orderable: false },
+                    @endif
                 ],
             });
 

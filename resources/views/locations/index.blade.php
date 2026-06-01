@@ -30,7 +30,9 @@
                         <th>Default</th>
                         <th>Status</th>
                         <th>Created By</th>
-                        <th>Actions</th>
+                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
+                            <th>Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -58,7 +60,9 @@
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
                     { data: 'created_by' },
-                    { data: 'actions', orderable: false },
+                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
+                        { data: 'actions', orderable: false },
+                    @endif
                 ],
             });
 
