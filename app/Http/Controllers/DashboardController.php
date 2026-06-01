@@ -43,8 +43,8 @@ class DashboardController extends Controller
         ];
 
         $purchaseStats = [
-            'confirmed' => (float) PurchaseInvoice::where('status', 'confirmed')->sum('total_amount'),
-            'draft'     => PurchaseInvoice::where('status', 'draft')->count(),
+            'confirmed' => (float) PurchaseInvoice::where('status', 'approve')->sum('total_amount'),
+            'draft'     => PurchaseInvoice::where('status', 'pending')->count(),
         ];
 
         $monthlySales   = $this->getMonthlySales();
@@ -74,8 +74,8 @@ class DashboardController extends Controller
             'this_month' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
             'total'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->sum('final_amount'),
             'pending'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'pending')->count(),
-            'completed'  => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'completed')->count(),
-            'cancelled'  => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'cancelled')->count(),
+            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'approve')->count(),
+            'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'decline')->count(),
         ];
 
         $stockStats = [

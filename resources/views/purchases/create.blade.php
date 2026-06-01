@@ -112,9 +112,32 @@
                     </div>
                 </div>
 
+                <!-- Purchase Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Purchase Status</h5></div>
+                    <div class="card-body">
+                        <select name="status" class="form-select no-select2">
+                            <option value="pending" selected>Pending</option>
+                            <option value="approve">Approve</option>
+                            <option value="decline">Decline</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Supplier Payment Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Supplier Payment Status</h5></div>
+                    <div class="card-body">
+                        <select name="payment_status" class="form-select no-select2">
+                            <option value="pending" selected>Pending</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <i class="ti ti-device-floppy me-1"></i> Save as Draft
+                        <i class="ti ti-device-floppy me-1"></i> Save Purchase
                     </button>
                     <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary">Cancel</a>
                 </div>
@@ -165,6 +188,9 @@ $(document).ready(function () {
 
     let itemIndex = 0;
     const symbol  = '{{ currency_symbol() }}';
+    function formatPrice(val) {
+        return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     @php
         $mappedLocations = $locations->map(function($l) {
             return ['id' => $l->id, 'name' => $l->name];
@@ -181,6 +207,7 @@ $(document).ready(function () {
     @endphp
     const locations = @json($mappedLocations);
     const allProducts = @json($mappedProducts);
+    updateGrandTotal();
 
     // -------------------------------------------------------
     // Product Search and Selection
@@ -215,7 +242,7 @@ $(document).ready(function () {
                         <div class="fw-semibold">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}</small>
                     </div>
-                    <span class="badge bg-label-primary">${symbol} ${parseFloat(p.purchase_price).toFixed(2)}</span>
+                    <span class="badge bg-label-primary">${symbol} ${formatPrice(p.purchase_price)}</span>
                 </a>
             `);
             item.data('product', p);
@@ -314,7 +341,7 @@ $(document).ready(function () {
     function updateRowTotal(row) {
         const price = parseFloat(row.find('.purchase-price').val()) || 0;
         const qty   = parseInt(row.find('.item-qty').val()) || 0;
-        row.find('.item-total').text(symbol + ' ' + (price * qty).toFixed(2));
+        row.find('.item-total').text(symbol + ' ' + formatPrice(price * qty));
         updateGrandTotal();
     }
 
@@ -325,8 +352,16 @@ $(document).ready(function () {
                    * (parseInt($(this).find('.item-qty').val()) || 0);
             count++;
         });
-        $('#grandTotal, #summaryTotal').text(symbol + ' ' + grand.toFixed(2));
+        $('#grandTotal, #summaryTotal').text(symbol + ' ' + formatPrice(grand));
         $('#summaryItems').text(count);
+
+        if (count > 0) {
+            $('#grandTotal').closest('tr').show();
+            $('#summaryTotal').closest('.card').show();
+        } else {
+            $('#grandTotal').closest('tr').hide();
+            $('#summaryTotal').closest('.card').hide();
+        }
     }
 
     // -------------------------------------------------------
@@ -487,7 +522,7 @@ $(document).ready(function () {
                 }
             },
             error   : function (xhr) {
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save as Draft');
+                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Purchase');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     $.each(errors, function (field, messages) {

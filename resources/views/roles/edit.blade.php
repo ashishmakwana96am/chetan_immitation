@@ -42,8 +42,8 @@
                             <div class="d-flex flex-wrap gap-3">
                                 <div class="form-check me-3 me-lg-5">
                                     <input class="form-check-input module-select-all" type="checkbox"
-                                        data-module="{{ $module }}" {{ $moduleChecked ? 'checked' : '' }} />
-                                    <label class="form-check-label fw-semibold">All</label>
+                                        id="all-{{ \Illuminate\Support\Str::slug($module) }}" data-module="{{ $module }}" {{ $moduleChecked ? 'checked' : '' }} />
+                                    <label class="form-check-label fw-semibold" for="all-{{ \Illuminate\Support\Str::slug($module) }}">All</label>
                                 </div>
                                 @foreach ($modulePermissions as $permission)
                                     <div class="form-check me-3 me-lg-5">
@@ -68,7 +68,11 @@
                                                     {{ ucwords(str_replace('view ', '', $permission->name)) }}
                                                 @endif
                                             @else
-                                                {{ explode(' ', $permission->name)[0] }}
+                                                @if(str_contains($permission->name, 'password'))
+                                                    Change Password
+                                                @else
+                                                    {{ explode(' ', $permission->name)[0] }}
+                                                @endif
                                             @endif
                                         </label>
                                     </div>

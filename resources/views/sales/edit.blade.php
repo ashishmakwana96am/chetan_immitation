@@ -137,6 +137,29 @@
                     </div>
                 </div>
 
+                <!-- Sales Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
+                    <div class="card-body">
+                        <select name="status" class="form-select no-select2">
+                            <option value="pending" {{ $order->status === 'pending' ? 'selected' : '' }}>Pending</option>
+                            <option value="approve" {{ $order->status === 'approve' ? 'selected' : '' }}>Approve</option>
+                            <option value="decline" {{ $order->status === 'decline' ? 'selected' : '' }}>Decline</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Payment Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
+                    <div class="card-body">
+                        <select name="payment_status" class="form-select no-select2">
+                            <option value="non_paid" {{ ($order->payment_status ?? 'non_paid') === 'non_paid' ? 'selected' : '' }}>Non Paid</option>
+                            <option value="paid" {{ ($order->payment_status ?? 'non_paid') === 'paid' ? 'selected' : '' }}>Paid</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary" id="submitBtn">
                         <i class="ti ti-device-floppy me-1"></i> Update Sale
@@ -191,8 +214,12 @@ $(document).ready(function () {
 
     let itemIndex = 0;
     const symbol      = '{{ currency_symbol() }}';
+    function formatPrice(val) {
+        return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     const allProducts = @json($allProducts);
     const existingItems = @json($existingItems);
+    updateSummary();
 
     window.refreshTable = function () {
         $.get('{{ route('admin.customers.data') }}', function (res) {
@@ -238,7 +265,7 @@ $(document).ready(function () {
                         <div class="fw-semibold">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}</small>
                     </div>
-                    <span class="badge bg-label-primary">${symbol} ${parseFloat(p.price).toFixed(2)}</span>
+                    <span class="badge bg-label-primary">${symbol} ${formatPrice(p.price)}</span>
                 </a>
             `);
             item.data('product', p);
@@ -342,18 +369,27 @@ $(document).ready(function () {
     function updateRowTotal(row) {
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
-        row.find('.item-total').text(symbol + ' ' + ((price * qty)).toFixed(2));
+        row.find('.item-total').text(symbol + ' ' + formatPrice(price * qty));
         updateSummary();
     }
 
     function updateSummary() {
-        let itemsTotal = 0;
+        let itemsTotal = 0, count = 0;
         $('#itemsBody .item-row').each(function () {
             itemsTotal += (parseFloat($(this).find('.item-price').val()) || 0)
                         * (parseInt($(this).find('.item-qty').val()) || 0);
+            count++;
         });
-        $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + itemsTotal.toFixed(2));
-        $('#summaryFinal').text(symbol + ' ' + (itemsTotal).toFixed(2));
+        $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
+        $('#summaryFinal').text(symbol + ' ' + formatPrice(itemsTotal));
+
+        if (count > 0) {
+            $('#itemsTotal').closest('tr').show();
+            $('#summaryFinal').closest('.card').show();
+        } else {
+            $('#itemsTotal').closest('tr').hide();
+            $('#summaryFinal').closest('.card').hide();
+        }
     }
 
     $('#orderForm').on('submit', function (e) {

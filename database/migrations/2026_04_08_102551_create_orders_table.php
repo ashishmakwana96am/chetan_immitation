@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('order_no')->unique();
             $table->string('order_type')->default('sale');
             $table->string('status')->default('pending');
-            $table->string('payment_status')->default('pending');
+            $table->string('payment_status')->default('non_paid');
             $table->string('payment_method')->default('cash');
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->decimal('discount', 10, 2)->default(0);

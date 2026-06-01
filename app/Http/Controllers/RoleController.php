@@ -66,6 +66,9 @@ class RoleController extends Controller
             if (str_contains($permission->name, 'sub categories')) {
                 return 'Sub Categories';
             }
+            if (str_contains($permission->name, 'password')) {
+                return 'Users';
+            }
             $parts = explode(' ', $permission->name);
             return ucfirst(end($parts));
         })->sortBy(function ($val, $key) use ($customOrder) {
@@ -115,6 +118,9 @@ class RoleController extends Controller
         $permissions = Permission::get()->groupBy(function ($permission) {
             if (str_contains($permission->name, 'sub categories')) {
                 return 'Sub Categories';
+            }
+            if (str_contains($permission->name, 'password')) {
+                return 'Users';
             }
             $parts = explode(' ', $permission->name);
             return ucfirst(end($parts));

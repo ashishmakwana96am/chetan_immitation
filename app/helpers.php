@@ -154,13 +154,28 @@ if (!function_exists('currency_symbol')) {
 
 if (!function_exists('format_price')) {
     /**
-     * Return a formatted price with currency symbol.
-     *
-     * Usage: format_price(1999.5)        → $ 1,999.50
-     *        format_price(1999.5, 0)     → $ 2,000
+     * Return a formatted price with currency symbol in Indian numbering format.
      */
     function format_price(float|int|string $amount, int $decimals = 2): string
     {
-        return currency_symbol() . "\u{A0}" . number_format((float) $amount, $decimals);
+        $amount = (float) $amount;
+        $negative = $amount < 0 ? '-' : '';
+        $amount = abs($amount);
+        
+        $parts = explode('.', number_format($amount, $decimals, '.', ''));
+        $integer = $parts[0];
+        $decimal = isset($parts[1]) ? '.' . $parts[1] : '';
+        
+        $last_three = substr($integer, -3);
+        $remaining = substr($integer, 0, -3);
+        
+        if ($remaining !== '') {
+            $remaining = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $remaining);
+            $integer = $remaining . ',' . $last_three;
+        } else {
+            $integer = $last_three;
+        }
+        
+        return currency_symbol() . "\u{A0}" . $negative . $integer . $decimal;
     }
 }

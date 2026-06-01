@@ -71,8 +71,8 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Completed Orders</span>
-                            <h4 class="mb-0 mt-1 text-success">{{ $salesStats['completed'] }}</h4>
+                            <span class="text-muted">Approved Orders</span>
+                            <h4 class="mb-0 mt-1 text-success">{{ $salesStats['approve'] }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-check ti-sm"></i></span>
                     </div>
@@ -187,7 +187,7 @@
                         </thead>
                         <tbody>
                             @forelse($recentSales as $sale)
-                                @php $statusColors = ['pending' => 'bg-label-warning', 'paid' => 'bg-label-info', 'completed' => 'bg-label-success', 'cancelled' => 'bg-label-danger']; @endphp
+                                @php $statusColors = ['pending' => 'bg-label-warning', 'approve' => 'bg-label-success', 'decline' => 'bg-label-danger']; @endphp
                                 <tr>
                                     <td><a href="{{ route('admin.sales.show', $sale) }}"><code>{{ $sale->order_no }}</code></a></td>
                                     <td>{{ $sale->customer->name ?? 'Walk-in' }}</td>
@@ -305,8 +305,8 @@
         // Order Status Donut
         new ApexCharts(document.getElementById('orderStatusChart'), {
             chart   : { type: 'donut', height: 250 },
-            series  : [{{ $salesStats['pending'] }}, {{ $salesStats['completed'] }}, {{ $salesStats['cancelled'] }}],
-            labels  : ['Pending', 'Completed', 'Cancelled'],
+            series  : [{{ $salesStats['pending'] }}, {{ $salesStats['approve'] }}, {{ $salesStats['decline'] }}],
+            labels  : ['Pending', 'Approve', 'Decline'],
             colors  : ['#ff9f43', '#28c76f', '#ea5455'],
             legend  : { position: 'bottom' },
             noData  : { text: 'No orders yet' },

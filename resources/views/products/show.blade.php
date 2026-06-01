@@ -115,7 +115,7 @@
                         @if($product->description)
                             <div class="col-12">
                                 <p class="text-muted small mb-1">Description</p>
-                                <p class="mb-0">{{ $product->description }}</p>
+                                <p class="mb-0">{!! $product->description !!}</p>
                             </div>
                         @endif
                     </div>

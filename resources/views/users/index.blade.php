@@ -85,7 +85,7 @@
                         <th>Phone</th>
                         <th>Role</th>
                         <th>Status</th>
-                        @if(auth()->user()->can('edit users') || auth()->user()->can('delete users'))
+                        @if(auth()->user()->can('edit users') || auth()->user()->can('delete users') || auth()->user()->can('change users password'))
                             <th>Actions</th>
                         @endif
                     </tr>
@@ -125,7 +125,7 @@
                     { data: 'phone' },
                     { data: 'role' },
                     { data: 'status',  orderable: false },
-                    @if(auth()->user()->can('edit users') || auth()->user()->can('delete users'))
+                    @if(auth()->user()->can('edit users') || auth()->user()->can('delete users') || auth()->user()->can('change users password'))
                         { data: 'actions', orderable: false },
                     @endif
                 ],

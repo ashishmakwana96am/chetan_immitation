@@ -286,7 +286,7 @@
                 yaxis: {
                     labels: {
                         formatter: function (val) {
-                            return '{{ currency_symbol() }}' + parseFloat(val).toFixed(2);
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
                 }

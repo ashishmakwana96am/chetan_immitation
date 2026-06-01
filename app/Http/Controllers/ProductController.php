@@ -23,7 +23,15 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
-        $products  = Product::with(['category', 'primaryImage'])->latest()->get();
+        $user = auth()->user();
+        $products = Product::with([
+            'category', 
+            'primaryImage', 
+            'inventories' => function($q) use ($user) {
+                $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
+            }
+        ])->latest()->get();
+
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
 
@@ -35,6 +43,11 @@ class ProductController extends Controller
             $status = $product->status === 'active'
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
+
+            $stockSum = $product->inventories->sum('quantity');
+            $stock = $stockSum > 0
+                ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
+                : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
 
             $actions = '<a href="' . route('admin.products.show', $product) . '" class="btn btn-sm btn-icon btn-label-secondary me-1"><i class="ti ti-eye"></i></a>';
             if ($canEdit) {
@@ -50,6 +63,7 @@ class ProductController extends Controller
                 'name'           => $product->name,
                 'sku'            => '<code>' . $product->sku . '</code>',
                 'category'       => $product->category->name ?? '-',
+                'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
                 'sale_price'     => format_price($product->sale_price),
                 'status'         => $status,

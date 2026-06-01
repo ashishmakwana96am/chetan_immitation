@@ -39,11 +39,11 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Invoice Status</label>
-                    <select name="status" class="form-select">
+                    <select name="status" class="form-select no-select2">
                         <option value="">All Statuses</option>
-                        <option value="draft" {{ $status === 'draft' ? 'selected' : '' }}>Draft</option>
-                        <option value="confirmed" {{ $status === 'confirmed' ? 'selected' : '' }}>Confirmed</option>
-                        <option value="cancelled" {{ $status === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                        <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="approve" {{ $status === 'approve' ? 'selected' : '' }}>Approve</option>
+                        <option value="decline" {{ $status === 'decline' ? 'selected' : '' }}>Decline</option>
                     </select>
                 </div>
                 <div class="col-12 d-flex gap-2 justify-content-end mt-4">
@@ -179,13 +179,18 @@
                                     <td>
                                         @php
                                             $statusColors = [
-                                                'draft'     => 'bg-label-secondary',
-                                                'confirmed' => 'bg-label-success',
-                                                'cancelled' => 'bg-label-danger',
+                                                'pending' => 'bg-label-secondary',
+                                                'approve' => 'bg-label-success',
+                                                'decline' => 'bg-label-danger',
+                                            ];
+                                            $statusLabels = [
+                                                'pending' => 'Pending',
+                                                'approve' => 'Approve',
+                                                'decline' => 'Decline',
                                             ];
                                             $badgeColor = $statusColors[$invoice->status] ?? 'bg-label-secondary';
                                         @endphp
-                                        <span class="badge {{ $badgeColor }}">{{ ucfirst($invoice->status) }}</span>
+                                        <span class="badge {{ $badgeColor }}">{{ $statusLabels[$invoice->status] ?? ucfirst($invoice->status) }}</span>
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>
@@ -266,7 +271,7 @@
                 yaxis: {
                     labels: {
                         formatter: function (val) {
-                            return '{{ currency_symbol() }}' + parseFloat(val).toFixed(2);
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
                 }

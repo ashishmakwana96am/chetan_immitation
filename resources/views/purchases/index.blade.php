@@ -27,6 +27,7 @@
                         <th>Supplier</th>
                         <th>Total Amount</th>
                         <th>Status</th>
+                        <th>Payment Status</th>
                         <th>Created By</th>
                         <th>Date</th>
                         <th>Actions</th>
@@ -51,6 +52,7 @@
                     { data: 'supplier' },
                     { data: 'total_amount' },
                     { data: 'status',       orderable: false },
+                    { data: 'payment_status', orderable: false },
                     { data: 'created_by' },
                     { data: 'created_at' },
                     { data: 'actions',      orderable: false },

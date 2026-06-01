@@ -22,9 +22,9 @@
 
         /* Status badge */
         .status-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .status-draft     { background: #e0e0e0; color: #555; }
-        .status-confirmed { background: #d4edda; color: #155724; }
-        .status-cancelled { background: #f8d7da; color: #721c24; }
+        .status-pending     { background: #e0e0e0; color: #555; }
+        .status-approve     { background: #d4edda; color: #155724; }
+        .status-decline     { background: #f8d7da; color: #721c24; }
 
         /* Info section */
         .info-section { width: 100%; margin-bottom: 25px; }
@@ -76,10 +76,11 @@
                         <div class="invoice-no">{{ $purchase->invoice_no }}</div>
                         <div style="margin-top:6px;">
                             @php
-                                $statusClass = ['draft' => 'status-draft', 'confirmed' => 'status-confirmed', 'cancelled' => 'status-cancelled'];
+                                $statusClass = ['pending' => 'status-pending', 'approve' => 'status-approve', 'decline' => 'status-decline'];
+                                $statusLabels = ['pending' => 'Pending', 'approve' => 'Approve', 'decline' => 'Decline'];
                             @endphp
-                            <span class="status-badge {{ $statusClass[$purchase->status] ?? 'status-draft' }}">
-                                {{ ucfirst($purchase->status) }}
+                            <span class="status-badge {{ $statusClass[$purchase->status] ?? 'status-pending' }}">
+                                {{ $statusLabels[$purchase->status] ?? ucfirst($purchase->status) }}
                             </span>
                         </div>
                     </div>
@@ -110,6 +111,7 @@
                         <p><span class="label">Invoice No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
                         <p><span class="label">Created By:</span> {{ $purchase->createdBy->name ?? '-' }}</p>
+                        <p><span class="label">Payment Status:</span> {{ ucfirst($purchase->payment_status ?? 'pending') }}</p>
                     </div>
                 </td>
             </tr>

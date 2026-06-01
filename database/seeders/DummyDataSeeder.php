@@ -269,12 +269,13 @@ class DummyDataSeeder extends Seeder
             $invoiceNo = 'PUR-' . date('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT);
             
             $invoice = PurchaseInvoice::create([
-                'supplier_id'  => $supplier->id,
-                'invoice_no'   => $invoiceNo,
-                'total_amount' => 0.0,
-                'status'       => 'confirmed', // Confirmed invoice means stock is added to inventory!
-                'created_by'   => $adminId,
-                'created_at'   => now()->subMonths(14 - $i), // Distributed over last 14 months
+                'supplier_id'    => $supplier->id,
+                'invoice_no'     => $invoiceNo,
+                'total_amount'   => 0.0,
+                'status'         => 'approve',
+                'payment_status' => rand(0, 1) ? 'paid' : 'pending',
+                'created_by'     => $adminId,
+                'created_at'     => now()->subMonths(14 - $i), // Distributed over last 14 months
             ]);
 
             // Add 2 random items to this purchase
@@ -346,8 +347,8 @@ class DummyDataSeeder extends Seeder
                 'user_id'        => $adminId,
                 'order_no'       => $orderNo,
                 'order_type'     => 'sale',
-                'status'         => 'paid',
-                'payment_status' => 'paid',
+                'status'         => 'approve',
+                'payment_status' => rand(0, 1) ? 'paid' : 'non_paid',
                 'payment_method' => ['cash', 'card', 'upi', 'bank_transfer'][$i % 4],
                 'total_amount'   => 0.0,
                 'final_amount'   => 0.0,

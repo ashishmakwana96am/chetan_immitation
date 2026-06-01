@@ -119,8 +119,8 @@ class ReportController extends Controller
         // Totals
         $totalPurchases = $invoices->sum('total_amount');
         $invoiceCount   = $invoices->count();
-        $confirmedCount = $invoices->where('status', 'confirmed')->count();
-        $draftCount     = $invoices->where('status', 'draft')->count();
+        $confirmedCount = $invoices->where('status', 'approve')->count();
+        $draftCount     = $invoices->where('status', 'pending')->count();
 
         // Purchase by Supplier (Donut Chart)
         $supplierData = [];
@@ -187,7 +187,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', 'cancelled')
+            ->where('status', '!=', 'decline')
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -276,7 +276,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 'cancelled')
+        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 'decline')
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);

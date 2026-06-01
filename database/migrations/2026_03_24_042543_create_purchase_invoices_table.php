@@ -13,7 +13,8 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained('suppliers')->cascadeOnDelete();
             $table->string('invoice_no')->unique();
             $table->decimal('total_amount', 10, 2)->default(0);
-            $table->string('status')->default('draft');
+            $table->string('status')->default('pending');
+            $table->string('payment_status')->default('pending');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

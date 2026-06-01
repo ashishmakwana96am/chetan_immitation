@@ -39,11 +39,10 @@
                 </div>
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">Payment Status</label>
-                    <select name="payment_status" class="form-select">
+                    <select name="payment_status" class="form-select no-select2">
                         <option value="">All Statuses</option>
-                        <option value="pending" {{ $paymentStatus === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="non_paid" {{ $paymentStatus === 'non_paid' ? 'selected' : '' }}>Non Paid</option>
                         <option value="paid" {{ $paymentStatus === 'paid' ? 'selected' : '' }}>Paid</option>
-                        <option value="failed" {{ $paymentStatus === 'failed' ? 'selected' : '' }}>Failed</option>
                     </select>
                 </div>
                 <div class="col-md-2.4 col-sm-6">
@@ -195,13 +194,16 @@
                                     <td>
                                         @php
                                             $payColors = [
-                                                'pending' => 'bg-label-warning',
-                                                'paid'    => 'bg-label-success',
-                                                'failed'  => 'bg-label-danger',
+                                                'non_paid' => 'bg-label-warning',
+                                                'paid'     => 'bg-label-success',
+                                            ];
+                                            $payLabels = [
+                                                'non_paid' => 'Non Paid',
+                                                'paid'     => 'Paid',
                                             ];
                                             $badgeColor = $payColors[$order->payment_status] ?? 'bg-label-secondary';
                                         @endphp
-                                        <span class="badge {{ $badgeColor }}">{{ ucfirst($order->payment_status) }}</span>
+                                        <span class="badge {{ $badgeColor }}">{{ $payLabels[$order->payment_status] ?? ucfirst($order->payment_status) }}</span>
                                     </td>
                                     <td><span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method) }}</span></td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>
@@ -292,7 +294,7 @@
                 yaxis: {
                     labels: {
                         formatter: function (val) {
-                            return '{{ currency_symbol() }}' + parseFloat(val).toFixed(2);
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
                 }

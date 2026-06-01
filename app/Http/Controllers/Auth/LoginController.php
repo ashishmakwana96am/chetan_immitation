@@ -25,7 +25,22 @@ class LoginController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status'       => 'success',
+                    'redirect_url' => route('admin.dashboard')
+                ]);
+            }
             return redirect()->intended(route('admin.dashboard'));
+        }
+
+        if ($request->ajax()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => [
+                    'email' => ['These credentials do not match our records.']
+                ]
+            ], 422);
         }
 
         return back()->withErrors([

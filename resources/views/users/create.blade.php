@@ -25,9 +25,12 @@
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userPassword">Password <span class="text-danger">*</span></label>
-            <input type="password" id="userPassword" name="password" class="form-control"
-                placeholder="Minimum 8 characters" />
-            <div class="invalid-feedback"></div>
+            <div class="input-group input-group-merge">
+                <input type="password" id="userPassword" name="password" class="form-control"
+                    placeholder="Minimum 8 characters" />
+                <span class="input-group-text cursor-pointer"><i class="ti ti-eye-off"></i></span>
+                <div class="invalid-feedback"></div>
+            </div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userRole">Role <span class="text-danger">*</span></label>

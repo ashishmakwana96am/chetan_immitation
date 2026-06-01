@@ -20,10 +20,9 @@
 
         /* Status badge */
         .status-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .status-pending   { background: #fff3cd; color: #856404; }
-        .status-paid      { background: #cff4fc; color: #055160; }
-        .status-completed { background: #d4edda; color: #155724; }
-        .status-cancelled { background: #f8d7da; color: #721c24; }
+        .status-pending   { background: #e0e0e0; color: #555; }
+        .status-approve   { background: #d4edda; color: #155724; }
+        .status-decline   { background: #f8d7da; color: #721c24; }
 
         /* Info section */
         .info-section { width: 100%; margin-bottom: 25px; }
@@ -71,14 +70,18 @@
                         <div style="margin-top:6px;">
                             @php
                                 $statusClass = [
-                                    'pending'   => 'status-pending',
-                                    'paid'      => 'status-paid',
-                                    'completed' => 'status-completed',
-                                    'cancelled' => 'status-cancelled',
+                                    'pending' => 'status-pending',
+                                    'approve' => 'status-approve',
+                                    'decline' => 'status-decline',
+                                ];
+                                $statusLabels = [
+                                    'pending' => 'Pending',
+                                    'approve' => 'Approve',
+                                    'decline' => 'Decline',
                                 ];
                             @endphp
                             <span class="status-badge {{ $statusClass[$order->status] ?? 'status-pending' }}">
-                                {{ ucfirst($order->status) }}
+                                {{ $statusLabels[$order->status] ?? ucfirst($order->status) }}
                             </span>
                         </div>
                     </div>
@@ -111,7 +114,10 @@
                         <p><span class="label">Location:</span> {{ $order->location->name ?? '-' }}</p>
                         <p><span class="label">Served By:</span> {{ $order->user->name ?? '-' }}</p>
                         <p><span class="label">Payment:</span> {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
-                        <p><span class="label">Payment Status:</span> {{ ucfirst($order->payment_status) }}</p>
+                        @php
+                            $payLabels = ['non_paid' => 'Non Paid', 'paid' => 'Paid'];
+                        @endphp
+                        <p><span class="label">Payment Status:</span> {{ $payLabels[$order->payment_status] ?? ucfirst($order->payment_status) }}</p>
                     </div>
                 </td>
             </tr>

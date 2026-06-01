@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/typeahead-js/typeahead.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/toastr/toastr.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
 
     @yield('page-css')
 
@@ -102,6 +103,7 @@
     <script src="{{ asset('assets/vendor/libs/i18n/i18n.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/typeahead-js/typeahead.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script src="{{ asset('assets/js/main.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/toastr/toastr.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
@@ -126,7 +128,125 @@
             @if(session('info'))
                 toastr.info("{{ session('info') }}");
             @endif
+
+            // Global password show/hide toggle
+            $(document).on('click', '.input-group-text.cursor-pointer', function () {
+                const input = $(this).siblings('input');
+                const icon = $(this).find('i');
+                if (input.length) {
+                    if (input.attr('type') === 'password') {
+                        input.attr('type', 'text');
+                        icon.removeClass('ti-eye-off').addClass('ti-eye');
+                    } else {
+                        input.attr('type', 'password');
+                        icon.removeClass('ti-eye').addClass('ti-eye-off');
+                    }
+                }
+            });
+
+            function initGlobalSelect2() {
+                if (typeof $.fn.select2 === 'undefined') {
+                    console.error('Select2 library is not loaded!');
+                    return;
+                }
+                
+                const targets = $('form select:not(.datatables-select):not([name$="_length"]):not(.no-select2):not([name*="status"])');
+                targets.each(function() {
+                    const selectEl = $(this);
+                    if (selectEl.hasClass('select2-hidden-accessible')) {
+                        return;
+                    }
+                    
+                    selectEl.addClass('select2');
+                    
+                    const parentModal = selectEl.closest('#commonModal');
+                    const hasEmptyOpt = selectEl.find('option[value=""]').length > 0;
+                    
+                    selectEl.select2({
+                        dropdownParent: parentModal.length ? parentModal : $(document.body),
+                        placeholder: hasEmptyOpt ? (selectEl.find('option[value=""]').text() || 'Select an option') : false,
+                        allowClear: hasEmptyOpt,
+                        width: '100%'
+                    });
+                });
+            }
+
+            initGlobalSelect2();
+
+            const commonModalEl = document.getElementById('commonModal');
+            if (commonModalEl) {
+                commonModalEl.addEventListener('shown.bs.offcanvas', function () {
+                    initGlobalSelect2();
+                    setTimeout(initGlobalSelect2, 150);
+                    setTimeout(initGlobalSelect2, 350);
+                });
+            }
+
+            $(document).ajaxComplete(function() {
+                initGlobalSelect2();
+                setTimeout(initGlobalSelect2, 50);
+            });
         });
+    </script>
+
+    <script>
+        window.Apex = {
+            noData: {
+                text: 'No data available',
+                align: 'center',
+                verticalAlign: 'middle',
+                style: {
+                    color: '#8592a3',
+                    fontSize: '16px',
+                    fontFamily: 'Public Sans'
+                }
+            }
+        };
+
+        // Dynamically intercept and wrap ApexCharts globally to hide empty grids and axes
+        (function() {
+            let privateApexCharts = undefined;
+            Object.defineProperty(window, 'ApexCharts', {
+                get: function() {
+                    return privateApexCharts;
+                },
+                set: function(originalValue) {
+                    if (typeof originalValue === 'function') {
+                        privateApexCharts = class extends originalValue {
+                            constructor(el, options) {
+                                const targetEl = typeof el === 'string' ? document.querySelector(el) : el;
+                                
+                                let hasData = false;
+                                if (options && options.series && options.series.length > 0) {
+                                    if (typeof options.series[0] === 'number') {
+                                        hasData = options.series.some(val => val > 0);
+                                    } else if (typeof options.series[0] === 'object') {
+                                        hasData = options.series.some(s => s && s.data && s.data.length > 0 && s.data.some(val => val > 0));
+                                    }
+                                }
+                                
+                                if (!hasData) {
+                                    if (targetEl) {
+                                        targetEl.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center w-100 h-100 text-muted" style="min-height: 280px;"><i class="ti ti-chart-bar fs-1 mb-2" style="font-size: 2.8rem !important; color: #a1b0cb;"></i><span class="fw-semibold">No data available</span></div>';
+                                    }
+                                    return {
+                                        render: function() { return Promise.resolve(); },
+                                        destroy: function() {},
+                                        updateOptions: function() {},
+                                        updateSeries: function() {}
+                                    };
+                                }
+                                
+                                super(el, options);
+                            }
+                        };
+                    } else {
+                        privateApexCharts = originalValue;
+                    }
+                },
+                configurable: true
+            });
+        })();
     </script>
 
     @yield('page-js')

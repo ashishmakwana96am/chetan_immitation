@@ -35,27 +35,34 @@ class SaleController extends Controller
         $canDelete = auth()->user()->can('delete sales');
 
         $statusColors = [
-            'pending'   => 'bg-label-warning',
-            'paid'      => 'bg-label-info',
-            'completed' => 'bg-label-success',
-            'cancelled' => 'bg-label-danger',
+            'pending' => 'bg-label-secondary',
+            'approve' => 'bg-label-success',
+            'decline' => 'bg-label-danger',
+        ];
+        $statusLabels = [
+            'pending' => 'Pending',
+            'approve' => 'Approve',
+            'decline' => 'Decline',
         ];
 
         $paymentColors = [
-            'pending' => 'bg-label-warning',
-            'paid'    => 'bg-label-success',
-            'failed'  => 'bg-label-danger',
+            'non_paid' => 'bg-label-warning',
+            'paid'     => 'bg-label-info',
+        ];
+        $paymentLabels = [
+            'non_paid' => 'Non Paid',
+            'paid'     => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $statusColors, $paymentColors) {
-            $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ucfirst($order->status) . '</span>';
-            $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ucfirst($order->payment_status) . '</span>';
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
+            $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
+            $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
             $actions = '<a href="' . route('admin.sales.show', $order) . '" class="btn btn-sm btn-icon btn-label-secondary me-1"><i class="ti ti-eye"></i></a>';
-            if ($canEdit && in_array($order->status, ['pending', 'paid'])) {
+            if ($canEdit && $order->status === 'pending') {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="btn btn-sm btn-icon btn-label-info me-1"><i class="ti ti-pencil"></i></a>';
             }
-            if ($canDelete && $order->status === 'cancelled') {
+            if ($canDelete && $order->status === 'decline') {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash"></i></button>';
             }
 
@@ -100,13 +107,15 @@ class SaleController extends Controller
         $this->authorize('create sales');
 
         $validator = Validator::make($request->all(), [
-            'location_id'        => ['required', 'exists:locations,id'],
-            'customer_id'        => ['nullable', 'exists:customers,id'],
-            'payment_method'     => ['required', 'string'],
-            'items'              => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.quantity'   => ['required', 'integer', 'min:1'],
-            'items.*.price'      => ['required', 'numeric', 'min:0'],
+            'location_id'            => ['required', 'exists:locations,id'],
+            'customer_id'            => ['nullable', 'exists:customers,id'],
+            'payment_method'         => ['required', 'string'],
+            'items'                  => ['required', 'array', 'min:1'],
+            'items.*.product_id'     => ['required', 'exists:products,id'],
+            'items.*.quantity'       => ['required', 'integer', 'min:1'],
+            'items.*.price'          => ['required', 'numeric', 'min:0'],
+            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
+            'payment_status'         => ['nullable', 'string', 'in:paid,non_paid'],
         ]);
 
         if ($validator->fails()) {
@@ -140,8 +149,8 @@ class SaleController extends Controller
                 'user_id'        => auth()->id(),
                 'order_no'       => generate_invoice_no('ORD', Order::class, 'order_no'),
                 'order_type'     => 'sale',
-                'status'         => 'pending',
-                'payment_status' => $request->payment_method === 'cash' ? 'paid' : 'pending',
+                'status'         => $request->status ?? 'pending',
+                'payment_status' => $request->payment_status ?? 'non_paid',
                 'payment_method' => $request->payment_method,
                 'total_amount'   => $totalAmount,
                 'final_amount'   => $finalAmount,
@@ -203,9 +212,9 @@ class SaleController extends Controller
             abort(403);
         }
 
-        if (!in_array($sale->status, ['pending', 'paid'])) {
+        if ($sale->status !== 'pending') {
             return redirect()->route('admin.sales.show', $sale)
-                ->with('error', 'Only pending or paid sales can be edited.');
+                ->with('error', 'Only pending sales can be edited.');
         }
 
         $customers   = Customer::where('status', 'active')->orderBy('name')->get();
@@ -228,8 +237,8 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales');
 
-        if (!in_array($sale->status, ['pending', 'paid'])) {
-            return response()->json(['status' => 'error', 'message' => 'Only pending or paid sales can be edited.'], 422);
+        if ($sale->status !== 'pending') {
+            return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
         }
 
         $validator = Validator::make($request->all(), [
@@ -240,6 +249,8 @@ class SaleController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
+            'status'             => ['nullable', 'string', 'in:pending,approve,decline'],
+            'payment_status'     => ['nullable', 'string', 'in:paid,non_paid'],
         ]);
 
         if ($validator->fails()) {
@@ -268,7 +279,8 @@ class SaleController extends Controller
                 'customer_id'    => $request->customer_id,
                 'location_id'    => $request->location_id,
                 'payment_method' => $request->payment_method,
-                'payment_status' => $request->payment_method === 'cash' ? 'paid' : 'pending',
+                'status'         => $request->status ?? 'pending',
+                'payment_status' => $request->payment_status ?? 'non_paid',
                 'total_amount'   => $totalAmount,
                 'final_amount'   => $totalAmount,
             ]);
@@ -293,8 +305,8 @@ class SaleController extends Controller
         $this->authorize('edit sales');
 
         $validator = Validator::make($request->all(), [
-            'status'         => ['nullable', 'string'],
-            'payment_status' => ['nullable', 'string'],
+            'status'         => ['nullable', 'string', 'in:pending,approve,decline'],
+            'payment_status' => ['nullable', 'string', 'in:paid,non_paid'],
         ]);
 
         if ($validator->fails()) {
@@ -304,11 +316,11 @@ class SaleController extends Controller
         DB::transaction(function () use ($request, $sale) {
             if ($request->filled('status')) {
                 $newStatus = $request->status;
-                if ($newStatus === 'cancelled' && $sale->status !== 'cancelled') {
+                if ($newStatus === 'decline' && $sale->status !== 'decline') {
                     foreach ($sale->items as $item) {
                         Inventory::where('product_id', $item->product_id)->where('location_id', $sale->location_id)->increment('quantity', $item->quantity);
                     }
-                    $sale->update(['status' => $newStatus, 'payment_status' => 'failed']);
+                    $sale->update(['status' => $newStatus, 'payment_status' => 'non_paid']);
                 } else {
                     $sale->update(['status' => $newStatus]);
                 }
@@ -326,8 +338,8 @@ class SaleController extends Controller
     {
         $this->authorize('delete sales');
 
-        if ($sale->status !== 'cancelled') {
-            return response()->json(['status' => 'error', 'message' => 'Only cancelled sales can be deleted.'], 422);
+        if ($sale->status !== 'decline') {
+            return response()->json(['status' => 'error', 'message' => 'Only declined sales can be deleted.'], 422);
         }
 
         $sale->delete();

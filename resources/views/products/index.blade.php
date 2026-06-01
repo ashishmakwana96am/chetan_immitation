@@ -27,6 +27,7 @@
                         <th>Name</th>
                         <th>SKU</th>
                         <th>Category</th>
+                        <th>Stock</th>
                         <th>Purchase Price</th>
                         <th>Sale Price</th>
                         <th>Status</th>
@@ -52,6 +53,7 @@
                     { data: 'name' },
                     { data: 'sku' },
                     { data: 'category' },
+                    { data: 'stock' },
                     { data: 'purchase_price' },
                     { data: 'sale_price' },
                     { data: 'status',         orderable: false },

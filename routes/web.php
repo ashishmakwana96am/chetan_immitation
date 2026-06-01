@@ -17,6 +17,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes (future)
@@ -64,6 +65,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchases/{purchase}', [PurchaseInvoiceController::class, 'show'])->name('purchases.show');
         Route::get('purchases/{purchase}/pdf', [PurchaseInvoiceController::class, 'pdf'])->name('purchases.pdf');
         Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
+        Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
         // Suppliers
         Route::get('suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');
@@ -119,8 +121,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Users
         Route::get('users/data', [UserController::class, 'data'])->name('users.data');
+        Route::get('users/{user}/change-password', [UserController::class, 'showChangePasswordForm'])->name('users.change-password');
+        Route::post('users/{user}/change-password', [UserController::class, 'changePassword'])->name('users.update-password');
         Route::resource('users', UserController::class)->except('show');
         Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+
+        // Profile
+        Route::get('profile/change-password', [ProfileController::class, 'showChangePasswordForm'])->name('profile.change-password');
+        Route::post('profile/change-password', [ProfileController::class, 'changePassword'])->name('profile.update-password');
     });
 
 });

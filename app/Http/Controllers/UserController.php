@@ -25,11 +25,12 @@ class UserController extends Controller
     {
         $this->authorize('view users');
 
-        $users     = User::with('roles')->where('type', '!=', 'super-admin')->latest()->get();
-        $canEdit   = auth()->user()->can('edit users');
-        $canDelete = auth()->user()->can('delete users');
+        $users             = User::with('roles')->where('type', '!=', 'super-admin')->latest()->get();
+        $canEdit           = auth()->user()->can('edit users');
+        $canDelete         = auth()->user()->can('delete users');
+        $canChangePassword = auth()->user()->can('change users password');
 
-        $data = $users->map(function ($user, $index) use ($canEdit, $canDelete) {
+        $data = $users->map(function ($user, $index) use ($canEdit, $canDelete, $canChangePassword) {
             $role = $user->roles->first()
                 ? '<span class="badge bg-label-primary text-capitalize">' . $user->roles->first()->name . '</span>'
                 : '<span class="badge bg-label-secondary">No Role</span>';
@@ -41,6 +42,9 @@ class UserController extends Controller
             $actions = '';
             if ($canEdit) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.users.edit', $user) . '" data-size="modal-lg"><i class="ti ti-pencil"></i></button>';
+            }
+            if ($canChangePassword) {
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1" data-common-modal="' . route('admin.users.change-password', $user) . '"><i class="ti ti-key"></i></button>';
             }
             if ($canDelete) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.users.destroy', $user) . '" data-row-id="user-row-' . $user->id . '"><i class="ti ti-trash"></i></button>';
@@ -188,6 +192,37 @@ class UserController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'User deleted successfully.',
+        ]);
+    }
+
+    public function showChangePasswordForm(User $user)
+    {
+        $this->authorize('change users password');
+        return view('users.change-password', compact('user'));
+    }
+
+    public function changePassword(Request $request, User $user)
+    {
+        $this->authorize('change users password');
+
+        $validator = Validator::make($request->all(), [
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'User password changed successfully.',
         ]);
     }
 }

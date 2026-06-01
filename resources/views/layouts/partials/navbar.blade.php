@@ -43,6 +43,13 @@
           </li>
           <li><div class="dropdown-divider"></div></li>
           <li>
+            <a class="dropdown-item" href="javascript:void(0)" data-common-modal="{{ route('admin.profile.change-password') }}">
+              <i class="ti ti-key me-2 ti-sm"></i>
+              <span class="align-middle">Change Password</span>
+            </a>
+          </li>
+          <li><div class="dropdown-divider"></div></li>
+          <li>
             <form method="POST" action="{{ route('admin.logout') }}">
               @csrf
               <button type="submit" class="dropdown-item">

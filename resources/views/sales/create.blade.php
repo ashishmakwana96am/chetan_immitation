@@ -138,6 +138,29 @@
                     </div>
                 </div>
 
+                <!-- Sales Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
+                    <div class="card-body">
+                        <select name="status" class="form-select no-select2">
+                            <option value="pending" selected>Pending</option>
+                            <option value="approve">Approve</option>
+                            <option value="decline">Decline</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Payment Status -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
+                    <div class="card-body">
+                        <select name="payment_status" class="form-select no-select2">
+                            <option value="non_paid" selected>Non Paid</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary" id="submitBtn">
                         <i class="ti ti-device-floppy me-1"></i> Save Sale
@@ -192,7 +215,11 @@ $(document).ready(function () {
 
     let itemIndex = 0;
     const symbol      = '{{ currency_symbol() }}';
+    function formatPrice(val) {
+        return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
     const allProducts = @json($allProducts);
+    updateSummary();
 
     // After adding customer via modal, reload customer dropdown
     window.refreshTable = function () {
@@ -239,7 +266,7 @@ $(document).ready(function () {
                         <div class="fw-semibold">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}</small>
                     </div>
-                    <span class="badge bg-label-primary">${symbol} ${parseFloat(p.price).toFixed(2)}</span>
+                    <span class="badge bg-label-primary">${symbol} ${formatPrice(p.price)}</span>
                 </a>
             `);
             item.data('product', p);
@@ -364,7 +391,7 @@ $(document).ready(function () {
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
         const total    = (price * qty);
-        row.find('.item-total').text(symbol + ' ' + total.toFixed(2));
+        row.find('.item-total').text(symbol + ' ' + formatPrice(total));
         updateSummary();
     }
 
@@ -379,8 +406,16 @@ $(document).ready(function () {
         });
         const finalAmount   = itemsTotal;
 
-        $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + itemsTotal.toFixed(2));
-        $('#summaryFinal').text(symbol + ' ' + finalAmount.toFixed(2));
+        $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
+        $('#summaryFinal').text(symbol + ' ' + formatPrice(finalAmount));
+
+        if (count > 0) {
+            $('#itemsTotal').closest('tr').show();
+            $('#summaryFinal').closest('.card').show();
+        } else {
+            $('#itemsTotal').closest('tr').hide();
+            $('#summaryFinal').closest('.card').hide();
+        }
     }
 
     // -------------------------------------------------------

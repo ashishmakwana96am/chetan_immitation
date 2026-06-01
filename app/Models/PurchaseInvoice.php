@@ -11,6 +11,7 @@ class PurchaseInvoice extends Model
         'invoice_no',
         'total_amount',
         'status',
+        'payment_status',
         'created_by',
     ];
 
