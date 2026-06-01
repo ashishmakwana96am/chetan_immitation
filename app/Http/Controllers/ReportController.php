@@ -18,7 +18,7 @@ class ReportController extends Controller
 {
     public function products()
     {
-        $this->authorize('view reports');
+        $this->authorize('view product reports');
 
         $categories = Category::where('status', 'active')->orderBy('name')->get();
 
@@ -48,7 +48,7 @@ class ReportController extends Controller
 
     public function stockInventory()
     {
-        $this->authorize('view reports');
+        $this->authorize('view stock inventory reports');
 
         $user = auth()->user();
         if ($user->location_id && $user->type !== 'super-admin') {

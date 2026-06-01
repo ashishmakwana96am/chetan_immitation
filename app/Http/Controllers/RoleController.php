@@ -56,9 +56,21 @@ class RoleController extends Controller
     public function create()
     {
         $this->authorize('create roles');
+        $customOrder = [
+            'Users', 'Roles', 'Permissions', 'Locations', 
+            'Categories', 'Sub Categories', 'Products', 
+            'Suppliers', 'Purchases', 
+            'Customers', 'Sales', 'Reports'
+        ];
         $permissions = Permission::get()->groupBy(function ($permission) {
+            if (str_contains($permission->name, 'sub categories')) {
+                return 'Sub Categories';
+            }
             $parts = explode(' ', $permission->name);
             return ucfirst(end($parts));
+        })->sortBy(function ($val, $key) use ($customOrder) {
+            $idx = array_search($key, $customOrder);
+            return $idx !== false ? $idx : 999;
         });
         return view('roles.create', compact('permissions'));
     }
@@ -94,9 +106,21 @@ class RoleController extends Controller
     public function edit(Role $role)
     {
         $this->authorize('edit roles');
+        $customOrder = [
+            'Users', 'Roles', 'Permissions', 'Locations', 
+            'Categories', 'Sub Categories', 'Products', 
+            'Suppliers', 'Purchases', 
+            'Customers', 'Sales', 'Reports'
+        ];
         $permissions = Permission::get()->groupBy(function ($permission) {
+            if (str_contains($permission->name, 'sub categories')) {
+                return 'Sub Categories';
+            }
             $parts = explode(' ', $permission->name);
             return ucfirst(end($parts));
+        })->sortBy(function ($val, $key) use ($customOrder) {
+            $idx = array_search($key, $customOrder);
+            return $idx !== false ? $idx : 999;
         });
         $rolePermissionIds = $role->permissions->pluck('id')->toArray();
         return view('roles.edit', compact('role', 'permissions', 'rolePermissionIds'));

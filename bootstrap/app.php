@@ -14,5 +14,23 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This action is unauthorized.',
+                ], 403);
+            }
+            return redirect()->route('admin.dashboard')->with('error', 'You do not have permission to access that page.');
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This action is unauthorized.',
+                ], 403);
+            }
+            return redirect()->route('admin.dashboard')->with('error', 'You do not have permission to access that page.');
+        });
     })->create();

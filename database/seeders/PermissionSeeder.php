@@ -53,11 +53,9 @@ class PermissionSeeder extends Seeder
             'edit products',
             'delete products',
 
-            // Inventory
-            'view inventory',
-
             // Reports
-            'view reports',
+            'view product reports',
+            'view stock inventory reports',
             'view purchase reports',
             'view sale reports',
             'view profit loss reports',

@@ -75,8 +75,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
 
-        // Inventory Report
-        Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
+        // Inventory Stock API (for Sales)
         Route::get('inventory/stock', [InventoryController::class, 'stock'])->name('inventory.stock');
 
         // Reports

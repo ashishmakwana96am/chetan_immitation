@@ -51,9 +51,25 @@
                                             name="permissions[]" value="{{ $permission->id }}"
                                             id="perm-{{ $permission->id }}" data-module="{{ $module }}"
                                             {{ in_array($permission->id, $rolePermissionIds) ? 'checked' : '' }} />
-                                        <label class="form-check-label text-capitalize"
+                                        <label class="form-check-label {{ $module === 'Reports' ? '' : 'text-capitalize' }}"
                                             for="perm-{{ $permission->id }}">
-                                            {{ ucfirst(implode(' ', array_slice(explode(' ', $permission->name), 0, -1))) }}
+                                            @if($module === 'Reports')
+                                                @if(str_contains($permission->name, 'product'))
+                                                    Products Report
+                                                @elseif(str_contains($permission->name, 'inventory'))
+                                                    Stock Inventory
+                                                @elseif(str_contains($permission->name, 'purchase'))
+                                                    Purchase Reports
+                                                @elseif(str_contains($permission->name, 'sale'))
+                                                    Sale Report
+                                                @elseif(str_contains($permission->name, 'profit loss'))
+                                                    Profit & Loss Report
+                                                @else
+                                                    {{ ucwords(str_replace('view ', '', $permission->name)) }}
+                                                @endif
+                                            @else
+                                                {{ explode(' ', $permission->name)[0] }}
+                                            @endif
                                         </label>
                                     </div>
                                 @endforeach

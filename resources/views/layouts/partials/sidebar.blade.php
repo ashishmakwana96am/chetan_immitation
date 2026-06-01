@@ -30,12 +30,7 @@
         <div>Dashboard</div>
       </a>
     </li>
-
-    <!-- Apps & Pages -->
-    <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">Apps &amp; Pages</span>
-    </li>
-
+    
     <!-- Users -->
     @if(can_any(['view users']))
       <li class="menu-item {{ active_menu('admin/users*') }}">
@@ -127,23 +122,27 @@
     @endif
 
     <!-- Reports -->
-    @if(can_any(['view reports', 'view purchase reports', 'view sale reports', 'view profit loss reports']))
+    @if(can_any(['view product reports', 'view stock inventory reports', 'view purchase reports', 'view sale reports', 'view profit loss reports']))
       <li class="menu-item {{ active_menu_open(['admin/reports*']) }}">
         <a href="javascript:void(0);" class="menu-link menu-toggle">
           <i class="menu-icon tf-icons ti ti-chart-bar"></i>
           <div>Reports</div>
         </a>
         <ul class="menu-sub">
+          @can('view product reports')
           <li class="menu-item {{ active_menu('admin/reports/products') }}">
             <a href="{{ route('admin.reports.products') }}" class="menu-link">
               <div>Products Report</div>
             </a>
           </li>
+          @endcan
+          @can('view stock inventory reports')
           <li class="menu-item {{ active_menu('admin/reports/stock-inventory') }}">
             <a href="{{ route('admin.reports.stock-inventory') }}" class="menu-link">
               <div>Stock Inventory</div>
             </a>
           </li>
+          @endcan
           @can('view purchase reports')
           <li class="menu-item {{ active_menu('admin/reports/purchases') }}">
             <a href="{{ route('admin.reports.purchases') }}" class="menu-link">
