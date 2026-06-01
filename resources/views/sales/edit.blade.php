@@ -50,7 +50,7 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Customer <span class="text-muted">(optional)</span></label>
+                                <label class="form-label">Customer</label>
                                 <div class="input-group">
                                     <select name="customer_id" class="form-select" id="customerSelect">
                                         <option value="">-- Walk-in Customer --</option>

@@ -141,20 +141,20 @@
                                         <p class="fw-semibold mb-0">{{ $item->product->name ?? '-' }}</p>
                                         <small class="text-muted">{{ $item->product->sku ?? '' }}</small>
                                     </td>
-                                    <td class="text-end">{{ format_price($item->price) }}</td>
-                                    <td class="text-end">{{ $item->quantity }}</td>
-                                    <td class="text-end fw-semibold text-primary">{{ format_price($item->total) }}</td>
+                                    <td class="text-end text-nowrap">{{ format_price($item->price) }}</td>
+                                    <td class="text-end text-nowrap">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap fw-semibold text-primary">{{ format_price($item->total) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
                                 <td colspan="4" class="text-end fw-semibold">Items Total</td>
-                                <td class="text-end fw-bold">{{ format_price($order->total_amount) }}</td>
+                                <td class="text-end text-nowrap fw-bold">{{ format_price($order->total_amount) }}</td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end fw-semibold">Final Amount</td>
-                                <td class="text-end fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</td>
+                                <td class="text-end text-nowrap fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</td>
                             </tr>
                         </tfoot>
                     </table>

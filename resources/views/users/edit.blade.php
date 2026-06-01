@@ -20,7 +20,7 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
-            <label class="form-label" for="userPhone">Phone <span class="text-muted">(optional)</span></label>
+            <label class="form-label" for="userPhone">Phone</label>
             <input type="text" id="userPhone" name="phone" class="form-control" placeholder="e.g. +1 234 567 8900"
                 value="{{ $user->phone }}" />
             <div class="invalid-feedback"></div>
@@ -38,7 +38,7 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
-            <label class="form-label" for="userLocation">Location <span class="text-muted">(optional)</span></label>
+            <label class="form-label" for="userLocation">Location</label>
             <select id="userLocation" name="location_id" class="form-select">
                 <option value="">-- Select Location --</option>
                 @foreach ($locations as $location)

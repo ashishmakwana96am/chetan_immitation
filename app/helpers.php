@@ -161,6 +161,6 @@ if (!function_exists('format_price')) {
      */
     function format_price(float|int|string $amount, int $decimals = 2): string
     {
-        return currency_symbol() . ' ' . number_format((float) $amount, $decimals);
+        return currency_symbol() . "\u{A0}" . number_format((float) $amount, $decimals);
     }
 }

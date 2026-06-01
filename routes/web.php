@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\DashboardController;
@@ -49,6 +50,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Products
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
+        Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
@@ -81,6 +83,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('products', [ReportController::class, 'products'])->name('products');
             Route::get('stock-inventory', [ReportController::class, 'stockInventory'])->name('stock-inventory');
+            Route::get('purchases', [ReportController::class, 'purchases'])->name('purchases');
+            Route::get('sales', [ReportController::class, 'sales'])->name('sales');
+            Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
         });
 
         // Sales
@@ -94,6 +99,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('categories/data', [CategoryController::class, 'data'])->name('categories.data');
         Route::resource('categories', CategoryController::class)->except('show');
         Route::patch('categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
+
+        // Sub Categories
+        Route::get('sub-categories/data', [SubCategoryController::class, 'data'])->name('sub-categories.data');
+        Route::resource('sub-categories', SubCategoryController::class)->except('show');
+        Route::patch('sub-categories/{sub_category}/toggle-status', [SubCategoryController::class, 'toggleStatus'])->name('sub-categories.toggle-status');
 
         // Locations
         Route::get('locations/data', [LocationController::class, 'data'])->name('locations.data');

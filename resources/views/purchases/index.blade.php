@@ -42,7 +42,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#purchasesTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : { url: '{{ route('admin.purchases.data') }}', dataSrc: 'data' },
                 columns    : [

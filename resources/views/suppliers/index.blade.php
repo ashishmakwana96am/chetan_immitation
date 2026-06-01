@@ -42,7 +42,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#suppliersTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : { url: '{{ route('admin.suppliers.data') }}', dataSrc: 'data' },
                 columns    : [

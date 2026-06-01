@@ -13,11 +13,18 @@ class InventoryController extends Controller
     {
         $this->authorize('view inventory');
 
-        $locations  = Location::where('status', 'active')->orderBy('name')->get();
+        $user = auth()->user();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 'active')->orderBy('name')->get();
+        }
         $categories = Category::where('status', 'active')->orderBy('name')->get();
 
         // Get all products with their inventory per location
-        $products = Product::with(['category', 'inventories.location'])
+        $products = Product::with(['category', 'inventories' => function($q) use ($user) {
+                $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
+            }, 'inventories.location'])
             ->orderBy('name')
             ->get()
             ->map(function ($product) use ($locations) {

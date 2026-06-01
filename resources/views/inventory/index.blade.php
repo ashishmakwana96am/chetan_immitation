@@ -161,7 +161,7 @@
         $(document).ready(function () {
 
             const table = $('#inventoryTable').DataTable({
-                responsive  : true,
+                responsive : false,
                 order       : [[1, 'asc']],
                 columnDefs  : [{ orderable: false, targets: [0] }],
             });

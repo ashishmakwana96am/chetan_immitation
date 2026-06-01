@@ -193,7 +193,7 @@
         // DataTable
         // -------------------------------------------------------
         const table = $('#productsReportTable').DataTable({
-            responsive : true,
+            responsive : false,
             order      : [[1, 'asc']],
         });
 

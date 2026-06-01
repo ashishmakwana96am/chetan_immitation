@@ -189,7 +189,7 @@
         // DataTable
         // -------------------------------------------------------
         const table = $('#stockTable').DataTable({
-            responsive : true,
+            responsive : false,
             order      : [[1, 'asc']],
         });
 

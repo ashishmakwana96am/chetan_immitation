@@ -13,7 +13,7 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
-            <label class="form-label" for="locationAddress">Address <span class="text-muted">(optional)</span></label>
+            <label class="form-label" for="locationAddress">Address</label>
             <input type="text" id="locationAddress" name="address"
                 class="form-control" placeholder="e.g. 123 Main Street, City" />
             <div class="invalid-feedback"></div>

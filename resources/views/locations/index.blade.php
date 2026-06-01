@@ -44,7 +44,7 @@
         $(document).ready(function () {
 
             const table = $('#locationsTable').DataTable({
-                responsive  : true,
+                responsive : false,
                 order       : [],
                 ajax        : {
                     url     : '{{ route('admin.locations.data') }}',

@@ -26,7 +26,15 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('view purchases');
 
-        $invoices  = PurchaseInvoice::with(['supplier', 'createdBy'])->latest()->get();
+        $user = auth()->user();
+        $invoices = PurchaseInvoice::with(['supplier', 'createdBy'])
+            ->when($user->location_id && $user->type !== 'super-admin', function($q) use ($user) {
+                $q->whereHas('items.allocations', function($sub) use ($user) {
+                    $sub->where('location_id', $user->location_id);
+                });
+            })
+            ->latest()
+            ->get();
         $canEdit   = auth()->user()->can('edit purchases');
         $canDelete = auth()->user()->can('delete purchases');
 
@@ -64,6 +72,17 @@ class PurchaseInvoiceController extends Controller
     public function show(PurchaseInvoice $purchase)
     {
         $this->authorize('view purchases');
+
+        $user = auth()->user();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
+                $q->where('location_id', $user->location_id);
+            })->exists();
+            if (!$hasAllocation) {
+                abort(403);
+            }
+        }
+
         $purchase->load(['supplier', 'createdBy', 'items.product.primaryImage', 'items.allocations.location']);
         return view('purchases.show', compact('purchase'));
     }
@@ -149,6 +168,16 @@ class PurchaseInvoiceController extends Controller
     public function edit(PurchaseInvoice $purchase)
     {
         $this->authorize('edit purchases');
+
+        $user = auth()->user();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
+                $q->where('location_id', $user->location_id);
+            })->exists();
+            if (!$hasAllocation) {
+                abort(403);
+            }
+        }
 
         if ($purchase->status !== 'draft') {
             return redirect()->route('admin.purchases.show', $purchase)
@@ -330,6 +359,17 @@ class PurchaseInvoiceController extends Controller
     public function pdf(PurchaseInvoice $purchase)
     {
         $this->authorize('view purchases');
+
+        $user = auth()->user();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
+                $q->where('location_id', $user->location_id);
+            })->exists();
+            if (!$hasAllocation) {
+                abort(403);
+            }
+        }
+
         $purchase->load(['supplier', 'createdBy', 'items.product', 'items.allocations.location']);
 
         $pdf = Pdf::loadView('purchases.pdf', compact('purchase'))

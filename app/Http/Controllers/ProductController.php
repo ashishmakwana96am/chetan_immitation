@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class ProductController extends Controller
 
         $data = $products->map(function ($product, $index) use ($canEdit, $canDelete) {
             $image = $product->primaryImage
-                ? '<img src="' . asset('storage/' . $product->primaryImage->image_path) . '" width="45" height="45" class="rounded object-fit-cover">'
+                ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
 
             $status = $product->status === 'active'
@@ -62,7 +63,17 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $this->authorize('view products');
-        $product->load(['category', 'images', 'createdBy', 'inventories.location']);
+
+        $user = auth()->user();
+        $product->load([
+            'category', 
+            'images', 
+            'createdBy', 
+            'inventories' => function($q) use ($user) {
+                $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
+            },
+            'inventories.location'
+        ]);
         return view('products.show', compact('product'));
     }
 
@@ -78,15 +89,16 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $validator = Validator::make($request->all(), [
-            'name'           => ['required', 'string', 'max:200'],
-            'category_id'    => ['required', 'exists:categories,id'],
-            'sku'            => ['required', 'string', 'max:100', 'unique:products,sku'],
-            'description'    => ['nullable', 'string'],
-            'purchase_price' => ['required', 'numeric', 'min:0'],
-            'sale_price'     => ['required', 'numeric', 'min:0'],
-            'primary_image'  => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'images'         => ['required', 'array', 'min:1'],
-            'images.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'name'            => ['required', 'string', 'max:200'],
+            'category_id'     => ['required', 'exists:categories,id'],
+            'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
+            'sku'             => ['required', 'string', 'max:100', 'unique:products,sku'],
+            'description'     => ['nullable', 'string'],
+            'purchase_price'  => ['required', 'numeric', 'min:0'],
+            'sale_price'      => ['required', 'numeric', 'min:0'],
+            'primary_image'   => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'images'          => ['required', 'array', 'min:1'],
+            'images.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         if ($validator->fails()) {
@@ -98,23 +110,26 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($request) {
             $product = Product::create([
-                'name'           => $request->name,
-                'slug'           => generate_slug(Product::class, $request->name),
-                'category_id'    => $request->category_id,
-                'sku'            => $request->sku,
-                'description'    => $request->description,
-                'purchase_price' => $request->purchase_price,
-                'sale_price'     => $request->sale_price,
-                'status'         => $request->has('status') ? 'active' : 'inactive',
-                'created_by'     => auth()->id(),
+                'name'            => $request->name,
+                'slug'            => generate_slug(Product::class, $request->name),
+                'category_id'     => $request->category_id,
+                'sub_category_id' => $request->sub_category_id,
+                'sku'             => $request->sku,
+                'description'     => $request->description,
+                'purchase_price'  => $request->purchase_price,
+                'sale_price'      => $request->sale_price,
+                'status'          => $request->has('status') ? 'active' : 'inactive',
+                'created_by'      => auth()->id(),
             ]);
 
             // Primary image
             if ($request->hasFile('primary_image')) {
-                $path = $request->file('primary_image')->store('products', 'public');
+                $file = $request->file('primary_image');
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move(public_path('uploads/products'), $filename);
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => $path,
+                    'image_path' => 'products/' . $filename,
                     'is_primary' => true,
                     'created_by' => auth()->id(),
                 ]);
@@ -122,11 +137,12 @@ class ProductController extends Controller
 
             // Additional images
             if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $image) {
-                    $path = $image->store('products', 'public');
+                foreach ($request->file('images') as $file) {
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move(public_path('uploads/products'), $filename);
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => $path,
+                        'image_path' => 'products/' . $filename,
                         'is_primary' => false,
                         'created_by' => auth()->id(),
                     ]);
@@ -144,8 +160,12 @@ class ProductController extends Controller
     {
         $this->authorize('edit products');
         $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $subCategories = SubCategory::where('category_id', $product->category_id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
         $product->load('images');
-        return view('products.edit', compact('product', 'categories'));
+        return view('products.edit', compact('product', 'categories', 'subCategories'));
     }
 
     public function update(Request $request, Product $product)
@@ -153,15 +173,16 @@ class ProductController extends Controller
         $this->authorize('edit products');
 
         $validator = Validator::make($request->all(), [
-            'name'           => ['required', 'string', 'max:200'],
-            'category_id'    => ['required', 'exists:categories,id'],
-            'sku'            => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
-            'description'    => ['nullable', 'string'],
-            'purchase_price' => ['required', 'numeric', 'min:0'],
-            'sale_price'     => ['required', 'numeric', 'min:0'],
-            'primary_image'  => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'images'         => ['nullable', 'array'],
-            'images.*'       => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'name'            => ['required', 'string', 'max:200'],
+            'category_id'     => ['required', 'exists:categories,id'],
+            'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
+            'sku'             => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
+            'description'     => ['nullable', 'string'],
+            'purchase_price'  => ['required', 'numeric', 'min:0'],
+            'sale_price'      => ['required', 'numeric', 'min:0'],
+            'primary_image'   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'images'          => ['nullable', 'array'],
+            'images.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         if ($validator->fails()) {
@@ -173,27 +194,33 @@ class ProductController extends Controller
 
         DB::transaction(function () use ($request, $product) {
             $product->update([
-                'name'           => $request->name,
-                'slug'           => generate_slug(Product::class, $request->name, $product->id),
-                'category_id'    => $request->category_id,
-                'sku'            => $request->sku,
-                'description'    => $request->description,
-                'purchase_price' => $request->purchase_price,
-                'sale_price'     => $request->sale_price,
-                'status'         => $request->has('status') ? 'active' : 'inactive',
+                'name'            => $request->name,
+                'slug'            => generate_slug(Product::class, $request->name, $product->id),
+                'category_id'     => $request->category_id,
+                'sub_category_id' => $request->sub_category_id,
+                'sku'             => $request->sku,
+                'description'     => $request->description,
+                'purchase_price'  => $request->purchase_price,
+                'sale_price'      => $request->sale_price,
+                'status'          => $request->has('status') ? 'active' : 'inactive',
             ]);
 
             // Replace primary image
             if ($request->hasFile('primary_image')) {
                 $existing = $product->images()->where('is_primary', true)->first();
                 if ($existing) {
-                    Storage::disk('public')->delete($existing->image_path);
+                    $existingFile = public_path('uploads/' . $existing->image_path);
+                    if (file_exists($existingFile)) {
+                        @unlink($existingFile);
+                    }
                     $existing->delete();
                 }
-                $path = $request->file('primary_image')->store('products', 'public');
+                $file = $request->file('primary_image');
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move(public_path('uploads/products'), $filename);
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => $path,
+                    'image_path' => 'products/' . $filename,
                     'is_primary' => true,
                     'created_by' => auth()->id(),
                 ]);
@@ -201,11 +228,12 @@ class ProductController extends Controller
 
             // Additional images
             if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $image) {
-                    $path = $image->store('products', 'public');
+                foreach ($request->file('images') as $file) {
+                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move(public_path('uploads/products'), $filename);
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => $path,
+                        'image_path' => 'products/' . $filename,
                         'is_primary' => false,
                         'created_by' => auth()->id(),
                     ]);
@@ -226,7 +254,10 @@ class ProductController extends Controller
         $wasPrimary = $image->is_primary;
         $productId  = $image->product_id;
 
-        Storage::disk('public')->delete($image->image_path);
+        $existingFile = public_path('uploads/' . $image->image_path);
+        if (file_exists($existingFile)) {
+            @unlink($existingFile);
+        }
         $image->delete();
 
         if ($wasPrimary) {
@@ -271,7 +302,10 @@ class ProductController extends Controller
         $this->authorize('delete products');
 
         foreach ($product->images as $image) {
-            Storage::disk('public')->delete($image->image_path);
+            $existingFile = public_path('uploads/' . $image->image_path);
+            if (file_exists($existingFile)) {
+                @unlink($existingFile);
+            }
         }
 
         $product->delete();
@@ -280,5 +314,17 @@ class ProductController extends Controller
             'status'  => 'success',
             'message' => 'Product deleted successfully.',
         ]);
+    }
+
+    public function getSubCategories(Request $request)
+    {
+        $this->authorize('view products');
+        $categoryId = $request->query('category_id');
+        $subCategories = SubCategory::where('category_id', $categoryId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($subCategories);
     }
 }

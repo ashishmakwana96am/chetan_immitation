@@ -44,7 +44,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#ordersTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : { url: '{{ route('admin.sales.data') }}', dataSrc: 'data' },
                 columns    : [

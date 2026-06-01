@@ -40,7 +40,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#rolesTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : { url: '{{ route('admin.roles.data') }}', dataSrc: 'data' },
                 columns    : [

@@ -34,7 +34,7 @@
                             <div class="swiper-wrapper">
                                 @foreach($product->images->sortByDesc('is_primary') as $image)
                                     <div class="swiper-slide position-relative">
-                                        <img src="{{ asset('storage/' . $image->image_path) }}"
+                                        <img src="{{ $image->image_url }}"
                                             class="product-main-image rounded" />
                                         @if($image->is_primary)
                                             <span class="badge bg-primary position-absolute top-0 start-0 m-2">Primary</span>
@@ -52,7 +52,7 @@
                                 <div class="swiper-wrapper">
                                     @foreach($product->images->sortByDesc('is_primary') as $image)
                                         <div class="swiper-slide product-thumb-slide">
-                                            <img src="{{ asset('storage/' . $image->image_path) }}"
+                                            <img src="{{ $image->image_url }}"
                                                 class="product-thumb-image rounded border cursor-pointer" />
                                         </div>
                                     @endforeach

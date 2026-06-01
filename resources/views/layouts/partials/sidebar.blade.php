@@ -66,6 +66,16 @@
       </li>
     @endif
 
+    <!-- Sub Categories -->
+    @if(can_any(['view sub categories']))
+      <li class="menu-item {{ active_menu('admin/sub-categories*') }}">
+        <a href="{{ route('admin.sub-categories.index') }}" class="menu-link">
+          <i class="menu-icon tf-icons ti ti-layout-grid-add"></i>
+          <div>Sub Categories</div>
+        </a>
+      </li>
+    @endif
+
     <!-- Products -->
     @if(can_any(['view products']))
       <li class="menu-item {{ active_menu('admin/products*') }}">
@@ -117,7 +127,7 @@
     @endif
 
     <!-- Reports -->
-    @if(can_any(['view reports']))
+    @if(can_any(['view reports', 'view purchase reports', 'view sale reports', 'view profit loss reports']))
       <li class="menu-item {{ active_menu_open(['admin/reports*']) }}">
         <a href="javascript:void(0);" class="menu-link menu-toggle">
           <i class="menu-icon tf-icons ti ti-chart-bar"></i>
@@ -134,6 +144,27 @@
               <div>Stock Inventory</div>
             </a>
           </li>
+          @can('view purchase reports')
+          <li class="menu-item {{ active_menu('admin/reports/purchases') }}">
+            <a href="{{ route('admin.reports.purchases') }}" class="menu-link">
+              <div>Purchase Reports</div>
+            </a>
+          </li>
+          @endcan
+          @can('view sale reports')
+          <li class="menu-item {{ active_menu('admin/reports/sales') }}">
+            <a href="{{ route('admin.reports.sales') }}" class="menu-link">
+              <div>Sale Report</div>
+            </a>
+          </li>
+          @endcan
+          @can('view profit loss reports')
+          <li class="menu-item {{ active_menu('admin/reports/profit-loss') }}">
+            <a href="{{ route('admin.reports.profit-loss') }}" class="menu-link">
+              <div>Profit & Loss Report</div>
+            </a>
+          </li>
+          @endcan
         </ul>
       </li>
     @endif

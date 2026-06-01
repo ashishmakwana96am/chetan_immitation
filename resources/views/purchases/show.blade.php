@@ -95,9 +95,9 @@
                             <tr>
                                 <th>#</th>
                                 <th>Product</th>
-                                <th>Purchase Price</th>
-                                <th>Qty</th>
-                                <th>Total</th>
+                                <th class="text-end">Purchase Price</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Total</th>
                                 <th>Allocations</th>
                             </tr>
                         </thead>
@@ -109,9 +109,9 @@
                                         <p class="fw-semibold mb-0">{{ $item->product->name ?? '-' }}</p>
                                         <small class="text-muted">{{ $item->product->sku ?? '' }}</small>
                                     </td>
-                                    <td>{{ format_price($item->purchase_price) }}</td>
-                                    <td>{{ $item->quantity }}</td>
-                                    <td class="fw-semibold text-primary">{{ format_price($item->total) }}</td>
+                                    <td class="text-end text-nowrap">{{ format_price($item->purchase_price) }}</td>
+                                    <td class="text-end text-nowrap">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap fw-semibold text-primary">{{ format_price($item->total) }}</td>
                                     <td>
                                         @foreach($item->allocations as $allocation)
                                             <span class="badge bg-label-info me-1 mb-1">
@@ -125,7 +125,8 @@
                         <tfoot class="table-light">
                             <tr>
                                 <td colspan="4" class="text-end fw-semibold">Grand Total</td>
-                                <td colspan="2" class="fw-bold text-primary">{{ format_price($purchase->total_amount) }}</td>
+                                <td class="text-end text-nowrap fw-bold text-primary">{{ format_price($purchase->total_amount) }}</td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>

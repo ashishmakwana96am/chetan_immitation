@@ -12,12 +12,12 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Phone <span class="text-muted">(optional)</span></label>
+            <label class="form-label">Phone</label>
             <input type="text" name="phone" class="form-control" placeholder="e.g. +1 234 567 8900" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Email <span class="text-muted">(optional)</span></label>
+            <label class="form-label">Email</label>
             <input type="email" name="email" class="form-control" placeholder="e.g. john@example.com" />
             <div class="invalid-feedback"></div>
         </div>

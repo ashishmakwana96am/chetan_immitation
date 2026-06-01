@@ -39,7 +39,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#permissionsTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : { url: '{{ route('admin.permissions.data') }}', dataSrc: 'data' },
                 columns    : [

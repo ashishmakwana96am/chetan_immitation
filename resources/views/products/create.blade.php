@@ -32,11 +32,18 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Category <span class="text-danger">*</span></label>
-                                <select name="category_id" class="form-select">
+                                <select name="category_id" id="productCategory" class="form-select">
                                     <option value="">-- Select Category --</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}">{{ $category->name }}</option>
                                     @endforeach
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Sub Category</label>
+                                <select name="sub_category_id" id="productSubCategory" class="form-select" disabled>
+                                    <option value="">-- Select Sub Category --</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
@@ -57,7 +64,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-muted">(optional)</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! old('description') !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none"></textarea>
                                 <div class="invalid-feedback"></div>
@@ -138,6 +145,39 @@
             
             quill.on('text-change', function() {
                 $('#description-textarea').val(quill.root.innerHTML === '<p><br></p>' ? '' : quill.root.innerHTML).trigger('input');
+            });
+
+            // Dynamic Sub Categories load
+            $('#productCategory').on('change', function () {
+                const categoryId = $(this).val();
+                const subCategorySelect = $('#productSubCategory');
+
+                subCategorySelect.empty().append('<option value="">-- Select Sub Category --</option>');
+
+                if (!categoryId) {
+                    subCategorySelect.prop('disabled', true);
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('admin.products.sub-categories') }}',
+                    type: 'GET',
+                    data: { category_id: categoryId },
+                    success: function (res) {
+                        if (res && res.length > 0) {
+                            $.each(res, function (i, subCat) {
+                                subCategorySelect.append('<option value="' + subCat.id + '">' + subCat.name + '</option>');
+                            });
+                            subCategorySelect.prop('disabled', false);
+                        } else {
+                            subCategorySelect.prop('disabled', true);
+                        }
+                    },
+                    error: function () {
+                        toastr.error('Failed to load sub categories.');
+                        subCategorySelect.prop('disabled', true);
+                    }
+                });
             });
 
             // Primary image preview

@@ -41,6 +41,12 @@ class PermissionSeeder extends Seeder
             'edit categories',
             'delete categories',
 
+            // Sub Categories
+            'view sub categories',
+            'create sub categories',
+            'edit sub categories',
+            'delete sub categories',
+
             // Products
             'view products',
             'create products',
@@ -52,6 +58,9 @@ class PermissionSeeder extends Seeder
 
             // Reports
             'view reports',
+            'view purchase reports',
+            'view sale reports',
+            'view profit loss reports',
 
             // Suppliers
             'view suppliers',

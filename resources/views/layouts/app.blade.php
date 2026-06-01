@@ -60,8 +60,8 @@
                                 <div>©
                                     <script>
                                         document.write(new Date().getFullYear());
-                                    </script>, made with ❤️ by <a href="#"
-                                        class="fw-semibold">Chetan Immitation</a>
+                                    </script>, made with ❤️ by <a href="https://risingstarinfotech.com/" target="_blank"
+                                        class="fw-semibold">Rising Star Infotech</a>
                                 </div>
                             </div>
                         </div>

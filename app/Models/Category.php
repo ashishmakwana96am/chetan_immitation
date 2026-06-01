@@ -17,4 +17,9 @@ class Category extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function subCategories()
+    {
+        return $this->hasMany(SubCategory::class);
+    }
 }

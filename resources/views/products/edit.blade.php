@@ -38,18 +38,32 @@
                                     placeholder="e.g. IPH-15-PRO" value="{{ $product->sku }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Category <span class="text-danger">*</span></label>
-                                <select name="category_id" class="form-select">
-                                    <option value="">-- Select Category --</option>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}" {{ $product->category_id === $category->id ? 'selected' : '' }}>
-                                            {{ $category->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
+                             <div class="col-md-6">
+                                 <label class="form-label">Category <span class="text-danger">*</span></label>
+                                 <select name="category_id" id="productCategory" class="form-select">
+                                     <option value="">-- Select Category --</option>
+                                     @foreach($categories as $category)
+                                         <option value="{{ $category->id }}" {{ $product->category_id === $category->id ? 'selected' : '' }}>
+                                             {{ $category->name }}
+                                         </option>
+                                     @endforeach
+                                 </select>
+                                 <div class="invalid-feedback"></div>
+                             </div>
+                             <div class="col-md-6">
+                                 <label class="form-label">Sub Category</label>
+                                 <select name="sub_category_id" id="productSubCategory" class="form-select" {{ empty($subCategories) ? 'disabled' : '' }}>
+                                     <option value="">-- Select Sub Category --</option>
+                                     @if(!empty($subCategories))
+                                         @foreach($subCategories as $subCategory)
+                                             <option value="{{ $subCategory->id }}" {{ $product->sub_category_id === $subCategory->id ? 'selected' : '' }}>
+                                                 {{ $subCategory->name }}
+                                             </option>
+                                         @endforeach
+                                     @endif
+                                 </select>
+                                 <div class="invalid-feedback"></div>
+                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
@@ -69,7 +83,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-muted">(optional)</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! $product->description !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none">{{ $product->description }}</textarea>
                                 <div class="invalid-feedback"></div>
@@ -102,7 +116,7 @@
                         @if($primaryImage)
                             <div class="mb-3">
                                 <p class="text-muted small mb-1">Current primary image:</p>
-                                <img src="{{ asset('storage/' . $primaryImage->image_path) }}"
+                                <img src="{{ $primaryImage->image_url }}"
                                     width="100" height="100" class="rounded object-fit-cover border border-primary border-2" />
                             </div>
                         @endif
@@ -124,7 +138,7 @@
                             <div class="d-flex flex-wrap gap-2 mb-3" id="existingImages">
                                 @foreach($additionalImages as $image)
                                     <div class="position-relative" id="img-{{ $image->id }}">
-                                        <img src="{{ asset('storage/' . $image->image_path) }}"
+                                        <img src="{{ $image->image_url }}"
                                             width="70" height="70" class="rounded object-fit-cover border" />
                                         <button type="button"
                                             class="btn btn-sm btn-icon btn-danger position-absolute top-0 end-0 btn-delete-image"
@@ -176,6 +190,39 @@
             
             quill.on('text-change', function() {
                 $('#description-textarea').val(quill.root.innerHTML === '<p><br></p>' ? '' : quill.root.innerHTML).trigger('input');
+            });
+
+            // Dynamic Sub Categories load
+            $('#productCategory').on('change', function () {
+                const categoryId = $(this).val();
+                const subCategorySelect = $('#productSubCategory');
+
+                subCategorySelect.empty().append('<option value="">-- Select Sub Category --</option>');
+
+                if (!categoryId) {
+                    subCategorySelect.prop('disabled', true);
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route('admin.products.sub-categories') }}',
+                    type: 'GET',
+                    data: { category_id: categoryId },
+                    success: function (res) {
+                        if (res && res.length > 0) {
+                            $.each(res, function (i, subCat) {
+                                subCategorySelect.append('<option value="' + subCat.id + '">' + subCat.name + '</option>');
+                            });
+                            subCategorySelect.prop('disabled', false);
+                        } else {
+                            subCategorySelect.prop('disabled', true);
+                        }
+                    },
+                    error: function () {
+                        toastr.error('Failed to load sub categories.');
+                        subCategorySelect.prop('disabled', true);
+                    }
+                });
             });
 
             // Primary image preview

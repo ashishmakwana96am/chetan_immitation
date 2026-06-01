@@ -99,7 +99,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#usersTable').DataTable({
-                responsive : true,
+                responsive : false,
                 order      : [],
                 ajax       : {
                     url     : '{{ route('admin.users.data') }}',

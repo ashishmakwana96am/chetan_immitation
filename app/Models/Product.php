@@ -10,6 +10,7 @@ class Product extends Model
         'name',
         'slug',
         'category_id',
+        'sub_category_id',
         'sku',
         'description',
         'purchase_price',
@@ -29,6 +30,11 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function subCategory()
+    {
+        return $this->belongsTo(SubCategory::class);
     }
 
     public function images()
