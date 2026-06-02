@@ -84,6 +84,12 @@ class PermissionSeeder extends Seeder
             'create sales',
             'edit sales',
             'delete sales',
+            'edit sales status',
+            'edit sales payment status',
+
+            // Purchases status/payment updates
+            'edit purchases status',
+            'edit purchases payment status',
         ];
 
         foreach ($permissions as $permission) {

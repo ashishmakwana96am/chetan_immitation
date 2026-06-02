@@ -31,8 +31,10 @@ class SaleController extends Controller
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id))
             ->latest()
             ->get();
-        $canEdit   = auth()->user()->can('edit sales');
-        $canDelete = auth()->user()->can('delete sales');
+        $canEdit                   = auth()->user()->can('edit sales');
+        $canDelete                 = auth()->user()->can('delete sales');
+        $canEditSalesStatus        = auth()->user()->can('edit sales status');
+        $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
 
         $statusColors = [
             'pending' => 'bg-label-secondary',
@@ -54,16 +56,18 @@ class SaleController extends Controller
             'paid'    => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
             $actions = '<a href="' . route('admin.sales.show', $order) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
             if ($canEdit && $order->status === 'pending') {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+            }
+            if ($canEditSalesStatus && $order->status === 'pending') {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
             }
-            if ($canEdit && ($order->status === 'pending' || ($order->status === 'approve' && $order->payment_status === 'pending'))) {
+            if ($canEditSalesPaymentStatus && ($order->status === 'pending' || ($order->status === 'approve' && $order->payment_status === 'pending'))) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
             }
             if ($canDelete && $order->status === 'decline') {
@@ -412,7 +416,15 @@ class SaleController extends Controller
 
     public function updateStatus(Request $request, Order $sale)
     {
-        $this->authorize('edit sales');
+        if ($request->filled('status')) {
+            $this->authorize('edit sales status');
+        }
+        if ($request->filled('payment_status')) {
+            $this->authorize('edit sales payment status');
+        }
+        if (!$request->filled('status') && !$request->filled('payment_status')) {
+            $this->authorize('edit sales');
+        }
 
         $validator = Validator::make($request->all(), [
             'status'         => ['nullable', 'string', 'in:pending,approve,decline'],

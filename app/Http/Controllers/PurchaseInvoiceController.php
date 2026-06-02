@@ -35,10 +35,12 @@ class PurchaseInvoiceController extends Controller
             })
             ->latest()
             ->get();
-        $canEdit   = auth()->user()->can('edit purchases');
-        $canDelete = auth()->user()->can('delete purchases');
+        $canEdit                       = auth()->user()->can('edit purchases');
+        $canDelete                     = auth()->user()->can('delete purchases');
+        $canEditPurchasesStatus        = auth()->user()->can('edit purchases status');
+        $canEditPurchasesPaymentStatus = auth()->user()->can('edit purchases payment status');
 
-        $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete) {
+        $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus) {
             $statusColors = [
                 'pending' => 'bg-label-secondary',
                 'approve' => 'bg-label-success',
@@ -60,9 +62,11 @@ class PurchaseInvoiceController extends Controller
             $actions = '<a href="' . route('admin.purchases.show', $invoice) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
             if ($canEdit && $invoice->status === 'pending') {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+            }
+            if ($canEditPurchasesStatus && $invoice->status === 'pending') {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
             }
-            if ($canEdit && ($invoice->status === 'pending' || ($invoice->status === 'approve' && $invoice->payment_status === 'pending'))) {
+            if ($canEditPurchasesPaymentStatus && ($invoice->status === 'pending' || ($invoice->status === 'approve' && $invoice->payment_status === 'pending'))) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 'pending') . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
             }
             if ($canDelete && $invoice->status === 'pending') {
@@ -317,7 +321,7 @@ class PurchaseInvoiceController extends Controller
 
     public function updateStatus(Request $request, PurchaseInvoice $purchase)
     {
-        $this->authorize('edit purchases');
+        $this->authorize('edit purchases status');
 
         $validator = Validator::make($request->all(), [
             'status' => ['required', 'in:pending,approve,decline'],
@@ -434,7 +438,7 @@ class PurchaseInvoiceController extends Controller
 
     public function updatePaymentStatus(Request $request, PurchaseInvoice $purchase)
     {
-        $this->authorize('edit purchases');
+        $this->authorize('edit purchases payment status');
 
         $validator = Validator::make($request->all(), [
             'payment_status' => ['required', 'in:pending,paid'],
