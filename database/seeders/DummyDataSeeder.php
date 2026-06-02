@@ -341,18 +341,19 @@ class DummyDataSeeder extends Seeder
             $location = $locations[$i % count($locations)];
             $orderNo  = 'SAL-' . date('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT);
             
+            $status = $i % 3 === 0 ? 'pending' : 'approve';
+            
             $order = Order::create([
-                'customer_id'    => $customer->id,
-                'location_id'    => $location->id,
-                'user_id'        => $adminId,
-                'order_no'       => $orderNo,
-                'order_type'     => 'sale',
-                'status'         => 'approve',
-                'payment_status' => rand(0, 1) ? 'paid' : 'non_paid',
-                'payment_method' => ['cash', 'card', 'upi', 'bank_transfer'][$i % 4],
-                'total_amount'   => 0.0,
-                'final_amount'   => 0.0,
-                'created_at'     => now()->subMonths(14 - $i)->addDays(rand(1, 15)), // Distributed
+                'customer_id'     => $customer->id,
+                'location_id'     => $location->id,
+                'user_id'         => $adminId,
+                'order_no'        => $orderNo,
+                'order_type'      => 'sale',
+                'status'          => $status,
+                'payment_status'  => rand(0, 1) ? 'paid' : 'pending',
+                'payment_method'  => ['cash', 'online'][$i % 2],
+                'final_amount'    => 0.0,
+                'created_at'      => now()->subMonths(14 - $i)->addDays(rand(1, 15)), // Distributed
             ]);
 
             // Add 2 items to this sale
@@ -362,7 +363,7 @@ class DummyDataSeeder extends Seeder
             foreach ($itemsKeys as $k) {
                 $product = $products[$k];
                 
-                // Deduct from inventory in this location
+                // Get available quantity to sell
                 $inv = Inventory::where('product_id', $product->id)
                     ->where('location_id', $location->id)
                     ->first();
@@ -370,32 +371,51 @@ class DummyDataSeeder extends Seeder
                 $available = $inv ? $inv->quantity : 0;
                 $quantity = ($available > 5) ? rand(1, 4) : 1;
 
-                // Adjust inventory stock
-                if ($inv) {
-                    $inv->decrement('quantity', $quantity);
-                } else {
-                    Inventory::create([
-                        'product_id'  => $product->id,
-                        'location_id' => $location->id,
-                        'quantity'    => -$quantity, // Negative if sold without stock
-                    ]);
+                // Adjust inventory stock only if approved
+                if ($status === 'approve') {
+                    if ($inv) {
+                        $inv->decrement('quantity', $quantity);
+                    } else {
+                        Inventory::create([
+                            'product_id'  => $product->id,
+                            'location_id' => $location->id,
+                            'quantity'    => -$quantity, // Negative if sold without stock
+                        ]);
+                    }
                 }
 
                 $salePrice = $product->sale_price;
-                $itemTotal = $quantity * $salePrice;
+
+                $discType = 'flat';
+                $discValue = 0.0;
+                $discAmount = 0.0;
+
+                if ($i % 3 === 1) {
+                    $discType = 'percentage';
+                    $discValue = 10.0; // 10%
+                    $discAmount = ($quantity * $salePrice) * 0.10;
+                } elseif ($i % 3 === 2) {
+                    $discType = 'flat';
+                    $discValue = 50.0; // flat 50
+                    $discAmount = min(50.0, $quantity * $salePrice);
+                }
+
+                $itemTotal = ($quantity * $salePrice) - $discAmount;
                 $orderTotal += $itemTotal;
 
                 OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $product->id,
-                    'quantity'   => $quantity,
-                    'price'      => $salePrice,
-                    'total'      => $itemTotal,
+                    'order_id'        => $order->id,
+                    'product_id'      => $product->id,
+                    'quantity'        => $quantity,
+                    'price'           => $salePrice,
+                    'discount_type'   => $discType,
+                    'discount_value'  => $discValue,
+                    'discount_amount' => $discAmount,
+                    'total'           => $itemTotal,
                 ]);
             }
 
             $order->update([
-                'total_amount' => $orderTotal,
                 'final_amount' => $orderTotal,
             ]);
         }

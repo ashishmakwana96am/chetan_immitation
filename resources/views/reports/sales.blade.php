@@ -41,18 +41,16 @@
                     <label class="form-label">Payment Status</label>
                     <select name="payment_status" class="form-select no-select2">
                         <option value="">All Statuses</option>
-                        <option value="non_paid" {{ $paymentStatus === 'non_paid' ? 'selected' : '' }}>Non Paid</option>
+                        <option value="pending" {{ $paymentStatus === 'pending' ? 'selected' : '' }}>Pending</option>
                         <option value="paid" {{ $paymentStatus === 'paid' ? 'selected' : '' }}>Paid</option>
                     </select>
                 </div>
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">Payment Method</label>
-                    <select name="payment_method" class="form-select">
+                    <select name="payment_method" class="form-select no-select2">
                         <option value="">All Methods</option>
                         <option value="cash" {{ $paymentMethod === 'cash' ? 'selected' : '' }}>Cash</option>
-                        <option value="card" {{ $paymentMethod === 'card' ? 'selected' : '' }}>Card</option>
-                        <option value="upi" {{ $paymentMethod === 'upi' ? 'selected' : '' }}>UPI</option>
-                        <option value="bank_transfer" {{ $paymentMethod === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                        <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
                     </select>
                 </div>
                 <div class="col-12 d-flex gap-2 justify-content-end mt-4">
@@ -194,12 +192,12 @@
                                     <td>
                                         @php
                                             $payColors = [
-                                                'non_paid' => 'bg-label-warning',
-                                                'paid'     => 'bg-label-success',
+                                                'pending' => 'bg-label-warning',
+                                                'paid'    => 'bg-label-success',
                                             ];
                                             $payLabels = [
-                                                'non_paid' => 'Non Paid',
-                                                'paid'     => 'Paid',
+                                                'pending' => 'Pending',
+                                                'paid'    => 'Paid',
                                             ];
                                             $badgeColor = $payColors[$order->payment_status] ?? 'bg-label-secondary';
                                         @endphp
@@ -208,7 +206,7 @@
                                     <td><span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method) }}</span></td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>
                                     <td>
-                                        <a href="{{ route('admin.sales.show', $order->id) }}" class="btn btn-sm btn-icon btn-label-secondary">
+                                        <a href="{{ route('admin.sales.show', $order->id) }}" class="btn btn-sm btn-icon btn-label-secondary" data-bs-toggle="tooltip" title="View">
                                             <i class="ti ti-eye"></i>
                                         </a>
                                     </td>

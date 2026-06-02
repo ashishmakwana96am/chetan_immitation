@@ -71,7 +71,6 @@
                                 <label class="form-label">Payment Method <span class="text-danger">*</span></label>
                                 <select name="payment_method" class="form-select">
                                     <option value="cash"   {{ $order->payment_method === 'cash'   ? 'selected' : '' }}>Cash</option>
-                                    <option value="card"   {{ $order->payment_method === 'card'   ? 'selected' : '' }}>Card</option>
                                     <option value="online" {{ $order->payment_method === 'online' ? 'selected' : '' }}>Online</option>
                                 </select>
                             </div>
@@ -97,18 +96,19 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                            <th width="30%">Product</th>
-                                            <th width="20%">Qty</th>
-                                            <th width="25%">Price</th>
-                                            <th width="20%">Total</th>
+                                            <th width="25%">Product</th>
+                                            <th width="15%">Qty</th>
+                                            <th width="20%">Price</th>
+                                            <th width="20%">Discount</th>
+                                            <th width="15%">Total</th>
                                             <th width="5%"></th>
                                         </tr>
                                     </thead>
                                 <tbody id="itemsBody"></tbody>
                                 <tfoot>
                                     <tr class="table-light">
-                                        <td colspan="3" class="text-end fw-semibold">Items Total</td>
-                                        <td class="fw-bold text-primary" id="itemsTotal">{{ format_price($order->total_amount) }}</td>
+                                        <td colspan="4" class="text-end fw-semibold">Items Total</td>
+                                        <td class="fw-bold text-primary" id="itemsTotal">{{ format_price($order->final_amount) }}</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -127,7 +127,11 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between mb-3">
                             <span class="text-muted">Items Total</span>
-                            <span id="summaryItemsTotal" class="fw-semibold">{{ format_price($order->total_amount) }}</span>
+                            <span id="summaryItemsTotal" class="fw-semibold">{{ format_price($order->final_amount) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 d-none">
+                            <span class="text-muted">Discount</span>
+                            <span id="summaryDiscountAmount" class="fw-semibold text-danger">0.00</span>
                         </div>
                         <hr />
                         <div class="d-flex justify-content-between">
@@ -136,6 +140,9 @@
                         </div>
                     </div>
                 </div>
+
+                <input type="hidden" id="overallDiscountType" name="discount_type" value="flat" />
+                <input type="hidden" id="overallDiscountValue" name="discount_value" value="0" />
 
                 <!-- Sales Status -->
                 <div class="card mb-4">
@@ -154,8 +161,8 @@
                     <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
                     <div class="card-body">
                         <select name="payment_status" class="form-select no-select2">
-                            <option value="non_paid" {{ ($order->payment_status ?? 'non_paid') === 'non_paid' ? 'selected' : '' }}>Non Paid</option>
-                            <option value="paid" {{ ($order->payment_status ?? 'non_paid') === 'paid' ? 'selected' : '' }}>Paid</option>
+                            <option value="pending" {{ ($order->payment_status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
+                            <option value="paid" {{ ($order->payment_status ?? 'pending') === 'paid' ? 'selected' : '' }}>Paid</option>
                         </select>
                     </div>
                 </div>
@@ -181,7 +188,7 @@
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-__INDEX__"></small>
+                <small class="text-muted stock-info-display"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -194,6 +201,17 @@
                     <input type="number" name="items[__INDEX__][price]"
                         class="form-control form-control-sm item-price"
                         placeholder="0.00" step="0.01" min="0" value="0" />
+                </div>
+            </td>
+            <td>
+                <div class="input-group input-group-sm flex-nowrap" style="min-width: 140px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select form-select-sm item-discount-type no-select2" style="width: 75px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="flat">Flat</option>
+                        <option value="percentage">%</option>
+                    </select>
+                    <input type="number" name="items[__INDEX__][discount_value]"
+                        class="form-control form-control-sm item-discount-value"
+                        placeholder="0" min="0" step="0.01" value="0" />
                 </div>
             </td>
             <td>
@@ -324,6 +342,8 @@ $(document).ready(function () {
             }
             row.find('.item-price').val(data.price);
             row.find('.item-qty').val(data.quantity);
+            row.find('.item-discount-value').val(data.discount_value ?? 0);
+            row.find('.item-discount-type').val(data.discount_type ?? 'flat');
             updateRowTotal(row);
             updateStockInfo(row);
         }
@@ -349,12 +369,26 @@ $(document).ready(function () {
     function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
-        const idx        = row.data('index');
-        if (!productId || !locationId) { $('.stock-info-' + idx).text(''); return; }
-        $.get('{{ url('admin') }}/inventory/stock', { product_id: productId, location_id: locationId })
+        const stockDisplay = row.find('.stock-info-display');
+        if (!productId || !locationId) { stockDisplay.text('').removeAttr('title').css('cursor', ''); return; }
+        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
-                $('.stock-info-' + idx).text('Stock: ' + qty)
+                const totalQty = res.data?.total_quantity ?? 0;
+                const breakdown = res.data?.breakdown || [];
+                
+                let titleText = 'Stock Breakdown:\n';
+                if (breakdown.length > 0) {
+                    breakdown.forEach(item => {
+                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
+                    });
+                } else {
+                    titleText += 'No stock in any branch';
+                }
+                
+                stockDisplay.text('Stock: ' + qty)
+                    .attr('title', titleText.trim())
+                    .css('cursor', 'help')
                     .removeClass('text-success text-danger')
                     .addClass(qty > 0 ? 'text-success' : 'text-danger');
             });
@@ -362,26 +396,74 @@ $(document).ready(function () {
 
     // Sync product dropdowns (Removed as no longer applicable)
 
-    $(document).on('input', '.item-price, .item-qty', function () {
-        updateRowTotal($(this).closest('.item-row'));
+    $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type, #overallDiscountValue, #overallDiscountType', function () {
+        const row = $(this).closest('.item-row');
+        if (row.length > 0) {
+            updateRowTotal(row);
+        } else {
+            updateSummary();
+        }
     });
 
     function updateRowTotal(row) {
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
-        row.find('.item-total').text(symbol + ' ' + formatPrice(price * qty));
+        const discVal  = parseFloat(row.find('.item-discount-value').val()) || 0;
+        const discType = row.find('.item-discount-type').val() || 'flat';
+
+        const subtotal = price * qty;
+        let discount = 0;
+        if (discType === 'flat') {
+            discount = discVal;
+        } else if (discType === 'percentage') {
+            discount = subtotal * (discVal / 100);
+        }
+
+        if (discount > subtotal) discount = subtotal;
+
+        const total    = subtotal - discount;
+        row.find('.item-total').text(symbol + ' ' + formatPrice(total));
         updateSummary();
     }
 
     function updateSummary() {
-        let itemsTotal = 0, count = 0;
+        let subtotalSum = 0;
+        let discountSum = 0;
+        let count       = 0;
         $('#itemsBody .item-row').each(function () {
-            itemsTotal += (parseFloat($(this).find('.item-price').val()) || 0)
-                        * (parseInt($(this).find('.item-qty').val()) || 0);
+            const price    = parseFloat($(this).find('.item-price').val()) || 0;
+            const qty      = parseInt($(this).find('.item-qty').val()) || 0;
+            const discVal  = parseFloat($(this).find('.item-discount-value').val()) || 0;
+            const discType = $(this).find('.item-discount-type').val() || 'flat';
+
+            const subtotal = price * qty;
+            let discount = 0;
+            if (discType === 'flat') {
+                discount = discVal;
+            } else if (discType === 'percentage') {
+                discount = subtotal * (discVal / 100);
+            }
+
+            if (discount > subtotal) discount = subtotal;
+
+            subtotalSum += subtotal;
+            discountSum += discount;
             count++;
         });
-        $('#itemsTotal, #summaryItemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
-        $('#summaryFinal').text(symbol + ' ' + formatPrice(itemsTotal));
+
+        const finalAmount = subtotalSum - discountSum;
+
+        $('#itemsTotal').text(symbol + ' ' + formatPrice(finalAmount));
+        $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
+        $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(discountSum));
+        $('#summaryFinal').text(symbol + ' ' + formatPrice(finalAmount));
+
+        // Show/hide Discount row based on whether there is any item-wise discount
+        if (discountSum > 0) {
+            $('#summaryDiscountAmount').closest('.d-flex').removeClass('d-none');
+        } else {
+            $('#summaryDiscountAmount').closest('.d-flex').addClass('d-none');
+        }
 
         if (count > 0) {
             $('#itemsTotal').closest('tr').show();

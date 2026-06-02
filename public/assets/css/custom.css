@@ -226,4 +226,12 @@ html, body, .layout-wrapper, .layout-container, .layout-page, .content-wrapper {
   color: #ea5455 !important;
 }
 
+/*
+* Indent sidebar sub-menu container slightly inside for clear visual nesting
+******************************************************************************/
+.menu-vertical .menu-sub {
+  padding-left: 1.25rem !important;
+}
+
+
 

@@ -49,12 +49,12 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
 
-            $actions = '<a href="' . route('admin.products.show', $product) . '" class="btn btn-sm btn-icon btn-label-secondary me-1"><i class="ti ti-eye"></i></a>';
+            $actions = '<a href="' . route('admin.products.show', $product) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
             if ($canEdit) {
-                $actions .= '<a href="' . route('admin.products.edit', $product) . '" class="btn btn-sm btn-icon btn-label-info me-1"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.products.edit', $product) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
             }
             if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.products.destroy', $product) . '" data-row-id="product-row-' . $product->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.products.destroy', $product) . '" data-row-id="product-row-' . $product->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [

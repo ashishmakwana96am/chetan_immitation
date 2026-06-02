@@ -30,10 +30,10 @@ class PermissionController extends Controller
 
             $actions = '';
             if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.permissions.edit', $permission) . '"><i class="ti ti-pencil"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.permissions.edit', $permission) . '" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
             }
             if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.permissions.destroy', $permission) . '" data-row-id="permission-row-' . $permission->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.permissions.destroy', $permission) . '" data-row-id="permission-row-' . $permission->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [

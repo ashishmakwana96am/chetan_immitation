@@ -36,13 +36,13 @@ class LocationController extends Controller
             $actions = '';
             if ($canEdit) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1"
-                    data-common-modal="' . route('admin.locations.edit', $location) . '">
+                    data-common-modal="' . route('admin.locations.edit', $location) . '" data-bs-toggle="tooltip" title="Edit">
                     <i class="ti ti-pencil"></i></button>';
             }
             if ($canDelete) {
                 $actions .= '<button class="btn btn-sm btn-icon btn-label-danger"
                     data-common-delete="' . route('admin.locations.destroy', $location) . '"
-                    data-row-id="location-row-' . $location->id . '">
+                    data-row-id="location-row-' . $location->id . '" data-bs-toggle="tooltip" title="Delete">
                     <i class="ti ti-trash"></i></button>';
             }
 

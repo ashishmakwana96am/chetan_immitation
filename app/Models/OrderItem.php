@@ -11,14 +11,19 @@ class OrderItem extends Model
         'product_id',
         'quantity',
         'price',
+        'discount_type',
+        'discount_value',
+        'discount_amount',
         'total',
     ];
 
     protected function casts(): array
     {
         return [
-            'price'    => 'decimal:2',
-            'total'    => 'decimal:2',
+            'price'           => 'decimal:2',
+            'discount_value'  => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'total'           => 'decimal:2',
         ];
     }
 

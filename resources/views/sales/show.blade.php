@@ -16,12 +16,12 @@
         ];
 
         $paymentColors = [
-            'non_paid' => 'bg-label-warning',
-            'paid'     => 'bg-label-info',
+            'pending' => 'bg-label-warning',
+            'paid'    => 'bg-label-info',
         ];
         $paymentLabels = [
-            'non_paid' => 'Non Paid',
-            'paid'     => 'Paid',
+            'pending' => 'Pending',
+            'paid'    => 'Paid',
         ];
     @endphp
 
@@ -39,7 +39,7 @@
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
                 @endif
-                @if(($order->payment_status ?? 'non_paid') === 'non_paid')
+                @if(($order->payment_status ?? 'pending') === 'pending' && $order->status === 'approve')
                     <button class="btn btn-success"
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
                         data-confirm-method="PATCH"
@@ -122,14 +122,24 @@
                         <p class="text-muted small mb-1">Date</p>
                         <p class="mb-0">{{ format_date($order->created_at) }}</p>
                     </div>
-                    <hr />
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="text-muted">Items Total</span>
-                        <span>{{ format_price($order->total_amount) }}</span>
+                    @php
+                        $totalItemDiscount = $order->items->sum('discount_amount');
+                        $subtotal = $order->final_amount + $totalItemDiscount;
+                    @endphp
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small">Items Total</span>
+                        <span class="fw-semibold">{{ format_price($subtotal) }}</span>
                     </div>
-                    <div class="d-flex justify-content-between">
-                        <span class="fw-semibold">Final Amount</span>
-                        <span class="fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</span>
+                    @if($totalItemDiscount > 0)
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small">Discount</span>
+                        <span class="fw-semibold text-danger">-{{ format_price($totalItemDiscount) }}</span>
+                    </div>
+                    @endif
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold text-muted">Final Amount</span>
+                        <span class="fw-bold text-primary fs-4">{{ format_price($order->final_amount) }}</span>
                     </div>
                 </div>
             </div>
@@ -147,6 +157,7 @@
                                 <th>Product</th>
                                 <th class="text-end">Price</th>
                                 <th class="text-end">Qty</th>
+                                <th class="text-end">Discount</th>
                                 <th class="text-end">Total</th>
                             </tr>
                         </thead>
@@ -160,17 +171,35 @@
                                     </td>
                                     <td class="text-end text-nowrap">{{ format_price($item->price) }}</td>
                                     <td class="text-end text-nowrap">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap">
+                                        @if($item->discount_amount > 0)
+                                            @if($item->discount_type === 'percentage')
+                                                {{ number_format($item->discount_value, 2) }}% 
+                                                <small class="text-muted d-block">( -{{ format_price($item->discount_amount) }} )</small>
+                                            @else
+                                                -{{ format_price($item->discount_amount) }}
+                                            @endif
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     <td class="text-end text-nowrap fw-semibold text-primary">{{ format_price($item->total) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <td colspan="4" class="text-end fw-semibold">Items Total</td>
-                                <td class="text-end text-nowrap fw-bold">{{ format_price($order->total_amount) }}</td>
+                                <td colspan="5" class="text-end fw-bold">Items Total</td>
+                                <td class="text-end text-nowrap fw-bold">{{ format_price($subtotal) }}</td>
                             </tr>
+                            @if($totalItemDiscount > 0)
                             <tr>
-                                <td colspan="4" class="text-end fw-semibold">Final Amount</td>
+                                <td colspan="5" class="text-end fw-bold text-danger">Discount</td>
+                                <td class="text-end text-nowrap fw-bold text-danger">-{{ format_price($totalItemDiscount) }}</td>
+                            </tr>
+                            @endif
+                            <tr>
+                                <td colspan="5" class="text-end fw-bold text-primary fs-5">Final Amount</td>
                                 <td class="text-end text-nowrap fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</td>
                             </tr>
                         </tfoot>

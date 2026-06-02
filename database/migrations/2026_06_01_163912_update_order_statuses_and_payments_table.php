@@ -10,11 +10,15 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Remap existing order payment_status values:
-        // - pending -> non_paid
-        // - paid -> paid
-        DB::table('orders')->where('payment_status', 'pending')->update(['payment_status' => 'non_paid']);
+        // - non_paid -> pending
+        DB::table('orders')->where('payment_status', 'non_paid')->update(['payment_status' => 'pending']);
 
-        // 2. Remap existing order status values:
+        // 2. Change column default value to 'pending'
+        Schema::table('orders', function (Blueprint $table) {
+            $table->string('payment_status')->default('pending')->change();
+        });
+
+        // 3. Remap existing order status values:
         // - pending -> pending
         // - completed -> approve
         // - paid -> approve
@@ -26,9 +30,14 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Reverse mappings
+        // 1. Change column default value back to 'non_paid'
+        Schema::table('orders', function (Blueprint $table) {
+            $table->string('payment_status')->default('non_paid')->change();
+        });
+
+        // 2. Reverse mappings
         DB::table('orders')->where('status', 'approve')->update(['status' => 'completed']);
         DB::table('orders')->where('status', 'decline')->update(['status' => 'cancelled']);
-        DB::table('orders')->where('payment_status', 'non_paid')->update(['payment_status' => 'pending']);
+        DB::table('orders')->where('payment_status', 'pending')->update(['payment_status' => 'non_paid']);
     }
 };

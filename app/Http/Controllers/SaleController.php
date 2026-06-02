@@ -46,24 +46,28 @@ class SaleController extends Controller
         ];
 
         $paymentColors = [
-            'non_paid' => 'bg-label-warning',
-            'paid'     => 'bg-label-info',
+            'pending' => 'bg-label-warning',
+            'paid'    => 'bg-label-info',
         ];
         $paymentLabels = [
-            'non_paid' => 'Non Paid',
-            'paid'     => 'Paid',
+            'pending' => 'Pending',
+            'paid'    => 'Paid',
         ];
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
-            $actions = '<a href="' . route('admin.sales.show', $order) . '" class="btn btn-sm btn-icon btn-label-secondary me-1"><i class="ti ti-eye"></i></a>';
+            $actions = '<a href="' . route('admin.sales.show', $order) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
             if ($canEdit && $order->status === 'pending') {
-                $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="btn btn-sm btn-icon btn-label-info me-1"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
+            }
+            if ($canEdit && ($order->status === 'pending' || ($order->status === 'approve' && $order->payment_status === 'pending'))) {
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
             }
             if ($canDelete && $order->status === 'decline') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [
@@ -80,7 +84,10 @@ class SaleController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        return response()->json(['status' => 'success', 'data' => $data])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function create()
@@ -113,9 +120,12 @@ class SaleController extends Controller
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
-            'items.*.price'          => ['required', 'numeric', 'min:0'],
+            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'         => ['nullable', 'string', 'in:paid,non_paid'],
+            'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
         ]);
 
         if ($validator->fails()) {
@@ -125,54 +135,90 @@ class SaleController extends Controller
             ], 422);
         }
 
-        $isApprove = ($request->status ?? 'pending') === 'approve';
+        $isApprove = ($request->status ?? 'approve') === 'approve';
 
         if ($isApprove) {
             foreach ($request->items as $index => $item) {
-                $stock = Inventory::where('product_id', $item['product_id'])
+                $available = Inventory::where('product_id', $item['product_id'])
                     ->where('location_id', $request->location_id)
                     ->value('quantity') ?? 0;
 
-                if ($stock < $item['quantity']) {
+                if ($available < $item['quantity']) {
                     $product = Product::find($item['product_id']);
                     return response()->json([
                         'status'  => 'error',
-                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $stock . ' in stock at selected location.']],
+                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $available . ' available.']],
                     ], 422);
                 }
             }
         }
 
         DB::transaction(function () use ($request, $isApprove) {
-            $totalAmount   = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
-            $finalAmount   = $totalAmount;
-
-            $order = Order::create([
-                'customer_id'    => $request->customer_id,
-                'location_id'    => $request->location_id,
-                'user_id'        => auth()->id(),
-                'order_no'       => generate_invoice_no('ORD', Order::class, 'order_no'),
-                'order_type'     => 'sale',
-                'status'         => $request->status ?? 'pending',
-                'payment_status' => $request->payment_status ?? 'non_paid',
-                'payment_method' => $request->payment_method,
-                'total_amount'   => $totalAmount,
-                'final_amount'   => $finalAmount,
-            ]);
+            $totalAmount = 0.0;
+            $itemsData = [];
 
             foreach ($request->items as $itemData) {
+                $qty = (int)$itemData['quantity'];
+                $price = (float)$itemData['price'];
+                $subtotal = $qty * $price;
+
+                $discVal = (float)($itemData['discount_value'] ?? 0);
+                $discType = $itemData['discount_type'] ?? 'flat';
+
+                $discAmount = 0.0;
+                if ($discType === 'flat') {
+                    $discAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $discAmount = $subtotal * ($discVal / 100);
+                }
+
+                if ($discAmount > $subtotal) {
+                    $discAmount = $subtotal;
+                }
+
+                $itemTotal = $subtotal - $discAmount;
+                $totalAmount += $itemTotal;
+
+                $itemsData[] = [
+                    'product_id'      => $itemData['product_id'],
+                    'quantity'        => $qty,
+                    'price'           => $price,
+                    'discount_type'   => $discType,
+                    'discount_value'  => $discVal,
+                    'discount_amount' => $discAmount,
+                    'total'           => $itemTotal,
+                ];
+            }
+
+            // Overall discount calculation (removed/hardcoded to 0)
+            $order = Order::create([
+                'customer_id'     => $request->customer_id,
+                'location_id'     => $request->location_id,
+                'user_id'         => auth()->id(),
+                'order_no'        => generate_invoice_no('ORD', Order::class, 'order_no'),
+                'order_type'      => 'sale',
+                'status'          => $request->status ?? 'approve',
+                'payment_status'  => $request->payment_status ?? 'pending',
+                'payment_method'  => $request->payment_method,
+                'final_amount'    => $totalAmount,
+            ]);
+
+            foreach ($itemsData as $item) {
                 OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $itemData['product_id'],
-                    'quantity'   => $itemData['quantity'],
-                    'price'      => $itemData['price'],
-                    'total'      => ($itemData['price'] * $itemData['quantity']),
+                    'order_id'        => $order->id,
+                    'product_id'      => $item['product_id'],
+                    'quantity'        => $item['quantity'],
+                    'price'           => $item['price'],
+                    'discount_type'   => $item['discount_type'],
+                    'discount_value'  => $item['discount_value'],
+                    'discount_amount' => $item['discount_amount'],
+                    'total'           => $item['total'],
                 ]);
 
                 if ($isApprove) {
-                    Inventory::where('product_id', $itemData['product_id'])
+                    Inventory::where('product_id', $item['product_id'])
                         ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $itemData['quantity']);
+                        ->decrement('quantity', $item['quantity']);
                 }
             }
         });
@@ -233,7 +279,13 @@ class SaleController extends Controller
         })->values();
 
         $existingItems = $sale->items->map(function ($item) {
-            return ['product_id' => $item->product_id, 'price' => $item->price, 'quantity' => $item->quantity];
+            return [
+                'product_id'     => $item->product_id,
+                'price'          => $item->price,
+                'quantity'       => $item->quantity,
+                'discount_type'  => $item->discount_type ?? 'flat',
+                'discount_value' => $item->discount_value ?? 0,
+            ];
         })->values();
 
         return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'products' => $products, 'allProducts' => $allProducts, 'existingItems' => $existingItems]);
@@ -254,16 +306,19 @@ class SaleController extends Controller
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
-            'items.*.price'      => ['required', 'numeric', 'min:0'],
-            'status'             => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'     => ['nullable', 'string', 'in:paid,non_paid'],
+            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_value'         => ['nullable', 'numeric', 'min:0'],
+            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
+            'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
-        $isApprove = ($request->status ?? 'pending') === 'approve';
+        $isApprove = ($request->status ?? 'approve') === 'approve';
 
         if ($isApprove) {
             foreach ($request->items as $index => $item) {
@@ -283,35 +338,71 @@ class SaleController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $sale, $isApprove) {
+        DB::transaction(function () use ($request, $isApprove, $sale) {
             // Delete old items (we don't need to increment inventory because they were pending and had no stock deducted)
             $sale->items()->delete();
 
-            $totalAmount = collect($request->items)->sum(fn($item) => ($item['price'] * $item['quantity']));
-
-            $sale->update([
-                'customer_id'    => $request->customer_id,
-                'location_id'    => $request->location_id,
-                'payment_method' => $request->payment_method,
-                'status'         => $request->status ?? 'pending',
-                'payment_status' => $request->payment_status ?? 'non_paid',
-                'total_amount'   => $totalAmount,
-                'final_amount'   => $totalAmount,
-            ]);
+            $totalAmount = 0.0;
+            $itemsData = [];
 
             foreach ($request->items as $itemData) {
+                $qty = (int)$itemData['quantity'];
+                $price = (float)$itemData['price'];
+                $subtotal = $qty * $price;
+
+                $discVal = (float)($itemData['discount_value'] ?? 0);
+                $discType = $itemData['discount_type'] ?? 'flat';
+
+                $discAmount = 0.0;
+                if ($discType === 'flat') {
+                    $discAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $discAmount = $subtotal * ($discVal / 100);
+                }
+
+                if ($discAmount > $subtotal) {
+                    $discAmount = $subtotal;
+                }
+
+                $itemTotal = $subtotal - $discAmount;
+                $totalAmount += $itemTotal;
+
+                $itemsData[] = [
+                    'product_id'      => $itemData['product_id'],
+                    'quantity'        => $qty,
+                    'price'           => $price,
+                    'discount_type'   => $discType,
+                    'discount_value'  => $discVal,
+                    'discount_amount' => $discAmount,
+                    'total'           => $itemTotal,
+                ];
+            }
+
+            $sale->update([
+                'customer_id'     => $request->customer_id,
+                'location_id'     => $request->location_id,
+                'payment_method'  => $request->payment_method,
+                'status'          => $request->status ?? 'approve',
+                'payment_status'  => $request->payment_status ?? 'pending',
+                'final_amount'    => $totalAmount,
+            ]);
+
+            foreach ($itemsData as $item) {
                 OrderItem::create([
-                    'order_id'   => $sale->id,
-                    'product_id' => $itemData['product_id'],
-                    'quantity'   => $itemData['quantity'],
-                    'price'      => $itemData['price'],
-                    'total'      => ($itemData['price'] * $itemData['quantity']),
+                    'order_id'        => $sale->id,
+                    'product_id'      => $item['product_id'],
+                    'quantity'        => $item['quantity'],
+                    'price'           => $item['price'],
+                    'discount_type'   => $item['discount_type'],
+                    'discount_value'  => $item['discount_value'],
+                    'discount_amount' => $item['discount_amount'],
+                    'total'           => $item['total'],
                 ]);
 
                 if ($isApprove) {
-                    Inventory::where('product_id', $itemData['product_id'])
+                    Inventory::where('product_id', $item['product_id'])
                         ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $itemData['quantity']);
+                        ->decrement('quantity', $item['quantity']);
                 }
             }
         });
@@ -325,7 +416,7 @@ class SaleController extends Controller
 
         $validator = Validator::make($request->all(), [
             'status'         => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status' => ['nullable', 'string', 'in:paid,non_paid'],
+            'payment_status' => ['nullable', 'string', 'in:paid,pending'],
         ]);
 
         if ($validator->fails()) {
@@ -369,9 +460,8 @@ class SaleController extends Controller
                             }
                         }
 
-                        // Reset payment status to non_paid if declined
                         if ($newStatus === 'decline') {
-                            $sale->update(['status' => $newStatus, 'payment_status' => 'non_paid']);
+                            $sale->update(['status' => $newStatus, 'payment_status' => 'pending']);
                         } else {
                             $sale->update(['status' => $newStatus]);
                         }

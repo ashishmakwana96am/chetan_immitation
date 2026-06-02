@@ -72,6 +72,20 @@ $(document).ready(function () {
             if (info.pages > 0 && info.page >= info.pages) {
                 api.page('previous').draw('page');
             }
+
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                const apiNode = api.table().node();
+                if (apiNode) {
+                    const tooltipTriggerList = [].slice.call(apiNode.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        const instance = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+                        if (instance) {
+                            instance.dispose();
+                        }
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                }
+            }
         });
     }
 
@@ -307,6 +321,27 @@ $(document).ready(function () {
                 });
             }
         });
+    });
+
+    // Global dynamic tooltip delegation to support any static/dynamic element seamlessly
+    $(document).on('mouseenter', '[data-bs-toggle="tooltip"]', function () {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            let instance = bootstrap.Tooltip.getInstance(this);
+            if (!instance) {
+                instance = new bootstrap.Tooltip(this);
+                // Trigger show on first hover
+                instance.show();
+            }
+        }
+    });
+
+    $(document).on('click mouseleave', '[data-bs-toggle="tooltip"]', function () {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            const instance = bootstrap.Tooltip.getInstance(this);
+            if (instance) {
+                instance.hide();
+            }
+        }
     });
 
 });

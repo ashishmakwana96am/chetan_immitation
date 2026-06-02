@@ -30,10 +30,10 @@ class CategoryController extends Controller
 
             $actions = '';
             if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.categories.edit', $category) . '"><i class="ti ti-pencil"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.categories.edit', $category) . '" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
             }
             if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.categories.destroy', $category) . '" data-row-id="category-row-' . $category->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.categories.destroy', $category) . '" data-row-id="category-row-' . $category->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [

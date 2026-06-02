@@ -161,6 +161,7 @@
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
+                <small class="text-muted stock-info-display"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -316,6 +317,7 @@ $(document).ready(function () {
             row.find('.purchase-price').val(data.purchase_price);
             row.find('.item-qty').val(data.quantity);
             updateRowTotal(row);
+            updateStockInfo(row);
         }
 
         itemIndex++;
@@ -372,6 +374,38 @@ $(document).ready(function () {
             $('#grandTotal').closest('tr').hide();
             $('#summaryTotal').closest('.card').hide();
         }
+    }
+
+    function updateStockInfo(row) {
+        const productId = row.find('.product-id-input').val();
+        const stockDisplay = row.find('.stock-info-display');
+
+        if (!productId) {
+            stockDisplay.text('').removeAttr('title').css('cursor', '');
+            return;
+        }
+
+        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId })
+            .done(function (res) {
+                const qty = res.data?.quantity ?? 0;
+                const breakdown = res.data?.breakdown || [];
+                
+                let titleText = 'Stock Breakdown:\n';
+                if (breakdown.length > 0) {
+                    breakdown.forEach(item => {
+                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
+                    });
+                } else {
+                    titleText += 'No stock in any branch';
+                }
+                
+                stockDisplay
+                    .text('Total Stock: ' + qty)
+                    .attr('title', titleText.trim())
+                    .css('cursor', 'help')
+                    .removeClass('text-success text-danger')
+                    .addClass(qty > 0 ? 'text-success' : 'text-danger');
+            });
     }
 
     // -------------------------------------------------------

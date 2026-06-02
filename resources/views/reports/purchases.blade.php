@@ -194,7 +194,7 @@
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>
-                                        <a href="{{ route('admin.purchases.show', $invoice->id) }}" class="btn btn-sm btn-icon btn-label-secondary">
+                                        <a href="{{ route('admin.purchases.show', $invoice->id) }}" class="btn btn-sm btn-icon btn-label-secondary" data-bs-toggle="tooltip" title="View">
                                             <i class="ti ti-eye"></i>
                                         </a>
                                     </td>

@@ -30,10 +30,10 @@ class SubCategoryController extends Controller
 
             $actions = '';
             if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '"><i class="ti ti-pencil"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
             }
             if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sub-categories.destroy', $subCategory) . '" data-row-id="subcategory-row-' . $subCategory->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sub-categories.destroy', $subCategory) . '" data-row-id="subcategory-row-' . $subCategory->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [

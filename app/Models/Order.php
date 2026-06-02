@@ -15,15 +15,13 @@ class Order extends Model
         'status',
         'payment_status',
         'payment_method',
-        'total_amount',
         'final_amount',
     ];
 
     protected function casts(): array
     {
         return [
-            'total_amount' => 'decimal:2',
-            'final_amount' => 'decimal:2',
+            'final_amount'    => 'decimal:2',
         ];
     }
 

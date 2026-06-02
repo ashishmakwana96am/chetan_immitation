@@ -57,12 +57,16 @@ class PurchaseInvoiceController extends Controller
             ];
             $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ucfirst($invoice->payment_status ?? 'pending') . '</span>';
 
-            $actions = '<a href="' . route('admin.purchases.show', $invoice) . '" class="btn btn-sm btn-icon btn-label-secondary me-1"><i class="ti ti-eye"></i></a>';
+            $actions = '<a href="' . route('admin.purchases.show', $invoice) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
             if ($canEdit && $invoice->status === 'pending') {
-                $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="btn btn-sm btn-icon btn-label-info me-1"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
+            }
+            if ($canEdit && ($invoice->status === 'pending' || ($invoice->status === 'approve' && $invoice->payment_status === 'pending'))) {
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 'pending') . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
             }
             if ($canDelete && $invoice->status === 'pending') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash"></i></button>';
+                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
             }
 
             return [
@@ -78,7 +82,10 @@ class PurchaseInvoiceController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        return response()->json(['status' => 'success', 'data' => $data])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function show(PurchaseInvoice $purchase)
@@ -148,7 +155,7 @@ class PurchaseInvoiceController extends Controller
                 'supplier_id'    => $request->supplier_id,
                 'invoice_no'     => generate_invoice_no('PUR', PurchaseInvoice::class),
                 'total_amount'   => $totalAmount,
-                'status'         => $request->status ?? 'pending',
+                'status'         => $request->status ?? 'approve',
                 'payment_status' => $request->payment_status ?? 'pending',
                 'created_by'     => auth()->id(),
             ]);
@@ -267,7 +274,7 @@ class PurchaseInvoiceController extends Controller
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $oldStatus = $purchase->status;
-            $newStatus = $request->status ?? 'pending';
+            $newStatus = $request->status ?? 'approve';
 
             $purchase->update([
                 'supplier_id'    => $request->supplier_id,
