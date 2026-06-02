@@ -233,5 +233,16 @@ html, body, .layout-wrapper, .layout-container, .layout-page, .content-wrapper {
   padding-left: 1.25rem !important;
 }
 
+/*
+* Table Action Buttons Wrapping and Spacing Fix
+******************************************************************************/
+table.dataTable td,
+table td {
+  white-space: normal !important;
+}
 
-
+table.dataTable td .btn,
+table td .btn {
+  margin-top: 3px !important;
+  margin-bottom: 3px !important;
+}

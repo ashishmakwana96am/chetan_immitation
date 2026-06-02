@@ -62,6 +62,7 @@
                                     </select>
                                     <button type="button" class="btn btn-label-primary"
                                         data-common-modal="{{ route('admin.customers.create') }}"
+                                        data-bs-toggle="tooltip"
                                         title="Add Customer">
                                         <i class="ti ti-plus"></i>
                                     </button>
