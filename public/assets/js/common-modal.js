@@ -63,31 +63,41 @@ $(document).ready(function () {
     });
 
     // -------------------------------------------------------
-    // DataTables global pagination fix
+    // DataTables global pagination & tooltip fix
     // -------------------------------------------------------
-    if ($.fn.DataTable) {
-        $(document).on('draw.dt', function (e, settings) {
-            const api = new $.fn.dataTable.Api(settings);
-            const info = api.page.info();
-            if (info.pages > 0 && info.page >= info.pages) {
-                api.page('previous').draw('page');
+    $(document).on('draw.dt', function (e, settings) {
+        try {
+            if ($.fn.dataTable && $.fn.dataTable.Api) {
+                const api = new $.fn.dataTable.Api(settings);
+                const info = api.page.info();
+                if (info.pages > 0 && info.page >= info.pages) {
+                    api.page('previous').draw('page');
+                }
             }
+        } catch (err) {
+            console.warn('DataTables pagination fix warning:', err);
+        }
 
+        try {
             if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                const apiNode = api.table().node();
+                const apiNode = settings.nTable;
                 if (apiNode) {
                     const tooltipTriggerList = [].slice.call(apiNode.querySelectorAll('[data-bs-toggle="tooltip"]'));
                     tooltipTriggerList.map(function (tooltipTriggerEl) {
                         const instance = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
                         if (instance) {
-                            instance.dispose();
+                            try {
+                                instance.dispose();
+                            } catch (e) {}
                         }
                         return new bootstrap.Tooltip(tooltipTriggerEl, { container: 'body' });
                     });
                 }
             }
-        });
-    }
+        } catch (err) {
+            console.error('DataTables tooltip init error:', err);
+        }
+    });
 
     // -------------------------------------------------------
     // Open common modal
@@ -344,34 +354,41 @@ $(document).ready(function () {
     // Global dynamic tooltip delegation to support any static/dynamic element seamlessly
     $(document).on('mouseenter', '[data-bs-toggle="tooltip"]', function () {
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-            let instance = bootstrap.Tooltip.getInstance(this);
-            let hasBodyContainer = false;
-            if (instance) {
-                let container = (instance._config && instance._config.container) || (instance.options && instance.options.container);
-                if (container === 'body') {
-                    hasBodyContainer = true;
+            try {
+                let instance = bootstrap.Tooltip.getInstance(this);
+                let hasBodyContainer = false;
+                if (instance) {
+                    let container = (instance._config && instance._config.container) || (instance.options && instance.options.container);
+                    if (container === 'body') {
+                        hasBodyContainer = true;
+                    }
                 }
+                if (instance && !hasBodyContainer) {
+                    try {
+                        instance.dispose();
+                    } catch (e) {}
+                    instance = null;
+                }
+                if (!instance) {
+                    instance = new bootstrap.Tooltip(this, {
+                        container: 'body'
+                    });
+                    instance.show();
+                }
+            } catch (err) {
+                console.error('Tooltip init error:', err);
             }
-            if (instance && !hasBodyContainer) {
-                instance.dispose();
-                instance = null;
-            }
-            if (!instance) {
-                instance = new bootstrap.Tooltip(this, {
-                    container: 'body',
-                    trigger: 'manual'
-                });
-            }
-            instance.show();
         }
     });
 
     $(document).on('mouseleave click', '[data-bs-toggle="tooltip"]', function () {
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-            const instance = bootstrap.Tooltip.getInstance(this);
-            if (instance) {
-                instance.hide();
-            }
+            try {
+                const instance = bootstrap.Tooltip.getInstance(this);
+                if (instance) {
+                    instance.hide();
+                }
+            } catch (e) {}
         }
     });
 
