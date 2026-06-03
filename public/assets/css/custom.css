@@ -246,3 +246,12 @@ table td .btn {
   margin-top: 3px !important;
   margin-bottom: 3px !important;
 }
+
+/*
+* Prevent background body scroll when offcanvas/sidepan is open
+******************************************************************************/
+html.offcanvas-locked,
+body.offcanvas-locked {
+  overflow: hidden !important;
+  height: 100vh !important;
+}

@@ -11,6 +11,16 @@
             autofocus />
         <div class="invalid-feedback"></div>
     </div>
+    <div class="mb-3">
+        <label class="form-label" for="permissionModule">Module Name <span class="text-danger">*</span></label>
+        <select id="permissionModule" name="module" class="form-select">
+            <option value="">-- Select Module --</option>
+            @foreach($modules as $module)
+                <option value="{{ $module->name }}">{{ $module->name }}</option>
+            @endforeach
+        </select>
+        <div class="invalid-feedback"></div>
+    </div>
     <div class="d-flex gap-2 mt-auto pt-3 border-top">
         <button type="submit" class="btn btn-primary w-50">Create Permission</button>
         <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="modal">Cancel</button>

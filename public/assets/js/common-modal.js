@@ -121,9 +121,27 @@ $(document).ready(function () {
                 if (form.length) {
                     form.addClass('d-flex flex-column flex-grow-1 h-100 mb-0');
                     
-                    form.find('.row > div')
-                        .removeClass('col-12 col-md-12 col-md-6 col-sm-6 col-lg-6 col-md-4 col-lg-4')
-                        .addClass('col-md-6 col-12');
+                    let row = form.find('.row');
+                    if (row.length === 0) {
+                        row = $('<div class="row g-3"></div>');
+                        let fields = form.children('div').filter('.mb-3, .mb-4').filter(function() {
+                            let el = $(this);
+                            return el.find('table').length === 0 && el.find('input, select, textarea').length > 0;
+                        });
+                        if (fields.length > 0) {
+                            fields.each(function() {
+                                let col = $('<div class="col-md-6 col-12"></div>');
+                                $(this).before(col);
+                                col.append($(this));
+                            });
+                            form.find('.col-md-6').appendTo(row);
+                            form.prepend(row);
+                        }
+                    } else {
+                        row.find('> div')
+                            .removeClass('col-12 col-md-12 col-md-6 col-sm-6 col-lg-6 col-md-4 col-lg-4')
+                            .addClass('col-md-6 col-12');
+                    }
                     
                     let btnDiv = form.find('button[type="submit"]').parent();
                     let scrollWrapper = $('<div class="flex-grow-1 p-4" style="overflow-y: auto;"></div>');
@@ -341,6 +359,17 @@ $(document).ready(function () {
             if (instance) {
                 instance.hide();
             }
+        }
+    });
+
+    // Global backdrop scroll preventer for all offcanvases in the project
+    $(document).on('show.bs.offcanvas', '.offcanvas', function () {
+        $('html, body').addClass('offcanvas-locked');
+    });
+
+    $(document).on('hidden.bs.offcanvas', '.offcanvas', function () {
+        if ($('.offcanvas.show').length === 0) {
+            $('html, body').removeClass('offcanvas-locked');
         }
     });
 

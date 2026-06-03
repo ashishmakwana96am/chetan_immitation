@@ -23,176 +23,69 @@
 
   <ul class="menu-inner py-1">
 
-    <!-- Dashboard -->
-    <li class="menu-item {{ active_menu('admin/dashboard') }}">
-      <a href="{{ route('admin.dashboard') }}" class="menu-link">
-        <i class="menu-icon tf-icons ti ti-smart-home"></i>
-        <div>Dashboard</div>
-      </a>
-    </li>
-    
-    <!-- Users -->
-    @if(can_any(['view users']))
-      <li class="menu-item {{ active_menu('admin/users*') }}">
-        <a href="{{ route('admin.users.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-user"></i>
-          <div>Users</div>
-        </a>
-      </li>
-    @endif
+    @php
+      try {
+          $modules = \App\Models\Module::whereNull('parent_id')->with('children')->orderBy('sort_order')->get();
+      } catch (\Exception $e) {
+          $modules = collect();
+      }
+    @endphp
 
-    <!-- Locations -->
-    @if(can_any(['view locations']))
-      <li class="menu-item {{ active_menu('admin/locations*') }}">
-        <a href="{{ route('admin.locations.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-map-pin"></i>
-          <div>Locations</div>
-        </a>
-      </li>
-    @endif
+    @foreach($modules as $module)
+      @php
+        $isVisible = false;
+        if (!is_null($module->permission)) {
+            if (auth()->check() && auth()->user()->can($module->permission)) {
+                $isVisible = true;
+            }
+        } else {
+            if ($module->children->count() === 0) {
+                $isVisible = true; // Always show if no permission and no children
+            } else {
+                foreach ($module->children as $child) {
+                    if (!is_null($child->permission) && auth()->check() && auth()->user()->can($child->permission)) {
+                        $isVisible = true;
+                        break;
+                    }
+                }
+            }
+        }
+      @endphp
 
-    <!-- Categories -->
-    @if(can_any(['view categories']))
-      <li class="menu-item {{ active_menu('admin/categories*') }}">
-        <a href="{{ route('admin.categories.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-category"></i>
-          <div>Categories</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Sub Categories -->
-    @if(can_any(['view sub categories']))
-      <li class="menu-item {{ active_menu('admin/sub-categories*') }}">
-        <a href="{{ route('admin.sub-categories.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-layout-grid-add"></i>
-          <div>Sub Categories</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Products -->
-    @if(can_any(['view products']))
-      <li class="menu-item {{ active_menu('admin/products*') }}">
-        <a href="{{ route('admin.products.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-box"></i>
-          <div>Products</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Suppliers -->
-    @if(can_any(['view suppliers']))
-      <li class="menu-item {{ active_menu('admin/suppliers*') }}">
-        <a href="{{ route('admin.suppliers.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-truck"></i>
-          <div>Suppliers</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Purchases -->
-    @if(can_any(['view purchases']))
-      <li class="menu-item {{ active_menu('admin/purchases*') }}">
-        <a href="{{ route('admin.purchases.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-shopping-cart"></i>
-          <div>Purchases</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Customers -->
-    @if(can_any(['view customers']))
-      <li class="menu-item {{ active_menu('admin/customers*') }}">
-        <a href="{{ route('admin.customers.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-users"></i>
-          <div>Customers</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Sales -->
-    @if(can_any(['view sales']))
-      <li class="menu-item {{ active_menu('admin/sales*') }}">
-        <a href="{{ route('admin.sales.index') }}" class="menu-link">
-          <i class="menu-icon tf-icons ti ti-receipt"></i>
-          <div>Sales</div>
-        </a>
-      </li>
-    @endif
-
-    <!-- Reports -->
-    @if(can_any(['view product reports', 'view stock inventory reports', 'view purchase reports', 'view sale reports', 'view profit loss reports']))
-      <li class="menu-item {{ active_menu_open(['admin/reports*']) }}">
-        <a href="javascript:void(0);" class="menu-link menu-toggle">
-          <i class="menu-icon tf-icons ti ti-chart-bar"></i>
-          <div>Reports</div>
-        </a>
-        <ul class="menu-sub">
-          @can('view product reports')
-          <li class="menu-item {{ active_menu('admin/reports/products') }}">
-            <a href="{{ route('admin.reports.products') }}" class="menu-link">
-              <div>Products Report</div>
+      @if($isVisible)
+        @if($module->children->count() > 0)
+          @php
+            $activePatterns = explode(',', $module->active_pattern ?? '');
+            $activePatterns = array_map('trim', $activePatterns);
+          @endphp
+          <li class="menu-item {{ active_menu_open($activePatterns) }}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons {{ $module->icon ?? 'ti ti-circle' }}"></i>
+              <div>{{ $module->name }}</div>
+            </a>
+            <ul class="menu-sub">
+              @foreach($module->children as $child)
+                @if(is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission)))
+                  <li class="menu-item {{ active_menu($child->active_pattern) }}">
+                    <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
+                      <div>{{ $child->name }}</div>
+                    </a>
+                  </li>
+                @endif
+              @endforeach
+            </ul>
+          </li>
+        @else
+          {{-- Flat Menu Item (e.g. Dashboard, Users, Locations) --}}
+          <li class="menu-item {{ active_menu($module->active_pattern) }}">
+            <a href="{{ (!is_null($module->route) && Route::has($module->route)) ? route($module->route) : 'javascript:void(0);' }}" class="menu-link">
+              <i class="menu-icon tf-icons {{ $module->icon ?? 'ti ti-circle' }}"></i>
+              <div>{{ $module->name }}</div>
             </a>
           </li>
-          @endcan
-          @can('view stock inventory reports')
-          <li class="menu-item {{ active_menu('admin/reports/stock-inventory') }}">
-            <a href="{{ route('admin.reports.stock-inventory') }}" class="menu-link">
-              <div>Stock Inventory</div>
-            </a>
-          </li>
-          @endcan
-          @can('view purchase reports')
-          <li class="menu-item {{ active_menu('admin/reports/purchases') }}">
-            <a href="{{ route('admin.reports.purchases') }}" class="menu-link">
-              <div>Purchase Reports</div>
-            </a>
-          </li>
-          @endcan
-          @can('view sale reports')
-          <li class="menu-item {{ active_menu('admin/reports/sales') }}">
-            <a href="{{ route('admin.reports.sales') }}" class="menu-link">
-              <div>Sale Report</div>
-            </a>
-          </li>
-          @endcan
-          @can('view profit loss reports')
-          <li class="menu-item {{ active_menu('admin/reports/profit-loss') }}">
-            <a href="{{ route('admin.reports.profit-loss') }}" class="menu-link">
-              <div>Profit & Loss Report</div>
-            </a>
-          </li>
-          @endcan
-        </ul>
-      </li>
-    @endif
-
-    <!-- Roles & Permissions -->
-    @if(can_any(['view roles', 'view permissions']))
-      <li class="menu-item {{ active_menu_open(['admin/roles*', 'admin/permissions*']) }}">
-        <a href="javascript:void(0);" class="menu-link menu-toggle">
-          <i class="menu-icon tf-icons ti ti-shield-lock"></i>
-          <div>Roles &amp; Permissions</div>
-        </a>
-        <ul class="menu-sub">
-          @if(can_any(['view roles']))
-            <li class="menu-item {{ active_menu('admin/roles*') }}">
-              <a href="{{ route('admin.roles.index') }}" class="menu-link">
-                <div>Roles</div>
-              </a>
-            </li>
-          @endif
-          @if(can_any(['view permissions']))
-            <li class="menu-item {{ active_menu('admin/permissions*') }}">
-              <a href="{{ route('admin.permissions.index') }}" class="menu-link">
-                <div>Permissions</div>
-              </a>
-            </li>
-          @endif
-        </ul>
-      </li>
-    @endif
+        @endif
+      @endif
+    @endforeach
 
   </ul>
 </aside>

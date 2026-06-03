@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Permissions')
+@section('title', 'Modules')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -9,24 +9,27 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Permissions List</h4>
+        <h4 class="fw-semibold mb-0">Modules List</h4>
         @can('create permissions')
-            <button class="btn btn-primary" data-common-modal="{{ route('admin.permissions.create') }}">
-                <i class="ti ti-plus me-1"></i> Add Permission
+            <button class="btn btn-primary" data-common-modal="{{ route('admin.modules.create') }}">
+                <i class="ti ti-plus me-1"></i> Add Module
             </button>
         @endcan
     </div>
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top" id="permissionsTable">
+            <table class="table border-top" id="modulesTable">
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Name</th>
-                        <th>Module</th>
-                        <th>Assigned Roles</th>
-                        <th>Created Date</th>
+                        <th>Parent Module</th>
+                        <th>Icon</th>
+                        <th>Route Name</th>
+                        <th>Active Pattern</th>
+                        <th>Permission</th>
+                        <th>Sort Order</th>
                         @if(auth()->user()->can('edit permissions') || auth()->user()->can('delete permissions'))
                             <th>Actions</th>
                         @endif
@@ -41,16 +44,19 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            const table = $('#permissionsTable').DataTable({
+            const table = $('#modulesTable').DataTable({
                 responsive : false,
                 order      : [],
-                ajax       : { url: '{{ route('admin.permissions.data') }}', dataSrc: 'data' },
+                ajax       : { url: '{{ route('admin.modules.data') }}', dataSrc: 'data' },
                 columns    : [
                     { data: 'index',      width: '5%' },
                     { data: 'name' },
-                    { data: 'module' },
-                    { data: 'roles' },
-                    { data: 'created_at' },
+                    { data: 'parent' },
+                    { data: 'icon' },
+                    { data: 'route' },
+                    { data: 'active_pattern' },
+                    { data: 'permission' },
+                    { data: 'sort_order' },
                     @if(auth()->user()->can('edit permissions') || auth()->user()->can('delete permissions'))
                         { data: 'actions', orderable: false },
                     @endif

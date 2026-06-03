@@ -57,12 +57,15 @@ class RoleController extends Controller
     {
         $this->authorize('create roles');
         $customOrder = [
-            'Users', 'Roles', 'Permissions', 'Locations', 
+            'Users', 'Roles', 'Permissions', 'Modules', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
         $permissions = Permission::get()->groupBy(function ($permission) {
+            if (!empty($permission->module)) {
+                return $permission->module;
+            }
             if (str_contains($permission->name, 'sub categories')) {
                 return 'Sub Categories';
             }
@@ -110,12 +113,15 @@ class RoleController extends Controller
     {
         $this->authorize('edit roles');
         $customOrder = [
-            'Users', 'Roles', 'Permissions', 'Locations', 
+            'Users', 'Roles', 'Permissions', 'Modules', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
         $permissions = Permission::get()->groupBy(function ($permission) {
+            if (!empty($permission->module)) {
+                return $permission->module;
+            }
             if (str_contains($permission->name, 'sub categories')) {
                 return 'Sub Categories';
             }

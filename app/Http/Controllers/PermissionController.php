@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
+use App\Models\Module;
 
 class PermissionController extends Controller
 {
@@ -39,6 +40,7 @@ class PermissionController extends Controller
             return [
                 'index'      => $index + 1,
                 'name'       => $permission->name,
+                'module'     => '<span class="badge bg-label-info">' . ($permission->module ?? 'None') . '</span>',
                 'roles'      => $roles,
                 'created_at' => format_date($permission->created_at),
                 'actions'    => $actions,
@@ -51,7 +53,8 @@ class PermissionController extends Controller
     public function create()
     {
         $this->authorize('create permissions');
-        return view('permissions.create');
+        $modules = Module::orderBy('name')->get();
+        return view('permissions.create', compact('modules'));
     }
 
     public function store(Request $request)
@@ -59,7 +62,8 @@ class PermissionController extends Controller
         $this->authorize('create permissions');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:permissions,name'],
+            'name'   => ['required', 'string', 'max:100', 'unique:permissions,name'],
+            'module' => ['required', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -69,7 +73,10 @@ class PermissionController extends Controller
             ], 422);
         }
 
-        Permission::create(['name' => $request->name]);
+        Permission::create([
+            'name'   => $request->name,
+            'module' => $request->module,
+        ]);
 
         return response()->json([
             'status'  => 'success',
@@ -80,7 +87,8 @@ class PermissionController extends Controller
     public function edit(Permission $permission)
     {
         $this->authorize('edit permissions');
-        return view('permissions.edit', compact('permission'));
+        $modules = Module::orderBy('name')->get();
+        return view('permissions.edit', compact('permission', 'modules'));
     }
 
     public function update(Request $request, Permission $permission)
@@ -88,7 +96,8 @@ class PermissionController extends Controller
         $this->authorize('edit permissions');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:permissions,name,' . $permission->id],
+            'name'   => ['required', 'string', 'max:100', 'unique:permissions,name,' . $permission->id],
+            'module' => ['required', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -98,7 +107,10 @@ class PermissionController extends Controller
             ], 422);
         }
 
-        $permission->update(['name' => $request->name]);
+        $permission->update([
+            'name'   => $request->name,
+            'module' => $request->module,
+        ]);
 
         return response()->json([
             'status'  => 'success',

@@ -70,6 +70,10 @@
                                             @else
                                                 @if(str_contains($permission->name, 'password'))
                                                     Change Password
+                                                @elseif(str_contains($permission->name, 'payment status'))
+                                                    Edit Payment Status
+                                                @elseif(str_contains($permission->name, 'status'))
+                                                    Edit Status
                                                 @else
                                                     {{ explode(' ', $permission->name)[0] }}
                                                 @endif

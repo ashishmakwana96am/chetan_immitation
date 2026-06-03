@@ -12,88 +12,93 @@ class PermissionSeeder extends Seeder
     {
         $permissions = [
             // Users
-            'view users',
-            'create users',
-            'edit users',
-            'delete users',
-            'change users password',
+            'view users' => 'Users',
+            'create users' => 'Users',
+            'edit users' => 'Users',
+            'delete users' => 'Users',
+            'change users password' => 'Users',
 
             // Roles
-            'view roles',
-            'create roles',
-            'edit roles',
-            'delete roles',
+            'view roles' => 'Roles',
+            'create roles' => 'Roles',
+            'edit roles' => 'Roles',
+            'delete roles' => 'Roles',
 
             // Permissions
-            'view permissions',
-            'create permissions',
-            'edit permissions',
-            'delete permissions',
+            'view permissions' => 'Permissions',
+            'create permissions' => 'Permissions',
+            'edit permissions' => 'Permissions',
+            'delete permissions' => 'Permissions',
+
+            // Modules
+            'view modules' => 'Modules',
+            'create modules' => 'Modules',
+            'edit modules' => 'Modules',
+            'delete modules' => 'Modules',
 
             // Locations
-            'view locations',
-            'create locations',
-            'edit locations',
-            'delete locations',
+            'view locations' => 'Locations',
+            'create locations' => 'Locations',
+            'edit locations' => 'Locations',
+            'delete locations' => 'Locations',
 
             // Categories
-            'view categories',
-            'create categories',
-            'edit categories',
-            'delete categories',
+            'view categories' => 'Categories',
+            'create categories' => 'Categories',
+            'edit categories' => 'Categories',
+            'delete categories' => 'Categories',
 
             // Sub Categories
-            'view sub categories',
-            'create sub categories',
-            'edit sub categories',
-            'delete sub categories',
+            'view sub categories' => 'Sub Categories',
+            'create sub categories' => 'Sub Categories',
+            'edit sub categories' => 'Sub Categories',
+            'delete sub categories' => 'Sub Categories',
 
             // Products
-            'view products',
-            'create products',
-            'edit products',
-            'delete products',
+            'view products' => 'Products',
+            'create products' => 'Products',
+            'edit products' => 'Products',
+            'delete products' => 'Products',
 
             // Reports
-            'view product reports',
-            'view stock inventory reports',
-            'view purchase reports',
-            'view sale reports',
-            'view profit loss reports',
+            'view product reports' => 'Reports',
+            'view stock inventory reports' => 'Reports',
+            'view purchase reports' => 'Reports',
+            'view sale reports' => 'Reports',
+            'view profit loss reports' => 'Reports',
 
             // Suppliers
-            'view suppliers',
-            'create suppliers',
-            'edit suppliers',
-            'delete suppliers',
+            'view suppliers' => 'Suppliers',
+            'create suppliers' => 'Suppliers',
+            'edit suppliers' => 'Suppliers',
+            'delete suppliers' => 'Suppliers',
 
             // Purchases
-            'view purchases',
-            'create purchases',
-            'edit purchases',
-            'delete purchases',
+            'view purchases' => 'Purchases',
+            'create purchases' => 'Purchases',
+            'edit purchases' => 'Purchases',
+            'delete purchases' => 'Purchases',
+            'edit purchases status' => 'Purchases',
+            'edit purchases payment status' => 'Purchases',
 
             // Customers
-            'view customers',
-            'create customers',
-            'edit customers',
-            'delete customers',
+            'view customers' => 'Customers',
+            'create customers' => 'Customers',
+            'edit customers' => 'Customers',
+            'delete customers' => 'Customers',
 
             // Sales
-            'view sales',
-            'create sales',
-            'edit sales',
-            'delete sales',
-            'edit sales status',
-            'edit sales payment status',
-
-            // Purchases status/payment updates
-            'edit purchases status',
-            'edit purchases payment status',
+            'view sales' => 'Sales',
+            'create sales' => 'Sales',
+            'edit sales' => 'Sales',
+            'delete sales' => 'Sales',
+            'edit sales status' => 'Sales',
+            'edit sales payment status' => 'Sales',
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+        foreach ($permissions as $name => $module) {
+            $permission = Permission::firstOrCreate(['name' => $name]);
+            $permission->update(['module' => $module]);
         }
 
         // Assign all permissions to super-admin role

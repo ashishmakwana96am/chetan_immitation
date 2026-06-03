@@ -18,6 +18,7 @@ use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ModuleController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes (future)
@@ -118,6 +119,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Roles
         Route::get('roles/data', [RoleController::class, 'data'])->name('roles.data');
         Route::resource('roles', RoleController::class)->except('show');
+
+        // Modules
+        Route::get('modules/data', [ModuleController::class, 'data'])->name('modules.data');
+        Route::resource('modules', ModuleController::class)->except('show');
 
         // Users
         Route::get('users/data', [UserController::class, 'data'])->name('users.data');
