@@ -82,7 +82,7 @@ $(document).ready(function () {
                         if (instance) {
                             instance.dispose();
                         }
-                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                        return new bootstrap.Tooltip(tooltipTriggerEl, { container: 'body' });
                     });
                 }
             }
@@ -345,15 +345,28 @@ $(document).ready(function () {
     $(document).on('mouseenter', '[data-bs-toggle="tooltip"]', function () {
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
             let instance = bootstrap.Tooltip.getInstance(this);
-            if (!instance) {
-                instance = new bootstrap.Tooltip(this);
-                // Trigger show on first hover
-                instance.show();
+            let hasBodyContainer = false;
+            if (instance) {
+                let container = (instance._config && instance._config.container) || (instance.options && instance.options.container);
+                if (container === 'body') {
+                    hasBodyContainer = true;
+                }
             }
+            if (instance && !hasBodyContainer) {
+                instance.dispose();
+                instance = null;
+            }
+            if (!instance) {
+                instance = new bootstrap.Tooltip(this, {
+                    container: 'body',
+                    trigger: 'manual'
+                });
+            }
+            instance.show();
         }
     });
 
-    $(document).on('click mouseleave', '[data-bs-toggle="tooltip"]', function () {
+    $(document).on('mouseleave click', '[data-bs-toggle="tooltip"]', function () {
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
             const instance = bootstrap.Tooltip.getInstance(this);
             if (instance) {
