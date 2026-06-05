@@ -24,26 +24,45 @@ class CategoryController extends Controller
         $canDelete  = auth()->user()->can('delete categories');
 
         $data = $categories->map(function ($category, $index) use ($canEdit, $canDelete) {
+            $image = $category->image
+                ? '<img src="' . $category->image_url . '" width="40" height="40" class="rounded object-fit-cover">'
+                : '<span class="badge bg-label-secondary">No Image</span>';
+
+            $featured = $canEdit
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input category-featured-toggle" type="checkbox" role="switch" data-url="' . route('admin.categories.toggle-featured', $category) . '" ' . ($category->is_featured ? 'checked' : '') . ' /></div>'
+                : ($category->is_featured ? '<span class="badge bg-label-success">Yes</span>' : '<span class="badge bg-label-secondary">No</span>');
+
             $status = $canEdit
                 ? '<div class="form-check form-switch mb-0"><input class="form-check-input category-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.categories.toggle-status', $category) . '" ' . ($category->status === 'active' ? 'checked' : '') . ' /></div>'
                 : status_badge($category->status);
 
             $actions = '';
-            if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.categories.edit', $category) . '" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
-            }
-            if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.categories.destroy', $category) . '" data-row-id="category-row-' . $category->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+            if ($canEdit || $canDelete) {
+                $actions = '<div class="d-inline-block">';
+                $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+                $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+                if ($canEdit) {
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.categories.edit', $category) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                }
+                if ($canDelete) {
+                    if ($canEdit) {
+                        $actions .= '<div class="dropdown-divider"></div>';
+                    }
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.categories.destroy', $category) . '" data-row-id="category-row-' . $category->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
+                $actions .= '</div></div>';
             }
 
             return [
-                'index'      => $index + 1,
-                'name'       => $category->name,
-                'slug'       => '<code>' . $category->slug . '</code>',
-                'status'     => $status,
-                'created_by' => $category->createdBy->name ?? '-',
-                'created_at' => format_date($category->created_at),
-                'actions'    => $actions,
+                'index'       => $index + 1,
+                'image'       => $image,
+                'name'        => $category->name,
+                'slug'        => '<code>' . $category->slug . '</code>',
+                'is_featured' => $featured,
+                'status'      => $status,
+                'created_by'  => $category->createdBy->name ?? '-',
+                'created_at'  => format_date($category->created_at),
+                'actions'     => $actions,
             ];
         });
 
@@ -61,7 +80,10 @@ class CategoryController extends Controller
         $this->authorize('create categories');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:categories,name'],
+            'name'         => ['required', 'string', 'max:100', 'unique:categories,name'],
+            'image_base64' => ['required', 'string'],
+        ], [
+            'image_base64.required' => 'The category image field is required.',
         ]);
 
         if ($validator->fails()) {
@@ -71,11 +93,53 @@ class CategoryController extends Controller
             ], 422);
         }
 
+        $imagePath = null;
+        if ($request->filled('image_base64')) {
+            $base64Data = $request->image_base64;
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
+                $dataString = substr($base64Data, strpos($base64Data, ',') + 1);
+                $type = strtolower($type[1]);
+                
+                if (!in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['The image must be a file of type: jpg, jpeg, png, webp.']],
+                    ], 422);
+                }
+                
+                $decodedData = base64_decode($dataString);
+                if ($decodedData === false) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['Failed to decode image.']],
+                    ], 422);
+                }
+                
+                if (strlen($decodedData) > 5242880) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['The image size must be less than 5 MB.']],
+                    ], 422);
+                }
+                
+                $dir = public_path('uploads/categories');
+                if (!file_exists($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                
+                $filename = time() . '_' . uniqid() . '.' . $type;
+                file_put_contents($dir . '/' . $filename, $decodedData);
+                $imagePath = 'categories/' . $filename;
+            }
+        }
+
         Category::create([
-            'name'       => $request->name,
-            'slug'       => generate_slug(Category::class, $request->name),
-            'status'     => $request->has('status') ? 'active' : 'inactive',
-            'created_by' => auth()->id(),
+            'name'        => $request->name,
+            'slug'        => generate_slug(Category::class, $request->name),
+            'image'       => $imagePath,
+            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'is_featured' => $request->has('is_featured') ? true : false,
+            'created_by'  => auth()->id(),
         ]);
 
         return response()->json([
@@ -95,8 +159,19 @@ class CategoryController extends Controller
         $this->authorize('edit categories');
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
+            'name'         => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
+            'image_base64' => ['nullable', 'string'],
         ]);
+
+        $validator->after(function ($validator) use ($request, $category) {
+            $hasNewImage = $request->filled('image_base64');
+            $isRemovingImage = $request->boolean('remove_image');
+            $hasExistingImage = !empty($category->image);
+
+            if (!$hasNewImage && ($isRemovingImage || !$hasExistingImage)) {
+                $validator->errors()->add('image_base64', 'The category image field is required.');
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -105,10 +180,72 @@ class CategoryController extends Controller
             ], 422);
         }
 
+        $imagePath = $category->image;
+        $imageUpdated = false;
+
+        if ($request->filled('image_base64')) {
+            $base64Data = $request->image_base64;
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
+                $dataString = substr($base64Data, strpos($base64Data, ',') + 1);
+                $type = strtolower($type[1]);
+                
+                if (!in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['The image must be a file of type: jpg, jpeg, png, webp.']],
+                    ], 422);
+                }
+                
+                $decodedData = base64_decode($dataString);
+                if ($decodedData === false) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['Failed to decode image.']],
+                    ], 422);
+                }
+                
+                if (strlen($decodedData) > 5242880) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => ['image' => ['The image size must be less than 5 MB.']],
+                    ], 422);
+                }
+                
+                if ($category->image) {
+                    $oldFile = public_path('uploads/' . $category->image);
+                    if (file_exists($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                
+                $dir = public_path('uploads/categories');
+                if (!file_exists($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                
+                $filename = time() . '_' . uniqid() . '.' . $type;
+                file_put_contents($dir . '/' . $filename, $decodedData);
+                $imagePath = 'categories/' . $filename;
+                $imageUpdated = true;
+            }
+        }
+
+        if (!$imageUpdated && $request->boolean('remove_image')) {
+            if ($category->image) {
+                $oldFile = public_path('uploads/' . $category->image);
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+            $imagePath = null;
+        }
+
         $category->update([
-            'name'   => $request->name,
-            'slug'   => generate_slug(Category::class, $request->name, $category->id),
-            'status' => $request->has('status') ? 'active' : 'inactive',
+            'name'        => $request->name,
+            'slug'        => generate_slug(Category::class, $request->name, $category->id),
+            'image'       => $imagePath,
+            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'is_featured' => $request->has('is_featured') ? true : false,
         ]);
 
         return response()->json([
@@ -131,9 +268,30 @@ class CategoryController extends Controller
         ]);
     }
 
+    public function toggleFeatured(Category $category)
+    {
+        $this->authorize('edit categories');
+
+        $category->update([
+            'is_featured' => !$category->is_featured,
+        ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Category featured status updated successfully.',
+        ]);
+    }
+
     public function destroy(Category $category)
     {
         $this->authorize('delete categories');
+
+        if ($category->image) {
+            $file = public_path('uploads/' . $category->image);
+            if (file_exists($file)) {
+                @unlink($file);
+            }
+        }
 
         $category->delete();
 

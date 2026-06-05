@@ -29,11 +29,20 @@ class SubCategoryController extends Controller
                 : status_badge($subCategory->status);
 
             $actions = '';
-            if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
-            }
-            if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sub-categories.destroy', $subCategory) . '" data-row-id="subcategory-row-' . $subCategory->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+            if ($canEdit || $canDelete) {
+                $actions = '<div class="d-inline-block">';
+                $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+                $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+                if ($canEdit) {
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                }
+                if ($canDelete) {
+                    if ($canEdit) {
+                        $actions .= '<div class="dropdown-divider"></div>';
+                    }
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sub-categories.destroy', $subCategory) . '" data-row-id="subcategory-row-' . $subCategory->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
+                $actions .= '</div></div>';
             }
 
             return [

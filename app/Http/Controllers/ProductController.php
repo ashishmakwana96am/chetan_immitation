@@ -34,8 +34,9 @@ class ProductController extends Controller
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
+        $canClone  = auth()->user()->can('clone products');
 
-        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete) {
+        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone) {
             $image = $product->primaryImage
                 ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
@@ -49,13 +50,23 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
 
-            $actions = '<a href="' . route('admin.products.show', $product) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
+            $actions = '<div class="d-inline-block">';
+            $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+            $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+            $actions .= '<a href="' . route('admin.products.show', $product) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canEdit) {
-                $actions .= '<a href="' . route('admin.products.edit', $product) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.products.edit', $product) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
+            }
+            if ($canClone) {
+                $actions .= '<a href="' . route('admin.products.create', ['clone_id' => $product->id]) . '" class="dropdown-item"><i class="ti ti-copy me-2"></i>Clone</a>';
             }
             if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.products.destroy', $product) . '" data-row-id="product-row-' . $product->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+                if ($canEdit || $canClone) {
+                    $actions .= '<div class="dropdown-divider"></div>';
+                }
+                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.products.destroy', $product) . '" data-row-id="product-row-' . $product->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
+            $actions .= '</div></div>';
 
             return [
                 'index'          => $index + 1,
@@ -91,29 +102,65 @@ class ProductController extends Controller
         return view('products.show', compact('product'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $this->authorize('create products');
         $categories = Category::where('status', 'active')->orderBy('name')->get();
-        return view('products.create', compact('categories'));
+
+        $clonedProduct = null;
+        $subCategories = collect();
+        if ($request->filled('clone_id')) {
+            $this->authorize('clone products');
+            $clonedProduct = Product::with('images')->findOrFail($request->clone_id);
+            $subCategories = SubCategory::where('category_id', $clonedProduct->category_id)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get();
+        }
+
+        return view('products.create', compact('categories', 'clonedProduct', 'subCategories'));
     }
 
     public function store(Request $request)
     {
         $this->authorize('create products');
 
+        $isCloning = $request->filled('cloned_from_id');
+
         $validator = Validator::make($request->all(), [
-            'name'            => ['required', 'string', 'max:200'],
-            'category_id'     => ['required', 'exists:categories,id'],
-            'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
-            'sku'             => ['required', 'string', 'max:100', 'unique:products,sku'],
-            'description'     => ['nullable', 'string'],
-            'purchase_price'  => ['required', 'numeric', 'min:0'],
-            'sale_price'      => ['required', 'numeric', 'min:0'],
-            'primary_image'   => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'images'          => ['required', 'array', 'min:1'],
-            'images.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'name'                     => ['required', 'string', 'max:200'],
+            'category_id'              => ['required', 'exists:categories,id'],
+            'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
+            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku'],
+            'description'              => ['required', 'string'],
+            'product_information'      => ['required', 'string'],
+            'purchase_price'           => ['required', 'numeric', 'min:0'],
+            'sale_price'               => ['required', 'numeric', 'min:0'],
+            'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
+            'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
+            'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
+        ], [
+            'primary_image_base64.required'     => 'The primary image field is required.',
+            'additional_images_base64.required'  => 'At least one additional image is required.',
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            if ($request->filled('cloned_from_id')) {
+                $hasNewPrimary = $request->filled('primary_image_base64');
+                $isRemovingPrimary = $request->boolean('remove_cloned_primary');
+                
+                if ($isRemovingPrimary && !$hasNewPrimary) {
+                    $validator->errors()->add('primary_image_base64', 'The primary image field is required.');
+                }
+
+                $hasNewAdditional = $request->filled('additional_images_base64') && count($request->additional_images_base64) > 0;
+                $hasKeptClonedAdditional = $request->filled('existing_cloned_images') && count($request->existing_cloned_images) > 0;
+                
+                if (!$hasNewAdditional && !$hasKeptClonedAdditional) {
+                    $validator->errors()->add('additional_images_base64', 'At least one additional image is required.');
+                }
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -130,6 +177,7 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'sku'             => $request->sku,
                 'description'     => $request->description,
+                'product_information' => $request->product_information,
                 'purchase_price'  => $request->purchase_price,
                 'sale_price'      => $request->sale_price,
                 'status'          => $request->has('status') ? 'active' : 'inactive',
@@ -137,29 +185,61 @@ class ProductController extends Controller
             ]);
 
             // Primary image
-            if ($request->hasFile('primary_image')) {
-                $file = $request->file('primary_image');
-                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->move(public_path('uploads/products'), $filename);
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_path' => 'products/' . $filename,
-                    'is_primary' => true,
-                    'created_by' => auth()->id(),
-                ]);
+            if ($request->filled('primary_image_base64')) {
+                $imagePath = $this->saveBase64Image($request->primary_image_base64);
+                if ($imagePath) {
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_path' => $imagePath,
+                        'is_primary' => true,
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            } elseif ($request->filled('cloned_from_id') && !$request->boolean('remove_cloned_primary')) {
+                $originalPrimary = ProductImage::where('product_id', $request->cloned_from_id)
+                    ->where('is_primary', true)
+                    ->first();
+                if ($originalPrimary) {
+                    $newImagePath = $this->copyProductImageFile($originalPrimary->image_path);
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_path' => $newImagePath ?: $originalPrimary->image_path,
+                        'is_primary' => true,
+                        'created_by' => auth()->id(),
+                    ]);
+                }
             }
 
             // Additional images
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $file) {
-                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                    $file->move(public_path('uploads/products'), $filename);
+            // 1. Copy kept cloned ones
+            if ($request->filled('cloned_from_id') && $request->filled('existing_cloned_images')) {
+                $originalAdditionals = ProductImage::where('product_id', $request->cloned_from_id)
+                    ->where('is_primary', false)
+                    ->whereIn('id', $request->existing_cloned_images)
+                    ->get();
+                foreach ($originalAdditionals as $originalImg) {
+                    $newImagePath = $this->copyProductImageFile($originalImg->image_path);
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => 'products/' . $filename,
+                        'image_path' => $newImagePath ?: $originalImg->image_path,
                         'is_primary' => false,
                         'created_by' => auth()->id(),
                     ]);
+                }
+            }
+
+            // 2. Save newly uploaded ones
+            if ($request->filled('additional_images_base64')) {
+                foreach ($request->additional_images_base64 as $base64) {
+                    $imagePath = $this->saveBase64Image($base64);
+                    if ($imagePath) {
+                        ProductImage::create([
+                            'product_id' => $product->id,
+                            'image_path' => $imagePath,
+                            'is_primary' => false,
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
                 }
             }
         });
@@ -187,17 +267,37 @@ class ProductController extends Controller
         $this->authorize('edit products');
 
         $validator = Validator::make($request->all(), [
-            'name'            => ['required', 'string', 'max:200'],
-            'category_id'     => ['required', 'exists:categories,id'],
-            'sub_category_id' => ['nullable', 'exists:sub_categories,id'],
-            'sku'             => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
-            'description'     => ['nullable', 'string'],
-            'purchase_price'  => ['required', 'numeric', 'min:0'],
-            'sale_price'      => ['required', 'numeric', 'min:0'],
-            'primary_image'   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'images'          => ['nullable', 'array'],
-            'images.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'name'                     => ['required', 'string', 'max:200'],
+            'category_id'              => ['required', 'exists:categories,id'],
+            'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
+            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
+            'description'              => ['required', 'string'],
+            'product_information'      => ['required', 'string'],
+            'purchase_price'           => ['required', 'numeric', 'min:0'],
+            'sale_price'               => ['required', 'numeric', 'min:0'],
+            'primary_image_base64'     => ['nullable', 'string'],
+            'additional_images_base64' => ['nullable', 'array'],
+            'additional_images_base64.*' => ['nullable', 'string'],
         ]);
+
+        $validator->after(function ($validator) use ($request, $product) {
+            // Primary Image validation
+            $hasNewPrimary = $request->filled('primary_image_base64');
+            $isRemovingPrimary = $request->boolean('remove_primary_image');
+            $hasExistingPrimary = $product->images()->where('is_primary', true)->exists();
+
+            if (!$hasNewPrimary && ($isRemovingPrimary || !$hasExistingPrimary)) {
+                $validator->errors()->add('primary_image_base64', 'The primary image field is required.');
+            }
+
+            // Additional Images validation
+            $hasNewAdditional = $request->filled('additional_images_base64') && count($request->additional_images_base64) > 0;
+            $hasExistingAdditional = $product->images()->where('is_primary', false)->exists();
+
+            if (!$hasNewAdditional && !$hasExistingAdditional) {
+                $validator->errors()->add('additional_images_base64', 'At least one additional image is required.');
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -214,13 +314,14 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'sku'             => $request->sku,
                 'description'     => $request->description,
+                'product_information' => $request->product_information,
                 'purchase_price'  => $request->purchase_price,
                 'sale_price'      => $request->sale_price,
                 'status'          => $request->has('status') ? 'active' : 'inactive',
             ]);
 
             // Replace primary image
-            if ($request->hasFile('primary_image')) {
+            if ($request->filled('primary_image_base64')) {
                 $existing = $product->images()->where('is_primary', true)->first();
                 if ($existing) {
                     $existingFile = public_path('uploads/' . $existing->image_path);
@@ -229,28 +330,29 @@ class ProductController extends Controller
                     }
                     $existing->delete();
                 }
-                $file = $request->file('primary_image');
-                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->move(public_path('uploads/products'), $filename);
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_path' => 'products/' . $filename,
-                    'is_primary' => true,
-                    'created_by' => auth()->id(),
-                ]);
+                $imagePath = $this->saveBase64Image($request->primary_image_base64);
+                if ($imagePath) {
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_path' => $imagePath,
+                        'is_primary' => true,
+                        'created_by' => auth()->id(),
+                    ]);
+                }
             }
 
             // Additional images
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $file) {
-                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                    $file->move(public_path('uploads/products'), $filename);
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'image_path' => 'products/' . $filename,
-                        'is_primary' => false,
-                        'created_by' => auth()->id(),
-                    ]);
+            if ($request->filled('additional_images_base64')) {
+                foreach ($request->additional_images_base64 as $base64) {
+                    $imagePath = $this->saveBase64Image($base64);
+                    if ($imagePath) {
+                        ProductImage::create([
+                            'product_id' => $product->id,
+                            'image_path' => $imagePath,
+                            'is_primary' => false,
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
                 }
             }
         });
@@ -340,5 +442,60 @@ class ProductController extends Controller
             ->get(['id', 'name']);
 
         return response()->json($subCategories);
+    }
+
+    private function saveBase64Image($base64Data, $subDir = 'products')
+    {
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
+            $dataString = substr($base64Data, strpos($base64Data, ',') + 1);
+            $type = strtolower($type[1]);
+            
+            if (!in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
+                return null;
+            }
+            
+            $decodedData = base64_decode($dataString);
+            if ($decodedData === false) {
+                return null;
+            }
+            
+            if (strlen($decodedData) > 5242880) {
+                return null;
+            }
+            
+            $dir = public_path('uploads/' . $subDir);
+            if (!file_exists($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            
+            $filename = time() . '_' . uniqid() . '.' . $type;
+            file_put_contents($dir . '/' . $filename, $decodedData);
+            return $subDir . '/' . $filename;
+        }
+        return null;
+    }
+
+    private function copyProductImageFile($originalPath)
+    {
+        if (empty($originalPath)) {
+            return null;
+        }
+
+        $sourceFile = public_path('uploads/' . $originalPath);
+        if (file_exists($sourceFile)) {
+            $pathInfo = pathinfo($originalPath);
+            $newFilename = time() . '_' . uniqid() . '.' . ($pathInfo['extension'] ?? 'jpg');
+            $subDir = $pathInfo['dirname'] ?? 'products';
+            $destDir = public_path('uploads/' . $subDir);
+            
+            if (!file_exists($destDir)) {
+                mkdir($destDir, 0755, true);
+            }
+
+            if (copy($sourceFile, $destDir . '/' . $newFilename)) {
+                return $subDir . '/' . $newFilename;
+            }
+        }
+        return null;
     }
 }

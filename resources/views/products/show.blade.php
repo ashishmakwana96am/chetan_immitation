@@ -115,7 +115,13 @@
                         @if($product->description)
                             <div class="col-12">
                                 <p class="text-muted small mb-1">Description</p>
-                                <p class="mb-0">{!! $product->description !!}</p>
+                                <div class="mb-0">{!! $product->description !!}</div>
+                            </div>
+                        @endif
+                        @if($product->product_information)
+                            <div class="col-12">
+                                <p class="text-muted small mb-1">Product Information</p>
+                                <div class="mb-0">{!! $product->product_information !!}</div>
                             </div>
                         @endif
                     </div>

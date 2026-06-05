@@ -9,9 +9,20 @@ class Category extends Model
     protected $fillable = [
         'name',
         'slug',
+        'image',
         'status',
+        'is_featured',
         'created_by',
     ];
+
+    protected $casts = [
+        'is_featured' => 'boolean',
+    ];
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image ? asset('uploads/' . $this->image) : null;
+    }
 
     public function createdBy()
     {

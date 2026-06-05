@@ -34,16 +34,20 @@ class LocationController extends Controller
                 : '<span class="badge ' . ($location->status === 'active' ? 'bg-label-success' : 'bg-label-danger') . '">' . ucfirst($location->status) . '</span>';
 
             $actions = '';
-            if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1"
-                    data-common-modal="' . route('admin.locations.edit', $location) . '" data-bs-toggle="tooltip" title="Edit">
-                    <i class="ti ti-pencil"></i></button>';
-            }
-            if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger"
-                    data-common-delete="' . route('admin.locations.destroy', $location) . '"
-                    data-row-id="location-row-' . $location->id . '" data-bs-toggle="tooltip" title="Delete">
-                    <i class="ti ti-trash"></i></button>';
+            if ($canEdit || $canDelete) {
+                $actions = '<div class="d-inline-block">';
+                $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+                $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+                if ($canEdit) {
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.locations.edit', $location) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                }
+                if ($canDelete) {
+                    if ($canEdit) {
+                        $actions .= '<div class="dropdown-divider"></div>';
+                    }
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.locations.destroy', $location) . '" data-row-id="location-row-' . $location->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
+                $actions .= '</div></div>';
             }
 
             return [

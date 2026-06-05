@@ -60,19 +60,24 @@ class SaleController extends Controller
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
-            $actions = '<a href="' . route('admin.sales.show', $order) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
+            $actions = '<div class="d-inline-block">';
+            $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+            $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+            $actions .= '<a href="' . route('admin.sales.show', $order) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canEdit && $order->status === 'pending') {
-                $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canEditSalesStatus && $order->status === 'pending') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
+                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditSalesPaymentStatus && ($order->status === 'pending' || ($order->status === 'approve' && $order->payment_status === 'pending'))) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
+                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             if ($canDelete && $order->status === 'decline') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+                $actions .= '<div class="dropdown-divider"></div>';
+                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
+            $actions .= '</div></div>';
 
             return [
                 'index'          => $index + 1,

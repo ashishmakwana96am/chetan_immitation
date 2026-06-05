@@ -264,3 +264,39 @@ body.offcanvas-locked {
   max-width: 100% !important;
   width: 100% !important;
 }
+
+/*
+* Ensure modals and their backdrops cover the offcanvas side panels (Sneat theme z-index fix)
+******************************************************************************/
+.modal-backdrop {
+  z-index: 1092 !important;
+}
+.modal {
+  z-index: 1095 !important;
+}
+
+/*
+* Align dropdown menu items (icons and text) properly in a single row
+******************************************************************************/
+.dropdown-menu .dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.dropdown-menu .dropdown-item i {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/*
+* Add a divider border line between each option in table action dropdown menus
+******************************************************************************/
+table .dropdown-menu .dropdown-item:not(:last-child) {
+  border-bottom: 1px solid var(--bs-dropdown-divider-bg, #dbdade) !important;
+}
+
+/* Hide manual dividers inside table action dropdowns to prevent double borders */
+table .dropdown-menu .dropdown-divider {
+  display: none !important;
+}

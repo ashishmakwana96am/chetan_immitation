@@ -59,19 +59,24 @@ class PurchaseInvoiceController extends Controller
             ];
             $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ucfirst($invoice->payment_status ?? 'pending') . '</span>';
 
-            $actions = '<a href="' . route('admin.purchases.show', $invoice) . '" class="btn btn-sm btn-icon btn-label-secondary me-1" data-bs-toggle="tooltip" title="View"><i class="ti ti-eye"></i></a>';
+            $actions = '<div class="d-inline-block">';
+            $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+            $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+            $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canEdit && $invoice->status === 'pending') {
-                $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="btn btn-sm btn-icon btn-label-info me-1" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></a>';
+                $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canEditPurchasesStatus && $invoice->status === 'pending') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1 change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '" data-bs-toggle="tooltip" title="Update Status"><i class="ti ti-adjustments-horizontal"></i></button>';
+                $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditPurchasesPaymentStatus && ($invoice->status === 'pending' || ($invoice->status === 'approve' && $invoice->payment_status === 'pending'))) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-success me-1 change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 'pending') . '" data-bs-toggle="tooltip" title="Update Payment Status"><i class="ti ti-credit-card"></i></button>';
+                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 'pending') . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             if ($canDelete && $invoice->status === 'pending') {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+                $actions .= '<div class="dropdown-divider"></div>';
+                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
+            $actions .= '</div></div>';
 
             return [
                 'index'          => $index + 1,

@@ -101,6 +101,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('categories/data', [CategoryController::class, 'data'])->name('categories.data');
         Route::resource('categories', CategoryController::class)->except('show');
         Route::patch('categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
+        Route::patch('categories/{category}/toggle-featured', [CategoryController::class, 'toggleFeatured'])->name('categories.toggle-featured');
 
         // Sub Categories
         Route::get('sub-categories/data', [SubCategoryController::class, 'data'])->name('sub-categories.data');

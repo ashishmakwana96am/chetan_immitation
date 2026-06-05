@@ -59,6 +59,7 @@ class PermissionSeeder extends Seeder
             'create products' => 'Products',
             'edit products' => 'Products',
             'delete products' => 'Products',
+            'clone products' => 'Products',
 
             // Reports
             'view product reports' => 'Reports',

@@ -40,14 +40,23 @@ class UserController extends Controller
                 : status_badge($user->status);
 
             $actions = '';
-            if ($canEdit) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-info me-1" data-common-modal="' . route('admin.users.edit', $user) . '" data-size="modal-lg" data-bs-toggle="tooltip" title="Edit"><i class="ti ti-pencil"></i></button>';
-            }
-            if ($canChangePassword) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-warning me-1" data-common-modal="' . route('admin.users.change-password', $user) . '" data-bs-toggle="tooltip" title="Change Password"><i class="ti ti-key"></i></button>';
-            }
-            if ($canDelete) {
-                $actions .= '<button class="btn btn-sm btn-icon btn-label-danger" data-common-delete="' . route('admin.users.destroy', $user) . '" data-row-id="user-row-' . $user->id . '" data-bs-toggle="tooltip" title="Delete"><i class="ti ti-trash"></i></button>';
+            if ($canEdit || $canChangePassword || $canDelete) {
+                $actions = '<div class="d-inline-block">';
+                $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
+                $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+                if ($canEdit) {
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.users.edit', $user) . '" data-size="modal-lg"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                }
+                if ($canChangePassword) {
+                    $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.users.change-password', $user) . '"><i class="ti ti-key me-2"></i>Change Password</button>';
+                }
+                if ($canDelete) {
+                    if ($canEdit || $canChangePassword) {
+                        $actions .= '<div class="dropdown-divider"></div>';
+                    }
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.users.destroy', $user) . '" data-row-id="user-row-' . $user->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
+                $actions .= '</div></div>';
             }
 
             return [
