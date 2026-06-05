@@ -225,15 +225,6 @@ return new class extends Migration
             'permission'     => 'view roles',
             'sort_order'     => 2,
         ]);
-        Module::create([
-            'parent_id'      => $userAccessCategory->id,
-            'name'           => 'Permissions',
-            'icon'           => 'ti ti-key',
-            'route'          => 'admin.permissions.index',
-            'active_pattern' => 'admin/permissions*',
-            'permission'     => 'view permissions',
-            'sort_order'     => 3,
-        ]);
     }
 
     public function down(): void
