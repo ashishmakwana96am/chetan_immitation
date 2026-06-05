@@ -31,79 +31,14 @@ return new class extends Migration
             'sort_order'     => 1,
         ]);
 
-        // 2. User
-        $userCategory = Module::create([
-            'name'           => 'User',
-            'icon'           => null,
-            'route'          => null,
-            'active_pattern' => 'admin/users*,admin/customers*,admin/roles*,admin/permissions*',
-            'permission'     => null,
-            'sort_order'     => 2,
-        ]);
-        Module::create([
-            'parent_id'      => $userCategory->id,
-            'name'           => 'Users',
-            'icon'           => 'ti ti-user',
-            'route'          => 'admin.users.index',
-            'active_pattern' => 'admin/users*',
-            'permission'     => 'view users',
-            'sort_order'     => 1,
-        ]);
-        Module::create([
-            'parent_id'      => $userCategory->id,
-            'name'           => 'Customers',
-            'icon'           => 'ti ti-users',
-            'route'          => 'admin.customers.index',
-            'active_pattern' => 'admin/customers*',
-            'permission'     => 'view customers',
-            'sort_order'     => 2,
-        ]);
-        Module::create([
-            'parent_id'      => $userCategory->id,
-            'name'           => 'Roles',
-            'icon'           => 'ti ti-shield-lock',
-            'route'          => 'admin.roles.index',
-            'active_pattern' => 'admin/roles*',
-            'permission'     => 'view roles',
-            'sort_order'     => 3,
-        ]);
-        Module::create([
-            'parent_id'      => $userCategory->id,
-            'name'           => 'Permissions',
-            'icon'           => 'ti ti-key',
-            'route'          => 'admin.permissions.index',
-            'active_pattern' => 'admin/permissions*',
-            'permission'     => 'view permissions',
-            'sort_order'     => 4,
-        ]);
-
-        // 3. Location
-        $locationCategory = Module::create([
-            'name'           => 'Location',
-            'icon'           => null,
-            'route'          => null,
-            'active_pattern' => 'admin/locations*',
-            'permission'     => null,
-            'sort_order'     => 3,
-        ]);
-        Module::create([
-            'parent_id'      => $locationCategory->id,
-            'name'           => 'Locations',
-            'icon'           => 'ti ti-map-pin',
-            'route'          => 'admin.locations.index',
-            'active_pattern' => 'admin/locations*',
-            'permission'     => 'view locations',
-            'sort_order'     => 1,
-        ]);
-
-        // 4. Catalog
+        // 2. Catalog
         $catalogCategory = Module::create([
             'name'           => 'Catalog',
             'icon'           => null,
             'route'          => null,
             'active_pattern' => 'admin/categories*,admin/sub-categories*,admin/products*',
             'permission'     => null,
-            'sort_order'     => 4,
+            'sort_order'     => 2,
         ]);
         Module::create([
             'parent_id'      => $catalogCategory->id,
@@ -133,17 +68,17 @@ return new class extends Migration
             'sort_order'     => 3,
         ]);
 
-        // 5. Supplier
-        $supplierCategory = Module::create([
-            'name'           => 'Supplier',
+        // 3. Inventory & Procurement
+        $inventoryCategory = Module::create([
+            'name'           => 'Inventory & Procurement',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/suppliers*',
+            'active_pattern' => 'admin/suppliers*,admin/purchases*',
             'permission'     => null,
-            'sort_order'     => 5,
+            'sort_order'     => 3,
         ]);
         Module::create([
-            'parent_id'      => $supplierCategory->id,
+            'parent_id'      => $inventoryCategory->id,
             'name'           => 'Suppliers',
             'icon'           => 'ti ti-truck',
             'route'          => 'admin.suppliers.index',
@@ -151,53 +86,71 @@ return new class extends Migration
             'permission'     => 'view suppliers',
             'sort_order'     => 1,
         ]);
-
-        // 6. Purchase
-        $purchaseCategory = Module::create([
-            'name'           => 'Purchase',
-            'icon'           => null,
-            'route'          => null,
-            'active_pattern' => 'admin/purchases*',
-            'permission'     => null,
-            'sort_order'     => 6,
-        ]);
         Module::create([
-            'parent_id'      => $purchaseCategory->id,
+            'parent_id'      => $inventoryCategory->id,
             'name'           => 'Purchases',
             'icon'           => 'ti ti-shopping-cart',
             'route'          => 'admin.purchases.index',
             'active_pattern' => 'admin/purchases*',
             'permission'     => 'view purchases',
-            'sort_order'     => 1,
+            'sort_order'     => 2,
         ]);
 
-        // 7. Sale
-        $salesCategory = Module::create([
-            'name'           => 'Sale',
+        // 4. Sales & Customers
+        $salesCustomersCategory = Module::create([
+            'name'           => 'Sales & Customers',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/sales*',
+            'active_pattern' => 'admin/customers*,admin/sales*',
             'permission'     => null,
-            'sort_order'     => 7,
+            'sort_order'     => 4,
         ]);
         Module::create([
-            'parent_id'      => $salesCategory->id,
+            'parent_id'      => $salesCustomersCategory->id,
+            'name'           => 'Customers',
+            'icon'           => 'ti ti-users',
+            'route'          => 'admin.customers.index',
+            'active_pattern' => 'admin/customers*',
+            'permission'     => 'view customers',
+            'sort_order'     => 1,
+        ]);
+        Module::create([
+            'parent_id'      => $salesCustomersCategory->id,
             'name'           => 'Sales',
             'icon'           => 'ti ti-receipt',
             'route'          => 'admin.sales.index',
             'active_pattern' => 'admin/sales*',
             'permission'     => 'view sales',
+            'sort_order'     => 2,
+        ]);
+
+        // 5. Location
+        $locationCategory = Module::create([
+            'name'           => 'Location',
+            'icon'           => null,
+            'route'          => null,
+            'active_pattern' => 'admin/locations*',
+            'permission'     => null,
+            'sort_order'     => 5,
+        ]);
+        Module::create([
+            'parent_id'      => $locationCategory->id,
+            'name'           => 'Locations',
+            'icon'           => 'ti ti-map-pin',
+            'route'          => 'admin.locations.index',
+            'active_pattern' => 'admin/locations*',
+            'permission'     => 'view locations',
             'sort_order'     => 1,
         ]);
 
-        // 8. Reports & Analytics
+        // 6. Reports & Analytics
         $reportsCategory = Module::create([
             'name'           => 'Reports & Analytics',
             'icon'           => null,
             'route'          => null,
             'active_pattern' => 'admin/reports*',
             'permission'     => null,
-            'sort_order'     => 8,
+            'sort_order'     => 6,
         ]);
         Module::create([
             'parent_id'      => $reportsCategory->id,
@@ -245,14 +198,51 @@ return new class extends Migration
             'sort_order'     => 5,
         ]);
 
-        // 9. System Settings
+        // 7. User & Access
+        $userAccessCategory = Module::create([
+            'name'           => 'User & Access',
+            'icon'           => null,
+            'route'          => null,
+            'active_pattern' => 'admin/users*,admin/roles*,admin/permissions*',
+            'permission'     => null,
+            'sort_order'     => 7,
+        ]);
+        Module::create([
+            'parent_id'      => $userAccessCategory->id,
+            'name'           => 'Users',
+            'icon'           => 'ti ti-user',
+            'route'          => 'admin.users.index',
+            'active_pattern' => 'admin/users*',
+            'permission'     => 'view users',
+            'sort_order'     => 1,
+        ]);
+        Module::create([
+            'parent_id'      => $userAccessCategory->id,
+            'name'           => 'Roles',
+            'icon'           => 'ti ti-shield-lock',
+            'route'          => 'admin.roles.index',
+            'active_pattern' => 'admin/roles*',
+            'permission'     => 'view roles',
+            'sort_order'     => 2,
+        ]);
+        Module::create([
+            'parent_id'      => $userAccessCategory->id,
+            'name'           => 'Permissions',
+            'icon'           => 'ti ti-key',
+            'route'          => 'admin.permissions.index',
+            'active_pattern' => 'admin/permissions*',
+            'permission'     => 'view permissions',
+            'sort_order'     => 3,
+        ]);
+
+        // 8. System Settings
         $systemCategory = Module::create([
             'name'           => 'System Settings',
             'icon'           => null,
             'route'          => null,
             'active_pattern' => 'admin/modules*',
             'permission'     => null,
-            'sort_order'     => 9,
+            'sort_order'     => 8,
         ]);
         Module::create([
             'parent_id'      => $systemCategory->id,
