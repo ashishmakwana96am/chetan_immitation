@@ -138,7 +138,7 @@
                             <div class="dz-message py-2" style="pointer-events: none; position: relative; z-index: 1;">
                                 <i class="ti ti-cloud-upload text-muted mb-2" style="font-size: 2.5rem !important;"></i>
                                 <p class="fw-semibold mb-1" style="font-size: 0.95rem; color: #4b4b4b;">Drag & drop your image here or click to browse</p>
-                                <span class="text-muted small">Supports: JPG, JPEG, PNG, WEBP (Max 5MB)</span>
+                                <span class="text-muted small">Supports: JPG, JPEG, PNG, WEBP (Max 50MB)</span>
                             </div>
                         </div>
                         <div class="invalid-feedback d-block text-danger mt-1" id="primaryImageError"></div>
@@ -177,7 +177,7 @@
                             <div class="dz-message py-2" style="pointer-events: none; position: relative; z-index: 1;">
                                 <i class="ti ti-cloud-upload text-muted mb-2" style="font-size: 2.5rem !important;"></i>
                                 <p class="fw-semibold mb-1" style="font-size: 0.95rem; color: #4b4b4b;">Drag & drop your image here or click to browse</p>
-                                <span class="text-muted small">Supports: JPG, JPEG, PNG, WEBP (Max 5MB)</span>
+                                <span class="text-muted small">Supports: JPG, JPEG, PNG, WEBP (Max 50MB)</span>
                             </div>
                         </div>
                         <div class="invalid-feedback d-block text-danger mt-1" id="additionalImagesError"></div>
@@ -329,8 +329,8 @@
                 const file = this.files[0];
                 if (!file) return;
 
-                if (file.size > 5 * 1024 * 1024) {
-                    toastr.error('Primary image must be less than 5 MB.');
+                if (file.size > 50 * 1024 * 1024) {
+                    toastr.error('Primary image must be less than 50 MB.');
                     this.value = '';
                     return;
                 }
@@ -351,8 +351,8 @@
                 if (!files || files.length === 0) return;
 
                 additionalFilesQueue = Array.from(files).filter(file => {
-                    if (file.size > 5 * 1024 * 1024) {
-                        toastr.error(`File ${file.name} exceeds 5 MB limit and was skipped.`);
+                    if (file.size > 50 * 1024 * 1024) {
+                        toastr.error(`File ${file.name} exceeds 50 MB limit and was skipped.`);
                         return false;
                     }
                     return true;

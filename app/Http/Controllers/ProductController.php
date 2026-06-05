@@ -461,7 +461,7 @@ class ProductController extends Controller
                 return null;
             }
             
-            if (strlen($decodedData) > 5242880) {
+            if (strlen($decodedData) > 52428800) {
                 return null;
             }
             

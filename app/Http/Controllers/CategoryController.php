@@ -116,10 +116,10 @@ class CategoryController extends Controller
                     ], 422);
                 }
                 
-                if (strlen($decodedData) > 5242880) {
+                if (strlen($decodedData) > 52428800) {
                     return response()->json([
                         'status'  => 'error',
-                        'message' => ['image' => ['The image size must be less than 5 MB.']],
+                        'message' => ['image' => ['The image size must be less than 50 MB.']],
                     ], 422);
                 }
                 
@@ -206,10 +206,10 @@ class CategoryController extends Controller
                     ], 422);
                 }
                 
-                if (strlen($decodedData) > 5242880) {
+                if (strlen($decodedData) > 52428800) {
                     return response()->json([
                         'status'  => 'error',
-                        'message' => ['image' => ['The image size must be less than 5 MB.']],
+                        'message' => ['image' => ['The image size must be less than 50 MB.']],
                     ], 422);
                 }
                 
