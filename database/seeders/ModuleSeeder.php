@@ -236,24 +236,5 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view permissions',
             'sort_order'     => 3,
         ]);
-
-        // 8. System Settings
-        $systemCategory = Module::create([
-            'name'           => 'System Settings',
-            'icon'           => null,
-            'route'          => null,
-            'active_pattern' => 'admin/modules*',
-            'permission'     => null,
-            'sort_order'     => 8,
-        ]);
-        Module::create([
-            'parent_id'      => $systemCategory->id,
-            'name'           => 'Modules',
-            'icon'           => 'ti ti-settings',
-            'route'          => 'admin.modules.index',
-            'active_pattern' => 'admin/modules*',
-            'permission'     => 'view modules',
-            'sort_order'     => 1,
-        ]);
     }
 }
