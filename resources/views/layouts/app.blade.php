@@ -190,6 +190,14 @@
                 initGlobalSelect2();
                 setTimeout(initGlobalSelect2, 50);
             });
+
+            $(document).on('show.bs.dropdown', '.table-responsive', function () {
+                $(this).css('overflow', 'visible');
+            });
+
+            $(document).on('hide.bs.dropdown', '.table-responsive', function () {
+                $(this).css('overflow', '');
+            });
         });
     </script>
 
