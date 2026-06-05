@@ -86,7 +86,7 @@ class PurchaseInvoiceController extends Controller
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
                 'created_by'     => $invoice->createdBy->name ?? '-',
-                'created_at'     => format_date($invoice->created_at),
+                'date_group'     => $invoice->created_at->format('d M Y'),
                 'actions'        => $actions,
             ];
         });

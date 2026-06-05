@@ -88,7 +88,7 @@ class SaleController extends Controller
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
                 'payment_method' => ucwords(str_replace('_', ' ', $order->payment_method)),
-                'created_at'     => format_date($order->created_at),
+                'date_group'     => $order->created_at->format('d M Y'),
                 'actions'        => $actions,
             ];
         });

@@ -5,6 +5,38 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #purchasesTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #purchasesTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #purchasesTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #purchasesTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -29,7 +61,6 @@
                         <th>Status</th>
                         <th>Payment Status</th>
                         <th>Created By</th>
-                        <th>Date</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -47,16 +78,23 @@
                 order      : [],
                 ajax       : { url: '{{ route('admin.purchases.data') }}', dataSrc: 'data', cache: false },
                 columns    : [
-                    { data: 'index',        width: '5%' },
+                    { data: 'index',          width: '5%' },
                     { data: 'invoice_no' },
                     { data: 'supplier' },
                     { data: 'total_amount' },
-                    { data: 'status',       orderable: false },
+                    { data: 'status',         orderable: false },
                     { data: 'payment_status', orderable: false },
                     { data: 'created_by' },
-                    { data: 'created_at' },
-                    { data: 'actions',      orderable: false },
+                    { data: 'actions',        orderable: false },
+                    { data: 'date_group',     visible: false },
                 ],
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
             });
 
             window.refreshTable = function () {

@@ -62,7 +62,7 @@ class PermissionController extends Controller
     public function create()
     {
         $this->authorize('create permissions');
-        $modules = Module::orderBy('name')->get();
+        $modules = Module::whereNotNull('parent_id')->orderBy('name')->get();
         return view('permissions.create', compact('modules'));
     }
 
@@ -96,7 +96,7 @@ class PermissionController extends Controller
     public function edit(Permission $permission)
     {
         $this->authorize('edit permissions');
-        $modules = Module::orderBy('name')->get();
+        $modules = Module::whereNotNull('parent_id')->orderBy('name')->get();
         return view('permissions.edit', compact('permission', 'modules'));
     }
 
