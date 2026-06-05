@@ -19,11 +19,23 @@ class ModuleController extends Controller
     {
         $this->authorize('view modules');
 
-        $modules   = Module::with('parent')->orderBy('sort_order')->get();
+        $parents = Module::whereNull('parent_id')->orderBy('sort_order')->get();
+        $orderedModules = collect();
+        foreach ($parents as $parent) {
+            $orderedModules->push($parent);
+            $children = Module::with('parent')
+                ->where('parent_id', $parent->id)
+                ->orderBy('sort_order')
+                ->get();
+            foreach ($children as $child) {
+                $orderedModules->push($child);
+            }
+        }
+
         $canEdit   = auth()->user()->can('edit modules');
         $canDelete = auth()->user()->can('delete modules');
 
-        $data = $modules->map(function ($module, $index) use ($canEdit, $canDelete) {
+        $data = $orderedModules->map(function ($module, $index) use ($canEdit, $canDelete) {
             $parent = $module->parent
                 ? '<span class="badge bg-label-primary">' . $module->parent->name . '</span>'
                 : '<span class="badge bg-label-secondary">None</span>';
@@ -49,9 +61,13 @@ class ModuleController extends Controller
                 $actions .= '</div></div>';
             }
 
+            $name = $module->parent_id
+                ? '<span class="text-muted ps-3"><i class="ti ti-corner-down-right me-1"></i>' . $module->name . '</span>'
+                : '<strong>' . $module->name . '</strong>';
+
             return [
                 'index'          => $index + 1,
-                'name'           => $module->name,
+                'name'           => $name,
                 'parent'         => $parent,
                 'icon'           => $icon,
                 'route'          => $module->route ?? '<span class="text-muted">-</span>',

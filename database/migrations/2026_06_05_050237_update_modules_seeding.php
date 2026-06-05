@@ -1,13 +1,11 @@
 <?php
 
-namespace Database\Seeders;
-
-use Illuminate\Database\Seeder;
+use Illuminate\Database\Migrations\Migration;
 use App\Models\Module;
 
-class ModuleSeeder extends Seeder
+return new class extends Migration
 {
-    public function run(): void
+    public function up(): void
     {
         // Disable foreign key constraints
         \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
@@ -266,4 +264,8 @@ class ModuleSeeder extends Seeder
             'sort_order'     => 1,
         ]);
     }
-}
+
+    public function down(): void
+    {
+    }
+};

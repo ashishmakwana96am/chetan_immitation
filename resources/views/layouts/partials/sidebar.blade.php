@@ -43,7 +43,7 @@
                 $isVisible = true; // Always show if no permission and no children
             } else {
                 foreach ($module->children as $child) {
-                    if (!is_null($child->permission) && auth()->check() && auth()->user()->can($child->permission)) {
+                    if (is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission))) {
                         $isVisible = true;
                         break;
                     }
@@ -54,27 +54,19 @@
 
       @if($isVisible)
         @if($module->children->count() > 0)
-          @php
-            $activePatterns = explode(',', $module->active_pattern ?? '');
-            $activePatterns = array_map('trim', $activePatterns);
-          @endphp
-          <li class="menu-item {{ active_menu_open($activePatterns) }}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons {{ $module->icon ?? 'ti ti-circle' }}"></i>
-              <div>{{ $module->name }}</div>
-            </a>
-            <ul class="menu-sub">
-              @foreach($module->children as $child)
-                @if(is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission)))
-                  <li class="menu-item {{ active_menu($child->active_pattern) }}">
-                    <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
-                      <div>{{ $child->name }}</div>
-                    </a>
-                  </li>
-                @endif
-              @endforeach
-            </ul>
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">{{ $module->name }}</span>
           </li>
+          @foreach($module->children as $child)
+            @if(is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission)))
+              <li class="menu-item {{ active_menu($child->active_pattern) }}">
+                <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
+                  <i class="menu-icon tf-icons {{ $child->icon ?? 'ti ti-circle' }}"></i>
+                  <div>{{ $child->name }}</div>
+                </a>
+              </li>
+            @endif
+          @endforeach
         @else
           {{-- Flat Menu Item (e.g. Dashboard, Users, Locations) --}}
           <li class="menu-item {{ active_menu($module->active_pattern) }}">
