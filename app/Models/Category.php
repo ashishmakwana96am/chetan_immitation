@@ -13,6 +13,7 @@ class Category extends Model
         'status',
         'is_featured',
         'created_by',
+        'sort_order',
     ];
 
     protected $casts = [

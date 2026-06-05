@@ -18,6 +18,7 @@ class Product extends Model
         'sale_price',
         'status',
         'created_by',
+        'sort_order',
     ];
 
     protected function casts(): array

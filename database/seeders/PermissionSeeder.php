@@ -45,12 +45,14 @@ class PermissionSeeder extends Seeder
             'create categories' => 'Categories',
             'edit categories' => 'Categories',
             'delete categories' => 'Categories',
+            'reorder categories' => 'Categories',
 
             // Sub Categories
             'view sub categories' => 'Sub Categories',
             'create sub categories' => 'Sub Categories',
             'edit sub categories' => 'Sub Categories',
             'delete sub categories' => 'Sub Categories',
+            'reorder sub categories' => 'Sub Categories',
 
             // Products
             'view products' => 'Products',
@@ -58,6 +60,7 @@ class PermissionSeeder extends Seeder
             'edit products' => 'Products',
             'delete products' => 'Products',
             'clone products' => 'Products',
+            'reorder products' => 'Products',
 
             // Reports
             'view product reports' => 'Reports',

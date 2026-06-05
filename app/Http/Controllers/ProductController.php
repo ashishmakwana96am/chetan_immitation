@@ -30,7 +30,7 @@ class ProductController extends Controller
             'inventories' => function($q) use ($user) {
                 $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
             }
-        ])->latest()->get();
+        ])->orderBy('sort_order')->get();
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
@@ -69,6 +69,7 @@ class ProductController extends Controller
             $actions .= '</div></div>';
 
             return [
+                'id'             => $product->id,
                 'index'          => $index + 1,
                 'image'          => $image,
                 'name'           => $product->name,
@@ -182,6 +183,7 @@ class ProductController extends Controller
                 'sale_price'      => $request->sale_price,
                 'status'          => $request->has('status') ? 'active' : 'inactive',
                 'created_by'      => auth()->id(),
+                'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ]);
 
             // Primary image
@@ -497,5 +499,26 @@ class ProductController extends Controller
             }
         }
         return null;
+    }
+
+    public function reorder(Request $request)
+    {
+        $this->authorize('reorder products');
+
+        $validator = Validator::make($request->all(), [
+            'order'              => ['required', 'array'],
+            'order.*.id'         => ['required', 'exists:products,id'],
+            'order.*.sort_order' => ['required', 'integer', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        foreach ($request->order as $item) {
+            Product::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Order updated.']);
     }
 }

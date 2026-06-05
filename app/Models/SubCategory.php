@@ -12,6 +12,7 @@ class SubCategory extends Model
         'slug',
         'status',
         'created_by',
+        'sort_order',
     ];
 
     public function category()

@@ -19,7 +19,7 @@ class CategoryController extends Controller
     {
         $this->authorize('view categories');
 
-        $categories = Category::with('createdBy')->latest()->get();
+        $categories = Category::with('createdBy')->orderBy('sort_order')->get();
         $canEdit    = auth()->user()->can('edit categories');
         $canDelete  = auth()->user()->can('delete categories');
 
@@ -54,6 +54,7 @@ class CategoryController extends Controller
             }
 
             return [
+                'id'          => $category->id,
                 'index'       => $index + 1,
                 'image'       => $image,
                 'name'        => $category->name,
@@ -140,6 +141,7 @@ class CategoryController extends Controller
             'status'      => $request->has('status') ? 'active' : 'inactive',
             'is_featured' => $request->has('is_featured') ? true : false,
             'created_by'  => auth()->id(),
+            'sort_order'  => ((int) Category::max('sort_order')) + 1,
         ]);
 
         return response()->json([
@@ -299,5 +301,26 @@ class CategoryController extends Controller
             'status'  => 'success',
             'message' => 'Category deleted successfully.',
         ]);
+    }
+
+    public function reorder(Request $request)
+    {
+        $this->authorize('reorder categories');
+
+        $validator = Validator::make($request->all(), [
+            'order'              => ['required', 'array'],
+            'order.*.id'         => ['required', 'exists:categories,id'],
+            'order.*.sort_order' => ['required', 'integer', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        foreach ($request->order as $item) {
+            Category::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Order updated.']);
     }
 }

@@ -53,6 +53,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Products
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
+        Route::post('products/reorder', [ProductController::class, 'reorder'])->name('products.reorder');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
@@ -99,12 +100,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Categories
         Route::get('categories/data', [CategoryController::class, 'data'])->name('categories.data');
+        Route::post('categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
         Route::resource('categories', CategoryController::class)->except('show');
         Route::patch('categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
         Route::patch('categories/{category}/toggle-featured', [CategoryController::class, 'toggleFeatured'])->name('categories.toggle-featured');
 
         // Sub Categories
         Route::get('sub-categories/data', [SubCategoryController::class, 'data'])->name('sub-categories.data');
+        Route::post('sub-categories/reorder', [SubCategoryController::class, 'reorder'])->name('sub-categories.reorder');
         Route::resource('sub-categories', SubCategoryController::class)->except('show');
         Route::patch('sub-categories/{sub_category}/toggle-status', [SubCategoryController::class, 'toggleStatus'])->name('sub-categories.toggle-status');
 
