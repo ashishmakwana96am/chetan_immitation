@@ -19,7 +19,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->type === 'super-admin') {
+        if ($user->type === 'super-admin' || is_null($user->location_id)) {
             return $this->superAdminDashboard();
         }
 
