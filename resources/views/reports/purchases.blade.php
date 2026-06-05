@@ -15,9 +15,14 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Filter Report</h5></div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <a href="{{ route('admin.reports.purchases') }}" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </a>
+        </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.purchases') }}" class="row g-3">
+            <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Start Date</label>
                     <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
@@ -46,20 +51,19 @@
                         <option value="decline" {{ $status === 'decline' ? 'selected' : '' }}>Decline</option>
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2 justify-content-end mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="ti ti-filter me-1"></i> Apply Filter
-                    </button>
-                    <a href="{{ route('admin.reports.purchases') }}" class="btn btn-label-secondary">
-                        <i class="ti ti-refresh me-1"></i> Reset
-                    </a>
-                </div>
+
             </form>
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
+    <div id="report-results">
+        <div id="chart-data" 
+             data-purchases-trend='@json($purchasesTrend)' 
+             data-supplier-data='@json($supplierData)'>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
@@ -238,13 +242,25 @@
             </div>
         </div>
     </div>
+    </div>
 @endsection
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
-    $(document).ready(function () {
+    let purchasesTrendChart = null;
+    let supplierChart = null;
+
+    function initReport() {
+        // Initialize DataTables (destroy first if already exists)
+        if ($.fn.DataTable.isDataTable('#purchasesReportTable')) {
+            $('#purchasesReportTable').DataTable().destroy();
+        }
+        if ($.fn.DataTable.isDataTable('#purchasedProductsTable')) {
+            $('#purchasedProductsTable').DataTable().destroy();
+        }
+
         $('#purchasesReportTable').DataTable({
             responsive : false,
             order      : [[2, 'desc']],
@@ -255,13 +271,21 @@
             order      : [[3, 'desc']], // Sort by Qty Purchased descending by default!
         });
 
+        // Fetch Chart Data from DOM attributes to bypass jQuery cache
+        const chartDataEl = $('#chart-data');
+        const purchasesTrend = JSON.parse(chartDataEl.attr('data-purchases-trend') || '{}');
+        const supplierData = JSON.parse(chartDataEl.attr('data-supplier-data') || '{}');
+
         // Purchases Trend Chart
-        const purchasesTrend = @json($purchasesTrend);
         const months = Object.keys(purchasesTrend);
         const values = Object.values(purchasesTrend);
 
+        if (purchasesTrendChart) {
+            purchasesTrendChart.destroy();
+            purchasesTrendChart = null;
+        }
         if (months.length > 0) {
-            new ApexCharts(document.getElementById('purchasesTrendChart'), {
+            purchasesTrendChart = new ApexCharts(document.getElementById('purchasesTrendChart'), {
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [{ name: 'Purchases', data: values }],
                 xaxis: { categories: months },
@@ -275,18 +299,22 @@
                         }
                     }
                 }
-            }).render();
+            });
+            purchasesTrendChart.render();
         } else {
             $('#purchasesTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
         // Supplier Horizontal Bar Chart
-        const supplierData = @json($supplierData);
         const suppliers = Object.keys(supplierData);
         const supplierValues = Object.values(supplierData);
 
+        if (supplierChart) {
+            supplierChart.destroy();
+            supplierChart = null;
+        }
         if (suppliers.length > 0) {
-            new ApexCharts(document.getElementById('supplierChart'), {
+            supplierChart = new ApexCharts(document.getElementById('supplierChart'), {
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 plotOptions: {
                     bar: {
@@ -350,10 +378,39 @@
                     padding: { top: -15, right: 10, bottom: -10, left: 10 }
                 },
                 noData: { text: 'No data available' }
-            }).render();
+            });
+            supplierChart.render();
         } else {
             $('#supplierChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
+    }
+
+    $(document).ready(function () {
+        // Initial load
+        initReport();
+
+        // AJAX Filtering on form field changes
+        $('#filterForm').on('change', 'input, select', function () {
+            const form = $('#filterForm');
+            const url = form.attr('action') + '?' + form.serialize();
+
+            // Set loading opacity
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                // Parse and update the results container
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+                
+                $('#report-results').html(newResults);
+                
+                // Re-initialize charts and tables
+                initReport();
+                
+                $('#report-results').css('opacity', 1);
+            });
+        });
     });
     </script>
 @endsection

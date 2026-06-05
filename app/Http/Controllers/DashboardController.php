@@ -48,7 +48,7 @@ class DashboardController extends Controller
         ];
 
         $monthlySales   = $this->getMonthlySales();
-        $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->latest()->take(6)->get();
+        $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->latest()->take(5)->get();
         $lowStock       = Product::with(['inventories', 'category'])->get()->filter(fn($p) => $p->inventories->sum('quantity') <= 5)->take(5)->values();
         $topProducts    = OrderItem::with('product')->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
         $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')], 'final_amount')
@@ -86,7 +86,7 @@ class DashboardController extends Controller
         ];
 
         $monthlySales    = $this->getMonthlySales($locationId);
-        $recentSales     = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->latest()->take(6)->get();
+        $recentSales     = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->latest()->take(5)->get();
         $lowStock        = Inventory::with(['product.category'])->where('location_id', $locationId)->where('quantity', '<=', 5)->orderBy('quantity')->take(5)->get();
         $topProducts     = OrderItem::with('product')->whereHas('order', fn($q) => $q->where('location_id', $locationId))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
 

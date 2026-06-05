@@ -23,6 +23,9 @@
             'pending' => 'Pending',
             'paid'    => 'Paid',
         ];
+
+        $totalItemDiscount = $order->items->sum('discount_amount');
+        $subtotal = $order->final_amount + $totalItemDiscount;
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -122,25 +125,7 @@
                         <p class="text-muted small mb-1">Date</p>
                         <p class="mb-0">{{ format_date($order->created_at) }}</p>
                     </div>
-                    @php
-                        $totalItemDiscount = $order->items->sum('discount_amount');
-                        $subtotal = $order->final_amount + $totalItemDiscount;
-                    @endphp
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small">Items Total</span>
-                        <span class="fw-semibold">{{ format_price($subtotal) }}</span>
-                    </div>
-                    @if($totalItemDiscount > 0)
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small">Discount</span>
-                        <span class="fw-semibold text-danger">-{{ format_price($totalItemDiscount) }}</span>
-                    </div>
-                    @endif
-                    <hr />
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-semibold text-muted">Final Amount</span>
-                        <span class="fw-bold text-primary fs-4">{{ format_price($order->final_amount) }}</span>
-                    </div>
+
                 </div>
             </div>
         </div>

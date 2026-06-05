@@ -160,7 +160,7 @@
 
         <!-- Recent Sales -->
         <div class="col-lg-6">
-            <div class="card h-100">
+            <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Recent Sales</h5>
                     <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
@@ -194,7 +194,7 @@
 
         <!-- Top Products + Low Stock -->
         <div class="col-lg-6">
-            <div class="row g-4 h-100">
+            <div class="row g-4">
 
                 <!-- Top Products -->
                 <div class="col-12">

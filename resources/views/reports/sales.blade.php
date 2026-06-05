@@ -15,9 +15,14 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Filter Report</h5></div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <a href="{{ route('admin.reports.sales') }}" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </a>
+        </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.sales') }}" class="row g-3">
+            <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">Start Date</label>
                     <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
@@ -53,20 +58,19 @@
                         <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2 justify-content-end mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="ti ti-filter me-1"></i> Apply Filter
-                    </button>
-                    <a href="{{ route('admin.reports.sales') }}" class="btn btn-label-secondary">
-                        <i class="ti ti-refresh me-1"></i> Reset
-                    </a>
-                </div>
+
             </form>
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
+    <div id="report-results">
+        <div id="chart-data" 
+             data-sales-trend='@json($salesTrend)' 
+             data-payment-method='@json($paymentMethodData)'>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
@@ -250,13 +254,25 @@
             </div>
         </div>
     </div>
+    </div>
 @endsection
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
-    $(document).ready(function () {
+    let salesTrendChart = null;
+    let paymentMethodChart = null;
+
+    function initReport() {
+        // Initialize DataTables (destroy first if already exists)
+        if ($.fn.DataTable.isDataTable('#salesReportTable')) {
+            $('#salesReportTable').DataTable().destroy();
+        }
+        if ($.fn.DataTable.isDataTable('#productsReportTable')) {
+            $('#productsReportTable').DataTable().destroy();
+        }
+
         $('#salesReportTable').DataTable({
             responsive : false,
             order      : [[2, 'desc']],
@@ -267,13 +283,21 @@
             order      : [[3, 'desc']], // Sort by Qty Sold by default!
         });
 
+        // Fetch Chart Data from DOM attributes to bypass jQuery cache
+        const chartDataEl = $('#chart-data');
+        const salesTrend = JSON.parse(chartDataEl.attr('data-sales-trend') || '{}');
+        const paymentMethodData = JSON.parse(chartDataEl.attr('data-payment-method') || '{}');
+
         // Sales Trend Chart
-        const salesTrend = @json($salesTrend);
         const months = Object.keys(salesTrend);
         const values = Object.values(salesTrend);
 
+        if (salesTrendChart) {
+            salesTrendChart.destroy();
+            salesTrendChart = null;
+        }
         if (months.length > 0) {
-            new ApexCharts(document.getElementById('salesTrendChart'), {
+            salesTrendChart = new ApexCharts(document.getElementById('salesTrendChart'), {
                 chart: { type: 'area', height: 320, toolbar: { show: false } },
                 series: [{ name: 'Sales', data: values }],
                 xaxis: { categories: months },
@@ -296,27 +320,60 @@
                         }
                     }
                 }
-            }).render();
+            });
+            salesTrendChart.render();
         } else {
             $('#salesTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
         // Payment Method Chart
-        const paymentMethodData = @json($paymentMethodData);
         const methods = Object.keys(paymentMethodData);
         const methodValues = Object.values(paymentMethodData);
 
+        if (paymentMethodChart) {
+            paymentMethodChart.destroy();
+            paymentMethodChart = null;
+        }
         if (methods.length > 0) {
-            new ApexCharts(document.getElementById('paymentMethodChart'), {
+            paymentMethodChart = new ApexCharts(document.getElementById('paymentMethodChart'), {
                 chart: { type: 'donut', height: 320 },
                 series: methodValues,
                 labels: methods.map(m => m.toUpperCase().replace('_', ' ')),
                 legend: { position: 'bottom' },
                 dataLabels: { enabled: true },
-            }).render();
+            });
+            paymentMethodChart.render();
         } else {
             $('#paymentMethodChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
+    }
+
+    $(document).ready(function () {
+        // Initial load
+        initReport();
+
+        // AJAX Filtering on form field changes
+        $('#filterForm').on('change', 'input, select', function () {
+            const form = $('#filterForm');
+            const url = form.attr('action') + '?' + form.serialize();
+
+            // Set loading opacity
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                // Parse and update the results container
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+                
+                $('#report-results').html(newResults);
+                
+                // Re-initialize charts and tables
+                initReport();
+                
+                $('#report-results').css('opacity', 1);
+            });
+        });
     });
     </script>
 @endsection

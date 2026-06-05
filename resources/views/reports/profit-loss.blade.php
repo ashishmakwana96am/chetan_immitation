@@ -57,9 +57,14 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header"><h5 class="mb-0">Filter Report</h5></div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <a href="{{ route('admin.reports.profit-loss') }}" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </a>
+        </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.profit-loss') }}" class="row g-3">
+            <form method="GET" action="{{ route('admin.reports.profit-loss') }}" id="filterForm" class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Start Date</label>
                     <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
@@ -79,20 +84,19 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-12 d-flex gap-2 justify-content-end mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="ti ti-filter me-1"></i> Apply Filter
-                    </button>
-                    <a href="{{ route('admin.reports.profit-loss') }}" class="btn btn-label-secondary">
-                        <i class="ti ti-refresh me-1"></i> Reset
-                    </a>
-                </div>
+
             </form>
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
+    <div id="report-results">
+        <div id="chart-data" 
+             data-monthly-revenue='@json($monthlyRevenue)' 
+             data-monthly-cogs='@json($monthlyCogs)'>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
@@ -253,27 +257,41 @@
             </table>
         </div>
     </div>
+    </div>
 @endsection
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
-    $(document).ready(function () {
+    let revenueCogsChart = null;
+
+    function initReport() {
+        // Initialize DataTables (destroy first if already exists)
+        if ($.fn.DataTable.isDataTable('#profitabilityTable')) {
+            $('#profitabilityTable').DataTable().destroy();
+        }
+
         $('#profitabilityTable').DataTable({
             responsive : false,
             order      : [[6, 'desc']], // Order by Net Profit by default
         });
 
-        // Revenue vs COGS Chart
-        const monthlyRevenue = @json($monthlyRevenue);
-        const monthlyCogs = @json($monthlyCogs);
+        // Fetch Chart Data from DOM attributes to bypass jQuery cache
+        const chartDataEl = $('#chart-data');
+        const monthlyRevenue = JSON.parse(chartDataEl.attr('data-monthly-revenue') || '{}');
+        const monthlyCogs = JSON.parse(chartDataEl.attr('data-monthly-cogs') || '{}');
+
         const months = Object.keys(monthlyRevenue);
         const revenueValues = Object.values(monthlyRevenue);
         const cogsValues = Object.values(monthlyCogs);
 
+        if (revenueCogsChart) {
+            revenueCogsChart.destroy();
+            revenueCogsChart = null;
+        }
         if (months.length > 0) {
-            new ApexCharts(document.getElementById('revenueCogsChart'), {
+            revenueCogsChart = new ApexCharts(document.getElementById('revenueCogsChart'), {
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [
                     { name: 'Revenue', data: revenueValues },
@@ -290,10 +308,39 @@
                         }
                     }
                 }
-            }).render();
+            });
+            revenueCogsChart.render();
         } else {
             $('#revenueCogsChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
+    }
+
+    $(document).ready(function () {
+        // Initial load
+        initReport();
+
+        // AJAX Filtering on form field changes
+        $('#filterForm').on('change', 'input, select', function () {
+            const form = $('#filterForm');
+            const url = form.attr('action') + '?' + form.serialize();
+
+            // Set loading opacity
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                // Parse and update the results container
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+                
+                $('#report-results').html(newResults);
+                
+                // Re-initialize charts and tables
+                initReport();
+                
+                $('#report-results').css('opacity', 1);
+            });
+        });
     });
     </script>
 @endsection

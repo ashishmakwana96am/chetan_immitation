@@ -255,3 +255,12 @@ body.offcanvas-locked {
   overflow: hidden !important;
   height: 100vh !important;
 }
+
+/*
+* Force single column (one field per row) layout for all forms loaded inside offcanvas/sidepan
+******************************************************************************/
+#commonModal form .row > [class*="col-"] {
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
