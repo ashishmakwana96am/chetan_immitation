@@ -5,7 +5,38 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    <style>
+        #purchasesReportTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #purchasesReportTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #purchasesReportTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #purchasesReportTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -166,11 +197,11 @@
                             <tr>
                                 <th>#</th>
                                 <th>Invoice No</th>
-                                <th>Date</th>
                                 <th>Supplier</th>
                                 <th>Status</th>
                                 <th class="text-end text-nowrap">Total Amount</th>
                                 <th>Actions</th>
+                                <th class="d-none">date_group</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -178,7 +209,6 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td><code>{{ $invoice->invoice_no }}</code></td>
-                                    <td>{{ format_date($invoice->created_at) }}</td>
                                     <td><span class="fw-semibold">{{ $invoice->supplier->name ?? 'Unknown' }}</span></td>
                                     <td>
                                         @php
@@ -202,6 +232,7 @@
                                             <i class="ti ti-eye"></i>
                                         </a>
                                     </td>
+                                    <td class="d-none">{{ $invoice->created_at->format('d M Y') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -263,12 +294,20 @@
 
         $('#purchasesReportTable').DataTable({
             responsive : false,
-            order      : [[2, 'desc']],
+            order      : [[6, 'desc']],
+            columnDefs : [{ targets: 6, visible: false }],
+            rowGroup   : {
+                dataSrc: 6,
+                startRender: function (rows, group) {
+                    return $('<tr class="group-header"/>')
+                        .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' invoice' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                }
+            },
         });
 
         $('#purchasedProductsTable').DataTable({
             responsive : false,
-            order      : [[3, 'desc']], // Sort by Qty Purchased descending by default!
+            order      : [[3, 'desc']],
         });
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache

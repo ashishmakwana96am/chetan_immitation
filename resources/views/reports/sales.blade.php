@@ -5,7 +5,38 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    <style>
+        #salesReportTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #salesReportTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #salesReportTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #salesReportTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -176,13 +207,13 @@
                             <tr>
                                 <th>#</th>
                                 <th>Order No</th>
-                                <th>Date</th>
                                 <th>Customer</th>
                                 <th>Location</th>
                                 <th>Payment Status</th>
                                 <th>Method</th>
                                 <th class="text-end text-nowrap">Final Amount</th>
                                 <th>Actions</th>
+                                <th class="d-none">date_group</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -190,7 +221,6 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td><code>{{ $order->order_no }}</code></td>
-                                    <td>{{ format_date($order->created_at) }}</td>
                                     <td><span class="fw-semibold">{{ $order->customer->name ?? 'Walk-in' }}</span></td>
                                     <td><span class="badge bg-label-secondary">{{ $order->location->name ?? '-' }}</span></td>
                                     <td>
@@ -214,6 +244,7 @@
                                             <i class="ti ti-eye"></i>
                                         </a>
                                     </td>
+                                    <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -275,12 +306,20 @@
 
         $('#salesReportTable').DataTable({
             responsive : false,
-            order      : [[2, 'desc']],
+            order      : [[8, 'desc']],
+            columnDefs : [{ targets: 8, visible: false }],
+            rowGroup   : {
+                dataSrc: 8,
+                startRender: function (rows, group) {
+                    return $('<tr class="group-header"/>')
+                        .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                }
+            },
         });
 
         $('#productsReportTable').DataTable({
             responsive : false,
-            order      : [[3, 'desc']], // Sort by Qty Sold by default!
+            order      : [[3, 'desc']],
         });
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache

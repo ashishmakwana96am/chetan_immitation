@@ -32,9 +32,7 @@ class PermissionSeeder extends Seeder
 
             // Modules
             'view modules' => 'Modules',
-            'create modules' => 'Modules',
-            'edit modules' => 'Modules',
-            'delete modules' => 'Modules',
+            'reorder modules' => 'Modules',
 
             // Locations
             'view locations' => 'Locations',

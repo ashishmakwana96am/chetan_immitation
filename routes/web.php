@@ -122,8 +122,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('roles', RoleController::class)->except('show');
 
         // Modules
-        Route::get('modules/data', [ModuleController::class, 'data'])->name('modules.data');
-        Route::resource('modules', ModuleController::class)->except('show');
+        Route::get('modules', [ModuleController::class, 'index'])->name('modules.index');
+        Route::post('modules/reorder', [ModuleController::class, 'reorder'])->name('modules.reorder');
 
         // Users
         Route::get('users/data', [UserController::class, 'data'])->name('users.data');

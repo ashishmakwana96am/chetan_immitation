@@ -401,6 +401,21 @@ $(document).ready(function () {
     // -------------------------------------------------------
     // Render full allocation section
     // -------------------------------------------------------
+    function autoDistribute(idx, qty) {
+        const allocInputs = $('.alloc-qty[data-item-idx="' + idx + '"]');
+        const count = allocInputs.length;
+        if (count === 0) return;
+
+        const base      = Math.floor(qty / count);
+        const remainder = qty % count;
+
+        allocInputs.each(function (i) {
+            $(this).val(i === 0 ? base + remainder : base);
+        });
+
+        updateRemainingQty(idx, qty);
+    }
+
     function renderAllocationSection() {
         $('#allocationBody').empty();
         let hasItems = false;
@@ -451,6 +466,9 @@ $(document).ready(function () {
             block.append(locationsHtml);
             block.append(`<div class="text-danger small mt-2 alloc-error-${idx} d-none"></div>`);
             $('#allocationBody').append(block);
+
+            // Auto-distribute after DOM is ready
+            autoDistribute(idx, qty);
         });
 
         if (hasItems) {
@@ -469,7 +487,7 @@ $(document).ready(function () {
         const name = row.data('product-name') || '';
 
         $('#allocation-item-' + idx + ' .badge').text('Overall Qty: ' + qty);
-        updateRemainingQty(idx, qty);
+        autoDistribute(idx, qty);
     }
 
     // -------------------------------------------------------
