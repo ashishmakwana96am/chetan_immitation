@@ -76,8 +76,8 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Additional Information <span class="text-danger">*</span></label>
-                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->product_information : old('product_information') !!}</div>
-                                <textarea name="product_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_information : '' }}</textarea>
+                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->additional_information : old('additional_information') !!}</div>
+                                <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : '' }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
