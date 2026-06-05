@@ -371,9 +371,11 @@ table .action-dropdown-menu .dropdown-item i {
 }
 
 table .action-dropdown-menu .dropdown-item:hover,
-table .action-dropdown-menu .dropdown-item:focus {
+table .action-dropdown-menu .dropdown-item:focus,
+table .action-dropdown-menu .dropdown-item:active,
+table .action-dropdown-menu .dropdown-item.active {
   background: rgba(105, 108, 255, 0.09);
-  color: #696cff;
+  color: #696cff !important;
   transform: translateX(2px);
 }
 
@@ -387,7 +389,9 @@ table .action-dropdown-menu .dropdown-item.text-danger i {
 }
 
 table .action-dropdown-menu .dropdown-item.text-danger:hover,
-table .action-dropdown-menu .dropdown-item.text-danger:focus {
+table .action-dropdown-menu .dropdown-item.text-danger:focus,
+table .action-dropdown-menu .dropdown-item.text-danger:active,
+table .action-dropdown-menu .dropdown-item.text-danger.active {
   background: rgba(234, 84, 85, 0.09);
   color: #ea5455 !important;
 }
