@@ -30,9 +30,9 @@ class SubCategoryController extends Controller
 
             $actions = '';
             if ($canEdit || $canDelete) {
-                $actions = '<div class="dropdown">';
-                $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
-                $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+                $actions = '<div class="dropdown table-action-dropdown">';
+                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+                $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.sub-categories.edit', $subCategory) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }

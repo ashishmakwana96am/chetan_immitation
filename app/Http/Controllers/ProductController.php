@@ -50,9 +50,9 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
 
-            $actions = '<div class="dropdown">';
-            $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
-            $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
+            $actions = '<div class="dropdown table-action-dropdown">';
+            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+            $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.products.show', $product) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canEdit) {
                 $actions .= '<a href="' . route('admin.products.edit', $product) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
