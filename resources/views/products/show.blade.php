@@ -120,7 +120,7 @@
                         @endif
                         @if($product->product_information)
                             <div class="col-12">
-                                <p class="text-muted small mb-1">Product Information</p>
+                                <p class="text-muted small mb-1">Additional Information</p>
                                 <div class="mb-0">{!! $product->product_information !!}</div>
                             </div>
                         @endif

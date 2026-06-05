@@ -11,6 +11,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Stock Inventory Report</h4>
+        <button id="exportExcelBtn" class="btn btn-success">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <!-- Stats Cards -->
@@ -211,6 +214,18 @@
         }
 
         $('#filterCategory, #filterStock').on('change', applyFilters);
+
+        $('#exportExcelBtn').on('click', function() {
+            const cat = $('#filterCategory').val();
+            const stock = $('#filterStock').val();
+            
+            let url = "{{ route('admin.reports.stock-inventory.export') }}?";
+            let params = [];
+            if (cat) params.push('category_id=' + cat);
+            if (stock) params.push('stock=' + stock);
+            
+            window.location.href = url + params.join('&');
+        });
 
         // -------------------------------------------------------
         // Stock per Location Bar Chart

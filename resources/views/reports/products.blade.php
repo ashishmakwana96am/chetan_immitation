@@ -11,6 +11,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Products Report</h4>
+        <button id="exportExcelBtn" class="btn btn-success">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <!-- Stats Cards -->
@@ -216,6 +219,20 @@
         }
 
         $('#filterCategory, #filterStatus, #filterStock').on('change', applyFilters);
+
+        $('#exportExcelBtn').on('click', function() {
+            const cat = $('#filterCategory').val();
+            const status = $('#filterStatus').val();
+            const stock = $('#filterStock').val();
+            
+            let url = "{{ route('admin.reports.products.export') }}?";
+            let params = [];
+            if (cat) params.push('category_id=' + cat);
+            if (status) params.push('status=' + status);
+            if (stock) params.push('stock=' + stock);
+            
+            window.location.href = url + params.join('&');
+        });
 
         // -------------------------------------------------------
         // Products by Category Horizontal Bar Chart

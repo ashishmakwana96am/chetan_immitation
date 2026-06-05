@@ -89,7 +89,7 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Product Information <span class="text-danger">*</span></label>
+                                <label class="form-label">Additional Information <span class="text-danger">*</span></label>
                                 <div id="information-editor">{!! $product->product_information !!}</div>
                                 <textarea name="product_information" id="information-textarea" class="d-none">{{ $product->product_information }}</textarea>
                                 <div class="invalid-feedback"></div>
@@ -243,10 +243,10 @@
                 $('#description-textarea').val(descriptionQuill.root.innerHTML === '<p><br></p>' ? '' : descriptionQuill.root.innerHTML).trigger('input');
             });
 
-            // Initialize Quill Editor for Product Information
+            // Initialize Quill Editor for Additional Information
             const infoQuill = new Quill('#information-editor', {
                 theme: 'snow',
-                placeholder: 'Enter product information...'
+                placeholder: 'Enter additional information...'
             });
             
             infoQuill.on('text-change', function() {

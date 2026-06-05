@@ -48,9 +48,14 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" id="exportExcelBtn" class="btn btn-sm btn-success">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+                </button>
+                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-refresh me-1"></i> Reset
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
@@ -429,6 +434,12 @@
             form.find('select').val('').trigger('change.select2');
 
             loadReport(form.attr('action'));
+        });
+
+        $('#exportExcelBtn').on('click', function () {
+            const form = $('#filterForm');
+            const url = "{{ route('admin.reports.sales.export') }}?" + form.serialize();
+            window.location.href = url;
         });
     });
     </script>
