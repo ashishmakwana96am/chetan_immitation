@@ -59,7 +59,7 @@ class PurchaseInvoiceController extends Controller
             ];
             $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ucfirst($invoice->payment_status ?? 'pending') . '</span>';
 
-            $actions = '<div class="d-inline-block">';
+            $actions = '<div class="dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';

@@ -50,7 +50,7 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
 
-            $actions = '<div class="d-inline-block">';
+            $actions = '<div class="dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
             $actions .= '<a href="' . route('admin.products.show', $product) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';

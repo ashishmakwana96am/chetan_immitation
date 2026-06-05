@@ -31,7 +31,7 @@ class PermissionController extends Controller
 
             $actions = '';
             if ($canEdit || $canDelete) {
-                $actions = '<div class="d-inline-block">';
+                $actions = '<div class="dropdown">';
                 $actions .= '<button class="btn btn-sm btn-label-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end m-0">';
                 if ($canEdit) {
