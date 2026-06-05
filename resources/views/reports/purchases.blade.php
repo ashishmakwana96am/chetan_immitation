@@ -48,9 +48,9 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <a href="{{ route('admin.reports.purchases') }}" class="btn btn-sm btn-label-secondary">
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
                 <i class="ti ti-refresh me-1"></i> Reset
-            </a>
+            </button>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
@@ -228,9 +228,16 @@
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>
-                                        <a href="{{ route('admin.purchases.show', $invoice->id) }}" class="btn btn-sm btn-icon btn-label-secondary" data-bs-toggle="tooltip" title="View">
-                                            <i class="ti ti-eye"></i>
-                                        </a>
+                                        <div class="dropdown table-action-dropdown">
+                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <span>Actions</span>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                                <a href="{{ route('admin.purchases.show', $invoice->id) }}" class="dropdown-item">
+                                                    <i class="ti ti-eye me-2"></i>View
+                                                </a>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="d-none">{{ $invoice->created_at->format('d M Y') }}</td>
                                 </tr>
@@ -428,27 +435,37 @@
         // Initial load
         initReport();
 
+        function loadReport(url) {
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+
+                $('#report-results').html(newResults);
+                initReport();
+            }).always(function () {
+                $('#report-results').css('opacity', 1);
+            });
+        }
+
         // AJAX Filtering on form field changes
         $('#filterForm').on('change', 'input, select', function () {
             const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
-            // Set loading opacity
-            $('#report-results').css('opacity', 0.5);
+            loadReport(url);
+        });
 
-            $.get(url, function (html) {
-                // Parse and update the results container
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newResults = $(doc).find('#report-results').html();
-                
-                $('#report-results').html(newResults);
-                
-                // Re-initialize charts and tables
-                initReport();
-                
-                $('#report-results').css('opacity', 1);
-            });
+        $('#resetFilters').on('click', function () {
+            const form = $('#filterForm');
+
+            form[0].reset();
+            form.find('input').val('');
+            form.find('select').val('').trigger('change.select2');
+
+            loadReport(form.attr('action'));
         });
     });
     </script>

@@ -59,9 +59,9 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <a href="{{ route('admin.reports.profit-loss') }}" class="btn btn-sm btn-label-secondary">
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
                 <i class="ti ti-refresh me-1"></i> Reset
-            </a>
+            </button>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.profit-loss') }}" id="filterForm" class="row g-3">
@@ -319,27 +319,37 @@
         // Initial load
         initReport();
 
+        function loadReport(url) {
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+
+                $('#report-results').html(newResults);
+                initReport();
+            }).always(function () {
+                $('#report-results').css('opacity', 1);
+            });
+        }
+
         // AJAX Filtering on form field changes
         $('#filterForm').on('change', 'input, select', function () {
             const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
-            // Set loading opacity
-            $('#report-results').css('opacity', 0.5);
+            loadReport(url);
+        });
 
-            $.get(url, function (html) {
-                // Parse and update the results container
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newResults = $(doc).find('#report-results').html();
-                
-                $('#report-results').html(newResults);
-                
-                // Re-initialize charts and tables
-                initReport();
-                
-                $('#report-results').css('opacity', 1);
-            });
+        $('#resetFilters').on('click', function () {
+            const form = $('#filterForm');
+
+            form[0].reset();
+            form.find('input').val('');
+            form.find('select').val('').trigger('change.select2');
+
+            loadReport(form.attr('action'));
         });
     });
     </script>
