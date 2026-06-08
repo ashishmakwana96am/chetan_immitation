@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'This action is unauthorized.',
                 ], 403);
             }
-            return redirect()->route('admin.dashboard')->with('error', 'You do not have permission to access that page.');
+            return redirect()->route('admin.dashboard');
         });
 
         $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, \Illuminate\Http\Request $request) {
@@ -31,6 +31,6 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'This action is unauthorized.',
                 ], 403);
             }
-            return redirect()->route('admin.dashboard')->with('error', 'You do not have permission to access that page.');
+            return redirect()->route('admin.dashboard');
         });
     })->create();

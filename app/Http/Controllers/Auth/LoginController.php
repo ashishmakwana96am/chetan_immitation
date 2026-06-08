@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,6 +23,23 @@ class LoginController extends Controller
             'email'    => ['required', 'email'],
             'password' => ['required'],
         ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if ($user && $user->status === 'inactive') {
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'error',
+                    'errors' => [
+                        'email' => ['Please contact administrator.']
+                    ]
+                ], 422);
+            }
+
+            return back()->withErrors([
+                'email' => 'Please contact administrator.',
+            ])->onlyInput('email');
+        }
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
