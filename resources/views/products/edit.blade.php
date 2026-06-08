@@ -582,28 +582,15 @@
                 });
             });
 
-            // Delete additional image (existing)
+            // Mark additional image for deletion on save
             $(document).on('click', '.btn-delete-image', function () {
-                const btn = $(this);
-                const url = btn.data('url');
-                const id  = btn.data('id');
-
-                $.ajax({
-                    url  : url,
-                    type : 'DELETE',
-                    data : { _token: $('meta[name="csrf-token"]').attr('content') },
-                    success : function (res) {
-                        if (res.status === 'success') {
-                            $('#img-' + id).fadeOut(300, function() {
-                                $(this).remove();
-                                if ($('#existingImages').children().length === 0) {
-                                    $('#existingImages').addClass('d-none');
-                                }
-                            });
-                            toastr.success(res.message);
-                        }
-                    },
-                    error : function () { toastr.error('Something went wrong.'); }
+                const id = $(this).data('id');
+                $('#img-' + id).fadeOut(300, function() {
+                    $(this).addClass('d-none');
+                    $('#productForm').append('<input type="hidden" name="deleted_additional_images[]" value="' + id + '" />');
+                    if ($('#existingImages').children(':visible').length === 0) {
+                        $('#existingImages').addClass('d-none');
+                    }
                 });
             });
 

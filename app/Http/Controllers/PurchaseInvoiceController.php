@@ -39,8 +39,9 @@ class PurchaseInvoiceController extends Controller
         $canDelete                     = auth()->user()->can('delete purchases');
         $canEditPurchasesStatus        = auth()->user()->can('edit purchases status');
         $canEditPurchasesPaymentStatus = auth()->user()->can('edit purchases payment status');
+        $canDownloadPurchases          = auth()->user()->can('download purchases');
 
-        $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus) {
+        $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
             $statusColors = [
                 'pending' => 'bg-label-secondary',
                 'approve' => 'bg-label-success',
@@ -63,6 +64,9 @@ class PurchaseInvoiceController extends Controller
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
+            if ($canDownloadPurchases) {
+                $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
+            }
             if ($canEdit && $invoice->status === 'pending') {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }

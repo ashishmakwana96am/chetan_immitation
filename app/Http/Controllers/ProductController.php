@@ -294,7 +294,11 @@ class ProductController extends Controller
 
             // Additional Images validation
             $hasNewAdditional = $request->filled('additional_images_base64') && count($request->additional_images_base64) > 0;
-            $hasExistingAdditional = $product->images()->where('is_primary', false)->exists();
+            $deletedIds = $request->input('deleted_additional_images', []);
+            $hasExistingAdditional = $product->images()
+                ->where('is_primary', false)
+                ->whereNotIn('id', $deletedIds)
+                ->exists();
 
             if (!$hasNewAdditional && !$hasExistingAdditional) {
                 $validator->errors()->add('additional_images_base64', 'At least one additional image is required.');
@@ -354,6 +358,20 @@ class ProductController extends Controller
                             'is_primary' => false,
                             'created_by' => auth()->id(),
                         ]);
+                    }
+                }
+            }
+
+            // Delete additional images marked for removal
+            if ($request->filled('deleted_additional_images')) {
+                foreach ($request->deleted_additional_images as $imageId) {
+                    $image = ProductImage::find($imageId);
+                    if ($image && $image->product_id === $product->id && !$image->is_primary) {
+                        $existingFile = public_path('uploads/' . $image->image_path);
+                        if (file_exists($existingFile)) {
+                            @unlink($existingFile);
+                        }
+                        $image->delete();
                     }
                 }
             }

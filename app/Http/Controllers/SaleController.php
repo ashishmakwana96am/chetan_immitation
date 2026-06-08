@@ -35,6 +35,7 @@ class SaleController extends Controller
         $canDelete                 = auth()->user()->can('delete sales');
         $canEditSalesStatus        = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
+        $canDownloadSales          = auth()->user()->can('download sales');
 
         $statusColors = [
             'pending' => 'bg-label-secondary',
@@ -56,7 +57,7 @@ class SaleController extends Controller
             'paid'    => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
@@ -64,6 +65,9 @@ class SaleController extends Controller
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.sales.show', $order) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
+            if ($canDownloadSales) {
+                $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
+            }
             if ($canEdit && $order->status === 'pending') {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
