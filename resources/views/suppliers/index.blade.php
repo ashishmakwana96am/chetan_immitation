@@ -27,7 +27,6 @@
                         <th>Phone</th>
                         <th>Address</th>
                         <th>Status</th>
-                        <th>Created By</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit suppliers') || auth()->user()->can('delete suppliers'))
                             <th>Actions</th>
@@ -53,7 +52,6 @@
                     { data: 'phone' },
                     { data: 'address' },
                     { data: 'status',     orderable: false },
-                    { data: 'created_by' },
                     { data: 'created_at' },
                     @if(auth()->user()->can('edit suppliers') || auth()->user()->can('delete suppliers'))
                         { data: 'actions',    orderable: false },

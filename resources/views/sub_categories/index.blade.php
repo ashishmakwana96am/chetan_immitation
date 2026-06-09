@@ -32,7 +32,6 @@
                         <th>Category</th>
                         <th>Slug</th>
                         <th>Status</th>
-                        <th>Created By</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit sub categories') || auth()->user()->can('delete sub categories'))
                             <th>Actions</th>
@@ -68,7 +67,6 @@
                 { data: 'category' },
                 { data: 'slug' },
                 { data: 'status',     orderable: false },
-                { data: 'created_by' },
                 { data: 'created_at' },
                 @if(auth()->user()->can('edit sub categories') || auth()->user()->can('delete sub categories'))
                 { data: 'actions', orderable: false },

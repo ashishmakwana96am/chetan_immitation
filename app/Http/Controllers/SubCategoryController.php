@@ -52,7 +52,6 @@ class SubCategoryController extends Controller
                 'category'   => $subCategory->category->name ?? '-',
                 'slug'       => '<code>' . $subCategory->slug . '</code>',
                 'status'     => $status,
-                'created_by' => $subCategory->createdBy->name ?? '-',
                 'created_at' => format_date($subCategory->created_at),
                 'actions'    => $actions,
             ];

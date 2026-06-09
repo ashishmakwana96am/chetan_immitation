@@ -47,7 +47,7 @@
         }
         tr.sortable-chosen {
             background: #f0eeff !important;
-            box-shadow: 0 2px 8px rgba(115,103,240,0.15);
+            box-shadow: 0 2px 8px rgba(180,119,30,0.15);
         }
     </style>
 @endsection

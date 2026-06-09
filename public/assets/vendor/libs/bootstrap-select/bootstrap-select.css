@@ -291,7 +291,7 @@ select.selectpicker {
   display: inline;
 }
 .bootstrap-select.fit-width .dropdown-toggle .bs-caret:before {
-  content: " ";
+  content: "Â ";
 }
 .bootstrap-select.fit-width .dropdown-toggle .caret {
   position: static;
@@ -443,7 +443,7 @@ select.selectpicker {
 }
 
 .bootstrap-select .dropdown-menu a:not([href]):not(.active):not(:active):not(.selected):hover {
-  color: #7367f0 !important;
+  color: #B4771E !important;
 }
 .bootstrap-select .btn[class*=btn-]:active,
 .bootstrap-select .btn[class*=btn-].active {

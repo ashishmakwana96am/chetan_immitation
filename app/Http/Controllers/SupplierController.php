@@ -50,7 +50,6 @@ class SupplierController extends Controller
                 'phone'      => $supplier->phone ?? '-',
                 'address'    => $supplier->address ?? '-',
                 'status'     => $status,
-                'created_by' => $supplier->createdBy->name ?? '-',
                 'created_at' => format_date($supplier->created_at),
                 'actions'    => $actions,
             ];

@@ -61,7 +61,6 @@ class CategoryController extends Controller
                 'slug'        => '<code>' . $category->slug . '</code>',
                 'is_featured' => $featured,
                 'status'      => $status,
-                'created_by'  => $category->createdBy->name ?? '-',
                 'created_at'  => format_date($category->created_at),
                 'actions'     => $actions,
             ];

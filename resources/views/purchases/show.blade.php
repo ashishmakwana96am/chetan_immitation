@@ -93,10 +93,6 @@
                         <p class="text-muted small mb-1">Total Amount</p>
                         <p class="fw-bold text-primary mb-0">{{ format_price($purchase->total_amount) }}</p>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Created By</p>
-                        <p class="mb-0">{{ $purchase->createdBy->name ?? '-' }}</p>
-                    </div>
                     <div>
                         <p class="text-muted small mb-1">Date</p>
                         <p class="mb-0">{{ format_date($purchase->created_at) }}</p>

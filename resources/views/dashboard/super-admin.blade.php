@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Dashboard')
 
@@ -279,7 +279,7 @@
                 { name: 'Orders',  data: monthlySales.map(m => m.count) },
             ],
             xaxis   : { categories: monthlySales.map(m => m.month) },
-            colors  : ['#7367f0', '#28c76f'],
+            colors  : ['#B4771E', '#28c76f'],
             stroke  : { curve: 'smooth', width: 2 },
             fill    : { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
             dataLabels: { enabled: false },
@@ -301,7 +301,7 @@
                     distributed: true
                 }
             },
-            colors  : ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
             series  : [{
                 name: 'Sales',
                 data: salesByLocation.map(l => parseFloat(l.total_sales) || 0)

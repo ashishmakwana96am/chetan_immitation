@@ -9,13 +9,13 @@
         .page { padding: 30px; }
 
         /* Header */
-        .header { width: 100%; margin-bottom: 30px; border-bottom: 2px solid #7367f0; padding-bottom: 20px; }
+        .header { width: 100%; margin-bottom: 30px; border-bottom: 2px solid #B4771E; padding-bottom: 20px; }
         .header table { width: 100%; margin-bottom: 0; }
         .header table td { border: none; padding: 0; vertical-align: top; }
         .header-right { text-align: right; }
-        .company-name { font-size: 22px; font-weight: bold; color: #7367f0; }
+        .company-name { font-size: 22px; font-weight: bold; color: #B4771E; }
         .company-sub { font-size: 11px; color: #888; margin-top: 4px; }
-        .sale-title h2 { font-size: 20px; color: #7367f0; text-transform: uppercase; }
+        .sale-title h2 { font-size: 20px; color: #B4771E; text-transform: uppercase; }
         .sale-no { font-size: 13px; font-weight: bold; margin-top: 4px; }
 
         /* Status badge */
@@ -36,7 +36,7 @@
 
         /* Items table */
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        thead th { background: #7367f0; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
+        thead th { background: #B4771E; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
         tbody td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
         tbody tr:nth-child(even) { background: #fafafa; }
         .text-right { text-align: right; }
@@ -46,7 +46,7 @@
         .totals-row { width: 100%; }
         .totals-row table { margin-bottom: 0; }
         .totals-row table td { border: none; padding: 4px 0; font-size: 12px; }
-        .totals-grand table td { font-size: 14px; font-weight: bold; color: #7367f0; border-top: 2px solid #7367f0; padding-top: 8px; }
+        .totals-grand table td { font-size: 14px; font-weight: bold; color: #B4771E; border-top: 2px solid #B4771E; padding-top: 8px; }
 
         /* Footer */
         .footer { margin-top: 40px; border-top: 1px solid #eee; padding-top: 15px; text-align: center; color: #aaa; font-size: 10px; }
@@ -60,7 +60,7 @@
         <table>
             <tr>
                 <td>
-                    <div class="company-name">Chetan Immitation</div>
+                    <div class="company-name">Chetan Imitation</div>
                     <div class="company-sub">Sales Management System</div>
                 </td>
                 <td class="header-right">

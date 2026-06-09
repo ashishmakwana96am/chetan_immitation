@@ -291,7 +291,7 @@
                 { name: 'Orders',  data: monthlySales.map(m => m.count) },
             ],
             xaxis     : { categories: monthlySales.map(m => m.month) },
-            colors    : ['#7367f0', '#28c76f'],
+            colors    : ['#B4771E', '#28c76f'],
             stroke    : { curve: 'smooth', width: 2 },
             fill      : { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
             dataLabels: { enabled: false },

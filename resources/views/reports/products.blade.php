@@ -264,7 +264,7 @@
                     distributed: true
                 }
             },
-            colors  : ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
             series  : [{
                 name: 'Products',
                 data: Object.values(categoryData)
@@ -333,7 +333,7 @@
             chart  : { type: 'bar', height: 300, toolbar: { show: false } },
             series : [{ name: 'Stock', data: top10.map(p => p.stock) }],
             xaxis  : { categories: top10.map(p => p.name), labels: { rotate: -30 } },
-            colors : ['#7367f0'],
+            colors : ['#B4771E'],
             plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
             dataLabels : { enabled: false },
         }).render();

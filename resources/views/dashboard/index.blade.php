@@ -15,7 +15,7 @@
     <div class="col-12">
       <div class="card">
         <div class="card-body">
-          <h5 class="card-title">Welcome to Chetan Immitation</h5>
+          <h5 class="card-title">Welcome to Chetan Imitation</h5>
           <p class="text-muted">Your dashboard is ready. Start building your ecommerce application.</p>
         </div>
       </div>

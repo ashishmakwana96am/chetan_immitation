@@ -60,7 +60,6 @@
                         <th>Total Amount</th>
                         <th>Status</th>
                         <th>Payment Status</th>
-                        <th>Created By</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -84,7 +83,6 @@
                     { data: 'total_amount' },
                     { data: 'status',         orderable: false },
                     { data: 'payment_status', orderable: false },
-                    { data: 'created_by' },
                     { data: 'actions',        orderable: false },
                     { data: 'date_group',     visible: false },
                 ],

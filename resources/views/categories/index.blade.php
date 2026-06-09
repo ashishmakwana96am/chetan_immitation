@@ -36,7 +36,6 @@
                         <th>Slug</th>
                         <th>Featured</th>
                         <th>Status</th>
-                        <th>Created By</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
                             <th>Actions</th>
@@ -74,7 +73,6 @@
                 { data: 'slug' },
                 { data: 'is_featured', orderable: false },
                 { data: 'status',     orderable: false },
-                { data: 'created_by' },
                 { data: 'created_at' },
                 @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
                 { data: 'actions', orderable: false },

@@ -1316,8 +1316,8 @@ body.swal2-toast-shown .swal2-container.swal2-bottom-end, body.swal2-toast-shown
   color: #a8aaae;
 }
 .light-style .swal2-popup .swal2-icon.swal2-info {
-  border-color: rgba(0, 207, 232, 0.4);
-  color: #00cfe8;
+  border-color: rgba(50, 134, 147, 0.4);
+  color: #328693;
 }
 .light-style .swal2-popup .swal2-icon.swal2-warning {
   border-color: rgba(255, 159, 67, 0.8);
@@ -1394,8 +1394,8 @@ body.swal2-toast-shown .swal2-container.swal2-bottom-end, body.swal2-toast-shown
   color: #a8aaae;
 }
 .dark-style .swal2-popup .swal2-icon.swal2-info {
-  border-color: rgba(0, 207, 232, 0.4);
-  color: #00cfe8;
+  border-color: rgba(50, 134, 147, 0.4);
+  color: #328693;
 }
 .dark-style .swal2-popup .swal2-icon.swal2-warning {
   border-color: rgba(255, 159, 67, 0.8);

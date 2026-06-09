@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Purchase Reports')
 
@@ -338,7 +338,7 @@
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [{ name: 'Purchases', data: values }],
                 xaxis: { categories: months },
-                colors: ['#7367f0'],
+                colors: ['#B4771E'],
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
@@ -373,7 +373,7 @@
                         distributed: true
                     }
                 },
-                colors: ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+                colors: ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
                 series: [{
                     name: 'Purchases',
                     data: supplierValues

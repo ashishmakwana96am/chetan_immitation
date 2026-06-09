@@ -282,7 +282,7 @@
 
                 $fileInput.on('dragenter dragover', function () {
                     $dropZone.css({
-                        'border-color': '#7367f0',
+                        'border-color': '#B4771E',
                         'background-color': '#f1f0ff'
                     });
                 });

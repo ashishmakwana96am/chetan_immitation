@@ -37,7 +37,7 @@ table.dataTable > tbody > tr.selected > th.select-checkbox:before {
 
 table.dataTable > tbody > tr.selected > td.select-checkbox:after,
 table.dataTable > tbody > tr.selected > th.select-checkbox:after {
-  content: "✓";
+  content: "âœ“";
   font-size: 20px;
   margin-top: -19px;
   margin-left: -6px;
@@ -73,7 +73,7 @@ table.dataTable.table-sm tbody td.select-checkbox::before {
 
 table.dataTable tbody > tr.selected td,
 table.dataTable tbody > tr > .selected td {
-  background-color: rgba(115, 103, 240, 0.08);
+  background-color: rgba(180, 119, 30, 0.08);
   box-shadow: none;
 }
 

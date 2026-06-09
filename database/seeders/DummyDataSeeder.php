@@ -176,7 +176,7 @@ class DummyDataSeeder extends Seeder
             // 1. Primary Image
             $primaryFilename = 'products/' . $sku . '_primary.png';
             $primaryFullPath = public_path('uploads/' . $primaryFilename);
-            $bg = [115, 103, 240]; // Purple-blue (#7367f0)
+            $bg = [180, 119, 30]; // Gold (#B4771E)
             $fg = [255, 255, 255];
             self::generatePlaceholderImage($primaryFullPath, 600, 600, $product->name, $bg, $fg);
 

@@ -46,8 +46,8 @@
   color: #6f6b7d;
 }
 .light-style .ui-timepicker-list li:hover {
-  background: rgba(115, 103, 240, 0.08);
-  color: #7367f0;
+  background: rgba(180, 119, 30, 0.08);
+  color: #B4771E;
 }
 .light-style .ui-timepicker-list li:not(.ui-timepicker-selected) .ui-timepicker-duration {
   color: #a5a3ae;
@@ -73,8 +73,8 @@
   color: #b6bee3;
 }
 .dark-style .ui-timepicker-list li:hover {
-  background: rgba(115, 103, 240, 0.08);
-  color: #7367f0;
+  background: rgba(180, 119, 30, 0.08);
+  color: #B4771E;
 }
 .dark-style .ui-timepicker-list li:not(.ui-timepicker-selected) .ui-timepicker-duration {
   color: #7983bb;

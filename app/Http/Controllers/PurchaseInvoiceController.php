@@ -89,7 +89,6 @@ class PurchaseInvoiceController extends Controller
                 'total_amount'   => format_price($invoice->total_amount),
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
-                'created_by'     => $invoice->createdBy->name ?? '-',
                 'date_group'     => $invoice->created_at->format('d M Y'),
                 'actions'        => $actions,
             ];

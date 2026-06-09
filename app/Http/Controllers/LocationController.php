@@ -59,7 +59,6 @@ class LocationController extends Controller
                     ? '<span class="badge bg-label-success">Default</span>'
                     : '<span class="badge bg-label-secondary">No</span>',
                 'status'     => $status,
-                'created_by' => $location->createdBy->name ?? '-',
                 'actions'    => $actions,
             ];
         });

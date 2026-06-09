@@ -29,7 +29,6 @@
                         <th>Address</th>
                         <th>Default</th>
                         <th>Status</th>
-                        <th>Created By</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
                             <th>Actions</th>
                         @endif
@@ -59,7 +58,6 @@
                     { data: 'address' },
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
-                    { data: 'created_by' },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
                         { data: 'actions', orderable: false },
                     @endif

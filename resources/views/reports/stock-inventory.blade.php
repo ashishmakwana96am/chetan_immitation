@@ -263,7 +263,7 @@
                     distributed: true
                 }
             },
-            colors  : ['#7367f0', '#28c76f', '#00cfe8', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
             series : [{ name: 'Total Stock', data: locationTotals }],
             xaxis  : { 
                 categories: locations,

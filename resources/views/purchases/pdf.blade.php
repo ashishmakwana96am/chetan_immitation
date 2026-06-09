@@ -11,13 +11,13 @@
         .page { padding: 30px; }
 
         /* Header */
-        .header { width: 100%; margin-bottom: 30px; border-bottom: 2px solid #7367f0; padding-bottom: 20px; }
+        .header { width: 100%; margin-bottom: 30px; border-bottom: 2px solid #B4771E; padding-bottom: 20px; }
         .header table { margin-bottom: 0; }
         .header table td { border: none; padding: 0; vertical-align: top; }
         .header-right { text-align: right; }
-        .company-name { font-size: 22px; font-weight: bold; color: #7367f0; }
+        .company-name { font-size: 22px; font-weight: bold; color: #B4771E; }
         .company-sub { font-size: 11px; color: #888; margin-top: 4px; }
-        .invoice-title h2 { font-size: 20px; color: #7367f0; text-transform: uppercase; }
+        .invoice-title h2 { font-size: 20px; color: #B4771E; text-transform: uppercase; }
         .invoice-title .invoice-no { font-size: 13px; font-weight: bold; margin-top: 4px; }
 
         /* Status badge */
@@ -38,7 +38,7 @@
 
         /* Items table */
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        thead th { background: #7367f0; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
+        thead th { background: #B4771E; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
         tbody td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
         tbody tr:nth-child(even) { background: #fafafa; }
         tfoot td { padding: 8px 10px; font-weight: bold; }
@@ -50,7 +50,7 @@
         .totals-row { width: 100%; border-bottom: 1px solid #eee; padding: 5px 0; }
         .totals-row table { margin-bottom: 0; }
         .totals-row table td { border: none; padding: 2px 0; }
-        .totals-grand { font-size: 14px; font-weight: bold; color: #7367f0; border-top: 2px solid #7367f0; border-bottom: none; padding-top: 8px; }
+        .totals-grand { font-size: 14px; font-weight: bold; color: #B4771E; border-top: 2px solid #B4771E; border-bottom: none; padding-top: 8px; }
 
         /* Allocations */
         .alloc-badge { display: inline-block; background: #e8f4fd; color: #1a73e8; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin: 1px; }
@@ -67,7 +67,7 @@
         <table style="width:100%;">
             <tr>
                 <td>
-                    <div class="company-name">Chetan Immitation</div>
+                    <div class="company-name">Chetan Imitation</div>
                     <div class="company-sub">Purchase Management System</div>
                 </td>
                 <td class="header-right">
@@ -110,7 +110,6 @@
                         <h4>Invoice Details</h4>
                         <p><span class="label">Invoice No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
-                        <p><span class="label">Created By:</span> {{ $purchase->createdBy->name ?? '-' }}</p>
                         <p><span class="label">Payment Status:</span> {{ ucfirst($purchase->payment_status ?? 'pending') }}</p>
                     </div>
                 </td>
@@ -152,10 +151,10 @@
 
     <!-- Grand Total -->
     <div class="totals-section">
-        <table style="width:100%; border-top: 2px solid #7367f0; padding-top: 8px;">
+        <table style="width:100%; border-top: 2px solid #B4771E; padding-top: 8px;">
             <tr>
-                <td style="font-size:14px; font-weight:bold; color:#7367f0; padding: 8px 0;">Grand Total</td>
-                <td style="font-size:14px; font-weight:bold; color:#7367f0; text-align:right; padding: 8px 0;">{{ format_price($purchase->total_amount) }}</td>
+                <td style="font-size:14px; font-weight:bold; color:#B4771E; padding: 8px 0;">Grand Total</td>
+                <td style="font-size:14px; font-weight:bold; color:#B4771E; text-align:right; padding: 8px 0;">{{ format_price($purchase->total_amount) }}</td>
             </tr>
         </table>
     </div>

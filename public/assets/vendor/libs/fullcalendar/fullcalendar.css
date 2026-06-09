@@ -198,10 +198,10 @@ html:not([dir=rtl]) .fc .fc-view-harness .fc-scrollgrid-section-header > * {
 }
 .light-style .fc-event-primary:not(.fc-list-event) {
   background-color: #eae8fd !important;
-  color: #7367f0 !important;
+  color: #B4771E !important;
 }
 .light-style .fc-event-primary.fc-list-event .fc-list-event-dot {
-  border-color: #7367f0 !important;
+  border-color: #B4771E !important;
 }
 .light-style .fc-event-secondary:not(.fc-list-event) {
   background-color: #f2f2f3 !important;
@@ -219,10 +219,10 @@ html:not([dir=rtl]) .fc .fc-view-harness .fc-scrollgrid-section-header > * {
 }
 .light-style .fc-event-info:not(.fc-list-event) {
   background-color: #d9f8fc !important;
-  color: #00cfe8 !important;
+  color: #328693 !important;
 }
 .light-style .fc-event-info.fc-list-event .fc-list-event-dot {
-  border-color: #00cfe8 !important;
+  border-color: #328693 !important;
 }
 .light-style .fc-event-warning:not(.fc-list-event) {
   background-color: #fff1e3 !important;
@@ -334,13 +334,13 @@ html:not([dir=rtl]) .fc .fc-view-harness .fc-scrollgrid-section-header > * {
 }
 .dark-style .fc-event-primary:not(.fc-list-event) {
   background-color: #3a3b64 !important;
-  color: #7367f0 !important;
+  color: #B4771E !important;
 }
 .dark-style .fc-event-primary:not(.fc-list-event) {
   box-shadow: none;
 }
 .dark-style .fc-event-primary.fc-list-event .fc-list-event-dot {
-  border-color: #7367f0 !important;
+  border-color: #B4771E !important;
 }
 .dark-style .fc-event-secondary:not(.fc-list-event) {
   background-color: #424659 !important;
@@ -364,13 +364,13 @@ html:not([dir=rtl]) .fc .fc-view-harness .fc-scrollgrid-section-header > * {
 }
 .dark-style .fc-event-info:not(.fc-list-event) {
   background-color: #274c62 !important;
-  color: #00cfe8 !important;
+  color: #328693 !important;
 }
 .dark-style .fc-event-info:not(.fc-list-event) {
   box-shadow: none;
 }
 .dark-style .fc-event-info.fc-list-event .fc-list-event-dot {
-  border-color: #00cfe8 !important;
+  border-color: #328693 !important;
 }
 .dark-style .fc-event-warning:not(.fc-list-event) {
   background-color: #504448 !important;
