@@ -227,9 +227,9 @@
         $('#filterCategory, #filterStatus, #filterStock').on('change', applyFilters);
 
         $('#resetFilters').on('click', function() {
-            $('#filterCategory').val('');
-            $('#filterStatus').val('');
-            $('#filterStock').val('');
+            $('#filterCategory').val('').trigger('change.select2');
+            $('#filterStatus').val('').trigger('change.select2');
+            $('#filterStock').val('').trigger('change.select2');
             applyFilters();
         });
 

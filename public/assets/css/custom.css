@@ -77,6 +77,25 @@ table.dataTable .form-switch .form-check-input {
   object-fit: cover;
 }
 
+.product-main-swiper .swiper-button-next,
+.product-main-swiper .swiper-button-prev {
+  color: #fff;
+  background: var(--bs-primary);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 14px;
+}
+.product-main-swiper .swiper-button-next::after,
+.product-main-swiper .swiper-button-prev::after {
+  font-size: 14px;
+  font-weight: 700;
+}
+.product-main-swiper .swiper-button-next:hover,
+.product-main-swiper .swiper-button-prev:hover {
+  opacity: 0.85;
+}
+
 .product-no-image {
   height: 300px;
 }
