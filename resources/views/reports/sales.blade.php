@@ -42,61 +42,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Sale Report</h4>
-    </div>
-
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Filter Report</h5>
-            <div class="d-flex gap-2">
-                <button type="button" id="exportExcelBtn" class="btn btn-sm btn-success">
-                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-                </button>
-                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Reset
-                </button>
-            </div>
-        </div>
-        <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
-                <div class="col-md-2.4 col-sm-6">
-                    <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
-                </div>
-                <div class="col-md-2.4 col-sm-6">
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
-                </div>
-                <div class="col-md-2.4 col-sm-6">
-                    <label class="form-label">Location</label>
-                    <select name="location_id" class="form-select">
-                        <option value="">All Locations</option>
-                        @foreach($locations as $location)
-                            <option value="{{ $location->id }}" {{ $locationId == $location->id ? 'selected' : '' }}>
-                                {{ $location->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-2.4 col-sm-6">
-                    <label class="form-label">Payment Status</label>
-                    <select name="payment_status" class="form-select no-select2">
-                        <option value="">All Statuses</option>
-                        <option value="pending" {{ $paymentStatus === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="paid" {{ $paymentStatus === 'paid' ? 'selected' : '' }}>Paid</option>
-                    </select>
-                </div>
-                <div class="col-md-2.4 col-sm-6">
-                    <label class="form-label">Payment Method</label>
-                    <select name="payment_method" class="form-select no-select2">
-                        <option value="">All Methods</option>
-                        <option value="cash" {{ $paymentMethod === 'cash' ? 'selected' : '' }}>Cash</option>
-                        <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
-                    </select>
-                </div>
-
-            </form>
-        </div>
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <div id="report-results">
@@ -154,7 +102,7 @@
                             <span class="text-muted">Payment Split</span>
                             <h5 class="mb-0 mt-2 text-nowrap">
                                 <span class="badge bg-label-success">{{ $paidCount }} Paid</span>
-                                <span class="badge bg-label-warning">{{ $pendingCount }} Pend</span>
+                                <span class="badge bg-label-warning">{{ $pendingCount }} Unpaid</span>
                             </h5>
                         </div>
                         <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
@@ -184,6 +132,56 @@
                     <div id="paymentMethodChart"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </button>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
+                <div class="col-md-2.4 col-sm-6">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
+                </div>
+                <div class="col-md-2.4 col-sm-6">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
+                </div>
+                <div class="col-md-2.4 col-sm-6">
+                    <label class="form-label">Location</label>
+                    <select name="location_id" class="form-select">
+                        <option value="">All Locations</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location->id }}" {{ $locationId == $location->id ? 'selected' : '' }}>
+                                {{ $location->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2.4 col-sm-6">
+                    <label class="form-label">Payment Status</label>
+                    <select name="payment_status" class="form-select no-select2">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {{ $paymentStatus === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="paid" {{ $paymentStatus === 'paid' ? 'selected' : '' }}>Paid</option>
+                    </select>
+                </div>
+                <div class="col-md-2.4 col-sm-6">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select no-select2">
+                        <option value="">All Methods</option>
+                        <option value="cash" {{ $paymentMethod === 'cash' ? 'selected' : '' }}>Cash</option>
+                        <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
+                    </select>
+                </div>
+
+            </form>
         </div>
     </div>
 

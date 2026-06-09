@@ -42,54 +42,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Purchase Reports</h4>
-    </div>
-
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Filter Report</h5>
-            <div class="d-flex gap-2">
-                <button type="button" id="exportExcelBtn" class="btn btn-sm btn-success">
-                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-                </button>
-                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Reset
-                </button>
-            </div>
-        </div>
-        <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Supplier</label>
-                    <select name="supplier_id" class="form-select">
-                        <option value="">All Suppliers</option>
-                        @foreach($suppliers as $supplier)
-                            <option value="{{ $supplier->id }}" {{ $supplierId == $supplier->id ? 'selected' : '' }}>
-                                {{ $supplier->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Invoice Status</label>
-                    <select name="status" class="form-select no-select2">
-                        <option value="">All Statuses</option>
-                        <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approve" {{ $status === 'approve' ? 'selected' : '' }}>Approve</option>
-                        <option value="decline" {{ $status === 'decline' ? 'selected' : '' }}>Decline</option>
-                    </select>
-                </div>
-
-            </form>
-        </div>
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <div id="report-results">
@@ -174,6 +129,49 @@
                     <div id="supplierChart"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </button>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Supplier</label>
+                    <select name="supplier_id" class="form-select">
+                        <option value="">All Suppliers</option>
+                        @foreach($suppliers as $supplier)
+                            <option value="{{ $supplier->id }}" {{ $supplierId == $supplier->id ? 'selected' : '' }}>
+                                {{ $supplier->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Invoice Status</label>
+                    <select name="status" class="form-select no-select2">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="approve" {{ $status === 'approve' ? 'selected' : '' }}>Approve</option>
+                        <option value="decline" {{ $status === 'decline' ? 'selected' : '' }}>Decline</option>
+                    </select>
+                </div>
+
+            </form>
         </div>
     </div>
 

@@ -53,45 +53,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Profit & Loss Report</h4>
-    </div>
-
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Filter Report</h5>
-            <div class="d-flex gap-2">
-                <button type="button" id="exportExcelBtn" class="btn btn-sm btn-success">
-                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-                </button>
-                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Reset
-                </button>
-            </div>
-        </div>
-        <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.profit-loss') }}" id="filterForm" class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Location</label>
-                    <select name="location_id" class="form-select">
-                        <option value="">All Locations</option>
-                        @foreach($locations as $location)
-                            <option value="{{ $location->id }}" {{ $locationId == $location->id ? 'selected' : '' }}>
-                                {{ $location->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-            </form>
-        </div>
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <div id="report-results">
@@ -210,6 +174,40 @@
                     <div id="revenueCogsChart"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </button>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ route('admin.reports.profit-loss') }}" id="filterForm" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Location</label>
+                    <select name="location_id" class="form-select">
+                        <option value="">All Locations</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location->id }}" {{ $locationId == $location->id ? 'selected' : '' }}>
+                                {{ $location->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+            </form>
         </div>
     </div>
 

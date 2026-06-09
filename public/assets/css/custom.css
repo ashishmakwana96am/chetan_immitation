@@ -326,6 +326,16 @@ table .dropdown-menu .dropdown-divider {
   transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 
+.report-export-btn {
+  min-width: 170px !important;
+  height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 1rem !important;
+  white-space: nowrap !important;
+}
+
 .table-action-dropdown .action-dropdown-btn::after {
   margin-left: 0.1rem;
 }

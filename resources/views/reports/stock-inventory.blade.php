@@ -11,7 +11,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Stock Inventory Report</h4>
-        <button id="exportExcelBtn" class="btn btn-success">
+        <button id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
     </div>
@@ -108,6 +108,12 @@
 
     <!-- Filters -->
     <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Filter Report</h5>
+            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Reset
+            </button>
+        </div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-4">
@@ -214,6 +220,12 @@
         }
 
         $('#filterCategory, #filterStock').on('change', applyFilters);
+
+        $('#resetFilters').on('click', function() {
+            $('#filterCategory').val('');
+            $('#filterStock').val('');
+            applyFilters();
+        });
 
         $('#exportExcelBtn').on('click', function() {
             const cat = $('#filterCategory').val();
