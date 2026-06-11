@@ -108,16 +108,32 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $customers   = Customer::where('status', 'active')->orderBy('name')->get();
         $locations   = Location::where('status', 'active')->orderBy('name')->get();
-        $products    = Product::where('status', 'active')->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
-            return [
+            $data = [
                 'id'    => $p->id,
                 'name'  => $p->name,
                 'price' => $p->sale_price,
                 'sku'   => $p->sku,
                 'label' => $p->name . ' (' . $p->sku . ')',
+                'type'  => $p->type,
             ];
+            if ($p->type === 'variable') {
+                $data['variants'] = $p->variants->filter(function($v) {
+                    return $v->status === 'active';
+                })->values()->map(function($v) {
+                    return [
+                        'id' => $v->id,
+                        'attribute_value_id' => $v->attribute_value_id,
+                        'purchase_price' => $v->purchase_price,
+                        'sale_price' => $v->sale_price,
+                        'attr_name' => $v->attributeValue->attribute->name ?? '',
+                        'value_name' => $v->attributeValue->value ?? '',
+                    ];
+                })->all();
+            }
+            return $data;
         })->values();
         return view('sales.create', compact('customers', 'locations', 'products', 'orderNo', 'allProducts'));
     }
@@ -248,7 +264,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'items.product.primaryImage']);
+        $sale->load(['customer', 'location', 'user', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -260,7 +276,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'items.product']);
+        $sale->load(['customer', 'location', 'user', 'items.product.variants.attributeValue.attribute']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
@@ -284,11 +300,33 @@ class SaleController extends Controller
 
         $customers   = Customer::where('status', 'active')->orderBy('name')->get();
         $locations   = Location::where('status', 'active')->orderBy('name')->get();
-        $products    = Product::where('status', 'active')->orderBy('name')->get();
-        $sale->load(['items.product']);
+        $products    = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
+        $sale->load(['items.product.variants.attributeValue.attribute']);
 
         $allProducts = $products->map(function ($p) {
-            return ['id' => $p->id, 'name' => $p->name, 'price' => $p->sale_price, 'sku' => $p->sku, 'label' => $p->name . ' (' . $p->sku . ')'];
+            $data = [
+                'id'    => $p->id,
+                'name'  => $p->name,
+                'price' => $p->sale_price,
+                'sku'   => $p->sku,
+                'label' => $p->name . ' (' . $p->sku . ')',
+                'type'  => $p->type,
+            ];
+            if ($p->type === 'variable') {
+                $data['variants'] = $p->variants->filter(function($v) {
+                    return $v->status === 'active';
+                })->values()->map(function($v) {
+                    return [
+                        'id' => $v->id,
+                        'attribute_value_id' => $v->attribute_value_id,
+                        'purchase_price' => $v->purchase_price,
+                        'sale_price' => $v->sale_price,
+                        'attr_name' => $v->attributeValue->attribute->name ?? '',
+                        'value_name' => $v->attributeValue->value ?? '',
+                    ];
+                })->all();
+            }
+            return $data;
         })->values();
 
         $existingItems = $sale->items->map(function ($item) {

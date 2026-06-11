@@ -38,7 +38,7 @@ class ModuleSeeder extends Seeder
             'name'           => 'Catalog',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/categories*,admin/sub-categories*,admin/products*',
+            'active_pattern' => 'admin/categories*,admin/sub-categories*,admin/products*,admin/attributes*',
             'permission'     => null,
             'sort_order'     => 2,
         ]);
@@ -68,6 +68,15 @@ class ModuleSeeder extends Seeder
             'active_pattern' => 'admin/products*',
             'permission'     => 'view products',
             'sort_order'     => 3,
+        ]);
+        Module::create([
+            'parent_id'      => $catalogCategory->id,
+            'name'           => 'Attributes',
+            'icon'           => 'ti ti-list-check',
+            'route'          => 'admin.attributes.index',
+            'active_pattern' => 'admin/attributes*',
+            'permission'     => 'view attributes',
+            'sort_order'     => 4,
         ]);
 
         // 3. Inventory & Procurement

@@ -31,14 +31,73 @@ class ReportController extends Controller
         $categories = Category::where('status', 'active')->orderBy('name')->get();
 
         $user = auth()->user();
-        $products = Product::with(['category', 'primaryImage', 'inventories'])
+        $products = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute'])
             ->orderBy('name')
-            ->get()
-            ->map(function ($product) use ($user) {
+            ->get();
+
+        $productsList = collect();
+        foreach ($products as $product) {
+            if ($product->type === 'variable') {
+                $variantStock = $product->getVariantStock();
+                
+                // Parent row
+                $parentStock = 0;
+                if ($user->location_id && $user->type !== 'super-admin') {
+                    $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
+                } else {
+                    foreach ($variantStock as $locData) {
+                        $parentStock += $locData['parent'];
+                    }
+                }
+
+                $productsList->push([
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'sku'            => $product->sku,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'purchase_price' => $product->purchase_price,
+                    'sale_price'     => $product->sale_price,
+                    'total_stock'    => $parentStock,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                ]);
+
+                // Variant rows
+                foreach ($product->variants as $v) {
+                    $vStock = 0;
+                    if ($user->location_id && $user->type !== 'super-admin') {
+                        $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
+                    } else {
+                        foreach ($variantStock as $locData) {
+                            $vStock += ($locData['variants'][$v->id] ?? 0);
+                        }
+                    }
+
+                    $attrName = $v->attributeValue->attribute->name ?? '';
+                    $valName = $v->attributeValue->value ?? '';
+
+                    $productsList->push([
+                        'id'             => $product->id,
+                        'name'           => $product->name,
+                        'sku'            => $product->sku,
+                        'category'       => $product->category->name ?? '-',
+                        'category_id'    => $product->category_id,
+                        'purchase_price' => $v->purchase_price,
+                        'sale_price'     => $v->sale_price,
+                        'total_stock'    => $vStock,
+                        'status'         => $v->status,
+                        'is_parent'      => false,
+                        'variant_name'   => "{$attrName}: {$valName}",
+                    ]);
+                }
+            } else {
                 $totalStock = $product->inventories
                     ->when($user->location_id && $user->type !== 'super-admin', fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
-                return [
+
+                $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
                     'sku'            => $product->sku,
@@ -48,10 +107,13 @@ class ReportController extends Controller
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $totalStock,
                     'status'         => $product->status,
-                ];
-            });
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                ]);
+            }
+        }
 
-        return view('reports.products', compact('products', 'categories'));
+        return view('reports.products', ['products' => $productsList, 'categories' => $categories]);
     }
 
     public function stockInventory()
@@ -66,16 +128,63 @@ class ReportController extends Controller
         }
         $categories = Category::where('status', 'active')->orderBy('name')->get();
 
-        $products = Product::with(['category', 'inventories.location'])
+        $products = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute'])
             ->orderBy('name')
-            ->get()
-            ->map(function ($product) use ($locations) {
+            ->get();
+
+        $productsList = collect();
+        foreach ($products as $product) {
+            if ($product->type === 'variable') {
+                $variantStock = $product->getVariantStock();
+                
+                // Parent Stock per location
+                $parentLocStock = [];
+                foreach ($locations as $location) {
+                    $parentLocStock[$location->id] = $variantStock[$location->id]['parent'] ?? 0;
+                }
+                $productsList->push([
+                    'id'          => $product->id,
+                    'name'        => $product->name,
+                    'sku'         => $product->sku,
+                    'category'    => $product->category->name ?? '-',
+                    'category_id' => $product->category_id,
+                    'stock'       => $parentLocStock,
+                    'total'       => array_sum($parentLocStock),
+                    'status'      => $product->status,
+                    'is_parent'   => true,
+                    'variant_name'=> null,
+                ]);
+
+                // Variants stock per location
+                foreach ($product->variants as $v) {
+                    $vLocStock = [];
+                    foreach ($locations as $location) {
+                        $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
+                    }
+                    $attrName = $v->attributeValue->attribute->name ?? '';
+                    $valName = $v->attributeValue->value ?? '';
+                    
+                    $productsList->push([
+                        'id'          => $product->id,
+                        'name'        => $product->name,
+                        'sku'         => $product->sku,
+                        'category'    => $product->category->name ?? '-',
+                        'category_id' => $product->category_id,
+                        'stock'       => $vLocStock,
+                        'total'       => array_sum($vLocStock),
+                        'status'      => $v->status,
+                        'is_parent'   => false,
+                        'variant_name'=> "{$attrName}: {$valName}",
+                    ]);
+                }
+            } else {
+                // Normal product
                 $stock = [];
                 foreach ($locations as $location) {
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
-                return [
+                $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
                     'sku'         => $product->sku,
@@ -84,10 +193,13 @@ class ReportController extends Controller
                     'stock'       => $stock,
                     'total'       => array_sum($stock),
                     'status'      => $product->status,
-                ];
-            });
+                    'is_parent'   => true,
+                    'variant_name'=> null,
+                ]);
+            }
+        }
 
-        return view('reports.stock-inventory', compact('products', 'locations', 'categories'));
+        return view('reports.stock-inventory', ['products' => $productsList, 'locations' => $locations, 'categories' => $categories]);
     }
 
     public function purchases(Request $request)
@@ -384,7 +496,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         
-        $query = Product::with(['category', 'primaryImage', 'inventories']);
+        $query = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
 
         if ($categoryId) {
             $query->where('category_id', $categoryId);
@@ -393,13 +505,71 @@ class ReportController extends Controller
             $query->where('status', $status);
         }
 
-        $products = $query->orderBy('name')
-            ->get()
-            ->map(function ($product) use ($user) {
+        $products = $query->orderBy('name')->get();
+
+        $productsList = collect();
+        foreach ($products as $product) {
+            if ($product->type === 'variable') {
+                $variantStock = $product->getVariantStock();
+                
+                // Parent row
+                $parentStock = 0;
+                if ($user->location_id && $user->type !== 'super-admin') {
+                    $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
+                } else {
+                    foreach ($variantStock as $locData) {
+                        $parentStock += $locData['parent'];
+                    }
+                }
+
+                $productsList->push([
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'sku'            => $product->sku,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'purchase_price' => $product->purchase_price,
+                    'sale_price'     => $product->sale_price,
+                    'total_stock'    => $parentStock,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                ]);
+
+                // Variant rows
+                foreach ($product->variants as $v) {
+                    $vStock = 0;
+                    if ($user->location_id && $user->type !== 'super-admin') {
+                        $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
+                    } else {
+                        foreach ($variantStock as $locData) {
+                            $vStock += ($locData['variants'][$v->id] ?? 0);
+                        }
+                    }
+
+                    $attrName = $v->attributeValue->attribute->name ?? '';
+                    $valName = $v->attributeValue->value ?? '';
+
+                    $productsList->push([
+                        'id'             => $product->id,
+                        'name'           => $product->name,
+                        'sku'            => $product->sku,
+                        'category'       => $product->category->name ?? '-',
+                        'category_id'    => $product->category_id,
+                        'purchase_price' => $v->purchase_price,
+                        'sale_price'     => $v->sale_price,
+                        'total_stock'    => $vStock,
+                        'status'         => $v->status,
+                        'is_parent'      => false,
+                        'variant_name'   => "{$attrName}: {$valName}",
+                    ]);
+                }
+            } else {
                 $totalStock = $product->inventories
                     ->when($user->location_id && $user->type !== 'super-admin', fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
-                return [
+
+                $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
                     'sku'            => $product->sku,
@@ -409,16 +579,23 @@ class ReportController extends Controller
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $totalStock,
                     'status'         => $product->status,
-                ];
-            });
-
-        if ($stockStatus === 'in') {
-            $products = $products->where('total_stock', '>', 0);
-        } elseif ($stockStatus === 'out') {
-            $products = $products->where('total_stock', '<=', 0);
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                ]);
+            }
         }
 
-        $spreadsheet = $this->exportService->exportProducts($products);
+        // Apply filters on the mapped collection
+        if ($status) {
+            $productsList = $productsList->where('status', $status);
+        }
+        if ($stockStatus === 'in') {
+            $productsList = $productsList->where('total_stock', '>', 0);
+        } elseif ($stockStatus === 'out') {
+            $productsList = $productsList->where('total_stock', '<=', 0);
+        }
+
+        $spreadsheet = $this->exportService->exportProducts($productsList);
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
@@ -443,20 +620,66 @@ class ReportController extends Controller
             $locations = Location::where('status', 'active')->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'inventories.location']);
+        $query = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute']);
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
 
-        $products = $query->orderBy('name')
-            ->get()
-            ->map(function ($product) use ($locations) {
+        $products = $query->orderBy('name')->get();
+
+        $productsList = collect();
+        foreach ($products as $product) {
+            if ($product->type === 'variable') {
+                $variantStock = $product->getVariantStock();
+                
+                // Parent Stock per location
+                $parentLocStock = [];
+                foreach ($locations as $location) {
+                    $parentLocStock[$location->id] = $variantStock[$location->id]['parent'] ?? 0;
+                }
+                $productsList->push([
+                    'id'          => $product->id,
+                    'name'        => $product->name,
+                    'sku'         => $product->sku,
+                    'category'    => $product->category->name ?? '-',
+                    'category_id' => $product->category_id,
+                    'stock'       => $parentLocStock,
+                    'total'       => array_sum($parentLocStock),
+                    'status'      => $product->status,
+                    'is_parent'   => true,
+                    'variant_name'=> null,
+                ]);
+
+                // Variants stock per location
+                foreach ($product->variants as $v) {
+                    $vLocStock = [];
+                    foreach ($locations as $location) {
+                        $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
+                    }
+                    $attrName = $v->attributeValue->attribute->name ?? '';
+                    $valName = $v->attributeValue->value ?? '';
+                    
+                    $productsList->push([
+                        'id'          => $product->id,
+                        'name'        => $product->name,
+                        'sku'         => $product->sku,
+                        'category'    => $product->category->name ?? '-',
+                        'category_id' => $product->category_id,
+                        'stock'       => $vLocStock,
+                        'total'       => array_sum($vLocStock),
+                        'status'      => $v->status,
+                        'is_parent'   => false,
+                        'variant_name'=> "{$attrName}: {$valName}",
+                    ]);
+                }
+            } else {
+                // Normal product
                 $stock = [];
                 foreach ($locations as $location) {
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
-                return [
+                $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
                     'sku'         => $product->sku,
@@ -465,18 +688,22 @@ class ReportController extends Controller
                     'stock'       => $stock,
                     'total'       => array_sum($stock),
                     'status'      => $product->status,
-                ];
-            });
-
-        if ($stockStatus === 'in') {
-            $products = $products->where('total', '>', 0);
-        } elseif ($stockStatus === 'low') {
-            $products = $products->where('total', '>', 0)->where('total', '<=', 5);
-        } elseif ($stockStatus === 'out') {
-            $products = $products->where('total', '<=', 0);
+                    'is_parent'   => true,
+                    'variant_name'=> null,
+                ]);
+            }
         }
 
-        $spreadsheet = $this->exportService->exportStockInventory($products, $locations);
+        // Apply filters on the mapped collection
+        if ($stockStatus === 'in') {
+            $productsList = $productsList->where('total', '>', 0);
+        } elseif ($stockStatus === 'low') {
+            $productsList = $productsList->where('total', '>', 0)->where('total', '<=', 5);
+        } elseif ($stockStatus === 'out') {
+            $productsList = $productsList->where('total', '<=', 0);
+        }
+
+        $spreadsheet = $this->exportService->exportStockInventory($productsList, $locations);
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);

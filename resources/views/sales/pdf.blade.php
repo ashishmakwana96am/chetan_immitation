@@ -138,11 +138,115 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($order->items as $index => $item)
+            @php
+                $preparedItems = collect();
+                $groupedByProduct = $order->items->groupBy('product_id');
+
+                foreach ($groupedByProduct as $productId => $siblings) {
+                    $siblings = $siblings->sortBy('id')->values();
+                    $firstItem = $siblings->first();
+                    $product = $firstItem->product ?? null;
+                    
+                    if ($product && $product->type === 'variable') {
+                        $parentItem = $firstItem;
+                        $parentItem->is_parent = true;
+                        $parentItem->resolved_variant_name = null;
+                        
+                        $variantItems = $siblings->slice(1)->values();
+                        $variants = $product->variants ?? collect();
+                        
+                        $matchedMap = [];
+                        $unmatchedSiblings = $variantItems->all();
+                        
+                        foreach ($variants as $v) {
+                            $matchedIdx = -1;
+                            foreach ($unmatchedSiblings as $idx => $sibling) {
+                                if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
+                                    $matchedIdx = $idx;
+                                    break;
+                                }
+                            }
+                            if ($matchedIdx !== -1) {
+                                $matchedSibling = $unmatchedSiblings[$matchedIdx];
+                                $variantName = null;
+                                if ($v->attributeValue) {
+                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                                }
+                                $matchedSibling->resolved_variant_name = $variantName;
+                                $matchedSibling->is_parent = false;
+                                $matchedMap[$matchedSibling->id] = $matchedSibling;
+                                unset($unmatchedSiblings[$matchedIdx]);
+                            }
+                        }
+                        
+                        $unmatchedSiblings = array_values($unmatchedSiblings);
+                        $unmatchedVariants = [];
+                        foreach ($variants as $v) {
+                            $variantName = null;
+                            if ($v->attributeValue) {
+                                $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                            }
+                            
+                            $alreadyMatched = false;
+                            foreach ($matchedMap as $ms) {
+                                if ($ms->resolved_variant_name === $variantName) {
+                                    $alreadyMatched = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!$alreadyMatched) {
+                                $unmatchedVariants[] = $v;
+                            }
+                        }
+                        
+                        foreach ($unmatchedSiblings as $idx => $sibling) {
+                            if (isset($unmatchedVariants[$idx])) {
+                                $v = $unmatchedVariants[$idx];
+                                $variantName = null;
+                                if ($v->attributeValue) {
+                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                                }
+                                $sibling->resolved_variant_name = $variantName;
+                            } else {
+                                $sibling->resolved_variant_name = null;
+                            }
+                            $sibling->is_parent = false;
+                            $matchedMap[$sibling->id] = $sibling;
+                        }
+                        
+                        $preparedItems->push($parentItem);
+                        foreach ($variantItems as $vItem) {
+                            $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
+                        }
+                    } else {
+                        foreach ($siblings as $sibling) {
+                            $sibling->is_parent = true;
+                            $sibling->resolved_variant_name = null;
+                            $preparedItems->push($sibling);
+                        }
+                    }
+                }
+            @endphp
+
+            @foreach($preparedItems as $index => $item)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td><strong>{{ $item->product->name ?? '-' }}</strong></td>
-                    <td>{{ $item->product->sku ?? '-' }}</td>
+                    <td @if(!$item->is_parent) style="padding-left: 35px;" @endif>
+                        @if(!$item->is_parent)
+                            <span style="color: #888; font-weight: bold; margin-right: 5px;">↳</span>
+                            <span style="font-size: 11px; color: #666;">{{ $item->resolved_variant_name }}</span>
+                        @else
+                            <strong>{{ $item->product->name ?? '-' }}</strong>
+                        @endif
+                    </td>
+                    <td>
+                        @if($item->is_parent)
+                            {{ $item->product->sku ?? '-' }}
+                        @else
+                            -
+                        @endif
+                    </td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
                     <td class="text-right">{{ $item->quantity }}</td>
                     <td class="text-right">

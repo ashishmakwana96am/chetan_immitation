@@ -114,7 +114,7 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        $purchase->load(['supplier', 'createdBy', 'items.product.primaryImage', 'items.allocations.location']);
+        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location']);
         return view('purchases.show', compact('purchase'));
     }
 
@@ -122,7 +122,7 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
-        $products  = Product::where('status', 'active')->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
         $locations = Location::where('status', 'active')->orderBy('name')->get();
         $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
         return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
@@ -223,7 +223,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
-        $products  = Product::where('status', 'active')->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
         $locations = Location::where('status', 'active')->orderBy('name')->get();
         $purchase->load(['items.product', 'items.allocations']);
 
@@ -405,7 +405,7 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        $purchase->load(['supplier', 'createdBy', 'items.product', 'items.allocations.location']);
+        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.allocations.location']);
 
         $pdf = Pdf::loadView('purchases.pdf', compact('purchase'))
             ->setPaper('a4', 'portrait');

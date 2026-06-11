@@ -93,6 +93,16 @@
                             </p>
                         </div>
                         <div class="col-md-6">
+                            <p class="text-muted small mb-1">Type</p>
+                            <p class="mb-0">
+                                @if($product->is_variable)
+                                    <span class="badge bg-label-info">Variable</span>
+                                @else
+                                    <span class="badge bg-label-secondary">Regular</span>
+                                @endif
+                            </p>
+                        </div>
+                        <div class="col-md-6">
                             <p class="text-muted small mb-1">Slug</p>
                             <p class="mb-0"><code>{{ $product->slug }}</code></p>
                         </div>
@@ -126,47 +136,178 @@
 
             <!-- Stock Details -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header border-bottom">
                     <h5 class="mb-0">Stock Details</h5>
                 </div>
-                <div class="card-body">
-                    @if($product->inventories->count())
-                        <div class="row g-3">
-                            @foreach($product->inventories as $inventory)
-                                <div class="col-md-4">
-                                    <div class="d-flex align-items-center justify-content-between p-3 rounded border">
-                                        <div>
-                                            <p class="text-muted small mb-1">{{ $inventory->location->name ?? '-' }}</p>
-                                            <h5 class="mb-0 {{ $inventory->quantity > 0 ? 'text-success' : 'text-danger' }}">
-                                                {{ $inventory->quantity }}
-                                            </h5>
+                <div class="card-body pt-4">
+                    @if($product->is_variable)
+                        @php
+                            $variantStock = $product->getVariantStock();
+                        @endphp
+                        @if(count($variantStock))
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Location</th>
+                                            <th class="text-center">Parent Product</th>
+                                            @foreach($product->variants as $v)
+                                                <th class="text-center">
+                                                    {{ $v->attributeValue->attribute->name ?? '' }}: {{ $v->attributeValue->value ?? '' }}
+                                                </th>
+                                            @endforeach
+                                            <th class="text-center">Total Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @php
+                                            $grandTotalParent = 0;
+                                            $grandTotalVariants = [];
+                                            foreach($product->variants as $v) {
+                                                $grandTotalVariants[$v->id] = 0;
+                                            }
+                                            $grandTotalAll = 0;
+                                        @endphp
+                                        @foreach($variantStock as $locId => $data)
+                                            @php
+                                                $locTotal = $data['parent'];
+                                                foreach($data['variants'] as $vId => $qty) {
+                                                    $locTotal += $qty;
+                                                }
+                                                $grandTotalParent += $data['parent'];
+                                                $grandTotalAll += $locTotal;
+                                            @endphp
+                                            <tr>
+                                                <td class="fw-semibold text-heading">{{ $data['location_name'] }}</td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-label-{{ $data['parent'] > 0 ? 'success' : ($data['parent'] < 0 ? 'danger' : 'secondary') }} fs-6">
+                                                        {{ $data['parent'] }}
+                                                    </span>
+                                                </td>
+                                                @foreach($product->variants as $v)
+                                                    @php
+                                                        $vQty = $data['variants'][$v->id] ?? 0;
+                                                        $grandTotalVariants[$v->id] += $vQty;
+                                                    @endphp
+                                                    <td class="text-center">
+                                                        <span class="badge bg-label-{{ $vQty > 0 ? 'success' : ($vQty < 0 ? 'danger' : 'secondary') }} fs-6">
+                                                            {{ $vQty }}
+                                                        </span>
+                                                    </td>
+                                                @endforeach
+                                                <td class="text-center">
+                                                    <span class="badge bg-label-primary fs-6 fw-bold">{{ $locTotal }}</span>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr class="fw-bold">
+                                            <td>Grand Total</td>
+                                            <td class="text-center text-success">
+                                                <span class="badge bg-success text-white fs-6">{{ $grandTotalParent }}</span>
+                                            </td>
+                                            @foreach($product->variants as $v)
+                                                <td class="text-center text-success">
+                                                    <span class="badge bg-success text-white fs-6">{{ $grandTotalVariants[$v->id] ?? 0 }}</span>
+                                                </td>
+                                            @endforeach
+                                            <td class="text-center text-primary">
+                                                <span class="badge bg-primary text-white fs-6 fw-bold">{{ $grandTotalAll }}</span>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-muted mb-0">No stock available for this product.</p>
+                        @endif
+                    @else
+                        @if($product->inventories->count())
+                            <div class="row g-3">
+                                @foreach($product->inventories as $inventory)
+                                    <div class="col-md-4">
+                                        <div class="d-flex align-items-center justify-content-between p-3 rounded border">
+                                            <div>
+                                                <p class="text-muted small mb-1">{{ $inventory->location->name ?? '-' }}</p>
+                                                <h5 class="mb-0 {{ $inventory->quantity > 0 ? 'text-success' : 'text-danger' }}">
+                                                    {{ $inventory->quantity }}
+                                                </h5>
+                                            </div>
+                                            <span class="badge bg-label-{{ $inventory->quantity > 0 ? 'success' : 'danger' }} rounded p-2">
+                                                <i class="ti ti-package ti-sm"></i>
+                                            </span>
                                         </div>
-                                        <span class="badge bg-label-{{ $inventory->quantity > 0 ? 'success' : 'danger' }} rounded p-2">
-                                            <i class="ti ti-package ti-sm"></i>
+                                    </div>
+                                @endforeach
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center justify-content-between p-3 rounded border border-primary">
+                                        <div>
+                                            <p class="text-muted small mb-1">Total Stock</p>
+                                            <h5 class="mb-0 text-primary">{{ $product->inventories->sum('quantity') }}</h5>
+                                        </div>
+                                        <span class="badge bg-label-primary rounded p-2">
+                                            <i class="ti ti-stack ti-sm"></i>
                                         </span>
                                     </div>
                                 </div>
-                            @endforeach
-                            <div class="col-md-4">
-                                <div class="d-flex align-items-center justify-content-between p-3 rounded border border-primary">
-                                    <div>
-                                        <p class="text-muted small mb-1">Total Stock</p>
-                                        <h5 class="mb-0 text-primary">{{ $product->inventories->sum('quantity') }}</h5>
-                                    </div>
-                                    <span class="badge bg-label-primary rounded p-2">
-                                        <i class="ti ti-stack ti-sm"></i>
-                                    </span>
-                                </div>
                             </div>
-                        </div>
-                    @else
-                        <p class="text-muted mb-0">No stock available for this product.</p>
+                        @else
+                            <p class="text-muted mb-0">No stock available for this product.</p>
+                        @endif
                     @endif
                 </div>
             </div>
         </div>
 
     </div>
+
+    @if($product->is_variable && $product->variants->count())
+        @php
+            if (!isset($variantStock)) {
+                $variantStock = $product->getVariantStock();
+            }
+        @endphp
+        <div class="card mt-4">
+            <div class="card-header"><h5 class="mb-0">Product Variants</h5></div>
+            <div class="card-datatable table-responsive">
+                <table class="table border-top table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Attribute Values</th>
+                            <th>Purchase Price</th>
+                            <th>Sale Price</th>
+                            <th>Total Stock</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($product->variants as $idx => $variant)
+                            @php
+                                $totalVQty = 0;
+                                foreach ($variantStock as $locId => $data) {
+                                    $totalVQty += ($data['variants'][$variant->id] ?? 0);
+                                }
+                            @endphp
+                            <tr>
+                                <td>{{ $idx + 1 }}</td>
+                                <td>{{ $variant->attributeValue->value ?? '-' }} ({{ $variant->attributeValue->attribute->name ?? '-' }})</td>
+                                <td>{{ format_price($variant->purchase_price) }}</td>
+                                <td>{{ format_price($variant->sale_price) }}</td>
+                                <td>
+                                    <span class="badge bg-label-{{ $totalVQty > 0 ? 'success' : ($totalVQty < 0 ? 'danger' : 'secondary') }} fs-6">
+                                        {{ $totalVQty }}
+                                    </span>
+                                </td>
+                                <td>{!! status_badge($variant->status) !!}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 @endsection
 
 @section('page-js')

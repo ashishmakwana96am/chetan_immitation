@@ -17,6 +17,8 @@ use App\Models\OrderItem;
 use App\Models\Inventory;
 use App\Models\User;
 use App\Models\ProductImage;
+use App\Models\Attribute;
+use App\Models\AttributeValue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,7 +47,52 @@ class DummyDataSeeder extends Seeder
         $admin = User::first();
         $adminId = $admin ? $admin->id : 1;
 
-        // 2. Generate 15 Good Locations (Gujarat Cities & Hubs)
+        // 2. Generate Attributes with Values
+        Schema::disableForeignKeyConstraints();
+        \App\Models\AttributeValue::truncate();
+        \App\Models\Attribute::truncate();
+        Schema::enableForeignKeyConstraints();
+
+        $attributesData = [
+            [
+                'name' => 'Color',
+                'values' => ['Red', 'Blue', 'Green', 'Gold', 'Silver'],
+            ],
+            [
+                'name' => 'Size',
+                'values' => ['Small', 'Medium', 'Large', 'XL', 'XXL'],
+            ],
+            [
+                'name' => 'Material',
+                'values' => ['Gold Plated', 'Silver Plated', 'Copper', 'Alloy', 'Stainless Steel'],
+            ],
+            [
+                'name' => 'Stone Type',
+                'values' => ['Kundan', 'American Diamond', 'Pearl', 'Meenakari', 'Polki'],
+            ],
+            [
+                'name' => 'Occasion',
+                'values' => ['Casual', 'Formal', 'Bridal', 'Festival', 'Party'],
+            ],
+        ];
+
+        foreach ($attributesData as $attrData) {
+            $attribute = Attribute::create([
+                'name'       => $attrData['name'],
+                'slug'       => Str::slug($attrData['name']),
+                'status'     => 'active',
+                'created_by' => $adminId,
+            ]);
+            foreach ($attrData['values'] as $value) {
+                AttributeValue::create([
+                    'attribute_id' => $attribute->id,
+                    'value'        => $value,
+                    'status'       => 'active',
+                ]);
+            }
+        }
+
+        // 3. Generate 15 Good Locations (Gujarat Cities & Hubs)
         $locationNames = [
             'Ahmedabad Main Branch', 'Surat Retail Outlet', 'Rajkot Imitation Hub', 
             'Vadodara Central Store', 'Jamnagar Showroom', 'Bhavnagar Plaza', 

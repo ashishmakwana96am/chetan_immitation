@@ -96,6 +96,12 @@ class PermissionSeeder extends Seeder
             'delete sales' => 'Sales',
             'edit sales status' => 'Sales',
             'edit sales payment status' => 'Sales',
+
+            // Attributes
+            'view attributes' => 'Attributes',
+            'create attributes' => 'Attributes',
+            'edit attributes' => 'Attributes',
+            'delete attributes' => 'Attributes',
         ];
 
         foreach ($permissions as $name => $module) {

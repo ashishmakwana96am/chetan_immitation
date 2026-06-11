@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +39,10 @@ class ProductController extends Controller
         $canClone  = auth()->user()->can('clone products');
 
         $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone) {
+            $nameHtml = $product->is_variable
+                ? $product->name . ' <span class="badge bg-label-info ms-1" style="font-size:10px">Variable</span>'
+                : $product->name;
+
             $image = $product->primaryImage
                 ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
@@ -72,7 +78,7 @@ class ProductController extends Controller
                 'id'             => $product->id,
                 'index'          => $index + 1,
                 'image'          => $image,
-                'name'           => $product->name,
+                'name'           => $nameHtml,
                 'sku'            => '<code>' . $product->sku . '</code>',
                 'category'       => $product->category->name ?? '-',
                 'stock'          => $stock,
@@ -95,6 +101,7 @@ class ProductController extends Controller
             'category', 
             'images', 
             'createdBy', 
+            'variants.attributeValue',
             'inventories' => function($q) use ($user) {
                 $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
             },
@@ -107,6 +114,9 @@ class ProductController extends Controller
     {
         $this->authorize('create products');
         $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with(['values' => function ($q) {
+            $q->where('status', 'active');
+        }])->where('status', 'active')->orderBy('name')->get();
 
         $clonedProduct = null;
         $subCategories = collect();
@@ -119,7 +129,7 @@ class ProductController extends Controller
                 ->get();
         }
 
-        return view('products.create', compact('categories', 'clonedProduct', 'subCategories'));
+        return view('products.create', compact('categories', 'clonedProduct', 'subCategories', 'attributes'));
     }
 
     public function store(Request $request)
@@ -128,19 +138,27 @@ class ProductController extends Controller
 
         $isCloning = $request->filled('cloned_from_id');
 
-        $validator = Validator::make($request->all(), [
+        $rules = [
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
             'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku'],
             'description'              => ['required', 'string'],
             'additional_information'   => ['required', 'string'],
-            'purchase_price'           => ['required', 'numeric', 'min:0'],
-            'sale_price'               => ['required', 'numeric', 'min:0'],
+            'type'                     => ['required', 'in:normal,variable'],
             'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
             'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
-        ], [
+        ];
+
+        if ($request->type === 'normal') {
+            $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
+            $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+        } else {
+            $rules['variants_json'] = ['required', 'json'];
+        }
+
+        $validator = Validator::make($request->all(), $rules, [
             'primary_image_base64.required'     => 'The primary image field is required.',
             'additional_images_base64.required'  => 'At least one additional image is required.',
         ]);
@@ -171,7 +189,7 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request) {
-            $product = Product::create([
+            $productData = [
                 'name'            => $request->name,
                 'slug'            => generate_slug(Product::class, $request->name),
                 'category_id'     => $request->category_id,
@@ -179,12 +197,18 @@ class ProductController extends Controller
                 'sku'             => $request->sku,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
-                'purchase_price'  => $request->purchase_price,
-                'sale_price'      => $request->sale_price,
+                'type'            => $request->type,
                 'status'          => $request->has('status') ? 'active' : 'inactive',
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
-            ]);
+            ];
+
+            if ($request->type === 'normal') {
+                $productData['purchase_price'] = $request->purchase_price;
+                $productData['sale_price'] = $request->sale_price;
+            }
+
+            $product = Product::create($productData);
 
             // Primary image
             if ($request->filled('primary_image_base64')) {
@@ -244,6 +268,20 @@ class ProductController extends Controller
                     }
                 }
             }
+
+            // Create variants for variable products
+            if ($request->type === 'variable' && $request->filled('variants_json')) {
+                $variants = json_decode($request->variants_json, true);
+                foreach ($variants as $item) {
+                    ProductVariant::create([
+                        'product_id'         => $product->id,
+                        'attribute_value_id' => $item['attribute_value_id'],
+                        'purchase_price'     => $item['purchase_price'] ?? 0,
+                        'sale_price'         => $item['sale_price'] ?? 0,
+                        'status'             => ($item['status'] ?? 'active') === 'active' ? 'active' : 'inactive',
+                    ]);
+                }
+            }
         });
 
         return response()->json([
@@ -260,27 +298,38 @@ class ProductController extends Controller
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
-        $product->load('images');
-        return view('products.edit', compact('product', 'categories', 'subCategories'));
+        $attributes = Attribute::with(['values' => function ($q) {
+            $q->where('status', 'active');
+        }])->where('status', 'active')->orderBy('name')->get();
+        $product->load('images', 'variants.attributeValue');
+        return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
     }
 
     public function update(Request $request, Product $product)
     {
         $this->authorize('edit products');
 
-        $validator = Validator::make($request->all(), [
+        $rules = [
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
             'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
             'description'              => ['required', 'string'],
             'additional_information'   => ['required', 'string'],
-            'purchase_price'           => ['required', 'numeric', 'min:0'],
-            'sale_price'               => ['required', 'numeric', 'min:0'],
+            'type'                     => ['required', 'in:normal,variable'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
-        ]);
+        ];
+
+        if ($request->type === 'normal') {
+            $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
+            $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+        } else {
+            $rules['variants_json'] = ['required', 'json'];
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         $validator->after(function ($validator) use ($request, $product) {
             // Primary Image validation
@@ -313,7 +362,7 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request, $product) {
-            $product->update([
+            $productData = [
                 'name'            => $request->name,
                 'slug'            => generate_slug(Product::class, $request->name, $product->id),
                 'category_id'     => $request->category_id,
@@ -321,10 +370,16 @@ class ProductController extends Controller
                 'sku'             => $request->sku,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
-                'purchase_price'  => $request->purchase_price,
-                'sale_price'      => $request->sale_price,
+                'type'            => $request->type,
                 'status'          => $request->has('status') ? 'active' : 'inactive',
-            ]);
+            ];
+
+            if ($request->type === 'normal') {
+                $productData['purchase_price'] = $request->purchase_price;
+                $productData['sale_price'] = $request->sale_price;
+            }
+
+            $product->update($productData);
 
             // Replace primary image
             if ($request->filled('primary_image_base64')) {
@@ -374,6 +429,23 @@ class ProductController extends Controller
                         $image->delete();
                     }
                 }
+            }
+
+            // Update variants for variable products
+            if ($request->type === 'variable' && $request->filled('variants_json')) {
+                $product->variants()->delete();
+                $variants = json_decode($request->variants_json, true);
+                foreach ($variants as $item) {
+                    ProductVariant::create([
+                        'product_id'         => $product->id,
+                        'attribute_value_id' => $item['attribute_value_id'],
+                        'purchase_price'     => $item['purchase_price'] ?? 0,
+                        'sale_price'         => $item['sale_price'] ?? 0,
+                        'status'             => ($item['status'] ?? 'active') === 'active' ? 'active' : 'inactive',
+                    ]);
+                }
+            } elseif ($request->type === 'normal') {
+                $product->variants()->delete();
             }
         });
 

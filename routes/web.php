@@ -19,6 +19,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ModuleController;
+use App\Http\Controllers\AttributeController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes (future)
@@ -139,6 +140,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('users/{user}/change-password', [UserController::class, 'changePassword'])->name('users.update-password');
         Route::resource('users', UserController::class)->except('show');
         Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+
+        // Attributes
+        Route::get('attributes/data', [AttributeController::class, 'data'])->name('attributes.data');
+        Route::get('attributes/values-list', [AttributeController::class, 'getAttributesWithValues'])->name('attributes.values-list');
+        Route::post('attributes/values', [AttributeController::class, 'storeValue'])->name('attributes.values.store');
+        Route::post('attributes/quick-store', [AttributeController::class, 'quickStore'])->name('attributes.quick-store');
+        Route::resource('attributes', AttributeController::class)->except('show');
+        Route::patch('attributes/{attribute}/toggle-status', [AttributeController::class, 'toggleStatus'])->name('attributes.toggle-status');
 
         // Profile
         Route::get('profile/change-password', [ProfileController::class, 'showChangePasswordForm'])->name('profile.change-password');

@@ -68,6 +68,57 @@
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Product Type <span class="text-danger">*</span></label>
+                                <select name="type" id="productType" class="form-select no-select2">
+                                    <option value="normal" {{ isset($clonedProduct) && $clonedProduct->type === 'variable' ? '' : 'selected' }}>Normal Product</option>
+                                    <option value="variable" {{ isset($clonedProduct) && $clonedProduct->type === 'variable' ? 'selected' : '' }}>Variable Product</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div id="variableSection" class="d-none">
+                                <div class="card border shadow-sm mb-3" style="border-left: 3px solid #B4771E !important;">
+                                    <div class="card-header py-3 bg-white">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div>
+                                                <i class="ti ti-adjustments-horizontal me-1" style="color:#B4771E;"></i>
+                                                <h6 class="mb-0 d-inline">Select Attributes</h6>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <div id="attributesCheckboxes" class="d-flex flex-wrap gap-2 pt-3">
+                                            @foreach($attributes as $attr)
+                                                <label class="attribute-chip btn btn-sm d-inline-flex align-items-center gap-2 px-3 py-2 cursor-pointer mb-0" for="attr_{{ $attr->id }}" style="transition:all .2s;user-select:none;">
+                                                    <input class="form-check-input attribute-select m-0" type="checkbox" data-attribute-id="{{ $attr->id }}" id="attr_{{ $attr->id }}" style="cursor:pointer;" />
+                                                    <span class="fw-medium" style="font-size:.85rem;">{{ $attr->name }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @if($attributes->count() === 0)
+                                            <div class="text-muted small mt-2" id="noAttributesMsg">No attributes available. Please create attributes first.</div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div id="variantsContainer">
+                                    <label class="form-label">Variants</label>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-sm mb-0" id="variantsTable">
+                                            <thead class="table-light">
+                                                <tr id="variantsHeader">
+                                                    <th style="width:50px">#</th>
+                                                    <th>Attribute Values</th>
+                                                    <th style="width:150px">Purchase Price <span class="text-danger">*</span></th>
+                                                    <th style="width:150px">Sale Price <span class="text-danger">*</span></th>
+                                                    <th style="width:60px">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="variantsBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <input type="hidden" name="variants_json" id="variantsJson" value="" />
+                                </div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Description <span class="text-danger">*</span></label>
                                 <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : old('description') !!}</div>
@@ -198,6 +249,12 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+    <style>
+        .attribute-chip { background:#f5f5f5; border:1px solid #e0e0e0; border-radius:20px; font-size:.82rem; }
+        .attribute-chip:hover { border-color:#B4771E; background:#fcf6ed; }
+        .attribute-chip.active { background:#B4771E !important; border-color:#B4771E !important; color:#fff !important; box-shadow:0 2px 6px rgba(180,119,30,.3); }
+        .attribute-chip.active .form-check-input { background-color:#fff; border-color:#fff; }
+    </style>
 @endsection
 
 @section('page-js')
@@ -540,6 +597,159 @@
                         }
                     }
                 });
+            });
+
+            // ====== Variable Product Logic ======
+            const allAttributes = @json($attributes);
+            let variantsData = [];
+            const removedValueIds = {};
+
+            function findAttrValue(attrValueId) {
+                for (let a = 0; a < allAttributes.length; a++) {
+                    const attr = allAttributes[a];
+                    for (let v = 0; v < attr.values.length; v++) {
+                        if (attr.values[v].id === attrValueId) {
+                            return { attrName: attr.name, valName: attr.values[v].value };
+                        }
+                    }
+                }
+                return { attrName: '', valName: '' };
+            }
+
+            function renderVariantsTable() {
+                let headerHtml = '<th style="width:50px">#</th><th>Attribute</th><th>Value</th>';
+                headerHtml += '<th style="width:200px">Purchase Price <span class="text-danger">*</span></th>';
+                headerHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
+                headerHtml += '<th style="width:60px">Action</th>';
+                $('#variantsHeader').html(headerHtml);
+
+                if (!variantsData || variantsData.length === 0) {
+                    $('#variantsBody').empty();
+                    $('#variantsJson').val('');
+                    return;
+                }
+
+                let bodyHtml = '';
+                variantsData.forEach(function (v, idx) {
+                    const info = findAttrValue(v.attribute_value_id);
+                    bodyHtml += '<tr>' +
+                        '<td>' + (idx + 1) + '</td>' +
+                        '<td>' + info.attrName + '</td>' +
+                        '<td>' + info.valName + '</td>' +
+                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-purchase" value="' + v.purchase_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
+                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + v.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
+                        '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
+                        '</tr>';
+                });
+                $('#variantsBody').html(bodyHtml);
+                $('#variantsJson').val(JSON.stringify(variantsData));
+            }
+
+            function generateVariants() {
+                const $checked = $('.attribute-select:checked');
+                if ($checked.length === 0) {
+                    variantsData = [];
+                    renderVariantsTable();
+                    return;
+                }
+
+                const existingMap = {};
+                variantsData.forEach(function (v) { existingMap[v.attribute_value_id] = v; });
+
+                const defaultPurchase = parseFloat($('input[name="purchase_price"]').val()) || 0;
+                const defaultSale = parseFloat($('input[name="sale_price"]').val()) || 0;
+
+                const newData = [];
+                $checked.each(function () {
+                    const attrId = parseInt($(this).data('attribute-id'));
+                    const attr = allAttributes.find(function (a) { return a.id === attrId; });
+                    if (attr) {
+                        attr.values.forEach(function (val) {
+                            if (removedValueIds[val.id]) return;
+                            const existing = existingMap[val.id];
+                            if (existing) {
+                                newData.push({ ...existing });
+                            } else {
+                                newData.push({
+                                    attribute_value_id: val.id,
+                                    purchase_price: defaultPurchase,
+                                    sale_price: defaultSale,
+                                    status: 'active'
+                                });
+                            }
+                        });
+                    }
+                });
+                variantsData = newData;
+                renderVariantsTable();
+            }
+
+            $(document).on('input', '.variant-purchase', function () {
+                const idx = $(this).data('index');
+                if (variantsData[idx]) {
+                    variantsData[idx].purchase_price = parseFloat($(this).val()) || 0;
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                }
+            });
+
+            $(document).on('input', '.variant-sale', function () {
+                const idx = $(this).data('index');
+                if (variantsData[idx]) {
+                    variantsData[idx].sale_price = parseFloat($(this).val()) || 0;
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                }
+            });
+
+            $(document).on('click', '.remove-variant', function () {
+                const idx = $(this).data('index');
+                const removed = variantsData.splice(idx, 1);
+                if (removed[0]) removedValueIds[removed[0].attribute_value_id] = true;
+                renderVariantsTable();
+            });
+
+            $(document).on('change', '.attribute-select', function () {
+                $(this).closest('.attribute-chip').toggleClass('active', this.checked);
+                if (!this.checked) {
+                    const attrId = parseInt($(this).data('attribute-id'));
+                    const attr = allAttributes.find(function(a) { return a.id === attrId; });
+                    if (attr) {
+                        attr.values.forEach(function(val) { delete removedValueIds[val.id]; });
+                    }
+                }
+                generateVariants();
+            });
+
+            $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {
+                if ($('#variableSection').is(':visible') && variantsData.length > 0) {
+                    const defaultPurchase = parseFloat($('input[name="purchase_price"]').val()) || 0;
+                    const defaultSale = parseFloat($('input[name="sale_price"]').val()) || 0;
+                    variantsData.forEach(function (v) {
+                        v.purchase_price = defaultPurchase;
+                        v.sale_price = defaultSale;
+                    });
+                    renderVariantsTable();
+                }
+            });
+
+            $('#productType').on('change', function () {
+                if ($(this).val() === 'variable') {
+                    $('#variableSection').removeClass('d-none');
+                } else {
+                    $('#variableSection').addClass('d-none');
+                }
+            });
+
+            if ($('#productType').val() === 'variable') {
+                $('#variableSection').removeClass('d-none');
+                generateVariants();
+            }
+
+            $('#productForm').on('submit', function () {
+                if ($('#productType').val() === 'variable') {
+                    if ($('.attribute-select:checked').length === 0) {
+                        $('#variantsJson').val('[]');
+                    }
+                }
             });
 
         });

@@ -113,7 +113,7 @@
                             </table>
                         </div>
                         <div id="noItemsMsg" class="text-center text-muted py-4">
-                            No items added yet. Click "Add Item" to start.
+                            No items added yet.
                         </div>
                     </div>
                 </div>
@@ -226,6 +226,103 @@
             </td>
         </tr>
     </template>
+
+    <!-- Parent Row Template -->
+    <template id="parentRowTemplate">
+        <tr class="item-row parent-row" data-product-id="__PRODUCT_ID__" data-variant-id="parent" data-index="__INDEX__">
+            <td>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="d-flex flex-column ms-2">
+                        <span class="product-name-display fw-semibold text-heading"></span>
+                        <small class="product-sku-display text-muted"></small>
+                    </div>
+                </div>
+                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
+                <div class="invalid-feedback"></div>
+                <small class="text-muted stock-info-display ms-2"></small>
+            </td>
+            <td>
+                <input type="number" name="items[__INDEX__][quantity]"
+                    class="form-control form-control-sm item-qty"
+                    placeholder="0" min="0" value="1" />
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                    <input type="number" name="items[__INDEX__][price]"
+                        class="form-control form-control-sm item-price"
+                        placeholder="0.00" step="0.01" min="0" value="0" />
+                </div>
+            </td>
+            <td>
+                <div class="input-group input-group-sm flex-nowrap" style="min-width: 140px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select form-select-sm item-discount-type no-select2" style="width: 75px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="flat">Flat</option>
+                        <option value="percentage">%</option>
+                    </select>
+                    <input type="number" name="items[__INDEX__][discount_value]"
+                        class="form-control form-control-sm item-discount-value"
+                        placeholder="0" min="0" step="0.01" value="0" />
+                </div>
+            </td>
+            <td>
+                <span class="parent-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-parent-btn" title="Remove Product">
+                    <i class="ti ti-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <!-- Variant Row Template -->
+    <template id="variantRowTemplate">
+        <tr class="item-row variant-row" data-parent-id="__PARENT_ID__" data-variant-id="__VARIANT_ID__" data-index="__INDEX__">
+            <td style="padding-left: 4.5rem;">
+                <div class="d-flex flex-column mb-1">
+                    <div>
+                        <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
+                        <span class="variant-name-display fw-semibold text-heading"></span>
+                    </div>
+                </div>
+                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
+                <small class="text-muted stock-info-display ms-3"></small>
+            </td>
+            <td>
+                <input type="number" name="items[__INDEX__][quantity]"
+                    class="form-control form-control-sm item-qty"
+                    placeholder="0" min="0" value="0" />
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                    <input type="number" name="items[__INDEX__][price]"
+                        class="form-control form-control-sm item-price"
+                        placeholder="0.00" step="0.01" min="0" value="0" />
+                </div>
+            </td>
+            <td>
+                <div class="input-group input-group-sm flex-nowrap" style="min-width: 140px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select form-select-sm item-discount-type no-select2" style="width: 75px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="flat">Flat</option>
+                        <option value="percentage">%</option>
+                    </select>
+                    <input type="number" name="items[__INDEX__][discount_value]"
+                        class="form-control form-control-sm item-discount-value"
+                        placeholder="0" min="0" step="0.01" value="0" />
+                </div>
+            </td>
+            <td>
+                <span class="item-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-variant-btn" title="Remove Variant">
+                    <i class="ti ti-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
 @endsection
 
 @section('page-js')
@@ -240,7 +337,6 @@ $(document).ready(function () {
     const allProducts = @json($allProducts);
     updateSummary();
 
-    // After adding customer via modal, reload customer dropdown
     window.refreshTable = function () {
         $.get('{{ route('admin.customers.data') }}', function (res) {
             const select = $('#customerSelect');
@@ -279,13 +375,17 @@ $(document).ready(function () {
         }
 
         matchedProducts.forEach(p => {
+            const isVar = p.type === 'variable';
+            const priceBadge = isVar
+                ? '<span class="badge bg-label-warning">Variable</span>'
+                : '<span class="badge bg-label-primary">' + symbol + ' ' + formatPrice(p.price) + '</span>';
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
                     <div>
                         <div class="fw-semibold">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}</small>
                     </div>
-                    <span class="badge bg-label-primary">${symbol} ${formatPrice(p.price)}</span>
+                    ${priceBadge}
                 </a>
             `);
             item.data('product', p);
@@ -313,11 +413,7 @@ $(document).ready(function () {
         if (exists) {
             toastr.warning('Product is already in the list.');
         } else {
-            addItemRow({
-                product_id: product.id,
-                price: product.price,
-                quantity: 1
-            }, product);
+            addItemRow(product);
         }
 
         searchInput.val('');
@@ -325,28 +421,77 @@ $(document).ready(function () {
         searchInput.focus();
     });
 
-    function addItemRow(data = null, productObj = null) {
-        const template = document.getElementById('itemRowTemplate').innerHTML
-            .replaceAll('__INDEX__', itemIndex);
-        $('#itemsBody').append(template);
-        $('#noItemsMsg').addClass('d-none');
+    function addItemRow(product) {
+        if (product.type === 'variable') {
+            // 1. Add Parent Row
+            const parentTemplate = document.getElementById('parentRowTemplate').innerHTML
+                .replaceAll('__INDEX__', itemIndex)
+                .replaceAll('__PRODUCT_ID__', product.id);
+            $('#itemsBody').append(parentTemplate);
+            $('#noItemsMsg').addClass('d-none');
 
-        const row = $('#itemsBody .item-row').last();
+            const parentRow = $('#itemsBody .parent-row').last();
+            parentRow.find('.product-id-input').val(product.id);
+            parentRow.find('.product-name-display').text(product.name);
+            parentRow.find('.product-sku-display').text('SKU: ' + product.sku);
+            parentRow.find('.item-price').val(product.price != null ? product.price : 0);
+            parentRow.find('.item-qty').val(1); // Default parent qty to 1
 
-        if (data) {
-            const product = productObj || allProducts.find(p => p.id == data.product_id);
-            row.find('.product-id-input').val(data.product_id);
-            if (product) {
-                row.find('.product-name-display').text(product.name);
-                row.find('.product-sku-display').text('SKU: ' + product.sku);
+            parentRow.data('product-name', product.name);
+            parentRow.data('index', itemIndex);
+
+            updateRowTotal(parentRow);
+            updateStockInfo(parentRow);
+
+            itemIndex++;
+
+            // 2. Add Variant Rows under it
+            if (product.variants && product.variants.length > 0) {
+                product.variants.forEach(function(v) {
+                    const variantTemplate = document.getElementById('variantRowTemplate').innerHTML
+                        .replaceAll('__INDEX__', itemIndex)
+                        .replaceAll('__PARENT_ID__', product.id)
+                        .replaceAll('__VARIANT_ID__', v.id);
+
+                    $('#itemsBody').append(variantTemplate);
+                    const vRow = $('#itemsBody .variant-row').last();
+
+                    vRow.find('.product-id-input').val(product.id);
+                    vRow.find('.variant-name-display').text(v.attr_name + ': ' + v.value_name);
+                    vRow.find('.item-price').val(v.sale_price != null ? v.sale_price : 0);
+                    vRow.find('.item-qty').val(0); // Default to 0
+
+                    vRow.data('product-name', product.name + ' (' + v.attr_name + ': ' + v.value_name + ')');
+                    vRow.data('index', itemIndex);
+
+                    updateRowTotal(vRow);
+                    updateStockInfo(vRow);
+
+                    itemIndex++;
+                });
             }
-            row.find('.item-price').val(data.price);
-            row.find('.item-qty').val(data.quantity);
+        } else {
+            // Normal product
+            const template = document.getElementById('itemRowTemplate').innerHTML
+                .replaceAll('__INDEX__', itemIndex);
+
+            $('#itemsBody').append(template);
+            $('#noItemsMsg').addClass('d-none');
+
+            const row = $('#itemsBody .item-row').last();
+            row.find('.product-id-input').val(product.id);
+            row.find('.product-name-display').text(product.name);
+            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.data('product-name', product.name);
+            row.data('index', itemIndex);
+            row.find('.item-price').val(product.price != null ? product.price : 0);
+            row.find('.item-qty').val(1);
+
             updateRowTotal(row);
             updateStockInfo(row);
-        }
 
-        itemIndex++;
+            itemIndex++;
+        }
         updateSummary();
     }
 
@@ -359,6 +504,27 @@ $(document).ready(function () {
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
         }
+        updateSummary();
+    });
+
+    // Remove Parent Product Row and all its variants
+    $(document).on('click', '.remove-parent-btn', function () {
+        const parentRow = $(this).closest('.parent-row');
+        const productId = parentRow.data('product-id');
+        
+        $(`.variant-row[data-parent-id="${productId}"]`).remove();
+        parentRow.remove();
+        
+        if ($('#itemsBody .item-row').length === 0) {
+            $('#noItemsMsg').removeClass('d-none');
+        }
+        updateSummary();
+    });
+
+    // Remove single variant row
+    $(document).on('click', '.remove-variant-btn', function () {
+        const row = $(this).closest('.variant-row');
+        row.remove();
         updateSummary();
     });
 
@@ -379,16 +545,16 @@ $(document).ready(function () {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-info-display');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id');
 
         if (!productId || !locationId) {
             stockDisplay.text('').removeAttr('title').css('cursor', '');
             return;
         }
 
-        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId })
+        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
-                const totalQty = res.data?.total_quantity ?? 0;
                 const breakdown = res.data?.breakdown || [];
                 
                 let titleText = 'Stock Breakdown:\n';
@@ -408,10 +574,6 @@ $(document).ready(function () {
                     .addClass(qty > 0 ? 'text-success' : 'text-danger');
             });
     }
-
-    // -------------------------------------------------------
-    // Sync product dropdowns (Removed as no longer applicable)
-    // -------------------------------------------------------
 
     // -------------------------------------------------------
     // Price / Qty / Discount change
@@ -442,7 +604,11 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const total    = subtotal - discount;
-        row.find('.item-total').text(symbol + ' ' + formatPrice(total));
+        if (row.hasClass('parent-row')) {
+            row.find('.parent-total').text(symbol + ' ' + formatPrice(total));
+        } else {
+            row.find('.item-total').text(symbol + ' ' + formatPrice(total));
+        }
         updateSummary();
     }
 
@@ -451,8 +617,10 @@ $(document).ready(function () {
         let discountSum = 0;
         let count       = 0;
         $('#itemsBody .item-row').each(function () {
-            const price    = parseFloat($(this).find('.item-price').val()) || 0;
             const qty      = parseInt($(this).find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+
+            const price    = parseFloat($(this).find('.item-price').val()) || 0;
             const discVal  = parseFloat($(this).find('.item-discount-value').val()) || 0;
             const discType = $(this).find('.item-discount-type').val() || 'flat';
 
@@ -499,14 +667,35 @@ $(document).ready(function () {
     $('#orderForm').on('submit', function (e) {
         e.preventDefault();
 
-        if ($('#itemsBody .item-row').length === 0) {
-            toastr.error('Please add at least one item.');
+        let activeCount = 0;
+        $('.item-row').each(function () {
+            if ((parseInt($(this).find('.item-qty').val()) || 0) > 0) {
+                activeCount++;
+            }
+        });
+
+        if (activeCount === 0) {
+            toastr.error('Please add at least one item with quantity greater than 0.');
             return;
         }
 
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.invalid-feedback').text('');
+
+        const disabledInputs = [];
+        $('.variant-row, .parent-row').each(function () {
+            const qty = parseInt($(this).find('.item-qty').val()) || 0;
+            if (qty <= 0) {
+                $(this).find('input, select').each(function () {
+                    if (!$(this).prop('disabled')) {
+                        $(this).prop('disabled', true);
+                        disabledInputs.push($(this));
+                    }
+                });
+            }
+        });
+
         $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
 
         $.ajax({
@@ -514,12 +703,14 @@ $(document).ready(function () {
             type    : 'POST',
             data    : form.serialize(),
             success : function (res) {
+                disabledInputs.forEach(input => input.prop('disabled', false));
                 if (res.status === 'success') {
                     toastr.success(res.message);
                     setTimeout(() => window.location.href = '{{ route('admin.sales.index') }}', 800);
                 }
             },
             error   : function (xhr) {
+                disabledInputs.forEach(input => input.prop('disabled', false));
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Sale');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};

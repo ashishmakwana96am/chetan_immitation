@@ -164,13 +164,29 @@
                             data-status="{{ $product['status'] }}"
                             data-stock="{{ $product['total_stock'] }}">
                             <td>{{ $index + 1 }}</td>
-                            <td>
-                                <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
-                                    {{ $product['name'] }}
-                                </a>
+                            <td data-order="{{ $product['name'] }} {{ $product['is_parent'] ? '000_parent' : $product['variant_name'] }}">
+                                @if($product['is_parent'])
+                                    <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
+                                        {{ $product['name'] }}
+                                    </a>
+                                @else
+                                    <span class="text-muted ps-4">↳ {{ $product['variant_name'] }}</span>
+                                @endif
                             </td>
-                            <td><code>{{ $product['sku'] }}</code></td>
-                            <td><span class="badge bg-label-primary">{{ $product['category'] }}</span></td>
+                            <td>
+                                @if($product['is_parent'])
+                                    <code>{{ $product['sku'] }}</code>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($product['is_parent'])
+                                    <span class="badge bg-label-primary">{{ $product['category'] }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                             <td class="text-end">{{ format_price($product['purchase_price']) }}</td>
                             <td class="text-end">{{ format_price($product['sale_price']) }}</td>
                             <td class="text-end">

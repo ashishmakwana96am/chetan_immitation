@@ -137,10 +137,19 @@ class ReportExportService
             $margin = $product['sale_price'] - $product['purchase_price'];
             $marginPct = $product['purchase_price'] > 0 ? ($margin / $product['purchase_price']) : 0;
 
+            $productName = $product['name'];
+            $sku = $product['sku'];
+            $category = $product['category'];
+            if (isset($product['is_parent']) && !$product['is_parent']) {
+                $productName = "    ↳ " . $product['variant_name'];
+                $sku = "-";
+                $category = "-";
+            }
+
             $sheet->setCellValue('A' . $row, $index + 1);
-            $sheet->setCellValue('B' . $row, $product['name']);
-            $sheet->setCellValue('C' . $row, $product['sku']);
-            $sheet->setCellValue('D' . $row, $product['category']);
+            $sheet->setCellValue('B' . $row, $productName);
+            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('D' . $row, $category);
             $sheet->setCellValue('E' . $row, (float) $product['purchase_price']);
             $sheet->setCellValue('F' . $row, (float) $product['sale_price']);
             $sheet->setCellValue('G' . $row, (float) $margin);
@@ -206,10 +215,19 @@ class ReportExportService
         // Fill Data
         $row = 2;
         foreach ($products as $index => $product) {
+            $productName = $product['name'];
+            $sku = $product['sku'];
+            $category = $product['category'];
+            if (isset($product['is_parent']) && !$product['is_parent']) {
+                $productName = "    ↳ " . $product['variant_name'];
+                $sku = "-";
+                $category = "-";
+            }
+
             $sheet->setCellValue('A' . $row, $index + 1);
-            $sheet->setCellValue('B' . $row, $product['name']);
-            $sheet->setCellValue('C' . $row, $product['sku']);
-            $sheet->setCellValue('D' . $row, $product['category']);
+            $sheet->setCellValue('B' . $row, $productName);
+            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('D' . $row, $category);
 
             $colIdx = 5; // Col E starts at index 5 (1-based)
             foreach ($locations as $loc) {
