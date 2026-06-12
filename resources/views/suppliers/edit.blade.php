@@ -31,8 +31,8 @@
         <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
-                <input class="form-check-input" type="checkbox" id="supplierStatus" name="status" value="active"
-                    {{ $supplier->status === 'active' ? 'checked' : '' }} />
+                <input class="form-check-input" type="checkbox" id="supplierStatus" name="status" value="1"
+                    {{ $supplier->status == 1 ? 'checked' : '' }} />
                 <label class="form-check-label" for="supplierStatus">Active</label>
             </div>
         </div>

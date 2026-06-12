@@ -150,9 +150,9 @@
                     <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
                     <div class="card-body">
                         <select name="status" class="form-select no-select2">
-                            <option value="pending" {{ $order->status === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="approve" {{ $order->status === 'approve' ? 'selected' : '' }}>Approve</option>
-                            <option value="decline" {{ $order->status === 'decline' ? 'selected' : '' }}>Decline</option>
+                            <option value="1" {{ $order->status == 1 ? 'selected' : '' }}>Pending</option>
+                            <option value="2" {{ $order->status == 2 ? 'selected' : '' }}>Approve</option>
+                            <option value="3" {{ $order->status == 3 ? 'selected' : '' }}>Decline</option>
                         </select>
                     </div>
                 </div>
@@ -162,8 +162,8 @@
                     <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
                     <div class="card-body">
                         <select name="payment_status" class="form-select no-select2">
-                            <option value="pending" {{ ($order->payment_status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="paid" {{ ($order->payment_status ?? 'pending') === 'paid' ? 'selected' : '' }}>Paid</option>
+                            <option value="1" {{ ($order->payment_status ?? 1) == 1 ? 'selected' : '' }}>Pending</option>
+                            <option value="2" {{ ($order->payment_status ?? 1) == 2 ? 'selected' : '' }}>Paid</option>
                         </select>
                     </div>
                 </div>

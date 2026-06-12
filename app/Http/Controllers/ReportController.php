@@ -28,7 +28,7 @@ class ReportController extends Controller
     {
         $this->authorize('view product reports');
 
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
 
         $user = auth()->user();
         $products = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute'])
@@ -120,13 +120,13 @@ class ReportController extends Controller
     {
         $this->authorize('view stock inventory reports');
 
-        $user = auth()->user();
+        $user      = auth()->user();
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
 
         $products = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute'])
             ->orderBy('name')
@@ -239,8 +239,8 @@ class ReportController extends Controller
         // Totals
         $totalPurchases = $invoices->sum('total_amount');
         $invoiceCount   = $invoices->count();
-        $confirmedCount = $invoices->where('status', 'approve')->count();
-        $draftCount     = $invoices->where('status', 'pending')->count();
+        $confirmedCount = $invoices->where('status', 2)->count();
+        $draftCount     = $invoices->where('status', 1)->count();
 
         // Purchase by Supplier (Donut Chart)
         $supplierData = [];
@@ -295,7 +295,7 @@ class ReportController extends Controller
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
             $locationId = $request->query('location_id');
         }
         $customers = Customer::orderBy('name')->get();
@@ -307,7 +307,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', 'decline')
+            ->where('status', '!=', 3)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -332,8 +332,8 @@ class ReportController extends Controller
         $totalSales   = (float)$orders->sum('final_amount');
         $orderCount   = $orders->count();
         $avgOrderValue = $orderCount > 0 ? $totalSales / $orderCount : 0.0;
-        $paidCount     = $orders->where('payment_status', 'paid')->count();
-        $pendingCount  = $orders->where('payment_status', 'pending')->count();
+        $paidCount     = $orders->where('payment_status', 2)->count();
+        $pendingCount  = $orders->where('payment_status', 1)->count();
 
         // Sales Over Time
         $salesTrend = [];
@@ -389,14 +389,14 @@ class ReportController extends Controller
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
             $locationId = $request->query('location_id');
         }
 
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 'decline')
+        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 3)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -617,7 +617,7 @@ class ReportController extends Controller
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
         $query = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute']);
@@ -784,7 +784,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', 'decline')
+            ->where('status', '!=', 3)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {

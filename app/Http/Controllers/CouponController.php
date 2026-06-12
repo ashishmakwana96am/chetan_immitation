@@ -24,7 +24,7 @@ class CouponController extends Controller
 
         $data = $coupons->map(function ($coupon, $index) use ($canEdit, $canDelete) {
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input coupon-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.coupons.toggle-status', $coupon) . '" ' . ($coupon->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input coupon-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.coupons.toggle-status', $coupon) . '" ' . ($coupon->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($coupon->status);
 
             $actions = '';
@@ -110,7 +110,7 @@ class CouponController extends Controller
             'usage_limit'    => $request->usage_limit,
             'start_date'     => $request->start_date,
             'end_date'       => $request->end_date,
-            'status'         => $request->has('status') ? 'active' : 'inactive',
+            'status'         => $request->has('status') ? 1 : 2,
             'created_by'     => auth()->id(),
         ]);
 
@@ -157,7 +157,7 @@ class CouponController extends Controller
             'usage_limit'    => $request->usage_limit,
             'start_date'     => $request->start_date,
             'end_date'       => $request->end_date,
-            'status'         => $request->has('status') ? 'active' : 'inactive',
+            'status'         => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -171,7 +171,7 @@ class CouponController extends Controller
         $this->authorize('edit coupons');
 
         $coupon->update([
-            'status' => $coupon->status === 'active' ? 'inactive' : 'active',
+            'status' => $coupon->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

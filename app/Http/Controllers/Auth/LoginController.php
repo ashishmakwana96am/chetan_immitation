@@ -26,7 +26,7 @@ class LoginController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if ($user && $user->status === 'inactive') {
+        if ($user && $user->status == 2) {
             if ($request->ajax()) {
                 return response()->json([
                     'status' => 'error',

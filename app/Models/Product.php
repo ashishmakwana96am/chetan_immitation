@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
+    const STATUS_ACTIVE = 1;
+    const STATUS_INACTIVE = 2;
+
     protected $fillable = [
         'name',
         'slug',
@@ -75,7 +78,7 @@ class Product extends Model
         })->get();
 
         // 1. Get all approved purchases containing this product
-        $purchases = \App\Models\PurchaseInvoice::where('status', 'approve')
+        $purchases = \App\Models\PurchaseInvoice::where('status', 2)
             ->whereHas('items', function($q) {
                 $q->where('product_id', $this->id);
             })
@@ -85,7 +88,7 @@ class Product extends Model
             ->get();
 
         // 2. Get all approved sales containing this product
-        $sales = \App\Models\Order::where('status', 'approve')
+        $sales = \App\Models\Order::where('status', 2)
             ->whereHas('items', function($q) {
                 $q->where('product_id', $this->id);
             })

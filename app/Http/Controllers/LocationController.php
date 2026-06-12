@@ -29,9 +29,9 @@ class LocationController extends Controller
                 ? '<div class="form-check form-switch mb-0">
                     <input class="form-check-input location-status-toggle" type="checkbox" role="switch"
                         data-url="' . route('admin.locations.toggle-status', $location) . '"
-                        ' . ($location->status === 'active' ? 'checked' : '') . ' />
+                        ' . ($location->status == 1 ? 'checked' : '') . ' />
                    </div>'
-                : '<span class="badge ' . ($location->status === 'active' ? 'bg-label-success' : 'bg-label-danger') . '">' . ucfirst($location->status) . '</span>';
+                : '<span class="badge ' . ($location->status == 1 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($location->status == 1 ? 'Active' : 'Inactive') . '</span>';
 
             $actions = '';
             if ($canEdit || $canDelete) {
@@ -102,7 +102,7 @@ class LocationController extends Controller
             'slug'       => generate_slug(Location::class, $request->name),
             'address'    => $request->address,
             'is_default' => $request->boolean('is_default'),
-            'status'     => $request->has('status') ? 'active' : 'inactive',
+            'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
 
@@ -150,7 +150,7 @@ class LocationController extends Controller
             'slug'       => generate_slug(Location::class, $request->name, $location->id),
             'address'    => $request->address,
             'is_default' => $request->boolean('is_default'),
-            'status'     => $request->has('status') ? 'active' : 'inactive',
+            'status'     => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -164,7 +164,7 @@ class LocationController extends Controller
         $this->authorize('edit locations');
 
         $location->update([
-            'status' => $location->status === 'active' ? 'inactive' : 'active',
+            'status' => $location->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

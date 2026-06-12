@@ -80,14 +80,14 @@ class DummyDataSeeder extends Seeder
             $attribute = Attribute::create([
                 'name'       => $attrData['name'],
                 'slug'       => Str::slug($attrData['name']),
-                'status'     => 'active',
+                'status'     => 1,
                 'created_by' => $adminId,
             ]);
             foreach ($attrData['values'] as $value) {
                 AttributeValue::create([
                     'attribute_id' => $attribute->id,
                     'value'        => $value,
-                    'status'       => 'active',
+                    'status'       => 1,
                 ]);
             }
         }
@@ -108,7 +108,7 @@ class DummyDataSeeder extends Seeder
                 'slug'       => Str::slug($name),
                 'address'    => ($index + 10) . ', Commercial Plaza, Main Ring Road, Gujarat',
                 'is_default' => $index === 0, // Ahmedabad as default
-                'status'     => 'active',
+                'status'     => 1,
                 'created_by' => $adminId,
             ]);
         }
@@ -131,7 +131,7 @@ class DummyDataSeeder extends Seeder
             $categories[] = Category::create([
                 'name'       => $name,
                 'slug'       => Str::slug($name),
-                'status'     => 'active',
+                'status'     => 1,
                 'created_by' => $adminId,
             ]);
         }
@@ -166,7 +166,7 @@ class DummyDataSeeder extends Seeder
                 'category_id' => $parentCat->id,
                 'name'        => $subItem['name'],
                 'slug'        => Str::slug($subItem['name']),
-                'status'      => 'active',
+                'status'      => 1,
                 'created_by'  => $adminId,
             ]);
         }
@@ -208,7 +208,7 @@ class DummyDataSeeder extends Seeder
                 'description'     => 'This is a premium handcrafted ' . $prod['name'] . ', designed with absolute precision and top-grade electroplating to give a realistic look.',
                 'purchase_price'  => $prod['purchase'],
                 'sale_price'      => $prod['sale'],
-                'status'          => 'active',
+                'status'          => 1,
                 'created_by'      => $adminId,
             ]);
             $products[] = $product;
@@ -275,7 +275,7 @@ class DummyDataSeeder extends Seeder
                 'name'       => $name,
                 'phone'      => '+91 98765 ' . str_pad($index + 10000, 5, '0', STR_PAD_LEFT),
                 'address'    => ($index + 50) . ', Industrial Estate, Rajkot, Gujarat',
-                'status'     => 'active',
+                'status'     => 1,
                 'created_by' => $adminId,
             ]);
         }
@@ -305,7 +305,7 @@ class DummyDataSeeder extends Seeder
                 'name'       => $cust['name'],
                 'phone'      => $cust['phone'],
                 'email'      => $cust['email'],
-                'status'     => 'active',
+                'status'     => 1,
             ]);
         }
 
@@ -319,8 +319,8 @@ class DummyDataSeeder extends Seeder
                 'supplier_id'    => $supplier->id,
                 'invoice_no'     => $invoiceNo,
                 'total_amount'   => 0.0,
-                'status'         => 'approve',
-                'payment_status' => rand(0, 1) ? 'paid' : 'pending',
+                'status'         => 2,
+                'payment_status' => rand(1, 2),
                 'created_by'     => $adminId,
                 'created_at'     => now()->subMonths(14 - $i), // Distributed over last 14 months
             ]);
@@ -388,7 +388,7 @@ class DummyDataSeeder extends Seeder
             $location = $locations[$i % count($locations)];
             $orderNo  = 'SAL-' . date('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT);
             
-            $status = $i % 3 === 0 ? 'pending' : 'approve';
+            $status = $i % 3 === 0 ? 1 : 2;
             
             $order = Order::create([
                 'customer_id'     => $customer->id,
@@ -397,7 +397,7 @@ class DummyDataSeeder extends Seeder
                 'order_no'        => $orderNo,
                 'order_type'      => 'sale',
                 'status'          => $status,
-                'payment_status'  => rand(0, 1) ? 'paid' : 'pending',
+                'payment_status'  => rand(1, 2),
                 'payment_method'  => ['cash', 'online'][$i % 2],
                 'final_amount'    => 0.0,
                 'created_at'      => now()->subMonths(14 - $i)->addDays(rand(1, 15)), // Distributed
@@ -419,7 +419,7 @@ class DummyDataSeeder extends Seeder
                 $quantity = ($available > 5) ? rand(1, 4) : 1;
 
                 // Adjust inventory stock only if approved
-                if ($status === 'approve') {
+                if ($status === 2) {
                     if ($inv) {
                         $inv->decrement('quantity', $quantity);
                     } else {

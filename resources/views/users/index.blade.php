@@ -108,8 +108,8 @@
                     dataSrc : function (res) {
                         // Update stats cards from response
                         const users    = res.data;
-                        const active   = users.filter(u => u.raw_status === 'active').length;
-                        const inactive = users.filter(u => u.raw_status === 'inactive').length;
+                        const active   = users.filter(u => u.raw_status == 1).length;
+                        const inactive = users.filter(u => u.raw_status == 2).length;
                         const admins   = users.filter(u => u.raw_type === 'admin').length;
                         $('#statTotal').text(users.length);
                         $('#statActive').text(active);

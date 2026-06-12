@@ -106,15 +106,25 @@ if (!function_exists('status_badge')) {
      *
      * Usage: {!! status_badge($user->status) !!}
      */
-    function status_badge(string $status): string
+    function status_badge($status): string
     {
         $map = [
-            'active'   => 'bg-label-success',
-            'inactive' => 'bg-label-danger',
+            1   => 'bg-label-success',
+            2 => 'bg-label-danger',
+            '1'   => 'bg-label-success',
+            '2' => 'bg-label-danger',
+        ];
+
+        $labels = [
+            1   => 'Active',
+            2 => 'Inactive',
+            '1'   => 'Active',
+            '2' => 'Inactive',
         ];
 
         $class = $map[$status] ?? 'bg-label-secondary';
-        return '<span class="badge ' . $class . '">' . ucfirst($status) . '</span>';
+        $label = $labels[$status] ?? ucfirst($status);
+        return '<span class="badge ' . $class . '">' . $label . '</span>';
     }
 }
 

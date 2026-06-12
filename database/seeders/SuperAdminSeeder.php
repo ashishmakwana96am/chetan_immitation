@@ -14,13 +14,13 @@ class SuperAdminSeeder extends Seeder
         $role = Role::firstOrCreate(['name' => 'super-admin']);
 
         $user = User::firstOrCreate(
-            ['email' => 'superadmin@example.com'],
+            ['email' => 'superadmin@gmail.com'],
             [
                 'name'     => 'Super Admin',
                 'phone'    => null,
-                'password' => Hash::make('superadmin@example.com'),
+                'password' => Hash::make('Test@123'),
                 'type'     => 'super-admin',
-                'status'   => 'active',
+                'status'   => 1,
             ]
         );
 

@@ -26,7 +26,7 @@ class AttributeController extends Controller
 
         $data = $attributes->map(function ($attribute, $index) use ($canEdit, $canDelete) {
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input attribute-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.attributes.toggle-status', $attribute) . '" ' . ($attribute->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input attribute-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.attributes.toggle-status', $attribute) . '" ' . ($attribute->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($attribute->status);
 
             $valuesList = $attribute->values->pluck('value')->implode(', ');
@@ -87,7 +87,7 @@ class AttributeController extends Controller
         $attribute = Attribute::create([
             'name'       => $request->name,
             'slug'       => Str::slug($request->name),
-            'status'     => $request->has('status') ? 'active' : 'inactive',
+            'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
 
@@ -134,7 +134,7 @@ class AttributeController extends Controller
         $attribute->update([
             'name'   => $request->name,
             'slug'   => Str::slug($request->name),
-            'status' => $request->has('status') ? 'active' : 'inactive',
+            'status' => $request->has('status') ? 1 : 2,
         ]);
 
         $attribute->values()->delete();
@@ -160,7 +160,7 @@ class AttributeController extends Controller
         $this->authorize('edit attributes');
 
         $attribute->update([
-            'status' => $attribute->status === 'active' ? 'inactive' : 'active',
+            'status' => $attribute->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([
@@ -183,7 +183,7 @@ class AttributeController extends Controller
 
     public function getAttributesWithValues()
     {
-        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
 
         return response()->json($attributes);
     }
@@ -235,7 +235,7 @@ class AttributeController extends Controller
         $attribute = Attribute::create([
             'name'       => $request->name,
             'slug'       => Str::slug($request->name),
-            'status'     => 'active',
+            'status'     => 1,
             'created_by' => auth()->id(),
         ]);
 

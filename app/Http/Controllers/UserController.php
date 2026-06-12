@@ -36,7 +36,7 @@ class UserController extends Controller
                 : '<span class="badge bg-label-secondary">No Role</span>';
 
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input user-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.users.toggle-status', $user) . '" ' . ($user->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input user-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.users.toggle-status', $user) . '" ' . ($user->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($user->status);
 
             $actions = '';
@@ -79,7 +79,7 @@ class UserController extends Controller
     {
         $this->authorize('create users');
         $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
-        $locations = Location::where('status', 'active')->orderBy('name')->get();
+        $locations = Location::where('status', 1)->orderBy('name')->get();
         return view('users.create', compact('roles', 'locations'));
     }
 
@@ -112,7 +112,7 @@ class UserController extends Controller
             'password'    => Hash::make($request->password),
             'type'        => $role->name,
             'location_id' => $request->location_id ?: null,
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
         ]);
 
         $user->assignRole($role);
@@ -127,7 +127,7 @@ class UserController extends Controller
     {
         $this->authorize('edit users');
         $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
-        $locations = Location::where('status', 'active')->orderBy('name')->get();
+        $locations = Location::where('status', 1)->orderBy('name')->get();
         $userRole  = $user->roles->first()?->id;
         return view('users.edit', compact('user', 'roles', 'locations', 'userRole'));
     }
@@ -159,7 +159,7 @@ class UserController extends Controller
             'phone'       => $request->phone,
             'type'        => $role->name,
             'location_id' => $request->location_id ?: null,
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
         ]);
 
         $user->syncRoles($role);
@@ -175,7 +175,7 @@ class UserController extends Controller
         $this->authorize('edit users');
 
         $user->update([
-            'status' => $user->status === 'active' ? 'inactive' : 'active',
+            'status' => $user->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

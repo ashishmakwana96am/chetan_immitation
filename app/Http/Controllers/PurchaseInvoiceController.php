@@ -43,22 +43,26 @@ class PurchaseInvoiceController extends Controller
 
         $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
             $statusColors = [
-                'pending' => 'bg-label-secondary',
-                'approve' => 'bg-label-success',
-                'decline' => 'bg-label-danger',
+                1 => 'bg-label-secondary',
+                2 => 'bg-label-success',
+                3 => 'bg-label-danger',
             ];
             $statusLabels = [
-                'pending' => 'Pending',
-                'approve' => 'Approve',
-                'decline' => 'Decline',
+                1 => 'Pending',
+                2 => 'Approve',
+                3 => 'Decline',
             ];
             $statusBadge = '<span class="badge ' . ($statusColors[$invoice->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$invoice->status] ?? ucfirst($invoice->status)) . '</span>';
 
             $paymentColors = [
-                'pending' => 'bg-label-warning',
-                'paid'    => 'bg-label-info',
+                1 => 'bg-label-warning',
+                2 => 'bg-label-info',
             ];
-            $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ucfirst($invoice->payment_status ?? 'pending') . '</span>';
+            $paymentLabels = [
+                1 => 'Pending',
+                2 => 'Paid',
+            ];
+            $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$invoice->payment_status] ?? 'Pending') . '</span>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
@@ -67,16 +71,16 @@ class PurchaseInvoiceController extends Controller
             if ($canDownloadPurchases) {
                 $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             }
-            if ($canEdit && $invoice->status === 'pending') {
+            if ($canEdit && $invoice->status == 1) {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditPurchasesStatus && $invoice->status === 'pending') {
+            if ($canEditPurchasesStatus && $invoice->status == 1) {
                 $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditPurchasesPaymentStatus && ($invoice->status === 'pending' || ($invoice->status === 'approve' && $invoice->payment_status === 'pending'))) {
-                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 'pending') . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+            if ($canEditPurchasesPaymentStatus && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status == 1))) {
+                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete && $invoice->status === 'pending') {
+            if ($canDelete && $invoice->status == 1) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
@@ -121,13 +125,13 @@ class PurchaseInvoiceController extends Controller
     public function create()
     {
         $this->authorize('create purchases');
-        $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
-        $user = auth()->user();
+        $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $user      = auth()->user();
         if ($user->location_id && $user->type !== 'super-admin') {
-            $locations = Location::where('id', $user->location_id)->where('status', 'active')->get();
+            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
         }
         $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
         return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
@@ -143,8 +147,8 @@ class PurchaseInvoiceController extends Controller
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
-            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'         => ['nullable', 'string', 'in:pending,paid'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
 
         if ($validator->fails()) {
@@ -172,8 +176,8 @@ class PurchaseInvoiceController extends Controller
                 'supplier_id'    => $request->supplier_id,
                 'invoice_no'     => generate_invoice_no('PUR', PurchaseInvoice::class),
                 'total_amount'   => $totalAmount,
-                'status'         => $request->status ?? 'approve',
-                'payment_status' => $request->payment_status ?? 'pending',
+                'status'         => $request->status ?? 2,
+                'payment_status' => $request->payment_status ?? 1,
                 'created_by'     => auth()->id(),
             ]);
 
@@ -197,7 +201,7 @@ class PurchaseInvoiceController extends Controller
                 }
             }
 
-            if ($invoice->status === 'approve') {
+            if ($invoice->status == 2) {
                 $this->approveInvoice($invoice);
             }
         });
@@ -222,17 +226,17 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        if ($purchase->status !== 'pending') {
+        if ($purchase->status !== 1) {
             return redirect()->route('admin.purchases.show', $purchase)
                 ->with('error', 'Only pending purchases can be edited.');
         }
 
-        $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
+        $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
         if ($user->location_id && $user->type !== 'super-admin') {
-            $locations = Location::where('id', $user->location_id)->where('status', 'active')->get();
+            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {
-            $locations = Location::where('status', 'active')->orderBy('name')->get();
+            $locations = Location::where('status', 1)->orderBy('name')->get();
         }
         $purchase->load(['items.product', 'items.allocations']);
 
@@ -257,7 +261,7 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('edit purchases');
 
-        if ($purchase->status !== 'pending') {
+        if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Only pending invoices can be edited.',
@@ -270,8 +274,8 @@ class PurchaseInvoiceController extends Controller
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
-            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'         => ['nullable', 'string', 'in:pending,paid'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
 
         if ($validator->fails()) {
@@ -295,13 +299,13 @@ class PurchaseInvoiceController extends Controller
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $oldStatus = $purchase->status;
-            $newStatus = $request->status ?? 'approve';
-
+            $newStatus = $request->status ?? 2;
+ 
             $purchase->update([
                 'supplier_id'    => $request->supplier_id,
                 'total_amount'   => $totalAmount,
                 'status'         => $newStatus,
-                'payment_status' => $request->payment_status ?? 'pending',
+                'payment_status' => $request->payment_status ?? 1,
             ]);
 
             $purchase->items()->delete();
@@ -325,7 +329,7 @@ class PurchaseInvoiceController extends Controller
                 }
             }
 
-            if ($newStatus === 'approve' && $oldStatus !== 'approve') {
+            if ($newStatus == 2 && $oldStatus != 2) {
                 $this->approveInvoice($purchase);
             }
         });
@@ -341,36 +345,36 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('edit purchases status');
 
         $validator = Validator::make($request->all(), [
-            'status' => ['required', 'in:pending,approve,decline'],
+            'status' => ['required', 'in:1,2,3'],
         ]);
-
+ 
         if ($validator->fails()) {
             return response()->json([
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
-
+ 
         $newStatus = $request->status;
-
-        if ($purchase->status === $newStatus) {
+ 
+        if ($purchase->status == $newStatus) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invoice is already ' . $newStatus . '.',
+                'message' => 'Invoice is already updated.',
             ], 422);
         }
-
-        if ($purchase->status !== 'pending') {
+ 
+        if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Only pending invoices can be updated.',
             ], 422);
         }
-
+ 
         DB::transaction(function () use ($purchase, $newStatus) {
             $purchase->update(['status' => $newStatus]);
-
-            if ($newStatus === 'approve') {
+ 
+            if ($newStatus == 2) {
                 $this->approveInvoice($purchase);
             }
         });
@@ -385,7 +389,7 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('delete purchases');
 
-        if ($purchase->status !== 'pending') {
+        if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Only pending invoices can be deleted.',
@@ -458,7 +462,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('edit purchases payment status');
 
         $validator = Validator::make($request->all(), [
-            'payment_status' => ['required', 'in:pending,paid'],
+            'payment_status' => ['required', 'in:1,2'],
         ]);
 
         if ($validator->fails()) {

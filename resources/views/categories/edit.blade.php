@@ -55,8 +55,8 @@
                 <div class="flex-fill">
                     <label class="form-label" for="categoryStatus">Status</label>
                     <div class="form-check form-switch mt-1">
-                        <input class="form-check-input" type="checkbox" id="categoryStatus" name="status" value="active"
-                            {{ $category->status === 'active' ? 'checked' : '' }} />
+                        <input class="form-check-input" type="checkbox" id="categoryStatus" name="status" value="1"
+                            {{ $category->status == 1 ? 'checked' : '' }} />
                         <label class="form-check-label" for="categoryStatus">Active</label>
                     </div>
                 </div>

@@ -163,9 +163,9 @@
                     <div class="card-header"><h5 class="mb-0">Purchase Status</h5></div>
                     <div class="card-body">
                         <select name="status" class="form-select no-select2">
-                            <option value="pending" {{ $purchase->status === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="approve" {{ $purchase->status === 'approve' ? 'selected' : '' }}>Approve</option>
-                            <option value="decline" {{ $purchase->status === 'decline' ? 'selected' : '' }}>Decline</option>
+                            <option value="1" {{ $purchase->status == 1 ? 'selected' : '' }}>Pending</option>
+                            <option value="2" {{ $purchase->status == 2 ? 'selected' : '' }}>Approve</option>
+                            <option value="3" {{ $purchase->status == 3 ? 'selected' : '' }}>Decline</option>
                         </select>
                     </div>
                 </div>
@@ -175,8 +175,8 @@
                     <div class="card-header"><h5 class="mb-0">Supplier Payment Status</h5></div>
                     <div class="card-body">
                         <select name="payment_status" class="form-select no-select2">
-                            <option value="pending" {{ ($purchase->payment_status ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="paid" {{ ($purchase->payment_status ?? 'pending') === 'paid' ? 'selected' : '' }}>Paid</option>
+                            <option value="1" {{ ($purchase->payment_status ?? 1) == 1 ? 'selected' : '' }}>Pending</option>
+                            <option value="2" {{ ($purchase->payment_status ?? 1) == 2 ? 'selected' : '' }}>Paid</option>
                         </select>
                     </div>
                 </div>
@@ -330,7 +330,7 @@ $(document).ready(function () {
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
-                    return $v->status === 'active';
+                    return $v->status == 1;
                 })->values()->map(function($v) {
                     return [
                         'id' => $v->id,

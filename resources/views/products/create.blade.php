@@ -144,7 +144,7 @@
                     <div class="card-header"><h5 class="mb-0">Status</h5></div>
                     <div class="card-body">
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="productStatus" name="status" value="active" {{ !isset($clonedProduct) || $clonedProduct->status === 'active' ? 'checked' : '' }} />
+                            <input class="form-check-input" type="checkbox" id="productStatus" name="status" value="1" {{ !isset($clonedProduct) || $clonedProduct->status == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productStatus">Active</label>
                         </div>
                     </div>
@@ -673,7 +673,7 @@
                                     attribute_value_id: val.id,
                                     purchase_price: defaultPurchase,
                                     sale_price: defaultSale,
-                                    status: 'active'
+                                    status: 1
                                 });
                             }
                         });

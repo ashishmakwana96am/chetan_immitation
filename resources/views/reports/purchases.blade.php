@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Purchase Reports')
 
@@ -165,9 +165,9 @@
                     <label class="form-label">Invoice Status</label>
                     <select name="status" class="form-select no-select2">
                         <option value="">All Statuses</option>
-                        <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approve" {{ $status === 'approve' ? 'selected' : '' }}>Approve</option>
-                        <option value="decline" {{ $status === 'decline' ? 'selected' : '' }}>Decline</option>
+                        <option value="1" {{ $status == 1 ? 'selected' : '' }}>Pending</option>
+                        <option value="2" {{ $status == 2 ? 'selected' : '' }}>Approve</option>
+                        <option value="3" {{ $status == 3 ? 'selected' : '' }}>Decline</option>
                     </select>
                 </div>
 
@@ -214,20 +214,19 @@
                                     <td><code>{{ $invoice->invoice_no }}</code></td>
                                     <td><span class="fw-semibold">{{ $invoice->supplier->name ?? 'Unknown' }}</span></td>
                                     <td>
-                                        @php
                                             $statusColors = [
-                                                'pending' => 'bg-label-secondary',
-                                                'approve' => 'bg-label-success',
-                                                'decline' => 'bg-label-danger',
+                                                1 => 'bg-label-secondary',
+                                                2 => 'bg-label-success',
+                                                3 => 'bg-label-danger',
                                             ];
                                             $statusLabels = [
-                                                'pending' => 'Pending',
-                                                'approve' => 'Approve',
-                                                'decline' => 'Decline',
+                                                1 => 'Pending',
+                                                2 => 'Approve',
+                                                3 => 'Decline',
                                             ];
                                             $badgeColor = $statusColors[$invoice->status] ?? 'bg-label-secondary';
                                         @endphp
-                                        <span class="badge {{ $badgeColor }}">{{ $statusLabels[$invoice->status] ?? ucfirst($invoice->status) }}</span>
+                                        <span class="badge {{ $badgeColor }}">{{ $statusLabels[$invoice->status] ?? 'Pending' }}</span>
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>

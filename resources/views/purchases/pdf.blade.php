@@ -76,11 +76,11 @@
                         <div class="invoice-no">{{ $purchase->invoice_no }}</div>
                         <div style="margin-top:6px;">
                             @php
-                                $statusClass = ['pending' => 'status-pending', 'approve' => 'status-approve', 'decline' => 'status-decline'];
-                                $statusLabels = ['pending' => 'Pending', 'approve' => 'Approve', 'decline' => 'Decline'];
+                                $statusClass = [1 => 'status-pending', 2 => 'status-approve', 3 => 'status-decline'];
+                                $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
                             @endphp
                             <span class="status-badge {{ $statusClass[$purchase->status] ?? 'status-pending' }}">
-                                {{ $statusLabels[$purchase->status] ?? ucfirst($purchase->status) }}
+                                {{ $statusLabels[$purchase->status] ?? 'Pending' }}
                             </span>
                         </div>
                     </div>
@@ -110,7 +110,8 @@
                         <h4>Invoice Details</h4>
                         <p><span class="label">Invoice No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
-                        <p><span class="label">Payment Status:</span> {{ ucfirst($purchase->payment_status ?? 'pending') }}</p>
+                        @php $payLabels = [1 => 'Pending', 2 => 'Paid']; @endphp
+                        <p><span class="label">Payment Status:</span> {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</p>
                     </div>
                 </td>
             </tr>

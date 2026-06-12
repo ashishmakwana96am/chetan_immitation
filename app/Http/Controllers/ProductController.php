@@ -47,7 +47,7 @@ class ProductController extends Controller
                 ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
 
-            $status = $product->status === 'active'
+            $status = $product->status == 1
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
@@ -113,8 +113,8 @@ class ProductController extends Controller
     public function create(Request $request)
     {
         $this->authorize('create products');
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
-        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
 
         $clonedProduct = null;
         $subCategories = collect();
@@ -122,7 +122,7 @@ class ProductController extends Controller
             $this->authorize('clone products');
             $clonedProduct = Product::with('images')->findOrFail($request->clone_id);
             $subCategories = SubCategory::where('category_id', $clonedProduct->category_id)
-                ->where('status', 'active')
+                ->where('status', 1)
                 ->orderBy('name')
                 ->get();
         }
@@ -196,7 +196,7 @@ class ProductController extends Controller
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'type'            => $request->type,
-                'status'          => $request->has('status') ? 'active' : 'inactive',
+                'status'          => $request->has('status') ? 1 : 2,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
@@ -276,7 +276,7 @@ class ProductController extends Controller
                         'attribute_value_id' => $item['attribute_value_id'],
                         'purchase_price'     => $item['purchase_price'] ?? 0,
                         'sale_price'         => $item['sale_price'] ?? 0,
-                        'status'             => ($item['status'] ?? 'active') === 'active' ? 'active' : 'inactive',
+                        'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
                     ]);
                 }
             }
@@ -291,12 +291,12 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $this->authorize('edit products');
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
         $subCategories = SubCategory::where('category_id', $product->category_id)
-            ->where('status', 'active')
+            ->where('status', 1)
             ->orderBy('name')
             ->get();
-        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
         $product->load('images', 'variants.attributeValue');
         return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
     }
@@ -367,7 +367,7 @@ class ProductController extends Controller
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'type'            => $request->type,
-                'status'          => $request->has('status') ? 'active' : 'inactive',
+                'status'          => $request->has('status') ? 1 : 2,
             ];
 
             if ($request->type === 'normal') {
@@ -437,7 +437,7 @@ class ProductController extends Controller
                         'attribute_value_id' => $item['attribute_value_id'],
                         'purchase_price'     => $item['purchase_price'] ?? 0,
                         'sale_price'         => $item['sale_price'] ?? 0,
-                        'status'             => ($item['status'] ?? 'active') === 'active' ? 'active' : 'inactive',
+                        'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
                     ]);
                 }
             } elseif ($request->type === 'normal') {
@@ -492,7 +492,7 @@ class ProductController extends Controller
         $this->authorize('edit products');
 
         $product->update([
-            'status' => $product->status === 'active' ? 'inactive' : 'active',
+            'status' => $product->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([
@@ -525,7 +525,7 @@ class ProductController extends Controller
         $this->authorize('view products');
         $categoryId = $request->query('category_id');
         $subCategories = SubCategory::where('category_id', $categoryId)
-            ->where('status', 'active')
+            ->where('status', 1)
             ->orderBy('name')
             ->get(['id', 'name']);
 

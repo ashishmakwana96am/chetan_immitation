@@ -323,7 +323,7 @@ $(document).ready(function () {
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
-                    return $v->status === 'active';
+                    return $v->status == 1;
                 })->values()->map(function($v) {
                     return [
                         'id' => $v->id,

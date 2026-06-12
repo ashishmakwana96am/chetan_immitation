@@ -7,8 +7,8 @@
         <div>
             <h4 class="fw-semibold mb-0">Invoice <code>{{ $purchase->invoice_no }}</code></h4>
             @php
-                $statusColors = ['pending' => 'bg-label-secondary', 'approve' => 'bg-label-success', 'decline' => 'bg-label-danger'];
-                $statusLabels = ['pending' => 'Pending', 'approve' => 'Approve', 'decline' => 'Decline'];
+                $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+                $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
             @endphp
         </div>
         <div class="d-flex gap-2">
@@ -16,7 +16,7 @@
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
             </a>
             @can('edit purchases')
-                @if($purchase->status === 'pending')
+                @if($purchase->status == 1)
                     <a href="{{ route('admin.purchases.edit', $purchase) }}" class="btn btn-label-info">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
@@ -27,7 +27,7 @@
                         data-confirm-text="Are you sure you want to approve this invoice? Inventory will be updated."
                         data-confirm-btn="Yes, Approve"
                         data-confirm-btn-class="btn-success"
-                        data-confirm-data='{"status":"approve"}'>
+                        data-confirm-data='{"status":2}'>
                         <i class="ti ti-check me-1"></i> Approve
                     </button>
                     <button class="btn btn-label-danger"
@@ -37,11 +37,11 @@
                         data-confirm-text="Are you sure you want to decline this invoice?"
                         data-confirm-btn="Yes, Decline"
                         data-confirm-btn-class="btn-danger"
-                        data-confirm-data='{"status":"decline"}'>
+                        data-confirm-data='{"status":3}'>
                         <i class="ti ti-x me-1"></i> Decline
                     </button>
                 @endif
-                @if(($purchase->payment_status ?? 'pending') === 'pending' && $purchase->status === 'approve')
+                @if(($purchase->payment_status ?? 1) == 1 && $purchase->status == 2)
                     <button class="btn btn-success"
                         data-common-confirm="{{ route('admin.purchases.update-payment-status', $purchase) }}"
                         data-confirm-method="PATCH"
@@ -49,7 +49,7 @@
                         data-confirm-text="Are you sure you want to mark this invoice as paid?"
                         data-confirm-btn="Yes, Mark as Paid"
                         data-confirm-btn-class="btn-success"
-                        data-confirm-data='{"payment_status":"paid"}'>
+                        data-confirm-data='{"payment_status":2}'>
                         <i class="ti ti-currency-dollar me-1"></i> Mark as Paid
                     </button>
                 @endif
@@ -73,14 +73,15 @@
                     </div>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">Status</p>
-                        <span class="badge {{ $statusColors[$purchase->status] ?? 'bg-label-secondary' }}">{{ $statusLabels[$purchase->status] ?? ucfirst($purchase->status) }}</span>
+                        <span class="badge {{ $statusColors[$purchase->status] ?? 'bg-label-secondary' }}">{{ $statusLabels[$purchase->status] ?? 'Pending' }}</span>
                     </div>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">Payment Status</p>
                         @php
-                            $payColors = ['pending' => 'bg-label-warning', 'paid' => 'bg-label-info'];
+                            $payColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
+                            $payLabels = [1 => 'Pending', 2 => 'Paid'];
                         @endphp
-                        <span class="badge {{ $payColors[$purchase->payment_status] ?? 'bg-label-secondary' }}">{{ ucfirst($purchase->payment_status ?? 'pending') }}</span>
+                        <span class="badge {{ $payColors[$purchase->payment_status ?? 1] ?? 'bg-label-secondary' }}">{{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</span>
                     </div>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">Supplier</p>

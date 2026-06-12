@@ -38,8 +38,8 @@
         <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
-                <input class="form-check-input" type="checkbox" id="attributeStatus" name="status" value="active"
-                    {{ $attribute->status === 'active' ? 'checked' : '' }} />
+                <input class="form-check-input" type="checkbox" id="attributeStatus" name="status" value="1"
+                    {{ $attribute->status == 1 ? 'checked' : '' }} />
                 <label class="form-check-label" for="attributeStatus">Active</label>
             </div>
         </div>

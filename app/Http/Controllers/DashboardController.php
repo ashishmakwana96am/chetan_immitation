@@ -43,12 +43,12 @@ class DashboardController extends Controller
             'today'      => (float) Order::where('order_type', 'sale')->whereDate('created_at', today())->sum('final_amount'),
             'this_month' => (float) Order::where('order_type', 'sale')->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
             'total'      => (float) Order::where('order_type', 'sale')->sum('final_amount'),
-            'pending'    => Order::where('order_type', 'sale')->where('status', 'pending')->count(),
+            'pending'    => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
         $purchaseStats = [
-            'confirmed' => (float) PurchaseInvoice::where('status', 'approve')->sum('total_amount'),
-            'draft'     => PurchaseInvoice::where('status', 'pending')->count(),
+            'confirmed' => (float) PurchaseInvoice::where('status', PurchaseInvoice::STATUS_APPROVE)->sum('total_amount'),
+            'draft'     => PurchaseInvoice::where('status', PurchaseInvoice::STATUS_PENDING)->count(),
         ];
 
         $monthlySales   = $this->getMonthlySales();
@@ -77,9 +77,9 @@ class DashboardController extends Controller
             'today'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereDate('created_at', today())->sum('final_amount'),
             'this_month' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
             'total'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->sum('final_amount'),
-            'pending'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'pending')->count(),
-            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'approve')->count(),
-            'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', 'decline')->count(),
+            'pending'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
+            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_APPROVE)->count(),
+            'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 
         $stockStats = [

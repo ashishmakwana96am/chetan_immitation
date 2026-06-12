@@ -70,18 +70,18 @@
                         <div style="margin-top:6px;">
                             @php
                                 $statusClass = [
-                                    'pending' => 'status-pending',
-                                    'approve' => 'status-approve',
-                                    'decline' => 'status-decline',
+                                    1 => 'status-pending',
+                                    2 => 'status-approve',
+                                    3 => 'status-decline',
                                 ];
                                 $statusLabels = [
-                                    'pending' => 'Pending',
-                                    'approve' => 'Approve',
-                                    'decline' => 'Decline',
+                                    1 => 'Pending',
+                                    2 => 'Approve',
+                                    3 => 'Decline',
                                 ];
                             @endphp
                             <span class="status-badge {{ $statusClass[$order->status] ?? 'status-pending' }}">
-                                {{ $statusLabels[$order->status] ?? ucfirst($order->status) }}
+                                {{ $statusLabels[$order->status] ?? 'Pending' }}
                             </span>
                         </div>
                     </div>
@@ -115,9 +115,9 @@
                         <p><span class="label">Served By:</span> {{ $order->user->name ?? '-' }}</p>
                         <p><span class="label">Payment:</span> {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
                         @php
-                            $payLabels = ['pending' => 'Pending', 'paid' => 'Paid'];
+                            $payLabels = [1 => 'Pending', 2 => 'Paid'];
                         @endphp
-                        <p><span class="label">Payment Status:</span> {{ $payLabels[$order->payment_status] ?? ucfirst($order->payment_status) }}</p>
+                        <p><span class="label">Payment Status:</span> {{ $payLabels[$order->payment_status ?? 1] ?? 'Pending' }}</p>
                     </div>
                 </td>
             </tr>

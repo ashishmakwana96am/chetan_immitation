@@ -24,7 +24,7 @@ class SupplierController extends Controller
 
         $data = $suppliers->map(function ($supplier, $index) use ($canEdit, $canDelete) {
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input supplier-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.suppliers.toggle-status', $supplier) . '" ' . ($supplier->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input supplier-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.suppliers.toggle-status', $supplier) . '" ' . ($supplier->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($supplier->status);
 
             $actions = '';
@@ -85,7 +85,7 @@ class SupplierController extends Controller
             'name'       => $request->name,
             'phone'      => $request->phone,
             'address'    => $request->address,
-            'status'     => $request->has('status') ? 'active' : 'inactive',
+            'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
 
@@ -122,7 +122,7 @@ class SupplierController extends Controller
             'name'    => $request->name,
             'phone'   => $request->phone,
             'address' => $request->address,
-            'status'  => $request->has('status') ? 'active' : 'inactive',
+            'status'  => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -136,7 +136,7 @@ class SupplierController extends Controller
         $this->authorize('edit suppliers');
 
         $supplier->update([
-            'status' => $supplier->status === 'active' ? 'inactive' : 'active',
+            'status' => $supplier->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

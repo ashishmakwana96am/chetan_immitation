@@ -25,7 +25,7 @@ class SubCategoryController extends Controller
 
         $data = $subCategories->map(function ($subCategory, $index) use ($canEdit, $canDelete) {
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input sub-category-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.sub-categories.toggle-status', $subCategory) . '" ' . ($subCategory->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input sub-category-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.sub-categories.toggle-status', $subCategory) . '" ' . ($subCategory->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($subCategory->status);
 
             $actions = '';
@@ -63,7 +63,7 @@ class SubCategoryController extends Controller
     public function create()
     {
         $this->authorize('create sub categories');
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
         return view('sub_categories.create', compact('categories'));
     }
 
@@ -87,7 +87,7 @@ class SubCategoryController extends Controller
             'category_id' => $request->category_id,
             'name'        => $request->name,
             'slug'        => generate_slug(SubCategory::class, $request->name),
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
             'created_by'  => auth()->id(),
             'sort_order'  => ((int) SubCategory::max('sort_order')) + 1,
         ]);
@@ -101,7 +101,7 @@ class SubCategoryController extends Controller
     public function edit(SubCategory $subCategory)
     {
         $this->authorize('edit sub categories');
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::where('status', 1)->orderBy('name')->get();
         return view('sub_categories.edit', compact('subCategory', 'categories'));
     }
 
@@ -125,7 +125,7 @@ class SubCategoryController extends Controller
             'category_id' => $request->category_id,
             'name'        => $request->name,
             'slug'        => generate_slug(SubCategory::class, $request->name, $subCategory->id),
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -139,7 +139,7 @@ class SubCategoryController extends Controller
         $this->authorize('edit sub categories');
 
         $subCategory->update([
-            'status' => $subCategory->status === 'active' ? 'inactive' : 'active',
+            'status' => $subCategory->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

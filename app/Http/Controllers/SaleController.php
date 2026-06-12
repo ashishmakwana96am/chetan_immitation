@@ -38,23 +38,23 @@ class SaleController extends Controller
         $canDownloadSales          = auth()->user()->can('download sales');
 
         $statusColors = [
-            'pending' => 'bg-label-secondary',
-            'approve' => 'bg-label-success',
-            'decline' => 'bg-label-danger',
+            1 => 'bg-label-secondary',
+            2 => 'bg-label-success',
+            3 => 'bg-label-danger',
         ];
         $statusLabels = [
-            'pending' => 'Pending',
-            'approve' => 'Approve',
-            'decline' => 'Decline',
+            1 => 'Pending',
+            2 => 'Approve',
+            3 => 'Decline',
         ];
 
         $paymentColors = [
-            'pending' => 'bg-label-warning',
-            'paid'    => 'bg-label-info',
+            1 => 'bg-label-warning',
+            2 => 'bg-label-info',
         ];
         $paymentLabels = [
-            'pending' => 'Pending',
-            'paid'    => 'Paid',
+            1 => 'Pending',
+            2 => 'Paid',
         ];
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
@@ -68,16 +68,16 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             }
-            if ($canEdit && $order->status === 'pending') {
+            if ($canEdit && $order->status == 1) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditSalesStatus && $order->status === 'pending') {
+            if ($canEditSalesStatus && $order->status == 1) {
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditSalesPaymentStatus && ($order->status === 'pending' || ($order->status === 'approve' && $order->payment_status === 'pending'))) {
+            if ($canEditSalesPaymentStatus && ($order->status == 1 || ($order->status == 2 && $order->payment_status == 1))) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete && $order->status === 'decline') {
+            if ($canDelete && $order->status == 3) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
@@ -111,9 +111,9 @@ class SaleController extends Controller
     public function create()
     {
         $this->authorize('create sales');
-        $customers   = Customer::where('status', 'active')->orderBy('name')->get();
-        $locations   = Location::where('status', 'active')->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
+        $customers   = Customer::where('status', 1)->orderBy('name')->get();
+        $locations   = Location::where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
@@ -126,7 +126,7 @@ class SaleController extends Controller
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
-                    return $v->status === 'active';
+                    return $v->status == 1;
                 })->values()->map(function($v) {
                     return [
                         'id' => $v->id,
@@ -158,8 +158,8 @@ class SaleController extends Controller
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
             'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id'              => ['nullable', 'exists:coupons,id'],
         ]);
@@ -171,7 +171,7 @@ class SaleController extends Controller
             ], 422);
         }
 
-        $isApprove = ($request->status ?? 'approve') === 'approve';
+        $isApprove = ($request->status ?? 2) == 2;
 
         if ($isApprove) {
             foreach ($request->items as $index => $item) {
@@ -233,8 +233,8 @@ class SaleController extends Controller
                 'user_id'         => auth()->id(),
                 'order_no'        => generate_invoice_no('ORD', Order::class, 'order_no'),
                 'order_type'      => 'sale',
-                'status'          => $request->status ?? 'approve',
-                'payment_status'  => $request->payment_status ?? 'pending',
+                'status'          => $request->status ?? 2,
+                'payment_status'  => $request->payment_status ?? 1,
                 'payment_method'  => $request->payment_method,
                 'final_amount'    => $totalAmount,
                 'source'          => $request->input('source', 'POS'),
@@ -303,14 +303,14 @@ class SaleController extends Controller
             abort(403);
         }
 
-        if ($sale->status !== 'pending') {
+        if ($sale->status != 1) {
             return redirect()->route('admin.sales.show', $sale)
                 ->with('error', 'Only pending sales can be edited.');
         }
 
-        $customers   = Customer::where('status', 'active')->orderBy('name')->get();
-        $locations   = Location::where('status', 'active')->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
+        $customers   = Customer::where('status', 1)->orderBy('name')->get();
+        $locations   = Location::where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
 
         $allProducts = $products->map(function ($p) {
@@ -324,7 +324,7 @@ class SaleController extends Controller
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
-                    return $v->status === 'active';
+                    return $v->status == 1;
                 })->values()->map(function($v) {
                     return [
                         'id' => $v->id,
@@ -356,7 +356,7 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales');
 
-        if ($sale->status !== 'pending') {
+        if ($sale->status != 1) {
             return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
         }
 
@@ -371,8 +371,8 @@ class SaleController extends Controller
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
             'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id'              => ['nullable', 'exists:coupons,id'],
         ]);
@@ -381,7 +381,7 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
-        $isApprove = ($request->status ?? 'approve') === 'approve';
+        $isApprove = ($request->status ?? 2) == 2;
 
         if ($isApprove) {
             foreach ($request->items as $index => $item) {
@@ -445,8 +445,8 @@ class SaleController extends Controller
                 'customer_id'     => $request->customer_id,
                 'location_id'     => $request->location_id,
                 'payment_method'  => $request->payment_method,
-                'status'          => $request->status ?? 'approve',
-                'payment_status'  => $request->payment_status ?? 'pending',
+                'status'          => $request->status ?? 2,
+                'payment_status'  => $request->payment_status ?? 1,
                 'final_amount'    => $totalAmount,
                 'source'          => $request->input('source', $sale->source ?? 'POS'),
                 'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : ($sale->discount_type ?? 'MANUAL'),
@@ -489,8 +489,8 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status'         => ['nullable', 'string', 'in:pending,approve,decline'],
-            'payment_status' => ['nullable', 'string', 'in:paid,pending'],
+            'status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2'],
         ]);
 
         if ($validator->fails()) {
@@ -503,9 +503,9 @@ class SaleController extends Controller
                     $newStatus = $request->status;
                     $oldStatus = $sale->status;
 
-                    if ($newStatus !== $oldStatus) {
+                    if ($newStatus != $oldStatus) {
                         // 1. Transition TO approve (from pending or decline)
-                        if ($newStatus === 'approve') {
+                        if ($newStatus == 2) {
                             foreach ($sale->items as $item) {
                                 $stock = Inventory::where('product_id', $item->product_id)
                                     ->where('location_id', $sale->location_id)
@@ -525,7 +525,7 @@ class SaleController extends Controller
                             }
                         }
                         // 2. Transition FROM approve (to pending or decline)
-                        elseif ($oldStatus === 'approve') {
+                        elseif ($oldStatus == 2) {
                             // Restore stock
                             foreach ($sale->items as $item) {
                                 Inventory::where('product_id', $item->product_id)
@@ -534,8 +534,8 @@ class SaleController extends Controller
                             }
                         }
 
-                        if ($newStatus === 'decline') {
-                            $sale->update(['status' => $newStatus, 'payment_status' => 'pending']);
+                        if ($newStatus == 3) {
+                            $sale->update(['status' => $newStatus, 'payment_status' => 1]);
                         } else {
                             $sale->update(['status' => $newStatus]);
                         }
@@ -557,7 +557,7 @@ class SaleController extends Controller
     {
         $this->authorize('delete sales');
 
-        if ($sale->status !== 'decline') {
+        if ($sale->status != 3) {
             return response()->json(['status' => 'error', 'message' => 'Only declined sales can be deleted.'], 422);
         }
 

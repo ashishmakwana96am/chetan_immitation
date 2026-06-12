@@ -187,11 +187,14 @@
                         </thead>
                         <tbody>
                             @forelse($recentSales as $sale)
-                                @php $statusColors = ['pending' => 'bg-label-warning', 'approve' => 'bg-label-success', 'decline' => 'bg-label-danger']; @endphp
+                                @php
+                                    $statusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+                                    $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
+                                @endphp
                                 <tr>
                                     <td><a href="{{ route('admin.sales.show', $sale) }}"><code>{{ $sale->order_no }}</code></a></td>
                                     <td>{{ $sale->customer->name ?? 'Walk-in' }}</td>
-                                    <td><span class="badge {{ $statusColors[$sale->status] ?? 'bg-label-secondary' }}">{{ ucfirst($sale->status) }}</span></td>
+                                    <td><span class="badge {{ $statusColors[$sale->status] ?? 'bg-label-secondary' }}">{{ $statusLabels[$sale->status] ?? 'Pending' }}</span></td>
                                     <td class="text-end fw-semibold text-primary">{{ format_price($sale->final_amount) }}</td>
                                 </tr>
                             @empty

@@ -37,7 +37,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Active Products</span>
-                            <h4 class="mb-0 mt-1">{{ $products->where('status', 'active')->count() }}</h4>
+                            <h4 class="mb-0 mt-1">{{ $products->where('status', 1)->count() }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-check ti-sm"></i></span>
                     </div>
@@ -120,8 +120,8 @@
                     <label class="form-label">Filter by Status</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="1">Active</option>
+                        <option value="2">Inactive</option>
                     </select>
                 </div>
                 <div class="col-md-4">

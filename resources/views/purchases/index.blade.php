@@ -110,9 +110,9 @@
                         <div class="mb-3 text-start">
                             <label for="swal-purchase-status" class="form-label fw-semibold mb-2">Select Purchase Status</label>
                             <select id="swal-purchase-status" class="form-select form-select-lg">
-                                <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>Pending</option>
-                                <option value="approve" ${currentStatus === 'approve' ? 'selected' : ''}>Approve</option>
-                                <option value="decline" ${currentStatus === 'decline' ? 'selected' : ''}>Decline</option>
+                                <option value="1" ${currentStatus == 1 ? 'selected' : ''}>Pending</option>
+                                <option value="2" ${currentStatus == 2 ? 'selected' : ''}>Approve</option>
+                                <option value="3" ${currentStatus == 3 ? 'selected' : ''}>Decline</option>
                             </select>
                         </div>
                     `,
@@ -162,8 +162,8 @@
                         <div class="mb-3 text-start">
                             <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
                             <select id="swal-payment-status" class="form-select form-select-lg">
-                                <option value="pending" ${currentPaymentStatus === 'pending' ? 'selected' : ''}>Pending</option>
-                                <option value="paid" ${currentPaymentStatus === 'paid' ? 'selected' : ''}>Paid</option>
+                                <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
+                                <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
                             </select>
                         </div>
                     `,

@@ -33,7 +33,7 @@ class CategoryController extends Controller
                 : ($category->is_featured ? '<span class="badge bg-label-success">Yes</span>' : '<span class="badge bg-label-secondary">No</span>');
 
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input category-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.categories.toggle-status', $category) . '" ' . ($category->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input category-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.categories.toggle-status', $category) . '" ' . ($category->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($category->status);
 
             $actions = '';
@@ -137,7 +137,7 @@ class CategoryController extends Controller
             'name'        => $request->name,
             'slug'        => generate_slug(Category::class, $request->name),
             'image'       => $imagePath,
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
             'is_featured' => $request->has('is_featured') ? true : false,
             'created_by'  => auth()->id(),
             'sort_order'  => ((int) Category::max('sort_order')) + 1,
@@ -245,7 +245,7 @@ class CategoryController extends Controller
             'name'        => $request->name,
             'slug'        => generate_slug(Category::class, $request->name, $category->id),
             'image'       => $imagePath,
-            'status'      => $request->has('status') ? 'active' : 'inactive',
+            'status'      => $request->has('status') ? 1 : 2,
             'is_featured' => $request->has('is_featured') ? true : false,
         ]);
 
@@ -260,7 +260,7 @@ class CategoryController extends Controller
         $this->authorize('edit categories');
 
         $category->update([
-            'status' => $category->status === 'active' ? 'inactive' : 'active',
+            'status' => $category->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

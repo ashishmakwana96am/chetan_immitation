@@ -25,7 +25,7 @@ class CustomerController extends Controller
 
         $data = $customers->map(function ($customer, $index) use ($canEdit, $canDelete) {
             $status = $canEdit
-                ? '<div class="form-check form-switch mb-0"><input class="form-check-input customer-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.customers.toggle-status', $customer) . '" ' . ($customer->status === 'active' ? 'checked' : '') . ' /></div>'
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input customer-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.customers.toggle-status', $customer) . '" ' . ($customer->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($customer->status);
 
             $actions = '';
@@ -86,7 +86,7 @@ class CustomerController extends Controller
             'name'     => $request->name,
             'phone'    => $request->phone,
             'email'    => $request->email,
-            'status'   => $request->has('status') ? 'active' : 'inactive',
+            'status'   => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -122,7 +122,7 @@ class CustomerController extends Controller
             'name'   => $request->name,
             'phone'  => $request->phone,
             'email'  => $request->email,
-            'status' => $request->has('status') ? 'active' : 'inactive',
+            'status' => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
@@ -136,7 +136,7 @@ class CustomerController extends Controller
         $this->authorize('edit customers');
 
         $customer->update([
-            'status' => $customer->status === 'active' ? 'inactive' : 'active',
+            'status' => $customer->status == 1 ? 2 : 1,
         ]);
 
         return response()->json([

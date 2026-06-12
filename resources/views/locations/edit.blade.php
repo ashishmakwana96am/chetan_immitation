@@ -24,8 +24,8 @@
         <div class="col-md-6">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="locationStatus" name="status" value="active"
-                    {{ $location->status === 'active' ? 'checked' : '' }} />
+                <input class="form-check-input" type="checkbox" id="locationStatus" name="status" value="1"
+                    {{ $location->status == 1 ? 'checked' : '' }} />
                 <label class="form-check-label" for="locationStatus">Active</label>
             </div>
         </div>

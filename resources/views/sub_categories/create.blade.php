@@ -25,7 +25,7 @@
         <div class="col-12">
             <label class="form-label" for="subCategoryStatus">Status</label>
             <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="subCategoryStatus" name="status" value="active" checked />
+                <input class="form-check-input" type="checkbox" id="subCategoryStatus" name="status" value="1" checked />
                 <label class="form-check-label" for="subCategoryStatus">Active</label>
             </div>
         </div>

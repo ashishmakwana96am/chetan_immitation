@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductVariant extends Model
 {
+    const STATUS_ACTIVE = 1;
+    const STATUS_INACTIVE = 2;
+
     protected $fillable = [
         'product_id',
         'attribute_value_id',
