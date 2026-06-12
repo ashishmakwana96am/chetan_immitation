@@ -91,12 +91,53 @@
                 </div>
 
                 <!-- Location Allocation -->
+                <style>
+                    #allocationItemsList .list-group-item.active {
+                        background-color: #B4771E !important;
+                        border-color: #B4771E !important;
+                        color: #ffffff !important;
+                    }
+                    #allocationItemsList .list-group-item.active .text-heading,
+                    #allocationItemsList .list-group-item.active .text-muted,
+                    #allocationItemsList .list-group-item.active small {
+                        color: #ffffff !important;
+                    }
+                    #allocationItemsList .list-group-item:hover:not(.active) {
+                        background-color: rgba(180, 119, 30, 0.08) !important;
+                        color: #B4771E !important;
+                    }
+                    #allocationItemsList .list-group-item:hover:not(.active) .text-heading {
+                        color: #B4771E !important;
+                    }
+                    #allocationItemsList .list-group-item:hover:not(.active) small {
+                        color: rgba(180, 119, 30, 0.8) !important;
+                    }
+                </style>
                 <div class="card mb-4" id="allocationCard">
-                    <div class="card-header">
+                    <div class="card-header border-bottom">
                         <h5 class="mb-0">Location Allocation</h5>
                         <small class="text-muted">Allocate each item's quantity across locations. Total allocated must equal item quantity.</small>
                     </div>
-                    <div class="card-body" id="allocationBody"></div>
+                    <div class="row g-0">
+                        <!-- Left Panel: Item List with Search -->
+                        <div class="col-md-4 border-end d-flex flex-column" style="height: 450px;">
+                            <div class="p-2 border-bottom">
+                                <div class="input-group input-group-merge">
+                                    <span class="input-group-text"><i class="ti ti-search fs-5"></i></span>
+                                    <input type="text" id="allocationSearch" class="form-control form-control-sm" placeholder="Search product..." />
+                                </div>
+                            </div>
+                            <div class="list-group list-group-flush flex-grow-1" id="allocationItemsList" style="overflow-y: auto;">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                        <!-- Right Panel: Allocation Form -->
+                        <div class="col-md-8 d-flex flex-column" style="height: 450px; overflow-y: auto;">
+                            <div class="card-body h-100" id="allocationBody" style="min-height: 250px;">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -269,6 +310,7 @@
 $(document).ready(function () {
 
     let itemIndex = 0;
+    let activeAllocationIdx = null;
     const symbol    = '{{ currency_symbol() }}';
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -637,6 +679,7 @@ $(document).ready(function () {
         $(`.variant-row[data-parent-id="${productId}"]`).each(function() {
             const idx = $(this).data('index');
             $('#allocation-item-' + idx).remove();
+            $('#allocation-list-item-' + idx).remove();
             $(this).remove();
         });
         
@@ -645,6 +688,8 @@ $(document).ready(function () {
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
             $('#allocationCard').hide();
+        } else {
+            renderAllocationSection();
         }
         updateGrandTotal();
     });
@@ -655,10 +700,13 @@ $(document).ready(function () {
         const idx = row.data('index');
         row.remove();
         $('#allocation-item-' + idx).remove();
+        $('#allocation-list-item-' + idx).remove();
 
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
             $('#allocationCard').hide();
+        } else {
+            renderAllocationSection();
         }
         updateGrandTotal();
     });
@@ -670,6 +718,7 @@ $(document).ready(function () {
         const parentId = row.data('parent-id');
         row.remove();
         $('#allocation-item-' + idx).remove();
+        $('#allocation-list-item-' + idx).remove();
 
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
@@ -801,38 +850,85 @@ $(document).ready(function () {
 
     function renderAllocationSection() {
         let hasItems = false;
+        const itemsList = $('#allocationItemsList');
+        const allocationBody = $('#allocationBody');
 
+        // Collect all active item indices currently in the purchase form
+        const activeIndices = [];
+        $('#itemsBody .item-row').each(function () {
+            const row         = $(this);
+            const idx         = row.data('index');
+            const productId   = row.find('.product-id-input').val();
+            const qty         = parseInt(row.find('.item-qty').val()) || 0;
+
+            if (productId && qty > 0) {
+                activeIndices.push(idx);
+            }
+        });
+
+        // If activeAllocationIdx is not in activeIndices, select the first one
+        if (activeIndices.length > 0) {
+            if (activeAllocationIdx === null || !activeIndices.includes(activeAllocationIdx)) {
+                activeAllocationIdx = activeIndices[0];
+            }
+        } else {
+            activeAllocationIdx = null;
+        }
+
+        // Remove any list items or detail blocks that are no longer active
+        itemsList.find('.list-group-item').each(function () {
+            const idx = $(this).data('item-idx');
+            if (!activeIndices.includes(idx)) {
+                $(this).remove();
+            }
+        });
+        allocationBody.find('.allocation-item-block').each(function () {
+            const idx = $(this).data('item-idx');
+            if (!activeIndices.includes(idx)) {
+                $(this).remove();
+            }
+        });
+
+        // Loop and build/update active items
         $('#itemsBody .item-row').each(function () {
             const row         = $(this);
             const idx         = row.data('index');
             const productId   = row.find('.product-id-input').val();
             const productName = row.data('product-name') || '';
+            const sku         = row.find('.product-sku-display').text() || '';
             const qty         = parseInt(row.find('.item-qty').val()) || 0;
 
             if (!productId || qty <= 0) {
-                $('#allocation-item-' + idx).remove();
                 return;
             }
 
             hasItems = true;
 
             const existingAllocations = row.data('existing-allocations') || [];
+
+            // Check if block already exists
             let block = $('#allocation-item-' + idx);
             if (block.length === 0) {
-                block = $('<div>', { id: 'allocation-item-' + idx, class: 'mb-4 pb-4 border-bottom' });
+                // Create detail block
+                block = $('<div>', {
+                    id: 'allocation-item-' + idx,
+                    class: 'allocation-item-block d-none',
+                    'data-item-idx': idx
+                });
 
                 block.append(`
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
                         <div>
-                            <span class="fw-semibold">${productName}</span>
-                            <span class="badge bg-label-primary ms-2">Overall Qty: ${qty}</span>
+                            <h5 class="mb-0 text-primary fw-bold">${productName}</h5>
+                            <small class="text-muted">${sku.replace('SKU: ', 'SKU: ')} | Target Quantity: <span class="fw-bold">${qty}</span></small>
                         </div>
-                        <span class="text-muted small alloc-remaining-${idx}">Remaining: <strong class="${qty === 0 ? 'text-success' : ''}">${qty}</strong></span>
+                        <span class="badge bg-label-secondary alloc-remaining-wrapper-${idx}">
+                            Remaining: <strong class="alloc-remaining-${idx}">${qty}</strong>
+                        </span>
                     </div>
                 `);
 
-                const locationsHtml = $('<div>', { class: 'row g-2' });
-
+                const locationsHtml = $('<div>', { class: 'row g-3' });
                 locations.forEach(function (loc, locIdx) {
                     const existingAlloc = existingAllocations.find(a => a.location_id == loc.id);
                     const allocQty      = existingAlloc ? existingAlloc.quantity : 0;
@@ -864,8 +960,61 @@ $(document).ready(function () {
                     autoDistribute(idx, qty);
                 }
             } else {
-                block.find('.badge').text('Overall Qty: ' + qty);
+                // If block already exists (e.g. user changes quantity after adding)
+                block.find('.alloc-remaining-wrapper-' + idx).prev().find('small').html(`${sku} | Target Quantity: <span class="fw-bold">${qty}</span>`);
                 autoDistribute(idx, qty);
+            }
+
+            // Check if list item already exists
+            let listItem = $('#allocation-list-item-' + idx);
+            if (listItem.length === 0) {
+                listItem = $('<a>', {
+                    id: 'allocation-list-item-' + idx,
+                    href: 'javascript:void(0)',
+                    class: 'list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3',
+                    'data-item-idx': idx
+                });
+                
+                listItem.append(`
+                    <div class="d-flex flex-column min-w-0 me-2">
+                        <span class="fw-semibold text-heading text-truncate">${productName}</span>
+                        <small class="text-muted text-truncate">Target: ${qty}</small>
+                    </div>
+                    <div class="badge-container"></div>
+                `);
+
+                itemsList.append(listItem);
+            } else {
+                listItem.find('span.text-heading').text(productName);
+                listItem.find('small').text('Target: ' + qty);
+            }
+
+            // Sync current list item badge status
+            const total = qty;
+            let allocated = 0;
+            $('.alloc-qty[data-item-idx="' + idx + '"]').each(function () {
+                allocated += parseInt($(this).val()) || 0;
+            });
+            const remaining = total - allocated;
+            const badgeContainer = listItem.find('.badge-container');
+            badgeContainer.empty();
+            if (remaining === 0) {
+                badgeContainer.append(`<span class="badge bg-label-success rounded-pill px-2 py-1"><i class="ti ti-check fs-6"></i></span>`);
+            } else {
+                badgeContainer.append(`<span class="badge bg-label-warning rounded-pill px-2 py-1">${allocated}/${total}</span>`);
+            }
+        });
+
+        // Update active classes and visibility for list items and blocks
+        activeIndices.forEach(function (idx) {
+            const block = $('#allocation-item-' + idx);
+            const listItem = $('#allocation-list-item-' + idx);
+            if (idx === activeAllocationIdx) {
+                block.removeClass('d-none');
+                listItem.addClass('active');
+            } else {
+                block.addClass('d-none');
+                listItem.removeClass('active');
             }
         });
 
@@ -876,10 +1025,16 @@ $(document).ready(function () {
         }
     }
 
+    // -------------------------------------------------------
+    // Update single allocation item when qty changes
+    // -------------------------------------------------------
     function updateAllocationItem(row) {
         renderAllocationSection();
     }
 
+    // -------------------------------------------------------
+    // Live remaining qty counter
+    // -------------------------------------------------------
     $(document).on('input', '.alloc-qty', function () {
         const idx     = $(this).data('item-idx');
         const itemRow = $('#itemsBody .item-row[data-index="' + idx + '"]');
@@ -893,10 +1048,69 @@ $(document).ready(function () {
             allocated += parseInt($(this).val()) || 0;
         });
         const remaining = total - allocated;
-        const el = $('.alloc-remaining-' + idx + ' strong');
-        el.text(remaining);
-        el.closest('span').toggleClass('text-danger', remaining !== 0).toggleClass('text-success', remaining === 0);
+        
+        const el = $('.alloc-remaining-' + idx);
+        if (el.length > 0) {
+            el.text(remaining);
+            el.removeClass('text-success text-danger');
+            el.addClass(remaining === 0 ? 'text-success' : 'text-danger');
+        }
+
+        // Update badge on the left list item
+        const listItem = $('#allocation-list-item-' + idx);
+        if (listItem.length > 0) {
+            const badgeContainer = listItem.find('.badge-container');
+            badgeContainer.empty();
+            if (remaining === 0) {
+                badgeContainer.append(`<span class="badge bg-label-success rounded-pill px-2 py-1"><i class="ti ti-check fs-6"></i></span>`);
+            } else {
+                badgeContainer.append(`<span class="badge bg-label-warning rounded-pill px-2 py-1">${allocated}/${total}</span>`);
+            }
+        }
     }
+
+    // -------------------------------------------------------
+    // Handle list item selection click
+    // -------------------------------------------------------
+    $(document).on('click', '#allocationItemsList .list-group-item', function () {
+        const idx = $(this).data('item-idx');
+        activeAllocationIdx = idx;
+
+        // Toggle list active classes
+        $('#allocationItemsList .list-group-item').each(function () {
+            const currentIdx = $(this).data('item-idx');
+            if (currentIdx === activeAllocationIdx) {
+                $(this).addClass('active');
+            } else {
+                $(this).removeClass('active');
+            }
+        });
+
+        // Toggle details block visibility
+        $('.allocation-item-block').each(function () {
+            const currentIdx = $(this).data('item-idx');
+            if (currentIdx === activeAllocationIdx) {
+                $(this).removeClass('d-none');
+            } else {
+                $(this).addClass('d-none');
+            }
+        });
+    });
+
+    // -------------------------------------------------------
+    // Handle list search/filter
+    // -------------------------------------------------------
+    $(document).on('input', '#allocationSearch', function () {
+        const query = $(this).val().toLowerCase();
+        $('#allocationItemsList .list-group-item').each(function () {
+            const productName = $(this).find('span.text-heading').text().toLowerCase();
+            if (productName.includes(query)) {
+                $(this).removeClass('d-none');
+            } else {
+                $(this).addClass('d-none');
+            }
+        });
+    });
 
     function validateAllocations() {
         let valid = true;

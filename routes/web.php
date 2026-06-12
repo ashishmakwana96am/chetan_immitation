@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CouponController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
@@ -79,6 +80,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
+
+        // Coupons
+        Route::get('coupons/data', [CouponController::class, 'data'])->name('coupons.data');
+        Route::resource('coupons', CouponController::class)->except('show');
+        Route::patch('coupons/{coupon}/toggle-status', [CouponController::class, 'toggleStatus'])->name('coupons.toggle-status');
 
         // Inventory Stock API (for Sales)
         Route::get('inventory/stock', [InventoryController::class, 'stock'])->name('inventory.stock');

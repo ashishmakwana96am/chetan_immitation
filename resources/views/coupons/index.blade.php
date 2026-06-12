@@ -1,35 +1,39 @@
 @extends('layouts.app')
 
-@section('title', 'Locations')
+@section('title', 'Discount Coupons')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
 @endsection
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Locations List</h4>
-        @can('create locations')
-            <!-- <button class="btn btn-primary"
-                data-common-modal="{{ route('admin.locations.create') }}">
-                <i class="ti ti-plus me-1"></i> Add Location
-            </button> -->
+        <h4 class="fw-semibold mb-0">Coupons List</h4>
+        @can('create coupons')
+            <button class="btn btn-primary" data-common-modal="{{ route('admin.coupons.create') }}">
+                <i class="ti ti-plus me-1"></i> Add Coupon
+            </button>
         @endcan
     </div>
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top" id="locationsTable">
+            <table class="table border-top" id="couponsTable">
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Name</th>
-                        <th>Slug</th>
-                        <th>Address</th>
-                        <th>Default</th>
+                        <th>Code</th>
+                        <th>Discount</th>
+                        <th>Usage Limit</th>
+                        <th>Validity</th>
                         <th>Status</th>
-                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
+                        <th>Created Date</th>
+                        @if(auth()->user()->can('edit coupons') || auth()->user()->can('delete coupons'))
                             <th>Actions</th>
                         @endif
                     </tr>
@@ -41,25 +45,25 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/quill/katex.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/quill/quill.js') }}"></script>
     <script>
         $(document).ready(function () {
-
-            const table = $('#locationsTable').DataTable({
+            const table = $('#couponsTable').DataTable({
                 responsive : false,
-                order       : [],
-                ajax        : {
-                    url     : '{{ route('admin.locations.data') }}',
-                    dataSrc : 'data',
-                },
-                columns     : [
+                order      : [],
+                ajax       : { url: '{{ route('admin.coupons.data') }}', dataSrc: 'data' },
+                columns    : [
                     { data: 'index',      width: '5%' },
                     { data: 'name' },
-                    { data: 'slug' },
-                    { data: 'address' },
-                    { data: 'is_default' },
-                    { data: 'status',  orderable: false },
-                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
-                        { data: 'actions', orderable: false },
+                    { data: 'code' },
+                    { data: 'discount' },
+                    { data: 'usage_limit' },
+                    { data: 'validity' },
+                    { data: 'status',     orderable: false },
+                    { data: 'created_at' },
+                    @if(auth()->user()->can('edit coupons') || auth()->user()->can('delete coupons'))
+                        { data: 'actions',    orderable: false },
                     @endif
                 ],
             });
@@ -68,7 +72,7 @@
                 table.ajax.reload(null, false);
             };
 
-            $(document).on('change', '.location-status-toggle', function () {
+            $(document).on('change', '.coupon-status-toggle', function () {
                 const toggle = $(this);
                 const url    = toggle.attr('data-url');
 
@@ -88,7 +92,6 @@
                     }
                 });
             });
-
         });
     </script>
 @endsection

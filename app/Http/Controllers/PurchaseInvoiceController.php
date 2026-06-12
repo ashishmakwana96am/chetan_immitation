@@ -123,7 +123,12 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
         $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
-        $locations = Location::where('status', 'active')->orderBy('name')->get();
+        $user = auth()->user();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $locations = Location::where('id', $user->location_id)->where('status', 'active')->get();
+        } else {
+            $locations = Location::where('status', 'active')->orderBy('name')->get();
+        }
         $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
         return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
     }
@@ -224,7 +229,11 @@ class PurchaseInvoiceController extends Controller
 
         $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
         $products  = Product::with('variants.attributeValue.attribute')->where('status', 'active')->orderBy('name')->get();
-        $locations = Location::where('status', 'active')->orderBy('name')->get();
+        if ($user->location_id && $user->type !== 'super-admin') {
+            $locations = Location::where('id', $user->location_id)->where('status', 'active')->get();
+        } else {
+            $locations = Location::where('status', 'active')->orderBy('name')->get();
+        }
         $purchase->load(['items.product', 'items.allocations']);
 
         $existingItems = $purchase->items->map(function ($item) {

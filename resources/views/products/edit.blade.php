@@ -107,7 +107,7 @@
                                                     $isSelected = $product->variants->pluck('attributeValue.attribute_id')->unique()->contains($attr->id);
                                                 @endphp
                                                 <label class="attribute-chip btn btn-sm d-inline-flex align-items-center gap-2 px-3 py-2 cursor-pointer mb-0 {{ $isSelected ? 'active' : '' }}" for="attr_{{ $attr->id }}" style="transition:all .2s;user-select:none;">
-                                                    <input class="form-check-input attribute-select m-0" type="checkbox" data-attribute-id="{{ $attr->id }}" id="attr_{{ $attr->id }}" {{ $isSelected ? 'checked' : '' }} style="cursor:pointer;" />
+                                                    <input class="form-check-input attribute-select m-0 d-none" type="checkbox" data-attribute-id="{{ $attr->id }}" id="attr_{{ $attr->id }}" {{ $isSelected ? 'checked' : '' }} style="cursor:pointer;" />
                                                     <span class="fw-medium" style="font-size:.85rem;">{{ $attr->name }}</span>
                                                 </label>
                                             @endforeach
@@ -279,10 +279,9 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
     <style>
-        .attribute-chip { border: 1px solid #dee2e6 !important; }
-        .attribute-chip:hover { border-color: #B4771E !important; background: #fcf6ed !important; }
-        .attribute-chip.active { border-color: #B4771E !important; background: #B4771E !important; color: #fff !important; }
-        .attribute-chip.active .form-check-input { background-color: #fff; border-color: #fff; }
+        .attribute-chip { background:#f5f5f5; border:1px solid #e0e0e0; border-radius:20px; font-size:.82rem; }
+        .attribute-chip:hover { border-color:#B4771E; background:#fcf6ed; }
+        .attribute-chip.active { background:#B4771E !important; border-color:#B4771E !important; color:#fff !important; box-shadow:0 2px 6px rgba(180,119,30,.3); }
     </style>
 @endsection
 
@@ -779,7 +778,12 @@
                     const attrId = parseInt($(this).data('attribute-id'));
                     const attr = allAttributes.find(function(a) { return a.id === attrId; });
                     if (attr) {
-                        attr.values.forEach(function(val) { delete removedValueIds[val.id]; });
+                        attr.values.forEach(function(val) { 
+                            delete removedValueIds[val.id]; 
+                            if (typeof existingMap !== 'undefined' && existingMap[val.id]) {
+                                delete existingMap[val.id];
+                            }
+                        });
                     }
                 }
                 generateVariants();

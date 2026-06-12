@@ -97,7 +97,6 @@ class AttributeController extends Controller
                 AttributeValue::create([
                     'attribute_id' => $attribute->id,
                     'value'        => trim($item['value']),
-                    'status'       => $item['status'] ?? 'active',
                 ]);
             }
         }
@@ -146,7 +145,6 @@ class AttributeController extends Controller
                 AttributeValue::create([
                     'attribute_id' => $attribute->id,
                     'value'        => trim($item['value']),
-                    'status'       => $item['status'] ?? 'active',
                 ]);
             }
         }
@@ -185,9 +183,7 @@ class AttributeController extends Controller
 
     public function getAttributesWithValues()
     {
-        $attributes = Attribute::with(['values' => function ($q) {
-            $q->where('status', 'active');
-        }])->where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
 
         return response()->json($attributes);
     }
@@ -211,7 +207,6 @@ class AttributeController extends Controller
         $attrValue = AttributeValue::create([
             'attribute_id' => $request->attribute_id,
             'value'        => trim($request->value),
-            'status'       => 'active',
         ]);
 
         return response()->json([
@@ -249,7 +244,6 @@ class AttributeController extends Controller
             AttributeValue::create([
                 'attribute_id' => $attribute->id,
                 'value'        => $val,
-                'status'       => 'active',
             ]);
         }
 

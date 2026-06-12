@@ -424,3 +424,15 @@ table .action-dropdown-menu .dropdown-item.text-danger.active {
   background: rgba(234, 84, 85, 0.09);
   color: #ea5455 !important;
 }
+
+/*
+* Global validation feedback styling for Quill Editors
+******************************************************************************/
+div:has(textarea.is-invalid) .ql-container,
+div:has(textarea.is-invalid) .ql-toolbar {
+  border-color: var(--bs-form-invalid-border-color, #ea5455) !important;
+}
+
+div:has(textarea.is-invalid) .invalid-feedback {
+  display: block !important;
+}

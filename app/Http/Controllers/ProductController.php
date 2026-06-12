@@ -114,9 +114,7 @@ class ProductController extends Controller
     {
         $this->authorize('create products');
         $categories = Category::where('status', 'active')->orderBy('name')->get();
-        $attributes = Attribute::with(['values' => function ($q) {
-            $q->where('status', 'active');
-        }])->where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
 
         $clonedProduct = null;
         $subCategories = collect();
@@ -298,9 +296,7 @@ class ProductController extends Controller
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
-        $attributes = Attribute::with(['values' => function ($q) {
-            $q->where('status', 'active');
-        }])->where('status', 'active')->orderBy('name')->get();
+        $attributes = Attribute::with('values')->where('status', 'active')->orderBy('name')->get();
         $product->load('images', 'variants.attributeValue');
         return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
     }

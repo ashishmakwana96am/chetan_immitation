@@ -26,7 +26,6 @@
                         <tr>
                             <th style="width:50px">#</th>
                             <th>Value</th>
-                            <th style="width:100px">Status</th>
                             <th style="width:60px">Action</th>
                         </tr>
                     </thead>
@@ -60,12 +59,10 @@ $(document).ready(function () {
         const $tbody = $('#valuesTableBody');
         $tbody.empty();
         values.forEach(function (item, idx) {
-            const checked = item.status === 'active' ? 'checked' : '';
             $tbody.append(
                 '<tr>' +
                     '<td>' + (idx + 1) + '</td>' +
                     '<td>' + $('<span>').text(item.value).html() + '</td>' +
-                    '<td><div class="form-check form-switch mb-0" style="justify-content:center"><input class="form-check-input value-status-toggle" type="checkbox" role="switch" data-index="' + idx + '" ' + checked + ' /></div></td>' +
                     '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-value" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
                 '</tr>'
             );
@@ -74,7 +71,7 @@ $(document).ready(function () {
     }
 
     @foreach($attribute->values as $v)
-        values.push({ value: '{{ $v->value }}', status: '{{ $v->status }}' });
+        values.push({ value: '{{ $v->value }}' });
     @endforeach
     renderValues();
 
@@ -84,7 +81,7 @@ $(document).ready(function () {
         if (val) {
             const exists = values.some(function (item) { return item.value.toLowerCase() === val.toLowerCase(); });
             if (!exists) {
-                values.push({ value: val, status: 'active' });
+                values.push({ value: val });
                 renderValues();
                 $input.val('').focus();
             }
@@ -104,11 +101,7 @@ $(document).ready(function () {
         renderValues();
     });
 
-    $(document).on('change', '.value-status-toggle', function () {
-        const idx = $(this).data('index');
-        values[idx].status = $(this).prop('checked') ? 'active' : 'inactive';
-        $('#valuesHidden').val(JSON.stringify(values));
-    });
+
 
     $('#commonModalForm').on('submit', function () {
         if (values.length === 0) {
