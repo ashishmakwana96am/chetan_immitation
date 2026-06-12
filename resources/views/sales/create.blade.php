@@ -151,9 +151,9 @@
                     <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
                     <div class="card-body">
                         <select name="status" class="form-select no-select2">
-                            <option value="pending">Pending</option>
-                            <option value="approve" selected>Approve</option>
-                            <option value="decline">Decline</option>
+                            <option value="1">Pending</option>
+                            <option value="2" selected>Approve</option>
+                            <option value="3">Decline</option>
                         </select>
                     </div>
                 </div>
@@ -163,8 +163,8 @@
                     <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
                     <div class="card-body">
                         <select name="payment_status" class="form-select no-select2">
-                            <option value="pending" selected>Pending</option>
-                            <option value="paid">Paid</option>
+                            <option value="1" selected>Pending</option>
+                            <option value="2">Paid</option>
                         </select>
                     </div>
                 </div>
