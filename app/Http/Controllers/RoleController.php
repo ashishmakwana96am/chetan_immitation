@@ -66,12 +66,12 @@ class RoleController extends Controller
     {
         $this->authorize('create roles');
         $customOrder = [
-            'Users', 'Roles', 'Permissions', 'Modules', 'Locations', 
+            'Users', 'Roles', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
-        $permissions = Permission::get()->groupBy(function ($permission) {
+        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules'])->get()->groupBy(function ($permission) {
             if (!empty($permission->module)) {
                 return $permission->module;
             }
@@ -122,12 +122,12 @@ class RoleController extends Controller
     {
         $this->authorize('edit roles');
         $customOrder = [
-            'Users', 'Roles', 'Permissions', 'Modules', 'Locations', 
+            'Users', 'Roles', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
-        $permissions = Permission::get()->groupBy(function ($permission) {
+        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules'])->get()->groupBy(function ($permission) {
             if (!empty($permission->module)) {
                 return $permission->module;
             }
