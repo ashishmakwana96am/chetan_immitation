@@ -16,6 +16,9 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'final_amount',
+        'source',
+        'discount_type',
+        'coupon_id',
     ];
 
     protected function casts(): array
@@ -43,5 +46,10 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function coupon()
+    {
+        return $this->belongsTo(Coupon::class);
     }
 }

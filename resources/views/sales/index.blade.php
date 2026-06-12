@@ -58,6 +58,7 @@
                         <th>Sale No</th>
                         <th>Customer</th>
                         <th>Location</th>
+                        <th>Source</th>
                         <th>Amount</th>
                         <th>Status</th>
                         <th>Payment</th>
@@ -83,6 +84,7 @@
                     { data: 'order_no' },
                     { data: 'customer' },
                     { data: 'location' },
+                    { data: 'source' },
                     { data: 'final_amount' },
                     { data: 'status',         orderable: false },
                     { data: 'payment_status', orderable: false },
@@ -94,7 +96,7 @@
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="9"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="10"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
             });

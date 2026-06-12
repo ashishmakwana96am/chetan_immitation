@@ -118,6 +118,32 @@
                         <p class="mb-0">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
                     </div>
                     <div class="mb-3">
+                        <p class="text-muted small mb-1">Source</p>
+                        <p class="mb-0">
+                            @if(($order->source ?? 'POS') === 'ONLINE')
+                                <span class="badge bg-label-success">ONLINE</span>
+                            @else
+                                <span class="badge bg-label-info">POS</span>
+                            @endif
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <p class="text-muted small mb-1">Discount Type</p>
+                        <p class="mb-0">
+                            @if(($order->discount_type ?? 'MANUAL') === 'COUPON')
+                                <span class="badge bg-label-primary">COUPON</span>
+                            @else
+                                <span class="badge bg-label-secondary">MANUAL</span>
+                            @endif
+                        </p>
+                    </div>
+                    @if($order->coupon_id)
+                        <div class="mb-3">
+                            <p class="text-muted small mb-1">Coupon</p>
+                            <p class="mb-0"><code>{{ $order->coupon->code ?? '-' }}</code></p>
+                        </div>
+                    @endif
+                    <div class="mb-3">
                         <p class="text-muted small mb-1">Served By</p>
                         <p class="mb-0">{{ $order->user->name ?? '-' }}</p>
                     </div>

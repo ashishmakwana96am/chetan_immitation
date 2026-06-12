@@ -82,12 +82,17 @@ class SaleController extends Controller
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
             $actions .= '</div></div>';
+            $sourceVal = $order->source ?? 'POS';
+            $sourceBadge = $sourceVal === 'ONLINE'
+                ? '<span class="badge bg-label-success">ONLINE</span>'
+                : '<span class="badge bg-label-info">POS</span>';
 
             return [
                 'index'          => $index + 1,
                 'order_no'       => '<code>' . $order->order_no . '</code>',
                 'customer'       => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
                 'location'       => $order->location->name ?? '-',
+                'source'         => $sourceBadge,
                 'final_amount'   => format_price($order->final_amount),
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
@@ -151,10 +156,12 @@ class SaleController extends Controller
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
-            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
             'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
+            'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id'              => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
@@ -230,6 +237,9 @@ class SaleController extends Controller
                 'payment_status'  => $request->payment_status ?? 'pending',
                 'payment_method'  => $request->payment_method,
                 'final_amount'    => $totalAmount,
+                'source'          => $request->input('source', 'POS'),
+                'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
+                'coupon_id'       => $request->input('coupon_id', null),
             ]);
 
             foreach ($itemsData as $item) {
@@ -359,10 +369,12 @@ class SaleController extends Controller
             'items.*.quantity'   => ['required', 'integer', 'min:1'],
             'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
-            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'string', 'in:pending,approve,decline'],
             'payment_status'         => ['nullable', 'string', 'in:paid,pending'],
+            'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id'              => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
@@ -436,6 +448,9 @@ class SaleController extends Controller
                 'status'          => $request->status ?? 'approve',
                 'payment_status'  => $request->payment_status ?? 'pending',
                 'final_amount'    => $totalAmount,
+                'source'          => $request->input('source', $sale->source ?? 'POS'),
+                'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : ($sale->discount_type ?? 'MANUAL'),
+                'coupon_id'       => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
             ]);
 
             foreach ($itemsData as $item) {
