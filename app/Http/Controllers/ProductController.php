@@ -149,10 +149,10 @@ class ProductController extends Controller
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
         ];
 
-        if ($request->type === 'normal') {
-            $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
-            $rules['sale_price'] = ['required', 'numeric', 'min:0'];
-        } else {
+        $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+
+        if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
         }
 
@@ -201,10 +201,8 @@ class ProductController extends Controller
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
 
-            if ($request->type === 'normal') {
-                $productData['purchase_price'] = $request->purchase_price;
-                $productData['sale_price'] = $request->sale_price;
-            }
+            $productData['purchase_price'] = $request->purchase_price;
+            $productData['sale_price'] = $request->sale_price;
 
             $product = Product::create($productData);
 
@@ -318,10 +316,10 @@ class ProductController extends Controller
             'additional_images_base64.*' => ['nullable', 'string'],
         ];
 
-        if ($request->type === 'normal') {
-            $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
-            $rules['sale_price'] = ['required', 'numeric', 'min:0'];
-        } else {
+        $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+
+        if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
         }
 
@@ -370,10 +368,8 @@ class ProductController extends Controller
                 'status'          => $request->has('status') ? 1 : 2,
             ];
 
-            if ($request->type === 'normal') {
-                $productData['purchase_price'] = $request->purchase_price;
-                $productData['sale_price'] = $request->sale_price;
-            }
+            $productData['purchase_price'] = $request->purchase_price;
+            $productData['sale_price'] = $request->sale_price;
 
             $product->update($productData);
 
