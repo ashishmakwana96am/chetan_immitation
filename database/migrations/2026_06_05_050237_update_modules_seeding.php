@@ -181,7 +181,7 @@ return new class extends Migration
         ]);
         Module::create([
             'parent_id'      => $reportsCategory->id,
-            'name'           => 'Sale Report',
+            'name'           => 'Sales Report',
             'icon'           => 'ti ti-chart-arrows',
             'route'          => 'admin.reports.sales',
             'active_pattern' => 'admin/reports/sales',

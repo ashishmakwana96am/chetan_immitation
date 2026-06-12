@@ -436,3 +436,15 @@ div:has(textarea.is-invalid) .ql-toolbar {
 div:has(textarea.is-invalid) .invalid-feedback {
   display: block !important;
 }
+
+/* Double click to view rows - Hover styling & Pointer cursor */
+table tbody tr:has(a.dropdown-item i.ti-eye),
+table tbody tr:has(a.dropdown-item i.fa-eye) {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+table tbody tr:has(a.dropdown-item i.ti-eye):hover,
+table tbody tr:has(a.dropdown-item i.fa-eye):hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.04) !important;
+}

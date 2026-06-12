@@ -61,7 +61,7 @@
                                                 @elseif(str_contains($permission->name, 'purchase'))
                                                     Purchase Reports
                                                 @elseif(str_contains($permission->name, 'sale'))
-                                                    Sale Report
+                                                    Sales Report
                                                 @elseif(str_contains($permission->name, 'profit loss'))
                                                     Profit & Loss Report
                                                 @else

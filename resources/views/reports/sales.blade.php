@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Sale Report')
+@section('title', 'Sales Report')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -41,7 +41,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Sale Report</h4>
+        <h4 class="fw-semibold mb-0">Sales Report</h4>
         <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>

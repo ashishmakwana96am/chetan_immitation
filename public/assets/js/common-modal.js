@@ -316,14 +316,6 @@ $(document).ready(function () {
             buttonsStyling: false
         }).then(function (result) {
             if (result.value) {
-                Swal.fire({
-                    title: 'Processing...',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
                 const ajaxData = Object.assign({ _token: csrfToken }, data);
 
                 $.ajax({
@@ -331,7 +323,6 @@ $(document).ready(function () {
                     type    : method,
                     data    : ajaxData,
                     success : function (res) {
-                        Swal.close();
                         if (res.status === 'success') {
                             toastr.success(res.message);
                             if (typeof window.onConfirmSuccess === 'function') {
@@ -342,7 +333,6 @@ $(document).ready(function () {
                         }
                     },
                     error : function (xhr) {
-                        Swal.close();
                         const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
                         toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                     }

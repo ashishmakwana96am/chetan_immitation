@@ -198,6 +198,32 @@
             $(document).on('hide.bs.dropdown', '.table-responsive', function () {
                 $(this).css('overflow', '');
             });
+
+            // Double click row to view details
+            $(document).on('dblclick', 'table tbody tr', function(e) {
+                // Ignore clicks on interactive/form elements, buttons, and dropdowns
+                if ($(e.target).closest('a, button, input, select, textarea, .dropdown-toggle, .dropdown-menu, [data-bs-toggle]').length) {
+                    return;
+                }
+                
+                // Find the View link within the row
+                const viewLink = $(this).find('a').filter(function() {
+                    const text = $(this).text().trim().toLowerCase();
+                    const hasEyeIcon = $(this).find('.ti-eye, .fa-eye').length > 0;
+                    return text === 'view' || hasEyeIcon;
+                }).first();
+                
+                if (viewLink.length) {
+                    const href = viewLink.attr('href');
+                    if (href && href !== '#' && href !== 'javascript:void(0);') {
+                        if (viewLink.attr('target') === '_blank') {
+                            window.open(href, '_blank');
+                        } else {
+                            window.location.href = href;
+                        }
+                    }
+                }
+            });
         });
     </script>
 

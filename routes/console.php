@@ -59,7 +59,7 @@ Artisan::command('inspire', function () {
 // 	Reports:
 // 		Products Reports
 // 		Purchase Reports
-// 		Sale Report
+// 		Sales Report
 // 		Profit & Loss Report
 // 		Stock Inventory
 	
