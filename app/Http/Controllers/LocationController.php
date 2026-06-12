@@ -81,15 +81,20 @@ class LocationController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $validator->after(function ($validator) use ($request) {
+            if ($request->boolean('is_default')) {
+                $exists = Location::where('is_default', true)->exists();
+                if ($exists) {
+                    $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
+                }
+            }
+        });
+
         if ($validator->fails()) {
             return response()->json([
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
-        }
-
-        if ($request->boolean('is_default')) {
-            Location::where('is_default', true)->update(['is_default' => false]);
         }
 
         Location::create([
@@ -122,17 +127,22 @@ class LocationController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $validator->after(function ($validator) use ($request, $location) {
+            if ($request->boolean('is_default')) {
+                $exists = Location::where('is_default', true)
+                    ->where('id', '!=', $location->id)
+                    ->exists();
+                if ($exists) {
+                    $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
+                }
+            }
+        });
+
         if ($validator->fails()) {
             return response()->json([
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
-        }
-
-        if ($request->boolean('is_default')) {
-            Location::where('is_default', true)
-                ->where('id', '!=', $location->id)
-                ->update(['is_default' => false]);
         }
 
         $location->update([
