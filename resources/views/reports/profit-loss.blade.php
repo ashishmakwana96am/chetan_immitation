@@ -318,9 +318,21 @@
         }
     }
 
+    function initDatePickers() {
+        if (typeof $.fn.flatpickr !== 'undefined') {
+            $('.flatpickr').flatpickr({
+                altInput: true,
+                altFormat: 'd-m-Y',
+                dateFormat: 'Y-m-d',
+                allowInput: false
+            });
+        }
+    }
+
     $(document).ready(function () {
         // Initial load
         initReport();
+        initDatePickers();
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
@@ -332,6 +344,7 @@
 
                 $('#report-results').html(newResults);
                 initReport();
+                initDatePickers();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
             });
@@ -345,10 +358,15 @@
             loadReport(url);
         });
 
-        $('#resetFilters').on('click', function () {
+        $(document).on('click', '#resetFilters', function () {
             const form = $('#filterForm');
 
             form[0].reset();
+            form.find('.flatpickr').each(function () {
+                if (this._flatpickr) {
+                    this._flatpickr.clear();
+                }
+            });
             form.find('input').val('');
             form.find('select').val('').trigger('change.select2');
 
