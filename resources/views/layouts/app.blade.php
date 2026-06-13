@@ -32,6 +32,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/toastr/toastr.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
 
     @yield('page-css')
 
@@ -78,7 +79,7 @@
     </div>
 
     {{-- Common Side Panel --}}
-    <div class="offcanvas offcanvas-end" id="commonModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-scroll="false" data-bs-keyboard="false" style="width: 600px; max-width: 100vw;">
+    <div class="offcanvas offcanvas-end" id="commonModal" aria-hidden="true" data-bs-backdrop="static" data-bs-scroll="false" data-bs-keyboard="false" data-bs-focus="false" style="width: 600px; max-width: 100vw;">
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title" id="commonModalTitle">Details</h5>
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -110,9 +111,17 @@
     <script src="{{ asset('assets/js/main.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/toastr/toastr.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/sweetalert2/sweetalert2.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
     <script src="{{ asset('assets/js/common-modal.js') }}"></script>
     <script>
         $(document).ready(function() {
+            // Initialize flatpickr globally
+            $('.flatpickr').flatpickr({
+                altInput: true,
+                altFormat: 'd-m-Y',
+                dateFormat: 'Y-m-d',
+                allowInput: false
+            });
             toastr.options = {
                 "closeButton": true,
                 "progressBar": true,

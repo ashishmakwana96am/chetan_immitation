@@ -144,11 +144,11 @@
             <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
+                    <input type="text" name="start_date" class="form-control flatpickr" value="{{ $startDate }}" placeholder="DD-MM-YYYY" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
+                    <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Supplier</label>
@@ -214,6 +214,7 @@
                                     <td><code>{{ $invoice->invoice_no }}</code></td>
                                     <td><span class="fw-semibold">{{ $invoice->supplier->name ?? 'Unknown' }}</span></td>
                                     <td>
+                                        @php
                                             $statusColors = [
                                                 1 => 'bg-label-secondary',
                                                 2 => 'bg-label-success',

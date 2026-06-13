@@ -118,6 +118,16 @@ $(document).ready(function () {
                 $('#commonModalBody').html(html);
 
                 let body = $('#commonModalBody');
+
+                if (typeof $.fn.flatpickr !== 'undefined') {
+                    body.find('.flatpickr').flatpickr({
+                        altInput: true,
+                        altFormat: 'd-m-Y',
+                        dateFormat: 'Y-m-d',
+                        allowInput: false
+                    });
+                }
+
                 let titleBlock = body.find('.text-center.mb-4');
                 
                 if (titleBlock.length) {

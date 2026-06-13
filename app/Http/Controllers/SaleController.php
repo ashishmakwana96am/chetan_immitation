@@ -150,6 +150,7 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'location_id'            => ['required', 'exists:locations,id'],
             'customer_id'            => ['nullable', 'exists:customers,id'],
+            'date'                   => ['required', 'date'],
             'payment_method'         => ['required', 'string'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
@@ -241,6 +242,11 @@ class SaleController extends Controller
                 'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
                 'coupon_id'       => $request->input('coupon_id', null),
             ]);
+
+            if ($request->filled('date')) {
+                $order->created_at = $request->date;
+                $order->save();
+            }
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
@@ -363,6 +369,7 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'location_id'        => ['required', 'exists:locations,id'],
             'customer_id'        => ['nullable', 'exists:customers,id'],
+            'date'               => ['required', 'date'],
             'payment_method'     => ['required', 'string'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -452,6 +459,11 @@ class SaleController extends Controller
                 'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : ($sale->discount_type ?? 'MANUAL'),
                 'coupon_id'       => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
             ]);
+
+            if ($request->filled('date')) {
+                $sale->created_at = $request->date;
+                $sale->save();
+            }
 
             foreach ($itemsData as $item) {
                 OrderItem::create([

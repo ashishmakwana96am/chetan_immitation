@@ -71,6 +71,11 @@
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="text" name="date" class="form-control flatpickr" value="{{ date('Y-m-d') }}" placeholder="DD-MM-YYYY" />
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

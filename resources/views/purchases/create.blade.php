@@ -22,12 +22,12 @@
                     <div class="card-header"><h5 class="mb-0">Invoice Details</h5></div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Invoice No</label>
                                 <input type="text" class="form-control" value="{{ $invoiceNo }}" disabled />
                                 <small class="text-muted">Auto-generated on save</small>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Supplier <span class="text-danger">*</span></label>
                                 <select name="supplier_id" class="form-select">
                                     <option value="">-- Select Supplier --</option>
@@ -35,6 +35,11 @@
                                         <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                                     @endforeach
                                 </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="text" name="date" class="form-control flatpickr" value="{{ date('Y-m-d') }}" placeholder="DD-MM-YYYY" />
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>

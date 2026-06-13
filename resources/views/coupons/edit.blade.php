@@ -47,14 +47,14 @@
         </div>
         <div class="col-md-4">
             <label class="form-label" for="couponStartDate">Start Date</label>
-            <input type="date" id="couponStartDate" name="start_date" class="form-control" 
-                value="{{ $coupon->start_date ? $coupon->start_date->format('Y-m-d') : '' }}" />
+            <input type="text" id="couponStartDate" name="start_date" class="form-control flatpickr" 
+                value="{{ $coupon->start_date ? $coupon->start_date->format('Y-m-d') : '' }}" placeholder="DD-MM-YYYY" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-4">
             <label class="form-label" for="couponEndDate">End Date</label>
-            <input type="date" id="couponEndDate" name="end_date" class="form-control" 
-                value="{{ $coupon->end_date ? $coupon->end_date->format('Y-m-d') : '' }}" />
+            <input type="text" id="couponEndDate" name="end_date" class="form-control flatpickr" 
+                value="{{ $coupon->end_date ? $coupon->end_date->format('Y-m-d') : '' }}" placeholder="DD-MM-YYYY" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

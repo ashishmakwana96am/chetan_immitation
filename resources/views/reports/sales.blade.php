@@ -147,11 +147,11 @@
             <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ $startDate }}" />
+                    <input type="text" name="start_date" class="form-control flatpickr" value="{{ $startDate }}" placeholder="DD-MM-YYYY" />
                 </div>
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ $endDate }}" />
+                    <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                 </div>
                 <div class="col-md-2.4 col-sm-6">
                     <label class="form-label">Location</label>

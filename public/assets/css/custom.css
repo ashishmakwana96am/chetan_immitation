@@ -448,3 +448,15 @@ table tbody tr:has(a.dropdown-item i.ti-eye):hover,
 table tbody tr:has(a.dropdown-item i.fa-eye):hover {
   background-color: rgba(var(--bs-primary-rgb), 0.04) !important;
 }
+
+/*
+* Flatpickr Input Field Hover Pointer Cursor
+******************************************************************/
+.flatpickr-input,
+.flatpickr-input + input,
+input.flatpickr,
+input[readonly].flatpickr,
+.flatpickr-mobile {
+  cursor: pointer !important;
+}
+
