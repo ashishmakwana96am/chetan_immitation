@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\PreventResponseCaching;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Auth\Access\AuthorizationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -39,5 +40,39 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 403);
             }
             return redirect()->route('admin.dashboard');
+        });
+
+        $exceptions->render(function (\Throwable $e, Request $request) {
+            $debug = config('app.debug', false);
+            if ($debug) {
+                return null;
+            }
+
+            $statusCode = 500;
+            if ($e instanceof HttpExceptionInterface) {
+                $statusCode = $e->getStatusCode();
+            }
+
+            if ($statusCode === 404) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Resource not found.',
+                    ], 404);
+                }
+                return response()->view('errors.404_error', [], 404);
+            }
+
+            if ($statusCode === 500) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'Internal Server Error.',
+                    ], 500);
+                }
+                return response()->view('errors.500_error', [], 500);
+            }
+
+            return null;
         });
     })->create();

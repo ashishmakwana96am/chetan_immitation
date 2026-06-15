@@ -6,9 +6,13 @@
 <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
 <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
+<style>
+.ql-editor { padding: 1rem !important; }
+</style>
 @endsection
 
 @section('content')
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-semibold mb-0">Website Content</h4>
 </div>
@@ -135,45 +139,46 @@
             </div>
         </div>
 
-        <!-- Text Editors (full width) -->
+        <!-- Text Editors (tabs) -->
         <div class="col-12">
-            <!-- Terms & Conditions -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0">Terms & Conditions</h5></div>
-                <div class="card-body">
-                    <div id="terms-editor">{!! $termsConditions ?? '' !!}</div>
-                    <textarea name="terms_conditions" id="terms-textarea" class="d-none"></textarea>
-                    <div class="invalid-feedback"></div>
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-terms" role="tab">Terms & Conditions</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-delivery" role="tab">Delivery & Returns</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-privacy" role="tab">Privacy Policy</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-refund" role="tab">Refund & Cancellation</button>
+                        </li>
+                    </ul>
                 </div>
-            </div>
-
-            <!-- Delivery & Returns -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0">Delivery & Returns</h5></div>
-                <div class="card-body">
-                    <div id="delivery-editor">{!! $deliveryReturns ?? '' !!}</div>
-                    <textarea name="delivery_returns" id="delivery-textarea" class="d-none"></textarea>
-                    <div class="invalid-feedback"></div>
-                </div>
-            </div>
-
-            <!-- Privacy Policy -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0">Privacy Policy</h5></div>
-                <div class="card-body">
-                    <div id="privacy-editor">{!! $privacyPolicy ?? '' !!}</div>
-                    <textarea name="privacy_policy" id="privacy-textarea" class="d-none"></textarea>
-                    <div class="invalid-feedback"></div>
-                </div>
-            </div>
-
-            <!-- Refund & Cancellation Policy -->
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0">Refund & Cancellation Policy</h5></div>
-                <div class="card-body">
-                    <div id="refund-editor">{!! $refundCancellation ?? '' !!}</div>
-                    <textarea name="refund_cancellation" id="refund-textarea" class="d-none"></textarea>
-                    <div class="invalid-feedback"></div>
+                <div class="card-body tab-content mt-4">
+                    <div class="tab-pane fade show active" id="tab-terms" role="tabpanel">
+                        <div id="terms-editor">{!! $termsConditions ?? '' !!}</div>
+                        <textarea name="terms_conditions" id="terms-textarea" class="d-none"></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-delivery" role="tabpanel">
+                        <div id="delivery-editor">{!! $deliveryReturns ?? '' !!}</div>
+                        <textarea name="delivery_returns" id="delivery-textarea" class="d-none"></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-privacy" role="tabpanel">
+                        <div id="privacy-editor">{!! $privacyPolicy ?? '' !!}</div>
+                        <textarea name="privacy_policy" id="privacy-textarea" class="d-none"></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-refund" role="tabpanel">
+                        <div id="refund-editor">{!! $refundCancellation ?? '' !!}</div>
+                        <textarea name="refund_cancellation" id="refund-textarea" class="d-none"></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -275,23 +280,45 @@ $(document).ready(function () {
         $(this).closest('.mobile-badge').remove();
     });
 
-    // ---- Quill Editors ----
+    // ---- Quill Editors (lazy init on tab show) ----
     function createEditor(containerId, textareaId) {
         const editor = new Quill('#' + containerId, {
             theme: 'snow',
             placeholder: 'Enter content here...'
         });
-        editor.on('text-change', function () {
+        const sync = function () {
             const html = editor.root.innerHTML === '<p><br></p>' ? '' : editor.root.innerHTML;
             $('#' + textareaId).val(html);
-        });
+        };
+        editor.on('text-change', sync);
+        sync();
         return editor;
     }
 
-    createEditor('terms-editor', 'terms-textarea');
-    createEditor('delivery-editor', 'delivery-textarea');
-    createEditor('privacy-editor', 'privacy-textarea');
-    createEditor('refund-editor', 'refund-textarea');
+    const editorTabs = [
+        { tab: '#tab-terms', container: 'terms-editor', textarea: 'terms-textarea' },
+        { tab: '#tab-delivery', container: 'delivery-editor', textarea: 'delivery-textarea' },
+        { tab: '#tab-privacy', container: 'privacy-editor', textarea: 'privacy-textarea' },
+        { tab: '#tab-refund', container: 'refund-editor', textarea: 'refund-textarea' },
+    ];
+
+    const createdEditors = {};
+    editorTabs.forEach(function (item) {
+        const tabEl = document.querySelector(item.tab);
+        if (tabEl.classList.contains('active')) {
+            createdEditors[item.container] = createEditor(item.container, item.textarea);
+        }
+    });
+
+    $(document).on('shown.bs.tab', function (e) {
+        const target = $(e.target).data('bs-target');
+        const found = editorTabs.find(function (t) { return t.tab === target; });
+        if (found && !createdEditors[found.container]) {
+            createdEditors[found.container] = createEditor(found.container, found.textarea);
+        }
+    });
+
+
 
     // ---- Submit ----
     $('#contentForm').on('submit', function (e) {

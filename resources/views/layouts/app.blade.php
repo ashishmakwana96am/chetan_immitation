@@ -36,11 +36,214 @@
 
     @yield('page-css')
 
+    <style>
+    .page-loader {
+        position: fixed; 
+        inset: 0; 
+        z-index: 999999;
+        background: radial-gradient(circle at 15% 20%, rgba(180, 119, 30, 0.07) 0%, transparent 40%),
+                    radial-gradient(circle at 85% 80%, rgba(50, 134, 147, 0.07) 0%, transparent 40%),
+                    rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        transition: opacity 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .page-loader.fade-out { 
+        opacity: 0; 
+        pointer-events: none; 
+    }
+
+    .loader-card {
+        background: rgba(255, 255, 255, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 
+            0 10px 30px rgba(0, 0, 0, 0.02),
+            0 30px 60px rgba(0, 0, 0, 0.04),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        border-radius: 28px;
+        padding: 3rem 4rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+        animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes cardEntrance {
+        0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+        100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .loader-visual {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loader-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 3px solid transparent;
+    }
+
+    .loader-ripple {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border: 2px solid rgba(180, 119, 30, 0.3);
+        border-radius: 50%;
+        animation: sonarPulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+
+    .loader-ring-1 {
+        width: 100%;
+        height: 100%;
+        border-top-color: #B4771E;
+        border-right-color: rgba(180, 119, 30, 0.1);
+        border-bottom-color: #B4771E;
+        border-left-color: rgba(180, 119, 30, 0.1);
+        animation: rotateClockwise 2.2s cubic-bezier(0.68, -0.4, 0.265, 1.4) infinite;
+        filter: drop-shadow(0 0 6px rgba(180, 119, 30, 0.3));
+    }
+
+    .loader-ring-2 {
+        width: 80%;
+        height: 80%;
+        border-top-color: rgba(50, 134, 147, 0.1);
+        border-right-color: #328693;
+        border-bottom-color: rgba(50, 134, 147, 0.1);
+        border-left-color: #328693;
+        animation: rotateCounterClockwise 1.7s cubic-bezier(0.68, -0.4, 0.265, 1.4) infinite;
+        filter: drop-shadow(0 0 5px rgba(50, 134, 147, 0.25));
+    }
+
+    .loader-ring-3 {
+        width: 60%;
+        height: 60%;
+        border-top-color: #B4771E;
+        border-right-color: rgba(180, 119, 30, 0.1);
+        border-bottom-color: #328693;
+        border-left-color: rgba(50, 134, 147, 0.1);
+        animation: rotateClockwise 1.2s linear infinite;
+        filter: drop-shadow(0 0 4px rgba(180, 119, 30, 0.2));
+    }
+
+    .loader-logo-container {
+        position: absolute;
+        width: 44%;
+        height: 44%;
+        background: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+        animation: logoPulse 2s ease-in-out infinite;
+        overflow: hidden;
+    }
+
+    .loader-logo-img {
+        width: 60%;
+        height: 60%;
+        object-fit: contain;
+    }
+
+    .loader-text-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .loader-status {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        background: linear-gradient(90deg, #444 0%, #B4771E 25%, #328693 50%, #B4771E 75%, #444 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: textShimmer 3s linear infinite;
+    }
+
+    .loader-dots span {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #328693;
+        display: inline-block;
+        animation: dotBounce 1.4s infinite ease-in-out;
+    }
+
+    .loader-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .loader-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes rotateClockwise {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes rotateCounterClockwise {
+        0% { transform: rotate(360deg); }
+        100% { transform: rotate(0deg); }
+    }
+
+    @keyframes logoPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06); }
+        50% { transform: scale(1.08); box-shadow: 0 4px 25px rgba(180, 119, 30, 0.25); }
+    }
+
+    @keyframes sonarPulse {
+        0% { transform: scale(0.6); opacity: 1; }
+        100% { transform: scale(1.3); opacity: 0; }
+    }
+
+    @keyframes textShimmer {
+        0% { background-position: 0% center; }
+        100% { background-position: -200% center; }
+    }
+
+    @keyframes dotBounce {
+        0%, 100% { transform: translateY(0); opacity: 0.4; }
+        50% { transform: translateY(-5px); opacity: 1; }
+    }
+    </style>
+
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
 <body>
+    <!-- Global Page Loader -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-card">
+            <div class="loader-visual">
+                <div class="loader-ripple"></div>
+                <div class="loader-ring loader-ring-1"></div>
+                <div class="loader-ring loader-ring-2"></div>
+                <div class="loader-ring loader-ring-3"></div>
+                <div class="loader-logo-container">
+                    <img src="{{ asset('assets/img/favicon/favicon.png') }}" alt="Logo" class="loader-logo-img" />
+                </div>
+            </div>
+            <div class="loader-text-wrapper">
+                <span class="loader-status">Loading</span>
+                <span class="loader-dots"><span>.</span><span>.</span><span>.</span></span>
+            </div>
+        </div>
+    </div>
+
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
@@ -115,6 +318,48 @@
     <script src="{{ asset('assets/js/common-modal.js') }}"></script>
     <script>
         $(document).ready(function() {
+            var activeDataTables = 0;
+            var hasDataTables = false;
+            var loaderHidden = false;
+
+            function hideLoader() {
+                if (loaderHidden) return;
+                loaderHidden = true;
+                $('#pageLoader').addClass('fade-out');
+                setTimeout(function() {
+                    $('#pageLoader').remove();
+                }, 350);
+            }
+
+            var fallbackTimeout = setTimeout(function() {
+                hideLoader();
+            }, 5000);
+
+            $(document).on('preInit.dt', function(e, settings) {
+                if (settings && settings.oFeatures) {
+                    settings.oFeatures.bProcessing = false;
+                }
+                activeDataTables++;
+                hasDataTables = true;
+            });
+
+            $(document).on('init.dt', function(e, settings) {
+                activeDataTables--;
+                setTimeout(function() {
+                    if (activeDataTables <= 0 && hasDataTables) {
+                        clearTimeout(fallbackTimeout);
+                        hideLoader();
+                    }
+                }, 50);
+            });
+
+            setTimeout(function() {
+                if (!hasDataTables || activeDataTables <= 0) {
+                    clearTimeout(fallbackTimeout);
+                    hideLoader();
+                }
+            }, 200);
+
             $('.flatpickr').flatpickr({
                 altInput: true,
                 altFormat: 'd-m-Y',
