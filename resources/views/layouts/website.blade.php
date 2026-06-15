@@ -24,6 +24,14 @@
     
     <link rel="stylesheet" href="{{ asset('website/assets/css/style.css') }}">
     <style>
+        @keyframes marquee {
+            0% {
+                transform: translateX(100vw);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
+        }
         .hover-gold-filter:hover img {
             filter: brightness(0) saturate(100%) invert(48%) sepia(58%) saturate(1354%) hue-rotate(10deg) brightness(98%) contrast(93%);
         }
@@ -44,8 +52,8 @@
     <!-- Header -->
     <header class="relative z-50">
         <!-- Top Bar -->
-        <div class="bg-[#B4771E] py-[12px] flex items-center justify-center overflow-hidden">
-            <p class="text-white text-base whitespace-nowrap animate-[marquee_15s_linear_infinite]">
+        <div class="bg-[#B4771E] py-[12px] flex items-center overflow-hidden relative">
+            <p class="text-white text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
                 Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
             </p>
         </div>
@@ -146,8 +154,8 @@
     <div id="mobileMenu" class="fixed top-0 left-0 w-full h-full bg-white z-[999] translate-x-full transition duration-300 overflow-y-auto">
         <!-- Top Bar inside Mobile Menu -->
         <div class="bg-[#050b0d]">
-            <div class="bg-[#B4771E] py-[12px] flex items-center justify-center overflow-hidden">
-                <p class="text-white text-base whitespace-nowrap animate-[marquee_15s_linear_infinite]">
+            <div class="bg-[#B4771E] py-[12px] flex items-center overflow-hidden relative">
+                <p class="text-white text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
                     Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
                 </p>
             </div>
