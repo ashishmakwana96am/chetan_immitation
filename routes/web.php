@@ -22,18 +22,21 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\WebsiteContentController;
+use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
-// Frontend routes (future)
-Route::get('/', function () {
-    return redirect()->route('admin.dashboard');
-});
+// Frontend routes
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Required by Laravel's password broker to generate reset URL in email
 Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('guest');
 
 // Admin routes
 Route::prefix('admin')->name('admin.')->group(function () {
+
+    Route::get('/', function () {
+        return redirect()->route('admin.dashboard');
+    });
 
     // Guest routes
     Route::middleware('guest')->group(function () {

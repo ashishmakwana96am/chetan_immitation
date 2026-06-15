@@ -189,7 +189,7 @@ $(document).ready(function () {
 
     $cropModal.on('shown.bs.modal', function () {
         cropper = new Cropper($cropImage[0], {
-            aspectRatio: 1,
+            aspectRatio: 215 / 280,
             viewMode: 1,
             autoCropArea: 0.8,
             background: false,
@@ -206,8 +206,8 @@ $(document).ready(function () {
     $cropSaveBtn.on('click', function () {
         if (!cropper) return;
         const canvas = cropper.getCroppedCanvas({
-            width: 400,
-            height: 400
+            width: 215,
+            height: 280
         });
         if (canvas) {
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);

@@ -523,8 +523,8 @@
             $cropSaveBtn.on('click', function () {
                 if (!cropper) return;
                 const canvas = cropper.getCroppedCanvas({
-                    width: 500,
-                    height: 500
+                    width: 340,
+                    height: 340
                 });
                 if (canvas) {
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use App\Models\Category;
+use App\Models\SubCategory;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,11 +16,21 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Super admin bypasses all Gate checks
         Gate::before(function ($user, $ability) {
             if ($user->type === 'super-admin') {
                 return true;
             }
+        });
+
+        view()->composer('layouts.website', function ($view) {
+            $categories = Category::where('status', Category::STATUS_ACTIVE)
+                ->with(['subCategories' => function ($q) {
+                    $q->where('status', SubCategory::STATUS_ACTIVE)
+                      ->orderBy('sort_order');
+                }])
+                ->orderBy('sort_order')
+                ->get();
+            $view->with('sharedCategories', $categories);
         });
     }
 }
