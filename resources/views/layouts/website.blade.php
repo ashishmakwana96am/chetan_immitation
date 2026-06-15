@@ -283,7 +283,7 @@
             <div class="container-1440">
                 <div class="flex flex-col md:flex-row items-center justify-between gap-5 py-[30px]">
                     <p class="text-[#D5D5D5] text-base lg:text-lg lg:leading-[18px] text-center md:text-left">
-                        © 2026 Chetan Imitation. All Rights Reserved | Developed by Rising Star Infotech.
+                        © 2026 Chetan Imitation. All Rights Reserved | Developed by <a href="https://www.risingstarinfotech.com/" target="_blank" class="text-[#B4771E] hover:text-[#B4771E]">Rising Star Infotech</a>
                     </p>
 
                     <!-- Social -->

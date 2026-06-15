@@ -144,6 +144,7 @@ class ProductController extends Controller
             'description'              => ['required', 'string'],
             'additional_information'   => ['required', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
+            'sale'                     => ['nullable', 'boolean'],
             'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
             'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
@@ -197,6 +198,7 @@ class ProductController extends Controller
                 'additional_information' => $request->additional_information,
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
+                'sale'            => $request->has('sale') ? 1 : 0,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
@@ -311,6 +313,7 @@ class ProductController extends Controller
             'description'              => ['required', 'string'],
             'additional_information'   => ['required', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
+            'sale'                     => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
@@ -366,6 +369,7 @@ class ProductController extends Controller
                 'additional_information' => $request->additional_information,
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
+                'sale'            => $request->has('sale') ? 1 : 0,
             ];
 
             $productData['purchase_price'] = $request->purchase_price;

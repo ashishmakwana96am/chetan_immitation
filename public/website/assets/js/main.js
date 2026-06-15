@@ -413,6 +413,22 @@ function toggleMenu(menuId, iconId){
 
     const icon = document.getElementById(iconId);
 
+    if (!menu) return;
+
+    if (menuId.startsWith('mobile-submenu-') && menu.classList.contains('hidden')) {
+        const allSubmenus = document.querySelectorAll('[id^="mobile-submenu-"]');
+        allSubmenus.forEach(otherMenu => {
+            if (otherMenu.id !== menuId) {
+                otherMenu.classList.add('hidden');
+                const otherIconId = otherMenu.id.replace('mobile-submenu-', 'mobile-icon-');
+                const otherIcon = document.getElementById(otherIconId);
+                if (otherIcon) {
+                    otherIcon.innerHTML = '<i class="fa-solid fa-plus"></i>';
+                }
+            }
+        });
+    }
+
     menu.classList.toggle("hidden");
 
     if (icon) {

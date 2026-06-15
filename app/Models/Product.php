@@ -23,6 +23,7 @@ class Product extends Model
         'type',
         'created_by',
         'sort_order',
+        'sale',
     ];
 
     protected function casts(): array

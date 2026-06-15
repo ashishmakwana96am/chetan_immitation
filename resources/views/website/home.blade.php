@@ -64,15 +64,15 @@
                     </p>
                     <div class="mt-10 bg-[#B4771E] text-white grid grid-cols-3 p-4 xl:p-[35px]">
                         <div class="pr-[10px] sm:pr-[22px] border-r border-[#d39d46]">
-                            <h3 class="text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold">250+</h3>
+                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="250" data-suffix="+">0+</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Jewelry Categories</p>
                         </div>
                         <div class="px-[10px] sm:px-[22px] border-r border-[#d39d46]">
-                            <h3 class="text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold">10,000+</h3>
+                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="10000" data-suffix="+" data-format="comma">0+</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Products Available</p>
                         </div>
                         <div class="pl-[10px] sm:pl-[22px]">
-                            <h3 class="text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold">98%</h3>
+                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="98" data-suffix="%">0%</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Satisfied Customers</p>
                         </div>
                     </div>
@@ -99,7 +99,12 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 @foreach($lovedProducts as $product)
                 <div class="border border-[#D5D5D5] relative">
-                    <div class="relative">
+                    <div class="relative overflow-hidden">
+                        @if($product->sale)
+                        <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
+                            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
+                        </div>
+                        @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
                     <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#666] hover:text-[#B4771E] transition">
@@ -145,9 +150,11 @@
                 @foreach($latestProducts as $product)
                 <div class="border border-[#D5D5D5] relative">
                     <div class="relative overflow-hidden">
+                        @if($product->sale)
                         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
                             <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
                         </div>
+                        @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
                     <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#666] hover:text-[#B4771E] transition">
@@ -265,6 +272,47 @@ $(document).ready(function(){
             }
         }
     });
+
+    // Stats Count Up Animation using IntersectionObserver
+    const stats = document.querySelectorAll(".stat-number");
+    
+    const countUp = (el) => {
+        const target = parseInt(el.getAttribute("data-target"), 10);
+        const suffix = el.getAttribute("data-suffix") || "";
+        const format = el.getAttribute("data-format") || "";
+        let current = 0;
+        const duration = 2000; // 2 seconds animation
+        const stepTime = 16; // ~60fps
+        const totalSteps = duration / stepTime;
+        const stepValue = target / totalSteps;
+        
+        let step = 0;
+        const timer = setInterval(() => {
+            step++;
+            current += stepValue;
+            if (step >= totalSteps) {
+                current = target;
+                clearInterval(timer);
+            }
+            
+            let displayVal = Math.floor(current);
+            if (format === "comma") {
+                displayVal = displayVal.toLocaleString('en-US');
+            }
+            el.textContent = displayVal + suffix;
+        }, stepTime);
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                countUp(entry.target);
+                observer.unobserve(entry.target); // Trigger only once
+            }
+        });
+    }, { threshold: 0.1 });
+
+    stats.forEach(stat => observer.observe(stat));
 });
 </script>
 @endsection

@@ -139,13 +139,17 @@
             <!-- Sidebar -->
             <div class="col-lg-4">
 
-                <!-- Status -->
+                <!-- Status & Sale -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Status</h5></div>
+                    <div class="card-header"><h5 class="mb-0">Status & Sale</h5></div>
                     <div class="card-body">
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="productStatus" name="status" value="1" {{ !isset($clonedProduct) || $clonedProduct->status == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productStatus">Active</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="productSale" name="sale" value="1" {{ isset($clonedProduct) && $clonedProduct->sale == 1 ? 'checked' : '' }} />
+                            <label class="form-check-label" for="productSale">Sale</label>
                         </div>
                     </div>
                 </div>
