@@ -1,0 +1,15 @@
+
+
+@font-face {
+    font-family: "MoglanDemo";
+    src: url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.eot");
+    src: url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.eot?#iefix")format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.woff2")format("woff2"),
+    url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.woff")format("woff"),
+    url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.ttf")format("truetype"),
+    url("https://db.onlinewebfonts.com/t/bb37aa4c890a41af0059749cc80e352d.svg#MoglanDemo")format("svg");
+}
+
+.font-moglan {
+    font-family: "MoglanDemo";
+}
