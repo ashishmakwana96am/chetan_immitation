@@ -24,6 +24,10 @@
     
     <link rel="stylesheet" href="{{ asset('website/assets/css/style.css') }}">
     <style>
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+        }
         @keyframes marquee {
             0% {
                 transform: translateX(100vw);
@@ -170,11 +174,11 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            <a href="{{ url('/') }}" class="block pb-5 border-b text-[#131615] text-lg leading-[18px]">Home</a>
+            <a href="{{ url('/') }}" class="block pb-5 border-b text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
 
             <!-- Shop By Category -->
             <div class="border-b">
-                <button onclick="toggleMenu('shopMenu','shopArrow')" class="w-full py-5 flex justify-between items-center text-[#131615] text-lg leading-[18px]">
+                <button onclick="toggleMenu('shopMenu','shopArrow')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
                     <span>Shop By Category</span>
                     <i id="shopArrow" class="fa-solid fa-angle-down transition duration-300"></i>
                 </button>
@@ -182,13 +186,13 @@
                 <div id="shopMenu" class="hidden">
                     @foreach($sharedCategories as $index => $cat)
                     <div class="border-b">
-                        <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] text-lg leading-[18px] pl-4">
-                            <span class="text-[#3D403F]">{{ $cat->name }}</span>
+                        <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
+                            <span>{{ $cat->name }}</span>
                             <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid {{ $index === 0 ? 'fa-minus' : 'fa-plus' }}"></i></span>
                         </button>
                         <ul id="mobile-submenu-{{ $cat->id }}" class="{{ $index === 0 ? '' : 'hidden' }} pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
                             @forelse($cat->subCategories as $sub)
-                            <li><a href="#">{{ $sub->name }}</a></li>
+                            <li><a href="#" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
                             @empty
                             <li>No subcategories</li>
                             @endforelse
@@ -198,8 +202,8 @@
                 </div>
             </div>
 
-            <a href="#" class="block py-4 border-b">About Us</a>
-            <a href="#" class="block py-4">Contact Us</a>
+            <a href="#" class="block py-4 border-b text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">About Us</a>
+            <a href="#" class="block py-4 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Contact Us</a>
         </div>
     </div>
 

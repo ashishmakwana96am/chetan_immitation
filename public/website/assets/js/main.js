@@ -415,14 +415,16 @@ function toggleMenu(menuId, iconId){
 
     menu.classList.toggle("hidden");
 
-    if(menu.classList.contains("hidden")){
-
-        icon.innerHTML = '<i class="fa-solid fa-plus"></i>';
-
-    }else{
-
-        icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
-
+    if (icon) {
+        if (iconId === 'shopArrow') {
+            icon.classList.toggle('rotate-180');
+        } else {
+            if (menu.classList.contains("hidden")) {
+                icon.innerHTML = '<i class="fa-solid fa-plus"></i>';
+            } else {
+                icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
+            }
+        }
     }
 
 }
