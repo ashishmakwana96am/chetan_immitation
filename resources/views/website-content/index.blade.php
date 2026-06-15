@@ -180,11 +180,13 @@
 
         <!-- Submit -->
         <div class="col-12">
+            @can('edit website content')
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary" id="submitBtn">
                     <i class="ti ti-device-floppy me-1"></i> Save Changes
                 </button>
             </div>
+            @endcan
         </div>
     </div>
 </form>

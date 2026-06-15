@@ -8,18 +8,18 @@ class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
-    protected $casts = [
-        'value' => 'array',
-    ];
-
     public static function getValue(string $key, mixed $default = null): mixed
     {
         $setting = self::where('key', $key)->first();
-        return $setting ? $setting->value : $default;
+        if (!$setting) return $default;
+        $value = $setting->value;
+        $decoded = json_decode($value, true);
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
     }
 
     public static function setValue(string $key, mixed $value): void
     {
-        self::updateOrCreate(['key' => $key], ['value' => $value]);
+        $stored = is_array($value) ? json_encode($value) : $value;
+        self::updateOrCreate(['key' => $key], ['value' => $stored]);
     }
 }
