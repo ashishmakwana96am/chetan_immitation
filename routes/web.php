@@ -21,6 +21,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
+use App\Http\Controllers\WebsiteContentController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes (future)
@@ -158,6 +159,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Profile
         Route::get('profile/change-password', [ProfileController::class, 'showChangePasswordForm'])->name('profile.change-password');
         Route::post('profile/change-password', [ProfileController::class, 'changePassword'])->name('profile.update-password');
+
+        // Website Content
+        Route::get('website-content', [WebsiteContentController::class, 'index'])->name('website-content.index');
+        Route::post('website-content', [WebsiteContentController::class, 'update'])->name('website-content.update');
     });
 
 });
