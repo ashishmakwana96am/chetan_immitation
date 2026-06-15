@@ -398,12 +398,21 @@
     }
 
     function initDatePickers() {
+        $('.flatpickr').each(function() {
+            if (this._flatpickr) {
+                this._flatpickr.destroy();
+            }
+        });
+
         if (typeof $.fn.flatpickr !== 'undefined') {
             $('.flatpickr').flatpickr({
                 altInput: true,
                 altFormat: 'd-m-Y',
                 dateFormat: 'Y-m-d',
-                allowInput: false
+                allowInput: false,
+                onChange: function (selectedDates, dateStr, instance) {
+                    $(instance.element).closest('form').trigger('change');
+                }
             });
         }
     }
@@ -430,8 +439,8 @@
         }
 
         // AJAX Filtering on form field changes
-        $('#filterForm').on('change', 'input, select', function () {
-            const form = $('#filterForm');
+        $(document).on('change', '#filterForm', function () {
+            const form = $(this);
             const url = form.attr('action') + '?' + form.serialize();
 
             loadReport(url);

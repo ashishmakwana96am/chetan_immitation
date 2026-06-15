@@ -115,13 +115,20 @@
     <script src="{{ asset('assets/js/common-modal.js') }}"></script>
     <script>
         $(document).ready(function() {
-            // Initialize flatpickr globally
             $('.flatpickr').flatpickr({
                 altInput: true,
                 altFormat: 'd-m-Y',
                 dateFormat: 'Y-m-d',
                 allowInput: false
             });
+
+            window.addEventListener('scroll', function () {
+                document.querySelectorAll('.flatpickr-input').forEach(function (el) {
+                    if (el._flatpickr && el._flatpickr.isOpen) {
+                        el._flatpickr.close();
+                    }
+                });
+            }, true);
             toastr.options = {
                 "closeButton": true,
                 "progressBar": true,
