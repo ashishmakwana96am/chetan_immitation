@@ -46,7 +46,7 @@ class LoginController extends Controller
             if ($request->ajax()) {
                 return response()->json([
                     'status'       => 'success',
-                    'redirect_url' => route('admin.dashboard')
+                    'redirect_url' => redirect()->intended(route('admin.dashboard'))->getTargetUrl()
                 ]);
             }
             return redirect()->intended(route('admin.dashboard'));
