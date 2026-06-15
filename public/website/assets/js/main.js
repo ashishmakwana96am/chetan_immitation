@@ -452,8 +452,23 @@ function showSubmenu(id,btn){
         menu.classList.add('hidden');
     });
 
-    document.getElementById(id).classList.remove('hidden');
+    const submenu = document.getElementById(id);
+    const submenuBox = document.getElementById('submenuBox');
 
+    if (submenu) {
+        submenu.classList.remove('hidden');
+        if (submenuBox) {
+            if (submenu.getAttribute('data-has-subs') === 'true') {
+                submenuBox.classList.remove('hidden');
+            } else {
+                submenuBox.classList.add('hidden');
+            }
+        }
+    } else {
+        if (submenuBox) {
+            submenuBox.classList.add('hidden');
+        }
+    }
 
     document.querySelectorAll('.menu-btn i').forEach(icon=>{
 
@@ -466,9 +481,11 @@ function showSubmenu(id,btn){
 
     const icon=btn.querySelector('i');
 
-    icon.classList.remove('fa-plus');
+    if (icon) {
+        icon.classList.remove('fa-plus');
 
-    icon.classList.add('fa-minus');
+        icon.classList.add('fa-minus');
+    }
 
 }
 
