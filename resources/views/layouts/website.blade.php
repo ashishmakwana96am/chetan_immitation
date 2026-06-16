@@ -231,7 +231,7 @@
             <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-14">
                 <!-- Logo -->
                 <div>
-                    <img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]">
+                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
                     <p class="text-[#D5D5D5] text-base lg:text-lg leading-6 font-normal">
                         Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
@@ -241,12 +241,9 @@
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Shop By Category</h3>
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[20px]">
-                        <li><a href="#">Necklaces</a></li>
-                        <li><a href="#">Bangal & Kadali</a></li>
-                        <li><a href="#">Bracelets</a></li>
-                        <li><a href="#">Hathful</a></li>
-                        <li><a href="#">Rings</a></li>
-                        <li><a href="#">Mangalsutra</a></li>
+                        @foreach($sharedCategories->shuffle()->take(6) as $cat)
+                        <li><a href="#" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>
+                        @endforeach
                     </ul>
                 </div>
 
@@ -254,8 +251,8 @@
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Company</h3>
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[16px]">
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Contact</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">About Us</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">Contact</a></li>
                     </ul>
                 </div>
 
@@ -263,10 +260,10 @@
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Customer Service</h3>
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[28px]">
-                        <li><a href="#">Terms & Conditions</a></li>
-                        <li><a href="#">Deliveries & Returns</a></li>
-                        <li><a href="#">Privacy Policy</a></li>
-                        <li><a href="#">Refund & Cancellation Policy</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
+                        <li><a href="#" class="hover:text-[#B4771E] transition">Refund & Cancellation Policy</a></li>
                     </ul>
                 </div>
 
@@ -276,17 +273,17 @@
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[28px]">
                         <li class="flex gap-3">
                             <i class="fa-solid fa-phone text-[#B4771E] mt-1"></i>
-                            <span>+91 98765 43210</span>
+                            <a href="tel:+919876543210" class="hover:text-[#B4771E] transition">+91 98765 43210</a>
                         </li>
                         <li class="flex gap-3">
                             <i class="fa-regular fa-envelope text-[#B4771E] mt-1"></i>
-                            <span>info@chetanimitation.com</span>
+                            <a href="mailto:info@chetanimitation.com" class="hover:text-[#B4771E] transition">info@chetanimitation.com</a>
                         </li>
                         <li class="flex gap-3">
                             <i class="fa-solid fa-location-dot text-[#B4771E] mt-1"></i>
-                            <span>
+                            <a href="https://maps.google.com/?q=G-14+Abc+market+Abc+circle+Sudama+chowk+Mota+Varachha+Surat+Gujarat+394101+India" target="_blank" class="hover:text-[#B4771E] transition">
                                 G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat, Gujarat 394101, India
-                            </span>
+                            </a>
                         </li>
                     </ul>
                 </div>
