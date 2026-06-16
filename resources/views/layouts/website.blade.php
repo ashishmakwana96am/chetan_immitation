@@ -66,7 +66,7 @@
         </div>
 
         <!-- Navbar -->
-        <div class="bg-[#050b0d]">
+        <div class="bg-[#131615]">
             <div class="container-1440">
                 <div class="flex items-center justify-between">
                     <!-- Logo -->
@@ -76,7 +76,7 @@
 
                     <!-- Desktop Menu -->
                     <nav class="hidden lg:flex items-center gap-7 xl:gap-10">
-                        <a href="{{ url('/') }}" class="text-[#B4771E] text-lg pb-1">
+                        <a href="{{ url('/') }}" class="{{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                             Home
                         </a>
 
@@ -126,11 +126,11 @@
                             </div>
                         </div>
 
-                        <a href="#" class="text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                        <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                             About Us
                         </a>
-
-                        <a href="#" class="text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                        
+                        <a href="{{ route('contact') }}" class="{{ request()->routeIs('contact') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                             Contact Us
                         </a>
                     </nav>
@@ -152,7 +152,7 @@
                             <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
                         </a>
 
-                        <a href="#" class="text-white hover-gold-filter">
+                        <a href="{{ route('login') }}" class="text-white hover-gold-filter">
                             <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                         </a>
                     </div>
@@ -168,7 +168,7 @@
 
     <div id="mobileMenu" class="fixed top-0 left-0 w-full h-full bg-white z-[999] translate-x-full transition duration-300 overflow-y-auto">
         <!-- Top Bar inside Mobile Menu -->
-        <div class="bg-[#050b0d]">
+        <div class="bg-[#131615]">
             <div class="bg-[#B4771E] py-[12px] flex items-center overflow-hidden relative">
                 <p class="text-white text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
                     Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
@@ -185,7 +185,7 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            <a href="{{ url('/') }}" class="block pb-5 border-b text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
+            <a href="{{ url('/') }}" class="block pb-5 border-b {{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
 
             <!-- Shop By Category -->
             <div class="border-b">
@@ -217,13 +217,41 @@
                 </div>
             </div>
 
-            <a href="#" class="block py-4 border-b text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">About Us</a>
-            <a href="#" class="block py-4 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Contact Us</a>
+            <a href="{{ route('about') }}" class="block py-4 border-b {{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">About Us</a>
+            <a href="{{ route('contact') }}" class="block py-4 {{ request()->routeIs('contact') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Contact Us</a>
         </div>
     </div>
 
     <!-- Main Content -->
     @yield('content')
+
+    <!-- Newsletter -->
+    <section class="relative">
+        <div class="relative py-[80px] overflow-hidden">
+            <img src="{{ asset('website/assets/images/Newsletter.png') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
+            <div class="absolute inset-0 bg-[#131615]/70"></div>
+            <div class="relative z-10 h-full flex items-center justify-center px-5">
+                <div class="text-center w-full">
+                    <div class="w-12 h-[2px] bg-[#B4771E] mx-auto mb-5"></div>
+                    <h2 class="font-moglan text-white text-[32px] md:text-[48px] lg:text-[54px] leading-none">
+                        Stay Updated with New Jewelry Collections
+                    </h2>
+                    <p class="mt-[15px] text-white/90 text-[14px] md:text-[20px] font-normal">
+                        Subscribe to receive exclusive offers, styling tips, and first access to new arrivals
+                    </p>
+                    <div class="max-w-[520px] mx-auto mt-8 flex flex-col sm:flex-row">
+                        <input type="email" placeholder="Enter your email" class="flex-1 h-[58px] px-4 text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] placeholder:text-lg">
+                        <button class="h-[58px] px-8 bg-[#B4771E] text-white text-lg font-medium hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-r-[4px] flex items-center justify-center">
+                            Subscribe
+                        </button>
+                    </div>
+                    <p class="mt-3 text-[#D5D5D5] text-lg lg:text-xl">
+                        We respect your privacy. Unsubscribe at any time.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="bg-[#131615]">
@@ -251,8 +279,8 @@
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Company</h3>
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[16px]">
-                        <li><a href="#" class="hover:text-[#B4771E] transition">About Us</a></li>
-                        <li><a href="#" class="hover:text-[#B4771E] transition">Contact</a></li>
+                        <li><a href="{{ route('about') }}" class="hover:text-[#B4771E] transition">About Us</a></li>
+                        <li><a href="{{ route('contact') }}" class="hover:text-[#B4771E] transition">Contact Us</a></li>
                     </ul>
                 </div>
 
@@ -260,10 +288,10 @@
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Customer Service</h3>
                     <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[28px]">
-                        <li><a href="#" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
-                        <li><a href="#" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
-                        <li><a href="#" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
-                        <li><a href="#" class="hover:text-[#B4771E] transition">Refund & Cancellation Policy</a></li>
+                        <li><a href="{{ route('terms') }}" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
+                        <li><a href="{{ route('delivery-returns') }}" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
+                        <li><a href="{{ route('privacy') }}" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
+                        <li><a href="{{ route('refund-cancellation') }}" class="hover:text-[#B4771E] transition">Refund & Cancellation Policy</a></li>
                     </ul>
                 </div>
 

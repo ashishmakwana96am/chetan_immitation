@@ -27,6 +27,16 @@ use Illuminate\Support\Facades\Route;
 
 // Frontend routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/about-us', [HomeController::class, 'about'])->name('about');
+Route::get('/contact-us', [HomeController::class, 'contact'])->name('contact');
+Route::get('/terms-conditions', [HomeController::class, 'terms'])->name('terms');
+Route::get('/privacy-policy', [HomeController::class, 'privacy'])->name('privacy');
+Route::get('/delivery-returns', [HomeController::class, 'deliveryReturns'])->name('delivery-returns');
+Route::get('/refund-cancellation', [HomeController::class, 'refundCancellation'])->name('refund-cancellation');
+Route::get('/login', [HomeController::class, 'login'])->name('login');
+Route::get('/forgot-password', [HomeController::class, 'forgotPassword'])->name('forgot-password');
+Route::get('/otp-verification', [HomeController::class, 'otpVerification'])->name('otp-verification');
+Route::get('/register', [HomeController::class, 'register'])->name('register');
 
 Route::get('robots.txt', function () {
     $host = request()->getHost();

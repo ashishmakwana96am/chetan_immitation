@@ -64,7 +64,7 @@
                 @foreach($categories as $category)
                 <div class="group text-center cursor-pointer">
                     <div class="mx-auto rounded-full overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] group-hover:shadow-[0_0_25px_rgba(180,119,30,0.30)]">
-                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:brightness-110 group-hover:scale-105">
+                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
                     </div>
                     <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
                     <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
@@ -229,36 +229,6 @@
             </div>
             <div class="text-center mt-8 lg:mt-10">
                 <a href="#" class="common-btn">Follow Us on Instagram</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- Newsletter -->
-    <section class="relative">
-        <div class="relative py-[80px] overflow-hidden">
-            <img src="{{ asset('website/assets/images/Newsletter.png') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
-            <!-- Overlay -->
-            <div class="absolute inset-0 bg-[#131615]/70"></div>
-            <!-- Content -->
-            <div class="relative z-10 h-full flex items-center justify-center px-5">
-                <div class="text-center w-full">
-                    <div class="w-12 h-[2px] bg-[#B4771E] mx-auto mb-5"></div>
-                    <h2 class="font-moglan text-white text-[32px] md:text-[48px] lg:text-[54px] leading-none">
-                        Stay Updated with New Jewelry Collections
-                    </h2>
-                    <p class="mt-[15px] text-white/90 text-[14px] md:text-[20px] font-normal">
-                        Subscribe to receive exclusive offers, styling tips, and first access to new arrivals
-                    </p>
-                    <div class="max-w-[520px] mx-auto mt-8 flex flex-col gap-3 sm:gap-0 sm:flex-row">
-                        <input type="email" placeholder="Enter your email" class="flex-1 h-[58px] py-5 px-4 text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] placeholder:text-lg">
-                        <button class="h-[58px] px-8 bg-[#B4771E] text-white text-lg hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-[4px]">
-                            Subscribe
-                        </button>
-                    </div>
-                    <p class="mt-3 text-[#D5D5D5] text-lg lg:text-xl">
-                        We respect your privacy. Unsubscribe at any time.
-                    </p>
-                </div>
             </div>
         </div>
     </section>

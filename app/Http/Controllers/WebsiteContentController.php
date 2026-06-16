@@ -43,14 +43,42 @@ class WebsiteContentController extends Controller
             ], 422);
         }
 
-        Setting::setValue('terms_conditions', $request->terms_conditions ?? '');
-        Setting::setValue('delivery_returns', $request->delivery_returns ?? '');
-        Setting::setValue('privacy_policy', $request->privacy_policy ?? '');
-        Setting::setValue('refund_cancellation', $request->refund_cancellation ?? '');
+        $fields = [
+            'terms_conditions',
+            'delivery_returns',
+            'privacy_policy',
+            'refund_cancellation',
+        ];
+
+        $clearedFields = [];
+
+        foreach ($fields as $field) {
+            $newValue = $request->$field ?? '';
+            $existingValue = Setting::getValue($field, '');
+
+            if ($newValue === '' && $existingValue !== '') {
+                $clearedFields[] = $field;
+            }
+
+            Setting::setValue($field, $newValue);
+        }
+
+        $message = 'Website content updated successfully.';
+
+        if (!empty($clearedFields) && !$request->confirmed_clear) {
+            $fieldLabels = [
+                'terms_conditions' => 'Terms & Conditions',
+                'delivery_returns' => 'Delivery & Returns',
+                'privacy_policy' => 'Privacy Policy',
+                'refund_cancellation' => 'Refund & Cancellation',
+            ];
+            $labels = array_map(fn($f) => $fieldLabels[$f] ?? $f, $clearedFields);
+            $message = 'Updated. Note: ' . implode(', ', $labels) . ' content ' . (count($clearedFields) > 1 ? 'were' : 'was') . ' cleared.';
+        }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Website content updated successfully.',
+            'message' => $message,
         ]);
     }
 }

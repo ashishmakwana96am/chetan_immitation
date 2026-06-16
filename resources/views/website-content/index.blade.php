@@ -133,35 +133,50 @@ $(document).ready(function () {
         ['clean']
     ];
 
-    // Initialize all 4 editors
     const termsEditor = new Quill('#terms-editor', {
         theme: 'snow',
         placeholder: 'Enter Terms & Conditions...',
         modules: { toolbar: quillToolbarOptions }
     });
+    if ($('#terms-editor .ql-editor').length) {
+        $('#terms-editor .ql-editor')[0].innerHTML = '{!! str_replace(["\n", "\r"], '', addslashes($termsConditions)) !!}';
+    }
 
     const deliveryEditor = new Quill('#delivery-editor', {
         theme: 'snow',
         placeholder: 'Enter Delivery & Returns details...',
         modules: { toolbar: quillToolbarOptions }
     });
+    if ($('#delivery-editor .ql-editor').length) {
+        $('#delivery-editor .ql-editor')[0].innerHTML = '{!! str_replace(["\n", "\r"], '', addslashes($deliveryReturns)) !!}';
+    }
 
     const privacyEditor = new Quill('#privacy-editor', {
         theme: 'snow',
         placeholder: 'Enter Privacy Policy...',
         modules: { toolbar: quillToolbarOptions }
     });
+    if ($('#privacy-editor .ql-editor').length) {
+        $('#privacy-editor .ql-editor')[0].innerHTML = '{!! str_replace(["\n", "\r"], '', addslashes($privacyPolicy)) !!}';
+    }
 
     const refundEditor = new Quill('#refund-editor', {
         theme: 'snow',
         placeholder: 'Enter Refund & Cancellation details...',
         modules: { toolbar: quillToolbarOptions }
     });
+    if ($('#refund-editor .ql-editor').length) {
+        $('#refund-editor .ql-editor')[0].innerHTML = '{!! str_replace(["\n", "\r"], '', addslashes($refundCancellation)) !!}';
+    }
 
-    // Helper to sync editor content to textarea
     function syncEditor(editor, textareaId) {
         const html = editor.root.innerHTML === '<p><br></p>' ? '' : editor.root.innerHTML;
         $('#' + textareaId).val(html);
+    }
+
+    function getEditorContent(editor) {
+        const html = editor.root.innerHTML;
+        return html === '<p><br></p>' ? '' : html;
     }
 
     const syncAll = function() {
@@ -171,55 +186,98 @@ $(document).ready(function () {
         syncEditor(refundEditor, 'refund-textarea');
     };
 
-    // Sync content on text-change for all editors
     termsEditor.on('text-change', () => syncEditor(termsEditor, 'terms-textarea'));
     deliveryEditor.on('text-change', () => syncEditor(deliveryEditor, 'delivery-textarea'));
     privacyEditor.on('text-change', () => syncEditor(privacyEditor, 'privacy-textarea'));
     refundEditor.on('text-change', () => syncEditor(refundEditor, 'refund-textarea'));
 
-    // Initial sync
     syncAll();
 
-    // ---- Submit ----
+    $('#terms-textarea').data('original', $('#terms-textarea').val());
+    $('#delivery-textarea').data('original', $('#delivery-textarea').val());
+    $('#privacy-textarea').data('original', $('#privacy-textarea').val());
+    $('#refund-textarea').data('original', $('#refund-textarea').val());
+
     $('#contentForm').on('submit', function (e) {
         e.preventDefault();
 
-        // Extra check to ensure everything is synced
         syncAll();
 
-        const form = $(this);
-        form.find('.is-invalid').removeClass('is-invalid');
-        form.find('.invalid-feedback').text('');
-        $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+        var form = $(this);
 
-        $.ajax({
-            url: '{{ route("admin.website-content.update") }}',
-            type: 'POST',
-            data: form.serialize(),
-            success: function (res) {
-                if (res.status === 'success') {
-                    toastr.success(res.message);
-                }
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
-            },
-            error: function (xhr) {
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
-                if (xhr.status === 422) {
-                    const errors = xhr.responseJSON?.message || {};
-                    $.each(errors, function (field, messages) {
-                        let input = form.find('[name="' + field + '"]');
-                        if (input.length) {
-                            input.addClass('is-invalid');
-                            input.siblings('.invalid-feedback').text(messages[0]);
-                        } else {
-                            toastr.error(messages[0]);
-                        }
-                    });
-                } else {
-                    toastr.error('Something went wrong. Please try again.');
-                }
+        var emptyFields = [];
+        var fieldLabels = {
+            'terms-textarea': 'Terms & Conditions',
+            'delivery-textarea': 'Delivery & Returns',
+            'privacy-textarea': 'Privacy Policy',
+            'refund-textarea': 'Refund & Cancellation'
+        };
+
+        $.each(fieldLabels, function(textareaId, label) {
+            var textarea = $('#' + textareaId);
+            var val = textarea.val().trim();
+            var hasContent = val !== '' && val !== '<p><br></p>';
+            var originalContent = textarea.data('original') || '';
+
+            if (!hasContent && originalContent !== '') {
+                emptyFields.push(label);
             }
         });
+
+        if (emptyFields.length > 0) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: 'Are you sure you want to clear the content for:\n' + emptyFields.join('\n'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, clear it!',
+                cancelButtonText: 'Cancel',
+                customClass: { confirmButton: 'btn btn-primary me-2', cancelButton: 'btn btn-label-danger' },
+                buttonsStyling: false
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    submitForm();
+                }
+            });
+            return;
+        }
+
+        function submitForm() {
+            form.find('.is-invalid').removeClass('is-invalid');
+            form.find('.invalid-feedback').text('');
+            $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+
+            $.ajax({
+                url: '{{ route("admin.website-content.update") }}',
+                type: 'POST',
+                data: form.serialize() + '&confirmed_clear=1',
+                success: function (res) {
+                    if (res.status === 'success') {
+                        toastr.success(res.message);
+                    }
+                    $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
+                },
+                error: function (xhr) {
+                    $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
+                    if (xhr.status === 422) {
+                        const errors = xhr.responseJSON?.message || {};
+                        $.each(errors, function (field, messages) {
+                            let input = form.find('[name="' + field + '"]');
+                            if (input.length) {
+                                input.addClass('is-invalid');
+                                input.siblings('.invalid-feedback').text(messages[0]);
+                            } else {
+                                toastr.error(messages[0]);
+                            }
+                        });
+                    } else {
+                        toastr.error('Something went wrong. Please try again.');
+                    }
+                }
+            });
+        }
+
+        submitForm();
     });
 });
 </script>
