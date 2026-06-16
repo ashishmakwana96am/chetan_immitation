@@ -40,24 +40,17 @@
                             class="btn-outline font-semibold transition duration-300">
 
                             View Bridal Jewelry
-
                         </a>
-
                     </div>
-
                 </div>
                 <div class="col-span-12 md:hidden mt-2">
                    <img
-                src="assets/images/hero-bg.png"
-                class="w-full
-                ">
-
+                        src="website/assets/images/hero-bg.png"
+                        class="w-full
+                    ">
                 </div>
-
             </div>
-
         </div>
-
     </section>
 
     <!-- Collection Carousel -->
@@ -69,11 +62,12 @@
             </div>
             <div class="owl-carousel collection-slider mt-10">
                 @foreach($categories as $category)
-                <div class="group text-center cursor-pointer collection-card">
-                    <div class="mx-auto rounded-[999px] overflow-hidden">
-                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover collection-img">
+                <div class="group text-center cursor-pointer">
+                    <div class="mx-auto rounded-full overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] group-hover:shadow-[0_0_25px_rgba(180,119,30,0.30)]">
+                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:brightness-110 group-hover:scale-105">
                     </div>
-                    <h3 class="mt-[30px] text-base md:text-lg lg:text-[22px] text-[#131615]">{{ $category->name }}</h3>
+                    <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
+                    <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
                 </div>
                 @endforeach
             </div>

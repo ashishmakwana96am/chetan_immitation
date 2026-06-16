@@ -389,13 +389,6 @@ summary {
     color: #ffffff !important;
 }
 
-.collection-img{
-    transition: transform 0.7s ease-out;
-}
-.collection-card:hover .collection-img{
-    transform: scale(1.1);
-}
-
 .group img.object-cover {
     transition: transform 0.7s ease-in-out;
 }
