@@ -19,6 +19,7 @@ class Product extends Model
         'additional_information',
         'purchase_price',
         'sale_price',
+        'mrp',
         'status',
         'type',
         'created_by',
@@ -31,6 +32,7 @@ class Product extends Model
         return [
             'purchase_price' => 'decimal:2',
             'sale_price'     => 'decimal:2',
+            'mrp'            => 'decimal:2',
         ];
     }
 

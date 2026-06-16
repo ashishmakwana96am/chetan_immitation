@@ -69,6 +69,14 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">MRP <span class="text-danger">*</span></label>
+                                <div class="input-group has-validation">
+                                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                                    <input type="number" name="mrp" class="form-control" placeholder="0.00" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" />
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Product Type <span class="text-danger">*</span></label>
                                 <select name="type" id="productType" class="form-select no-select2">
                                     <option value="normal" {{ isset($clonedProduct) && $clonedProduct->type === 'variable' ? '' : 'selected' }}>Normal Product</option>

@@ -115,6 +115,10 @@
                             <p class="fw-semibold mb-0 text-success">{{ format_price($product->sale_price) }}</p>
                         </div>
                         <div class="col-md-6">
+                            <p class="text-muted small mb-1">MRP</p>
+                            <p class="fw-semibold mb-0 text-danger">{{ format_price($product->mrp) }}</p>
+                        </div>
+                        <div class="col-md-6">
                             <p class="text-muted small mb-1">Created Date</p>
                             <p class="mb-0">{{ format_date($product->created_at) }}</p>
                         </div>

@@ -141,16 +141,12 @@
 
                         <a href="#" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
-                            <span class="absolute -top-1 -right-1 w-[14px] h-[14px] rounded-full bg-[#B78326] text-white text-[9px] font-medium flex items-center justify-center pt-1">
-                                3
-                            </span>
+                            <span class="absolute -top-1.5 -right-1.5 w-[15px] h-[15px] rounded-full bg-[#B78326] text-white text-[9px] font-semibold flex items-center justify-center leading-none">0</span>
                         </a>
 
                         <a href="#" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
-                            <span class="absolute -top-1 -right-1 w-[14px] h-[14px] rounded-full bg-[#B78326] text-white text-[9px] font-medium flex items-center justify-center pt-1">
-                                3
-                            </span>
+                            <span class="absolute -top-1.5 -right-1.5 w-[15px] h-[15px] rounded-full bg-[#B78326] text-white text-[9px] font-semibold flex items-center justify-center leading-none">0</span>
                         </a>
 
                         <a href="#" class="text-white hover-gold-filter">

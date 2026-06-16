@@ -124,7 +124,7 @@
                         </div>
                         <div class="mt-1 flex items-center gap-1">
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                             <span class="text-sm xl:text-lg text-[#757575] line-through">₹7,999</span>
+                             @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
                         <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition">
                             Add to Cart
@@ -174,7 +174,7 @@
                         </div>
                         <div class="mt-1 flex items-center gap-1">
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                             <span class="text-sm xl:text-lg text-[#757575] line-through">₹7,999</span>
+                             @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
                         <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition">
                             Add to Cart

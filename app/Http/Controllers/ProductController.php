@@ -152,6 +152,7 @@ class ProductController extends Controller
 
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp'] = ['required', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -205,6 +206,7 @@ class ProductController extends Controller
 
             $productData['purchase_price'] = $request->purchase_price;
             $productData['sale_price'] = $request->sale_price;
+            $productData['mrp'] = $request->mrp;
 
             $product = Product::create($productData);
 
@@ -321,6 +323,7 @@ class ProductController extends Controller
 
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp'] = ['required', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -374,6 +377,7 @@ class ProductController extends Controller
 
             $productData['purchase_price'] = $request->purchase_price;
             $productData['sale_price'] = $request->sale_price;
+            $productData['mrp'] = $request->mrp;
 
             $product->update($productData);
 
