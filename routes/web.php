@@ -28,6 +28,16 @@ use Illuminate\Support\Facades\Route;
 // Frontend routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+Route::get('robots.txt', function () {
+    $host = request()->getHost();
+    if (str_contains($host, 'royalgujarati')) {
+        $content = "User-agent: *\nDisallow: /";
+    } else {
+        $content = "User-agent: *\nDisallow:";
+    }
+    return response($content, 200)->header('Content-Type', 'text/plain');
+});
+
 // Required by Laravel's password broker to generate reset URL in email
 Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('guest');
 
