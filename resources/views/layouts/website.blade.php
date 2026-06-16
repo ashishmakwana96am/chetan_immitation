@@ -83,49 +83,42 @@
                                 Shop By Category
                                 <i class="fa-solid fa-angle-down text-xl"></i>
                             </button>                            <!-- Dropdown -->
+                            <!-- Dropdown -->
                             <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300">
-                                <div class="flex items-start gap-4">
-                                    <!-- Left -->
-                                    <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white">
-                                        @foreach($sharedCategories as $index => $cat)
-                                        <div class="relative">
-                                            <button onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300">
-                                                <span>{{ $cat->name }}</span>
-                                            </button>
-                                        </div>
-                                        @endforeach
-                                    </div>
+                                <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white">
+                                    @foreach($sharedCategories as $index => $cat)
+                                    <div class="relative">
+                                        <button onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300">
+                                            <span>{{ $cat->name }}</span>
+                                            @if($cat->subCategories->isNotEmpty())
+                                                <i class="fa-solid {{ $index === 0 ? 'fa-minus' : 'fa-plus' }} text-sm"></i>
+                                            @endif
+                                        </button>
 
-                                    <!-- Right -->
-                                    @php
-                                        $firstCategory = $sharedCategories->first();
-                                        $firstHasSubs = $firstCategory && $firstCategory->subCategories->isNotEmpty();
-                                    @endphp
-                                    <div id="submenuBox" class="bg-white border border-[#D5D5D5] min-w-[250px] min-h-[300px] {{ $firstHasSubs ? '' : 'hidden' }}">
-                                        @foreach($sharedCategories as $index => $cat)
-                                        <div id="submenu-{{ $cat->id }}" class="submenu {{ $index === 0 ? '' : 'hidden' }} p-5" data-has-subs="{{ $cat->subCategories->isNotEmpty() ? 'true' : 'false' }}">
+                                        @if($cat->subCategories->isNotEmpty())
+                                        <div id="submenu-{{ $cat->id }}" class="submenu {{ $index === 0 ? '' : 'hidden' }} absolute top-0 left-full ml-4 bg-white border border-[#D5D5D5] min-w-[250px] p-4 z-50">
                                             @forelse($cat->subCategories as $subIndex => $sub)
                                                 @php
                                                     $isFirst = ($subIndex === 0);
                                                     $isLast = ($subIndex === count($cat->subCategories) - 1);
                                                     $class = 'block text-[#131615] text-base hover:text-[#B4771E] transition-colors duration-300 ';
                                                     if ($isFirst && $isLast) {
-                                                        $class .= 'py-2';
+                                                        $class .= 'py-0';
                                                     } elseif ($isFirst) {
-                                                        $class .= 'pb-4 border-b';
+                                                        $class .= 'pb-3 border-b';
                                                     } elseif ($isLast) {
-                                                        $class .= 'py-4';
+                                                        $class .= 'pt-3';
                                                     } else {
-                                                        $class .= 'py-4 border-b';
+                                                        $class .= 'py-3 border-b';
                                                     }
                                                 @endphp
                                                 <a href="#" class="{{ $class }}">{{ $sub->name }}</a>
                                             @empty
-                                                <p class="text-[#757575] text-base">No subcategories available</p>
                                             @endforelse
                                         </div>
-                                        @endforeach
+                                        @endif
                                     </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>

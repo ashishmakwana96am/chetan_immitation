@@ -453,21 +453,8 @@ function showSubmenu(id,btn){
     });
 
     const submenu = document.getElementById(id);
-    const submenuBox = document.getElementById('submenuBox');
-
     if (submenu) {
         submenu.classList.remove('hidden');
-        if (submenuBox) {
-            if (submenu.getAttribute('data-has-subs') === 'true') {
-                submenuBox.classList.remove('hidden');
-            } else {
-                submenuBox.classList.add('hidden');
-            }
-        }
-    } else {
-        if (submenuBox) {
-            submenuBox.classList.add('hidden');
-        }
     }
 
     document.querySelectorAll('.menu-btn i').forEach(icon=>{
