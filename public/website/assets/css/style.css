@@ -4379,13 +4379,6 @@ summary {
 
 
 
-.group img.object-cover {
-  transition: transform 0.7s ease-in-out;
-}
-.group:hover img.object-cover {
-  transform: scale(1.05);
-}
-
 .group.absolute.top-2.right-2 svg {
   transition: all 0.3s ease-in-out;
 }

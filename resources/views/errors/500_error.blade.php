@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>500 - Internal Server Error | Chetan Imitation</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
-    <!-- Load modern typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Public+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -13,16 +12,15 @@
     
     <style>
         :root {
-            --bg-primary: #08090d;
-            --card-bg: rgba(15, 16, 26, 0.5);
-            --border-color: rgba(255, 255, 255, 0.05);
+            --bg-primary: #131615;
+            --card-bg: rgba(19, 22, 21, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
             --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
-            --color-cool: #328693;
-            --color-warm: #B4771E;
-            --glow-color-1: rgba(180, 119, 30, 0.12);
-            --glow-color-2: rgba(50, 134, 147, 0.12);
-            --accent-gradient: linear-gradient(135deg, #B4771E 0%, #7b7f64 50%, #328693 100%);
+            --text-secondary: #D5D5D5;
+            --color-gold: #B4771E;
+            --color-gold-light: rgba(180, 119, 30, 0.15);
+            --color-gold-glow: rgba(180, 119, 30, 0.25);
+            --accent-gradient: linear-gradient(135deg, #B4771E 0%, #8a5c16 100%);
         }
 
         * {
@@ -43,7 +41,6 @@
             position: relative;
         }
 
-        /* Ambient Glow Backgrounds */
         .glow-orb {
             position: absolute;
             border-radius: 50%;
@@ -55,7 +52,7 @@
         .glow-orb-1 {
             width: 480px;
             height: 480px;
-            background: radial-gradient(circle, var(--glow-color-1) 0%, transparent 70%);
+            background: radial-gradient(circle, var(--color-gold-glow) 0%, transparent 70%);
             top: -5%;
             right: -5%;
             animation: orbFloat 18s infinite ease-in-out alternate;
@@ -64,13 +61,12 @@
         .glow-orb-2 {
             width: 480px;
             height: 480px;
-            background: radial-gradient(circle, var(--glow-color-2) 0%, transparent 70%);
+            background: radial-gradient(circle, var(--color-gold-glow) 0%, transparent 70%);
             bottom: -5%;
             left: -5%;
             animation: orbFloat 22s infinite ease-in-out alternate-reverse;
         }
 
-        /* Scanlines & Grid effect */
         .grid-bg {
             position: absolute;
             top: 0;
@@ -78,26 +74,13 @@
             width: 100%;
             height: 100%;
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.005) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.005) 1px, transparent 1px);
+                linear-gradient(rgba(255, 255, 255, 0.008) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
             background-size: 40px 40px;
             z-index: 2;
             pointer-events: none;
         }
 
-        .scanline {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: rgba(180, 119, 30, 0.04);
-            z-index: 3;
-            pointer-events: none;
-            animation: scan 8s linear infinite;
-        }
-
-        /* Container & Glass Card */
         .container {
             width: 90%;
             max-width: 650px;
@@ -125,11 +108,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+            background: linear-gradient(180deg, rgba(180, 119, 30, 0.03) 0%, transparent 100%);
             pointer-events: none;
         }
 
-        /* SVG Animation */
         .illustration-wrapper {
             margin-bottom: 2rem;
             display: flex;
@@ -161,18 +143,6 @@
             z-index: -1;
         }
 
-        .pulse-wave-2 {
-            position: absolute;
-            width: 120px;
-            height: 120px;
-            border: 2px solid rgba(50, 134, 147, 0.2);
-            border-radius: 50%;
-            animation: waveExpand 3s infinite cubic-bezier(0.1, 0.8, 0.3, 1);
-            animation-delay: 1.5s;
-            z-index: -1;
-        }
-
-        /* Error Code Styling */
         .error-code {
             font-family: 'Outfit', sans-serif;
             font-size: 8rem;
@@ -203,7 +173,6 @@
             z-index: -1;
         }
 
-        /* Typography */
         h1 {
             font-family: 'Outfit', sans-serif;
             font-size: 2rem;
@@ -223,7 +192,6 @@
             margin-right: auto;
         }
 
-        /* Buttons & Actions */
         .action-group {
             display: flex;
             align-items: center;
@@ -253,7 +221,7 @@
             background: var(--accent-gradient);
             color: #ffffff;
             border: none;
-            box-shadow: 0 4px 15px rgba(180, 119, 30, 0.3), 0 4px 15px rgba(50, 134, 147, 0.2);
+            box-shadow: 0 4px 15px rgba(180, 119, 30, 0.3);
         }
 
         .btn-primary::before {
@@ -278,11 +246,7 @@
 
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(180, 119, 30, 0.4), 0 8px 25px rgba(50, 134, 147, 0.3);
-        }
-
-        .btn-primary:active {
-            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(180, 119, 30, 0.4);
         }
 
         .btn-secondary {
@@ -293,17 +257,12 @@
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(180, 119, 30, 0.1);
             border-color: rgba(180, 119, 30, 0.4);
-            color: var(--color-warm);
+            color: var(--color-gold);
             transform: translateY(-3px);
         }
 
-        .btn-secondary:active {
-            transform: translateY(-1px);
-        }
-
-        /* Console Lights Animation */
         .lights-row {
             display: flex;
             justify-content: center;
@@ -321,15 +280,9 @@
         }
 
         .light-warm {
-            animation: glowWarm 1.5s infinite alternate;
+            animation: glowGold 1.5s infinite alternate;
         }
 
-        .light-cool {
-            animation: glowCool 2s infinite alternate-reverse;
-            animation-delay: 0.5s;
-        }
-
-        /* Animation Keyframes */
         @keyframes orbFloat {
             0% { transform: translate(0, 0) scale(1); }
             50% { transform: translate(-40px, 30px) scale(1.08); }
@@ -345,11 +298,6 @@
                 opacity: 1;
                 transform: translateY(0) scale(1);
             }
-        }
-
-        @keyframes scan {
-            0% { top: -5%; }
-            100% { top: 105%; }
         }
 
         @keyframes trianglePulse {
@@ -375,24 +323,18 @@
 
         @keyframes textGlow {
             0% {
-                filter: drop-shadow(0 0 10px rgba(180, 119, 30, 0.3)) drop-shadow(0 0 20px rgba(50, 134, 147, 0.2));
+                filter: drop-shadow(0 0 10px rgba(180, 119, 30, 0.3));
             }
             100% {
-                filter: drop-shadow(0 0 20px rgba(180, 119, 30, 0.5)) drop-shadow(0 0 35px rgba(50, 134, 147, 0.4));
+                filter: drop-shadow(0 0 20px rgba(180, 119, 30, 0.5));
             }
         }
 
-        @keyframes glowWarm {
+        @keyframes glowGold {
             0% { background-color: #272c3d; box-shadow: none; }
             100% { background-color: #B4771E; box-shadow: 0 0 12px #B4771E; }
         }
 
-        @keyframes glowCool {
-            0% { background-color: #272c3d; box-shadow: none; }
-            100% { background-color: #328693; box-shadow: 0 0 12px #328693; }
-        }
-
-        /* Mobile Optimization */
         @media (max-width: 576px) {
             .error-card {
                 padding: 2.5rem 1.5rem;
@@ -419,67 +361,56 @@
 </head>
 <body>
 
-    <!-- Grid Layout Background -->
     <div class="grid-bg"></div>
-    <div class="scanline"></div>
 
-    <!-- Ambient Orbs -->
     <div class="glow-orb glow-orb-1"></div>
     <div class="glow-orb glow-orb-2"></div>
 
-    <!-- Content -->
     <div class="container">
         <div class="error-card">
-            <!-- Animated SVG Centerpiece -->
             <div class="illustration-wrapper">
                 <div class="pulse-wave"></div>
-                <div class="pulse-wave-2"></div>
                 
-                <!-- Custom SVG Warning Sign with theme colors -->
                 <svg class="warning-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Triangle Warning Sign using warm theme color -->
                     <polygon class="warning-triangle" points="50,15 88,82 12,82" fill="url(#warningGrad)" stroke="#B4771E" stroke-width="2" stroke-linejoin="round"/>
                     
-                    <!-- Exclamation point -->
                     <path class="warning-exclamation" d="M 50 35 L 50 58" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round"/>
                     <circle class="warning-exclamation" cx="50" cy="71" r="3.5" fill="#ffffff"/>
                     
-                    <!-- Outer Gear/Pulse rings using cool theme color -->
-                    <circle cx="50" cy="53" r="45" stroke="#328693" stroke-width="1.5" stroke-dasharray="3 9" opacity="0.4">
+                    <circle cx="50" cy="53" r="45" stroke="#B4771E" stroke-width="1" stroke-dasharray="3 9" opacity="0.25">
                         <animateTransform attributeName="transform" type="rotate" from="0 50 53" to="360 50 53" dur="20s" repeatCount="indefinite"/>
                     </circle>
                     
                     <defs>
                         <linearGradient id="warningGrad" x1="50" y1="15" x2="50" y2="82" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="rgba(180, 119, 30, 0.4)"/>
-                            <stop offset="1" stop-color="rgba(50, 134, 147, 0.15)"/>
+                            <stop stop-color="rgba(180, 119, 30, 0.35)"/>
+                            <stop offset="1" stop-color="rgba(180, 119, 30, 0.08)"/>
                         </linearGradient>
                     </defs>
                 </svg>
             </div>
 
-            <!-- Error code -->
             <div class="error-code">500</div>
 
-            <!-- Header and message -->
-            <h1>Houston, We Have a Problem</h1>
+            <h1>Something Went Wrong</h1>
             <p class="description">
-                Our servers are experiencing an unexpected system overload. Our tech specialists are working to resolve the issue as we speak.
+                Our servers are experiencing an unexpected issue. Our team is working to resolve it as quickly as possible. Please try again shortly.
             </p>
 
-            <!-- Interactive Navigation -->
             <div class="action-group">
-                <button onclick="window.location.reload()" class="btn btn-primary">
+                <a href="{{ url('/') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-house"></i> Back to Home
+                </a>
+                <button onclick="window.location.reload()" class="btn btn-secondary">
                     <i class="fa-solid fa-rotate-right"></i> Refresh Page
                 </button>
             </div>
 
-            <!-- Custom Blinking Theme Lights -->
             <div class="lights-row">
                 <div class="light-indicator light-warm"></div>
-                <div class="light-indicator light-cool"></div>
                 <div class="light-indicator light-warm"></div>
-                <div class="light-indicator light-cool"></div>
+                <div class="light-indicator light-warm"></div>
+                <div class="light-indicator light-warm"></div>
                 <div class="light-indicator light-warm"></div>
             </div>
         </div>
