@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 - Page Not Found | Chetan Imitation</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
-    <!-- Load modern typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Public+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -13,22 +12,28 @@
     
     <style>
         :root {
-            --bg-primary: #080a0f;
-            --card-bg: rgba(13, 18, 28, 0.5);
-            --border-color: rgba(255, 255, 255, 0.07);
+            --bg-primary: #131615;
+            --card-bg: rgba(19, 22, 21, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
             --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
-            --color-cool: #328693;
-            --color-warm: #B4771E;
-            --glow-color-1: rgba(50, 134, 147, 0.15);
-            --glow-color-2: rgba(180, 119, 30, 0.15);
-            --accent-gradient: linear-gradient(135deg, #328693 0%, #4ea3b0 50%, #B4771E 100%);
+            --text-secondary: #D5D5D5;
+            --color-gold: #B4771E;
+            --color-gold-light: rgba(180, 119, 30, 0.15);
+            --color-gold-glow: rgba(180, 119, 30, 0.25);
+            --accent-gradient: linear-gradient(135deg, #B4771E 0%, #8a5c16 100%);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
 
         body {
@@ -39,11 +44,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
             position: relative;
         }
 
-        /* Ambient Glow Backgrounds */
         .glow-orb {
             position: absolute;
             border-radius: 50%;
@@ -53,67 +56,54 @@
         }
 
         .glow-orb-1 {
-            width: 450px;
-            height: 450px;
-            background: radial-gradient(circle, var(--glow-color-1) 0%, transparent 70%);
-            top: -10%;
-            left: -10%;
-            animation: orbFloat 15s infinite ease-in-out alternate;
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, var(--color-gold-glow) 0%, transparent 70%);
+            top: -5%;
+            left: -5%;
+            animation: orbFloat 18s infinite ease-in-out alternate;
         }
 
         .glow-orb-2 {
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, var(--glow-color-2) 0%, transparent 70%);
-            bottom: -10%;
-            right: -10%;
-            animation: orbFloat 20s infinite ease-in-out alternate-reverse;
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, var(--color-gold-glow) 0%, transparent 70%);
+            bottom: -5%;
+            right: -5%;
+            animation: orbFloat 22s infinite ease-in-out alternate-reverse;
         }
 
-        /* Particle Stars Background */
-        .stars {
+        .grid-bg {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.008) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
+            background-size: 40px 40px;
             z-index: 2;
             pointer-events: none;
         }
 
-        .star {
-            position: absolute;
-            background: #fff;
-            border-radius: 50%;
-            opacity: 0.25;
-            animation: twinkle 4s infinite ease-in-out;
-        }
-
-        .star:nth-child(1) { top: 15%; left: 10%; width: 2px; height: 2px; animation-delay: 0s; }
-        .star:nth-child(2) { top: 25%; left: 80%; width: 3px; height: 3px; animation-delay: 1s; }
-        .star:nth-child(3) { top: 70%; left: 15%; width: 1px; height: 1px; animation-delay: 2s; }
-        .star:nth-child(4) { top: 80%; left: 85%; width: 2px; height: 2px; animation-delay: 0.5s; }
-        .star:nth-child(5) { top: 40%; left: 50%; width: 3px; height: 3px; animation-delay: 1.5s; }
-        .star:nth-child(6) { top: 60%; left: 70%; width: 2px; height: 2px; animation-delay: 2.5s; }
-        .star:nth-child(7) { top: 10%; left: 60%; width: 1px; height: 1px; animation-delay: 3s; }
-        .star:nth-child(8) { top: 85%; left: 40%; width: 2px; height: 2px; animation-delay: 1.8s; }
-
-        /* Container & Glass Card */
         .container {
-            width: 90%;
+            width: 100%;
             max-width: 650px;
+            margin: 0 auto;
+            padding: 20px;
             z-index: 10;
             text-align: center;
         }
 
         .error-card {
             background: var(--card-bg);
-            backdrop-filter: blur(16px) saturate(180%);
-            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            backdrop-filter: blur(18px) saturate(180%);
+            -webkit-backdrop-filter: blur(18px) saturate(180%);
             border: 1px solid var(--border-color);
             border-radius: 28px;
             padding: 3rem 2rem;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             position: relative;
             overflow: hidden;
             animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1);
@@ -126,11 +116,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+            background: linear-gradient(180deg, rgba(180, 119, 30, 0.03) 0%, transparent 100%);
             pointer-events: none;
         }
 
-        /* SVG Animation */
         .illustration-wrapper {
             margin-bottom: 2rem;
             display: flex;
@@ -139,34 +128,29 @@
             position: relative;
         }
 
-        .satellite-svg {
+        .search-svg {
             width: 150px;
             height: 150px;
-            animation: satelliteFloat 6s ease-in-out infinite;
         }
 
-        .pulse-circle {
+        .search-circle {
+            animation: searchPulse 2s infinite ease-in-out alternate;
+        }
+
+        .search-lens {
+            animation: lensBlink 1.2s infinite steps(1);
+        }
+
+        .pulse-wave {
             position: absolute;
-            width: 100px;
-            height: 100px;
-            border: 1px solid rgba(50, 134, 147, 0.4);
+            width: 120px;
+            height: 120px;
+            border: 2px solid rgba(180, 119, 30, 0.3);
             border-radius: 50%;
-            animation: waves 4s infinite linear;
+            animation: waveExpand 3s infinite cubic-bezier(0.1, 0.8, 0.3, 1);
             z-index: -1;
         }
 
-        .pulse-circle-2 {
-            position: absolute;
-            width: 100px;
-            height: 100px;
-            border: 1px solid rgba(180, 119, 30, 0.3);
-            border-radius: 50%;
-            animation: waves 4s infinite linear;
-            animation-delay: 2s;
-            z-index: -1;
-        }
-
-        /* Error Code Styling */
         .error-code {
             font-family: 'Outfit', sans-serif;
             font-size: 8rem;
@@ -197,7 +181,6 @@
             z-index: -1;
         }
 
-        /* Typography */
         h1 {
             font-family: 'Outfit', sans-serif;
             font-size: 2rem;
@@ -217,7 +200,6 @@
             margin-right: auto;
         }
 
-        /* Buttons & Actions */
         .action-group {
             display: flex;
             align-items: center;
@@ -247,7 +229,7 @@
             background: var(--accent-gradient);
             color: #ffffff;
             border: none;
-            box-shadow: 0 4px 15px rgba(50, 134, 147, 0.3), 0 4px 15px rgba(180, 119, 30, 0.2);
+            box-shadow: 0 4px 15px rgba(180, 119, 30, 0.3);
         }
 
         .btn-primary::before {
@@ -272,11 +254,7 @@
 
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(50, 134, 147, 0.4), 0 8px 25px rgba(180, 119, 30, 0.3);
-        }
-
-        .btn-primary:active {
-            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(180, 119, 30, 0.4);
         }
 
         .btn-secondary {
@@ -287,26 +265,36 @@
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(50, 134, 147, 0.4);
-            color: var(--color-cool);
+            background: rgba(180, 119, 30, 0.1);
+            border-color: rgba(180, 119, 30, 0.4);
+            color: var(--color-gold);
             transform: translateY(-3px);
         }
 
-        .btn-secondary:active {
-            transform: translateY(-1px);
+        .lights-row {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 2rem;
+            opacity: 0.6;
         }
 
-        /* Animations Keyframes */
+        .light-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #272c3d;
+            position: relative;
+        }
+
+        .light-warm {
+            animation: glowGold 1.5s infinite alternate;
+        }
+
         @keyframes orbFloat {
             0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(30px, -20px) scale(1.1); }
-            100% { transform: translate(-20px, 30px) scale(0.95); }
-        }
-
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.2; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(1.2); }
+            50% { transform: translate(-40px, 30px) scale(1.08); }
+            100% { transform: translate(30px, -40px) scale(0.95); }
         }
 
         @keyframes cardEntrance {
@@ -320,33 +308,41 @@
             }
         }
 
-        @keyframes satelliteFloat {
-            0% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-12px) rotate(4deg); }
-            100% { transform: translateY(0) rotate(0deg); }
+        @keyframes searchPulse {
+            0% { transform: scale(1) translateY(0); filter: drop-shadow(0 0 5px rgba(180, 119, 30, 0.3)); }
+            100% { transform: scale(1.03) translateY(-4px); filter: drop-shadow(0 0 15px rgba(180, 119, 30, 0.6)); }
         }
 
-        @keyframes waves {
+        @keyframes lensBlink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0.4; }
+        }
+
+        @keyframes waveExpand {
             0% {
                 transform: scale(0.8);
-                opacity: 0.8;
+                opacity: 0.9;
             }
             100% {
-                transform: scale(2.2);
+                transform: scale(2.3);
                 opacity: 0;
             }
         }
 
         @keyframes textGlow {
             0% {
-                filter: drop-shadow(0 0 10px rgba(50, 134, 147, 0.3)) drop-shadow(0 0 20px rgba(180, 119, 30, 0.2));
+                filter: drop-shadow(0 0 10px rgba(180, 119, 30, 0.3));
             }
             100% {
-                filter: drop-shadow(0 0 20px rgba(50, 134, 147, 0.5)) drop-shadow(0 0 35px rgba(180, 119, 30, 0.4));
+                filter: drop-shadow(0 0 20px rgba(180, 119, 30, 0.5));
             }
         }
 
-        /* Mobile Optimization */
+        @keyframes glowGold {
+            0% { background-color: #272c3d; box-shadow: none; }
+            100% { background-color: #B4771E; box-shadow: 0 0 12px #B4771E; }
+        }
+
         @media (max-width: 576px) {
             .error-card {
                 padding: 2.5rem 1.5rem;
@@ -373,71 +369,58 @@
 </head>
 <body>
 
-    <!-- Ambient Orbs -->
+    <div class="grid-bg"></div>
+
     <div class="glow-orb glow-orb-1"></div>
     <div class="glow-orb glow-orb-2"></div>
 
-    <!-- Starry Particles -->
-    <div class="stars">
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-        <div class="star"></div>
-    </div>
-
-    <!-- Content -->
     <div class="container">
         <div class="error-card">
-            <!-- Animated SVG Centerpiece -->
             <div class="illustration-wrapper">
-                <div class="pulse-circle"></div>
-                <div class="pulse-circle-2"></div>
+                <div class="pulse-wave"></div>
                 
-                <!-- Custom SVG Satellite using theme colors -->
-                <svg class="satellite-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="50" cy="50" r="16" fill="url(#satGrad)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="2"/>
-                    <!-- Rings -->
-                    <circle cx="50" cy="50" r="28" stroke="#328693" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.6"/>
-                    <circle cx="50" cy="50" r="40" stroke="#B4771E" stroke-width="1.5" stroke-dasharray="4 8" opacity="0.4"/>
-                    <!-- Satellite Panels -->
-                    <rect x="22" y="47" width="10" height="6" rx="1" fill="#328693" stroke="rgba(255, 255, 255, 0.4)" stroke-width="0.5"/>
-                    <rect x="68" y="47" width="10" height="6" rx="1" fill="#328693" stroke="rgba(255, 255, 255, 0.4)" stroke-width="0.5"/>
-                    <line x1="32" y1="50" x2="34" y2="50" stroke="#ffffff" stroke-width="2"/>
-                    <line x1="66" y1="50" x2="68" y2="50" stroke="#ffffff" stroke-width="2"/>
-                    <!-- Signal Beams -->
-                    <path d="M 50 24 Q 45 15 50 6" stroke="#328693" stroke-width="2" stroke-linecap="round" opacity="0.8">
-                        <animate attributeName="stroke-dasharray" values="0,20; 20,0; 0,20" dur="3s" repeatCount="indefinite"/>
-                    </path>
-                    <path d="M 50 76 Q 55 85 50 94" stroke="#B4771E" stroke-width="2" stroke-linecap="round" opacity="0.8">
-                        <animate attributeName="stroke-dasharray" values="0,20; 20,0; 0,20" dur="3s" repeatCount="indefinite" begin="1.5s"/>
-                    </path>
+                <svg class="search-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="search-circle" cx="42" cy="42" r="22" fill="url(#searchGrad)" stroke="#B4771E" stroke-width="3" stroke-linejoin="round"/>
+                    
+                    <path class="search-lens" d="M 58 58 L 78 78" stroke="#B4771E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                    
+                    <circle cx="42" cy="42" r="10" fill="rgba(180, 119, 30, 0.15)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="1"/>
+                    
+                    <circle cx="50" cy="50" r="42" stroke="#B4771E" stroke-width="1" stroke-dasharray="3 9" opacity="0.25">
+                        <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="20s" repeatCount="indefinite"/>
+                    </circle>
+                    
                     <defs>
-                        <linearGradient id="satGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#111827"/>
-                            <stop offset="1" stop-color="#0b0f19"/>
-                        </linearGradient>
+                        <radialGradient id="searchGrad" cx="50%" cy="50%" r="50%">
+                            <stop stop-color="rgba(180, 119, 30, 0.35)"/>
+                            <stop offset="1" stop-color="rgba(180, 119, 30, 0.08)"/>
+                        </radialGradient>
                     </defs>
                 </svg>
             </div>
 
-            <!-- Error code -->
             <div class="error-code">404</div>
 
-            <!-- Header and message -->
-            <h1>Lost in the Digital Void</h1>
+            <h1>Page Not Found</h1>
             <p class="description">
-                The page you are trying to reach has drifted out of orbit, or never existed in this dimension. Let's get you back on track.
+                The page you are looking for doesn't exist or has been moved. Let us help you find your way back.
             </p>
 
-            <!-- Interactive Navigation -->
             <div class="action-group">
-                <button onclick="window.history.back()" class="btn btn-primary">
+                <a href="{{ url('/') }}" class="btn btn-primary">
+                    <i class="fa-solid fa-house"></i> Back to Home
+                </a>
+                <button onclick="window.history.back()" class="btn btn-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Go Back
                 </button>
+            </div>
+
+            <div class="lights-row">
+                <div class="light-indicator light-warm"></div>
+                <div class="light-indicator light-warm"></div>
+                <div class="light-indicator light-warm"></div>
+                <div class="light-indicator light-warm"></div>
+                <div class="light-indicator light-warm"></div>
             </div>
         </div>
     </div>

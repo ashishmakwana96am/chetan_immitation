@@ -29,6 +29,13 @@
             padding: 0;
         }
 
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
         body {
             font-family: 'Public Sans', sans-serif;
             background-color: var(--bg-primary);
@@ -37,7 +44,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
             position: relative;
         }
 
@@ -82,8 +88,10 @@
         }
 
         .container {
-            width: 90%;
+            width: 100%;
             max-width: 650px;
+            margin: 0 auto;
+            padding: 20px;
             z-index: 10;
             text-align: center;
         }
@@ -398,10 +406,7 @@
             </p>
 
             <div class="action-group">
-                <a href="{{ url('/') }}" class="btn btn-primary">
-                    <i class="fa-solid fa-house"></i> Back to Home
-                </a>
-                <button onclick="window.location.reload()" class="btn btn-secondary">
+                <button onclick="window.location.reload()" class="btn btn-primary">
                     <i class="fa-solid fa-rotate-right"></i> Refresh Page
                 </button>
             </div>
