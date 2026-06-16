@@ -3949,9 +3949,9 @@ summary {
 }
 .hero-heading {
   margin-bottom: 15px;
-  font-size: 44px;
-  --tw-leading: 56px;
-  line-height: 56px;
+  font-size: 40px;
+  --tw-leading: 50px;
+  line-height: 50px;
   color: #131615;
   @media (width >= 48rem) {
     font-size: 60px;

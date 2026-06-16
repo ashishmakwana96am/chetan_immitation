@@ -5,30 +5,59 @@
 @section('content')
 
     <!-- Hero Section -->
-    <section class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] sm:bg-[url('{{ asset('website/assets/images/hero_Banner.png') }}')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%]">
-        <div class="container-1440 !px-0 md:px-auto">
-            <div class="grid grid-cols-12 pt-[50px] pb-[0] md:py-[90px] xl:py-[160px] text-center md:text-left">
-                <div class="col-span-12 md:col-span-8 lg:col-span-6 2xl:col-span-5 px-5 lg:px-0">
-                    <h1 class="hero-heading font-moglan w-full max-w-[549px]">
-                        Jewelry That Completes Your Celebration
+    <section
+        class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(90vh-158px)] xl:min-h-[calc(100vh-158px)] flex items-center relative overflow-hidden">
+
+        <div class="container-1440 !px-0 lg:px-auto">
+            <div class="grid grid-cols-12 text-center md:text-left items-center">
+                <div class="col-span-12 md:col-span-8 xl:col-span-6 2xl:col-span-5 px-5 lg:px-0 py-10 relative z-10">
+
+                    <h1 class="hero-heading font-moglan w-full md:max-w-[549px] mx-auto md:mx-0 text-center md:text-left">
+
+                        Jewelry That
+                        Completes Your
+                        Celebration
+
                     </h1>
-                    <p class="text-[#3D403F] text-base md:text-lg lg:text-xl leading-8">
-                        Discover handcrafted luxury imitation jewelry for weddings, festivals, and every precious moment in between.
+
+                    <p class="text-[#3D403F] text-base md:text-lg xl:text-xl xl:leading-8">
+
+                        Discover handcrafted luxury imitation jewelry for weddings,
+                        festivals, and every precious moment in between.
+
                     </p>
+
                     <div class="flex flex-wrap gap-4 mt-5 md:mt-10 justify-center md:justify-start">
-                        <a href="#" class="hero-btn-solid bg-[#B4771E] hover:bg-[#131615] text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] transition-all duration-300">
+
+                        <a href="#"
+                            class="common-btn">
+
                             Explore Category
+
                         </a>
-                        <a href="#" class="hero-btn-outline border-2 border-[#131615] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] text-[#131615] font-semibold transition-all duration-300">
+
+                        <a href="#"
+                            class="border-2 border-[#131615] common-btn font-semibold !bg-transparent !text-[#131615]">
+
                             View Bridal Jewelry
+
                         </a>
+
                     </div>
+
                 </div>
-                <div class="col-span-12 sm:hidden mt-10">
-                    <img src="{{ asset('website/assets/images/hero-bg.png') }}" alt="" class="w-full">
+                <div class="col-span-12 md:hidden mt-2">
+                   <img
+                src="assets/images/hero-bg.png"
+                class="w-full
+                ">
+
                 </div>
+
             </div>
+
         </div>
+
     </section>
 
     <!-- Collection Carousel -->
