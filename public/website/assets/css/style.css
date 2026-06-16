@@ -3968,7 +3968,7 @@ summary {
   transition-duration: var(--tw-duration, var(--default-transition-duration));
   &:hover {
     @media (hover: hover) {
-      background-color: #131615;
+      background-color: #AD761C;
     }
   }
   @media (width >= 48rem) {
@@ -3985,7 +3985,7 @@ summary {
     height: 66px;
   }
   @media (width >= 64rem) {
-    padding-inline: 35px;
+    padding-inline: 30px;
   }
   @media (width >= 64rem) {
     font-size: 22px;

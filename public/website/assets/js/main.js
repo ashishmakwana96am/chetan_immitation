@@ -476,6 +476,17 @@ function showSubmenu(id,btn){
 
 }
 
+function resetSubmenus(){
+    document.querySelectorAll('.submenu').forEach(menu=>{
+        menu.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.menu-btn i').forEach(icon=>{
+        icon.classList.remove('fa-minus');
+        icon.classList.add('fa-plus');
+    });
+}
+
 // ----sidebar - shop by category 
 const sidebar=document.getElementById("mobileSidebar");
 const overlay=document.getElementById("sidebarOverlay");

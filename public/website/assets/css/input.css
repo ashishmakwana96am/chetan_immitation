@@ -325,10 +325,10 @@ summary {
     @apply inline-flex items-center justify-center
     bg-[#B4771E]
     text-white
-    px-[20px] md:px-[28px] lg:px-[35px]
+    px-[20px] md:px-[28px] lg:px-[30px]
     h-[50px] md:h-[58px] lg:h-[66px]
     text-base md:text-lg lg:text-[22px]
-    hover:bg-[#ad761c]
+    hover:bg-[#AD761C]
     transition;
 }
 

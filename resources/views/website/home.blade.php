@@ -96,7 +96,7 @@
                 <h2 class="hero-title">Our Most Loved Jewelry</h2>
                 <p class="hero-para">Elegant Creations for Every Occasion</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($lovedProducts as $product)
                 <div class="border border-[#D5D5D5] relative">
                     <div class="relative overflow-hidden">
@@ -107,14 +107,10 @@
                         @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#666] hover:text-[#B4771E] transition">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5 text-[#131615]">
+                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition">
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                        </svg>
-                       <!-- Tooltip -->
-                       <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex items-center justify-center bg-[#131615] text-white text-xs px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none opacity-0 scale-95 origin-bottom group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[6px] after:border-transparent after:border-t-[#131615]">
-                           Add to Wishlist
-                       </span>
                     </button>
                     <div class="p-4 md:p-[25px]">
                         <h3 class="product-title">{{ $product->name }}</h3>
@@ -146,7 +142,7 @@
                 <h2 class="hero-title">Discover Our Latest Jewelry Collection</h2>
                 <p class="hero-para">Discover elegant new jewelry designs for every special occasion today.</p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($latestProducts as $product)
                 <div class="border border-[#D5D5D5] relative">
                     <div class="relative overflow-hidden">
@@ -157,14 +153,10 @@
                         @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#666] hover:text-[#B4771E] transition">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5 text-[#131615]">
+                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition">
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                        </svg>
-                       <!-- Tooltip -->
-                       <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex items-center justify-center bg-[#131615] text-white text-xs px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap z-20 pointer-events-none opacity-0 scale-95 origin-bottom group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-[6px] after:border-transparent after:border-t-[#131615]">
-                           Add to Wishlist
-                       </span>
                     </button>
                     <div class="p-4 md:p-[25px]">
                         <h3 class="product-title">{{ $product->name }}</h3>

@@ -81,7 +81,7 @@
                         </a>
 
                         <!-- Mega Menu -->
-                        <div class="group relative">
+                        <div class="group relative" onmouseleave="resetSubmenus()">
                             <button class="flex items-center gap-2 text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                                 Shop By Category
                                 <i class="fa-solid fa-angle-down text-xl"></i>
@@ -94,12 +94,12 @@
                                         <button onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300">
                                             <span>{{ $cat->name }}</span>
                                             @if($cat->subCategories->isNotEmpty())
-                                                <i class="fa-solid {{ $index === 0 ? 'fa-minus' : 'fa-plus' }} text-sm"></i>
+                                                <i class="fa-solid fa-plus text-sm"></i>
                                             @endif
                                         </button>
 
                                         @if($cat->subCategories->isNotEmpty())
-                                        <div id="submenu-{{ $cat->id }}" class="submenu {{ $index === 0 ? '' : 'hidden' }} absolute top-0 left-full ml-4 bg-white border border-[#D5D5D5] min-w-[250px] p-4 z-50">
+                                        <div id="submenu-{{ $cat->id }}" class="submenu hidden absolute top-0 left-full ml-4 bg-white border border-[#D5D5D5] min-w-[250px] p-4 z-50">
                                             @forelse($cat->subCategories as $subIndex => $sub)
                                                 @php
                                                     $isFirst = ($subIndex === 0);
@@ -137,19 +137,19 @@
 
                     <!-- Right Side -->
                     <div class="hidden lg:flex items-center gap-5">
-                        <div class="search-container flex items-center w-[200px] xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300">
+                        <div class="search-container flex items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300">
                             <input type="text" placeholder="Search" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none">
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
 
                         <a href="#" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
-                            <span class="absolute -top-1.5 -right-1.5 w-[15px] h-[15px] rounded-full bg-[#B78326] text-white text-[9px] font-semibold flex items-center justify-center leading-none">0</span>
+                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
                         </a>
 
                         <a href="#" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
-                            <span class="absolute -top-1.5 -right-1.5 w-[15px] h-[15px] rounded-full bg-[#B78326] text-white text-[9px] font-semibold flex items-center justify-center leading-none">0</span>
+                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
                         </a>
 
                         <a href="#" class="text-white hover-gold-filter">
@@ -199,9 +199,9 @@
                     <div class="border-b">
                         <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
                             <span>{{ $cat->name }}</span>
-                            <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid {{ $index === 0 ? 'fa-minus' : 'fa-plus' }}"></i></span>
+                            <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
                         </button>
-                        <ul id="mobile-submenu-{{ $cat->id }}" class="{{ $index === 0 ? '' : 'hidden' }} pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
+                        <ul id="mobile-submenu-{{ $cat->id }}" class="hidden pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
                             @forelse($cat->subCategories as $sub)
                             <li><a href="#" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
                             @empty
