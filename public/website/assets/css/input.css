@@ -353,6 +353,18 @@ summary {
     transition: all 0.3s ease;
 }
 
+.btn-outline{
+    @apply inline-flex items-center justify-center
+    bg-transparent
+    text-[#131615]
+    px-[20px] md:px-[28px] lg:px-[30px]
+    h-[50px] md:h-[58px] lg:h-[66px]
+    text-base md:text-lg lg:text-[22px]
+    border-2 border-[#131615]
+    hover:bg-[#B4771E] hover:text-white hover:border-[#B4771E];
+    transition: all 0.3s ease;
+}
+
 @keyframes marquee {
     from {
         transform: translateX(100vw);

@@ -4002,6 +4002,45 @@ summary {
     font-size: 22px;
   }
 }
+
+.btn-outline {
+  display: inline-flex;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  padding-inline: 20px;
+  font-size: var(--text-base);
+  line-height: var(--tw-leading, var(--text-base--line-height));
+  color: #131615;
+  border: 2px solid #131615;
+  transition: all 0.3s ease;
+  &:hover {
+    background-color: #B4771E;
+    color: white;
+    border-color: #B4771E;
+  }
+  @media (width >= 48rem) {
+    height: 58px;
+  }
+  @media (width >= 48rem) {
+    padding-inline: 28px;
+  }
+  @media (width >= 48rem) {
+    font-size: var(--text-lg);
+    line-height: var(--tw-leading, var(--text-lg--line-height));
+  }
+  @media (width >= 64rem) {
+    height: 66px;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 30px;
+  }
+  @media (width >= 64rem) {
+    font-size: 22px;
+  }
+}
+
 @keyframes marquee {
   from {
     transform: translateX(100vw);

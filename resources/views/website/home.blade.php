@@ -37,7 +37,7 @@
                         </a>
 
                         <a href="#"
-                            class="border-2 border-[#131615] common-btn font-semibold !bg-transparent !text-[#131615]">
+                            class="btn-outline font-semibold transition duration-300">
 
                             View Bridal Jewelry
 
@@ -93,15 +93,15 @@
                     </p>
                     <div class="mt-10 bg-[#B4771E] text-white grid grid-cols-3 p-4 xl:p-[35px]">
                         <div class="pr-[10px] sm:pr-[22px] border-r border-[#d39d46]">
-                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="250" data-suffix="+">0+</h3>
+                            <h3 class="stat-number text-lg md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="250" data-suffix="+">0+</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Jewelry Categories</p>
                         </div>
                         <div class="px-[10px] sm:px-[22px] border-r border-[#d39d46]">
-                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="10000" data-suffix="+" data-format="comma">0+</h3>
+                            <h3 class="stat-number text-lg md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="10000" data-suffix="+" data-format="comma">0+</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Products Available</p>
                         </div>
                         <div class="pl-[10px] sm:pl-[22px]">
-                            <h3 class="stat-number text-xl md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="98" data-suffix="%">0%</h3>
+                            <h3 class="stat-number text-lg md:text-[26px] lg:text-[36px] leading-[26px] lg:leading-[36px] font-semibold" data-target="98" data-suffix="%">0%</h3>
                             <p class="text-base md:text-lg mt-2 md:mt-3">Satisfied Customers</p>
                         </div>
                     </div>
@@ -136,8 +136,8 @@
                         @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0">
+                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="#131615" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                        </svg>
                     </button>
@@ -151,7 +151,7 @@
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
                              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition">
+                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
                             Add to Cart
                         </button>
                     </div>
@@ -182,7 +182,7 @@
                         @endif
                         <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover">
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition">
+                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition duration-300">
                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                        </svg>
@@ -197,7 +197,7 @@
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
                              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition">
+                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
                             Add to Cart
                         </button>
                     </div>
