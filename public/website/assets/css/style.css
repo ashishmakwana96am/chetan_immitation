@@ -3980,7 +3980,7 @@ summary {
   color: var(--color-white);
   transition: all 0.3s ease;
   &:hover {
-    background-color: #131615;
+    background-color: #AD761C;
   }
   @media (width >= 48rem) {
     height: 58px;
@@ -3992,10 +3992,10 @@ summary {
     font-size: var(--text-lg);
     line-height: var(--tw-leading, var(--text-lg--line-height));
   }
-  @media (width >= 64rem) {
+  @media (width >= 80rem) {
     height: 66px;
   }
-  @media (width >= 64rem) {
+  @media (width >= 80rem) {
     padding-inline: 30px;
   }
   @media (width >= 64rem) {
