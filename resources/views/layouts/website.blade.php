@@ -82,7 +82,7 @@
 
                         <!-- Mega Menu -->
                         <div class="group relative" onmouseleave="resetSubmenus()">
-                            <button class="flex items-center gap-2 text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                            <button class="flex items-center gap-2 text-white group-hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                                 Shop By Category
                                 <i class="fa-solid fa-angle-down text-xl"></i>
                             </button>                            <!-- Dropdown -->
@@ -197,17 +197,21 @@
                 <div id="shopMenu" class="hidden">
                     @foreach($sharedCategories as $index => $cat)
                     <div class="border-b">
-                        <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
-                            <span>{{ $cat->name }}</span>
-                            <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
-                        </button>
-                        <ul id="mobile-submenu-{{ $cat->id }}" class="hidden pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
-                            @forelse($cat->subCategories as $sub)
-                            <li><a href="#" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
-                            @empty
-                            <li>No subcategories</li>
-                            @endforelse
-                        </ul>
+                        @if($cat->subCategories->isNotEmpty())
+                            <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
+                                <span>{{ $cat->name }}</span>
+                                <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
+                            </button>
+                            <ul id="mobile-submenu-{{ $cat->id }}" class="hidden pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
+                                @foreach($cat->subCategories as $sub)
+                                <li><a href="#" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <a href="#" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
+                                {{ $cat->name }}
+                            </a>
+                        @endif
                     </div>
                     @endforeach
                 </div>
@@ -315,7 +319,7 @@
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="{{ asset('website/assets/js/main.js') }}"></script>
+    <script src="{{ asset('website/assets/js/main.js') }}?v=1.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js" integrity="sha512-bPs7Ae6pVvhOSiIcyUClR7/q2OAsRiovw4vAkX+zJbw3ShAeeqezq50RIIcIURq7Oa20rW2n2q+fyXBNcU9lrw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     @yield('page-js')
 </body>

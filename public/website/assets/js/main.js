@@ -488,26 +488,41 @@ function resetSubmenus(){
 }
 
 // ----sidebar - shop by category 
-const sidebar=document.getElementById("mobileSidebar");
-const overlay=document.getElementById("sidebarOverlay");
+const sidebar = document.getElementById("mobileSidebar");
+const overlay = document.getElementById("sidebarOverlay");
 
-document.getElementById("openSidebar").onclick=()=>{
+const openSidebar = document.getElementById("openSidebar");
+const closeSidebar = document.getElementById("closeSidebar");
 
-sidebar.style.transform="translateX(0)";
-overlay.classList.remove("hidden");
+if (openSidebar && sidebar && overlay) {
+
+    openSidebar.onclick = () => {
+
+        sidebar.style.transform = "translateX(0)";
+        overlay.classList.remove("hidden");
+
+    }
 
 }
 
-document.getElementById("closeSidebar").onclick=()=>{
+if (closeSidebar && sidebar && overlay) {
 
-sidebar.style.transform="translateX(-100%)";
-overlay.classList.add("hidden");
+    closeSidebar.onclick = () => {
+
+        sidebar.style.transform = "translateX(-100%)";
+        overlay.classList.add("hidden");
+
+    }
 
 }
 
-overlay.onclick=()=>{
+if (overlay && sidebar) {
 
-sidebar.style.transform="translateX(-100%)";
-overlay.classList.add("hidden");
+    overlay.onclick = () => {
+
+        sidebar.style.transform = "translateX(-100%)";
+        overlay.classList.add("hidden");
+
+    }
 
 }

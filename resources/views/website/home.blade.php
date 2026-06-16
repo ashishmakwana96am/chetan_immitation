@@ -16,10 +16,10 @@
                         Discover handcrafted luxury imitation jewelry for weddings, festivals, and every precious moment in between.
                     </p>
                     <div class="flex flex-wrap gap-4 mt-5 md:mt-10 justify-center md:justify-start">
-                        <a href="#" class="bg-[#B4771E] hover:bg-[#131615] text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] transition-all duration-300">
+                        <a href="#" class="hero-btn-solid bg-[#B4771E] hover:bg-[#131615] text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] transition-all duration-300">
                             Explore Category
                         </a>
-                        <a href="#" class="border-2 border-[#131615] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] text-[#131615] font-semibold transition-all duration-300">
+                        <a href="#" class="hero-btn-outline border-2 border-[#131615] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white px-4 md:px-5 xl:px-[35px] h-[50px] md:h-[56px] xl:h-[66px] inline-flex items-center justify-center text-sm sm:text-base md:text-lg lg:text-[22px] text-[#131615] font-semibold transition-all duration-300">
                             View Bridal Jewelry
                         </a>
                     </div>
@@ -40,9 +40,9 @@
             </div>
             <div class="owl-carousel collection-slider mt-10">
                 @foreach($categories as $category)
-                <div class="text-center">
+                <div class="group text-center cursor-pointer collection-card">
                     <div class="mx-auto rounded-[999px] overflow-hidden">
-                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover">
+                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover collection-img">
                     </div>
                     <h3 class="mt-[30px] text-base md:text-lg lg:text-[22px] text-[#131615]">{{ $category->name }}</h3>
                 </div>
@@ -98,7 +98,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($lovedProducts as $product)
-                <div class="border border-[#D5D5D5] relative">
+                <div class="group border border-[#D5D5D5] relative cursor-pointer">
                     <div class="relative overflow-hidden">
                         @if($product->sale)
                         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
@@ -113,7 +113,7 @@
                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title">{{ $product->name }}</h3>
+                        <h3 class="product-title"><a href="#">{{ $product->name }}</a></h3>
                         <div class="flex items-center gap-1 mt-[9px]">
                             <div class="text-[#D5D5D5] text-base">★★★★★</div>
                             <span class="text-xs text-[#757575]">(0)</span>
@@ -144,7 +144,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($latestProducts as $product)
-                <div class="border border-[#D5D5D5] relative">
+                <div class="group border border-[#D5D5D5] relative cursor-pointer">
                     <div class="relative overflow-hidden">
                         @if($product->sale)
                         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
@@ -159,7 +159,7 @@
                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title">{{ $product->name }}</h3>
+                        <h3 class="product-title"><a href="#">{{ $product->name }}</a></h3>
                         <div class="flex items-center gap-1 mt-[9px]">
                             <div class="text-[#D5D5D5] text-base">★★★★★</div>
                             <span class="text-xs text-[#757575]">(0)</span>
