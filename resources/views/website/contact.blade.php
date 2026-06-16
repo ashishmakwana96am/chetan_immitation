@@ -93,13 +93,13 @@
                         <h4 class="text-[22px] leading-[22px] font-medium text-[#131615] mb-2">Visit Us</h4>
 
                         <a href="https://maps.google.com/?q=G-14+Abc+market+Sudama+chowk+Mota+Varachha+Surat" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 mb-3 hover:text-[#B4771E] transition">
-                            <span class="font-semibold text-[#3D403F]">Branch - 1:</span>
+                            <span class="font-normal text-[#3D403F]">Branch - 1:</span>
                             G-14 Abc market, Abc circle, Sudama chowk,
                             Mota Varachha, Surat, Gujarat 394101, India
                         </a>
 
                         <a href="https://maps.google.com/?q=Narayannagar+Chok+Singanpore+Road+Katargam+Surat" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
-                            <span class="font-semibold text-[#3D403F]">Branch - 2:</span>
+                            <span class="font-normal text-[#3D403F]">Branch - 2:</span>
                             Shop No. 4, Narayan Flats,
                             Narayannagar Chok, Singanpore Road,
                             Katargam, Surat, Gujarat 395004, India
@@ -175,7 +175,7 @@
 
 </section>
 
-<section class="py-[80px] lg:py-[100px] bg-[#f5f5f5]">
+<section class="py-[80px] lg:py-[100px]">
 
     <div class="container-1440">
 

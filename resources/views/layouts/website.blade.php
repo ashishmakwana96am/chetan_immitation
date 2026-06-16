@@ -298,17 +298,17 @@
                 <!-- Contact -->
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Contact Us</h3>
-                    <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[28px]">
-                        <li class="flex gap-3">
-                            <i class="fa-solid fa-phone text-[#B4771E] mt-1"></i>
+                    <ul class="space-y-5 text-[#D5D5D5] text-base lg:text-lg">
+                        <li class="flex items-center gap-4">
+                            <img src="{{ asset('website/assets/images/footer-call.png') }}" alt="">
                             <a href="tel:+919876543210" class="hover:text-[#B4771E] transition">+91 98765 43210</a>
                         </li>
-                        <li class="flex gap-3">
-                            <i class="fa-regular fa-envelope text-[#B4771E] mt-1"></i>
+                        <li class="flex items-center gap-4">
+                            <img src="{{ asset('website/assets/images/footer-mail.png') }}" alt="">
                             <a href="mailto:info@chetanimitation.com" class="hover:text-[#B4771E] transition">info@chetanimitation.com</a>
                         </li>
-                        <li class="flex gap-3">
-                            <i class="fa-solid fa-location-dot text-[#B4771E] mt-1"></i>
+                        <li class="flex items-start gap-4">
+                            <img src="{{ asset('website/assets/images/footer-location.png') }}" alt="" class="shrink-0 mt-1">
                             <a href="https://maps.google.com/?q=G-14+Abc+market+Abc+circle+Sudama+chowk+Mota+Varachha+Surat+Gujarat+394101+India" target="_blank" class="hover:text-[#B4771E] transition">
                                 G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat, Gujarat 394101, India
                             </a>
