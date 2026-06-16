@@ -2440,7 +2440,7 @@
   }
   .sm\:bg-\[url\(\'assets\/images\/hero_Banner\.png\'\)\] {
     @media (width >= 40rem) {
-      background-image: url('assets/images/hero_Banner.png');
+      background-image: url('website/assets/images/hero_Banner.png');
     }
   }
   .sm\:bg-\[length\:100\%_100\%\] {
