@@ -256,11 +256,11 @@
     <!-- Footer -->
     <footer class="bg-[#131615]">
         <div class="container-1440">
-            <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-14">
+            <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-10">
                 <!-- Logo -->
                 <div>
                     <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
-                    <p class="text-[#D5D5D5] text-base lg:text-lg leading-6 font-normal">
+                    <p class="text-[#D5D5D5] text-base font-normal">
                         Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
                 </div>
@@ -268,7 +268,7 @@
                 <!-- Category -->
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Shop By Category</h3>
-                    <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[20px]">
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
                         @foreach($sharedCategories->shuffle()->take(6) as $cat)
                         <li><a href="#" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>
                         @endforeach
@@ -278,7 +278,7 @@
                 <!-- Company -->
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Company</h3>
-                    <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[16px]">
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
                         <li><a href="{{ route('about') }}" class="hover:text-[#B4771E] transition">About Us</a></li>
                         <li><a href="{{ route('contact') }}" class="hover:text-[#B4771E] transition">Contact Us</a></li>
                     </ul>
@@ -287,7 +287,7 @@
                 <!-- Customer Service -->
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Customer Service</h3>
-                    <ul class="space-y-3 md:space-y-5 text-[#D5D5D5] text-base lg:text-lg lg:leading-[28px]">
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
                         <li><a href="{{ route('terms') }}" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
                         <li><a href="{{ route('delivery-returns') }}" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
                         <li><a href="{{ route('privacy') }}" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
@@ -298,7 +298,7 @@
                 <!-- Contact -->
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Contact Us</h3>
-                    <ul class="space-y-5 text-[#D5D5D5] text-base lg:text-lg">
+                    <ul class="space-y-4 text-[#D5D5D5] text-base">
                         <li class="flex items-center gap-4">
                             <img src="{{ asset('website/assets/images/footer-call.png') }}" alt="">
                             <a href="tel:+919876543210" class="hover:text-[#B4771E] transition">+91 98765 43210</a>
@@ -321,8 +321,8 @@
         <!-- Bottom Footer -->
         <div class="border-t border-white/10">
             <div class="container-1440">
-                <div class="flex flex-col md:flex-row items-center justify-between gap-5 py-[30px]">
-                    <p class="text-[#D5D5D5] text-base lg:text-lg lg:leading-[18px] text-center md:text-left">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-5 py-[20px]">
+                    <p class="text-[#D5D5D5] text-base text-center md:text-left">
                         © 2026 Chetan Imitation. All Rights Reserved | Developed by <a href="https://www.risingstarinfotech.com/" target="_blank" class="text-[#B4771E] hover:text-[#B4771E]">Rising Star Infotech</a>
                     </p>
 

@@ -92,22 +92,4 @@ class HomeController extends Controller
         return view('website.register');
     }
 
-    public function shopByCategory($slug)
-    {
-        $category = Category::where('slug', $slug)
-            ->where('status', Category::STATUS_ACTIVE)
-            ->firstOrFail();
-
-        $products = Product::where('category_id', $category->id)
-            ->where('status', Product::STATUS_ACTIVE)
-            ->with('primaryImage')
-            ->paginate(12);
-
-        $categories = Category::where('status', Category::STATUS_ACTIVE)
-            ->withCount('products')
-            ->orderBy('sort_order')
-            ->get();
-
-        return view('website.shop-by-category', compact('category', 'products', 'categories'));
-    }
 }
