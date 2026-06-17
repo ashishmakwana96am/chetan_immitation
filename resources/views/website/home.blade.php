@@ -24,7 +24,7 @@
                         <a href="#" class="common-btn">
                             Explore Category
                         </a>
-                        <a href="#" class="common-btn btn-outline font-semibold transition duration-300">
+                        <a href="#" class="common-btn font-semibold transition duration-300">
                             View Bridal Jewelry
                         </a>
                     </div>
