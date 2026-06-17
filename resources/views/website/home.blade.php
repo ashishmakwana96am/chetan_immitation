@@ -6,39 +6,25 @@
 
     <!-- Hero Section -->
     <section
-        class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(90vh-158px)] xl:min-h-[calc(100vh-158px)] flex items-center relative overflow-hidden">
+        class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(80vh-158px)] 2xl:!min-h-[calc(110vh-158px)] flex items-center relative overflow-hidden hero-section">
 
         <div class="container-1440 !px-0 lg:px-auto">
             <div class="grid grid-cols-12 text-center md:text-left items-center">
                 <div class="col-span-12 md:col-span-8 xl:col-span-6 2xl:col-span-5 px-5 lg:px-0 py-10 relative z-10">
 
                     <h1 class="hero-heading font-moglan w-full md:max-w-[549px] mx-auto md:mx-0 text-center md:text-left">
-
-                        Jewelry That
-                        Completes Your
-                        Celebration
-
+                        Jewelry That Completes Your Celebration
                     </h1>
 
                     <p class="text-[#3D403F] text-base md:text-lg xl:text-xl xl:leading-8">
-
-                        Discover handcrafted luxury imitation jewelry for weddings,
-                        festivals, and every precious moment in between.
-
+                        Discover handcrafted luxury imitation jewelry for weddings, festivals, and every precious moment in between.
                     </p>
 
                     <div class="flex flex-wrap gap-4 mt-5 md:mt-10 justify-center md:justify-start">
-
-                        <a href="#"
-                            class="common-btn">
-
+                        <a href="#" class="common-btn">
                             Explore Category
-
                         </a>
-
-                        <a href="#"
-                            class="btn-outline font-semibold transition duration-300">
-
+                        <a href="#" class="common-btn btn-outline font-semibold transition duration-300">
                             View Bridal Jewelry
                         </a>
                     </div>
@@ -99,7 +85,7 @@
                             <p class="text-base md:text-lg mt-2 md:mt-3">Satisfied Customers</p>
                         </div>
                     </div>
-                    <p class="pb-5 md:pb-0 mt-6 text-[#B4771E] text-lg md:text-xl xl:text-[24px]">
+                    <p class="pb-5 md:pb-0 mt-5 text-[#B4771E] text-lg md:text-xl">
                         Chetan Imitation • Jewelry Brand
                     </p>
                 </div>

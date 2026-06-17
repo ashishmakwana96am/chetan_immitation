@@ -3892,7 +3892,7 @@ summary {
     font-size: 48px;
   }
   @media (width >= 64rem) {
-    font-size: 60px;
+    font-size: 56px;
   }
   font-family: "MoglanDemo";
 }
@@ -3961,7 +3961,7 @@ summary {
     line-height: 64px;
   }
   @media (width >= 96rem) {
-    font-size: 68px;
+    font-size: 62px;
   }
   @media (width >= 80rem) {
     --tw-leading: 80px;
@@ -3980,23 +3980,23 @@ summary {
   color: var(--color-white);
   transition: all 0.3s ease;
   &:hover {
-    background-color: #AD761C;
+    background-color: #131615;
   }
   @media (width >= 48rem) {
     height: 58px;
   }
   @media (width >= 48rem) {
-    padding-inline: 28px;
+    padding-inline: 24px;
   }
   @media (width >= 48rem) {
     font-size: var(--text-lg);
     line-height: var(--tw-leading, var(--text-lg--line-height));
   }
   @media (width >= 80rem) {
-    height: 66px;
+    height: 64px;
   }
   @media (width >= 80rem) {
-    padding-inline: 30px;
+    padding-inline: 26px;
   }
   @media (width >= 64rem) {
     font-size: var(--text-xl);
@@ -4416,4 +4416,10 @@ summary {
 }
 .policy-content a:hover {
     text-decoration: underline;
+}
+
+@media (max-width: 1280px) and (max-height: 1024px) {
+    .hero-section {
+        min-height: calc(80vh - 158px) !important;
+    }
 }

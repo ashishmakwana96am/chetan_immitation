@@ -312,7 +312,7 @@ summary {
 
 /* ---common---- */
 .hero-title{
-    @apply text-[#131615] text-[30px] sm:text-[40px] md:text-[48px] lg:text-[60px] leading-none font-normal;
+    @apply text-[#131615] text-[30px] sm:text-[40px] md:text-[48px] lg:text-[56px] leading-none font-normal;
     
     font-family: "MoglanDemo";
 }
@@ -339,12 +339,12 @@ summary {
 }
 
 .hero-heading{
-    @apply text-[#131615] text-[40px] leading-[50px] md:text-[60px] md:leading-[64px] 2xl:text-[68px] xl:leading-[80px] mb-[15px];
+    @apply text-[#131615] text-[40px] leading-[50px] md:text-[60px] md:leading-[64px] 2xl:text-[62px] xl:leading-[80px] mb-[15px];
 }
 
 .common-btn{
-    @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-[20px] md:px-[28px] 2xl:px-[30px]
-    h-[50px] md:h-[58px] 2xl:h-[66px] text-base md:text-lg lg:text-xl hover:bg-[#AD761C] transition;
+    @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-[20px] md:px-[24px] 2xl:px-[26px]
+    h-[50px] md:h-[58px] 2xl:h-[64px] text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-300;
 }
 
 .btn-outline{
@@ -419,4 +419,10 @@ summary {
 }
 .policy-content a:hover {
     text-decoration: underline;
+}
+
+@media (max-width: 1280px) and (max-height: 1024px) {
+    .hero-section {
+        min-height: calc(80vh - 158px) !important;
+    }
 }
