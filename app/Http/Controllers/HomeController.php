@@ -92,4 +92,27 @@ class HomeController extends Controller
         return view('website.register');
     }
 
+    public function detail($slug)
+    {
+        $product = Product::where('slug', $slug)
+            ->where('status', Product::STATUS_ACTIVE)
+            ->with('primaryImage', 'images', 'variants.attributeValue.attribute', 'category', 'subCategory')
+            ->withSum('inventories', 'quantity')
+            ->firstOrFail();
+
+        $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->where('id', '!=', $product->id)
+            ->where(function ($q) use ($product) {
+                if ($product->category_id) {
+                    $q->where('category_id', $product->category_id);
+                }
+            })
+            ->with('primaryImage')
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
+
+        return view('website.detail', compact('product', 'relatedProducts'));
+    }
+
 }

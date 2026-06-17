@@ -47,7 +47,7 @@
                 <button onclick="toggleSection('cat-section','cat-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Category</span>
-                    <svg id="cat-arrow" class="collapse-arrow open w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="cat-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -87,7 +87,7 @@
                             @foreach($cat->subCategories as $sub)
                             <label class="flex items-center gap-4 cursor-pointer">
                                 <label class="custom-checkbox">
-                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ in_array($sub->slug, $selectedSubs) ? 'checked' : '' }} onchange="applyFilters()">
+                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ in_array($sub->slug, $selectedSubs) ? 'checked' : '' }} onchange="openParentDropdown(this); applyFilters()">
                                     <span></span>
                                 </label>
                                 <span class="text-[18px] text-[#757575]">{{ $sub->name }}</span>
@@ -105,7 +105,7 @@
                 <button onclick="toggleSection('price-section','price-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Price</span>
-                    <svg id="price-arrow" class="collapse-arrow open w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="price-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -117,7 +117,7 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="minPriceInput" type="number" value="0" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="minPriceInput" type="number" value="{{ request('min_price', 0) }}" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('min')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
@@ -140,7 +140,7 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="maxPriceInput" type="number" value="2000" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="maxPriceInput" type="number" value="{{ request('max_price', 2000) }}" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('max')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
@@ -165,8 +165,8 @@
                         <div class="absolute inset-x-0 h-[4px] bg-[#D5D5D5] rounded-full z-[1]"></div>
                         <!-- Active Track -->
                         <div id="rangeTrack" class="absolute h-[4px] bg-[#131615] rounded-full z-[2]" style="left:0%;right:80%;"></div>
-                        <input id="minRange" type="range" min="0" max="10000" value="0" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
-                        <input id="maxRange" type="range" min="0" max="10000" value="2000" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
+                        <input id="minRange" type="range" min="0" max="10000" value="{{ request('min_price', 0) }}" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
+                        <input id="maxRange" type="range" min="0" max="10000" value="{{ request('max_price', 2000) }}" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
                     </div>
                 </div>
             </div>
@@ -177,7 +177,7 @@
                 <button onclick="toggleSection('size-section','size-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Size</span>
-                    <svg id="size-arrow" class="collapse-arrow open w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="size-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -207,7 +207,7 @@
                 <button onclick="toggleSection('stock-section','stock-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Out of stock</span>
-                    <svg id="stock-arrow" class="collapse-arrow open w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="stock-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -280,6 +280,16 @@
         if (content && arrow) {
             content.classList.toggle("hidden");
             arrow.classList.toggle("rotate-180");
+        }
+    }
+
+    function openParentDropdown(el) {
+        const catId = el.dataset.categoryId;
+        const subDiv = document.getElementById('cat-' + catId + '-sub');
+        const arrow = document.getElementById('cat-' + catId + '-arrow');
+        if (subDiv) {
+            subDiv.classList.remove('hidden');
+            if (arrow) arrow.classList.add('rotate-180');
         }
     }
 
@@ -429,31 +439,18 @@
         return CATEGORY_BASE_URL;
     }
 
-    function applyFilters() {
-        clearTimeout(filterTimeout);
-        filterTimeout = setTimeout(function () {
-            const qs = buildQueryString();
-            const base = getCategoryBase();
-            const url = base + (qs ? '?' + qs : '');
-            window.history.replaceState({}, '', url);
-            fetchProducts(1);
-        }, 250);
-    }
-
-    function goToPage(page) {
-        fetchProducts(page);
-    }
-
-    function fetchProducts(page) {
-        const params = new URLSearchParams(window.location.search);
+    function fetchProducts(page, qs) {
+        if (qs === undefined) {
+            qs = buildQueryString();
+        }
+        const params = new URLSearchParams(qs);
         params.set('page', page);
 
         document.getElementById('productGrid').innerHTML =
             '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
 
-        const qs = params.toString();
         const base = getCategoryBase();
-        const url = base + (qs ? '?' + qs : '');
+        const url = base + (qs ? '?' + params.toString() : '?page=' + page);
 
         fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
@@ -467,6 +464,25 @@
         .catch(() => {
             window.location.href = url;
         });
+    }
+
+    function applyFilters() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(function () {
+            const qs = buildQueryString();
+            const base = getCategoryBase();
+            const url = base + (qs ? '?' + qs : '');
+            window.history.replaceState({}, '', url);
+            fetchProducts(1, qs);
+        }, 250);
+    }
+
+    function goToPage(page) {
+        const qs = buildQueryString();
+        const base = getCategoryBase();
+        const url = base + (qs ? '?' + qs + '&page=' + page : '?page=' + page);
+        window.history.replaceState({}, '', url);
+        fetchProducts(page);
     }
 
     function getCategoryFromPath() {
@@ -488,26 +504,31 @@
             }
         }
 
+        const subs = params.get('sub_category');
+        const subList = subs ? subs.split(',') : [];
+
         document.querySelectorAll('.category-checkbox').forEach(cb => {
             cb.checked = catList.includes(cb.value);
+        });
+
+        document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
+            cb.checked = subList.includes(cb.value);
+        });
+
+        document.querySelectorAll('.category-checkbox').forEach(cb => {
             const catId = cb.dataset.categoryId;
             const subDiv = document.getElementById('cat-' + catId + '-sub');
             const arrow = document.getElementById('cat-' + catId + '-arrow');
-            if (subDiv) {
-                if (cb.checked) {
-                    subDiv.classList.remove('hidden');
-                    if (arrow) arrow.classList.add('rotate-180');
-                } else {
-                    subDiv.classList.add('hidden');
-                    if (arrow) arrow.classList.remove('rotate-180');
-                }
+            if (!subDiv) return;
+            const hasCheckedSub = document.querySelector('.subcategory-checkbox[data-category-id="' + catId + '"]:checked');
+            const shouldOpen = cb.checked || hasCheckedSub;
+            if (shouldOpen) {
+                subDiv.classList.remove('hidden');
+                if (arrow) arrow.classList.add('rotate-180');
+            } else {
+                subDiv.classList.add('hidden');
+                if (arrow) arrow.classList.remove('rotate-180');
             }
-        });
-
-        const subs = params.get('sub_category');
-        const subList = subs ? subs.split(',') : [];
-        document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
-            cb.checked = subList.includes(cb.value);
         });
 
         const sizeParam = params.get('size');
@@ -515,6 +536,16 @@
         document.querySelectorAll('.size-checkbox').forEach(cb => {
             cb.checked = sizeList.includes(cb.value);
         });
+
+        const minPrice = params.get('min_price');
+        const maxPrice = params.get('max_price');
+        const minVal = minPrice ? parseInt(minPrice) : 0;
+        const maxVal = maxPrice ? parseInt(maxPrice) : 10000;
+        document.getElementById('minPriceInput').value = minVal;
+        document.getElementById('maxPriceInput').value = maxVal;
+        document.getElementById('minRange').value = minVal;
+        document.getElementById('maxRange').value = maxVal;
+        updateRangeTrack();
     }
 
     function initStockState() {

@@ -123,7 +123,7 @@
                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title"><a href="#">{{ $product->name }}</a></h3>
+                        <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
                         <div class="flex items-center gap-1 mt-[9px]">
                             <div class="text-[#D5D5D5] text-base">★★★★★</div>
                             <span class="text-xs text-[#757575]">(0)</span>
@@ -169,7 +169,7 @@
                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title"><a href="#">{{ $product->name }}</a></h3>
+                        <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
                         <div class="flex items-center gap-1 mt-[9px]">
                             <div class="text-[#D5D5D5] text-base">★★★★★</div>
                             <span class="text-xs text-[#757575]">(0)</span>

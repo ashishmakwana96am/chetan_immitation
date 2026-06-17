@@ -172,8 +172,7 @@ body {
     .dropdown-panel.open { display:block; }
  
     /* Collapse toggle arrow */
-    .collapse-arrow { transition: transform .2s; }
-    .collapse-arrow.open { transform: rotate(180deg); }
+    .collapse-arrow { transition: rotate .2s; }
  
     /* Sidebar section */
     .sidebar-section { border-bottom: 1px solid #e8e0cc; }

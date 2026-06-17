@@ -83,13 +83,7 @@ class ShopCategoryController extends Controller
         $sizeAttribute = Attribute::where('slug', 'size')->first();
         if ($sizeAttribute) {
             $sizeAttribute->load('values');
-            $usedValueIds = ProductVariant::whereIn('attribute_value_id', $sizeAttribute->values->pluck('id'))
-                ->whereHas('product', function ($q) {
-                    $q->where('status', Product::STATUS_ACTIVE);
-                })
-                ->distinct()
-                ->pluck('attribute_value_id');
-            $sizes = $sizeAttribute->values->whereIn('id', $usedValueIds)->values();
+            $sizes = $sizeAttribute->values;
 
             if (request('size')) {
                 $sizeValues = explode(',', request('size'));
