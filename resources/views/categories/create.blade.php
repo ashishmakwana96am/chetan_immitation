@@ -198,12 +198,9 @@ $(document).ready(function () {
 
     $cropSaveBtn.on('click', function () {
         if (!cropper) return;
-        const canvas = cropper.getCroppedCanvas({
-            width: 215,
-            height: 280
-        });
+        const canvas = cropper.getCroppedCanvas();
         if (canvas) {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             $base64Input.val(dataUrl);
             $previewImg.attr('src', dataUrl);
             $previewContainer.removeClass('d-none');

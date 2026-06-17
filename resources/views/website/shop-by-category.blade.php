@@ -271,6 +271,7 @@
 
 @section('page-js')
 <script>
+    const CATEGORY_BASE_URL = '{{ url('/category') }}';
     let filterTimeout;
 
     function toggleCategory(contentId, arrowId) {
@@ -422,11 +423,18 @@
         return parts.join('&');
     }
 
+    function getCategoryBase() {
+        const idx = window.location.pathname.indexOf('/category');
+        if (idx !== -1) return window.location.pathname.substring(0, idx + 9);
+        return CATEGORY_BASE_URL;
+    }
+
     function applyFilters() {
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(function () {
             const qs = buildQueryString();
-            const url = '/category' + (qs ? '?' + qs : '');
+            const base = getCategoryBase();
+            const url = base + (qs ? '?' + qs : '');
             window.history.replaceState({}, '', url);
             fetchProducts(1);
         }, 250);
@@ -444,7 +452,8 @@
             '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
 
         const qs = params.toString();
-        const url = '/category' + (qs ? '?' + qs : '');
+        const base = getCategoryBase();
+        const url = base + (qs ? '?' + qs : '');
 
         fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }

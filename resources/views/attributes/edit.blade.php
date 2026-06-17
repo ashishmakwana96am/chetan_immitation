@@ -54,6 +54,7 @@
 <script>
 $(document).ready(function () {
     let values = [];
+    let editIndex = null;
 
     function renderValues() {
         const $tbody = $('#valuesTableBody');
@@ -70,6 +71,12 @@ $(document).ready(function () {
         $('#valuesHidden').val(JSON.stringify(values));
     }
 
+    function resetAddInput() {
+        $('#valueInput').val('').focus();
+        $('#addValueBtn').text('Add').removeClass('btn-warning').addClass('btn-outline-primary');
+        editIndex = null;
+    }
+
     @foreach($attribute->values as $v)
         values.push({ value: '{{ $v->value }}' });
     @endforeach
@@ -78,7 +85,18 @@ $(document).ready(function () {
     $('#addValueBtn').on('click', function () {
         const $input = $('#valueInput');
         const val = $input.val().trim();
-        if (val) {
+        if (!val) return;
+
+        if (editIndex !== null) {
+            const exists = values.some(function (item, i) { return i !== editIndex && item.value.toLowerCase() === val.toLowerCase(); });
+            if (exists) {
+                alert('This value already exists.');
+                return;
+            }
+            values[editIndex].value = val;
+            renderValues();
+            resetAddInput();
+        } else {
             const exists = values.some(function (item) { return item.value.toLowerCase() === val.toLowerCase(); });
             if (!exists) {
                 values.push({ value: val });
@@ -97,23 +115,16 @@ $(document).ready(function () {
 
     $(document).on('click', '.remove-value', function () {
         const idx = $(this).data('index');
+        if (editIndex === idx) resetAddInput();
         values.splice(idx, 1);
         renderValues();
     });
 
     $(document).on('click', '.edit-value', function () {
         const idx = $(this).data('index');
-        const current = values[idx].value;
-        const newVal = prompt('Edit value:', current);
-        if (newVal !== null && newVal.trim() !== '') {
-            const exists = values.some(function (item, i) { return i !== idx && item.value.toLowerCase() === newVal.trim().toLowerCase(); });
-            if (!exists) {
-                values[idx].value = newVal.trim();
-                renderValues();
-            } else {
-                alert('This value already exists.');
-            }
-        }
+        $('#valueInput').val(values[idx].value).focus();
+        $('#addValueBtn').text('Update').removeClass('btn-outline-primary').addClass('btn-warning');
+        editIndex = idx;
     });
 
     $('#commonModalForm').on('submit', function () {
