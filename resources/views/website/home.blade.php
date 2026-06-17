@@ -6,7 +6,7 @@
 
     <!-- Hero Section -->
     <section
-        class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(80vh-158px)] 2xl:!min-h-[calc(110vh-158px)] flex items-center relative overflow-hidden hero-section">
+        class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(80vh-158px)] 2xl:!min-h-[calc(100vh-158px)] flex items-center relative overflow-hidden hero-section">
 
         <div class="container-1440 !px-0 lg:px-auto">
             <div class="grid grid-cols-12 text-center md:text-left items-center">
@@ -25,7 +25,7 @@
                             Explore Category
                         </a>
                         <a href="#"
-                            class="border-2 border-[#131615] common-btn font-semibold !bg-transparent !text-[#131615] hover:!text-[#fff] hover:!bg-[#B4771E] hover:!border-[#B4771E]">
+                            class="border-2 border-[#131615] common-btn font-semibold bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                             View Bridal Jewelry
                             </a>
                     </div>
