@@ -82,10 +82,10 @@
 
                         <!-- Mega Menu -->
                         <div class="group relative" onmouseleave="resetSubmenus()">
-                            <button class="flex items-center gap-2 text-white group-hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                            <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                                 Shop By Category
                                 <i class="fa-solid fa-angle-down text-xl"></i>
-                            </button>                            <!-- Dropdown -->
+                            </a>                            <!-- Dropdown -->
                             <!-- Dropdown -->
                             <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300">
                                 <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white">

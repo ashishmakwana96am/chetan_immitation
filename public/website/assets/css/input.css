@@ -173,6 +173,12 @@ body {
  
     /* Collapse toggle arrow */
     .collapse-arrow { transition: rotate .2s; }
+
+    /* Header mega menu chevron rotation */
+    .group:hover > .flex > .fa-angle-down {
+        transform: rotate(180deg);
+        transition: transform .2s;
+    }
  
     /* Sidebar section */
     .sidebar-section { border-bottom: 1px solid #e8e0cc; }

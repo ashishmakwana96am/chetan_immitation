@@ -40,7 +40,7 @@
     <div class="grid grid-cols-12 lg:gap-5">
 
         <!-- SIDEBAR -->
-        <aside id="sidebar" class="fixed lg:static top-0 left-0 w-[320px] lg:w-auto h-screen lg:h-auto bg-white z-[999] overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform duration-300 col-span-12 lg:col-span-4 xl:col-span-3 shrink-0 border border-[#D5D5D5] rounded-none lg:rounded-[8px]">
+        <aside id="sidebar" class="fixed lg:static top-0 left-0 w-[320px] lg:w-auto h-screen lg:h-fit bg-white z-[999] overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform duration-300 col-span-12 lg:col-span-4 xl:col-span-3 shrink-0 border border-[#D5D5D5] rounded-none lg:rounded-[8px]">
             <!-- Shop By Category -->
             <div class="sidebar-section rounded-lg overflow-hidden">
 
@@ -274,23 +274,27 @@
     const CATEGORY_BASE_URL = '{{ url('/category') }}';
     let filterTimeout;
 
+    function setCategoryDropdownState(catId, open) {
+        const content = document.getElementById(catId + '-sub');
+        const arrow = document.getElementById(catId + '-arrow');
+        if (!content) return;
+        content.classList.toggle('hidden', !open);
+        if (arrow) arrow.classList.toggle('rotate-180', open);
+    }
+
     function toggleCategory(contentId, arrowId) {
         const content = document.getElementById(contentId);
         const arrow = document.getElementById(arrowId);
         if (content && arrow) {
-            content.classList.toggle("hidden");
-            arrow.classList.toggle("rotate-180");
+            const shouldOpen = content.classList.contains('hidden');
+            const catId = contentId.replace(/-sub$/, '');
+            setCategoryDropdownState(catId, shouldOpen);
         }
     }
 
     function openParentDropdown(el) {
         const catId = el.dataset.categoryId;
-        const subDiv = document.getElementById('cat-' + catId + '-sub');
-        const arrow = document.getElementById('cat-' + catId + '-arrow');
-        if (subDiv) {
-            subDiv.classList.remove('hidden');
-            if (arrow) arrow.classList.add('rotate-180');
-        }
+        setCategoryDropdownState('cat-' + catId, true);
     }
 
     function toggleSection(contentId, arrowId) {
@@ -517,18 +521,9 @@
 
         document.querySelectorAll('.category-checkbox').forEach(cb => {
             const catId = cb.dataset.categoryId;
-            const subDiv = document.getElementById('cat-' + catId + '-sub');
-            const arrow = document.getElementById('cat-' + catId + '-arrow');
-            if (!subDiv) return;
             const hasCheckedSub = document.querySelector('.subcategory-checkbox[data-category-id="' + catId + '"]:checked');
             const shouldOpen = cb.checked || hasCheckedSub;
-            if (shouldOpen) {
-                subDiv.classList.remove('hidden');
-                if (arrow) arrow.classList.add('rotate-180');
-            } else {
-                subDiv.classList.add('hidden');
-                if (arrow) arrow.classList.remove('rotate-180');
-            }
+            setCategoryDropdownState('cat-' + catId, shouldOpen);
         });
 
         const sizeParam = params.get('size');
@@ -540,7 +535,7 @@
         const minPrice = params.get('min_price');
         const maxPrice = params.get('max_price');
         const minVal = minPrice ? parseInt(minPrice) : 0;
-        const maxVal = maxPrice ? parseInt(maxPrice) : 10000;
+        const maxVal = maxPrice ? parseInt(maxPrice) : 2000;
         document.getElementById('minPriceInput').value = minVal;
         document.getElementById('maxPriceInput').value = maxVal;
         document.getElementById('minRange').value = minVal;
