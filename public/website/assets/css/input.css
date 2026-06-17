@@ -320,10 +320,10 @@ summary {
     @apply mt-[15px] text-base lg:text-[20px] lg:leading-[30px] text-[#3D403F];
 }
 .section-space{
-    @apply py-[60px] md:py-[80px] lg:py-[120px];
+    @apply py-[60px] md:py-[80px] lg:py-[100px];
 }
 .section-space-bottom{
-    @apply pb-[60px] md:pb-[80px] lg:pb-[120px];
+    @apply pb-[60px] md:pb-[80px] lg:pb-[100px];
 }
 
 .product-title{
@@ -344,7 +344,7 @@ summary {
 
 .common-btn{
     @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-[20px] md:px-[24px] 2xl:px-[26px]
-    h-[50px] md:h-[58px] 2xl:h-[64px] text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-300;
+    h-[50px] md:h-[58px] 2xl:h-[62px] text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-300;
 }
 
 .btn-outline{

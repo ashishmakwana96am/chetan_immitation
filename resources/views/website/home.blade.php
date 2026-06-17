@@ -24,9 +24,10 @@
                         <a href="#" class="common-btn">
                             Explore Category
                         </a>
-                        <a href="#" class="common-btn font-semibold transition duration-300">
+                        <a href="#"
+                            class="border-2 border-[#131615] common-btn font-semibold !bg-transparent !text-[#131615] hover:!text-[#fff] hover:!bg-[#B4771E] hover:!border-[#B4771E]">
                             View Bridal Jewelry
-                        </a>
+                            </a>
                     </div>
                 </div>
                 <div class="col-span-12 md:hidden mt-2">
@@ -48,13 +49,13 @@
             </div>
             <div class="owl-carousel collection-slider mt-10">
                 @foreach($categories as $category)
-                <div class="group text-center cursor-pointer">
+                <a href="{{ route('shop-by-category', $category->slug) }}" class="group text-center cursor-pointer block">
                     <div class="mx-auto rounded-full overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] group-hover:shadow-[0_0_25px_rgba(180,119,30,0.30)]">
                         <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
                     </div>
                     <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
                     <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
-                </div>
+                </a>
                 @endforeach
             </div>
         </div>

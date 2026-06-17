@@ -37,6 +37,7 @@ Route::get('/login', [HomeController::class, 'login'])->name('login');
 Route::get('/forgot-password', [HomeController::class, 'forgotPassword'])->name('forgot-password');
 Route::get('/otp-verification', [HomeController::class, 'otpVerification'])->name('otp-verification');
 Route::get('/register', [HomeController::class, 'register'])->name('register');
+Route::get('/category/{slug}', [HomeController::class, 'shopByCategory'])->name('shop-by-category');
 
 Route::get('robots.txt', function () {
     $host = request()->getHost();
