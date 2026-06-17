@@ -63,7 +63,7 @@ $(document).ready(function () {
                 '<tr>' +
                     '<td>' + (idx + 1) + '</td>' +
                     '<td>' + $('<span>').text(item.value).html() + '</td>' +
-                    '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-value" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
+                    '<td><div class="d-flex gap-1"><button type="button" class="btn btn-sm btn-icon text-primary edit-value" data-index="' + idx + '"><i class="ti ti-pencil"></i></button><button type="button" class="btn btn-sm btn-icon text-danger remove-value" data-index="' + idx + '"><i class="ti ti-trash"></i></button></div></td>' +
                 '</tr>'
             );
         });
@@ -101,7 +101,20 @@ $(document).ready(function () {
         renderValues();
     });
 
-
+    $(document).on('click', '.edit-value', function () {
+        const idx = $(this).data('index');
+        const current = values[idx].value;
+        const newVal = prompt('Edit value:', current);
+        if (newVal !== null && newVal.trim() !== '') {
+            const exists = values.some(function (item, i) { return i !== idx && item.value.toLowerCase() === newVal.trim().toLowerCase(); });
+            if (!exists) {
+                values[idx].value = newVal.trim();
+                renderValues();
+            } else {
+                alert('This value already exists.');
+            }
+        }
+    });
 
     $('#commonModalForm').on('submit', function () {
         if (values.length === 0) {

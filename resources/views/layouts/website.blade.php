@@ -91,12 +91,12 @@
                                 <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white">
                                     @foreach($sharedCategories as $index => $cat)
                                     <div class="relative">
-                                        <button onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300">
+                                        <a href="{{ route('shop-by-category', $cat->slug) }}" onmouseenter="showSubmenu('submenu-{{ $cat->id }}',this)" class="menu-btn w-full flex justify-between items-center {{ $index === 0 ? 'pb-[15px] border-b' : ($index === count($sharedCategories) - 1 ? 'pt-[15px]' : 'py-[10px] border-b') }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
                                             <span>{{ $cat->name }}</span>
                                             @if($cat->subCategories->isNotEmpty())
                                                 <i class="fa-solid fa-plus text-sm"></i>
                                             @endif
-                                        </button>
+                                        </a>
 
                                         @if($cat->subCategories->isNotEmpty())
                                         <div id="submenu-{{ $cat->id }}" class="submenu hidden absolute top-0 left-full ml-4 bg-white border border-[#D5D5D5] min-w-[250px] p-4 z-50">
@@ -115,7 +115,7 @@
                                                         $class .= 'py-3 border-b';
                                                     }
                                                 @endphp
-                                                <a href="#" class="{{ $class }}">{{ $sub->name }}</a>
+                                                <a href="{{ route('shop-by-category', ['slug' => $cat->slug, 'sub_category' => $sub->slug]) }}" class="{{ $class }}">{{ $sub->name }}</a>
                                             @empty
                                             @endforelse
                                         </div>
@@ -138,7 +138,7 @@
                     <!-- Right Side -->
                     <div class="hidden lg:flex items-center gap-5">
                         <div class="search-container flex items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300">
-                            <input type="text" placeholder="Search" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none">
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='/category?search='+encodeURIComponent(v);}">
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
 
@@ -204,11 +204,11 @@
                             </button>
                             <ul id="mobile-submenu-{{ $cat->id }}" class="hidden pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
                                 @foreach($cat->subCategories as $sub)
-                                <li><a href="#" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
+                                <li><a href="{{ route('shop-by-category', ['slug' => $cat->slug, 'sub_category' => $sub->slug]) }}" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
                                 @endforeach
                             </ul>
                         @else
-                            <a href="#" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
+                            <a href="{{ route('shop-by-category', $cat->slug) }}" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
                                 {{ $cat->name }}
                             </a>
                         @endif
@@ -239,9 +239,9 @@
                     <p class="mt-[15px] text-white/90 text-[14px] md:text-[20px] font-normal">
                         Subscribe to receive exclusive offers, styling tips, and first access to new arrivals
                     </p>
-                    <div class="max-w-[520px] mx-auto mt-8 flex flex-col sm:flex-row">
-                        <input type="email" placeholder="Enter your email" class="flex-1 h-[58px] px-4 text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] placeholder:text-lg">
-                        <button class="h-[58px] px-8 bg-[#B4771E] text-white text-lg font-medium hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-r-[4px] flex items-center justify-center">
+                    <div class="max-w-[520px] mx-auto mt-8 flex flex-col gap-3 sm:gap-0 sm:flex-row">
+                        <input type="email" placeholder="Enter your email" class="flex-1 h-[58px] py-5 px-4 text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] placeholder:text-lg">
+                        <button class="h-[58px] px-8 bg-[#B4771E] text-white text-lg hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-r-[4px] flex items-center justify-center">
                             Subscribe
                         </button>
                     </div>
@@ -270,7 +270,7 @@
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Shop By Category</h3>
                     <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
                         @foreach($sharedCategories->shuffle()->take(6) as $cat)
-                        <li><a href="#" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>
+                        <li><a href="{{ route('shop-by-category', $cat->slug) }}" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>
                         @endforeach
                     </ul>
                 </div>
