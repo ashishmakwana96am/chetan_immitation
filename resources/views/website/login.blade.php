@@ -186,6 +186,7 @@ $(function () {
                 email: $('#email').val(),
                 password: $('#password').val(),
                 remember: $('#remember').is(':checked') ? 1 : 0,
+                intended: new URLSearchParams(window.location.search).get('intended') || '',
             },
             success: function (res) {
                 if (res.status === 'success' && res.redirect_url) {

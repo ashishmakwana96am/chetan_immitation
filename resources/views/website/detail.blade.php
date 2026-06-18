@@ -54,8 +54,24 @@
                             @endforelse
                         </div>
 
-                        <button class="absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center">
-                            <img src="{{ asset('website/assets/images/header-red.png') }}" alt="">
+                        <button class="wishlist-btn absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+                            data-product-id="{{ $product->id }}"
+                            data-variant-id=""
+                            data-login-url="{{ route('login') }}"
+                            data-toggle-url="{{ route('wishlist.toggle') }}"
+                            data-current-url="{{ url()->current() }}"
+                            @php
+                                $inWishlist = auth('customer')->check()
+                                    && \App\Models\Wishlist::where('customer_id', auth('customer')->id())
+                                        ->where('product_id', $product->id)
+                                        ->whereNull('product_variant_id')
+                                        ->exists();
+                            @endphp
+                            data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
+                                class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'text-[#131615] fill-transparent' }}">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                            </svg>
                         </button>
 
                     </div>
@@ -367,6 +383,66 @@ let count = 1;
 plusBtn.addEventListener("click", () => { count++; qty.innerText = count; });
 minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerText = count; } });
 
+</script>
+
+<script>
+// Wishlist toggle for detail page
+(function () {
+    var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
+    var csrfToken  = '{{ csrf_token() }}';
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
+        if (!btn) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!isLoggedIn) {
+            var currentUrl = btn.dataset.currentUrl || window.location.href;
+            window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(currentUrl);
+            return;
+        }
+
+        var productId = btn.dataset.productId;
+        var variantId = btn.dataset.variantId || null;
+        var toggleUrl = btn.dataset.toggleUrl;
+        var svg       = btn.querySelector('.wishlist-icon, svg');
+
+        // Pick active variant button if user selected one
+        var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
+        if (activeVariantBtn && activeVariantBtn.dataset.variantId) {
+            variantId = activeVariantBtn.dataset.variantId;
+            btn.dataset.variantId = variantId;
+        }
+
+        fetch(toggleUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                product_id:         productId,
+                product_variant_id: variantId || null,
+            }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.status === 'added') {
+                btn.dataset.inWishlist = '1';
+                svg.classList.remove('fill-transparent', 'text-[#131615]');
+                svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+            } else {
+                btn.dataset.inWishlist = '0';
+                svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
+                svg.classList.add('fill-transparent', 'text-[#131615]');
+            }
+        })
+        .catch(function () {});
+    });
+}());
 </script>
 
 @endsection

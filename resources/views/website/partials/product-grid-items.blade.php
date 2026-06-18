@@ -1,5 +1,9 @@
 @forelse($products as $product)
-@php $stockQty = $product->inventories_sum_quantity ?? 0; @endphp
+@php
+    $stockQty   = $product->inventories_sum_quantity ?? 0;
+    $inWishlist = auth('customer')->check()
+        && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty();
+@endphp
 <div class="group border border-[#D5D5D5] relative cursor-pointer">
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
@@ -15,22 +19,18 @@
             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
         </a>
     </div>
-    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0">
-       <svg xmlns="http://www.w3.org/2000/svg"
-fill="none"
-viewBox="0 0 24 24"
-stroke-width="1.6"
-stroke="currentColor"
-class="w-5 h-5 text-[#131615]
-fill-transparent
-hover:fill-[#E01B1B]
-hover:text-[#E01B1B]
-transition-all duration-300">
-
-<path stroke-linecap="round"
-stroke-linejoin="round"
-d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-</svg>
+    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+        data-product-id="{{ $product->id }}"
+        data-variant-id=""
+        data-login-url="{{ route('login') }}"
+        data-toggle-url="{{ route('wishlist.toggle') }}"
+        data-current-url="{{ url()->current() }}"
+        data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
+       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
+            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+       </svg>
     </button>
     <div class="p-4 md:p-[25px]">
         <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
@@ -42,26 +42,25 @@ d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.6
              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
         </div>
-           @php
-                $variantValues = $product->relationLoaded('variants')
-                    ? $product->variants
-                        ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
-                        ->map(fn($v) => $v->attributeValue->value)
-                        ->unique()
-                        ->values()
-                    : collect();
-            @endphp
-            @if($variantValues->isNotEmpty())
-            <div class="mt-5">
-                <div class="flex flex-wrap gap-2">
-                    @foreach($variantValues as $index => $value)
-                    <button class="px-3 py-1 text-xs {{ $index === 0 ? 'bg-[#B4771E] text-white' : 'border border-[#D5D5D5]' }}">
-                        {{ $value }}
-                    </button>
-                    @endforeach
-                </div>
+        @php
+            $variantValues = $product->relationLoaded('variants')
+                ? $product->variants
+                    ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
+                    ->map(fn($v) => $v->attributeValue->value)
+                    ->unique()->values()
+                : collect();
+        @endphp
+        @if($variantValues->isNotEmpty())
+        <div class="mt-5">
+            <div class="flex flex-wrap gap-2">
+                @foreach($variantValues as $index => $value)
+                <button class="px-3 py-1 text-xs {{ $index === 0 ? 'bg-[#B4771E] text-white' : 'border border-[#D5D5D5]' }}">
+                    {{ $value }}
+                </button>
+                @endforeach
             </div>
-            @endif
+        </div>
+        @endif
         <button class="w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
             Add to Cart
         </button>

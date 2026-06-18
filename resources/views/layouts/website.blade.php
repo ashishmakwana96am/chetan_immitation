@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Chetan Imitation')</title>
     @if(str_contains(request()->getHost(), 'royalgujarati'))
         <meta name="robots" content="noindex, nofollow">
@@ -142,9 +143,16 @@
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
 
-                        <a href="#" class="relative hover-gold-filter">
+                        <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
+                            @auth('customer')
+                            @php $wishlistCount = auth('customer')->user()->wishlists()->count(); @endphp
+                            @if($wishlistCount > 0)
+                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">{{ $wishlistCount }}</span>
+                            @endif
+                            @else
                             <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
+                            @endauth
                         </a>
 
                         <a href="#" class="relative hover-gold-filter">
@@ -153,20 +161,34 @@
                         </a>
 
                         @auth('customer')
-                        <div class="relative group/user">
-                            <button class="text-white hover-gold-filter focus:outline-none">
+                        <div class="relative" id="userMenuWrap">
+                            <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none" type="button">
                                 <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                             </button>
-                            <div class="absolute right-0 top-full mt-2 w-[180px] bg-white border border-[#D5D5D5] rounded-[4px] shadow-lg opacity-0 invisible group-hover/user:opacity-100 group-hover/user:visible transition duration-200 z-50">
+                            <div id="userMenuDropdown" class="hidden absolute right-0 top-full w-[200px] z-50" style="padding-top:8px;">
+                                <div class="bg-white border border-[#D5D5D5] rounded-[4px] shadow-lg">
                                 <div class="px-4 py-3 border-b border-[#D5D5D5]">
                                     <p class="text-sm font-semibold text-[#131615] truncate">{{ Auth::guard('customer')->user()->name }}</p>
                                     <p class="text-xs text-[#757575] truncate">{{ Auth::guard('customer')->user()->email }}</p>
                                 </div>
-                                <form method="POST" action="{{ route('customer.logout') }}">
+                                <a href="{{ route('wishlist') }}"
+                                    class="flex items-center gap-2 w-full px-4 py-3 text-base text-[#131615] hover:bg-[#f9f3e8] hover:text-[#B4771E] transition border-b border-[#D5D5D5]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 shrink-0">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                                    </svg>
+                                    My Wishlist
+                                </a>
+                                <button id="logoutBtn" type="button"
+                                    class="w-full text-left px-4 py-3 text-base text-[#dc2626] hover:bg-[#fff5f5] transition flex items-center gap-2">
+                                    <span id="logoutBtnText">Logout</span>
+                                    <svg id="logoutSpinner" class="hidden animate-spin w-4 h-4 text-[#dc2626]" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                    </svg>
+                                </button>
+                                </div>
+                                <form id="logoutForm" method="POST" action="{{ route('customer.logout') }}" class="hidden">
                                     @csrf
-                                    <button type="submit" class="w-full text-left px-4 py-3 text-base text-[#dc2626] hover:bg-[#fff5f5] transition">
-                                        Logout
-                                    </button>
                                 </form>
                             </div>
                         </div>
@@ -366,6 +388,99 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="{{ asset('website/assets/js/main.js') }}?v=1.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js" integrity="sha512-bPs7Ae6pVvhOSiIcyUClR7/q2OAsRiovw4vAkX+zJbw3ShAeeqezq50RIIcIURq7Oa20rW2n2q+fyXBNcU9lrw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    @auth('customer')
+    <script>
+    $(function () {
+        var $wrap = $('#userMenuWrap');
+        var $menu = $('#userMenuDropdown');
+        var hideTimer;
+
+        $wrap.on('mouseenter', function () {
+            clearTimeout(hideTimer);
+            $menu.removeClass('hidden');
+        });
+
+        $wrap.on('mouseleave', function () {
+            hideTimer = setTimeout(function () {
+                $menu.addClass('hidden');
+            }, 120);
+        });
+
+        $('#logoutBtn').on('click', function () {
+            $(this).prop('disabled', true);
+            $('#logoutBtnText').text('Logging out...');
+            $('#logoutSpinner').removeClass('hidden');
+
+            $.ajax({
+                url: '{{ route('customer.logout') }}',
+                method: 'POST',
+                data: { _token: $('input[name="_token"]', '#logoutForm').val() },
+                success: function (res) {
+                    window.location.href = (res && res.redirect_url) ? res.redirect_url : '{{ route('login') }}';
+                },
+                error: function () {
+                    $('#logoutForm').submit();
+                }
+            });
+        });
+    });
+    </script>
+    @endauth
+
+    <script>
+    (function () {
+        var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
+        var csrfToken  = '{{ csrf_token() }}';
+
+        document.addEventListener('click', function (e) {
+            // Only handle grid-item wishlist buttons (not detail page which has its own handler)
+            var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
+            if (!btn) return;
+            // Skip if inside the mainSwiper (detail page handles it)
+            if (btn.closest('.mainSwiper')) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!isLoggedIn) {
+                var intended = btn.dataset.currentUrl || window.location.href;
+                window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(intended);
+                return;
+            }
+
+            var productId  = btn.dataset.productId;
+            var variantId  = btn.dataset.variantId || null;
+            var toggleUrl  = btn.dataset.toggleUrl;
+            var svg        = btn.querySelector('svg');
+            var inWishlist = btn.dataset.inWishlist === '1';
+
+            fetch(toggleUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ product_id: productId, product_variant_id: variantId }),
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'added') {
+                    btn.dataset.inWishlist = '1';
+                    svg.classList.remove('fill-transparent', 'text-[#131615]');
+                    svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                } else {
+                    btn.dataset.inWishlist = '0';
+                    svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
+                    svg.classList.add('fill-transparent', 'text-[#131615]');
+                }
+            })
+            .catch(function () {});
+        });
+    })();
+    </script>
+
     @yield('page-js')
 </body>
 </html>

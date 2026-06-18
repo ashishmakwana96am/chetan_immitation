@@ -33,4 +33,9 @@ class Customer extends Authenticatable
             'otp_expires_at' => 'datetime',
         ];
     }
+
+    public function wishlists()
+    {
+        return $this->hasMany(Wishlist::class);
+    }
 }

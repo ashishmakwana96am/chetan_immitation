@@ -108,6 +108,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($lovedProducts as $product)
+                @php $inWl = auth('customer')->check() && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty(); @endphp
                 <div class="group border border-[#D5D5D5] relative cursor-pointer">
                     <div class="relative overflow-hidden">
                         @if($product->sale)
@@ -119,10 +120,14 @@
                             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                         </a>
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="#131615" class="w-5 h-5">
+                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+                        data-product-id="{{ $product->id }}" data-variant-id=""
+                        data-login-url="{{ route('login') }}" data-toggle-url="{{ route('wishlist.toggle') }}"
+                        data-current-url="{{ url()->current() }}" data-in-wishlist="{{ $inWl ? '1' : '0' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
+                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWl ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                       </svg>
+                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
                         <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
@@ -134,9 +139,7 @@
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
                              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
-                            Add to Cart
-                        </button>
+                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">Add to Cart</button>
                     </div>
                 </div>
                 @endforeach
@@ -156,6 +159,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
                 @foreach($latestProducts as $product)
+                @php $inWl = auth('customer')->check() && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty(); @endphp
                 <div class="group border border-[#D5D5D5] relative cursor-pointer">
                     <div class="relative overflow-hidden">
                         @if($product->sale)
@@ -167,10 +171,14 @@
                             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                         </a>
                     </div>
-                    <button class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] hover:text-[#B4771E] transition duration-300">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+                        data-product-id="{{ $product->id }}" data-variant-id=""
+                        data-login-url="{{ route('login') }}" data-toggle-url="{{ route('wishlist.toggle') }}"
+                        data-current-url="{{ url()->current() }}" data-in-wishlist="{{ $inWl ? '1' : '0' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
+                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWl ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                       </svg>
+                        </svg>
                     </button>
                     <div class="p-4 md:p-[25px]">
                         <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
@@ -182,9 +190,7 @@
                              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
                              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                         </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
-                            Add to Cart
-                        </button>
+                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">Add to Cart</button>
                     </div>
                 </div>
                 @endforeach
@@ -219,7 +225,7 @@
                 </a>
             </div>
             <div class="text-center mt-8 lg:mt-10">
-                <a href="#" class="common-btn">Follow Us on Instagram</a>
+                <a href="https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr" class="common-btn">Follow Us on Instagram</a>
             </div>
         </div>
     </section>
@@ -249,7 +255,6 @@ $(document).ready(function(){
         }
     });
 
-    // Stats Count Up Animation using IntersectionObserver
     const stats = document.querySelectorAll(".stat-number");
     
     const countUp = (el) => {
@@ -257,8 +262,8 @@ $(document).ready(function(){
         const suffix = el.getAttribute("data-suffix") || "";
         const format = el.getAttribute("data-format") || "";
         let current = 0;
-        const duration = 2000; // 2 seconds animation
-        const stepTime = 16; // ~60fps
+        const duration = 2000;
+        const stepTime = 16;
         const totalSteps = duration / stepTime;
         const stepValue = target / totalSteps;
         

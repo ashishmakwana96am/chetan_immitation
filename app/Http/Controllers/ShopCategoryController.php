@@ -55,6 +55,10 @@ class ShopCategoryController extends Controller
 
         $products = $query->paginate(9)->onEachSide(1)->withQueryString();
 
+        if (auth('customer')->check()) {
+            auth('customer')->user()->load('wishlists');
+        }
+
         $sizes = $this->getSizes();
         $hasPriceFilter = request()->has('min_price') || request()->has('max_price');
         $selectedMinPrice = request()->has('min_price')

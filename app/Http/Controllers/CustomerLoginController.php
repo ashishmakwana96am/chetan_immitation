@@ -39,9 +39,14 @@ class CustomerLoginController extends Controller
         if (Auth::guard('customer')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
+            // Respect ?intended query param (from wishlist redirect)
+            $intended = $request->query('intended')
+                ?? session()->pull('url.intended')
+                ?? route('home');
+
             return response()->json([
                 'status'       => 'success',
-                'redirect_url' => redirect()->intended(route('home'))->getTargetUrl(),
+                'redirect_url' => $intended,
             ]);
         }
 
@@ -57,7 +62,16 @@ class CustomerLoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')
+        $redirectUrl = route('login');
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'status'       => 'success',
+                'redirect_url' => $redirectUrl,
+            ]);
+        }
+
+        return redirect($redirectUrl)
             ->with('success', 'You have been logged out successfully.');
     }
 }

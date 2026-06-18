@@ -27,6 +27,10 @@ class HomeController extends Controller
             ->limit(4)
             ->get();
 
+        if (auth('customer')->check()) {
+            auth('customer')->user()->load('wishlists');
+        }
+
         return view('website.home', compact('categories', 'lovedProducts', 'latestProducts'));
     }
 
@@ -74,6 +78,12 @@ class HomeController extends Controller
 
     public function login()
     {
+        // If an intended URL is passed as a query param (e.g. from wishlist JS redirect),
+        // store it in the session so redirect()->intended() will use it after login.
+        if (request()->query('intended')) {
+            session()->put('url.intended', request()->query('intended'));
+        }
+
         return view('website.login');
     }
 
@@ -118,6 +128,11 @@ class HomeController extends Controller
             ->inRandomOrder()
             ->limit(4)
             ->get();
+
+        // Pre-load customer wishlists for heart button state
+        if (auth('customer')->check()) {
+            auth('customer')->user()->load('wishlists');
+        }
 
         return view('website.detail', compact('product', 'relatedProducts'));
     }
