@@ -358,9 +358,11 @@
         priceFilterTouched = true;
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
-        const val = parseInt(input.value);
+        let val = parseInt(input.value);
         if (!Number.isNaN(val)) {
-            range.value = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
+            val = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
+            input.value = val;
+            range.value = val;
         }
         updateRangeTrack();
         applyFilters();
