@@ -138,12 +138,12 @@
                     @csrf
                     <div class="grid md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label class="block text-xl mb-3 text-[#131615]">Full Name</label>
+                            <label class="block text-xl mb-3 text-[#131615]">Full Name <span class="text-red-600">*</span></label>
                             <input type="text" name="full_name" placeholder="Enter Your Full Name" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
                             <p class="contact-error mt-2 text-sm text-red-600" data-error-for="full_name"></p>
                         </div>
                         <div>
-                            <label class="block text-xl mb-3 text-[#131615]">Email Address</label>
+                            <label class="block text-xl mb-3 text-[#131615]">Email Address <span class="text-red-600">*</span></label>
                             <input type="email" name="email" placeholder="Enter Your Email" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
                             <p class="contact-error mt-2 text-sm text-red-600" data-error-for="email"></p>
                         </div>
@@ -151,19 +151,19 @@
 
                     <div class="grid md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label class="block text-xl mb-3 text-[#131615]">Phone Number</label>
+                            <label class="block text-xl mb-3 text-[#131615]">Phone Number <span class="text-red-600">*</span></label>
                             <input type="text" name="phone" placeholder="Enter Your Phone" maxlength="10" inputmode="numeric" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
                             <p class="contact-error mt-2 text-sm text-red-600" data-error-for="phone"></p>
                         </div>
                         <div>
-                            <label class="block text-xl mb-3 text-[#131615]">Subject</label>
+                            <label class="block text-xl mb-3 text-[#131615]">Subject <span class="text-red-600">*</span></label>
                             <input type="text" name="subject" placeholder="Enter Subject" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
                             <p class="contact-error mt-2 text-sm text-red-600" data-error-for="subject"></p>
                         </div>
                     </div>
 
                     <div class="mb-7">
-                        <label class="block text-xl mb-3 text-[#131615]">Message</label>
+                        <label class="block text-xl mb-3 text-[#131615]">Message <span class="text-red-600">*</span></label>
                         <textarea rows="5" name="message" placeholder="Type Your Message Here...." class="contact-input w-full min-h-36 border border-[#DCDCDC] p-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E] resize-y"></textarea>
                         <p class="contact-error mt-2 text-sm text-red-600" data-error-for="message"></p>
                     </div>

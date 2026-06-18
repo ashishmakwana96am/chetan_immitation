@@ -24,6 +24,8 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\WebsiteContentController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\MemberRegisterController;
+use App\Http\Controllers\CustomerLoginController;
 use App\Http\Controllers\ShopCategoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,9 +39,12 @@ Route::get('/privacy-policy', [HomeController::class, 'privacy'])->name('privacy
 Route::get('/delivery-returns', [HomeController::class, 'deliveryReturns'])->name('delivery-returns');
 Route::get('/refund-cancellation', [HomeController::class, 'refundCancellation'])->name('refund-cancellation');
 Route::get('/login', [HomeController::class, 'login'])->name('login');
+Route::post('/login', [CustomerLoginController::class, 'login'])->name('login.store');
+Route::post('/logout', [CustomerLoginController::class, 'logout'])->name('customer.logout');
 Route::get('/forgot-password', [HomeController::class, 'forgotPassword'])->name('forgot-password');
 Route::get('/otp-verification', [HomeController::class, 'otpVerification'])->name('otp-verification');
 Route::get('/register', [HomeController::class, 'register'])->name('register');
+Route::post('/register', [MemberRegisterController::class, 'store'])->name('register.store');
 Route::get('/category/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 

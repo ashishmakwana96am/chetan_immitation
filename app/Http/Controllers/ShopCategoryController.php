@@ -7,9 +7,7 @@ use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Attribute;
-use App\Models\ProductVariant;
 use App\Models\Inventory;
-use Illuminate\Support\Facades\DB;
 
 class ShopCategoryController extends Controller
 {
@@ -23,11 +21,79 @@ class ShopCategoryController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $query = Product::where('status', Product::STATUS_ACTIVE)
-            ->with('primaryImage')
+        $catalogQuery = $this->buildFilteredQuery($slug, false);
+        $priceRange = (clone $catalogQuery)
+            ->selectRaw('COALESCE(MIN(sale_price), 0) as min_price, COALESCE(MAX(sale_price), 0) as max_price')
+            ->first();
+
+        $catalogMinPrice = (int) floor((float) ($priceRange->min_price ?? 0));
+        $catalogMaxPrice = (int) ceil((float) ($priceRange->max_price ?? 0));
+        if ($catalogMaxPrice < $catalogMinPrice) {
+            $catalogMaxPrice = $catalogMinPrice;
+        }
+
+        $query = $this->buildFilteredQuery($slug, true)
+            ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity');
 
-        // Determine which categories to filter by
+        switch (request('sort')) {
+            case 'price-low':
+                $query->orderBy('sale_price', 'asc');
+                break;
+            case 'price-high':
+                $query->orderBy('sale_price', 'desc');
+                break;
+            case 'newest':
+                $query->latest('created_at');
+                break;
+            case 'popular':
+                $query->inRandomOrder();
+                break;
+            default:
+                $query->latest();
+        }
+
+        $products = $query->paginate(9)->onEachSide(1)->withQueryString();
+
+        $sizes = $this->getSizes();
+        $hasPriceFilter = request()->has('min_price') || request()->has('max_price');
+        $selectedMinPrice = request()->has('min_price')
+            ? (int) request('min_price')
+            : $catalogMinPrice;
+        $selectedMaxPrice = request()->has('max_price')
+            ? (int) request('max_price')
+            : $catalogMaxPrice;
+
+        if (request()->ajax()) {
+            $gridHtml = view('website.partials.product-grid-items', compact('products'))->render();
+
+            return response()->json([
+                'html' => $gridHtml,
+                'pagination' => (string) $products->links('vendor.pagination.tailwind'),
+                'count' => $products->total(),
+                'price_range' => [
+                    'min' => $catalogMinPrice,
+                    'max' => $catalogMaxPrice,
+                ],
+            ]);
+        }
+
+        return view('website.shop-by-category', compact(
+            'categories',
+            'products',
+            'sizes',
+            'catalogMinPrice',
+            'catalogMaxPrice',
+            'selectedMinPrice',
+            'selectedMaxPrice',
+            'hasPriceFilter'
+        ));
+    }
+
+    private function buildFilteredQuery($slug = null, bool $applyPriceFilter = true)
+    {
+        $query = Product::where('status', Product::STATUS_ACTIVE);
+
         $categorySlugs = [];
         if (request('category')) {
             $categorySlugs = explode(',', request('category'));
@@ -71,23 +137,22 @@ class ShopCategoryController extends Controller
             });
         }
 
-        if (request('min_price')) {
-            $query->where('sale_price', '>=', (float) request('min_price'));
-        }
-        if (request('max_price')) {
-            $query->where('sale_price', '<=', (float) request('max_price'));
+        if ($applyPriceFilter) {
+            if (request()->filled('min_price')) {
+                $query->where('sale_price', '>=', (float) request('min_price'));
+            }
+            if (request()->filled('max_price')) {
+                $query->where('sale_price', '<=', (float) request('max_price'));
+            }
         }
 
-        // Size attribute filtering
-        $sizes = collect();
         $sizeAttribute = Attribute::where('slug', 'size')->first();
         if ($sizeAttribute) {
             $sizeAttribute->load('values');
-            $sizes = $sizeAttribute->values;
 
             if (request('size')) {
                 $sizeValues = explode(',', request('size'));
-                $sizeValueIds = $sizes->whereIn('value', $sizeValues)->pluck('id');
+                $sizeValueIds = $sizeAttribute->values->whereIn('value', $sizeValues)->pluck('id');
                 if ($sizeValueIds->isNotEmpty()) {
                     $query->whereHas('variants', function ($q) use ($sizeValueIds) {
                         $q->whereIn('attribute_value_id', $sizeValueIds);
@@ -96,7 +161,6 @@ class ShopCategoryController extends Controller
             }
         }
 
-        // Stock filtering via inventory sum
         if (request('stock') === 'hide') {
             $inStockIds = Inventory::select('product_id')
                 ->selectRaw('COALESCE(SUM(quantity), 0) as total_qty')
@@ -106,34 +170,18 @@ class ShopCategoryController extends Controller
             $query->whereIn('id', $inStockIds);
         }
 
-        switch (request('sort')) {
-            case 'price-low':
-                $query->orderBy('sale_price', 'asc');
-                break;
-            case 'price-high':
-                $query->orderBy('sale_price', 'desc');
-                break;
-            case 'newest':
-                $query->latest('created_at');
-                break;
-            case 'popular':
-                $query->inRandomOrder();
-                break;
-            default:
-                $query->latest();
+        return $query;
+    }
+
+    private function getSizes()
+    {
+        $sizeAttribute = Attribute::where('slug', 'size')->first();
+        if (!$sizeAttribute) {
+            return collect();
         }
 
-        $products = $query->paginate(9)->onEachSide(1)->withQueryString();
+        $sizeAttribute->load('values');
 
-        if (request()->ajax()) {
-            $gridHtml = view('website.partials.product-grid-items', compact('products'))->render();
-            return response()->json([
-                'html' => $gridHtml,
-                'pagination' => (string) $products->links('vendor.pagination.tailwind'),
-                'count' => $products->total(),
-            ]);
-        }
-
-        return view('website.shop-by-category', compact('categories', 'products', 'sizes'));
+        return $sizeAttribute->values;
     }
 }

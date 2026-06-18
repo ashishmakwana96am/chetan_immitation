@@ -61,36 +61,38 @@
                         $selectedCats = request('category') ? explode(',', request('category')) : ($currentSlug ? [$currentSlug] : []);
                         $selectedSubs = request('sub_category') ? explode(',', request('sub_category')) : [];
                         $isCatChecked = in_array($cat->slug, $selectedCats);
+                        $shouldSelectAllSubs = $isCatChecked && empty($selectedSubs);
                         $isCatOpen = $isCatChecked || $cat->subCategories->pluck('slug')->intersect($selectedSubs)->isNotEmpty();
                     @endphp
                     <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
-                        <button onclick="toggleCategory('{{ $catId }}')"
-                            class="w-full flex items-center justify-between">
-                            <div class="flex items-center gap-[15px]">
-                                <label class="custom-checkbox" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="syncCategoryDropdownFromInput(this); applyFilters()">
+                        <div class="w-full flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-[15px] min-w-0 flex-1">
+                                <label class="custom-checkbox shrink-0" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="handleCategoryFilterChange(this)">
                                     <span></span>
                                 </label>
-                                <h3 class="text-[18px] text-[#3D403F]">
+                                <h3 class="text-[18px] text-[#3D403F] cursor-pointer select-none" onclick="toggleCategoryCheckbox('{{ $cat->id }}')">
                                     {{ $cat->name }}
                                     <span class="text-[#757575]">({{ $cat->products_count }})</span>
                                 </h3>
                             </div>
                             @if($cat->subCategories->isNotEmpty())
+                            <button type="button" onclick="toggleCategory('{{ $catId }}')" class="shrink-0 p-1" aria-label="Toggle subcategories">
                             <svg id="{{ $catId }}-arrow" class="w-4 h-4 text-[#131615] transition-transform duration-300" style="transform: rotate({{ $isCatOpen ? '180deg' : '0deg' }});"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
+                            </button>
                             @endif
-                        </button>
+                        </div>
                         @if($cat->subCategories->isNotEmpty())
                         <div id="{{ $catId }}-sub" class="{{ $isCatOpen ? '' : 'hidden' }} mt-5 space-y-4 pl-10">
                             @foreach($cat->subCategories as $sub)
-                            <label class="flex items-center gap-4 cursor-pointer">
-                                <label class="custom-checkbox">
-                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ in_array($sub->slug, $selectedSubs) ? 'checked' : '' }} onchange="syncCategoryDropdownFromInput(this); applyFilters()">
+                            <label class="flex items-center gap-4 cursor-pointer select-none">
+                                <span class="custom-checkbox shrink-0">
+                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubs)) ? 'checked' : '' }} onchange="handleSubcategoryFilterChange(this)">
                                     <span></span>
-                                </label>
+                                </span>
                                 <span class="text-[18px] text-[#757575]">{{ $sub->name }}</span>
                             </label>
                             @endforeach
@@ -118,7 +120,7 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="minPriceInput" type="number" value="{{ request('min_price', 0) }}" min="0" max="20000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="minPriceInput" type="number" value="{{ $selectedMinPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('min')" onblur="normalizePriceInput('min')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
@@ -141,7 +143,7 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="maxPriceInput" type="number" value="{{ request('max_price', 2000) }}" min="0" max="20000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="maxPriceInput" type="number" value="{{ $selectedMaxPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('max')" onblur="normalizePriceInput('max')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
@@ -166,8 +168,8 @@
                         <div class="absolute inset-x-0 h-[4px] bg-[#D5D5D5] rounded-full z-[1]"></div>
                         <!-- Active Track -->
                         <div id="rangeTrack" class="absolute h-[4px] bg-[#131615] rounded-full z-[2]" style="left:0%;right:90%;"></div>
-                        <input id="minRange" type="range" min="0" max="20000" value="{{ request('min_price', 0) }}" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
-                        <input id="maxRange" type="range" min="0" max="20000" value="{{ request('max_price', 2000) }}" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
+                        <input id="minRange" type="range" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" value="{{ $selectedMinPrice }}" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
+                        <input id="maxRange" type="range" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" value="{{ $selectedMaxPrice }}" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
                     </div>
                 </div>
             </div>
@@ -203,29 +205,6 @@
             </div>
             @endif
 
-            <!-- Out of stock -->
-            <div class="sidebar-section pb-0">
-                <button onclick="toggleSection('stock-section','stock-arrow')"
-                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
-                    <span>Out of stock</span>
-                    <svg id="stock-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                <div id="stock-section" class="pb-4">
-                    <div class="flex gap-5 pt-[25px] px-5">
-                        <button onclick="stockFilter('show',this)"
-                            class="stock-btn flex-1 rounded-sm py-[13px] text-base md:text-lg leading-[16px] md:leading-[18px] bg-[#B4771E] text-white">
-                            Show
-                        </button>
-                        <button onclick="stockFilter('hide',this)"
-                            class="stock-btn flex-1 rounded-sm py-[13px] text-base md:text-lg leading-[16px] md:leading-[18px] border border-[#757575] text-[#3D403F]">
-                            Hide
-                        </button>
-                    </div>
-                </div>
-            </div>
 
         </aside>
 
@@ -273,11 +252,67 @@
 @section('page-js')
 <script>
     const CATEGORY_BASE_URL = '{{ url('/category') }}';
-    const DEFAULT_MIN_PRICE = 0;
-    const DEFAULT_MAX_PRICE = 2000;
-    const PRICE_MAX_LIMIT = 20000;
+    let catalogMinPrice = {{ $catalogMinPrice }};
+    let catalogMaxPrice = {{ $catalogMaxPrice }};
     let filterTimeout;
-    let priceFilterTouched = false;
+    let priceFilterTouched = {{ $hasPriceFilter ? 'true' : 'false' }};
+
+    function getPriceStep() {
+        const range = catalogMaxPrice - catalogMinPrice;
+        return Math.max(1, Math.round(range / 20) || 1);
+    }
+
+    function clampPriceValue(value, fallback) {
+        const parsed = parseInt(value);
+        if (Number.isNaN(parsed)) return fallback;
+        return Math.max(catalogMinPrice, Math.min(catalogMaxPrice, parsed));
+    }
+
+    function setPriceInputs(min, max) {
+        document.getElementById('minPriceInput').value = min;
+        document.getElementById('maxPriceInput').value = max;
+        document.getElementById('minRange').value = min;
+        document.getElementById('maxRange').value = max;
+    }
+
+    function syncPriceInputBounds() {
+        ['minPriceInput', 'maxPriceInput', 'minRange', 'maxRange'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.min = catalogMinPrice;
+            el.max = catalogMaxPrice;
+        });
+    }
+
+    function isFullCatalogPriceRange(min, max) {
+        return min <= catalogMinPrice && max >= catalogMaxPrice;
+    }
+
+    function updateCatalogPriceRange(min, max) {
+        catalogMinPrice = min;
+        catalogMaxPrice = max;
+        syncPriceInputBounds();
+
+        if (!priceFilterTouched) {
+            setPriceInputs(catalogMinPrice, catalogMaxPrice);
+        } else {
+            let selectedMin = clampPriceValue(document.getElementById('minPriceInput').value, catalogMinPrice);
+            let selectedMax = clampPriceValue(document.getElementById('maxPriceInput').value, catalogMaxPrice);
+            const step = getPriceStep();
+
+            if (selectedMin >= selectedMax) {
+                selectedMin = Math.max(catalogMinPrice, selectedMax - step);
+            }
+
+            setPriceInputs(selectedMin, selectedMax);
+
+            if (isFullCatalogPriceRange(selectedMin, selectedMax)) {
+                priceFilterTouched = false;
+            }
+        }
+
+        updateRangeTrack();
+    }
 
     function setChevronOpenState(arrow, open) {
         if (!arrow) return;
@@ -324,6 +359,33 @@
         syncCategoryDropdown('cat-' + el.dataset.categoryId);
     }
 
+    function syncSubcategoriesWhenCategoryChecked(categoryCheckbox) {
+        if (!categoryCheckbox.checked) return;
+
+        document.querySelectorAll('.subcategory-checkbox[data-category-id="' + categoryCheckbox.dataset.categoryId + '"]').forEach(cb => {
+            cb.checked = true;
+        });
+    }
+
+    function toggleCategoryCheckbox(categoryId) {
+        const checkbox = document.querySelector('.category-checkbox[data-category-id="' + categoryId + '"]');
+        if (!checkbox) return;
+
+        checkbox.checked = !checkbox.checked;
+        handleCategoryFilterChange(checkbox);
+    }
+
+    function handleCategoryFilterChange(categoryCheckbox) {
+        syncSubcategoriesWhenCategoryChecked(categoryCheckbox);
+        syncCategoryDropdown('cat-' + categoryCheckbox.dataset.categoryId);
+        applyFilters();
+    }
+
+    function handleSubcategoryFilterChange(subcategoryCheckbox) {
+        syncCategoryDropdownFromInput(subcategoryCheckbox);
+        applyFilters();
+    }
+
     function setSectionDropdownState(contentId, arrowId, open) {
         const content = document.getElementById(contentId);
         const arrow = document.getElementById(arrowId);
@@ -351,19 +413,16 @@
         syncSectionDropdownState('cat-section', 'cat-arrow');
         syncSectionDropdownState('price-section', 'price-arrow');
         syncSectionDropdownState('size-section', 'size-arrow');
-        syncSectionDropdownState('stock-section', 'stock-arrow');
     }
 
     function syncFromInput(type) {
         priceFilterTouched = true;
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
-        let val = parseInt(input.value);
-        if (!Number.isNaN(val)) {
-            val = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
-            input.value = val;
-            range.value = val;
-        }
+        const fallback = type === 'min' ? catalogMinPrice : catalogMaxPrice;
+        let val = clampPriceValue(input.value, fallback);
+        input.value = val;
+        range.value = val;
         updateRangeTrack();
         applyFilters();
     }
@@ -371,23 +430,20 @@
     function normalizePriceInput(type) {
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
-        let val = parseInt(input.value);
-        const minInput = document.getElementById('minPriceInput');
-        const maxInput = document.getElementById('maxPriceInput');
-        const min = parseInt(minInput.value) || DEFAULT_MIN_PRICE;
-        const max = parseInt(maxInput.value) || DEFAULT_MAX_PRICE;
+        const step = getPriceStep();
+        let min = clampPriceValue(document.getElementById('minPriceInput').value, catalogMinPrice);
+        let max = clampPriceValue(document.getElementById('maxPriceInput').value, catalogMaxPrice);
+        let val = clampPriceValue(input.value, type === 'min' ? catalogMinPrice : catalogMaxPrice);
 
-        if (Number.isNaN(val)) {
-            val = type === 'min' ? DEFAULT_MIN_PRICE : DEFAULT_MAX_PRICE;
-        }
-
-        val = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
-
-        if (type === 'min' && val >= max) val = Math.max(0, max - 100);
-        if (type === 'max' && val <= min) val = Math.min(PRICE_MAX_LIMIT, min + 100);
+        if (type === 'min' && val >= max) val = Math.max(catalogMinPrice, max - step);
+        if (type === 'max' && val <= min) val = Math.min(catalogMaxPrice, min + step);
 
         input.value = val;
         range.value = val;
+        priceFilterTouched = !isFullCatalogPriceRange(
+            type === 'min' ? val : min,
+            type === 'max' ? val : max
+        );
         updateRangeTrack();
         applyFilters();
     }
@@ -396,9 +452,10 @@
         priceFilterTouched = true;
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
-        let val = (parseInt(input.value) || 0) + 100;
-        const max = parseInt(document.getElementById('maxPriceInput').value) || PRICE_MAX_LIMIT;
-        if (val >= max) val = max - 100;
+        const step = getPriceStep();
+        let val = clampPriceValue((parseInt(input.value) || catalogMinPrice) + step, catalogMinPrice);
+        const max = clampPriceValue(document.getElementById('maxPriceInput').value, catalogMaxPrice);
+        if (val >= max) val = Math.max(catalogMinPrice, max - step);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -409,8 +466,8 @@
         priceFilterTouched = true;
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
-        let val = (parseInt(input.value) || 0) - 100;
-        if (val < 0) val = 0;
+        const step = getPriceStep();
+        let val = clampPriceValue((parseInt(input.value) || catalogMinPrice) - step, catalogMinPrice);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -421,8 +478,8 @@
         priceFilterTouched = true;
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
-        let val = (parseInt(input.value) || 0) + 100;
-        if (val > PRICE_MAX_LIMIT) val = PRICE_MAX_LIMIT;
+        const step = getPriceStep();
+        let val = clampPriceValue((parseInt(input.value) || catalogMaxPrice) + step, catalogMaxPrice);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -433,9 +490,10 @@
         priceFilterTouched = true;
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
-        let val = (parseInt(input.value) || 0) - 100;
-        const min = parseInt(document.getElementById('minPriceInput').value) || 0;
-        if (val <= min) val = min + 100;
+        const step = getPriceStep();
+        let val = clampPriceValue((parseInt(input.value) || catalogMaxPrice) - step, catalogMaxPrice);
+        const min = clampPriceValue(document.getElementById('minPriceInput').value, catalogMinPrice);
+        if (val <= min) val = Math.min(catalogMaxPrice, min + step);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -445,9 +503,9 @@
     function updateRangeTrack() {
         const min = parseInt(document.getElementById('minRange').value);
         const max = parseInt(document.getElementById('maxRange').value);
-        const total = PRICE_MAX_LIMIT;
-        const leftPct = (min / total) * 100;
-        const rightPct = 100 - (max / total) * 100;
+        const total = catalogMaxPrice - catalogMinPrice || 1;
+        const leftPct = ((min - catalogMinPrice) / total) * 100;
+        const rightPct = 100 - ((max - catalogMinPrice) / total) * 100;
         document.getElementById('rangeTrack').style.left = leftPct + '%';
         document.getElementById('rangeTrack').style.right = rightPct + '%';
     }
@@ -456,32 +514,25 @@
         priceFilterTouched = true;
         const minRange = document.getElementById('minRange');
         const maxRange = document.getElementById('maxRange');
+        const step = getPriceStep();
         let min = parseInt(minRange.value);
         let max = parseInt(maxRange.value);
         if (min >= max) {
-            if (type === 'min') { min = max - 100; minRange.value = min; }
-            else { max = min + 100; maxRange.value = max; }
+            if (type === 'min') { min = Math.max(catalogMinPrice, max - step); minRange.value = min; }
+            else { max = Math.min(catalogMaxPrice, min + step); maxRange.value = max; }
         }
         document.getElementById('minPriceInput').value = min;
         document.getElementById('maxPriceInput').value = max;
+
+        if (isFullCatalogPriceRange(min, max)) {
+            priceFilterTouched = false;
+        }
+
         updateRangeTrack();
         applyFilters();
     }
 
     let stockState = 'show';
-
-    function stockFilter(action, btn) {
-        stockState = action;
-        document.querySelectorAll('.stock-btn').forEach(b => {
-            b.classList.remove('bg-[#B4771E]', 'text-white', 'border', 'border-[#B4771E]', 'border-[#757575]', 'text-[#3D403F]');
-            if (b === btn) {
-                b.classList.add('bg-[#B4771E]', 'text-white');
-            } else {
-                b.classList.add('border', 'border-[#757575]', 'text-[#3D403F]');
-            }
-        });
-        applyFilters();
-    }
 
     function buildQueryString() {
         const parts = [];
@@ -501,18 +552,17 @@
 
         const minP = document.getElementById('minPriceInput').value;
         const maxP = document.getElementById('maxPriceInput').value;
-        const minPrice = Math.max(0, Math.min(PRICE_MAX_LIMIT, parseInt(minP) || DEFAULT_MIN_PRICE));
-        const maxPrice = Math.max(0, Math.min(PRICE_MAX_LIMIT, parseInt(maxP) || DEFAULT_MAX_PRICE));
-        if (minPrice > DEFAULT_MIN_PRICE) parts.push('min_price=' + minPrice);
-        if (priceFilterTouched || maxPrice !== DEFAULT_MAX_PRICE) {
-            parts.push('max_price=' + maxPrice);
+        const minPrice = clampPriceValue(minP, catalogMinPrice);
+        const maxPrice = clampPriceValue(maxP, catalogMaxPrice);
+
+        if (priceFilterTouched) {
+            if (minPrice > catalogMinPrice) parts.push('min_price=' + minPrice);
+            if (maxPrice < catalogMaxPrice) parts.push('max_price=' + maxPrice);
         }
 
         const sizes = [];
         document.querySelectorAll('.size-checkbox:checked').forEach(cb => sizes.push(cb.value));
         if (sizes.length) parts.push('size=' + sizes.join(','));
-
-        if (stockState === 'hide') parts.push('stock=hide');
 
         return parts.join('&');
     }
@@ -543,6 +593,9 @@
         .then(data => {
             document.getElementById('productGrid').innerHTML = data.html;
             document.getElementById('paginationWrap').innerHTML = data.pagination;
+            if (data.price_range) {
+                updateCatalogPriceRange(data.price_range.min, data.price_range.max);
+            }
             syncCheckboxesFromUrl();
         })
         .catch(() => {
@@ -588,16 +641,20 @@
             }
         }
 
-        const subs = params.get('sub_category');
-        const subList = subs ? subs.split(',') : [];
+        const hasSubCategoryParam = params.has('sub_category');
+        const subList = hasSubCategoryParam
+            ? (params.get('sub_category') || '').split(',').filter(Boolean)
+            : [];
 
-        document.querySelectorAll('.category-checkbox').forEach(cb => {
-            cb.checked = catList.includes(cb.value);
+        document.querySelectorAll('.category-checkbox').forEach(category => {
+            category.checked = catList.includes(category.value);
         });
 
-        document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
-            cb.checked = subList.includes(cb.value);
-        });
+        if (hasSubCategoryParam) {
+            document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
+                cb.checked = subList.includes(cb.value);
+            });
+        }
 
         document.querySelectorAll('.category-checkbox').forEach(cb => {
             const catId = cb.dataset.categoryId;
@@ -613,38 +670,50 @@
         const minPrice = params.get('min_price');
         const maxPrice = params.get('max_price');
         priceFilterTouched = params.has('min_price') || params.has('max_price');
-        const minVal = minPrice ? parseInt(minPrice) : DEFAULT_MIN_PRICE;
-        const maxVal = maxPrice ? parseInt(maxPrice) : DEFAULT_MAX_PRICE;
+        const minVal = minPrice !== null ? parseInt(minPrice) : catalogMinPrice;
+        const maxVal = maxPrice !== null ? parseInt(maxPrice) : catalogMaxPrice;
         const activeId = document.activeElement ? document.activeElement.id : null;
         const isEditingPrice = activeId === 'minPriceInput' || activeId === 'maxPriceInput';
-        if (!isEditingPrice) {
-            document.getElementById('minPriceInput').value = minVal;
-            document.getElementById('maxPriceInput').value = maxVal;
-            document.getElementById('minRange').value = minVal;
-            document.getElementById('maxRange').value = maxVal;
+        if (!isEditingPrice && priceFilterTouched) {
+            setPriceInputs(
+                clampPriceValue(minVal, catalogMinPrice),
+                clampPriceValue(maxVal, catalogMaxPrice)
+            );
             updateRangeTrack();
         }
     }
 
-    function initStockState() {
+    function syncCategoryQueryWithSubcategories() {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('stock') === 'hide') {
-            stockState = 'hide';
-            document.querySelectorAll('.stock-btn').forEach(b => {
-                b.classList.remove('bg-[#B4771E]', 'text-white', 'border', 'border-[#B4771E]', 'border-[#757575]', 'text-[#3D403F]');
-            });
-            const hideBtn = document.querySelectorAll('.stock-btn')[1];
-            if (hideBtn) {
-                hideBtn.classList.add('bg-[#B4771E]', 'text-white');
-                document.querySelectorAll('.stock-btn')[0].classList.add('border', 'border-[#757575]', 'text-[#3D403F]');
-            }
+        const pathCat = getCategoryFromPath();
+        const hasCategoryFilter = params.has('category') || (pathCat && pathCat !== 'category');
+
+        if (!hasCategoryFilter || params.has('sub_category')) {
+            return;
         }
+
+        const qs = buildQueryString();
+        if (!qs.includes('sub_category=')) {
+            return;
+        }
+
+        const base = getCategoryBase();
+        const url = base + '?' + qs;
+        window.history.replaceState({}, '', url);
+        fetchProducts(1, qs);
+    }
+
+    function initStockState() {
+        // stock filter removed
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         initSidebarSectionDropdowns();
+        syncPriceInputBounds();
+        updateRangeTrack();
         syncCheckboxesFromUrl();
         initStockState();
+        syncCategoryQueryWithSubcategories();
 
         const sidebar = document.querySelector('aside');
         const filterBtn = document.getElementById('filterBtn');

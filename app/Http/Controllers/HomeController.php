@@ -16,13 +16,13 @@ class HomeController extends Controller
             ->get();
 
         $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
-            ->with('primaryImage')
+            ->with('primaryImage', 'variants.attributeValue')
             ->inRandomOrder()
             ->limit(8)
             ->get();
 
         $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
-            ->with('primaryImage')
+            ->with('primaryImage', 'variants.attributeValue')
             ->latest()
             ->limit(4)
             ->get();
@@ -107,7 +107,7 @@ class HomeController extends Controller
                     $q->where('category_id', $product->category_id);
                 }
             })
-            ->with('primaryImage')
+            ->with('primaryImage', 'variants.attributeValue')
             ->inRandomOrder()
             ->limit(4)
             ->get();

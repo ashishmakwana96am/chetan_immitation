@@ -735,6 +735,12 @@
             });
 
             $(document).on('change', '.attribute-select', function () {
+                if (this.checked) {
+                    $('.attribute-select').not(this).each(function () {
+                        this.checked = false;
+                        $(this).closest('.attribute-chip').removeClass('active');
+                    });
+                }
                 $(this).closest('.attribute-chip').toggleClass('active', this.checked);
                 if (!this.checked) {
                     const attrId = parseInt($(this).data('attribute-id'));
