@@ -2,6 +2,34 @@
 
 @section('title', $product->name . ' - Chetan Imitation')
 
+@section('page-css')
+<style>
+    .product-detail-panel,
+    .product-detail-accordion,
+    .product-detail-content {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .product-detail-content,
+    .product-detail-content * {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal !important;
+    }
+
+    .product-detail-content pre {
+        white-space: pre-wrap !important;
+        overflow-x: hidden;
+    }
+
+    .product-detail-content p {
+        margin: 0 0 10px;
+    }
+</style>
+@endsection
+
 @section('content')
 
 <section class="section-space">
@@ -51,7 +79,7 @@
 
             <!-- RIGHT SIDE -->
 
-            <div>
+            <div class="product-detail-panel min-w-0">
 
                 <h1 class="text-[#131615] font-bold text-[22px] sm:text-[28px] lg:text-[30px] xl:text-[36px] leading-[28px] sm:leading-tight">
                     {{ $product->name }}
@@ -107,6 +135,8 @@
                     $variantGroups = $product->variants
                         ->filter(fn ($variant) => $variant->attributeValue && $variant->attributeValue->attribute)
                         ->groupBy(fn ($variant) => $variant->attributeValue->attribute->id);
+                    $hasAdditionalInformation = filled(trim(html_entity_decode(strip_tags($product->additional_information ?? ''))));
+                    $hasProductHighlights = filled(trim(html_entity_decode(strip_tags($product->product_highlights ?? ''))));
                 @endphp
 
                 @if($variantGroups->isNotEmpty())
@@ -130,7 +160,7 @@
                     @endforeach
                 @endif
 
-                <div class="">
+                <div class="product-detail-accordion min-w-0 max-w-full overflow-hidden">
                     <details class="group" open>
                         <summary class="list-none flex items-center justify-between pt-[32px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Description</h3>
@@ -138,11 +168,12 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
                             {!! $product->description ?? 'No description available.' !!}
                         </div>
                     </details>
 
+                    @if($hasAdditionalInformation)
                     <details class="group">
                         <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Information</h3>
@@ -150,11 +181,13 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
-                            {!! $product->additional_information ?? 'Premium Quality Imitation Jewelry' !!}
+                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                            {!! $product->additional_information !!}
                         </div>
                     </details>
+                    @endif
 
+                    @if($hasProductHighlights)
                     <details class="group">
                         <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Highlights</h3>
@@ -162,10 +195,11 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
-                            {!! $product->product_highlights ?? 'Premium Quality Imitation Jewelry' !!}
+                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                            {!! $product->product_highlights !!}
                         </div>
                     </details>
+                    @endif
                 </div>
 
             </div>

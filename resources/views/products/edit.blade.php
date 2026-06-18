@@ -152,13 +152,13 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Additional Information <span class="text-danger">*</span></label>
+                                <label class="form-label">Additional Information</label>
                                 <div id="information-editor">{!! $product->additional_information !!}</div>
                                 <textarea name="additional_information" id="information-textarea" class="d-none">{{ $product->additional_information }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Product Highlights <span class="text-danger">*</span></label>
+                                <label class="form-label">Product Highlights</label>
                                 <div id="highlights-editor">{!! $product->product_highlights !!}</div>
                                 <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ $product->product_highlights }}</textarea>
                                 <div class="invalid-feedback"></div>
