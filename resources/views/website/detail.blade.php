@@ -40,7 +40,7 @@
 
             <!-- LEFT SIDE -->
             <div class="lg:col-span-5 w-full  lg:sticky lg:top-[80px]">
-                    <div class="swiper mainSwiper relative " style="height: 500px;">
+                    <div class="swiper mainSwiper relative h-[60vh]">
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
@@ -277,7 +277,7 @@
 
             @forelse($relatedProducts as $rp)
             <div class="group border border-[#D5D5D5] cursor-pointer">
-                <div class="relative ">
+                <div class="relative overflow-hidden">
                     @if($rp->sale)
                     <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
                         <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
