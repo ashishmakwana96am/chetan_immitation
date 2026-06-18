@@ -407,6 +407,16 @@ render();
 
 
 // -------------navbar js--
+function setHeaderCategoryArrow(open, iconId = 'desktopShopArrow') {
+    const icon = document.getElementById(iconId);
+    if (!icon) return;
+
+    icon.classList.add('transition-transform', 'duration-300');
+    icon.classList.remove('rotate-180');
+    icon.style.rotate = '';
+    icon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
 function toggleMenu(menuId, iconId){
 
     const menu = document.getElementById(menuId);
@@ -433,7 +443,7 @@ function toggleMenu(menuId, iconId){
 
     if (icon) {
         if (iconId === 'shopArrow') {
-            icon.classList.toggle('rotate-180');
+            setHeaderCategoryArrow(!menu.classList.contains("hidden"), iconId);
         } else {
             if (menu.classList.contains("hidden")) {
                 icon.innerHTML = '<i class="fa-solid fa-plus"></i>';

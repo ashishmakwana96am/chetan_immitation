@@ -114,5 +114,4 @@ class HomeController extends Controller
 
         return view('website.detail', compact('product', 'relatedProducts'));
     }
-
 }

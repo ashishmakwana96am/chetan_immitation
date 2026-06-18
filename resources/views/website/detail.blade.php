@@ -37,11 +37,11 @@
                     <div class="swiper-wrapper">
                         @forelse($product->images as $img)
                         <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                            <img src="{{ $img->image_url }}" class="w-full">
+                            <img src="{{ $img->image_url }}" class="w-full h-full object-cover">
                         </div>
                         @empty
                         <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                            <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full">
+                            <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-full object-cover">
                         </div>
                         @endforelse
                     </div>
@@ -103,19 +103,31 @@
                     <button class="border border-[#131615] common-btn !bg-transparent !text-[#131615]">Buy Now</button>
                 </div>
 
-                @if($product->variants->isNotEmpty())
-                <div class="mt-[30px]">
-                    <h4 class="text-xl md:text-[24px] font-medium mb-[15px] text-[#131615]">
-                        {{ $product->variants->first()->attributeValue->attribute->name ?? 'Size' }}:
-                    </h4>
-                    <div class="flex flex-wrap gap-4 md:gap-[20px]">
-                        @foreach($product->variants as $variant)
-                        <button class="w-[69px] h-10 border border-[#D5D5D5] text-base lg:text-xl {{ $loop->first ? 'bg-[#B4771E] text-white' : '' }}">
-                            {{ $variant->attributeValue->value }}
-                        </button>
-                        @endforeach
+                @php
+                    $variantGroups = $product->variants
+                        ->filter(fn ($variant) => $variant->attributeValue && $variant->attributeValue->attribute)
+                        ->groupBy(fn ($variant) => $variant->attributeValue->attribute->id);
+                @endphp
+
+                @if($variantGroups->isNotEmpty())
+                    @foreach($variantGroups as $variants)
+                    @php
+                        $attribute = $variants->first()->attributeValue->attribute;
+                        $attributeValues = $variants->unique('attribute_value_id');
+                    @endphp
+                    <div class="mt-[30px]">
+                        <h4 class="text-xl md:text-[24px] font-medium mb-[15px] text-[#131615]">
+                            {{ $attribute->name }}:
+                        </h4>
+                        <div class="flex flex-wrap gap-4 md:gap-[20px]">
+                            @foreach($attributeValues as $variant)
+                            <button class="min-w-[69px] min-h-10 px-4 py-2 border border-[#D5D5D5] text-base lg:text-xl leading-tight whitespace-normal text-center {{ $loop->first ? 'bg-[#B4771E] text-white' : '' }}">
+                                {{ $variant->attributeValue->value }}
+                            </button>
+                            @endforeach
+                        </div>
                     </div>
-                </div>
+                    @endforeach
                 @endif
 
                 <div class="">
@@ -123,7 +135,7 @@
                     <details class="group" open>
                         <summary class="list-none flex items-center justify-between pt-[32px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Description</h3>
-                            <svg class="w-5 h-5 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
@@ -135,7 +147,7 @@
                     <details class="group">
                         <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Information</h3>
-                            <svg class="w-5 h-5 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
@@ -147,14 +159,12 @@
                     <details class="group">
                         <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Highlights</h3>
-                            <svg class="w-5 h-5 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
                         <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
-                            @if($product->category)<strong>Category:</strong> {{ $product->category->name }}@endif
-                            @if($product->subCategory)<br><strong>Sub Category:</strong> {{ $product->subCategory->name }}@endif
-                            <br><strong>SKU:</strong> {{ $product->sku ?? 'N/A' }}
+                            {!! $product->product_highlights ?? 'Premium Quality Imitation Jewelry' !!}
                         </div>
                     </details>
 
@@ -305,6 +315,20 @@ const mainSwiper = new Swiper(".mainSwiper", {
 </script>
 
 <script>
+
+function syncProductDetailChevron(details) {
+    const chevron = details.querySelector('[data-detail-chevron]');
+    if (!chevron) return;
+
+    chevron.style.rotate = '';
+    chevron.style.transform = details.open ? 'rotate(180deg)' : 'rotate(0deg)';
+    chevron.setAttribute('aria-expanded', details.open ? 'true' : 'false');
+}
+
+document.querySelectorAll('details').forEach((details) => {
+    syncProductDetailChevron(details);
+    details.addEventListener('toggle', () => syncProductDetailChevron(details));
+});
 
 const qty = document.getElementById("qty");
 const plusBtn = document.getElementById("plusBtn");

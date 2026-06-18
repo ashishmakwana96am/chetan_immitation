@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ContactInquiryController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CouponController;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about-us', [HomeController::class, 'about'])->name('about');
 Route::get('/contact-us', [HomeController::class, 'contact'])->name('contact');
+Route::post('/contact-us', [ContactInquiryController::class, 'store'])->name('contact.submit');
 Route::get('/terms-conditions', [HomeController::class, 'terms'])->name('terms');
 Route::get('/privacy-policy', [HomeController::class, 'privacy'])->name('privacy');
 Route::get('/delivery-returns', [HomeController::class, 'deliveryReturns'])->name('delivery-returns');
@@ -78,6 +80,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        // Contact Inquiries
+        Route::get('contact-inquiries/data', [ContactInquiryController::class, 'data'])->name('contact-inquiries.data');
+        Route::get('contact-inquiries', [ContactInquiryController::class, 'index'])->name('contact-inquiries.index');
+        Route::get('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'show'])->name('contact-inquiries.show');
+        Route::delete('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'destroy'])->name('contact-inquiries.destroy');
 
         // Products
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
@@ -192,4 +200,3 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
 });
-

@@ -134,35 +134,44 @@
                     Fill out the form below and our team will get back to you as soon as possible.
                 </p>
 
-                <form>
+                <form id="contactForm" action="{{ route('contact.submit') }}" method="POST" novalidate>
+                    @csrf
                     <div class="grid md:grid-cols-2 gap-5 mb-5">
                         <div>
                             <label class="block text-xl mb-3 text-[#131615]">Full Name</label>
-                            <input type="text" placeholder="Enter Your Full Name" class="w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <input type="text" name="full_name" placeholder="Enter Your Full Name" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <p class="contact-error mt-2 text-sm text-red-600" data-error-for="full_name"></p>
                         </div>
                         <div>
                             <label class="block text-xl mb-3 text-[#131615]">Email Address</label>
-                            <input type="text" placeholder="Enter Your Email" class="w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <input type="email" name="email" placeholder="Enter Your Email" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <p class="contact-error mt-2 text-sm text-red-600" data-error-for="email"></p>
                         </div>
                     </div>
 
                     <div class="grid md:grid-cols-2 gap-5 mb-5">
                         <div>
                             <label class="block text-xl mb-3 text-[#131615]">Phone Number</label>
-                            <input type="text" placeholder="Enter Your Phone" class="w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <input type="text" name="phone" placeholder="Enter Your Phone" maxlength="10" inputmode="numeric" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <p class="contact-error mt-2 text-sm text-red-600" data-error-for="phone"></p>
                         </div>
                         <div>
                             <label class="block text-xl mb-3 text-[#131615]">Subject</label>
-                            <input type="text" placeholder="Enter Subject" class="w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <input type="text" name="subject" placeholder="Enter Subject" class="contact-input w-full h-[52px] border border-[#dcdcdc] px-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E]">
+                            <p class="contact-error mt-2 text-sm text-red-600" data-error-for="subject"></p>
                         </div>
                     </div>
 
                     <div class="mb-7">
                         <label class="block text-xl mb-3 text-[#131615]">Message</label>
-                        <textarea rows="5" placeholder="Type Your Message Here...." class="w-full min-h-36 border border-[#DCDCDC] p-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E] resize-y"></textarea>
+                        <textarea rows="5" name="message" placeholder="Type Your Message Here...." class="contact-input w-full min-h-36 border border-[#DCDCDC] p-4 text-lg placeholder:text-lg outline-none focus:border-[#B4771E] resize-y"></textarea>
+                        <p class="contact-error mt-2 text-sm text-red-600" data-error-for="message"></p>
                     </div>
 
-                    <button type="submit" class="w-full h-[56px] bg-[#B4771E] text-white text-xl font-medium hover:bg-[#b17820] duration-300">
+                    <div id="contactSuccess" class="hidden mb-5 border border-green-200 bg-green-50 px-4 py-3 text-green-700"></div>
+                    <div id="contactFailure" class="hidden mb-5 border border-red-200 bg-red-50 px-4 py-3 text-red-700"></div>
+
+                    <button type="submit" id="contactSubmitBtn" class="w-full h-[56px] bg-[#B4771E] text-white text-xl font-medium hover:bg-[#b17820] duration-300">
                         Send Message
                     </button>
                 </form>
@@ -192,4 +201,94 @@
 
 </section>
 
+@endsection
+
+@section('page-js')
+<script>
+    $(document).ready(function () {
+        const form = $('#contactForm');
+        const submitBtn = $('#contactSubmitBtn');
+        const successBox = $('#contactSuccess');
+        const failureBox = $('#contactFailure');
+
+        function setFieldError(field, message) {
+            const input = form.find('[name="' + field + '"]');
+            const error = form.find('[data-error-for="' + field + '"]');
+            input.toggleClass('border-red-500', Boolean(message));
+            error.text(message || '');
+        }
+
+        function clearErrors() {
+            form.find('.contact-error').text('');
+            form.find('.contact-input').removeClass('border-red-500');
+            successBox.addClass('hidden').text('');
+            failureBox.addClass('hidden').text('');
+        }
+
+        function validateContactForm() {
+            const errors = {};
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const phoneRegex = /^[0-9]{10}$/;
+
+            const fullName = $.trim(form.find('[name="full_name"]').val());
+            const email = $.trim(form.find('[name="email"]').val());
+            const phone = $.trim(form.find('[name="phone"]').val());
+            const subject = $.trim(form.find('[name="subject"]').val());
+            const message = $.trim(form.find('[name="message"]').val());
+
+            if (!fullName) errors.full_name = 'Please enter your full name.';
+            if (!email) errors.email = 'Please enter your email address.';
+            else if (!emailRegex.test(email)) errors.email = 'Please enter a valid email address.';
+            if (!phone) errors.phone = 'Please enter your phone number.';
+            else if (!phoneRegex.test(phone)) errors.phone = 'Please enter a valid 10 digit phone number.';
+            if (!subject) errors.subject = 'Please enter subject.';
+            if (!message) errors.message = 'Please enter your message.';
+
+            Object.keys(errors).forEach(function (field) {
+                setFieldError(field, errors[field]);
+            });
+
+            return Object.keys(errors).length === 0;
+        }
+
+        form.find('[name="phone"]').on('input', function () {
+            this.value = this.value.replace(/\D/g, '').slice(0, 10);
+        });
+
+        form.find('.contact-input').on('input', function () {
+            setFieldError($(this).attr('name'), '');
+        });
+
+        form.on('submit', function (e) {
+            e.preventDefault();
+            clearErrors();
+
+            if (!validateContactForm()) return;
+
+            submitBtn.prop('disabled', true).text('Sending...');
+
+            $.ajax({
+                url: form.attr('action'),
+                method: 'POST',
+                data: form.serialize(),
+                success: function (res) {
+                    form[0].reset();
+                    successBox.removeClass('hidden').text(res.message || 'Your message has been submitted successfully.');
+                },
+                error: function (xhr) {
+                    if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.message) {
+                        $.each(xhr.responseJSON.message, function (field, messages) {
+                            setFieldError(field, messages[0]);
+                        });
+                    } else {
+                        failureBox.removeClass('hidden').text('Something went wrong. Please try again.');
+                    }
+                },
+                complete: function () {
+                    submitBtn.prop('disabled', false).text('Send Message');
+                }
+            });
+        });
+    });
+</script>
 @endsection

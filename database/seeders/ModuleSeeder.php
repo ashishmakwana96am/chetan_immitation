@@ -236,5 +236,24 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view roles',
             'sort_order'     => 2,
         ]);
+
+        // 8. Website Content
+        $websiteCategory = Module::create([
+            'name'           => 'Website Content',
+            'icon'           => null,
+            'route'          => null,
+            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*',
+            'permission'     => null,
+            'sort_order'     => 8,
+        ]);
+        Module::create([
+            'parent_id'      => $websiteCategory->id,
+            'name'           => 'Contact Inquiries',
+            'icon'           => 'ti ti-mail',
+            'route'          => 'admin.contact-inquiries.index',
+            'active_pattern' => 'admin/contact-inquiries*',
+            'permission'     => 'view contact inquiries',
+            'sort_order'     => 1,
+        ]);
     }
 }

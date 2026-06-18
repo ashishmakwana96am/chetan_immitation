@@ -4422,3 +4422,17 @@ summary {
         min-height: calc(80vh - 158px) !important;
     }
 }
+.thumbSwiper .swiper-slide {
+    width: calc((100% - 60px) / 5);
+    margin-right: 15px;
+    height: 130px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.thumbSwiper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}

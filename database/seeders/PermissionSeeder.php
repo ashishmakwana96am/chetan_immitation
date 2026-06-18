@@ -102,6 +102,10 @@ class PermissionSeeder extends Seeder
             'create attributes' => 'Attributes',
             'edit attributes' => 'Attributes',
             'delete attributes' => 'Attributes',
+
+            // Contact Inquiries
+            'view contact inquiries' => 'Contact Inquiries',
+            'delete contact inquiries' => 'Contact Inquiries',
         ];
 
         foreach ($permissions as $name => $module) {

@@ -139,6 +139,12 @@
                                 <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : '' }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-12">
+                                <label class="form-label">Product Highlights <span class="text-danger">*</span></label>
+                                <div id="highlights-editor">{!! isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') !!}</div>
+                                <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') }}</textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -293,6 +299,16 @@
             
             infoQuill.on('text-change', function() {
                 $('#information-textarea').val(infoQuill.root.innerHTML === '<p><br></p>' ? '' : infoQuill.root.innerHTML).trigger('input');
+            });
+
+            // Initialize Quill Editor for Product Highlights
+            const highlightsQuill = new Quill('#highlights-editor', {
+                theme: 'snow',
+                placeholder: 'Enter product highlights...'
+            });
+
+            highlightsQuill.on('text-change', function() {
+                $('#highlights-textarea').val(highlightsQuill.root.innerHTML === '<p><br></p>' ? '' : highlightsQuill.root.innerHTML).trigger('input');
             });
 
             // Dynamic Sub Categories load

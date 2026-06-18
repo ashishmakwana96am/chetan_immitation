@@ -134,6 +134,12 @@
                                 <div class="mb-0">{!! $product->additional_information !!}</div>
                             </div>
                         @endif
+                        @if($product->product_highlights)
+                            <div class="col-12">
+                                <p class="text-muted small mb-1">Product Highlights</p>
+                                <div class="mb-0">{!! $product->product_highlights !!}</div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
