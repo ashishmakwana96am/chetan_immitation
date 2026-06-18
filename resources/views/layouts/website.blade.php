@@ -152,9 +152,29 @@
                             <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
                         </a>
 
+                        @auth('customer')
+                        <div class="relative group/user">
+                            <button class="text-white hover-gold-filter focus:outline-none">
+                                <img src="{{ asset('website/assets/images/user.png') }}" alt="">
+                            </button>
+                            <div class="absolute right-0 top-full mt-2 w-[180px] bg-white border border-[#D5D5D5] rounded-[4px] shadow-lg opacity-0 invisible group-hover/user:opacity-100 group-hover/user:visible transition duration-200 z-50">
+                                <div class="px-4 py-3 border-b border-[#D5D5D5]">
+                                    <p class="text-sm font-semibold text-[#131615] truncate">{{ Auth::guard('customer')->user()->name }}</p>
+                                    <p class="text-xs text-[#757575] truncate">{{ Auth::guard('customer')->user()->email }}</p>
+                                </div>
+                                <form method="POST" action="{{ route('customer.logout') }}">
+                                    @csrf
+                                    <button type="submit" class="w-full text-left px-4 py-3 text-base text-[#dc2626] hover:bg-[#fff5f5] transition">
+                                        Logout
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        @else
                         <a href="{{ route('login') }}" class="text-white hover-gold-filter">
                             <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                         </a>
+                        @endauth
                     </div>
 
                     <!-- Mobile Button -->
@@ -323,7 +343,7 @@
             <div class="container-1440">
                 <div class="flex flex-col md:flex-row items-center justify-between gap-5 py-[20px]">
                     <p class="text-[#D5D5D5] text-base text-center md:text-left">
-                        © 2026 Chetan Imitation. All Rights Reserved | Developed by <a href="https://www.risingstarinfotech.com/" target="_blank" class="text-[#B4771E] hover:text-[#B4771E]">Rising Star Infotech</a>
+                        © {{ date('Y') }} Chetan Imitation. All Rights Reserved | Developed by <a href="https://www.risingstarinfotech.com/" target="_blank" class="text-[#B4771E] hover:text-[#B4771E]">Rising Star Infotech</a>
                     </p>
 
                     <!-- Social -->

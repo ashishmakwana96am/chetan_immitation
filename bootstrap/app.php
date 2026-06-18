@@ -16,7 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->redirectGuestsTo(fn () => route('admin.login'));
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if (str_starts_with($request->path(), 'admin')) {
+                return route('admin.login');
+            }
+
+            return route('login');
+        });
         $middleware->web(append: [
             PreventResponseCaching::class,
         ]);

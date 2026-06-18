@@ -9,7 +9,7 @@ class CustomerLoginController extends Controller
 {
     public function login(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'email'    => ['required', 'email'],
             'password' => ['required'],
         ], [
@@ -18,13 +18,20 @@ class CustomerLoginController extends Controller
             'password.required' => 'Password is required.',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         $customer = \App\Models\Customer::where('email', $request->email)->first();
 
-        // Account inactive
         if ($customer && $customer->status == \App\Models\Customer::STATUS_INACTIVE) {
-            return back()
-                ->withErrors(['email' => 'Your account has been deactivated. Please contact support.'])
-                ->withInput($request->only('email', 'remember'));
+            return response()->json([
+                'status' => 'error',
+                'errors' => ['email' => ['Your account has been deactivated. Please contact support.']],
+            ], 422);
         }
 
         $credentials = $request->only('email', 'password');
@@ -32,13 +39,16 @@ class CustomerLoginController extends Controller
         if (Auth::guard('customer')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
-            return redirect()->intended(route('home'))
-                ->with('success', 'Welcome back, ' . Auth::guard('customer')->user()->name . '!');
+            return response()->json([
+                'status'       => 'success',
+                'redirect_url' => redirect()->intended(route('home'))->getTargetUrl(),
+            ]);
         }
 
-        return back()
-            ->withErrors(['email' => 'These credentials do not match our records.'])
-            ->withInput($request->only('email', 'remember'));
+        return response()->json([
+            'status' => 'error',
+            'errors' => ['email' => ['These credentials do not match our records.']],
+        ], 422);
     }
 
     public function logout(Request $request)

@@ -40,7 +40,10 @@ class MemberRegisterController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
         $customer = Customer::create([
@@ -52,15 +55,15 @@ class MemberRegisterController extends Controller
             'status'     => Customer::STATUS_ACTIVE,
         ]);
 
-        // Send welcome email (silently fail so registration still succeeds)
         try {
             Mail::to($customer->email)->send(new WelcomeMemberMail($customer));
         } catch (\Throwable $e) {
-            // Log but don't block registration
             logger()->error('Welcome email failed: ' . $e->getMessage());
         }
 
-        return redirect()->route('login')
-            ->with('success', 'Account created successfully! Welcome to Chetan Imitation. Please log in.');
+        return response()->json([
+            'status'       => 'success',
+            'redirect_url' => route('login') . '?registered=1',
+        ]);
     }
 }

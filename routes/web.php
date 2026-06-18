@@ -26,6 +26,7 @@ use App\Http\Controllers\WebsiteContentController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MemberRegisterController;
 use App\Http\Controllers\CustomerLoginController;
+use App\Http\Controllers\CustomerPasswordResetController;
 use App\Http\Controllers\ShopCategoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,7 +43,12 @@ Route::get('/login', [HomeController::class, 'login'])->name('login');
 Route::post('/login', [CustomerLoginController::class, 'login'])->name('login.store');
 Route::post('/logout', [CustomerLoginController::class, 'logout'])->name('customer.logout');
 Route::get('/forgot-password', [HomeController::class, 'forgotPassword'])->name('forgot-password');
+Route::post('/forgot-password', [CustomerPasswordResetController::class, 'sendOtp'])->name('forgot-password.send-otp');
 Route::get('/otp-verification', [HomeController::class, 'otpVerification'])->name('otp-verification');
+Route::post('/otp-verification', [CustomerPasswordResetController::class, 'verifyOtp'])->name('otp-verification.verify');
+Route::post('/otp-verification/resend', [CustomerPasswordResetController::class, 'resendOtp'])->name('otp-verification.resend');
+Route::get('/reset-password', [CustomerPasswordResetController::class, 'showResetForm'])->name('customer.reset-password');
+Route::post('/reset-password', [CustomerPasswordResetController::class, 'resetPassword'])->name('customer.reset-password.update');
 Route::get('/register', [HomeController::class, 'register'])->name('register');
 Route::post('/register', [MemberRegisterController::class, 'store'])->name('register.store');
 Route::get('/category/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
@@ -59,7 +65,7 @@ Route::get('robots.txt', function () {
 });
 
 // Required by Laravel's password broker to generate reset URL in email
-Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('guest');
+Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('guest:web');
 
 // Admin routes
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -69,7 +75,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     // Guest routes
-    Route::middleware('guest')->group(function () {
+    Route::middleware('guest:web')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login']);
 
@@ -81,7 +87,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     // Authenticated routes
-    Route::middleware('auth')->group(function () {
+    Route::middleware('auth:web')->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

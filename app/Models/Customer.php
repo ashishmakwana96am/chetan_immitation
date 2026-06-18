@@ -16,6 +16,8 @@ class Customer extends Authenticatable
         'password',
         'is_website',
         'status',
+        'otp',
+        'otp_expires_at',
     ];
 
     protected $hidden = [
@@ -26,8 +28,9 @@ class Customer extends Authenticatable
     protected function casts(): array
     {
         return [
-            'is_website' => 'boolean',
-            'password'   => 'hashed',
+            'is_website'     => 'boolean',
+            'password'       => 'hashed',
+            'otp_expires_at' => 'datetime',
         ];
     }
 }
