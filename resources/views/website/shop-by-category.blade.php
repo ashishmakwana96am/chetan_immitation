@@ -47,7 +47,7 @@
                 <button onclick="toggleSection('cat-section','cat-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Category</span>
-                    <svg id="cat-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="cat-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -59,14 +59,16 @@
                     @php
                         $currentSlug = request()->segment(2);
                         $selectedCats = request('category') ? explode(',', request('category')) : ($currentSlug ? [$currentSlug] : []);
+                        $selectedSubs = request('sub_category') ? explode(',', request('sub_category')) : [];
                         $isCatChecked = in_array($cat->slug, $selectedCats);
+                        $isCatOpen = $isCatChecked || $cat->subCategories->pluck('slug')->intersect($selectedSubs)->isNotEmpty();
                     @endphp
                     <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
-                        <button onclick="toggleCategory('{{ $catId }}-sub','{{ $catId }}-arrow')"
+                        <button onclick="toggleCategory('{{ $catId }}')"
                             class="w-full flex items-center justify-between">
                             <div class="flex items-center gap-[15px]">
-                                <label class="custom-checkbox">
-                                    <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="applyFilters()">
+                                <label class="custom-checkbox" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="syncCategoryDropdownFromInput(this); applyFilters()">
                                     <span></span>
                                 </label>
                                 <h3 class="text-[18px] text-[#3D403F]">
@@ -75,19 +77,18 @@
                                 </h3>
                             </div>
                             @if($cat->subCategories->isNotEmpty())
-                            <svg id="{{ $catId }}-arrow" class="w-4 h-4 text-[#131615] transition {{ $isCatChecked ? 'rotate-180' : '' }} duration-300"
+                            <svg id="{{ $catId }}-arrow" class="w-4 h-4 text-[#131615] transition-transform duration-300" style="transform: rotate({{ $isCatOpen ? '180deg' : '0deg' }});"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                             @endif
                         </button>
                         @if($cat->subCategories->isNotEmpty())
-                        @php $selectedSubs = request('sub_category') ? explode(',', request('sub_category')) : []; @endphp
-                        <div id="{{ $catId }}-sub" class="{{ $isCatChecked ? '' : 'hidden' }} mt-5 space-y-4 pl-10">
+                        <div id="{{ $catId }}-sub" class="{{ $isCatOpen ? '' : 'hidden' }} mt-5 space-y-4 pl-10">
                             @foreach($cat->subCategories as $sub)
                             <label class="flex items-center gap-4 cursor-pointer">
                                 <label class="custom-checkbox">
-                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ in_array($sub->slug, $selectedSubs) ? 'checked' : '' }} onchange="openParentDropdown(this); applyFilters()">
+                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ in_array($sub->slug, $selectedSubs) ? 'checked' : '' }} onchange="syncCategoryDropdownFromInput(this); applyFilters()">
                                     <span></span>
                                 </label>
                                 <span class="text-[18px] text-[#757575]">{{ $sub->name }}</span>
@@ -105,7 +106,7 @@
                 <button onclick="toggleSection('price-section','price-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Price</span>
-                    <svg id="price-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="price-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -177,7 +178,7 @@
                 <button onclick="toggleSection('size-section','size-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Size</span>
-                    <svg id="size-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="size-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -207,7 +208,7 @@
                 <button onclick="toggleSection('stock-section','stock-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Out of stock</span>
-                    <svg id="stock-arrow" class="collapse-arrow rotate-180 w-5 h-5 text-[#131615]" fill="none"
+                    <svg id="stock-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -274,36 +275,79 @@
     const CATEGORY_BASE_URL = '{{ url('/category') }}';
     let filterTimeout;
 
+    function setChevronOpenState(arrow, open) {
+        if (!arrow) return;
+
+        arrow.classList.add('transition-transform', 'duration-300');
+        arrow.classList.remove('rotate-180');
+        arrow.style.rotate = '';
+        arrow.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        arrow.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
     function setCategoryDropdownState(catId, open) {
         const content = document.getElementById(catId + '-sub');
         const arrow = document.getElementById(catId + '-arrow');
         if (!content) return;
+
         content.classList.toggle('hidden', !open);
-        if (arrow) arrow.classList.toggle('rotate-180', open);
+        content.dataset.open = open ? 'true' : 'false';
+        setChevronOpenState(arrow, open);
     }
 
-    function toggleCategory(contentId, arrowId) {
+    function isCategoryDropdownOpen(catId) {
+        const content = document.getElementById(catId + '-sub');
+        return content ? !content.classList.contains('hidden') : false;
+    }
+
+    function categoryHasSelectedFilters(catId) {
+        const categoryId = catId.replace('cat-', '');
+        const category = document.querySelector('.category-checkbox[data-category-id="' + categoryId + '"]');
+        const subcategory = document.querySelector('.subcategory-checkbox[data-category-id="' + categoryId + '"]:checked');
+        return Boolean((category && category.checked) || subcategory);
+    }
+
+    function syncCategoryDropdown(catId, open) {
+        const shouldOpen = typeof open === 'boolean' ? open : categoryHasSelectedFilters(catId);
+        setCategoryDropdownState(catId, shouldOpen);
+    }
+
+    function toggleCategory(catId) {
+        syncCategoryDropdown(catId, !isCategoryDropdownOpen(catId));
+    }
+
+    function syncCategoryDropdownFromInput(el) {
+        syncCategoryDropdown('cat-' + el.dataset.categoryId);
+    }
+
+    function setSectionDropdownState(contentId, arrowId, open) {
         const content = document.getElementById(contentId);
         const arrow = document.getElementById(arrowId);
-        if (content && arrow) {
-            const shouldOpen = content.classList.contains('hidden');
-            const catId = contentId.replace(/-sub$/, '');
-            setCategoryDropdownState(catId, shouldOpen);
-        }
-    }
+        if (!content) return;
 
-    function openParentDropdown(el) {
-        const catId = el.dataset.categoryId;
-        setCategoryDropdownState('cat-' + catId, true);
+        content.classList.toggle("hidden", !open);
+        setChevronOpenState(arrow, open);
     }
 
     function toggleSection(contentId, arrowId) {
         const content = document.getElementById(contentId);
-        const arrow = document.getElementById(arrowId);
-        if (content && arrow) {
-            content.classList.toggle("hidden");
-            arrow.classList.toggle("rotate-180");
-        }
+        if (!content) return;
+
+        setSectionDropdownState(contentId, arrowId, content.classList.contains("hidden"));
+    }
+
+    function syncSectionDropdownState(contentId, arrowId) {
+        const content = document.getElementById(contentId);
+        if (!content) return;
+
+        setSectionDropdownState(contentId, arrowId, !content.classList.contains("hidden"));
+    }
+
+    function initSidebarSectionDropdowns() {
+        syncSectionDropdownState('cat-section', 'cat-arrow');
+        syncSectionDropdownState('price-section', 'price-arrow');
+        syncSectionDropdownState('size-section', 'size-arrow');
+        syncSectionDropdownState('stock-section', 'stock-arrow');
     }
 
     function syncFromInput(type) {
@@ -521,9 +565,7 @@
 
         document.querySelectorAll('.category-checkbox').forEach(cb => {
             const catId = cb.dataset.categoryId;
-            const hasCheckedSub = document.querySelector('.subcategory-checkbox[data-category-id="' + catId + '"]:checked');
-            const shouldOpen = cb.checked || hasCheckedSub;
-            setCategoryDropdownState('cat-' + catId, shouldOpen);
+            syncCategoryDropdown('cat-' + catId);
         });
 
         const sizeParam = params.get('size');
@@ -559,6 +601,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        initSidebarSectionDropdowns();
         syncCheckboxesFromUrl();
         initStockState();
 
