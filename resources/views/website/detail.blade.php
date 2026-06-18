@@ -32,60 +32,57 @@
 
 @section('content')
 
-<section class="section-space">
+<section class="pt-[50px] pb-[60px] md:pb-[80px] lg:pb-[100px]">
 
-    <div class="container-1440">
+    <div class="container-1440 overflow-visible">
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-[30px] items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-[30px] items-start">
 
             <!-- LEFT SIDE -->
-            <div class="w-full">
+            <div class="lg:col-span-5 w-full  lg:sticky lg:top-[80px]">
+                    <div class="swiper mainSwiper relative " style="height: 500px;">
 
-                <div class="swiper mainSwiper relative overflow-hidden">
+                        <div class="swiper-wrapper">
+                            @forelse($product->images as $img)
+                            <div class="swiper-slide">
+                                <img src="{{ $img->image_url }}" class="w-full h-auto ">
+                            </div>
+                            @empty
+                            <div class="swiper-slide">
+                                <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-auto ">
+                            </div>
+                            @endforelse
+                        </div>
 
-                    <div class="swiper-wrapper">
-                        @forelse($product->images as $img)
-                        <div class="swiper-slide">
-                            <img src="{{ $img->image_url }}" class="w-full h-auto object-cover">
-                        </div>
-                        @empty
-                        <div class="swiper-slide">
-                            <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-auto object-cover">
-                        </div>
-                        @endforelse
+                        <button class="absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center">
+                            <img src="{{ asset('website/assets/images/header-red.png') }}" alt="">
+                        </button>
+
                     </div>
-
-                    <button class="absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center">
-                        <img src="{{ asset('website/assets/images/header-red.png') }}" alt="">
-                    </button>
-
-                </div>
-
-                <div class="swiper thumbSwiper mt-4">
-                    <div class="swiper-wrapper">
-                        @forelse($product->images as $img)
-                        <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                            <img src="{{ $img->image_url }}" class="w-full h-full object-cover">
+                    <div class="swiper thumbSwiper mt-4">
+                        <div class="swiper-wrapper">
+                            @forelse($product->images as $img)
+                            <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
+                                <img src="{{ $img->image_url }}" class="w-full h-full object-contain">
+                            </div>
+                            @empty
+                            <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
+                                <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-full object-cover">
+                            </div>
+                            @endforelse
                         </div>
-                        @empty
-                        <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                            <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-full object-cover">
-                        </div>
-                        @endforelse
                     </div>
-                </div>
-
             </div>
 
             <!-- RIGHT SIDE -->
 
-            <div class="product-detail-panel min-w-0">
+            <div class="lg:col-span-7 product-detail-panel min-w-0">
 
-                <h1 class="text-[#131615] font-bold text-[22px] sm:text-[28px] lg:text-[30px] xl:text-[36px] leading-[28px] sm:leading-tight">
+                <h1 class="text-[#131615] font-bold text-[22px] sm:text-[28px] sm:leading-[28px]">
                     {{ $product->name }}
                 </h1>
 
-                <div class="flex items-center gap-2 mt-5">
+                <div class="flex items-center gap-2 mt-3">
                     <div class="flex text-[#B4771E] text-[14px]">
                        <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
                        <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
@@ -96,12 +93,12 @@
                     <span class="text-[#757575] text-base md:text-xl">(0)</span>
                 </div>
 
-                <div class="flex items-center gap-[10px] mt-4 md:mt-[29px]">
-                    <span class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] xl:text-[40px] xl:leading-[44px] font-bold">
+                <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
+                    <span class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
                         ₹{{ number_format($product->sale_price, 0) }}
                     </span>
                     @if($product->mrp && $product->mrp > $product->sale_price)
-                    <span class="line-through text-[#757575] text-[22px] leading-[24px] xl:text-[26px] xl:leading-[26px]">
+                    <span class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
                         ₹{{ number_format($product->mrp, 0) }}
                     </span>
                     @endif
@@ -112,10 +109,10 @@
                 </p>
 
                 <div class="flex items-center gap-4 mt-5 lg:mt-[30px]">
-                    <span class="text-[#131615] text-base md:text-xl sm:text-[22px] xl:text-[24px] leading-[24px]">
+                    <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">
                         Quantity:
                     </span>
-                    <div class="flex items-center border border-[#D5D5D5] py-[10px] md:py-[12px] px-[10px] md:px-[15px] gap-[15px]">
+                    <div class="flex items-center border border-[#D5D5D5] py-[10px] px-[10px] md:px-[15px] gap-[15px]">
                         <button id="minusBtn" class="text-[#757575] text-base md:text-lg font-bold">
                           <i class="fa-solid fa-minus"></i>
                         </button>
@@ -160,28 +157,28 @@
                     @endforeach
                 @endif
 
-                <div class="product-detail-accordion min-w-0 max-w-full overflow-hidden">
+                <div class="product-detail-accordion min-w-0 max-w-full ">
                     <details class="group" open>
                         <summary class="list-none flex items-center justify-between pt-[32px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
-                            <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Description</h3>
+                            <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Description</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                        <div class="product-detail-content text-base md:text-lg text-[#3D403F] pt-5">
                             {!! $product->description ?? 'No description available.' !!}
                         </div>
                     </details>
 
                     @if($hasAdditionalInformation)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
-                            <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Information</h3>
+                        <summary class="list-none flex items-center justify-between pt-[22px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
+                            <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Information</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                        <div class="product-detail-content text-base md:text-lg text-[#3D403F] pt-5">
                             {!! $product->additional_information !!}
                         </div>
                     </details>
@@ -189,13 +186,13 @@
 
                     @if($hasProductHighlights)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[25px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
-                            <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Highlights</h3>
+                        <summary class="list-none flex items-center justify-between pt-[22px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
+                            <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Highlights</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </summary>
-                        <div class="product-detail-content text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
+                        <div class="product-detail-content text-base md:text-lg text-[#3D403F] pt-5">
                             {!! $product->product_highlights !!}
                         </div>
                     </details>
@@ -280,7 +277,7 @@
 
             @forelse($relatedProducts as $rp)
             <div class="group border border-[#D5D5D5] cursor-pointer">
-                <div class="relative overflow-hidden">
+                <div class="relative ">
                     @if($rp->sale)
                     <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
                         <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>

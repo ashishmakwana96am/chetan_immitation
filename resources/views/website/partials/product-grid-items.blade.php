@@ -42,7 +42,46 @@ d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.6
              <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
              @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
         </div>
-        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
+           <div class="mt-5">
+
+                    <div class="flex flex-wrap gap-2">
+
+                        <button class="px-3 py-1 bg-[#B4771E] text-white text-xs">
+                            4.0
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            4.5
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            5.0
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            6.0
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            6.5
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            7.0
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            7.5
+                        </button>
+
+                        <button class="px-3 py-1 border border-[#D5D5D5] text-xs">
+                            8.0
+                        </button>
+
+                    </div>
+
+                </div>
+        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
             Add to Cart
         </button>
     </div>

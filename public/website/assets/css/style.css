@@ -3832,6 +3832,7 @@ summary {
   width: 100%;
   display: block;
 }
+
 .custom-checkbox {
   position: relative;
   width: 24px;
@@ -4425,7 +4426,7 @@ summary {
 .thumbSwiper .swiper-slide {
     width: calc((100% - 60px) / 5);
     margin-right: 15px;
-    height: 130px;
+    height: 100px;
     flex-shrink: 0;
     box-sizing: border-box;
 }
