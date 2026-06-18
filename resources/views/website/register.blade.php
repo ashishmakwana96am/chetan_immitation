@@ -47,7 +47,7 @@
         <div class="grid lg:grid-cols-2 gap-5 items-stretch">
 
             {{-- ── Form Panel ── --}}
-            <div class="bg-[#f7f7f7] border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px]">
+            <div class="border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[30px] lg:px-[30px]">
 
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[38px] md:text-[48px] lg:text-[54px] leading-none">
@@ -70,7 +70,7 @@
                             id="name" name="name" type="text"
                             value="{{ old('name') }}"
                             placeholder="Enter Your Full Name"
-                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('name') ? 'input-invalid' : '' }}">
+                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors rounded-sm duration-200 {{ $errors->has('name') ? 'input-invalid' : '' }}">
                         @error('name')
                             <p class="field-error">{{ $message }}</p>
                         @enderror
@@ -87,7 +87,7 @@
                             value="{{ old('phone') }}"
                             placeholder="Enter Your 10-digit Mobile Number"
                             maxlength="10"
-                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('phone') ? 'input-invalid' : '' }}">
+                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg rounded-sm transition-colors duration-200 {{ $errors->has('phone') ? 'input-invalid' : '' }}">
                         @error('phone')
                             <p class="field-error">{{ $message }}</p>
                         @enderror
@@ -103,7 +103,7 @@
                             id="email" name="email" type="email"
                             value="{{ old('email') }}"
                             placeholder="Enter Your Email Address"
-                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('email') ? 'input-invalid' : '' }}">
+                            class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg rounded-sm transition-colors duration-200 {{ $errors->has('email') ? 'input-invalid' : '' }}">
                         @error('email')
                             <p class="field-error">{{ $message }}</p>
                         @enderror
@@ -119,7 +119,7 @@
                             <input
                                 id="password" name="password" type="password"
                                 placeholder="Enter Your Password"
-                                class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('password') ? 'input-invalid' : '' }}">
+                                class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg  rounded-sm transition-colors duration-200 {{ $errors->has('password') ? 'input-invalid' : '' }}">
                             <button type="button" class="toggle-password" data-target="password" tabindex="-1" aria-label="Toggle password visibility">
                                 <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -146,7 +146,7 @@
                             <input
                                 id="password_confirmation" name="password_confirmation" type="password"
                                 placeholder="Re-enter Your Password"
-                                class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200">
+                                class="reg-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors rounded-sm duration-200">
                             <button type="button" class="toggle-password" data-target="password_confirmation" tabindex="-1" aria-label="Toggle confirm password visibility">
                                 <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -160,7 +160,7 @@
 
                     <button
                         type="submit" id="registerBtn"
-                        class="w-full h-[52px] bg-[#B4771E] text-white text-lg font-medium hover:bg-[#9d6719] transition flex items-center justify-center gap-2">
+                        class="w-full h-[52px] bg-[#B4771E] text-white text-lg font-medium hover:bg-[#9d6719] transition flex items-center justify-center gap-2 rounded-sm">
                         <span id="registerBtnText">Create Account</span>
                         <svg id="registerSpinner" class="hidden animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                     </button>

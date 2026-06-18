@@ -42,7 +42,7 @@
         <div class="grid lg:grid-cols-2 gap-6 items-stretch mx-auto">
 
             {{-- ── Form Panel ── --}}
-            <div class="border border-[#D5D5D5] bg-[#f7f7f7] px-5 py-6 lg:py-[50px] lg:px-[30px] rounded-[4px]">
+            <div class="border border-[#D5D5D5]  px-5 py-6 lg:py-[50px] lg:px-[30px] rounded-[4px]">
 
                 <h1 class="font-moglan text-[#131615] text-[42px] md:text-[54px] leading-none">
                     Login To Your Account
@@ -71,7 +71,7 @@
                             id="email" name="email" type="email"
                             value="{{ old('email') }}"
                             placeholder="Enter Your Email Address"
-                            class="login-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('email') ? 'input-invalid' : '' }}">
+                            class="login-input w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors rounded-sm duration-200 {{ $errors->has('email') ? 'input-invalid' : '' }}">
                         @error('email')
                             <p class="field-error">{{ $message }}</p>
                         @enderror
@@ -87,7 +87,7 @@
                             <input
                                 id="password" name="password" type="password"
                                 placeholder="Enter Your Password"
-                                class="login-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors duration-200 {{ $errors->has('password') ? 'input-invalid' : '' }}">
+                                class="login-input w-full h-[52px] border border-[#D5D5D5] px-4 pr-11 text-lg text-[#757575] outline-none bg-white placeholder:text-lg transition-colors rounded-sm duration-200 {{ $errors->has('password') ? 'input-invalid' : '' }}">
                             <button type="button" class="toggle-password" data-target="password" tabindex="-1" aria-label="Toggle password visibility">
                                 <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -108,7 +108,7 @@
                                 id="remember"
                                 class="w-4 h-4 border border-[#d6d6d6] accent-[#B4771E]"
                                 {{ old('remember') ? 'checked' : '' }}>
-                            <span class="text-[14px] text-[#3D403F]">Remember Me</span>
+                            <span class="text-base text-[#3D403F]">Remember Me</span>
                         </label>
                         <a href="{{ route('forgot-password') }}" class="text-lg text-[#131615] hover:text-[#B4771E] transition">
                             Forgot Password?
@@ -117,13 +117,13 @@
 
                     <button
                         type="submit" id="loginBtn"
-                        class="w-full h-[52px] bg-[#B4771E] text-white mt-6 text-lg font-medium hover:bg-[#9d6719] transition flex items-center justify-center gap-2">
+                        class="w-full h-[52px] bg-[#B4771E] text-white mt-6 text-lg font-medium hover:bg-[#9d6719] transition flex items-center justify-center gap-2 rounded-sm">
                         <span id="loginBtnText">Log In</span>
                         <svg id="loginSpinner" class="hidden animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                     </button>
                 </form>
 
-                <div class="text-center mt-[30px] text-lg">
+                <div class="text-center mt-[30px] text-lg font-semibold">
                     <span class="text-[#131615]">Don't have an account?</span>
                     <a href="{{ route('register') }}" class="text-[#B4771E] ml-1">Create account</a>
                 </div>
@@ -131,7 +131,7 @@
             </div>
 
             {{-- ── Image Panel ── --}}
-            <div class="relative overflow-hidden rounded-[4px] min-h-[400px] lg:min-h-full">
+            <div class="relative overflow-hidden rounded-[8px] min-h-[400px] lg:min-h-full">
                 <img src="{{ asset('website/assets/images/login.png') }}" alt="Login" class="absolute inset-0 w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/20 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 w-full p-5 lg:p-[25px] text-white">

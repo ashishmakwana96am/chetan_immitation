@@ -10,7 +10,7 @@
 
         <div class="grid lg:grid-cols-2 gap-5">
 
-            <div class="bg-[#f7f7f7] border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px] ">
+            <div class="border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px] ">
 
                 <div class="text-center">
 

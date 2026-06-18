@@ -10,7 +10,7 @@
 
         <div class="mx-auto grid lg:grid-cols-2 gap-5 items-stretch">
 
-            <div class="bg-[#f7f7f7] border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px] ">
+            <div class="border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px] ">
 
                 <div class="text-center">
 
@@ -36,13 +36,13 @@
                         <input
                             type="email"
                             placeholder="Enter Your Email Address"
-                            class="w-full h-[52px] border border-[#D5D5D5] px-4 text-lg outline-none bg-white focus:border-[#B4771E] transition placeholder:text-lg">
+                            class="w-full h-[52px] border border-[#D5D5D5] px-4 text-lg outline-none bg-white focus:border-[#B4771E] transition placeholder:text-lg rounded-sm">
 
                     </div>
 
                     <button
                         type="submit"
-                        class="w-full h-[52px] bg-[#B4771E] text-white mt-6 text-lg font-medium hover:bg-[#b57a1f] transition">
+                        class="w-full h-[52px] bg-[#B4771E] text-white mt-6 text-lg font-medium hover:bg-[#b57a1f] transition rounded-sm">
 
                         Reset it
 

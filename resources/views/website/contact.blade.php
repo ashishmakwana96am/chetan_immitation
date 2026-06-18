@@ -63,7 +63,7 @@
                     </div>
 
                     <div>
-                        <h4 class="text-[22px] leading-[22px] font-medium text-[#131615] mb-2">Call Us</h4>
+                        <h4 class="text-lg md:text-xl font-medium text-[#131615] mb-2">Call Us</h4>
                         <a href="tel:+917725978871" class="text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition">+91 77259 78871</a>
                     </div>
 
@@ -76,7 +76,7 @@
                     </div>
 
                     <div>
-                        <h4 class="text-[22px] leading-[22px] font-medium text-[#131615] mb-2">Email Us</h4>
+                        <h4 class="text-lg md:text-xl font-medium text-[#131615] mb-2">Email Us</h4>
                         <a href="mailto:info@chetanimitation.com" class="block text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition break-all">info@chetanimitation.com</a>
                         <a href="mailto:support@chetanimitation.com" class="block text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition break-all">support@chetanimitation.com</a>
                     </div>
@@ -90,7 +90,7 @@
                     </div>
 
                     <div>
-                        <h4 class="text-[22px] leading-[22px] font-medium text-[#131615] mb-2">Visit Us</h4>
+                        <h4 class="text-lg md:text-xl font-medium text-[#131615] mb-2">Visit Us</h4>
 
                         <a href="https://maps.google.com/?q=G-14+Abc+market+Sudama+chowk+Mota+Varachha+Surat" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 mb-3 hover:text-[#B4771E] transition">
                             <span class="font-normal text-[#3D403F]">Branch - 1:</span>
