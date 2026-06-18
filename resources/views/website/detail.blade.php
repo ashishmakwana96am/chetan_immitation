@@ -131,7 +131,6 @@
                 @endif
 
                 <div class="">
-
                     <details class="group" open>
                         <summary class="list-none flex items-center justify-between pt-[32px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[24px] font-medium text-[#1A1A1A]">Product Description</h3>
@@ -140,7 +139,7 @@
                             </svg>
                         </summary>
                         <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
-                            {{ $product->description ?? 'No description available.' }}
+                            {!! $product->description ?? 'No description available.' !!}
                         </div>
                     </details>
 
@@ -152,7 +151,7 @@
                             </svg>
                         </summary>
                         <div class="text-base md:text-xl leading-[30px] text-[#3D403F] pt-5">
-                            {{ $product->additional_information ?? 'Premium Quality Imitation Jewelry' }}
+                            {!! $product->additional_information ?? 'Premium Quality Imitation Jewelry' !!}
                         </div>
                     </details>
 
@@ -167,7 +166,6 @@
                             {!! $product->product_highlights ?? 'Premium Quality Imitation Jewelry' !!}
                         </div>
                     </details>
-
                 </div>
 
             </div>
