@@ -55,11 +55,11 @@ class CustomerPasswordResetController extends Controller
             }
         }
 
-        // Always success to prevent email enumeration
+        session(['otp_pending_email' => $request->email]);
+
         return response()->json([
-            'status'    => 'success',
-            'message'   => 'If an account exists for ' . $request->email . ', a 6-digit OTP has been sent. Please check your inbox.',
-            'otp_email' => $request->email,
+            'status'       => 'success',
+            'redirect_url' => route('otp-verification'),
         ]);
     }
 
@@ -107,6 +107,8 @@ class CustomerPasswordResetController extends Controller
         ]);
 
         $customer->update(['otp' => null, 'otp_expires_at' => null]);
+
+        session()->forget('otp_pending_email');
 
         return response()->json([
             'status'       => 'success',

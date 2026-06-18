@@ -55,7 +55,7 @@
                 </form>
 
                 <div class="text-center mt-5">
-                    <a href="{{ route('login') }}" class="text-[#B4771E] text-lg hover:underline">← Back to Login</a>
+                    <a href="{{ route('login') }}" class="text-[#B4771E] text-lg">← Back to Login</a>
                 </div>
             </div>
 
@@ -119,13 +119,10 @@ $(function () {
             method: 'POST',
             data: { _token: $('input[name="_token"]').val(), email: email },
             success: function (res) {
-                resetBtn();
-                if (res.status === 'success') {
-                    $('#otpSentMsg').html(
-                        res.message + ' <a href="{{ route('otp-verification') }}?email=' + encodeURIComponent(res.otp_email) + '" class="underline font-medium ml-1">Enter OTP →</a>'
-                    );
-                    $('#otpSentAlert').removeClass('hidden');
-                    markValid('email');
+                if (res.status === 'success' && res.redirect_url) {
+                    window.location.href = res.redirect_url;
+                } else {
+                    resetBtn();
                 }
             },
             error: function (xhr) {

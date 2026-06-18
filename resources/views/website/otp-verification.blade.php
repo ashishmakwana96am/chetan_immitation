@@ -28,7 +28,7 @@
 
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[34px] sm:text-[42px] lg:text-[54px] leading-none">Verify Your OTP</h1>
-                    @php $otpEmail = request('email') ?: ''; @endphp
+                    @php $otpEmail = $email ?? ''; @endphp
                     <p class="mt-4 text-[#3D403F] text-[15px] sm:text-[18px] leading-6 max-w-[420px] mx-auto">
                         Enter the 6-digit code sent to
                         @if($otpEmail) <strong>{{ $otpEmail }}</strong>. @else your registered email address. @endif
@@ -39,6 +39,14 @@
                 <div id="resentAlert" class="hidden mt-5 flex items-start gap-3 bg-[#f0faf4] border border-[#22c55e] rounded-[6px] px-4 py-3">
                     <svg class="shrink-0 mt-[2px] w-5 h-5 text-[#16a34a]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <p class="text-[#15803d] text-base">A new OTP has been sent to your email.</p>
+                </div>
+
+                {{-- Initial OTP sent success --}}
+                <div class="mt-5 flex items-start gap-3 bg-[#f0faf4] border border-[#22c55e] rounded-[6px] px-4 py-3">
+                    <svg class="shrink-0 mt-[2px] w-5 h-5 text-[#16a34a]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p class="text-[#15803d] text-base leading-snug">
+                        A 6-digit OTP has been sent to your email. Please check your inbox.
+                    </p>
                 </div>
 
                 <div class="mt-8">
