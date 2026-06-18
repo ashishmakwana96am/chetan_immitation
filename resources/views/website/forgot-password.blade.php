@@ -16,7 +16,7 @@
     <div class="container-1440">
         <div class="mx-auto grid lg:grid-cols-2 gap-5 items-stretch">
 
-            <div class="bg-[#f7f7f7] border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px]">
+            <div class=" border border-[#D5D5D5] rounded-[8px] px-5 py-6 lg:py-[50px] lg:px-[30px]">
 
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[42px] md:text-[52px] leading-none">Forgot Your Password?</h1>
@@ -43,7 +43,7 @@
                             Email Address <span class="text-[#dc2626]">*</span>
                         </label>
                         <input id="email" name="email" type="email" placeholder="Enter Your Email Address"
-                            class="w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white focus:border-[#B4771E] transition placeholder:text-lg">
+                            class="w-full h-[52px] border border-[#D5D5D5] px-4 text-lg text-[#757575] outline-none bg-white focus:border-[#B4771E] transition placeholder:text-lg rounded-sm">
                         <p class="field-error hidden" id="email-error"></p>
                     </div>
 
