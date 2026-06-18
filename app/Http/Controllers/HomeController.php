@@ -84,7 +84,14 @@ class HomeController extends Controller
 
     public function otpVerification()
     {
-        return view('website.otp-verification');
+        $email = session('otp_pending_email');
+
+        // No pending OTP session → redirect back to forgot-password
+        if (!$email) {
+            return redirect()->route('forgot-password');
+        }
+
+        return view('website.otp-verification', compact('email'));
     }
 
     public function register()
