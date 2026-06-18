@@ -118,9 +118,9 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="minPriceInput" type="number" value="{{ request('min_price', 0) }}" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="minPriceInput" type="number" value="{{ request('min_price', 0) }}" min="0" max="20000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
-                                    outline-none appearance-none" oninput="syncFromInput('min')">
+                                    outline-none appearance-none" oninput="syncFromInput('min')" onblur="normalizePriceInput('min')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMin()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -141,9 +141,9 @@
                             <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="maxPriceInput" type="number" value="{{ request('max_price', 2000) }}" min="0" max="10000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
+                            <input id="maxPriceInput" type="number" value="{{ request('max_price', 2000) }}" min="0" max="20000" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
-                                    outline-none appearance-none" oninput="syncFromInput('max')">
+                                    outline-none appearance-none" oninput="syncFromInput('max')" onblur="normalizePriceInput('max')">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMax()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -165,9 +165,9 @@
                         <!-- Gray Track -->
                         <div class="absolute inset-x-0 h-[4px] bg-[#D5D5D5] rounded-full z-[1]"></div>
                         <!-- Active Track -->
-                        <div id="rangeTrack" class="absolute h-[4px] bg-[#131615] rounded-full z-[2]" style="left:0%;right:80%;"></div>
-                        <input id="minRange" type="range" min="0" max="10000" value="{{ request('min_price', 0) }}" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
-                        <input id="maxRange" type="range" min="0" max="10000" value="{{ request('max_price', 2000) }}" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
+                        <div id="rangeTrack" class="absolute h-[4px] bg-[#131615] rounded-full z-[2]" style="left:0%;right:90%;"></div>
+                        <input id="minRange" type="range" min="0" max="20000" value="{{ request('min_price', 0) }}" class="absolute w-full z-[3]" oninput="rangeSlide('min')" />
+                        <input id="maxRange" type="range" min="0" max="20000" value="{{ request('max_price', 2000) }}" class="absolute w-full z-[4]" oninput="rangeSlide('max')" />
                     </div>
                 </div>
             </div>
@@ -275,7 +275,7 @@
     const CATEGORY_BASE_URL = '{{ url('/category') }}';
     const DEFAULT_MIN_PRICE = 0;
     const DEFAULT_MAX_PRICE = 2000;
-    const PRICE_MAX_LIMIT = 10000;
+    const PRICE_MAX_LIMIT = 20000;
     let filterTimeout;
     let priceFilterTouched = false;
 
@@ -358,12 +358,32 @@
         priceFilterTouched = true;
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
-        let val = parseInt(input.value) || 0;
+        const val = parseInt(input.value);
+        if (!Number.isNaN(val)) {
+            range.value = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
+        }
+        updateRangeTrack();
+        applyFilters();
+    }
+
+    function normalizePriceInput(type) {
+        const input = document.getElementById(type + 'PriceInput');
+        const range = document.getElementById(type + 'Range');
+        let val = parseInt(input.value);
+        const minInput = document.getElementById('minPriceInput');
+        const maxInput = document.getElementById('maxPriceInput');
+        const min = parseInt(minInput.value) || DEFAULT_MIN_PRICE;
+        const max = parseInt(maxInput.value) || DEFAULT_MAX_PRICE;
+
+        if (Number.isNaN(val)) {
+            val = type === 'min' ? DEFAULT_MIN_PRICE : DEFAULT_MAX_PRICE;
+        }
+
         val = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
-        const min = parseInt(document.getElementById('minPriceInput').value) || 0;
-        const max = parseInt(document.getElementById('maxPriceInput').value) || PRICE_MAX_LIMIT;
-        if (type === 'min' && val >= max) val = max - 100;
-        if (type === 'max' && val <= min) val = min + 100;
+
+        if (type === 'min' && val >= max) val = Math.max(0, max - 100);
+        if (type === 'max' && val <= min) val = Math.min(PRICE_MAX_LIMIT, min + 100);
+
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -479,8 +499,8 @@
 
         const minP = document.getElementById('minPriceInput').value;
         const maxP = document.getElementById('maxPriceInput').value;
-        const minPrice = parseInt(minP) || DEFAULT_MIN_PRICE;
-        const maxPrice = parseInt(maxP) || DEFAULT_MAX_PRICE;
+        const minPrice = Math.max(0, Math.min(PRICE_MAX_LIMIT, parseInt(minP) || DEFAULT_MIN_PRICE));
+        const maxPrice = Math.max(0, Math.min(PRICE_MAX_LIMIT, parseInt(maxP) || DEFAULT_MAX_PRICE));
         if (minPrice > DEFAULT_MIN_PRICE) parts.push('min_price=' + minPrice);
         if (priceFilterTouched || maxPrice !== DEFAULT_MAX_PRICE) {
             parts.push('max_price=' + maxPrice);
@@ -593,11 +613,15 @@
         priceFilterTouched = params.has('min_price') || params.has('max_price');
         const minVal = minPrice ? parseInt(minPrice) : DEFAULT_MIN_PRICE;
         const maxVal = maxPrice ? parseInt(maxPrice) : DEFAULT_MAX_PRICE;
-        document.getElementById('minPriceInput').value = minVal;
-        document.getElementById('maxPriceInput').value = maxVal;
-        document.getElementById('minRange').value = minVal;
-        document.getElementById('maxRange').value = maxVal;
-        updateRangeTrack();
+        const activeId = document.activeElement ? document.activeElement.id : null;
+        const isEditingPrice = activeId === 'minPriceInput' || activeId === 'maxPriceInput';
+        if (!isEditingPrice) {
+            document.getElementById('minPriceInput').value = minVal;
+            document.getElementById('maxPriceInput').value = maxVal;
+            document.getElementById('minRange').value = minVal;
+            document.getElementById('maxRange').value = maxVal;
+            updateRangeTrack();
+        }
     }
 
     function initStockState() {
