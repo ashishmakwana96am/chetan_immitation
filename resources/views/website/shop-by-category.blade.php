@@ -42,7 +42,7 @@
         <!-- SIDEBAR -->
         <aside id="sidebar" class="fixed lg:static top-0 left-0 w-[320px] lg:w-auto h-screen lg:h-fit bg-white z-[999] overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform duration-300 col-span-12 lg:col-span-4 xl:col-span-3 shrink-0 border border-[#D5D5D5] rounded-none lg:rounded-[8px]">
             <!-- Shop By Category -->
-            <div class="sidebar-section rounded-lg overflow-hidden">
+            <div class="sidebar-section overflow-hidden">
 
                 <button onclick="toggleSection('cat-section','cat-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
@@ -204,7 +204,7 @@
             @endif
 
             <!-- Out of stock -->
-            <div class="sidebar-section pb-0 mb-1">
+            <div class="sidebar-section pb-0">
                 <button onclick="toggleSection('stock-section','stock-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Out of stock</span>
