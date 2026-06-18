@@ -273,7 +273,11 @@
 @section('page-js')
 <script>
     const CATEGORY_BASE_URL = '{{ url('/category') }}';
+    const DEFAULT_MIN_PRICE = 0;
+    const DEFAULT_MAX_PRICE = 2000;
+    const PRICE_MAX_LIMIT = 10000;
     let filterTimeout;
+    let priceFilterTouched = false;
 
     function setChevronOpenState(arrow, open) {
         if (!arrow) return;
@@ -351,12 +355,13 @@
     }
 
     function syncFromInput(type) {
+        priceFilterTouched = true;
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
         let val = parseInt(input.value) || 0;
-        val = Math.max(0, Math.min(10000, val));
+        val = Math.max(0, Math.min(PRICE_MAX_LIMIT, val));
         const min = parseInt(document.getElementById('minPriceInput').value) || 0;
-        const max = parseInt(document.getElementById('maxPriceInput').value) || 10000;
+        const max = parseInt(document.getElementById('maxPriceInput').value) || PRICE_MAX_LIMIT;
         if (type === 'min' && val >= max) val = max - 100;
         if (type === 'max' && val <= min) val = min + 100;
         input.value = val;
@@ -366,10 +371,11 @@
     }
 
     function increaseMin() {
+        priceFilterTouched = true;
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
         let val = (parseInt(input.value) || 0) + 100;
-        const max = parseInt(document.getElementById('maxPriceInput').value) || 10000;
+        const max = parseInt(document.getElementById('maxPriceInput').value) || PRICE_MAX_LIMIT;
         if (val >= max) val = max - 100;
         input.value = val;
         range.value = val;
@@ -378,6 +384,7 @@
     }
 
     function decreaseMin() {
+        priceFilterTouched = true;
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
         let val = (parseInt(input.value) || 0) - 100;
@@ -389,10 +396,11 @@
     }
 
     function increaseMax() {
+        priceFilterTouched = true;
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
         let val = (parseInt(input.value) || 0) + 100;
-        if (val > 10000) val = 10000;
+        if (val > PRICE_MAX_LIMIT) val = PRICE_MAX_LIMIT;
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -400,6 +408,7 @@
     }
 
     function decreaseMax() {
+        priceFilterTouched = true;
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
         let val = (parseInt(input.value) || 0) - 100;
@@ -414,7 +423,7 @@
     function updateRangeTrack() {
         const min = parseInt(document.getElementById('minRange').value);
         const max = parseInt(document.getElementById('maxRange').value);
-        const total = 10000;
+        const total = PRICE_MAX_LIMIT;
         const leftPct = (min / total) * 100;
         const rightPct = 100 - (max / total) * 100;
         document.getElementById('rangeTrack').style.left = leftPct + '%';
@@ -422,6 +431,7 @@
     }
 
     function rangeSlide(type) {
+        priceFilterTouched = true;
         const minRange = document.getElementById('minRange');
         const maxRange = document.getElementById('maxRange');
         let min = parseInt(minRange.value);
@@ -469,8 +479,12 @@
 
         const minP = document.getElementById('minPriceInput').value;
         const maxP = document.getElementById('maxPriceInput').value;
-        if (parseInt(minP) > 0) parts.push('min_price=' + minP);
-        if (parseInt(maxP) < 10000) parts.push('max_price=' + maxP);
+        const minPrice = parseInt(minP) || DEFAULT_MIN_PRICE;
+        const maxPrice = parseInt(maxP) || DEFAULT_MAX_PRICE;
+        if (minPrice > DEFAULT_MIN_PRICE) parts.push('min_price=' + minPrice);
+        if (priceFilterTouched || maxPrice !== DEFAULT_MAX_PRICE) {
+            parts.push('max_price=' + maxPrice);
+        }
 
         const sizes = [];
         document.querySelectorAll('.size-checkbox:checked').forEach(cb => sizes.push(cb.value));
@@ -576,8 +590,9 @@
 
         const minPrice = params.get('min_price');
         const maxPrice = params.get('max_price');
-        const minVal = minPrice ? parseInt(minPrice) : 0;
-        const maxVal = maxPrice ? parseInt(maxPrice) : 2000;
+        priceFilterTouched = params.has('min_price') || params.has('max_price');
+        const minVal = minPrice ? parseInt(minPrice) : DEFAULT_MIN_PRICE;
+        const maxVal = maxPrice ? parseInt(maxPrice) : DEFAULT_MAX_PRICE;
         document.getElementById('minPriceInput').value = minVal;
         document.getElementById('maxPriceInput').value = maxVal;
         document.getElementById('minRange').value = minVal;
