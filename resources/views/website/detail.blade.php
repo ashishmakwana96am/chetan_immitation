@@ -32,6 +32,13 @@
 
 @section('content')
 
+@php
+    $queryVariantId = request('variant');
+    if (!$queryVariantId && isset($wishlistItem) && $wishlistItem && $wishlistItem->product_variant_id) {
+        $queryVariantId = $wishlistItem->product_variant_id;
+    }
+@endphp
+
 <section class="pt-[50px] pb-[60px] md:pb-[80px] lg:pb-[100px]">
 
     <div class="container-1440 overflow-visible">
@@ -56,16 +63,21 @@
 
                         <button class="wishlist-btn absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center outline-none focus:outline-none focus:ring-0"
                             data-product-id="{{ $product->id }}"
-                            data-variant-id=""
+                            data-variant-id="{{ $queryVariantId }}"
                             data-login-url="{{ route('login') }}"
                             data-toggle-url="{{ route('wishlist.toggle') }}"
                             data-current-url="{{ url()->current() }}"
                             @php
-                                $inWishlist = auth('customer')->check()
-                                    && \App\Models\Wishlist::where('customer_id', auth('customer')->id())
-                                        ->where('product_id', $product->id)
-                                        ->whereNull('product_variant_id')
-                                        ->exists();
+                                $inWishlist = false;
+                                if (auth('customer')->check()) {
+                                    $inWishlistQuery = \App\Models\Wishlist::where('customer_id', auth('customer')->id())
+                                        ->where('product_id', $product->id);
+                                    if ($queryVariantId) {
+                                        $inWishlistQuery->where('product_variant_id', $queryVariantId);
+                                    }
+                                    // No variant in URL → check if product is wishlisted in any form
+                                    $inWishlist = $inWishlistQuery->exists();
+                                }
                             @endphp
                             data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
@@ -110,7 +122,6 @@
                 </div>
 
                 @php
-                    $queryVariantId = request('variant');
                     $activeVariant = null;
                     if ($queryVariantId && $product->variants->isNotEmpty()) {
                         $activeVariant = $product->variants->firstWhere('id', $queryVariantId);
@@ -163,7 +174,6 @@
 
                 @if($variantGroups->isNotEmpty())
                     @php
-                        $queryVariantId = request('variant');
                         $allProductVariants = $product->variants;
                         $hasSelectedVariant = $queryVariantId && $allProductVariants->contains('id', $queryVariantId);
                     @endphp
@@ -310,54 +320,7 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-
-            @forelse($relatedProducts as $rp)
-            @php
-                $inWishlist = auth('customer')->check()
-                    && auth('customer')->user()->wishlists->where('product_id', $rp->id)->isNotEmpty();
-            @endphp
-            <div class="product-card group border border-[#D5D5D5] relative cursor-pointer" data-product-id="{{ $rp->id }}">
-                <div class="relative overflow-hidden">
-                    @if($rp->sale)
-                    <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
-                        <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
-                    </div>
-                    @endif
-                    <a href="{{ route('product.detail', $rp->slug) }}">
-                        <img src="{{ $rp->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
-                    </a>
-                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
-                        data-product-id="{{ $rp->id }}"
-                        data-variant-id=""
-                        data-login-url="{{ route('login') }}"
-                        data-toggle-url="{{ route('wishlist.toggle') }}"
-                        data-current-url="{{ url()->current() }}"
-                        data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
-                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                        </svg>
-                    </button>
-                </div>
-                <div class="p-4 md:p-[25px]">
-                    <h3 class="product-title"><a href="{{ route('product.detail', $rp->slug) }}">{{ $rp->name }}</a></h3>
-                    <div class="flex items-center gap-1 mt-[9px]">
-                        <div class="text-[#B4771E] text-base">★★★★★</div>
-                        <span class="text-sm text-[#757575]">(0)</span>
-                    </div>
-                    <div class="mt-1 flex items-center gap-1">
-                        <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($rp->sale_price, 0) }}</span>
-                        @if($rp->mrp && $rp->mrp > $rp->sale_price)
-                        <span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($rp->mrp, 0) }}</span>
-                        @endif
-                    </div>
-                    <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition">Add to Cart</button>
-                </div>
-            </div>
-            @empty
-            <div class="col-span-full text-center py-10 text-gray-400">No related products found.</div>
-            @endforelse
-
+            @include('website.partials.product-grid-items', ['products' => $relatedProducts])
         </div>
 
     </div>
@@ -409,104 +372,226 @@ document.querySelectorAll('details').forEach((details) => {
 const qty = document.getElementById("qty");
 const plusBtn = document.getElementById("plusBtn");
 const minusBtn = document.getElementById("minusBtn");
-let count = 1;
-
-plusBtn.addEventListener("click", () => { count++; qty.innerText = count; });
-minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerText = count; } });
+let count = parseInt(qty ? qty.innerText : 1) || 1;
 
 </script>
 
 <script>
-// Wishlist toggle for detail page
+// ─── Detail page wishlist handler ────────────────────────────────────────────
 (function () {
-    var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
-    var csrfToken  = '{{ csrf_token() }}';
+    var isLoggedIn    = {{ auth('customer')->check() ? 'true' : 'false' }};
+    var csrfToken     = '{{ csrf_token() }}';
+    var mainProductId = '{{ $product->id }}';
 
-    // Handle variant button clicks
+    // Mark body so the global layout handler skips all wishlist clicks on this page
+    document.body.dataset.detailPage = '1';
+
+    // Track which variant (or null) is currently wishlisted for this product.
+    // "null" means product is wishlisted without a variant.
+    // "false" means not wishlisted at all.
+    @php
+        $wl = auth('customer')->check()
+            ? auth('customer')->user()->wishlists()->where('product_id', $product->id)->first()
+            : null;
+    @endphp
+    var wishlistedVariantId = {!! $wl ? ($wl->product_variant_id ? $wl->product_variant_id : 'null') : 'false' !!};
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    function getMainWishlistBtn() {
+        return document.querySelector('.mainSwiper .wishlist-btn');
+    }
+
+    function getActiveVariantId() {
+        var btn = document.querySelector('.variant-selector.active');
+        return btn ? (btn.dataset.variantId || null) : null;
+    }
+
+    function setHeartState(btn, inWishlist) {
+        if (!btn) return;
+        var svg = btn.querySelector('svg');
+        btn.dataset.inWishlist = inWishlist ? '1' : '0';
+        if (!svg) return;
+        if (inWishlist) {
+            svg.classList.remove('fill-transparent', 'text-[#131615]');
+            svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+        } else {
+            svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
+            svg.classList.add('fill-transparent', 'text-[#131615]');
+        }
+    }
+
+    function toast(msg) {
+        if (window.showWishlistToast) window.showWishlistToast(msg);
+    }
+
+    // ── qty buttons ──────────────────────────────────────────────────────────
+
+    if (plusBtn) {
+        plusBtn.addEventListener('click', function () {
+            count++;
+            if (qty) qty.innerText = count;
+        });
+    }
+    if (minusBtn) {
+        minusBtn.addEventListener('click', function () {
+            if (count > 1) { count--; if (qty) qty.innerText = count; }
+        });
+    }
+
+    // ── variant selector clicks ───────────────────────────────────────────────
+    // When user switches variant, update the heart to reflect wishlist state
+    // for that variant WITHOUT making any server call.
+
     document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
+            // Visual active state
             var parent = btn.parentElement;
-            parent.querySelectorAll('.variant-selector').forEach(function (sibling) {
-                sibling.classList.remove('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
-                sibling.classList.add('border-[#D5D5D5]', 'text-[#131615]');
+            parent.querySelectorAll('.variant-selector').forEach(function (s) {
+                s.classList.remove('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
+                s.classList.add('border-[#D5D5D5]', 'text-[#131615]');
             });
             btn.classList.add('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
             btn.classList.remove('border-[#D5D5D5]', 'text-[#131615]');
 
+            // Price update
             var priceSpan = document.getElementById('productSalePrice');
             if (priceSpan && btn.dataset.salePrice) {
-                priceSpan.textContent = '₹' + parseFloat(btn.dataset.salePrice).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                priceSpan.textContent = '₹' + parseFloat(btn.dataset.salePrice)
+                    .toLocaleString('en-IN', { maximumFractionDigits: 0 });
+            }
+
+            var variantId = btn.dataset.variantId || null;
+            var mainBtn   = getMainWishlistBtn();
+
+            if (mainBtn) {
+                mainBtn.dataset.variantId = variantId || '';
+            }
+
+            if (
+                isLoggedIn &&
+                wishlistedVariantId !== false &&
+                String(wishlistedVariantId) !== String(variantId)
+            ) {
+                var toggleUrl = mainBtn ? mainBtn.dataset.toggleUrl : '{{ route('wishlist.toggle') }}';
+
+                fetch(toggleUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept':       'application/json',
+                    },
+                    body: JSON.stringify({
+                        product_id:         mainProductId,
+                        product_variant_id: variantId || null,
+                    }),
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.status === 'updated' || data.status === 'added') {
+                        wishlistedVariantId = variantId !== null ? variantId : null;
+                        if (mainBtn) setHeartState(mainBtn, true);
+                        if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
+                        toast('Wishlist variant updated! ❤️');
+                    }
+                })
+                .catch(function () {});
+
+            } else {
+                if (mainBtn) {
+                    var inWishlist = (wishlistedVariantId !== false) &&
+                        (String(wishlistedVariantId) === String(variantId) ||
+                         (wishlistedVariantId === null && !variantId));
+                    setHeartState(mainBtn, inWishlist);
+                }
             }
         });
     });
+
+    // ── wishlist button clicks ────────────────────────────────────────────────
+    // One listener handles: main product heart + related product hearts.
+    // Global layout handler is blocked for mainSwiper buttons via stopPropagation.
 
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
         if (!btn) return;
 
+        // Wishlist page handles its own buttons
+        if (btn.closest('#wishlistItems')) return;
+
         e.preventDefault();
         e.stopPropagation();
 
-        var selectedQty = 1;
-        var qtyEl = document.getElementById('qty');
-        if (qtyEl) {
-            selectedQty = parseInt(qtyEl.innerText) || 1;
+        var productId = btn.dataset.productId;
+        var toggleUrl = btn.dataset.toggleUrl;
+        var isMainBtn = btn.closest('.mainSwiper') !== null;
+
+        // ── Variant to send ──
+        // Main heart: already wishlisted → send wishlisted variant (triggers remove)
+        //             not wishlisted     → send active selected variant (triggers add)
+        // Related card hearts: always send data-variant-id
+        var variantId;
+        if (isMainBtn) {
+            variantId = (wishlistedVariantId !== false)
+                ? (wishlistedVariantId !== null ? wishlistedVariantId : null)
+                : getActiveVariantId();
+        } else {
+            variantId = btn.dataset.variantId || null;
         }
 
-        var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
-        var variantId = activeVariantBtn ? activeVariantBtn.dataset.variantId : (btn.dataset.variantId || null);
-
+        // ── Not logged in ──
         if (!isLoggedIn) {
-            var currentUrl = btn.dataset.currentUrl || window.location.href;
-            var pendingData = {
-                product_id: btn.dataset.productId,
-                product_variant_id: variantId,
-                quantity: selectedQty
-            };
-            sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
-            window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(currentUrl);
+            sessionStorage.setItem('pendingWishlist', JSON.stringify({
+                product_id:         productId,
+                product_variant_id: getActiveVariantId(),
+            }));
+            var intended = btn.dataset.currentUrl || window.location.href;
+            window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(intended);
             return;
         }
 
-        var productId = btn.dataset.productId;
-        var toggleUrl = btn.dataset.toggleUrl;
-        var svg       = btn.querySelector('.wishlist-icon, svg');
+        // Disable button while request is in flight
+        btn.disabled = true;
 
         fetch(toggleUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
+                'Accept':       'application/json',
             },
             body: JSON.stringify({
                 product_id:         productId,
                 product_variant_id: variantId || null,
-                quantity:           selectedQty,
             }),
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            btn.disabled = false;
+
             if (data.status === 'added') {
-                btn.dataset.inWishlist = '1';
-                svg.classList.remove('fill-transparent', 'text-[#131615]');
-                svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
-                if (window.showWishlistToast) {
-                    window.showWishlistToast('Product added to your wishlist! ❤️');
-                }
+                setHeartState(btn, true);
+                if (isMainBtn) wishlistedVariantId = variantId !== null ? variantId : null;
+                toast('Product added to your wishlist! ❤️');
+
+            } else if (data.status === 'updated') {
+                setHeartState(btn, true);
+                if (isMainBtn) wishlistedVariantId = variantId !== null ? variantId : null;
+                toast('Wishlist variant updated! ❤️');
+
             } else {
-                btn.dataset.inWishlist = '0';
-                svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
-                svg.classList.add('fill-transparent', 'text-[#131615]');
-                if (window.showWishlistToast) {
-                    window.showWishlistToast('Product removed from your wishlist.');
-                }
+                // removed
+                setHeartState(btn, false);
+                if (isMainBtn) wishlistedVariantId = false;
+                toast('Product removed from your wishlist.');
             }
-            if (window.updateWishlistBadge) {
-                window.updateWishlistBadge(data.count);
-            }
+
+            if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
         })
-        .catch(function () {});
+        .catch(function () {
+            btn.disabled = false;
+        });
     });
 }());
 </script>

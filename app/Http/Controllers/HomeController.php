@@ -17,12 +17,14 @@ class HomeController extends Controller
 
         $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
             ->with('primaryImage', 'variants.attributeValue')
+            ->withSum('inventories', 'quantity')
             ->inRandomOrder()
             ->limit(8)
             ->get();
 
         $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
             ->with('primaryImage', 'variants.attributeValue')
+            ->withSum('inventories', 'quantity')
             ->latest()
             ->limit(4)
             ->get();
@@ -125,15 +127,28 @@ class HomeController extends Controller
                 }
             })
             ->with('primaryImage', 'variants.attributeValue')
+            ->withSum('inventories', 'quantity')
             ->inRandomOrder()
             ->limit(4)
             ->get();
-
-        // Pre-load customer wishlists for heart button state
+        $wishlistItem = null;
         if (auth('customer')->check()) {
             auth('customer')->user()->load('wishlists');
+            
+            $variantId = request('variant');
+            if ($variantId) {
+                $wishlistItem = \App\Models\Wishlist::where('customer_id', auth('customer')->id())
+                    ->where('product_id', $product->id)
+                    ->where('product_variant_id', $variantId)
+                    ->first();
+            }
+            if (!$wishlistItem) {
+                $wishlistItem = \App\Models\Wishlist::where('customer_id', auth('customer')->id())
+                    ->where('product_id', $product->id)
+                    ->first();
+            }
         }
 
-        return view('website.detail', compact('product', 'relatedProducts'));
+        return view('website.detail', compact('product', 'relatedProducts', 'wishlistItem'));
     }
 }

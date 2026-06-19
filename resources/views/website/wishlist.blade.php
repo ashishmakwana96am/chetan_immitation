@@ -42,18 +42,27 @@
                         $attrValue = $variant->attributeValue->value;
                         $attrLabel = $attrName ? $attrName . ': ' . $attrValue : $attrValue;
                     }
+                    $stockQty = $prod->inventories_sum_quantity ?? 0;
                 @endphp
                 <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-[25px]" data-wishlist-id="{{ $wishlist->id }}">
                     <div class="flex flex-col md:flex-row gap-4 group">
-
                         {{-- Image --}}
                         <div class="relative shrink-0 w-[200px] h-[200px] overflow-hidden cursor-pointer">
+                            @if($stockQty < 1)
+                            <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
+                                <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">OUT OF STOCK</span>
+                            </div>
+                            @elseif($prod->sale)
+                            <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
+                                <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
+                            </div>
+                            @endif
                             <a href="{{ route('product.detail', $prod->slug) }}">
                                 <img src="{{ $prod->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}"
                                     alt="{{ $prod->name }}"
                                     class="w-[200px] h-[200px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>
-                            {{-- Heart (filled = in wishlist) --}}
+                            
                             <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center transition"
                                 data-product-id="{{ $prod->id }}"
                                 data-variant-id="{{ $variant?->id ?? '' }}"
@@ -72,7 +81,7 @@
                         {{-- Content --}}
                         <div class="flex-1 min-w-0">
                             <a href="{{ route('product.detail', $prod->slug) }}"
-                                class="block max-w-[500px] text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
+                                class="block product-title text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
                                 {{ $prod->name }}
                             </a>
 
@@ -100,10 +109,7 @@
                                     <span class="text-[#757575] ml-2">{{ $attrLabel }}</span>
                                 </p>
                                 @endif
-                                <p class="text-base sm:text-lg flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
-                                    <span class="text-[#757575] ml-2">{{ $wishlist->quantity ?? 1 }}</span>
-                                </p>
+
                             </div>
 
                             <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
@@ -158,6 +164,18 @@
         </div>
         @endif
 
+        {{-- You May Also Like Section --}}
+        @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
+        <div class="mt-20 border-t border-[#D5D5D5] pt-16">
+            <div class="text-center mb-10">
+                <h2 class="font-moglan hero-title">You May Also Like</h2>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                @include('website.partials.product-grid-items', ['products' => $relatedProducts])
+            </div>
+        </div>
+        @endif
+
     </div>
 </section>
 
@@ -168,8 +186,14 @@
 $(function () {
     var csrfToken = '{{ csrf_token() }}';
 
-    $(document).on('click', '.remove-wishlist-btn', function () {
-        var btn        = $(this);
+    $(document).on('click', '.remove-wishlist-btn, .wishlist-btn', function (e) {
+        var btn = $(this);
+        // Prevent default and stop propagation on the heart icon button to bypass the global listener
+        if (btn.hasClass('wishlist-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
         var productId  = btn.data('product-id');
         var variantId  = btn.data('variant-id') || null;
         var toggleUrl  = btn.data('toggle-url');
@@ -193,7 +217,9 @@ $(function () {
                     if (window.showWishlistToast) {
                         window.showWishlistToast('Product removed from your wishlist.');
                     }
-                    if (res.count === 0) location.reload();
+                    if (res.count === 0 || $('.wishlist-item').length === 0) {
+                        location.reload();
+                    }
                 });
             },
             error: function () { btn.prop('disabled', false).removeClass('opacity-50'); }

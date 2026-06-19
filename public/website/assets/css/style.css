@@ -3658,13 +3658,7 @@ input[type="range"]::-moz-range-thumb{
   height: 14px;
   cursor: pointer;
 }
-.product-card {
-  transition: box-shadow .2s, transform .2s;
-}
-.product-card:hover {
-  box-shadow: 0 8px 28px rgba(184,134,11,.18);
-  transform: translateY(-3px);
-}
+
 .sale-badge {
   position: absolute;
   top: 0;

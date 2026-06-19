@@ -142,9 +142,7 @@ body {
     /* Custom checkbox */
     .custom-cb input[type=checkbox] { accent-color: #b8860b; width:14px; height:14px; cursor:pointer; }
  
-    /* Product card hover */
-    .product-card { transition: box-shadow .2s, transform .2s; }
-    .product-card:hover { box-shadow: 0 8px 28px rgba(184,134,11,.18); transform: translateY(-3px); }
+
  
     /* Sale badge */
     .sale-badge {
