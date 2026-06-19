@@ -36,7 +36,7 @@
                 </div>
                 @endif
 
-                <form id="forgotForm" class="mt-8" novalidate>
+                <form id="forgotForm" class="mt-5 xl:mt-8" novalidate>
                     @csrf
                     <div class="mb-6">
                         <label for="email" class="block text-lg leading-[18px] font-medium text-[#131615] mb-[15px]">

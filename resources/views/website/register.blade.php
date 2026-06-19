@@ -33,7 +33,7 @@
                     </p>
                 </div>
 
-                <form id="registerForm" class="mt-8" novalidate>
+                <form id="registerForm" class="mt-5 xl:mt-8" novalidate>
                     @csrf
 
                     <div class="mb-5">

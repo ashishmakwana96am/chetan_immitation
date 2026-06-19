@@ -26,10 +26,10 @@
 
             <div class="border border-[#D5D5D5] px-5 py-6 lg:py-10 lg:px-[30px] rounded-[4px]">
 
-                <h1 class="font-moglan text-[#131615] text-[42px] md:text-[54px] leading-none">
+                <h1 class="font-moglan text-[#131615] text-[42px] md:text-[54px] leading-none text-center">
                     Login To Your Account
                 </h1>
-                <p class="mt-5 text-[#3D403F] text-lg">
+                <p class="mt-5 text-[#3D403F] text-lg text-center">
                     Access your account, track orders, and save favorite jewelry.
                 </p>
 
@@ -47,7 +47,7 @@
                     </p>
                 </div>
 
-                <form id="loginForm" class="mt-10" novalidate>
+                <form id="loginForm" class="mt-5 xl:mt-10" novalidate>
                     @csrf
 
                     <div class="mb-5">
