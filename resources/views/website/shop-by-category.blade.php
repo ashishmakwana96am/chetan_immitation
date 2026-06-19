@@ -632,6 +632,13 @@
             if (data.price_range) {
                 updateCatalogPriceRange(data.price_range.min, data.price_range.max);
             }
+
+            const gridEl = document.getElementById('productGrid');
+            if (gridEl) {
+                const yOffset = -150;
+                const y = gridEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
         })
         .catch(() => {
             window.location.href = url;
