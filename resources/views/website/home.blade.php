@@ -107,42 +107,7 @@
                 <p class="hero-para">Elegant Creations for Every Occasion</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-                @foreach($lovedProducts as $product)
-                @php $inWl = auth('customer')->check() && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty(); @endphp
-                <div class="group border border-[#D5D5D5] relative cursor-pointer">
-                    <div class="relative overflow-hidden">
-                        @if($product->sale)
-                        <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
-                            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
-                        </div>
-                        @endif
-                        <a href="{{ route('product.detail', $product->slug) }}">
-                            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
-                        </a>
-                    </div>
-                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
-                        data-product-id="{{ $product->id }}" data-variant-id=""
-                        data-login-url="{{ route('login') }}" data-toggle-url="{{ route('wishlist.toggle') }}"
-                        data-current-url="{{ url()->current() }}" data-in-wishlist="{{ $inWl ? '1' : '0' }}">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
-                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWl ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                        </svg>
-                    </button>
-                    <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
-                        <div class="flex items-center gap-1 mt-[9px]">
-                            <div class="text-[#D5D5D5] text-base">★★★★★</div>
-                            <span class="text-xs text-[#757575]">(0)</span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-1">
-                             <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                             @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
-                        </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">Add to Cart</button>
-                    </div>
-                </div>
-                @endforeach
+                @include('website.partials.product-grid-items', ['products' => $lovedProducts])
             </div>
             <div class="text-center mt-8 sm:mt-10">
                 <a href="{{ route('shop-by-category') }}" class="common-btn">Explore More Jewelry</a>
@@ -158,42 +123,7 @@
                 <p class="hero-para">Discover elegant new jewelry designs for every special occasion today.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-                @foreach($latestProducts as $product)
-                @php $inWl = auth('customer')->check() && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty(); @endphp
-                <div class="group border border-[#D5D5D5] relative cursor-pointer">
-                    <div class="relative overflow-hidden">
-                        @if($product->sale)
-                        <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
-                            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
-                        </div>
-                        @endif
-                        <a href="{{ route('product.detail', $product->slug) }}">
-                            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
-                        </a>
-                    </div>
-                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
-                        data-product-id="{{ $product->id }}" data-variant-id=""
-                        data-login-url="{{ route('login') }}" data-toggle-url="{{ route('wishlist.toggle') }}"
-                        data-current-url="{{ url()->current() }}" data-in-wishlist="{{ $inWl ? '1' : '0' }}">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
-                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWl ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                        </svg>
-                    </button>
-                    <div class="p-4 md:p-[25px]">
-                        <h3 class="product-title"><a href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
-                        <div class="flex items-center gap-1 mt-[9px]">
-                            <div class="text-[#D5D5D5] text-base">★★★★★</div>
-                            <span class="text-xs text-[#757575]">(0)</span>
-                        </div>
-                        <div class="mt-1 flex items-center gap-1">
-                             <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                             @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
-                        </div>
-                        <button class="w-full h-[45px] border border-[#131615] text-lg mt-[30px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">Add to Cart</button>
-                    </div>
-                </div>
-                @endforeach
+                @include('website.partials.product-grid-items', ['products' => $latestProducts])
             </div>
         </div>
     </section>

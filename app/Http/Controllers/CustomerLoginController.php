@@ -58,17 +58,21 @@ class CustomerLoginController extends Controller
                 if ($data && isset($data['product_id'])) {
                     $existing = \App\Models\Wishlist::where('customer_id', $customer->id)
                         ->where('product_id', $data['product_id'])
-                        ->where('product_variant_id', $data['product_variant_id'] ?? null)
                         ->first();
-                    if (!$existing) {
+                    if ($existing) {
+                        $existing->update([
+                            'product_variant_id' => $data['product_variant_id'] ?? null,
+                            'quantity'           => $data['quantity'] ?? 1,
+                        ]);
+                    } else {
                         \App\Models\Wishlist::create([
                             'customer_id'        => $customer->id,
                             'product_id'         => $data['product_id'],
                             'product_variant_id' => $data['product_variant_id'] ?? null,
                             'quantity'           => $data['quantity'] ?? 1,
                         ]);
-                        $wishlistCount = $customer->wishlists()->count();
                     }
+                    $wishlistCount = $customer->wishlists()->count();
                 }
             }
 

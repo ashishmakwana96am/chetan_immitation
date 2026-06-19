@@ -38,54 +38,54 @@
             <div class="text-[#D5D5D5] text-base">★★★★★</div>
             <span class="text-xs text-[#757575]">(0)</span>
         </div>
-              <div class="flex justify-between flex-wrap">
-                  <div class="mt-1 flex items-center gap-1">
-                       <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                       @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
-                  </div>
-         @php
-    $variantValues = $product->relationLoaded('variants')
-        ? $product->variants
-            ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
-            ->map(fn($v) => $v->attributeValue->value)
-            ->unique()
-            ->values()
-        : collect();
-@endphp
+            <div class="flex justify-between flex-wrap">
+                <div class="mt-1 flex items-center gap-1">
+                    <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
+                    @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
+                </div>
+                @php
+                    $variantValues = $product->relationLoaded('variants')
+                        ? $product->variants
+                            ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
+                            ->map(fn($v) => $v->attributeValue->value)
+                            ->unique()
+                            ->values()
+                        : collect();
+                @endphp
 
-@if($product->variants->isNotEmpty())
-<div class="mt-1 relative w-full max-w-[100px]">
-    <select
-        class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
-        data-product-id="{{ $product->id }}">
+                @if($product->variants->isNotEmpty())
+                <div class="mt-1 relative w-full max-w-[100px]">
+                    <select
+                        class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
+                        data-product-id="{{ $product->id }}">
 
-        <option value="">Size</option>
+                        <option value="">Attribute</option>
 
-        @foreach($product->variants as $variant)
-            @if($variant->attributeValue)
-                <option value="{{ $variant->id }}">
-                    {{ $variant->attributeValue->value }}
-                </option>
-            @endif
-        @endforeach
+                        @foreach($product->variants as $variant)
+                            @if($variant->attributeValue)
+                                <option value="{{ $variant->id }}">
+                                    {{ $variant->attributeValue->value }}
+                                </option>
+                            @endif
+                        @endforeach
 
-    </select>
+                    </select>
 
-    <svg
-        class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor">
-        <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 9l-7 7-7-7" />
-    </svg>
-</div>
-@endif
-             </div>
+                    <svg
+                        class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                @endif
+            </div>
         
         <button class="w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300">
             Add to Cart
