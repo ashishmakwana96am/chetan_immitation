@@ -223,7 +223,7 @@
 
 </section>
 
-<section>
+<!-- <section>
 
     <div class="container-1440">
 
@@ -278,7 +278,7 @@
 
     </div>
 
-</section>
+</section> -->
 
 <!-- You May Also Like -->
 <section class="section-space">
