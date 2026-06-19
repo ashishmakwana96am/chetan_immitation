@@ -169,7 +169,7 @@ $(function () {
         if (!$('#password').val()) { showError('password', 'Password is required.'); valid = false; }
 
         if (!valid) {
-            $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300);
+            $('.input-invalid').first().focus().select();
             return;
         }
 
@@ -208,7 +208,7 @@ $(function () {
                 $.each(errors, function (field, msgs) {
                     showError(field, msgs[0]);
                 });
-                $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300);
+                $('.input-invalid').first().focus().select();
             }
         });
     });

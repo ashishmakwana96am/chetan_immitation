@@ -251,7 +251,7 @@
 
 @section('page-js')
 <script>
-    const CATEGORY_BASE_URL = '{{ url('/category') }}';
+    const CATEGORY_BASE_URL = '{{ url('/shop') }}';
     let catalogMinPrice = {{ $catalogMinPrice }};
     let catalogMaxPrice = {{ $catalogMaxPrice }};
     let filterTimeout;
@@ -568,8 +568,8 @@
     }
 
     function getCategoryBase() {
-        const idx = window.location.pathname.indexOf('/category');
-        if (idx !== -1) return window.location.pathname.substring(0, idx + 9);
+        const idx = window.location.pathname.indexOf('/shop');
+        if (idx !== -1) return window.location.pathname.substring(0, idx + 5);
         return CATEGORY_BASE_URL;
     }
 

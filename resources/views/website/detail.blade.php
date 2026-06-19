@@ -109,13 +109,22 @@
                     <span class="text-[#757575] text-base md:text-xl">(0)</span>
                 </div>
 
+                @php
+                    $queryVariantId = request('variant');
+                    $activeVariant = null;
+                    if ($queryVariantId && $product->variants->isNotEmpty()) {
+                        $activeVariant = $product->variants->firstWhere('id', $queryVariantId);
+                    }
+                    $salePriceDisplay = $activeVariant ? $activeVariant->sale_price : $product->sale_price;
+                    $mrpDisplay = $activeVariant ? ($activeVariant->product->mrp ?? $product->mrp) : $product->mrp;
+                @endphp
                 <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
-                    <span class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
-                        ₹{{ number_format($product->sale_price, 0) }}
+                    <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
+                        ₹{{ number_format($salePriceDisplay, 0) }}
                     </span>
-                    @if($product->mrp && $product->mrp > $product->sale_price)
-                    <span class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
-                        ₹{{ number_format($product->mrp, 0) }}
+                    @if($mrpDisplay && $mrpDisplay > $salePriceDisplay)
+                    <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
+                        ₹{{ number_format($mrpDisplay, 0) }}
                     </span>
                     @endif
                 </div>
@@ -153,6 +162,11 @@
                 @endphp
 
                 @if($variantGroups->isNotEmpty())
+                    @php
+                        $queryVariantId = request('variant');
+                        $allProductVariants = $product->variants;
+                        $hasSelectedVariant = $queryVariantId && $allProductVariants->contains('id', $queryVariantId);
+                    @endphp
                     @foreach($variantGroups as $variants)
                     @php
                         $attribute = $variants->first()->attributeValue->attribute;
@@ -164,7 +178,13 @@
                         </h4>
                         <div class="flex flex-wrap gap-4 md:gap-[20px]">
                             @foreach($attributeValues as $variant)
-                            <button class="min-w-[69px] min-h-10 px-4 py-2 border border-[#D5D5D5] text-base lg:text-xl leading-tight whitespace-normal text-center {{ $loop->first ? 'bg-[#B4771E] text-white' : '' }}">
+                            @php
+                                $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : $loop->first;
+                            @endphp
+                            <button class="variant-selector min-w-[69px] min-h-10 px-4 py-2 border text-base lg:text-xl leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
+                                data-variant-id="{{ $variant->id }}"
+                                data-sale-price="{{ $variant->sale_price }}"
+                                data-mrp="{{ $variant->product->mrp ?? '' }}">
                                 {{ $variant->attributeValue->value }}
                             </button>
                             @endforeach
@@ -281,7 +301,7 @@
 </section> -->
 
 <!-- You May Also Like -->
-<section class="section-space">
+<section class="section-space-bottom">
 
     <div class="container-1440">
 
@@ -391,6 +411,24 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
     var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
     var csrfToken  = '{{ csrf_token() }}';
 
+    // Handle variant button clicks
+    document.querySelectorAll('.variant-selector').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var parent = btn.parentElement;
+            parent.querySelectorAll('.variant-selector').forEach(function (sibling) {
+                sibling.classList.remove('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
+                sibling.classList.add('border-[#D5D5D5]', 'text-[#131615]');
+            });
+            btn.classList.add('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
+            btn.classList.remove('border-[#D5D5D5]', 'text-[#131615]');
+
+            var priceSpan = document.getElementById('productSalePrice');
+            if (priceSpan && btn.dataset.salePrice) {
+                priceSpan.textContent = '₹' + parseFloat(btn.dataset.salePrice).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+            }
+        });
+    });
+
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
         if (!btn) return;
@@ -398,31 +436,30 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
         e.preventDefault();
         e.stopPropagation();
 
+        var selectedQty = 1;
+        var qtyEl = document.getElementById('qty');
+        if (qtyEl) {
+            selectedQty = parseInt(qtyEl.innerText) || 1;
+        }
+
+        var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
+        var variantId = activeVariantBtn ? activeVariantBtn.dataset.variantId : (btn.dataset.variantId || null);
+
         if (!isLoggedIn) {
             var currentUrl = btn.dataset.currentUrl || window.location.href;
             var pendingData = {
                 product_id: btn.dataset.productId,
-                product_variant_id: btn.dataset.variantId || null
+                product_variant_id: variantId,
+                quantity: selectedQty
             };
-            var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
-            if (activeVariantBtn && activeVariantBtn.dataset.variantId) {
-                pendingData.product_variant_id = activeVariantBtn.dataset.variantId;
-            }
             sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
             window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(currentUrl);
             return;
         }
 
         var productId = btn.dataset.productId;
-        var variantId = btn.dataset.variantId || null;
         var toggleUrl = btn.dataset.toggleUrl;
         var svg       = btn.querySelector('.wishlist-icon, svg');
-
-        var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
-        if (activeVariantBtn && activeVariantBtn.dataset.variantId) {
-            variantId = activeVariantBtn.dataset.variantId;
-            btn.dataset.variantId = variantId;
-        }
 
         fetch(toggleUrl, {
             method: 'POST',
@@ -434,6 +471,7 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
             body: JSON.stringify({
                 product_id:         productId,
                 product_variant_id: variantId || null,
+                quantity:           selectedQty,
             }),
         })
         .then(function (r) { return r.json(); })

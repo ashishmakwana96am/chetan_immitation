@@ -100,6 +100,10 @@
                                     <span class="text-[#757575] ml-2">{{ $attrLabel }}</span>
                                 </p>
                                 @endif
+                                <p class="text-base sm:text-lg flex flex-wrap">
+                                    <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
+                                    <span class="text-[#757575] ml-2">{{ $wishlist->quantity ?? 1 }}</span>
+                                </p>
                             </div>
 
                             <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
