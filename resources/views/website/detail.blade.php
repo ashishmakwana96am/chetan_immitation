@@ -148,9 +148,9 @@
                     </div>
                 </div>
 
-                <div class="grid xl:grid-cols-2 gap-3 mt-6">
-                    <button class="common-btn">Add To Cart</button>
-                    <button class="border border-[#131615] common-btn !bg-transparent !text-[#131615]">Buy Now</button>
+                <div class="flex flex-wrap gap-3 mt-6">
+                    <button class="common-btn h-[50px]  w-full max-w-[300px]">Add To Cart</button>
+                    <button class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px]">Buy Now</button>
                 </div>
 
                 @php
