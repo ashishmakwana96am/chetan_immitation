@@ -481,7 +481,10 @@
                     // Check if modal is already open
                     const isShown = $cropModal.hasClass('show');
                     if (!isShown) {
-                        const modalObj = new bootstrap.Modal($cropModal[0]);
+                        let modalObj = bootstrap.Modal.getInstance($cropModal[0]);
+                        if (!modalObj) {
+                            modalObj = new bootstrap.Modal($cropModal[0]);
+                        }
                         modalObj.show();
                     } else {
                         // Re-initialize cropper immediately as shown event won't fire
@@ -513,6 +516,10 @@
                 }
                 $cropImage.attr('src', '');
 
+                // Reset inputs to allow selecting same file again
+                $('#primaryImageInput').val('');
+                $('#additionalImagesInput').val('');
+
                 // If user closed/cancelled, abort the remaining queue
                 if (!cropSaved && currentCroppingField === 'additional') {
                     additionalFilesQueue = [];
@@ -522,11 +529,13 @@
             $cropSaveBtn.on('click', function () {
                 if (!cropper) return;
                 const canvas = cropper.getCroppedCanvas({
-                    width: 340,
-                    height: 340
+                    width: 573,
+                    height: 573,
+                    imageSmoothingEnabled: true,
+                    imageSmoothingQuality: 'high'
                 });
                 if (canvas) {
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
                     cropSaved = true;
 
                     if (currentCroppingField === 'primary') {

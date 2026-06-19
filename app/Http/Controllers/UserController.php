@@ -16,7 +16,7 @@ class UserController extends Controller
         $this->authorize('view users');
         $users = User::with('roles')
             ->where('type', '!=', 'super-admin')
-            ->latest()
+            ->orderBy('id', 'desc')
             ->get();
         return view('users.index', compact('users'));
     }
@@ -25,7 +25,7 @@ class UserController extends Controller
     {
         $this->authorize('view users');
 
-        $users             = User::with('roles')->where('type', '!=', 'super-admin')->latest()->get();
+        $users             = User::with('roles')->where('type', '!=', 'super-admin')->orderBy('id', 'desc')->get();
         $canEdit           = auth()->user()->can('edit users');
         $canDelete         = auth()->user()->can('delete users');
         $canChangePassword = auth()->user()->can('change users password');

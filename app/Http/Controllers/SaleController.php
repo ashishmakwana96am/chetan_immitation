@@ -29,7 +29,7 @@ class SaleController extends Controller
         $orders    = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id))
-            ->latest()
+            ->orderBy('id', 'desc')
             ->get();
         $canEdit                   = auth()->user()->can('edit sales');
         $canDelete                 = auth()->user()->can('delete sales');

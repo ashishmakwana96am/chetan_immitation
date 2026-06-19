@@ -59,7 +59,7 @@ class ContactInquiryController extends Controller
     {
         $this->authorize('view contact inquiries');
 
-        $inquiries = ContactInquiry::latest()->get();
+        $inquiries = ContactInquiry::orderBy('id', 'desc')->get();
 
         $canDelete = auth()->user()->can('delete contact inquiries');
 

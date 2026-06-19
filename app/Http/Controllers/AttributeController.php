@@ -20,7 +20,7 @@ class AttributeController extends Controller
     {
         $this->authorize('view attributes');
 
-        $attributes = Attribute::with('createdBy', 'values')->latest()->get();
+        $attributes = Attribute::with('createdBy', 'values')->orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit attributes');
         $canDelete = auth()->user()->can('delete attributes');
 

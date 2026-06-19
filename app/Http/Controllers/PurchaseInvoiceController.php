@@ -33,7 +33,7 @@ class PurchaseInvoiceController extends Controller
                     $sub->where('location_id', $user->location_id);
                 });
             })
-            ->latest()
+            ->orderBy('id', 'desc')
             ->get();
         $canEdit                       = auth()->user()->can('edit purchases');
         $canDelete                     = auth()->user()->can('delete purchases');
