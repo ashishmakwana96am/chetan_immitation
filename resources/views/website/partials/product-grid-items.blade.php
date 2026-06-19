@@ -1,8 +1,15 @@
 @forelse($products as $product)
 @php
     $stockQty   = $product->inventories_sum_quantity ?? 0;
-    $inWishlist = auth('customer')->check()
-        && auth('customer')->user()->wishlists->where('product_id', $product->id)->isNotEmpty();
+    $wishlistItem = auth('customer')->check()
+        ? auth('customer')->user()->wishlists->where('product_id', $product->id)->first()
+        : null;
+    $inWishlist = !empty($wishlistItem);
+    $wishlistVariantId = $wishlistItem ? $wishlistItem->product_variant_id : null;
+    $detailUrl = route('product.detail', $product->slug);
+    if ($wishlistVariantId) {
+        $detailUrl .= '?variant=' . $wishlistVariantId;
+    }
 @endphp
 <div class="product-card group border border-[#D5D5D5] relative cursor-pointer" data-product-id="{{ $product->id }}">
     <div class="relative overflow-hidden">
@@ -15,13 +22,13 @@
             <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
         </div>
         @endif
-        <a class="product-detail-link" href="{{ route('product.detail', $product->slug) }}">
+        <a class="product-detail-link" href="{{ $detailUrl }}">
             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
         </a>
     </div>
     <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
         data-product-id="{{ $product->id }}"
-        data-variant-id=""
+        data-variant-id="{{ $wishlistVariantId ?? '' }}"
         data-login-url="{{ route('login') }}"
         data-toggle-url="{{ route('wishlist.toggle') }}"
         data-current-url="{{ url()->current() }}"
@@ -33,7 +40,7 @@
        </svg>
     </button>
     <div class="p-4 md:p-[25px]">
-        <h3 class="product-title"><a class="product-detail-link" href="{{ route('product.detail', $product->slug) }}">{{ $product->name }}</a></h3>
+        <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
         <div class="flex items-center gap-1 mt-[9px]">
             <div class="text-[#D5D5D5] text-base">★★★★★</div>
             <span class="text-xs text-[#757575]">(0)</span>
@@ -63,7 +70,7 @@
 
                         @foreach($product->variants as $variant)
                             @if($variant->attributeValue)
-                                <option value="{{ $variant->id }}">
+                                <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
                                     {{ $variant->attributeValue->value }}
                                 </option>
                             @endif

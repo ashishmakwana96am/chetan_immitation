@@ -14,6 +14,9 @@ class WishlistController extends Controller
     public function index()
     {
         $customer = Auth::guard('customer')->user();
+        if ($customer) {
+            $customer->load('wishlists');
+        }
 
         $wishlists = Wishlist::where('customer_id', $customer->id)
             ->with([
