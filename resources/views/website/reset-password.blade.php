@@ -24,7 +24,7 @@
     <div class="container-1440">
         <div class="grid lg:grid-cols-2 gap-6 items-stretch mx-auto">
 
-            <div class="border border-[#D5D5D5] bg-[#f7f7f7] px-5 py-6 lg:py-[50px] lg:px-[30px] rounded-[8px]">
+            <div class="border border-[#D5D5D5] px-5 py-5 lg:py-[50px] lg:px-[30px] rounded-[8px]">
 
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[38px] md:text-[48px] lg:text-[54px] leading-none">Set New Password</h1>
