@@ -72,7 +72,7 @@
                         {{-- Content --}}
                         <div class="flex-1 min-w-0">
                             <a href="{{ route('product.detail', $prod->slug) }}"
-                                class="block max-w-[500px] text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
+                                class="block text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
                                 {{ $prod->name }}
                             </a>
 
@@ -106,7 +106,7 @@
                                 </p>
                             </div>
 
-                            <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
+                            <div class="border-t border-[#D5D5D5] mt-4 pt-2">
                                 <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
                                     <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg transition">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
