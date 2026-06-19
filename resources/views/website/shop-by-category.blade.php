@@ -193,7 +193,7 @@
                         <li class="{{ $isLast ? '' : 'border-b border-[#D5D5D5]' }}">
                             <label class="flex items-center gap-5 {{ $loop->first ? 'pb-[15px]' : 'pt-[15px] pb-[15px]' }} cursor-pointer">
                                 <label class="custom-checkbox">
-                                    <input type="checkbox" class="size-checkbox" value="{{ $sizeVal->value }}" {{ in_array($sizeVal->value, $selectedSizes) ? 'checked' : '' }} onchange="applyFilters()">
+                                    <input type="checkbox" class="size-checkbox" value="{{ $sizeVal->value }}" {{ in_array($sizeVal->value, $selectedSizes) ? 'checked' : '' }} onchange="priceFilterTouched = false; applyFilters()">
                                     <span></span>
                                 </label>
                                 <span class="text-[20px] font-normal text-[#444444]">{{ $sizeVal->value }}</span>
@@ -394,6 +394,7 @@
     function handleCategoryFilterChange(categoryCheckbox) {
         syncSubcategoriesWhenCategoryChecked(categoryCheckbox);
         syncCategoryDropdown('cat-' + categoryCheckbox.dataset.categoryId);
+        priceFilterTouched = false;
         applyFilters();
     }
 
@@ -416,6 +417,7 @@
         }
 
         syncCategoryDropdown('cat-' + parentCatId);
+        priceFilterTouched = false;
         applyFilters();
     }
 
