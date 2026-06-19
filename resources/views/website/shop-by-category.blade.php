@@ -221,23 +221,23 @@
                     </svg>
                 </button>
                 
-                <button type="button" onclick="resetAllFilters()" class="flex items-center justify-center gap-2 px-5 h-[48px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] hover:bg-gray-50 transition duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4 text-[#B4771E]">
+                <button type="button" onclick="resetAllFilters()" class="flex items-center justify-center gap-2 px-3 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] hover:bg-[#B4771E] transition duration-300 group hover:text-white group">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4 text-[#B4771E]  group-hover:text-white transition-colors duration-300">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                     </svg>
                     Reset
                 </button>
 
-                <div class="relative w-full max-w-[200px] sm:max-w-[340px]">
+                <div class="relative w-full max-w-[200px] sm:max-w-[230px]">
                     <select id="sortSelect" onchange="applyFilters()"
-                        class="appearance-none w-full px-5 pr-12 h-[48px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
+                        class="appearance-none w-full px-5 pr-12 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
                         <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
                         <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
                         <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
                         <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
                         <option value="popular" {{ request('sort') == 'popular' ? 'selected' : '' }}>Most Popular</option>
                     </select>
-                    <svg class="absolute top-1/2 -translate-y-1/2 right-5 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <svg class="absolute top-1/2 -translate-y-[50%] right-5 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
                         <path d="M6 9L12 15L18 9" stroke="#3D403F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </div>
