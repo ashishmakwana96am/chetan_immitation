@@ -62,14 +62,12 @@ class CustomerLoginController extends Controller
                     if ($existing) {
                         $existing->update([
                             'product_variant_id' => $data['product_variant_id'] ?? null,
-                            'quantity'           => $data['quantity'] ?? 1,
                         ]);
                     } else {
                         \App\Models\Wishlist::create([
                             'customer_id'        => $customer->id,
                             'product_id'         => $data['product_id'],
                             'product_variant_id' => $data['product_variant_id'] ?? null,
-                            'quantity'           => $data['quantity'] ?? 1,
                         ]);
                     }
                     $wishlistCount = $customer->wishlists()->count();

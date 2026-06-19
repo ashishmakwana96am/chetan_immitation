@@ -551,11 +551,11 @@
         var toast = document.createElement('div');
         toast.className = 'custom-toast';
 
-        var iconClass = 'fa-solid fa-circle-check text-[#B4771E]';
+        var iconClass = 'fa-solid fa-heart-circle-check text-[#B4771E]';
         if (isSuccess === false) {
-            iconClass = 'fa-solid fa-circle-xmark text-red-500';
+            iconClass = 'fa-solid fa-heart-circle-xmark text-red-500';
         } else if (message.includes('Remove') || message.includes('remove') || message.includes('Removed')) {
-            iconClass = 'fa-solid fa-circle-xmark text-red-500';
+            iconClass = 'fa-solid fa-heart-circle-xmark text-red-500';
         }
 
         toast.innerHTML = `
@@ -627,10 +627,9 @@
             // Only handle grid-item wishlist buttons (not detail page which has its own handler)
             var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
             if (!btn) return;
-            // Skip if inside the mainSwiper, detail page section-space, or wishlist page list
-            if (btn.closest('.mainSwiper') || btn.closest('#wishlistItems')) return;
-            // Skip if detail page handler is active (body has data-detail-page attribute)
-            if (document.body.dataset.detailPage === '1') return;
+            // Skip if the button is inside the main product details block (.mainSwiper)
+            // since that has its own local click handler.
+            if (btn.closest('.mainSwiper')) return;
 
             e.preventDefault();
             e.stopPropagation();
@@ -648,8 +647,7 @@
                 var intended = btn.dataset.currentUrl || window.location.href;
                 var pendingData = {
                     product_id: btn.dataset.productId,
-                    product_variant_id: variantId,
-                    quantity: 1
+                    product_variant_id: variantId
                 };
                 sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
                 window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(intended);
@@ -683,6 +681,8 @@
                     window.showWishlistToast('Product removed from your wishlist.');
                 }
                 window.updateWishlistBadge(data.count);
+                
+                document.dispatchEvent(new CustomEvent('wishlistToggled', { detail: Object.assign({ product_id: productId }, data) }));
             })
             .catch(function () {});
         });

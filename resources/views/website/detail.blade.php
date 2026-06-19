@@ -374,6 +374,20 @@ const plusBtn = document.getElementById("plusBtn");
 const minusBtn = document.getElementById("minusBtn");
 let count = parseInt(qty ? qty.innerText : 1) || 1;
 
+if (plusBtn) {
+    plusBtn.addEventListener("click", () => {
+        count++;
+        if (qty) qty.innerText = count;
+    });
+}
+if (minusBtn) {
+    minusBtn.addEventListener("click", () => {
+        if (count > 1) {
+            count--;
+            if (qty) qty.innerText = count;
+        }
+    });
+}
 </script>
 
 <script>
@@ -382,9 +396,6 @@ let count = parseInt(qty ? qty.innerText : 1) || 1;
     var isLoggedIn    = {{ auth('customer')->check() ? 'true' : 'false' }};
     var csrfToken     = '{{ csrf_token() }}';
     var mainProductId = '{{ $product->id }}';
-
-    // Mark body so the global layout handler skips all wishlist clicks on this page
-    document.body.dataset.detailPage = '1';
 
     // Track which variant (or null) is currently wishlisted for this product.
     // "null" means product is wishlisted without a variant.
@@ -425,24 +436,46 @@ let count = parseInt(qty ? qty.innerText : 1) || 1;
         if (window.showWishlistToast) window.showWishlistToast(msg);
     }
 
-    // ── qty buttons ──────────────────────────────────────────────────────────
+    // ── direct AJAX update helper ──
+    function syncWishlistVariantAndQty(variantId, forceUpdate) {
+        var toggleUrl = '{{ route('wishlist.toggle') }}';
+        var mainBtn = getMainWishlistBtn();
+        if (mainBtn && mainBtn.dataset.toggleUrl) {
+            toggleUrl = mainBtn.dataset.toggleUrl;
+        }
 
-    if (plusBtn) {
-        plusBtn.addEventListener('click', function () {
-            count++;
-            if (qty) qty.innerText = count;
-        });
-    }
-    if (minusBtn) {
-        minusBtn.addEventListener('click', function () {
-            if (count > 1) { count--; if (qty) qty.innerText = count; }
-        });
+        fetch(toggleUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept':       'application/json',
+            },
+            body: JSON.stringify({
+                product_id:         mainProductId,
+                product_variant_id: variantId || null,
+                force_update:       forceUpdate ? 1 : 0
+            }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.status === 'added' || data.status === 'updated') {
+                wishlistedVariantId = variantId !== null ? variantId : null;
+                if (mainBtn) setHeartState(mainBtn, true);
+                if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
+                toast(data.status === 'updated' ? 'Wishlist updated! ❤️' : 'Product added to your wishlist! ❤️');
+            } else {
+                wishlistedVariantId = false;
+                if (mainBtn) setHeartState(mainBtn, false);
+                if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
+                toast('Product removed from your wishlist.');
+            }
+        })
+        .catch(function () {});
     }
 
     // ── variant selector clicks ───────────────────────────────────────────────
-    // When user switches variant, update the heart to reflect wishlist state
-    // for that variant WITHOUT making any server call.
-
+    // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted
     document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
             // Visual active state
@@ -473,31 +506,8 @@ let count = parseInt(qty ? qty.innerText : 1) || 1;
                 wishlistedVariantId !== false &&
                 String(wishlistedVariantId) !== String(variantId)
             ) {
-                var toggleUrl = mainBtn ? mainBtn.dataset.toggleUrl : '{{ route('wishlist.toggle') }}';
-
-                fetch(toggleUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept':       'application/json',
-                    },
-                    body: JSON.stringify({
-                        product_id:         mainProductId,
-                        product_variant_id: variantId || null,
-                    }),
-                })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.status === 'updated' || data.status === 'added') {
-                        wishlistedVariantId = variantId !== null ? variantId : null;
-                        if (mainBtn) setHeartState(mainBtn, true);
-                        if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
-                        toast('Wishlist variant updated! ❤️');
-                    }
-                })
-                .catch(function () {});
-
+                // If already wishlisted and changing variant, update on server directly
+                syncWishlistVariantAndQty(variantId, true);
             } else {
                 if (mainBtn) {
                     var inWishlist = (wishlistedVariantId !== false) &&
@@ -510,35 +520,23 @@ let count = parseInt(qty ? qty.innerText : 1) || 1;
     });
 
     // ── wishlist button clicks ────────────────────────────────────────────────
-    // One listener handles: main product heart + related product hearts.
-    // Global layout handler is blocked for mainSwiper buttons via stopPropagation.
-
+    // One listener handles details page heart click (main product)
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
         if (!btn) return;
 
-        // Wishlist page handles its own buttons
-        if (btn.closest('#wishlistItems')) return;
+        // Skip related products / grid item wishlist buttons (handled by layouts/website.blade.php)
+        if (!btn.closest('.mainSwiper')) return;
 
         e.preventDefault();
         e.stopPropagation();
 
         var productId = btn.dataset.productId;
         var toggleUrl = btn.dataset.toggleUrl;
-        var isMainBtn = btn.closest('.mainSwiper') !== null;
 
-        // ── Variant to send ──
-        // Main heart: already wishlisted → send wishlisted variant (triggers remove)
-        //             not wishlisted     → send active selected variant (triggers add)
-        // Related card hearts: always send data-variant-id
-        var variantId;
-        if (isMainBtn) {
-            variantId = (wishlistedVariantId !== false)
-                ? (wishlistedVariantId !== null ? wishlistedVariantId : null)
-                : getActiveVariantId();
-        } else {
-            variantId = btn.dataset.variantId || null;
-        }
+        var variantId = (wishlistedVariantId !== false)
+            ? (wishlistedVariantId !== null ? wishlistedVariantId : null)
+            : getActiveVariantId();
 
         // ── Not logged in ──
         if (!isLoggedIn) {
@@ -551,47 +549,8 @@ let count = parseInt(qty ? qty.innerText : 1) || 1;
             return;
         }
 
-        // Disable button while request is in flight
-        btn.disabled = true;
-
-        fetch(toggleUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept':       'application/json',
-            },
-            body: JSON.stringify({
-                product_id:         productId,
-                product_variant_id: variantId || null,
-            }),
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            btn.disabled = false;
-
-            if (data.status === 'added') {
-                setHeartState(btn, true);
-                if (isMainBtn) wishlistedVariantId = variantId !== null ? variantId : null;
-                toast('Product added to your wishlist! ❤️');
-
-            } else if (data.status === 'updated') {
-                setHeartState(btn, true);
-                if (isMainBtn) wishlistedVariantId = variantId !== null ? variantId : null;
-                toast('Wishlist variant updated! ❤️');
-
-            } else {
-                // removed
-                setHeartState(btn, false);
-                if (isMainBtn) wishlistedVariantId = false;
-                toast('Product removed from your wishlist.');
-            }
-
-            if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
-        })
-        .catch(function () {
-            btn.disabled = false;
-        });
+        // Toggle on/off normally
+        syncWishlistVariantAndQty(variantId, false);
     });
 }());
 </script>

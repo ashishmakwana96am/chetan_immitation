@@ -94,10 +94,55 @@ class WishlistController extends Controller
 
         $count = Wishlist::where('customer_id', $customer->id)->count();
 
+        $productData = null;
+        if ($status === 'added') {
+            $newItem = Wishlist::where('customer_id', $customer->id)
+                ->where('product_id', $request->product_id)
+                ->with([
+                    'product.primaryImage',
+                    'product.category',
+                    'productVariant.attributeValue.attribute',
+                ])
+                ->withSum('product.inventories', 'quantity')
+                ->first();
+
+            if ($newItem) {
+                $prod    = $newItem->product;
+                $variant = $newItem->productVariant;
+                $stockQty = $prod->inventories_sum_quantity ?? 0;
+                $attrLabel = null;
+                if ($variant && $variant->attributeValue) {
+                    $attrName  = optional($variant->attributeValue->attribute)->name;
+                    $attrValue = $variant->attributeValue->value;
+                    $attrLabel = $attrName ? $attrName . ': ' . $attrValue : $attrValue;
+                }
+
+                $productData = [
+                    'wishlist_id'  => $newItem->id,
+                    'product_id'   => $prod->id,
+                    'variant_id'   => $variant?->id,
+                    'name'         => $prod->name,
+                    'slug'         => $prod->slug,
+                    'image'        => $prod->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png'),
+                    'sale_price'   => number_format($prod->sale_price, 0),
+                    'mrp'          => $prod->mrp && $prod->mrp > $prod->sale_price ? number_format($prod->mrp, 0) : null,
+                    'category'     => $prod->category?->name,
+                    'attr_label'   => $attrLabel,
+                    'out_of_stock' => $stockQty < 1,
+                    'sale'         => (bool) $prod->sale,
+                    'detail_url'   => route('product.detail', $prod->slug),
+                    'toggle_url'   => route('wishlist.toggle'),
+                    'login_url'    => route('login'),
+                    'current_url'  => url('/wishlist'),
+                ];
+            }
+        }
+
         return response()->json([
-            'status'     => $status,
-            'count'      => $count,
-            'variant_id' => $variantId,
+            'status'       => $status,
+            'count'        => $count,
+            'variant_id'   => $variantId,
+            'product_data' => $productData,
         ]);
     }
 }
