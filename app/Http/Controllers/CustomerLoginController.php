@@ -9,6 +9,10 @@ class CustomerLoginController extends Controller
 {
     public function login(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+        ]);
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'email'    => ['required', 'email'],
             'password' => ['required'],

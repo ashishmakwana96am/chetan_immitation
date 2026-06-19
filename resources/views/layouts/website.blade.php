@@ -258,8 +258,8 @@
                         </a>
 
                         @auth('customer')
-                        <div class="relative" id="userMenuWrap">
-                            <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none" type="button">
+                        <div class="relative flex items-center" id="userMenuWrap">
+                            <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none flex items-center p-0 bg-transparent border-0" type="button">
                                 <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                             </button>
                             <div id="userMenuDropdown" class="hidden absolute right-0 top-full w-[200px] z-50" style="padding-top:8px;">

@@ -312,7 +312,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
             @forelse($relatedProducts as $rp)
-            <div class="group border border-[#D5D5D5] cursor-pointer">
+            @php
+                $inWishlist = auth('customer')->check()
+                    && auth('customer')->user()->wishlists->where('product_id', $rp->id)->isNotEmpty();
+            @endphp
+            <div class="product-card group border border-[#D5D5D5] relative cursor-pointer" data-product-id="{{ $rp->id }}">
                 <div class="relative overflow-hidden">
                     @if($rp->sale)
                     <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
@@ -322,11 +326,18 @@
                     <a href="{{ route('product.detail', $rp->slug) }}">
                         <img src="{{ $rp->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                     </a>
-                    <a href="{{ route('product.detail', $rp->slug) }}" class="group absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center text-[#131615] transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5 text-[#131615] fill-transparent hover:text-[#E01B1B] hover:fill-[#E01B1B] transition-all duration-300">
+                    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+                        data-product-id="{{ $rp->id }}"
+                        data-variant-id=""
+                        data-login-url="{{ route('login') }}"
+                        data-toggle-url="{{ route('wishlist.toggle') }}"
+                        data-current-url="{{ url()->current() }}"
+                        data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
+                            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                         </svg>
-                    </a>
+                    </button>
                 </div>
                 <div class="p-4 md:p-[25px]">
                     <h3 class="product-title"><a href="{{ route('product.detail', $rp->slug) }}">{{ $rp->name }}</a></h3>

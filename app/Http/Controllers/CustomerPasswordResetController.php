@@ -16,6 +16,10 @@ class CustomerPasswordResetController extends Controller
      */
     public function sendOtp(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'email' => ['required', 'email'],
         ], [
@@ -68,6 +72,10 @@ class CustomerPasswordResetController extends Controller
      */
     public function verifyOtp(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'email' => ['required', 'email'],
             'otp'   => ['required', 'string', 'size:6'],
@@ -121,6 +129,10 @@ class CustomerPasswordResetController extends Controller
      */
     public function resendOtp(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'email' => ['required', 'email'],
         ]);

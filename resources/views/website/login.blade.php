@@ -77,15 +77,15 @@
                     </div>
 
                     <div class="flex items-center justify-between mt-5 flex-wrap gap-3">
-                        <label class="flex items-center gap-[10px] cursor-pointer select-none group" for="remember">
-                            <span class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
-                                <input type="checkbox" name="remember" id="remember" class="absolute opacity-0 w-0 h-0 peer">
+                        <div class="flex items-center gap-[10px]">
+                            <div class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
+                                <input type="checkbox" name="remember" id="remember" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 peer">
                                 <svg class="w-[13px] h-[13px] text-[#B4771E] opacity-0 peer-checked:opacity-100 transition-opacity duration-200" viewBox="0 0 12 10" fill="none">
                                     <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
-                            </span>
-                            <span class="text-base text-[#3D403F]">Remember Me</span>
-                        </label>
+                            </div>
+                            <label class="text-base text-[#3D403F] cursor-pointer select-none" for="remember">Remember Me</label>
+                        </div>
                         <a href="{{ route('forgot-password') }}" class="text-lg text-[#131615] hover:text-[#B4771E] transition">Forgot Password?</a>
                     </div>
 
