@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
@@ -22,20 +23,23 @@ class ShopCategoryController extends Controller
             ->get();
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
-        $priceRange = (clone $catalogQuery)
+
+        // Get filtered product IDs first, then compute price range from effective prices
+        $filteredProductIds = (clone $catalogQuery)->pluck('products.id');
+
+        $priceRange = \DB::table('products')
+            ->leftJoin(\DB::raw('(
+                SELECT product_id,
+                       MIN(sale_price) as variant_min,
+                       MAX(sale_price) as variant_max
+                FROM product_variants
+                WHERE status IN (1, "active")
+                GROUP BY product_id
+            ) as pv'), 'pv.product_id', '=', 'products.id')
+            ->whereIn('products.id', $filteredProductIds)
             ->selectRaw('
-                MIN(
-                    COALESCE(
-                        (SELECT MIN(sale_price) FROM product_variants WHERE product_variants.product_id = products.id AND product_variants.status IN (1, "active")),
-                        products.sale_price
-                    )
-                ) as min_price,
-                MAX(
-                    COALESCE(
-                        (SELECT MAX(sale_price) FROM product_variants WHERE product_variants.product_id = products.id AND product_variants.status IN (1, "active")),
-                        products.sale_price
-                    )
-                ) as max_price
+                MIN(COALESCE(pv.variant_min, products.sale_price)) as min_price,
+                MAX(COALESCE(pv.variant_max, products.sale_price)) as max_price
             ')
             ->first();
 
