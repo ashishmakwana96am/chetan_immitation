@@ -24,7 +24,6 @@ class ShopCategoryController extends Controller
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
 
-        // Get filtered product IDs first, then compute price range from effective prices
         $filteredProductIds = (clone $catalogQuery)->pluck('products.id');
 
         $priceRange = \DB::table('products')
@@ -55,10 +54,24 @@ class ShopCategoryController extends Controller
 
         switch (request('sort')) {
             case 'price-low':
-                $query->orderBy('sale_price', 'asc');
+                $query->orderByRaw('
+                    COALESCE(
+                        (SELECT MIN(sale_price) FROM product_variants
+                         WHERE product_variants.product_id = products.id
+                           AND product_variants.status = 1),
+                        products.sale_price
+                    ) ASC
+                ');
                 break;
             case 'price-high':
-                $query->orderBy('sale_price', 'desc');
+                $query->orderByRaw('
+                    COALESCE(
+                        (SELECT MIN(sale_price) FROM product_variants
+                         WHERE product_variants.product_id = products.id
+                           AND product_variants.status = 1),
+                        products.sale_price
+                    ) DESC
+                ');
                 break;
             case 'newest':
                 $query->latest('created_at');
@@ -163,33 +176,25 @@ class ShopCategoryController extends Controller
             $maxPrice = request()->filled('max_price') ? (float) request('max_price') : null;
 
             if ($minPrice !== null || $maxPrice !== null) {
-                $query->where(function ($q) use ($minPrice, $maxPrice) {
-                    $q->where(function ($sub) use ($minPrice, $maxPrice) {
-                        $sub->whereHas('variants', function ($vq) {
-                            $vq->whereIn('status', [1, 'active']);
-                        })
-                        ->whereHas('variants', function ($vq) use ($minPrice, $maxPrice) {
-                            $vq->whereIn('status', [1, 'active']);
-                            if ($minPrice !== null) {
-                                $vq->where('sale_price', '>=', $minPrice);
-                            }
-                            if ($maxPrice !== null) {
-                                $vq->where('sale_price', '<=', $maxPrice);
-                            }
-                        });
-                    })
-                    ->orWhere(function ($sub) use ($minPrice, $maxPrice) {
-                        $sub->whereDoesntHave('variants', function ($vq) {
-                            $vq->whereIn('status', [1, 'active']);
-                        });
-                        if ($minPrice !== null) {
-                            $sub->where('products.sale_price', '>=', $minPrice);
-                        }
-                        if ($maxPrice !== null) {
-                            $sub->where('products.sale_price', '<=', $maxPrice);
-                        }
-                    });
-                });
+                $query->whereRaw('
+                    COALESCE(
+                        (SELECT MIN(sale_price) FROM product_variants
+                         WHERE product_variants.product_id = products.id
+                           AND product_variants.status = 1),
+                        products.sale_price
+                    ) >= ?
+                ', [$minPrice ?? 0]);
+
+                if ($maxPrice !== null) {
+                    $query->whereRaw('
+                        COALESCE(
+                            (SELECT MIN(sale_price) FROM product_variants
+                             WHERE product_variants.product_id = products.id
+                               AND product_variants.status = 1),
+                            products.sale_price
+                        ) <= ?
+                    ', [$maxPrice]);
+                }
             }
         }
 
