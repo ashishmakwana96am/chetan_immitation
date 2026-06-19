@@ -180,7 +180,10 @@ $(document).ready(function () {
                 });
                 
                 // Show the modal
-                const modalObj = new bootstrap.Modal($cropModal[0]);
+                let modalObj = bootstrap.Modal.getInstance($cropModal[0]);
+                if (!modalObj) {
+                    modalObj = new bootstrap.Modal($cropModal[0]);
+                }
                 modalObj.show();
             };
         };
@@ -201,13 +204,19 @@ $(document).ready(function () {
             cropper = null;
         }
         $cropImage.attr('src', '');
+        
+        // Reset file input to allow selecting same file again
+        $fileInput.val('');
     });
 
     $cropSaveBtn.on('click', function () {
         if (!cropper) return;
-        const canvas = cropper.getCroppedCanvas();
+        const canvas = cropper.getCroppedCanvas({
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
+        });
         if (canvas) {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
             $base64Input.val(dataUrl);
             $previewImg.attr('src', dataUrl);
             $previewContainer.removeClass('d-none');
