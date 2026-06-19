@@ -551,11 +551,11 @@
         var toast = document.createElement('div');
         toast.className = 'custom-toast';
 
-        var iconClass = 'fa-solid fa-heart-circle-check text-[#B4771E]';
+        var iconClass = 'fa-solid fa-circle-check text-[#B4771E]';
         if (isSuccess === false) {
-            iconClass = 'fa-solid fa-heart-circle-xmark text-red-500';
+            iconClass = 'fa-solid fa-circle-xmark text-red-500';
         } else if (message.includes('Remove') || message.includes('remove') || message.includes('Removed')) {
-            iconClass = 'fa-solid fa-heart-crack text-gray-400';
+            iconClass = 'fa-solid fa-circle-xmark text-red-500';
         }
 
         toast.innerHTML = `

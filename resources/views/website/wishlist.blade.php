@@ -186,9 +186,8 @@
 $(function () {
     var csrfToken = '{{ csrf_token() }}';
 
-    $(document).on('click', '.remove-wishlist-btn, .wishlist-btn', function (e) {
+    $(document).on('click', '#wishlistItems .remove-wishlist-btn, #wishlistItems .wishlist-btn', function (e) {
         var btn = $(this);
-        // Prevent default and stop propagation on the heart icon button to bypass the global listener
         if (btn.hasClass('wishlist-btn')) {
             e.preventDefault();
             e.stopPropagation();
@@ -217,7 +216,7 @@ $(function () {
                     if (window.showWishlistToast) {
                         window.showWishlistToast('Product removed from your wishlist.');
                     }
-                    if (res.count === 0 || $('.wishlist-item').length === 0) {
+                    if (res.count === 0 || $('#wishlistItems .wishlist-item').length === 0) {
                         location.reload();
                     }
                 });
