@@ -44,6 +44,25 @@ class ShopCategoryController extends Controller
 
         $catalogMinPrice = (int) floor((float) ($priceRange->min_price ?? 0));
         $catalogMaxPrice = (int) ceil((float) ($priceRange->max_price ?? 0));
+        if ($catalogMinPrice === 0 && $catalogMaxPrice === 0) {
+            $globalRange = \DB::table('products')
+                ->leftJoin(\DB::raw('(
+                    SELECT product_id,
+                           MIN(sale_price) as variant_min,
+                           MAX(sale_price) as variant_max
+                    FROM product_variants
+                    WHERE status = 1
+                    GROUP BY product_id
+                ) as pv'), 'pv.product_id', '=', 'products.id')
+                ->where('products.status', Product::STATUS_ACTIVE)
+                ->selectRaw('
+                    MIN(COALESCE(pv.variant_min, products.sale_price)) as min_price,
+                    MAX(COALESCE(pv.variant_max, products.sale_price)) as max_price
+                ')
+                ->first();
+            $catalogMinPrice = (int) floor((float) ($globalRange->min_price ?? 0));
+            $catalogMaxPrice = (int) ceil((float) ($globalRange->max_price ?? 0));
+        }
         if ($catalogMaxPrice < $catalogMinPrice) {
             $catalogMaxPrice = $catalogMinPrice;
         }
@@ -150,7 +169,10 @@ class ShopCategoryController extends Controller
             $subSlugs = explode(',', request('sub_category'));
             $subIds = SubCategory::whereIn('slug', $subSlugs)->pluck('id');
             if ($subIds->isNotEmpty()) {
-                $query->whereIn('sub_category_id', $subIds);
+                $query->where(function ($q) use ($subIds) {
+                    $q->whereIn('sub_category_id', $subIds)
+                      ->orWhereNull('sub_category_id');
+                });
             }
         }
 
