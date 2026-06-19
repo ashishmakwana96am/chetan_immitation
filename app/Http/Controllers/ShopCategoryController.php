@@ -23,7 +23,20 @@ class ShopCategoryController extends Controller
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
         $priceRange = (clone $catalogQuery)
-            ->selectRaw('COALESCE(MIN(sale_price), 0) as min_price, COALESCE(MAX(sale_price), 0) as max_price')
+            ->selectRaw('
+                MIN(
+                    COALESCE(
+                        (SELECT MIN(sale_price) FROM product_variants WHERE product_variants.product_id = products.id AND product_variants.status = 1),
+                        products.sale_price
+                    )
+                ) as min_price,
+                MAX(
+                    COALESCE(
+                        (SELECT MAX(sale_price) FROM product_variants WHERE product_variants.product_id = products.id AND product_variants.status = 1),
+                        products.sale_price
+                    )
+                ) as max_price
+            ')
             ->first();
 
         $catalogMinPrice = (int) floor((float) ($priceRange->min_price ?? 0));
@@ -142,11 +155,30 @@ class ShopCategoryController extends Controller
         }
 
         if ($applyPriceFilter) {
-            if (request()->filled('min_price')) {
-                $query->where('sale_price', '>=', (float) request('min_price'));
-            }
-            if (request()->filled('max_price')) {
-                $query->where('sale_price', '<=', (float) request('max_price'));
+            $minPrice = request()->filled('min_price') ? (float) request('min_price') : null;
+            $maxPrice = request()->filled('max_price') ? (float) request('max_price') : null;
+
+            if ($minPrice !== null || $maxPrice !== null) {
+                $query->where(function ($q) use ($minPrice, $maxPrice) {
+                    $q->whereHas('variants', function ($vq) use ($minPrice, $maxPrice) {
+                        $vq->where('status', 1);
+                        if ($minPrice !== null) {
+                            $vq->where('sale_price', '>=', $minPrice);
+                        }
+                        if ($maxPrice !== null) {
+                            $vq->where('sale_price', '<=', $maxPrice);
+                        }
+                    })
+                    ->orWhere(function ($pq) use ($minPrice, $maxPrice) {
+                        $pq->whereDoesntHave('variants');
+                        if ($minPrice !== null) {
+                            $pq->where('sale_price', '>=', $minPrice);
+                        }
+                        if ($maxPrice !== null) {
+                            $pq->where('sale_price', '<=', $maxPrice);
+                        }
+                    });
+                });
             }
         }
 

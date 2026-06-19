@@ -66,16 +66,16 @@
                     @endphp
                     <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
                         <div class="w-full flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-[15px] min-w-0 flex-1">
-                                <label class="custom-checkbox shrink-0" onclick="event.stopPropagation()">
+                            <label class="flex items-center gap-[15px] min-w-0 flex-1 cursor-pointer select-none">
+                                <span class="custom-checkbox shrink-0">
                                     <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="handleCategoryFilterChange(this)">
                                     <span></span>
-                                </label>
-                                <h3 class="text-[18px] text-[#3D403F] cursor-pointer select-none" onclick="toggleCategoryCheckbox('{{ $cat->id }}')">
+                                </span>
+                                <h3 class="text-[18px] text-[#3D403F]">
                                     {{ $cat->name }}
                                     <span class="text-[#757575]">({{ $cat->products_count }})</span>
                                 </h3>
-                            </div>
+                            </label>
                             @if($cat->subCategories->isNotEmpty())
                             <button type="button" onclick="toggleCategory('{{ $catId }}')" class="shrink-0 p-1" aria-label="Toggle subcategories">
                             <svg id="{{ $catId }}-arrow" class="w-4 h-4 text-[#131615] transition-transform duration-300" style="transform: rotate({{ $isCatOpen ? '180deg' : '0deg' }});"
@@ -122,7 +122,7 @@
                             </span>
                             <input id="minPriceInput" type="number" value="{{ $selectedMinPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
-                                    outline-none appearance-none" oninput="syncFromInput('min')" onblur="normalizePriceInput('min')">
+                                    outline-none appearance-none" oninput="syncFromInput('min')" onblur="normalizePriceInput('min')" onkeydown="if(event.key==='Enter') this.blur()">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMin()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -145,7 +145,7 @@
                             </span>
                             <input id="maxPriceInput" type="number" value="{{ $selectedMaxPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
                                     text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
-                                    outline-none appearance-none" oninput="syncFromInput('max')" onblur="normalizePriceInput('max')">
+                                    outline-none appearance-none" oninput="syncFromInput('max')" onblur="normalizePriceInput('max')" onkeydown="if(event.key==='Enter') this.blur()">
                             <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMax()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -214,22 +214,30 @@
         <!-- PRODUCT GRID -->
         <div class="col-span-12 lg:col-span-8 xl:col-span-9 min-w-0">
 
-            <div class="flex gap-4 justify-between lg:justify-end mb-5">
-                <button id="filterBtn" class="px-3 py-3 lg:hidden col-span-full mb-4 border border-[#B4771E] text-[#B4771E] py-3 rounded-md text-lg font-medium">
+            <div class="flex flex-wrap sm:flex-nowrap gap-3 items-center justify-between lg:justify-end mb-5">
+                <button id="filterBtn" class="flex items-center justify-center px-4 h-[48px] lg:hidden border border-[#B4771E] text-[#B4771E] rounded-[8px] transition duration-300 hover:bg-[#B4771E]/5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
                     </svg>
                 </button>
-                <div class="relative w-full max-w-[340px]">
+                
+                <button type="button" onclick="resetAllFilters()" class="flex items-center justify-center gap-2 px-5 h-[48px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] hover:bg-gray-50 transition duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4 text-[#B4771E]">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    Reset
+                </button>
+
+                <div class="relative w-full max-w-[200px] sm:max-w-[340px]">
                     <select id="sortSelect" onchange="applyFilters()"
-                        class="appearance-none w-full px-5 pr-14 py-3 sm:leading-[20px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
+                        class="appearance-none w-full px-5 pr-12 h-[48px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
                         <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
                         <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
                         <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
                         <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
                         <option value="popular" {{ request('sort') == 'popular' ? 'selected' : '' }}>Most Popular</option>
                     </select>
-                    <svg class="absolute -translate-y-1/2 top-[56%] lg:inset-y-0 lg:top-[23%] lg:-translate-y-0 right-5 flex items-center pointer-events-none h-auto" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <svg class="absolute top-1/2 -translate-y-1/2 right-5 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
                         <path d="M6 9L12 15L18 9" stroke="#3D403F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </div>
@@ -296,18 +304,35 @@
         if (!priceFilterTouched) {
             setPriceInputs(catalogMinPrice, catalogMaxPrice);
         } else {
-            let selectedMin = clampPriceValue(document.getElementById('minPriceInput').value, catalogMinPrice);
-            let selectedMax = clampPriceValue(document.getElementById('maxPriceInput').value, catalogMaxPrice);
-            const step = getPriceStep();
+            let currentMin = parseInt(document.getElementById('minPriceInput').value);
+            let currentMax = parseInt(document.getElementById('maxPriceInput').value);
+            if (isNaN(currentMin)) currentMin = catalogMinPrice;
+            if (isNaN(currentMax)) currentMax = catalogMaxPrice;
 
-            if (selectedMin >= selectedMax) {
-                selectedMin = Math.max(catalogMinPrice, selectedMax - step);
-            }
-
-            setPriceInputs(selectedMin, selectedMax);
-
-            if (isFullCatalogPriceRange(selectedMin, selectedMax)) {
+            // Check if there is no overlap between the user's selection and the new catalog range
+            if (currentMax < catalogMinPrice || currentMin > catalogMaxPrice) {
+                // Reset price filter since it doesn't apply to the new catalog range at all
                 priceFilterTouched = false;
+                setPriceInputs(catalogMinPrice, catalogMaxPrice);
+            } else {
+                // There is some overlap, clamp the user's selection within the new bounds
+                let selectedMin = Math.max(catalogMinPrice, Math.min(catalogMaxPrice, currentMin));
+                let selectedMax = Math.max(catalogMinPrice, Math.min(catalogMaxPrice, currentMax));
+                const step = getPriceStep();
+
+                if (selectedMin >= selectedMax) {
+                    if (selectedMax === catalogMinPrice) {
+                        selectedMax = Math.min(catalogMaxPrice, selectedMin + step);
+                    } else {
+                        selectedMin = Math.max(catalogMinPrice, selectedMax - step);
+                    }
+                }
+
+                setPriceInputs(selectedMin, selectedMax);
+
+                if (isFullCatalogPriceRange(selectedMin, selectedMax)) {
+                    priceFilterTouched = false;
+                }
             }
         }
 
@@ -360,19 +385,10 @@
     }
 
     function syncSubcategoriesWhenCategoryChecked(categoryCheckbox) {
-        if (!categoryCheckbox.checked) return;
-
+        const targetState = categoryCheckbox.checked;
         document.querySelectorAll('.subcategory-checkbox[data-category-id="' + categoryCheckbox.dataset.categoryId + '"]').forEach(cb => {
-            cb.checked = true;
+            cb.checked = targetState;
         });
-    }
-
-    function toggleCategoryCheckbox(categoryId) {
-        const checkbox = document.querySelector('.category-checkbox[data-category-id="' + categoryId + '"]');
-        if (!checkbox) return;
-
-        checkbox.checked = !checkbox.checked;
-        handleCategoryFilterChange(checkbox);
     }
 
     function handleCategoryFilterChange(categoryCheckbox) {
@@ -382,7 +398,24 @@
     }
 
     function handleSubcategoryFilterChange(subcategoryCheckbox) {
-        syncCategoryDropdownFromInput(subcategoryCheckbox);
+        const parentCatId = subcategoryCheckbox.dataset.categoryId;
+        const parentCheckbox = document.querySelector('.category-checkbox[data-category-id="' + parentCatId + '"]');
+
+        if (!subcategoryCheckbox.checked) {
+            if (parentCheckbox) {
+                parentCheckbox.checked = false;
+            }
+        } else {
+            if (parentCheckbox) {
+                const allSubs = document.querySelectorAll('.subcategory-checkbox[data-category-id="' + parentCatId + '"]');
+                const checkedSubs = document.querySelectorAll('.subcategory-checkbox[data-category-id="' + parentCatId + '"]:checked');
+                if (allSubs.length === checkedSubs.length) {
+                    parentCheckbox.checked = true;
+                }
+            }
+        }
+
+        syncCategoryDropdown('cat-' + parentCatId);
         applyFilters();
     }
 
@@ -419,12 +452,15 @@
         priceFilterTouched = true;
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
-        const fallback = type === 'min' ? catalogMinPrice : catalogMaxPrice;
-        let val = clampPriceValue(input.value, fallback);
-        input.value = val;
-        range.value = val;
-        updateRangeTrack();
-        applyFilters();
+        
+        let val = parseInt(input.value);
+        if (!isNaN(val)) {
+            if (val >= catalogMinPrice && val <= catalogMaxPrice) {
+                range.value = val;
+                updateRangeTrack();
+                applyFilters();
+            }
+        }
     }
 
     function normalizePriceInput(type) {
@@ -596,7 +632,6 @@
             if (data.price_range) {
                 updateCatalogPriceRange(data.price_range.min, data.price_range.max);
             }
-            syncCheckboxesFromUrl();
         })
         .catch(() => {
             window.location.href = url;
@@ -650,11 +685,18 @@
             category.checked = catList.includes(category.value);
         });
 
-        if (hasSubCategoryParam) {
-            document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
+        document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
+            const parentCatId = cb.dataset.categoryId;
+            const parentCheckbox = document.querySelector('.category-checkbox[data-category-id="' + parentCatId + '"]');
+            
+            if (hasSubCategoryParam) {
                 cb.checked = subList.includes(cb.value);
-            });
-        }
+            } else if (parentCheckbox && parentCheckbox.checked) {
+                cb.checked = true;
+            } else {
+                cb.checked = false;
+            }
+        });
 
         document.querySelectorAll('.category-checkbox').forEach(cb => {
             const catId = cb.dataset.categoryId;
@@ -681,6 +723,20 @@
             );
             updateRangeTrack();
         }
+    }
+
+    function resetAllFilters() {
+        document.getElementById('sortSelect').value = 'default';
+
+        document.querySelectorAll('.category-checkbox, .subcategory-checkbox, .size-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
+
+        priceFilterTouched = false;
+        setPriceInputs(catalogMinPrice, catalogMaxPrice);
+        updateRangeTrack();
+
+        applyFilters();
     }
 
     function syncCategoryQueryWithSubcategories() {
