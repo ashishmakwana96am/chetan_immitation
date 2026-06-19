@@ -62,6 +62,7 @@
                         </div>
 
                         <button class="wishlist-btn absolute top-3 right-3 z-20 w-[42px] h-[42px] bg-white rounded-lg shadow flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+                            data-is-main-wishlist="1"
                             data-product-id="{{ $product->id }}"
                             data-variant-id="{{ $queryVariantId }}"
                             data-login-url="{{ route('login') }}"
@@ -460,6 +461,7 @@ if (minusBtn) {
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            if (mainBtn) mainBtn.dataset.loading = '0';
             if (data.status === 'added' || data.status === 'updated') {
                 wishlistedVariantId = variantId !== null ? variantId : null;
                 if (mainBtn) setHeartState(mainBtn, true);
@@ -472,7 +474,9 @@ if (minusBtn) {
                 toast('Product removed from your wishlist.');
             }
         })
-        .catch(function () {});
+        .catch(function () {
+            if (mainBtn) mainBtn.dataset.loading = '0';
+        });
     }
 
     // ── variant selector clicks ───────────────────────────────────────────────
@@ -526,11 +530,14 @@ if (minusBtn) {
         var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
         if (!btn) return;
 
-        // Skip related products / grid item wishlist buttons (handled by layouts/website.blade.php)
-        if (!btn.closest('.mainSwiper')) return;
+        // Only handle the main product wishlist button on details page
+        if (btn.dataset.isMainWishlist !== '1') return;
 
         e.preventDefault();
         e.stopPropagation();
+
+        if (btn.dataset.loading === '1') return;
+        btn.dataset.loading = '1';
 
         var productId = btn.dataset.productId;
         var toggleUrl = btn.dataset.toggleUrl;
@@ -541,6 +548,7 @@ if (minusBtn) {
 
         // ── Not logged in ──
         if (!isLoggedIn) {
+            btn.dataset.loading = '0';
             sessionStorage.setItem('pendingWishlist', JSON.stringify({
                 product_id:         productId,
                 product_variant_id: getActiveVariantId(),

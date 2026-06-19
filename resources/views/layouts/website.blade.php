@@ -627,12 +627,14 @@
             // Only handle grid-item wishlist buttons (not detail page which has its own handler)
             var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
             if (!btn) return;
-            // Skip if the button is inside the main product details block (.mainSwiper)
-            // since that has its own local click handler.
-            if (btn.closest('.mainSwiper')) return;
+            // Skip if the button is the main product wishlist button on details page
+            if (btn.dataset.isMainWishlist === '1') return;
 
             e.preventDefault();
             e.stopPropagation();
+
+            if (btn.dataset.loading === '1') return;
+            btn.dataset.loading = '1';
 
             var card = btn.closest('.product-card');
             var variantId = null;
@@ -644,6 +646,7 @@
             }
 
             if (!isLoggedIn) {
+                btn.dataset.loading = '0';
                 var intended = btn.dataset.currentUrl || window.location.href;
                 var pendingData = {
                     product_id: btn.dataset.productId,
@@ -669,6 +672,7 @@
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                btn.dataset.loading = '0';
                 if (data.status === 'added' || data.status === 'updated') {
                     btn.dataset.inWishlist = '1';
                     svg.classList.remove('fill-transparent', 'text-[#131615]');
@@ -684,7 +688,9 @@
                 
                 document.dispatchEvent(new CustomEvent('wishlistToggled', { detail: Object.assign({ product_id: productId }, data) }));
             })
-            .catch(function () {});
+            .catch(function () {
+                btn.dataset.loading = '0';
+            });
         });
     })();
     </script>

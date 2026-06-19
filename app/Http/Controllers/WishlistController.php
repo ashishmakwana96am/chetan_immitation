@@ -99,11 +99,13 @@ class WishlistController extends Controller
             $newItem = Wishlist::where('customer_id', $customer->id)
                 ->where('product_id', $request->product_id)
                 ->with([
+                    'product' => function ($query) {
+                        $query->withSum('inventories', 'quantity');
+                    },
                     'product.primaryImage',
                     'product.category',
                     'productVariant.attributeValue.attribute',
                 ])
-                ->withSum('product.inventories', 'quantity')
                 ->first();
 
             if ($newItem) {
