@@ -24,7 +24,7 @@
     <div class="container-1440">
         <div class="grid lg:grid-cols-2 gap-6 items-stretch mx-auto">
 
-            <div class="border border-[#D5D5D5] px-5 py-6 lg:py-[50px] lg:px-[30px] rounded-[4px]">
+            <div class="border border-[#D5D5D5] px-5 py-6 lg:py-10 lg:px-[30px] rounded-[4px]">
 
                 <h1 class="font-moglan text-[#131615] text-[42px] md:text-[54px] leading-none">
                     Login To Your Account

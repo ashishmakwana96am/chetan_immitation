@@ -29,7 +29,7 @@
                 <div class="text-center">
                     <h1 class="font-moglan text-[#131615] text-[34px] sm:text-[42px] lg:text-[54px] leading-none">Verify Your OTP</h1>
                     @php $otpEmail = $email ?? ''; @endphp
-                    <p class="mt-4 text-[#3D403F] text-[15px] sm:text-[18px] leading-6 max-w-[420px] mx-auto">
+                    <p class="mt-4 text-[#3D403F] text-[15px] sm:text-[18px] leading-6 max-w-[570px] mx-auto">
                         Enter the 6-digit code sent to
                         @if($otpEmail) <strong>{{ $otpEmail }}</strong>. @else your registered email address. @endif
                         The code expires in <strong>10 minutes</strong>.
@@ -54,7 +54,7 @@
 
                     <div class="flex justify-center gap-2 sm:gap-3">
                         @for($i = 1; $i <= 6; $i++)
-                        <input type="text" inputmode="numeric" maxlength="1" class="otp-input otp-digit" autocomplete="off">
+                        <input type="text" inputmode="numeric" maxlength="1" class="otp-input otp-digit w-[42px] h-[42px] sm:w-[55px] sm:h-[55px] lg:w-[70px] lg:h-[70px] border border-[#d9b16c] text-center text-[18px] lg:text-[22px] text-[#B4771E] outline-none bg-white rounded-[4px]" autocomplete="off">
                         @endfor
                     </div>
                     <input type="hidden" id="otpHidden">
