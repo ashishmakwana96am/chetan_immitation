@@ -106,8 +106,8 @@ $(function () {
     $('#forgotForm').on('submit', function (e) {
         e.preventDefault();
         var email = $.trim($('#email').val()), rx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email) { showError('email', 'Email address is required.'); return; }
-        if (!rx.test(email)) { showError('email', 'Please enter a valid email address.'); return; }
+        if (!email) { showError('email', 'Email address is required.'); $('#email').focus().select(); return; }
+        if (!rx.test(email)) { showError('email', 'Please enter a valid email address.'); $('#email').focus().select(); return; }
 
         $('#sendBtn').prop('disabled', true);
         $('#sendBtnText').text('Sending OTP...');
@@ -129,6 +129,7 @@ $(function () {
                 resetBtn();
                 var errors = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {};
                 $.each(errors, function (field, msgs) { showError(field, msgs[0]); });
+                $('.input-invalid').first().focus().select();
             }
         });
     });

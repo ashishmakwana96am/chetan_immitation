@@ -77,15 +77,15 @@
                     </div>
 
                     <div class="flex items-center justify-between mt-5 flex-wrap gap-3">
-                        <label class="flex items-center gap-[10px] cursor-pointer select-none group" for="remember">
-                            <span class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
-                                <input type="checkbox" name="remember" id="remember" class="absolute opacity-0 w-0 h-0 peer">
+                        <div class="flex items-center gap-[10px]">
+                            <div class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
+                                <input type="checkbox" name="remember" id="remember" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 peer">
                                 <svg class="w-[13px] h-[13px] text-[#B4771E] opacity-0 peer-checked:opacity-100 transition-opacity duration-200" viewBox="0 0 12 10" fill="none">
                                     <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
-                            </span>
-                            <span class="text-base text-[#3D403F]">Remember Me</span>
-                        </label>
+                            </div>
+                            <label class="text-base text-[#3D403F] cursor-pointer select-none" for="remember">Remember Me</label>
+                        </div>
                         <a href="{{ route('forgot-password') }}" class="text-lg text-[#131615] hover:text-[#B4771E] transition">Forgot Password?</a>
                     </div>
 
@@ -120,6 +120,21 @@
 @section('page-js')
 <script>
 $(function () {
+
+    var rememberedEmail = localStorage.getItem('remembered_customer_email');
+    var rememberedPassword = localStorage.getItem('remembered_customer_password');
+    var rememberedCheck = localStorage.getItem('remembered_customer_check');
+    if (rememberedEmail) {
+        $('#email').val(rememberedEmail);
+        $('#email').addClass('input-valid');
+    }
+    if (rememberedPassword) {
+        $('#password').val(rememberedPassword);
+        $('#password').addClass('input-valid');
+    }
+    if (rememberedCheck === '1') {
+        $('#remember').prop('checked', true);
+    }
 
     function showError(field, msg) {
         $('#' + field).addClass('input-invalid').removeClass('input-valid');
@@ -169,7 +184,7 @@ $(function () {
         if (!$('#password').val()) { showError('password', 'Password is required.'); valid = false; }
 
         if (!valid) {
-            $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300);
+            $('.input-invalid').first().focus().select();
             return;
         }
 
@@ -193,6 +208,16 @@ $(function () {
             },
             success: function (res) {
                 if (res.status === 'success' && res.redirect_url) {
+                    if ($('#remember').is(':checked')) {
+                        localStorage.setItem('remembered_customer_email', $('#email').val());
+                        localStorage.setItem('remembered_customer_password', $('#password').val());
+                        localStorage.setItem('remembered_customer_check', '1');
+                    } else {
+                        localStorage.removeItem('remembered_customer_email');
+                        localStorage.removeItem('remembered_customer_password');
+                        localStorage.removeItem('remembered_customer_check');
+                    }
+
                     if (pendingWishlist) {
                         sessionStorage.setItem('wishlistToastPending', 'Product added to your wishlist! ❤️');
                         sessionStorage.removeItem('pendingWishlist');
@@ -208,7 +233,7 @@ $(function () {
                 $.each(errors, function (field, msgs) {
                     showError(field, msgs[0]);
                 });
-                $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300);
+                $('.input-invalid').first().focus().select();
             }
         });
     });

@@ -58,7 +58,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
 });
-Route::get('/category/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
+Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
 Route::get('robots.txt', function () {

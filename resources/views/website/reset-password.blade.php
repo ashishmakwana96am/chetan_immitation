@@ -168,7 +168,7 @@ $(function () {
         else if (!strongRegex.test(pw)) { showError('password', 'Must contain uppercase, lowercase, digit & special character (min 8 chars).'); valid = false; }
         if (!validateConfirm()) valid = false;
 
-        if (!valid) { $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300); return; }
+        if (!valid) { $('.input-invalid').first().focus().select(); return; }
 
         $('#resetBtn').prop('disabled', true);
         $('#resetBtnText').text('Resetting...');
@@ -191,7 +191,7 @@ $(function () {
                 resetBtn();
                 var errors = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {};
                 $.each(errors, function (field, msgs) { showError(field, msgs[0]); });
-                $('html,body').animate({ scrollTop: $('.input-invalid').first().offset().top - 100 }, 300);
+                $('.input-invalid').first().focus().select();
             }
         });
     });

@@ -12,9 +12,15 @@ class MemberRegisterController extends Controller
 {
     public function store(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+            'name'  => $request->name ? trim($request->name) : null,
+            'phone' => $request->phone ? trim($request->phone) : null,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'name'                  => ['required', 'string', 'max:100'],
-            'phone'                 => ['required', 'string', 'regex:/^[0-9]{10}$/'],
+            'phone'                 => ['required', 'string', 'regex:/^[0-9]{10}$/', 'unique:customers,phone'],
             'email'                 => ['required', 'email', 'max:255', 'unique:customers,email'],
             'password'              => [
                 'required',
@@ -29,6 +35,7 @@ class MemberRegisterController extends Controller
             'name.max'                       => 'Name may not be greater than 100 characters.',
             'phone.required'                 => 'Mobile number is required.',
             'phone.regex'                    => 'Please enter a valid 10-digit mobile number.',
+            'phone.unique'                   => 'This mobile number is already registered.',
             'email.required'                 => 'Email address is required.',
             'email.email'                    => 'Please enter a valid email address.',
             'email.unique'                   => 'This email is already registered. Please login.',

@@ -238,7 +238,7 @@
                     <!-- Right Side -->
                     <div class="hidden lg:flex items-center gap-5">
                         <div class="search-container flex items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300">
-                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/category') }}?search='+encodeURIComponent(v);}">
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
 
@@ -258,8 +258,8 @@
                         </a>
 
                         @auth('customer')
-                        <div class="relative" id="userMenuWrap">
-                            <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none" type="button">
+                        <div class="relative flex items-center" id="userMenuWrap">
+                            <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none flex items-center p-0 bg-transparent border-0" type="button">
                                 <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                             </button>
                             <div id="userMenuDropdown" class="hidden absolute right-0 top-full w-[200px] z-50" style="padding-top:8px;">
@@ -364,6 +364,7 @@
     <!-- Main Content -->
     @yield('content')
 
+    @if(!request()->routeIs(['login', 'register', 'forgot-password', 'otp-verification', 'customer.reset-password', 'password.reset']))
     <!-- Newsletter -->
     <section class="relative">
         <div class="relative py-[80px] overflow-hidden">
@@ -391,6 +392,7 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- Footer -->
     <footer class="bg-[#131615]">
@@ -599,6 +601,28 @@
         var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
         var csrfToken  = '{{ csrf_token() }}';
 
+        // Update card links when a variant is selected
+        document.addEventListener('change', function (e) {
+            var select = e.target.closest('.grid-variant-select');
+            if (!select) return;
+
+            var card = select.closest('.product-card');
+            if (!card) return;
+
+            var variantId = select.value;
+            var detailLinks = card.querySelectorAll('.product-detail-link');
+
+            detailLinks.forEach(function (link) {
+                var url = new URL(link.href, window.location.origin);
+                if (variantId) {
+                    url.searchParams.set('variant', variantId);
+                } else {
+                    url.searchParams.delete('variant');
+                }
+                link.href = url.pathname + url.search;
+            });
+        });
+
         document.addEventListener('click', function (e) {
             // Only handle grid-item wishlist buttons (not detail page which has its own handler)
             var btn = e.target.closest('.wishlist-btn[data-toggle-url]');
@@ -609,11 +633,21 @@
             e.preventDefault();
             e.stopPropagation();
 
+            var card = btn.closest('.product-card');
+            var variantId = null;
+            if (card) {
+                var select = card.querySelector('.grid-variant-select');
+                if (select && select.value) {
+                    variantId = select.value;
+                }
+            }
+
             if (!isLoggedIn) {
                 var intended = btn.dataset.currentUrl || window.location.href;
                 var pendingData = {
                     product_id: btn.dataset.productId,
-                    product_variant_id: btn.dataset.variantId || null
+                    product_variant_id: variantId,
+                    quantity: 1
                 };
                 sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
                 window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(intended);
@@ -621,7 +655,6 @@
             }
 
             var productId = btn.dataset.productId;
-            var variantId = btn.dataset.variantId || null;
             var toggleUrl = btn.dataset.toggleUrl;
             var svg       = btn.querySelector('svg');
 

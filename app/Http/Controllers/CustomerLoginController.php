@@ -9,6 +9,10 @@ class CustomerLoginController extends Controller
 {
     public function login(Request $request)
     {
+        $request->merge([
+            'email' => $request->email ? strtolower(trim($request->email)) : null,
+        ]);
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'email'    => ['required', 'email'],
             'password' => ['required'],
@@ -61,6 +65,7 @@ class CustomerLoginController extends Controller
                             'customer_id'        => $customer->id,
                             'product_id'         => $data['product_id'],
                             'product_variant_id' => $data['product_variant_id'] ?? null,
+                            'quantity'           => $data['quantity'] ?? 1,
                         ]);
                         $wishlistCount = $customer->wishlists()->count();
                     }

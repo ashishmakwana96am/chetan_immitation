@@ -144,7 +144,7 @@ $(function () {
         if (!otp || otp.length < 6) {
             $digits.addClass('input-invalid');
             $('#otp-error').text('Please enter the complete 6-digit OTP.').removeClass('hidden');
-            $digits.eq(0).focus(); return;
+            $digits.eq(0).focus().select(); return;
         }
         if (!email) { alert('Email is missing. Please go back.'); return; }
 
@@ -167,6 +167,7 @@ $(function () {
                 if (errors.otp) {
                     $digits.addClass('input-invalid');
                     $('#otp-error').text(errors.otp[0]).removeClass('hidden');
+                    $digits.eq(0).focus().select();
                 }
             }
         });
