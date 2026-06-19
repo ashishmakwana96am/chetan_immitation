@@ -121,12 +121,16 @@
 <script>
 $(function () {
 
-    // Auto-fill remembered email and checkbox state
     var rememberedEmail = localStorage.getItem('remembered_customer_email');
+    var rememberedPassword = localStorage.getItem('remembered_customer_password');
     var rememberedCheck = localStorage.getItem('remembered_customer_check');
     if (rememberedEmail) {
         $('#email').val(rememberedEmail);
         $('#email').addClass('input-valid');
+    }
+    if (rememberedPassword) {
+        $('#password').val(rememberedPassword);
+        $('#password').addClass('input-valid');
     }
     if (rememberedCheck === '1') {
         $('#remember').prop('checked', true);
@@ -206,9 +210,11 @@ $(function () {
                 if (res.status === 'success' && res.redirect_url) {
                     if ($('#remember').is(':checked')) {
                         localStorage.setItem('remembered_customer_email', $('#email').val());
+                        localStorage.setItem('remembered_customer_password', $('#password').val());
                         localStorage.setItem('remembered_customer_check', '1');
                     } else {
                         localStorage.removeItem('remembered_customer_email');
+                        localStorage.removeItem('remembered_customer_password');
                         localStorage.removeItem('remembered_customer_check');
                     }
 
