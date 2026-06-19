@@ -21,10 +21,10 @@
                     </p>
 
                     <div class="flex flex-wrap gap-4 mt-5 md:mt-10 justify-center md:justify-start">
-                        <a href="#" class="common-btn">
+                        <a href="{{ route('shop-by-category') }}" class="common-btn">
                             Explore Category
                         </a>
-                        <a href="#"
+                        <a href="{{ route('shop-by-category') }}"
                             class="border-2 border-[#131615] common-btn font-semibold bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                             View Bridal Jewelry
                             </a>
@@ -145,7 +145,7 @@
                 @endforeach
             </div>
             <div class="text-center mt-8 sm:mt-10">
-                <a href="#" class="common-btn">Explore More Jewelry</a>
+                <a href="{{ route('shop-by-category') }}" class="common-btn">Explore More Jewelry</a>
             </div>
         </div>
     </section>
