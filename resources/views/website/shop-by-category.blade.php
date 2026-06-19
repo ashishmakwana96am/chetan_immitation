@@ -223,7 +223,7 @@
                 <div class="relative w-full max-w-[340px]">
                     <select id="sortSelect" onchange="applyFilters()"
                         class="appearance-none w-full px-5 pr-14 py-3 sm:leading-[20px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
-                        <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Default Sorting</option>
+                        <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
                         <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
                         <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
                         <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
