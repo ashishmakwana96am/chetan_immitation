@@ -400,6 +400,15 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
 
         if (!isLoggedIn) {
             var currentUrl = btn.dataset.currentUrl || window.location.href;
+            var pendingData = {
+                product_id: btn.dataset.productId,
+                product_variant_id: btn.dataset.variantId || null
+            };
+            var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
+            if (activeVariantBtn && activeVariantBtn.dataset.variantId) {
+                pendingData.product_variant_id = activeVariantBtn.dataset.variantId;
+            }
+            sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
             window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(currentUrl);
             return;
         }
@@ -409,7 +418,6 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
         var toggleUrl = btn.dataset.toggleUrl;
         var svg       = btn.querySelector('.wishlist-icon, svg');
 
-        // Pick active variant button if user selected one
         var activeVariantBtn = document.querySelector('.variant-selector.active[data-variant-id]');
         if (activeVariantBtn && activeVariantBtn.dataset.variantId) {
             variantId = activeVariantBtn.dataset.variantId;
@@ -434,10 +442,19 @@ minusBtn.addEventListener("click", () => { if (count > 1) { count--; qty.innerTe
                 btn.dataset.inWishlist = '1';
                 svg.classList.remove('fill-transparent', 'text-[#131615]');
                 svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                if (window.showWishlistToast) {
+                    window.showWishlistToast('Product added to your wishlist! ❤️');
+                }
             } else {
                 btn.dataset.inWishlist = '0';
                 svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
                 svg.classList.add('fill-transparent', 'text-[#131615]');
+                if (window.showWishlistToast) {
+                    window.showWishlistToast('Product removed from your wishlist.');
+                }
+            }
+            if (window.updateWishlistBadge) {
+                window.updateWishlistBadge(data.count);
             }
         })
         .catch(function () {});
