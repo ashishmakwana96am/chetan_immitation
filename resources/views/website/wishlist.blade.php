@@ -183,6 +183,12 @@ $(function () {
                 $item.fadeOut(300, function () {
                     $(this).remove();
                     $('#wishlistCount').text(res.count);
+                    if (window.updateWishlistBadge) {
+                        window.updateWishlistBadge(res.count);
+                    }
+                    if (window.showWishlistToast) {
+                        window.showWishlistToast('Product removed from your wishlist.');
+                    }
                     if (res.count === 0) location.reload();
                 });
             },

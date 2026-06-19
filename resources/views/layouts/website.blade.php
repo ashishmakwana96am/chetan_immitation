@@ -52,6 +52,105 @@
         .search-container img {
             transition: filter 0.3s ease;
         }
+
+        /* Custom Toast Notification styles */
+        .custom-toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 380px;
+            width: calc(100% - 48px);
+            pointer-events: none;
+        }
+        .custom-toast {
+            position: relative;
+            overflow: hidden;
+            pointer-events: auto;
+            background: rgba(19, 22, 21, 0.94);
+            backdrop-filter: blur(10px);
+            color: #ffffff;
+            border: 1px solid rgba(180, 119, 30, 0.2);
+            border-left: 5px solid #B4771E;
+            padding: 16px 20px 18px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 15px rgba(180, 119, 30, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            transform: translateX(130%);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .custom-toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .custom-toast.hide {
+            transform: translateX(130%);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .custom-toast-content {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .custom-toast-icon {
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .custom-toast-icon i {
+            animation: pop-heart 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .custom-toast-message {
+            font-family: 'Nunito', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.4;
+            letter-spacing: 0.2px;
+        }
+        .custom-toast-close {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+            line-height: 1;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .custom-toast-close:hover {
+            color: #ffffff;
+            transform: scale(1.15);
+        }
+        .custom-toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #B4771E, #F5C06A);
+            width: 100%;
+            animation: toast-progress 4000ms linear forwards;
+        }
+        @keyframes pop-heart {
+            0% { transform: scale(0.6); opacity: 0; }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes toast-progress {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
     </style>
     @yield('page-css')
 </head>
@@ -147,11 +246,9 @@
                             <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
                             @auth('customer')
                             @php $wishlistCount = auth('customer')->user()->wishlists()->count(); @endphp
-                            @if($wishlistCount > 0)
-                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">{{ $wishlistCount }}</span>
-                            @endif
+                            <span id="wishlistBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] {{ $wishlistCount > 0 ? '' : 'hidden' }}">{{ $wishlistCount }}</span>
                             @else
-                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
+                            <span id="wishlistBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] hidden">0</span>
                             @endauth
                         </a>
 
@@ -429,6 +526,75 @@
     @endauth
 
     <script>
+    // Global wishlist helper functions
+    window.updateWishlistBadge = function (count) {
+        var badge = document.getElementById('wishlistBadge');
+        if (!badge) return;
+        badge.textContent = count;
+        if (count > 0) {
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    };
+
+    window.showWishlistToast = function (message, isSuccess) {
+        var container = document.querySelector('.custom-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'custom-toast-container';
+            document.body.appendChild(container);
+        }
+
+        var toast = document.createElement('div');
+        toast.className = 'custom-toast';
+
+        var iconClass = 'fa-solid fa-heart-circle-check text-[#B4771E]';
+        if (isSuccess === false) {
+            iconClass = 'fa-solid fa-heart-circle-xmark text-red-500';
+        } else if (message.includes('Remove') || message.includes('remove') || message.includes('Removed')) {
+            iconClass = 'fa-solid fa-heart-crack text-gray-400';
+        }
+
+        toast.innerHTML = `
+            <div class="custom-toast-content">
+                <span class="custom-toast-icon"><i class="${iconClass}"></i></span>
+                <span class="custom-toast-message">${message}</span>
+            </div>
+            <button class="custom-toast-close">&times;</button>
+            <div class="custom-toast-progress"></div>
+        `;
+
+        container.appendChild(toast);
+
+        // Trigger animation
+        setTimeout(function() {
+            toast.classList.add('show');
+        }, 10);
+
+        var closeBtn = toast.querySelector('.custom-toast-close');
+        var hideTimeout = setTimeout(closeToast, 4000);
+
+        function closeToast() {
+            clearTimeout(hideTimeout);
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(function() {
+                toast.remove();
+            }, 300);
+        }
+
+        closeBtn.addEventListener('click', closeToast);
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var pendingToast = sessionStorage.getItem('wishlistToastPending');
+        if (pendingToast && window.showWishlistToast) {
+            window.showWishlistToast(pendingToast);
+            sessionStorage.removeItem('wishlistToastPending');
+        }
+    });
+
     (function () {
         var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
         var csrfToken  = '{{ csrf_token() }}';
@@ -445,15 +611,19 @@
 
             if (!isLoggedIn) {
                 var intended = btn.dataset.currentUrl || window.location.href;
+                var pendingData = {
+                    product_id: btn.dataset.productId,
+                    product_variant_id: btn.dataset.variantId || null
+                };
+                sessionStorage.setItem('pendingWishlist', JSON.stringify(pendingData));
                 window.location.href = btn.dataset.loginUrl + '?intended=' + encodeURIComponent(intended);
                 return;
             }
 
-            var productId  = btn.dataset.productId;
-            var variantId  = btn.dataset.variantId || null;
-            var toggleUrl  = btn.dataset.toggleUrl;
-            var svg        = btn.querySelector('svg');
-            var inWishlist = btn.dataset.inWishlist === '1';
+            var productId = btn.dataset.productId;
+            var variantId = btn.dataset.variantId || null;
+            var toggleUrl = btn.dataset.toggleUrl;
+            var svg       = btn.querySelector('svg');
 
             fetch(toggleUrl, {
                 method: 'POST',
@@ -470,11 +640,14 @@
                     btn.dataset.inWishlist = '1';
                     svg.classList.remove('fill-transparent', 'text-[#131615]');
                     svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                    window.showWishlistToast('Product added to your wishlist! ❤️');
                 } else {
                     btn.dataset.inWishlist = '0';
                     svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
                     svg.classList.add('fill-transparent', 'text-[#131615]');
+                    window.showWishlistToast('Product removed from your wishlist.');
                 }
+                window.updateWishlistBadge(data.count);
             })
             .catch(function () {});
         });

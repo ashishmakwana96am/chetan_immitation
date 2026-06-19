@@ -178,6 +178,8 @@ $(function () {
         $('#loginSpinner').removeClass('hidden');
         $('#successAlert').addClass('hidden');
 
+        var pendingWishlist = sessionStorage.getItem('pendingWishlist');
+
         $.ajax({
             url: '{{ route('login.store') }}',
             method: 'POST',
@@ -187,9 +189,14 @@ $(function () {
                 password: $('#password').val(),
                 remember: $('#remember').is(':checked') ? 1 : 0,
                 intended: new URLSearchParams(window.location.search).get('intended') || '',
+                pending_wishlist: pendingWishlist || '',
             },
             success: function (res) {
                 if (res.status === 'success' && res.redirect_url) {
+                    if (pendingWishlist) {
+                        sessionStorage.setItem('wishlistToastPending', 'Product added to your wishlist! ❤️');
+                        sessionStorage.removeItem('pendingWishlist');
+                    }
                     window.location.href = res.redirect_url;
                 } else {
                     resetBtn();

@@ -39,14 +39,38 @@ class CustomerLoginController extends Controller
         if (Auth::guard('customer')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
-            // Respect ?intended query param (from wishlist redirect)
             $intended = $request->query('intended')
                 ?? session()->pull('url.intended')
                 ?? route('home');
 
+            $customer = Auth::guard('customer')->user();
+            $wishlistCount = $customer->wishlists()->count();
+
+            $pendingWishlist = $request->session()->pull('pending_wishlist')
+                ?? session()->pull('pending_wishlist')
+                ?? $request->input('pending_wishlist');
+            if ($pendingWishlist) {
+                $data = json_decode($pendingWishlist, true);
+                if ($data && isset($data['product_id'])) {
+                    $existing = \App\Models\Wishlist::where('customer_id', $customer->id)
+                        ->where('product_id', $data['product_id'])
+                        ->where('product_variant_id', $data['product_variant_id'] ?? null)
+                        ->first();
+                    if (!$existing) {
+                        \App\Models\Wishlist::create([
+                            'customer_id'        => $customer->id,
+                            'product_id'         => $data['product_id'],
+                            'product_variant_id' => $data['product_variant_id'] ?? null,
+                        ]);
+                        $wishlistCount = $customer->wishlists()->count();
+                    }
+                }
+            }
+
             return response()->json([
-                'status'       => 'success',
-                'redirect_url' => $intended,
+                'status'        => 'success',
+                'redirect_url'  => $intended,
+                'wishlist_count' => $wishlistCount,
             ]);
         }
 
