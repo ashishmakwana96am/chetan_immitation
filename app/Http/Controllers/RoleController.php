@@ -15,6 +15,7 @@ class RoleController extends Controller
         $roles = Role::where('name', '!=', 'super-admin')
             ->withCount('users')
             ->with('permissions')
+            ->orderBy('id', 'desc')
             ->get();
         return view('roles.index', compact('roles'));
     }
@@ -23,7 +24,7 @@ class RoleController extends Controller
     {
         $this->authorize('view roles');
 
-        $roles     = Role::where('name', '!=', 'super-admin')->withCount('users')->with('permissions')->get();
+        $roles     = Role::where('name', '!=', 'super-admin')->withCount('users')->with('permissions')->orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit roles');
         $canDelete = auth()->user()->can('delete roles');
 

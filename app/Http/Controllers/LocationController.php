@@ -11,7 +11,7 @@ class LocationController extends Controller
     public function index()
     {
         $this->authorize('view locations');
-        $locations = Location::with('createdBy')->latest()->get();
+        $locations = Location::with('createdBy')->orderBy('id', 'desc')->get();
         return view('locations.index', compact('locations'));
     }
 
@@ -19,7 +19,7 @@ class LocationController extends Controller
     {
         $this->authorize('view locations');
 
-        $locations = Location::with('createdBy')->latest()->get();
+        $locations = Location::with('createdBy')->orderBy('id', 'desc')->get();
 
         $canEdit   = auth()->user()->can('edit locations');
         $canDelete = auth()->user()->can('delete locations');

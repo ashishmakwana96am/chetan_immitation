@@ -18,7 +18,7 @@ class SupplierController extends Controller
     {
         $this->authorize('view suppliers');
 
-        $suppliers = Supplier::with('createdBy')->latest()->get();
+        $suppliers = Supplier::with('createdBy')->orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit suppliers');
         $canDelete = auth()->user()->can('delete suppliers');
 

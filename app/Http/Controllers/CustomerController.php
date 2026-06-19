@@ -19,7 +19,7 @@ class CustomerController extends Controller
     {
         $this->authorize('view customers');
 
-        $customers = Customer::latest()->get();
+        $customers = Customer::orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit customers');
         $canDelete = auth()->user()->can('delete customers');
 

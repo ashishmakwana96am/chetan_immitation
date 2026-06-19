@@ -12,7 +12,7 @@ class PermissionController extends Controller
     public function index()
     {
         $this->authorize('view permissions');
-        $permissions = Permission::withCount('roles')->latest()->get();
+        $permissions = Permission::withCount('roles')->orderBy('id', 'desc')->get();
         return view('permissions.index', compact('permissions'));
     }
 
@@ -20,7 +20,7 @@ class PermissionController extends Controller
     {
         $this->authorize('view permissions');
 
-        $permissions = Permission::withCount('roles')->latest()->get();
+        $permissions = Permission::withCount('roles')->orderBy('id', 'desc')->get();
         $canEdit     = auth()->user()->can('edit permissions');
         $canDelete   = auth()->user()->can('delete permissions');
 

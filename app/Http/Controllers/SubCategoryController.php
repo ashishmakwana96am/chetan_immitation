@@ -19,7 +19,7 @@ class SubCategoryController extends Controller
     {
         $this->authorize('view sub categories');
 
-        $subCategories = SubCategory::with(['category', 'createdBy'])->orderBy('sort_order')->get();
+        $subCategories = SubCategory::with(['category', 'createdBy'])->orderBy('id', 'desc')->get();
         $canEdit       = auth()->user()->can('edit sub categories');
         $canDelete     = auth()->user()->can('delete sub categories');
 
@@ -160,24 +160,4 @@ class SubCategoryController extends Controller
         ]);
     }
 
-    public function reorder(Request $request)
-    {
-        $this->authorize('reorder sub categories');
-
-        $validator = Validator::make($request->all(), [
-            'order'              => ['required', 'array'],
-            'order.*.id'         => ['required', 'exists:sub_categories,id'],
-            'order.*.sort_order' => ['required', 'integer', 'min:0'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
-        }
-
-        foreach ($request->order as $item) {
-            SubCategory::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
-        }
-
-        return response()->json(['status' => 'success', 'message' => 'Order updated.']);
-    }
 }

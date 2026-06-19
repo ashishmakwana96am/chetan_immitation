@@ -29,7 +29,6 @@
             <table class="table border-top" id="categoriesTable">
                 <thead>
                     <tr>
-                        @can('reorder categories')<th style="width:36px"></th>@endcan
                         <th>#</th>
                         <th>Image</th>
                         <th>Name</th>
@@ -49,23 +48,11 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
-    @can('reorder categories')
-    <script src="{{ asset('assets/vendor/libs/sortablejs/sortable.js') }}"></script>
-    @endcan
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script>
         $(document).ready(function () {
-            @can('reorder categories')
-            const canReorder = true;
-            @else
-            const canReorder = false;
-            @endcan
-
             const columns = [];
-            if (canReorder) {
-                columns.push({ data: null, orderable: false, searchable: false, width: '36px',
-                    render: () => '<i class="ti ti-grip-vertical text-muted" style="cursor:grab;"></i>' });
-            }
             columns.push(
                 { data: 'index',      width: '5%' },
                 { data: 'image',      orderable: false },
@@ -81,7 +68,6 @@
 
             const table = $('#categoriesTable').DataTable({
                 responsive : false,
-                ordering   : !canReorder,
                 ajax       : { url: '{{ route('admin.categories.data') }}', dataSrc: 'data' },
                 columns    : columns,
             });
@@ -90,50 +76,7 @@
                 table.ajax.reload(null, false);
             };
 
-            @can('reorder categories')
-            let sortableInstance = null;
 
-            table.on('draw', function () {
-                const tbody = document.querySelector('#categoriesTable tbody');
-                if (tbody && typeof Sortable !== 'undefined') {
-                    if (sortableInstance) {
-                        sortableInstance.destroy();
-                    }
-
-                    sortableInstance = Sortable.create(tbody, {
-                        handle      : '.ti-grip-vertical',
-                        animation   : 150,
-                        ghostClass  : 'sortable-ghost',
-                        chosenClass : 'sortable-chosen',
-                        onEnd: function () {
-                            const orderData = [];
-                            let i = 1;
-                            $(tbody).find('tr').each(function () {
-                                const rowData = table.row(this).data();
-                                if (rowData) {
-                                    // Update # index cell
-                                    $(this).find('td').eq(1).text(i);
-                                    orderData.push({ id: rowData.id, sort_order: i });
-                                    i++;
-                                }
-                            });
-                            $.ajax({
-                                url         : '{{ route('admin.categories.reorder') }}',
-                                type        : 'POST',
-                                data        : JSON.stringify({ order: orderData }),
-                                headers     : { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                                contentType : 'application/json',
-                                success     : function (res) { if (res.status === 'success') toastr.success('Order saved.'); },
-                                error       : function () {
-                                    toastr.error('Failed to save order.');
-                                    table.ajax.reload(null, false);
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-            @endcan
 
             $(document).on('change', '.category-status-toggle', function () {
                 const toggle = $(this);

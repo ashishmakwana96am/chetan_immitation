@@ -18,7 +18,7 @@ class CouponController extends Controller
     {
         $this->authorize('view coupons');
 
-        $coupons = Coupon::with('createdBy')->latest()->get();
+        $coupons = Coupon::with('createdBy')->orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit coupons');
         $canDelete = auth()->user()->can('delete coupons');
 
