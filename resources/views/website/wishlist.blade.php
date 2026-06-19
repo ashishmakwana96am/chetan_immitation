@@ -7,7 +7,7 @@
 <section class="section-space">
     <div class="container-1440">
 
-        <div class="text-center mb-10">
+        <div class="text-center mb-7">
             <h2 class="font-moglan hero-title">My Wishlist</h2>
             <p class="hero-para">Save your favorite jewelry pieces and shop them anytime.</p>
         </div>
@@ -47,7 +47,7 @@
                 <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-wishlist-id="{{ $wishlist->id }}">
                     <div class="flex flex-col md:flex-row gap-4 group">
                         {{-- Image --}}
-                        <div class="relative shrink-0 w-[200px] h-[200px] overflow-hidden cursor-pointer">
+                        <div class="relative shrink-0 w-[190px] h-[190px] overflow-hidden cursor-pointer">
                             @if($stockQty < 1)
                             <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
                                 <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">OUT OF STOCK</span>
@@ -60,7 +60,7 @@
                             <a href="{{ route('product.detail', $prod->slug) }}">
                                 <img src="{{ $prod->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}"
                                     alt="{{ $prod->name }}"
-                                    class="w-[200px] h-[200px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+                                    class="w-[190px] h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>
                             
                             <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center transition"
@@ -81,7 +81,7 @@
                         {{-- Content --}}
                         <div class="flex-1 min-w-0">
                             <a href="{{ route('product.detail', $prod->slug) }}"
-                                class="block product-title text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition max-w-[280px] md:max-w-[500px] xl:max-w-[600px] truncate">
+                                class="block product-title text-base md:text-[22px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition max-w-[280px] md:max-w-[500px] xl:max-w-[600px] truncate">
                                 {{ $prod->name }}
                             </a>
 
@@ -98,13 +98,13 @@
 
                             <div class="mt-4 space-y-2">
                                 @if($prod->category)
-                                <p class="text-base sm:text-lg flex flex-wrap">
+                                <p class="text-base flex flex-wrap">
                                     <span class="font-medium text-[#131615] w-[120px]">Category:</span>
                                     <span class="text-[#757575] ml-2">{{ $prod->category->name }}</span>
                                 </p>
                                 @endif
                                 @if($attrLabel)
-                                <p class="text-base sm:text-lg flex flex-wrap">
+                                <p class="text-base flex flex-wrap">
                                     <span class="font-medium text-[#131615] w-[120px]">Variant:</span>
                                     <span class="text-[#757575] ml-2">{{ $attrLabel }}</span>
                                 </p>
@@ -114,13 +114,13 @@
 
                             <div class="border-t border-[#D5D5D5] mt-2 pt-2">
                                 <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
-                                    <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg transition">
+                                    <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base transition">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                         </svg>
                                         Add To Cart
                                     </button>
-                                    <button class="remove-wishlist-btn hover:text-red-500 flex items-center gap-[10px] text-base md:text-lg transition"
+                                    <button class="remove-wishlist-btn hover:text-red-500 flex items-center gap-[10px] text-base transition"
                                         data-product-id="{{ $prod->id }}"
                                         data-variant-id="{{ $variant?->id ?? '' }}"
                                         data-toggle-url="{{ route('wishlist.toggle') }}">
@@ -269,9 +269,9 @@ $(function () {
         var itemHtml =
             '<div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-[25px]" data-wishlist-id="' + p.wishlist_id + '" style="display:none">' +
                 '<div class="flex flex-col md:flex-row gap-4 group">' +
-                    '<div class="relative shrink-0 w-[200px] h-[200px] overflow-hidden cursor-pointer">' +
+                    '<div class="relative shrink-0 w-[190px] h-[190px] overflow-hidden cursor-pointer">' +
                         badgeHtml +
-                        '<a href="' + p.detail_url + '"><img src="' + p.image + '" alt="' + $('<span>').text(p.name).html() + '" class="w-[200px] h-[200px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105"></a>' +
+                        '<a href="' + p.detail_url + '"><img src="' + p.image + '" alt="' + $('<span>').text(p.name).html() + '" class="w-[190px] h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105"></a>' +
                         '<button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center transition"' +
                             ' data-product-id="' + p.product_id + '" data-variant-id="' + (p.variant_id || '') + '"' +
                             ' data-login-url="' + p.login_url + '" data-toggle-url="' + p.toggle_url + '"' +

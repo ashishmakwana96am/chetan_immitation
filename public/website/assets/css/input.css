@@ -343,10 +343,10 @@ summary {
     @apply mt-[15px] text-base lg:text-[20px] lg:leading-[30px] text-[#3D403F];
 }
 .section-space{
-    @apply py-[60px] md:py-[80px] lg:py-[100px];
+    @apply py-[60px] md:py-[80px] lg:py-[90px];
 }
 .section-space-bottom{
-    @apply pb-[60px] md:pb-[80px] lg:pb-[100px];
+    @apply pb-[60px] md:pb-[80px] lg:pb-[90px];
 }
 
 .product-title{
