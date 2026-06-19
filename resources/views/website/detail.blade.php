@@ -219,7 +219,7 @@
 
                     @if($hasAdditionalInformation)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[22px] pb-3 cursor-pointer border-b border-[#D9D9D9]">
+                        <summary class="list-none flex items-center justify-between pt-5 pb-3 cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Information</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -233,7 +233,7 @@
 
                     @if($hasProductHighlights)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[22px] pb-3 cursor-pointer border-b border-[#D9D9D9]">
+                        <summary class="list-none flex items-center justify-between pt-5 pb-3 cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Highlights</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -316,7 +316,7 @@
 
     <div class="container-1440">
 
-        <div class="text-center mb-10 lg:mb-10">
+        <div class="text-center mb-8 lg:mb-10">
             <h2 class="font-moglan hero-title">You May Also Like</h2>
         </div>
 
