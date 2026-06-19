@@ -47,7 +47,7 @@
 
             <!-- LEFT SIDE -->
             <div class="lg:col-span-5 w-full  lg:sticky lg:top-[80px]">
-                    <div class="swiper mainSwiper relative h-[60vh]">
+                    <div class="swiper mainSwiper relative 2xl:min-h-[60vh]">
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
@@ -106,7 +106,7 @@
 
             <div class="lg:col-span-7 product-detail-panel min-w-0">
 
-                <h1 class="text-[#131615] font-bold text-[22px] sm:text-[28px] sm:leading-[28px]">
+                <h1 class="text-[#131615] font-bold text-lg md:text-[22px] sm:text-[28px] sm:leading-[34px]">
                     {{ $product->name }}
                 </h1>
 
@@ -140,11 +140,11 @@
                     @endif
                 </div>
 
-                <p class="text-[#3D403F] mt-4 md:mt-5 text-base sm:text-xl xl:text-[22px]">
+                <p class="text-[#3D403F] mt-4 md:mt-5 text-base sm:text-xl">
                     Inclusive of all taxes
                 </p>
 
-                <div class="flex items-center gap-4 mt-5 lg:mt-[30px]">
+                <div class="flex items-center gap-4 mt-5 lg:mt-5">
                     <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">
                         Quantity:
                     </span>
@@ -159,7 +159,7 @@
                     </div>
                 </div>
 
-                <div class="flex flex-wrap gap-3 mt-6">
+                <div class="flex gap-3 mt-6">
                     <button class="common-btn h-[50px]  w-full max-w-[300px]">Add To Cart</button>
                     <button class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px]">Buy Now</button>
                 </div>
@@ -182,16 +182,16 @@
                         $attribute = $variants->first()->attributeValue->attribute;
                         $attributeValues = $variants->unique('attribute_value_id');
                     @endphp
-                    <div class="mt-[30px]">
-                        <h4 class="text-xl md:text-[24px] font-medium mb-[15px] text-[#131615]">
+                    <div class="mt-5">
+                        <h4 class="text-xl md:text-[22px] font-medium mb-[15px] text-[#131615]">
                             {{ $attribute->name }}:
                         </h4>
-                        <div class="flex flex-wrap gap-4 md:gap-[20px]">
+                        <div class="flex flex-wrap gap-3 md:gap-4">
                             @foreach($attributeValues as $variant)
                             @php
                                 $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : $loop->first;
                             @endphp
-                            <button class="variant-selector min-w-[69px] min-h-10 px-4 py-2 border text-base lg:text-xl leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
+                            <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
                                 data-variant-id="{{ $variant->id }}"
                                 data-sale-price="{{ $variant->sale_price }}"
                                 data-mrp="{{ $variant->product->mrp ?? '' }}">
@@ -205,7 +205,7 @@
 
                 <div class="product-detail-accordion min-w-0 max-w-full ">
                     <details class="group" open>
-                        <summary class="list-none flex items-center justify-between pt-[32px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
+                        <summary class="list-none flex items-center justify-between pt-[26px] pb-3 cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Description</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -218,7 +218,7 @@
 
                     @if($hasAdditionalInformation)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[22px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
+                        <summary class="list-none flex items-center justify-between pt-[22px] pb-3 cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Information</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -232,7 +232,7 @@
 
                     @if($hasProductHighlights)
                     <details class="group">
-                        <summary class="list-none flex items-center justify-between pt-[22px] pb-[15px] cursor-pointer border-b border-[#D9D9D9]">
+                        <summary class="list-none flex items-center justify-between pt-[22px] pb-3 cursor-pointer border-b border-[#D9D9D9]">
                             <h3 class="text-xl md:text-[22px] font-medium text-[#1A1A1A]">Product Highlights</h3>
                             <svg class="w-5 h-5 transition-transform duration-300" data-detail-chevron fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -340,8 +340,9 @@ const thumbSwiper = new Swiper(".thumbSwiper", {
     slidesPerView: 5,
     watchSlidesProgress: true,
     breakpoints: {
-        0: { slidesPerView: 4 },
-        768: { slidesPerView: 5 }
+        0: { slidesPerView: 3 },
+        992: { slidesPerView: 3 },
+        1199: { slidesPerView: 5 }
     }
 });
 

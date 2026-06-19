@@ -44,7 +44,7 @@
                     }
                     $stockQty = $prod->inventories_sum_quantity ?? 0;
                 @endphp
-                <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-[25px]" data-wishlist-id="{{ $wishlist->id }}">
+                <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-wishlist-id="{{ $wishlist->id }}">
                     <div class="flex flex-col md:flex-row gap-4 group">
                         {{-- Image --}}
                         <div class="relative shrink-0 w-[200px] h-[200px] overflow-hidden cursor-pointer">
@@ -81,11 +81,11 @@
                         {{-- Content --}}
                         <div class="flex-1 min-w-0">
                             <a href="{{ route('product.detail', $prod->slug) }}"
-                                class="block product-title text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
+                                class="block product-title text-base md:text-[22px] lg:text-[26px] leading-[28px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition max-w-[280px] md:max-w-[500px] xl:max-w-[600px] truncate">
                                 {{ $prod->name }}
                             </a>
 
-                            <div class="flex items-center gap-2 mt-4">
+                            <div class="flex items-center gap-2 mt-3">
                                 <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
                                     ₹{{ number_format($prod->sale_price, 0) }}
                                 </span>
@@ -96,7 +96,7 @@
                                 @endif
                             </div>
 
-                            <div class="mt-4 space-y-[10px]">
+                            <div class="mt-4 space-y-2">
                                 @if($prod->category)
                                 <p class="text-base sm:text-lg flex flex-wrap">
                                     <span class="font-medium text-[#131615] w-[120px]">Category:</span>
@@ -112,7 +112,7 @@
 
                             </div>
 
-                            <div class="border-t border-[#D5D5D5] mt-4 pt-2">
+                            <div class="border-t border-[#D5D5D5] mt-2 pt-2">
                                 <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
                                     <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg transition">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
@@ -152,13 +152,15 @@
                         <span class="text-base md:text-xl font-semibold" id="wishlistCount">{{ $wishlists->count() }}</span>
                     </div>
                 </div>
-                <button class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] mt-[30px] hover:bg-[#9d6719] transition">
-                    Move All To Cart
-                </button>
-                <a href="{{ route('shop-by-category') }}"
-                    class="flex items-center justify-center w-full h-[52px] mt-3 border-2 border-[#131615] text-[#131615] text-lg font-medium hover:bg-[#131615] hover:text-white transition">
-                    Continue Shopping
-                </a>
+                <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row xl:flex-col">
+                    <button class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] hover:bg-[#9d6719] transition">
+                        Move All To Cart
+                    </button>
+                    <a href="{{ route('shop-by-category') }}"
+                        class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium hover:bg-[#131615] hover:text-white transition">
+                        Continue Shopping
+                    </a>
+                </div>
             </div>
 
         </div>

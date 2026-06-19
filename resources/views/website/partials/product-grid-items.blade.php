@@ -56,7 +56,7 @@
                 @if($product->variants->isNotEmpty())
                 <div class="mt-1 relative w-full max-w-[100px]">
                     <select
-                        class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
+                      class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
                         data-product-id="{{ $product->id }}">
 
                         <option value="">Attribute</option>
