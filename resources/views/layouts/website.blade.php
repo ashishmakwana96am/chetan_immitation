@@ -236,13 +236,13 @@
                     </nav>
 
                     <!-- Right Side -->
-                    <div class="hidden lg:flex items-center gap-5">
-                        <div class="search-container flex items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300">
+                    <div class="flex items-center gap-5">
+                        <div class="search-container items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 hidden lg:flex">
                             <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
 
-                        <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter">
+                        <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter hidden lg:block">
                             <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
                             @auth('customer')
                             @php $wishlistCount = auth('customer')->user()->wishlists()->count(); @endphp
@@ -252,7 +252,7 @@
                             @endauth
                         </a>
 
-                        <a href="#" class="relative hover-gold-filter">
+                        <a href="#" class="relative hover-gold-filter hidden lg:block">
                             <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
                             <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
                         </a>
@@ -294,12 +294,12 @@
                             <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                         </a>
                         @endauth
+                        <!-- Mobile Button -->
+                        <button id="menuBtn" class="lg:hidden text-white text-[24px]">
+                            <i class="fa-solid fa-bars"></i>
+                        </button>
                     </div>
 
-                    <!-- Mobile Button -->
-                    <button id="menuBtn" class="lg:hidden text-white text-[24px]">
-                        <i class="fa-solid fa-bars"></i>
-                    </button>
                 </div>
             </div>
         </div>
