@@ -259,7 +259,7 @@ $(function () {
     });
 
     /* ── "Move All To Cart" ── */
-    $('#moveAllToCartBtn').on('click', function () {
+    $(document).on('click', '#moveAllToCartBtn', function () {
         var btn   = this;
         var items = [];
         $('#wishlistItems .wishlist-item').each(function () {
