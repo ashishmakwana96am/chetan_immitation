@@ -338,7 +338,7 @@
     /* ── Remove item ── */
     function fetchAndSwapCart() {
         setTimeout(function () {
-            fetch('/cart?_t=' + Date.now(), { 
+            fetch('{{ route('cart') }}?_t=' + Date.now(), { 
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',

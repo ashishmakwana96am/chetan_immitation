@@ -306,7 +306,7 @@ $(function () {
 
     function fetchAndSwapWishlist() {
         setTimeout(function () {
-            fetch('/wishlist?_t=' + Date.now(), { 
+            fetch('{{ route('wishlist') }}?_t=' + Date.now(), { 
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
