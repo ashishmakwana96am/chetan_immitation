@@ -144,14 +144,14 @@
     </section>
 
     <section class="bg-[#F7F4EF] py-[49px] px-6 lg:px-16 mb-[60px] md:mb-[80px] lg:mb-[120px]">
-        <div class="relative text-center w-full max-w-[1060px] mx-auto px-10">
+        <div class="relative text-center w-full max-w-[1060px] mx-auto px-2 md:px-10">
 
             <span class="absolute left-0 top-0 text-[#B4771E] text-5xl leading-none">
-                <img src="{{ asset('website/assets/images/inver_start.png') }}" alt="" class="w-full max-w-[30px] md:max-w-[46px]">
+                <img src="{{ asset('website/assets/images/inver_start.png') }}" alt="" class="w-full max-w-[10px] sm:max-w-[30px] md:max-w-[46px]">
             </span>
 
             <span class="absolute right-0 bottom-0 text-[#B4771E] text-5xl leading-none">
-                <img src="{{ asset('website/assets/images/invert-end.png') }}" alt="" class="w-full max-w-[30px] md:max-w-[46px]">
+                <img src="{{ asset('website/assets/images/invert-end.png') }}" alt="" class="w-full max-w-[10px] sm:max-w-[30px] md:max-w-[46px]">
             </span>
 
             <p class="text-[#131615] text-base sm:text-lg lg:text-[24px] sm:leading-[34px] px-5 md:px-7 lg:px-10">
