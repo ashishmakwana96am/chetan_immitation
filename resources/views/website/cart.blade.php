@@ -337,18 +337,27 @@
 
     /* ── Remove item ── */
     function fetchAndSwapCart() {
-        fetch('/cart')
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(html, 'text/html');
-                
-                var newContent = doc.getElementById('cartPageContent');
-                var oldContent = document.getElementById('cartPageContent');
-                if (newContent && oldContent) {
-                    oldContent.innerHTML = newContent.innerHTML;
+        setTimeout(function () {
+            fetch('/cart?_t=' + Date.now(), { 
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 }
-            });
+            })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    
+                    var newContent = doc.getElementById('cartPageContent');
+                    var oldContent = document.getElementById('cartPageContent');
+                    if (newContent && oldContent) {
+                        oldContent.innerHTML = newContent.innerHTML;
+                    }
+                });
+        }, 300);
     }
 
     document.addEventListener('cartUpdated', function () {
@@ -438,10 +447,16 @@
                     btn.innerHTML = originalHtml;
                 }
                 if (cartData.status === 'success') {
+                    const row = document.querySelector(`.cart-item[data-id="${cartItemId}"]`);
+                    if (row) row.remove();
                     if (window.updateCartBadge) window.updateCartBadge(cartData.count);
                     if (window.updateWishlistBadge) window.updateWishlistBadge(data.count);
                     showToast('Item moved to Wishlist! ❤️');
-                    fetchAndSwapCart();
+                    if (cartData.empty) {
+                        fetchAndSwapCart();
+                    } else {
+                        updateSummary(cartData.totals);
+                    }
                 }
             });
         })
