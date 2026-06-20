@@ -58,6 +58,29 @@ Route::post('/register', [MemberRegisterController::class, 'store'])->name('regi
 Route::middleware('auth:customer')->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
+    Route::get('/checkout', function () {
+        $customer = auth('customer')->user();
+        $productIds = [];
+        if ($customer) {
+            $productIds = \App\Models\CartItem::where('customer_id', $customer->id)
+                ->pluck('product_id')
+                ->unique()
+                ->toArray();
+        } else {
+            $guestCart = session()->get('guest_cart', []);
+            $productIds = array_column($guestCart, 'product_id');
+        }
+
+        $relatedProducts = \App\Models\Product::where('status', \App\Models\Product::STATUS_ACTIVE)
+            ->whereNotIn('id', $productIds ?: [0])
+            ->with(['primaryImage', 'variants.attributeValue'])
+            ->withSum('inventories', 'quantity')
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
+
+        return view('website.checkout', compact('relatedProducts'));
+    })->name('checkout');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');

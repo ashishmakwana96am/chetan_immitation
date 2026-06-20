@@ -222,16 +222,16 @@
                             ₹{{ number_format($total, 0) }}
                         </span>
                     </div>
-                    <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row lg:flex-col">
-                        <a href="{{ auth('customer')->check() ? '#' : route('login') . '?intended=' . urlencode(route('cart')) }}"
-                            class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] hover:bg-[#9d6719] transition flex justify-center items-center">
-                            Process To Checkout
-                        </a>
-                        <a href="{{ route('shop-by-category') }}"
-                            class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium hover:bg-[#131615] hover:text-white transition">
-                            Continue Shopping
-                        </a>
-                    </div>
+
+                    <a href="{{ auth('customer')->check() ? route('checkout') : route('login') . '?intended=' . urlencode(route('checkout')) }}"
+                        id="checkoutBtn"
+                        class="!w-full common-btn mt-[30px] flex items-center justify-center">
+                        Process To Checkout
+                    </a>
+                    <a href="{{ route('shop-by-category') }}"
+                        class="!w-full common-btn mt-3 !bg-transparent !text-[#131615] border-2 border-[#131615] !font-semibold flex items-center justify-center">
+                        Continue Shopping
+                    </a>
                 </div>
 
                 {{-- Delivery Info --}}
@@ -497,6 +497,18 @@
                 discRow.classList.remove('hidden');
             }
         }
+    }
+
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', function (e) {
+            if (checkoutBtn.classList.contains('pointer-events-none')) {
+                e.preventDefault();
+                return;
+            }
+            checkoutBtn.classList.add('pointer-events-none');
+            checkoutBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        });
     }
 </script>
 @endsection
