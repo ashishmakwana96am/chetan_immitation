@@ -48,6 +48,37 @@ class CustomerLoginController extends Controller
                 ?? route('home');
 
             $customer = Auth::guard('customer')->user();
+
+            // Merge guest cart items into database
+            $guestCart = session()->get('guest_cart', []);
+            if (!empty($guestCart)) {
+                foreach ($guestCart as $item) {
+                    $productId = (int) ($item['product_id'] ?? 0);
+                    $variantId = isset($item['variant_id']) && $item['variant_id'] !== '' ? (int) $item['variant_id'] : null;
+                    $qty       = (int) ($item['qty'] ?? 1);
+
+                    if ($productId > 0) {
+                        $existing = \App\Models\CartItem::where('customer_id', $customer->id)
+                            ->where('product_id', $productId)
+                            ->where('product_variant_id', $variantId)
+                            ->first();
+
+                        if ($existing) {
+                            $existing->increment('qty', $qty);
+                        } else {
+                            \App\Models\CartItem::create([
+                                'customer_id'        => $customer->id,
+                                'product_id'         => $productId,
+                                'product_variant_id' => $variantId,
+                                'qty'                => $qty,
+                            ]);
+                        }
+                    }
+                }
+                // Clear guest cart from session
+                session()->forget('guest_cart');
+            }
+
             $wishlistCount = $customer->wishlists()->count();
 
             $pendingWishlist = $request->session()->pull('pending_wishlist')

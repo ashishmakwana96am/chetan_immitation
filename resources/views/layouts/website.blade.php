@@ -252,9 +252,18 @@
                             @endauth
                         </a>
 
-                        <a href="#" class="relative hover-gold-filter hidden lg:block">
+                        <a href="{{ route('cart') }}" class="relative hover-gold-filter">
                             <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
-                            <span class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px]">0</span>
+                            @auth('customer')
+                            @php $cartCount = \App\Models\CartItem::where('customer_id', auth('customer')->id())->sum('qty'); @endphp
+                            <span id="cartBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] {{ $cartCount > 0 ? '' : 'hidden' }}">{{ $cartCount }}</span>
+                            @else
+                            @php
+                                $guestCart = session()->get('guest_cart', []);
+                                $cartCount = array_sum(array_column($guestCart, 'qty'));
+                            @endphp
+                            <span id="cartBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] {{ $cartCount > 0 ? '' : 'hidden' }}">{{ $cartCount }}</span>
+                            @endauth
                         </a>
 
                         @auth('customer')
@@ -268,6 +277,13 @@
                                     <p class="text-sm font-semibold text-[#131615] truncate">{{ Auth::guard('customer')->user()->name }}</p>
                                     <p class="text-xs text-[#757575] truncate">{{ Auth::guard('customer')->user()->email }}</p>
                                 </div>
+                                <a href="{{ route('cart') }}"
+                                    class="flex items-center gap-2 w-full px-4 py-3 text-base text-[#131615] hover:bg-[#f9f3e8] hover:text-[#B4771E] transition border-b border-[#D5D5D5]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 shrink-0">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                    </svg>
+                                    My Cart
+                                </a>
                                 <a href="{{ route('wishlist') }}"
                                     class="flex items-center gap-2 w-full px-4 py-3 text-base text-[#131615] hover:bg-[#f9f3e8] hover:text-[#B4771E] transition border-b border-[#D5D5D5]">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 shrink-0">
@@ -692,6 +708,99 @@
                 btn.dataset.loading = '0';
             });
         });
+    })();
+    </script>
+
+    <script>
+    (function () {
+        var csrfToken = '{{ csrf_token() }}';
+
+        // ── Global Add to Cart function ──────────────────────────────────────────
+        window.addToCart = function (productId, variantId, qty, btn, loginUrl) {
+            var cartAddUrl = '{{ route('cart.add') }}';
+            var cartLoginUrl = loginUrl || ('{{ route('login') }}?intended={{ urlencode(route('cart')) }}');
+            var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
+
+            var originalText = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            }
+
+
+
+            fetch(cartAddUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    variant_id: variantId || null,
+                    qty: qty || 1,
+                }),
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+                if (data.status === 'success') {
+                    updateCartBadge(data.count);
+                    showToast('Item added to cart! 🛒');
+                    document.dispatchEvent(new CustomEvent('cartUpdated'));
+                } else {
+                    showToast(data.message || 'Could not add to cart.', 'error');
+                }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+                window.location.href = cartLoginUrl;
+            });
+        };
+
+        // Guest cart synchronization and cleanup will be executed at the end of the IIFE
+
+        // Cart badge update
+        function updateCartBadge(count) {
+            var badge = document.getElementById('cartBadge');
+            if (!badge) return;
+            badge.textContent = count;
+            if (count > 0) badge.classList.remove('hidden');
+            else badge.classList.add('hidden');
+        }
+        window.updateCartBadge = updateCartBadge;
+
+        // Toast (reuse same showWishlistToast)
+        function showToast(message, type) {
+            if (window.showWishlistToast) {
+                window.showWishlistToast(message, type !== 'error');
+            }
+        }
+
+        // ── Grid "Add to Cart" click delegate ────────────────────────────────────
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.add-to-cart-btn');
+            if (!btn) return;
+
+            var card      = btn.closest('.product-card');
+            var productId = btn.dataset.productId;
+            var loginUrl  = btn.dataset.loginUrl;
+            var variantId = null;
+
+            if (card) {
+                var select = card.querySelector('.grid-variant-select');
+                if (select && select.value) variantId = select.value;
+            }
+
+            window.addToCart(productId, variantId, 1, btn, loginUrl);
+        });
+
+        // Clean up old guest cart cookie and localStorage
+        if (localStorage.getItem('guest_cart')) {
+            localStorage.removeItem('guest_cart');
+        }
+        document.cookie = "guest_cart=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
     })();
     </script>
 

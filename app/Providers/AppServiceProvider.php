@@ -16,6 +16,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Illuminate\Cookie\Middleware\EncryptCookies::except('guest_cart');
+
         Gate::before(function ($user, $ability) {
             if ($user->type === 'super-admin') {
                 return true;

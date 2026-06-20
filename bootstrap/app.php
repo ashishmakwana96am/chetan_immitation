@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->encryptCookies(except: [
+            'guest_cart',
+        ]);
+
         $middleware->redirectGuestsTo(function (Request $request) {
             if (str_starts_with($request->path(), 'admin')) {
                 return route('admin.login');

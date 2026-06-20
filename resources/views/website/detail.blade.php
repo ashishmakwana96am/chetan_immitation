@@ -161,7 +161,12 @@
                 </div>
 
                 <div class="flex gap-3 mt-6">
-                    <button class="common-btn h-[50px]  w-full max-w-[300px]">Add To Cart</button>
+                    <button id="addToCartBtn"
+                        class="common-btn h-[50px] w-full max-w-[300px]"
+                        data-product-id="{{ $product->id }}"
+                        data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
+                        Add To Cart
+                    </button>
                     <button class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px]">Buy Now</button>
                 </div>
 
@@ -480,8 +485,7 @@ if (minusBtn) {
     }
 
     // ── variant selector clicks ───────────────────────────────────────────────
-    // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted
-    document.querySelectorAll('.variant-selector').forEach(function (btn) {
+    // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted    document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
             // Visual active state
             var parent = btn.parentElement;
@@ -564,4 +568,21 @@ if (minusBtn) {
 }());
 </script>
 
+<script>
+// ─── Detail page Add to Cart ──────────────────────────────────────────────────
+(function () {
+    var addBtn = document.getElementById('addToCartBtn');
+    if (!addBtn) return;
+
+    addBtn.addEventListener('click', function () {
+        var productId = addBtn.dataset.productId;
+        var loginUrl  = addBtn.dataset.loginUrl;
+        var activeVariant = document.querySelector('.variant-selector.active');
+        var variantId = activeVariant ? (activeVariant.dataset.variantId || null) : null;
+        var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+
+        window.addToCart(productId, variantId, qty, addBtn, loginUrl);
+    });
+}());
+</script>
 @endsection

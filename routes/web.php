@@ -29,6 +29,7 @@ use App\Http\Controllers\CustomerLoginController;
 use App\Http\Controllers\CustomerPasswordResetController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\ShopCategoryController;
+use App\Http\Controllers\CartController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes
@@ -58,6 +59,13 @@ Route::middleware('auth:customer')->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
 });
+
+Route::get('/cart', [CartController::class, 'index'])->name('cart');
+Route::get('/cart/count', [CartController::class, 'count'])->name('cart.count');
+Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+Route::patch('/cart/update', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
+
 Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
