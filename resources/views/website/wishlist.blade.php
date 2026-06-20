@@ -397,6 +397,7 @@ $(function () {
 
         if (data.status === 'added') {
             fetchAndSwapWishlist();
+            return;
         }
 
         var priceHtml = '<span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">₹' + p.sale_price + '</span>';
