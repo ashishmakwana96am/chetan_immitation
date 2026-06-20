@@ -214,32 +214,33 @@
         <!-- PRODUCT GRID -->
         <div class="col-span-12 lg:col-span-8 xl:col-span-9 min-w-0">
 
-            <div class="flex flex-wrap sm:flex-nowrap gap-3 items-center justify-between lg:justify-end mb-5">
-                <button id="filterBtn" class="flex items-center justify-center px-4 h-[48px] lg:hidden border border-[#B4771E] text-[#B4771E] rounded-[8px] transition duration-300 hover:bg-[#B4771E]/5">
+            <div class="flex flex-nowrap gap-3 items-center justify-between lg:justify-end mb-5">
+                <button id="filterBtn" class="flex items-center justify-center px-2 sm:px-4 h-[42px] lg:hidden border border-[#B4771E] text-[#B4771E] rounded-[8px] transition duration-300 hover:bg-[#B4771E]/5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
                     </svg>
                 </button>
-                
-                <button id="resetFiltersBtn" type="button" onclick="resetAllFilters()" class="hidden items-center justify-center gap-2 px-3 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] hover:bg-[#B4771E] transition duration-300 group hover:text-white group">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4 text-[#B4771E]  group-hover:text-white transition-colors duration-300">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                    Reset Filters
-                </button>
-
-                <div class="relative w-full max-w-[200px] sm:max-w-[230px]">
-                    <select id="sortSelect" onchange="applyFilters()"
-                        class="appearance-none w-full px-5 pr-12 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
-                        <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
-                        <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
-                        <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
-                        <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
-                        <option value="popular" {{ request('sort') == 'popular' ? 'selected' : '' }}>Most Popular</option>
-                    </select>
-                    <svg class="absolute top-1/2 -translate-y-[50%] right-5 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
-                        <path d="M6 9L12 15L18 9" stroke="#3D403F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
+                <div class="flex gap-3">
+                    <button id="resetFiltersBtn" type="button" onclick="resetAllFilters()" class="hidden items-center justify-center gap-2 px-3 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] hover:bg-[#B4771E] transition duration-300 group hover:text-white group whitespace-nowrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4 text-[#B4771E]  group-hover:text-white transition-colors duration-300">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                       <span class="hidden sm:block"> Reset Filters</span>
+                    </button>
+    
+                    <div class="relative w-full max-w-[200px] sm:max-w-[230px]">
+                        <select id="sortSelect" onchange="applyFilters()"
+                            class="appearance-none w-full px-2 sm:px-5 pr-8 sm:pr-12 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
+                            <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
+                            <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
+                            <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
+                            <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
+                            <option value="popular" {{ request('sort') == 'popular' ? 'selected' : '' }}>Most Popular</option>
+                        </select>
+                        <svg class="absolute top-1/2 -translate-y-[50%] right-3 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 9L12 15L18 9" stroke="#3D403F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
