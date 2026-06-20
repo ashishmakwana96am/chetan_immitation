@@ -104,9 +104,14 @@
                                     </p>
                                     @endif
                                     @if($attrLabel)
+                                    @php
+                                        $parts = explode(':', $attrLabel, 2);
+                                        $labelName = count($parts) > 1 ? trim($parts[0]) : 'Variant';
+                                        $labelVal = count($parts) > 1 ? trim($parts[1]) : trim($parts[0]);
+                                    @endphp
                                     <p class="text-base flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">Variant:</span>
-                                        <span class="text-[#757575] ml-2">{{ $attrLabel }}</span>
+                                        <span class="font-medium text-[#131615] w-[120px]">{{ $labelName }}:</span>
+                                        <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                     </p>
                                     @endif
     

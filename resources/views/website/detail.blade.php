@@ -195,7 +195,7 @@
                         <div class="flex flex-wrap gap-3 md:gap-4">
                             @foreach($attributeValues as $variant)
                             @php
-                                $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : $loop->first;
+                                $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : false;
                             @endphp
                             <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
                                 data-variant-id="{{ $variant->id }}"
@@ -579,6 +579,17 @@ if (minusBtn) {
         var loginUrl  = addBtn.dataset.loginUrl;
         var activeVariant = document.querySelector('.variant-selector.active');
         var variantId = activeVariant ? (activeVariant.dataset.variantId || null) : null;
+
+        var hasVariants = document.querySelectorAll('.variant-selector').length > 0;
+        if (hasVariants && !variantId) {
+            if (window.showWishlistToast) {
+                window.showWishlistToast('Please select attribute first', false);
+            } else {
+                alert('Please select attribute first');
+            }
+            return;
+        }
+
         var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
 
         window.addToCart(productId, variantId, qty, addBtn, loginUrl);

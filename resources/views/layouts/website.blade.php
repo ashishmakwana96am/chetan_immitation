@@ -817,7 +817,17 @@
 
             if (card) {
                 var select = card.querySelector('.grid-variant-select');
-                if (select && select.value) variantId = select.value;
+                if (select) {
+                    if (!select.value) {
+                        if (window.showWishlistToast) {
+                            window.showWishlistToast('Please select attribute first', false);
+                        } else {
+                            alert('Please select attribute first');
+                        }
+                        return;
+                    }
+                    variantId = select.value;
+                }
             }
 
             window.addToCart(productId, variantId, 1, btn, loginUrl);
