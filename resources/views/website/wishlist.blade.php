@@ -233,6 +233,7 @@ $(function () {
         var productId = $(btn).data('product-id');
         var variantId = $(btn).data('variant-id') || null;
         var toggleUrl = '{{ route('wishlist.toggle') }}';
+        var $item     = $(btn).closest('.wishlist-item');
 
         addItemToCart(productId, variantId, btn, function (res) {
             // Remove from wishlist database since it is moved to cart
@@ -244,14 +245,21 @@ $(function () {
                 headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
                 success: function (wishlistRes) {
                     if (window.showWishlistToast) window.showWishlistToast('Item moved to cart! 🛒');
-                    fetchAndSwapWishlist();
+                    $item.fadeOut(300, function () {
+                        $(this).remove();
+                        $('#wishlistCount').text(wishlistRes.count);
+                        if (window.updateWishlistBadge) window.updateWishlistBadge(wishlistRes.count);
+                        if (wishlistRes.count === 0 || $('#wishlistItems .wishlist-item').length === 0) {
+                            fetchAndSwapWishlist();
+                        }
+                    });
                 }
             });
         });
     });
 
     /* ── "Move All To Cart" ── */
-    $('#moveAllToCartBtn').on('click', function () {
+    $(document).on('click', '#moveAllToCartBtn', function () {
         var btn   = this;
         var items = [];
         $('#wishlistItems .wishlist-item').each(function () {
@@ -297,32 +305,41 @@ $(function () {
     });
 
     function fetchAndSwapWishlist() {
-        fetch('/wishlist')
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(html, 'text/html');
-                
-                var newWrapper = doc.getElementById('wishlistGridWrapper');
-                var oldWrapper = document.getElementById('wishlistGridWrapper');
-                if (newWrapper && oldWrapper) {
-                    oldWrapper.innerHTML = newWrapper.innerHTML;
-                    oldWrapper.className = newWrapper.className;
+        setTimeout(function () {
+            fetch('{{ route('wishlist') }}?_t=' + Date.now(), { 
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 }
-                
-                var newEmpty = doc.getElementById('wishlistEmptyState');
-                var oldEmpty = document.getElementById('wishlistEmptyState');
-                if (newEmpty && oldEmpty) {
-                    oldEmpty.innerHTML = newEmpty.innerHTML;
-                    oldEmpty.className = newEmpty.className;
-                }
+            })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    
+                    var newWrapper = doc.getElementById('wishlistGridWrapper');
+                    var oldWrapper = document.getElementById('wishlistGridWrapper');
+                    if (newWrapper && oldWrapper) {
+                        oldWrapper.innerHTML = newWrapper.innerHTML;
+                        oldWrapper.className = newWrapper.className;
+                    }
+                    
+                    var newEmpty = doc.getElementById('wishlistEmptyState');
+                    var oldEmpty = document.getElementById('wishlistEmptyState');
+                    if (newEmpty && oldEmpty) {
+                        oldEmpty.innerHTML = newEmpty.innerHTML;
+                        oldEmpty.className = newEmpty.className;
+                    }
 
-                // Update counts
-                var countVal = doc.getElementById('wishlistCount') ? doc.getElementById('wishlistCount').textContent : '0';
-                if (window.updateWishlistBadge) window.updateWishlistBadge(parseInt(countVal));
-                var countEl = document.getElementById('wishlistCount');
-                if (countEl) countEl.textContent = countVal;
-            });
+                    // Update counts
+                    var countVal = doc.getElementById('wishlistCount') ? doc.getElementById('wishlistCount').textContent : '0';
+                    if (window.updateWishlistBadge) window.updateWishlistBadge(parseInt(countVal));
+                    var countEl = document.getElementById('wishlistCount');
+                    if (countEl) countEl.textContent = countVal;
+                });
+        }, 300);
     }
 
     /* ── Remove from Wishlist ── */
@@ -380,6 +397,7 @@ $(function () {
 
         if (data.status === 'added') {
             fetchAndSwapWishlist();
+            return;
         }
 
         var priceHtml = '<span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">₹' + p.sale_price + '</span>';

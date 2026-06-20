@@ -485,7 +485,8 @@ if (minusBtn) {
     }
 
     // ── variant selector clicks ───────────────────────────────────────────────
-    // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted    document.querySelectorAll('.variant-selector').forEach(function (btn) {
+    // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted
+    document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
             // Visual active state
             var parent = btn.parentElement;
