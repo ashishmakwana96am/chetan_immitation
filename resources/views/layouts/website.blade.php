@@ -350,14 +350,24 @@
                 </button>
 
                 <div id="shopMenu" class="hidden">
+                    <div class="border-b">
+                        <a href="{{ route('shop-by-category') }}" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] font-semibold text-lg leading-[18px] pl-4 transition-colors duration-300">
+                            View All Products
+                        </a>
+                    </div>
                     @foreach($sharedCategories as $index => $cat)
                     <div class="border-b">
                         @if($cat->subCategories->isNotEmpty())
-                            <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] pl-4 transition-colors duration-300">
-                                <span>{{ $cat->name }}</span>
-                                <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
-                            </button>
+                            <div class="w-full flex justify-between items-center pl-4 transition-colors duration-300">
+                                <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex-1 py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
+                                    {{ $cat->name }}
+                                </a>
+                                <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="py-5 px-5 text-lg text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300" type="button">
+                                    <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
+                                </button>
+                            </div>
                             <ul id="mobile-submenu-{{ $cat->id }}" class="hidden pl-10 pb-4 text-[#757575] text-base space-y-4 list-disc">
+                                <li><a href="{{ route('shop-by-category', $cat->slug) }}" class="text-[#757575] hover:text-[#B4771E] font-semibold transition-colors duration-300">View All {{ $cat->name }}</a></li>
                                 @foreach($cat->subCategories as $sub)
                                 <li><a href="{{ route('shop-by-category', ['slug' => $cat->slug, 'sub_category' => $sub->slug]) }}" class="text-[#757575] hover:text-[#B4771E] transition-colors duration-300">{{ $sub->name }}</a></li>
                                 @endforeach
@@ -511,6 +521,13 @@
         var $menu = $('#userMenuDropdown');
         var hideTimer;
 
+        // Toggle on click for mobile/touch devices
+        $('#userMenuBtn').on('click', function (e) {
+            e.stopPropagation();
+            $menu.toggleClass('hidden');
+        });
+
+        // Hover for desktop users
         $wrap.on('mouseenter', function () {
             clearTimeout(hideTimer);
             $menu.removeClass('hidden');
@@ -520,6 +537,16 @@
             hideTimer = setTimeout(function () {
                 $menu.addClass('hidden');
             }, 120);
+        });
+
+        // Close on clicking outside
+        $(document).on('click', function () {
+            $menu.addClass('hidden');
+        });
+
+        // Prevent close on clicking inside the menu
+        $menu.on('click', function (e) {
+            e.stopPropagation();
         });
 
         $('#logoutBtn').on('click', function () {
