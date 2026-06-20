@@ -23,10 +23,10 @@
             <a href="{{ route('shop-by-category') }}" class="common-btn inline-flex">Continue Shopping</a>
         </div>
 
-        <div id="cartWrapper" class="grid xl:grid-cols-[953px_1fr] gap-6 items-start {{ $cartItems->isEmpty() ? 'hidden' : '' }}">
+        <div id="cartWrapper" class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start {{ $cartItems->isEmpty() ? 'hidden' : '' }}">
 
             {{-- Cart Items --}}
-            <div class="space-y-[30px]" id="cartItemsList">
+            <div class="min-w-0 space-y-[30px]" id="cartItemsList">
                 @foreach($cartItems as $item)
                 @php
                     $product  = $item->product;
@@ -45,11 +45,11 @@
                         && auth('customer')->user()->wishlists->contains('product_id', $product->id);
                 @endphp
 
-                <div class="cart-item group border border-[#D5D5D5] p-3 lg:p-[25px]" data-id="{{ $item->id }}" data-price="{{ $price }}">
-                    <div class="flex flex-col md:flex-row gap-4">
+                <div class="cart-item group wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-id="{{ $item->id }}" data-price="{{ $price }}">
+                    <div class="flex flex-col sm:flex-row gap-4">
 
                         {{-- Image --}}
-                        <div class="relative shrink-0 w-full md:w-[240px] h-[240px] overflow-hidden">
+                        <div class="relative shrink-0 sm:w-[190px] sm:h-[190px] overflow-hidden cursor-pointer">
                             @if($stockQty < 1)
                             <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
                                 <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">OUT OF STOCK</span>
@@ -61,7 +61,7 @@
                             @endif
                             <a href="{{ route('product.detail', $product->slug) }}">
                                 <img src="{{ $imgUrl }}" alt="{{ $product->name }}"
-                                    class="w-full h-full object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+                                    class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>
 
                             <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
@@ -80,83 +80,87 @@
                         </div>
 
                         {{-- Content --}}
-                        <div class="flex-1 min-w-0">
-                            <a href="{{ route('product.detail', $product->slug) }}">
-                                <h3 class="max-w-[280px] md:max-w-[500px] truncate text-base md:text-[22px] lg:text-[26px] leading-[26px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition">
-                                    {{ $product->name }}
-                                </h3>
-                            </a>
-
-                            <div class="flex items-center gap-2 mt-5">
-                                <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                    ₹{{ number_format($price, 0) }}
-                                </span>
-                                @if($mrp > $price)
-                                <span class="text-[#999] line-through text-base md:text-lg">
-                                    ₹{{ number_format($mrp, 0) }}
-                                </span>
-                                @endif
-                            </div>
-
-                            <div class="flex justify-between sm:items-center flex-col sm:flex-row gap-4">
-                                <div class="sm:mt-[20px] text-[14px]">
-                                    @if($product->category)
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">Category:</span>
-                                        <span class="text-[#757575] ml-2">{{ $product->category->name }}</span>
-                                    </p>
-                                    @endif
-                                    @if($attrLabel)
-                                    @php
-                                        $parts = explode(':', $attrLabel, 2);
-                                        $labelName = count($parts) > 1 ? trim($parts[0]) : 'Variant';
-                                        $labelVal = count($parts) > 1 ? trim($parts[1]) : trim($parts[0]);
-                                    @endphp
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">{{ $labelName }}:</span>
-                                        <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
-                                    </p>
-                                    @endif
-                                    @if($stockQty > 0)
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
-                                        <span class="text-[#777] ml-2">In Stock</span>
-                                    </p>
-                                    @endif
-                                    <p class="text-base sm:text-lg sm:leading-[18px] flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
-                                        <span class="text-[#B4771E] font-semibold ml-2 item-total-display">
-                                            ₹{{ number_format($price * $item->qty, 0) }}
-                                        </span>
-                                    </p>
-                                </div>
-
-                                {{-- Qty stepper --}}
-                                <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[8px] sm:px-[10px] md:px-[15px] gap-[15px] w-max">
-                                    <button type="button" onclick="changeQty({{ $item->id }}, -1)"
-                                        class="text-[#757575] text-base font-bold hover:text-[#131615] transition">
-                                        <i class="fa-solid fa-minus"></i>
-                                    </button>
-                                    <span class="text-base md:text-[22px] text-center text-[#131615] w-6 qty-display">
-                                        {{ $item->qty }}
+                        <div class="flex-1 min-w-0 flex justify-between flex-col">
+                            <div>
+                                <a href="{{ route('product.detail', $product->slug) }}">
+                                    <h3 class="block product-title text-base md:text-[22px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                        {{ $product->name }}
+                                    </h3>
+                                </a>
+    
+                                <div class="flex items-center gap-2 mt-3">
+                                    <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
+                                        ₹{{ number_format($price, 0) }}
                                     </span>
-                                    <button type="button" onclick="changeQty({{ $item->id }}, 1)"
-                                        class="text-[#757575] text-base hover:text-[#131615] transition">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </button>
+                                    @if($mrp > $price)
+                                    <span class="text-[#999] line-through text-base md:text-lg">
+                                        ₹{{ number_format($mrp, 0) }}
+                                    </span>
+                                    @endif
+                                </div>
+    
+                                <div class="flex justify-between sm:items-center flex-col sm:flex-row gap-4">
+                                    <div class="mt-2 sm:mt-4 space-y-2 text-[14px]">
+                                        @if($product->category)
+                                        <p class="text-base flex flex-wrap">
+                                            <span class="font-medium text-[#131615] w-[120px]">Category:</span>
+                                            <span class="text-[#757575] ml-2">{{ $product->category->name }}</span>
+                                        </p>
+                                        @endif
+                                        @if($attrLabel)
+                                        @php
+                                            $parts = explode(':', $attrLabel, 2);
+                                            $labelName = count($parts) > 1 ? trim($parts[0]) : 'Variant';
+                                            $labelVal = count($parts) > 1 ? trim($parts[1]) : trim($parts[0]);
+                                        @endphp
+                                        <p class="text-base flex flex-wrap">
+                                            <span class="font-medium text-[#131615] w-[120px]">{{ $labelName }}:</span>
+                                            <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
+                                        </p>
+                                        @endif
+                                        @if($stockQty > 0)
+                                        <p class="text-base flex flex-wrap">
+                                            <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
+                                            <span class="text-[#777] ml-2">In Stock</span>
+                                        </p>
+                                        @endif
+                                        <p class="text-base flex flex-wrap">
+                                            <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
+                                            <span class="text-[#B4771E] font-semibold ml-2 item-total-display">
+                                                ₹{{ number_format($price * $item->qty, 0) }}
+                                            </span>
+                                        </p>
+                                    </div>
+    
+                                    {{-- Qty stepper --}}
+                                    <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[8px] sm:px-[10px] md:px-[15px] gap-[15px] w-max">
+                                        <button type="button" onclick="changeQty({{ $item->id }}, -1)"
+                                            class="text-[#757575] text-base font-bold hover:text-[#131615] transition">
+                                            <i class="fa-solid fa-minus"></i>
+                                        </button>
+                                        <span class="text-base md:text-[22px] text-center text-[#131615] w-6 qty-display">
+                                            {{ $item->qty }}
+                                        </span>
+                                        <button type="button" onclick="changeQty({{ $item->id }}, 1)"
+                                            class="text-[#757575] text-base hover:text-[#131615] transition">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
-                                <div class="flex items-center flex-wrap gap-2">
+                            <div class="border-t border-[#D5D5D5] mt-2 pt-2">
+                                <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
                                     <button type="button" onclick="removeItem({{ $item->id }})"
-                                        class="after:border-r after:border-[#3D403F] after:h-5 after:mx-5 after:content-[''] after:inline-block hover:text-red-500 flex items-center gap-[10px] text-base md:text-lg transition">
-                                        <img src="{{ asset('website/assets/images/delete.png') }}" alt="">
+                                        class="after:border-r after:border-[#3D403F] after:h-5 after:sm:mx-4 after:content-[''] after:inline-block hover:text-red-500 flex items-center gap-[10px] text-sm sm:text-base transition">
+                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 sm:size-5 -mt-1">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
                                         Remove From Cart
                                     </button>
                                     <button type="button" onclick="moveToWishlist({{ $item->id }}, {{ $product->id }}, {{ $variant?->id ?? 'null' }}, this)"
-                                        class="hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg transition">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5 text-[#131615]">
+                                        class="hover:text-[#B4771E] flex items-center gap-[10px] text-sm sm:text-basetransition">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="size-4 sm:size-5 -mt-1">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"></path>
                                         </svg>
                                         Move to Wishlist
@@ -183,8 +187,8 @@
                 $total    = $subtotal + $shipping;
             @endphp
 
-            <div class="space-y-4">
-                <div class="border border-[#D5D5D5] p-5">
+            <div class="min-w-0 space-y-4  sticky top-5">
+                <div class="border border-[#D5D5D5]  p-3 lg:p-4">
                     <h3 class="text-lg md:text-[22px] md:leading-[22px] font-medium text-[#131615]">Price Details</h3>
 
                     <div class="border-t border-[#D5D5D5] mt-[20px] pt-[20px] space-y-5">
@@ -213,41 +217,42 @@
                     </div>
 
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">
-                        <span class="font-medium text-lg md:text-[22px] lg:text-[24px]">Total</span>
-                        <span class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px]" id="summaryTotal">
+                        <span class="font-medium text-lg md:text-[22px]">Total</span>
+                        <span class="font-bold text-[#B4771E] text-lg md:text-[22px]" id="summaryTotal">
                             ₹{{ number_format($total, 0) }}
                         </span>
                     </div>
-
-                    <a href="{{ auth('customer')->check() ? '#' : route('login') . '?intended=' . urlencode(route('cart')) }}"
-                        class="!w-full common-btn mt-[30px] flex items-center justify-center">
-                        Process To Checkout
-                    </a>
-                    <a href="{{ route('shop-by-category') }}"
-                        class="!w-full common-btn mt-3 !bg-transparent !text-[#131615] border-2 border-[#131615] !font-semibold flex items-center justify-center">
-                        Continue Shopping
-                    </a>
+                    <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row lg:flex-col">
+                        <a href="{{ auth('customer')->check() ? '#' : route('login') . '?intended=' . urlencode(route('cart')) }}"
+                            class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] hover:bg-[#9d6719] transition flex justify-center items-center">
+                            Process To Checkout
+                        </a>
+                        <a href="{{ route('shop-by-category') }}"
+                            class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium hover:bg-[#131615] hover:text-white transition">
+                            Continue Shopping
+                        </a>
+                    </div>
                 </div>
 
                 {{-- Delivery Info --}}
-                <div class="border border-[#D5D5D5] p-5">
-                    <h3 class="text-xl md:text-[26px] md:leading-[26px] font-semibold text-[#131615] mb-[24px]">
+                <div class="border border-[#D5D5D5] p-3 lg:p-4">
+                    <h3 class="text-xl md:text-[22px] md:leading-[26px] font-semibold text-[#131615] mb-[24px]">
                         Delivery Information
                     </h3>
                     <div class="space-y-4 text-[#131615]">
-                        <div class="flex gap-3 text-base md:text-xl font-normal">
+                        <div class="flex gap-3 text-base md:text-lg font-normal">
                             <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
                             <p>Free shipping on orders above ₹1999</p>
                         </div>
-                        <div class="flex gap-3 text-base md:text-xl font-normal">
+                        <div class="flex gap-3 text-base md:text-lg font-normal">
                             <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
                             <p>Estimated delivery within 4–7 business days</p>
                         </div>
-                        <div class="flex gap-3 text-base md:text-xl font-normal">
+                        <div class="flex gap-3 text-base md:text-lg font-normal">
                             <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
                             <p>Secure packaging for safe delivery</p>
                         </div>
-                        <div class="flex gap-3 text-base md:text-xl font-normal">
+                        <div class="flex gap-3 text-base md:text-lg font-normal">
                             <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
                             <p>Easy return & exchange available</p>
                         </div>
@@ -262,7 +267,7 @@
 
 {{-- You May Also Like --}}
 @if($relatedProducts->isNotEmpty())
-<section class="section-space">
+<section class="section-space-bottom">
     <div class="container-1440">
         <div class="text-center mb-10">
             <h2 class="font-moglan hero-title">You May Also Like</h2>

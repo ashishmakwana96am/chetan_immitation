@@ -27,10 +27,10 @@
         </div>
 
         {{-- Grid Wrapper --}}
-        <div id="wishlistGridWrapper" class="grid lg:grid-cols-12 gap-4 lg:gap-6 items-start {{ $wishlists->isEmpty() ? 'hidden' : '' }}">
+        <div id="wishlistGridWrapper" class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start  {{ $wishlists->isEmpty() ? 'hidden' : '' }}">
 
             {{-- Wishlist Items --}}
-            <div class="lg:col-span-8 xl:col-span-9 min-w-0 space-y-[30px]" id="wishlistItems">
+            <div class=" min-w-0 space-y-[30px]" id="wishlistItems">
                 @foreach($wishlists as $wishlist)
                 @php
                     $prod    = $wishlist->product;
@@ -146,7 +146,7 @@
             </div>
 
             {{-- Wishlist Summary --}}
-            <div class="lg:col-span-4 xl:col-span-3 min-w-0 border border-[#D5D5D5] p-3 lg:p-4 sticky top-5">
+            <div class=" min-w-0 border border-[#D5D5D5] p-3 lg:p-4 sticky top-5">
                 <h3 class="text-lg md:text-[22px] font-semibold text-[#131615]">Wishlist Summary</h3>
                 <div class="border-t border-[#D5D5D5] mt-3 sm:mt-5 pt-3 sm:pt-5">
                     <div class="flex justify-between items-center">
@@ -160,7 +160,7 @@
                         <span class="text-base md:text-xl font-semibold" id="wishlistCount">{{ $wishlists->count() }}</span>
                     </div>
                 </div>
-                <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row xl:flex-col">
+                <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row lg:flex-col">
                     <button id="moveAllToCartBtn" class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] hover:bg-[#9d6719] transition">
                         Move All To Cart
                     </button>
