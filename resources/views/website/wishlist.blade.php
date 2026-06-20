@@ -115,7 +115,7 @@
 
                             <div class="border-t border-[#D5D5D5] mt-2 pt-2">
                                 <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
-                                    <button class="add-to-cart-from-wishlist after:border-r after:border-[#3D403F] after:h-5 after:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-sm sm:text-base transition"
+                                    <button class="add-to-cart-from-wishlist after:border-r after:border-[#3D403F] after:h-5 after:sm:mx-4 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-sm sm:text-base transition"
                                         data-product-id="{{ $prod->id }}"
                                         data-variant-id="{{ $variant?->id ?? '' }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 sm:size-5 -mt-1">
