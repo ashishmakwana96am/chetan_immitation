@@ -340,18 +340,18 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            <a href="{{ url('/') }}" class="block pb-5 border-b {{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
+            <a href="{{ url('/') }}" class="block pb-3 md:pb-5 border-b {{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
 
             <!-- Shop By Category -->
             <div class="border-b">
-                <button onclick="toggleMenu('shopMenu','shopArrow')" class="w-full py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
+                <button onclick="toggleMenu('shopMenu','shopArrow')" class="w-full py-4 md:py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
                     <span>Shop By Category</span>
                     <i id="shopArrow" class="fa-solid fa-angle-down transition duration-300"></i>
                 </button>
 
                 <div id="shopMenu" class="hidden">
                     <div class="border-b">
-                        <a href="{{ route('shop-by-category') }}" class="block w-full py-5 text-[#131615] hover:text-[#B4771E] font-semibold text-lg leading-[18px] pl-4 transition-colors duration-300">
+                        <a href="{{ route('shop-by-category') }}" class="block w-full py-3 md:py-5 text-[#131615] hover:text-[#B4771E] font-semibold text-base md:text-lg leading-[18px] pl-4 transition-colors duration-300">
                             View All Products
                         </a>
                     </div>
@@ -359,10 +359,10 @@
                     <div class="border-b">
                         @if($cat->subCategories->isNotEmpty())
                             <div class="w-full flex justify-between items-center pl-4 transition-colors duration-300">
-                                <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex-1 py-5 text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
+                                <a href="{{ route('shop-by-category', $cat->slug) }}" class="flex-1 py-3 md:py-5 text-[#131615] hover:text-[#B4771E] text-base md:text-lg leading-[18px] transition-colors duration-300">
                                     {{ $cat->name }}
                                 </a>
-                                <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="py-5 px-5 text-lg text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300" type="button">
+                                <button onclick="toggleMenu('mobile-submenu-{{ $cat->id }}','mobile-icon-{{ $cat->id }}')" class="py-3 md:py-5 px-4 md:px-5 text-base md:text-lg text-[#131615] hover:text-[#B4771E] focus:outline-none transition-colors duration-300" type="button">
                                     <span id="mobile-icon-{{ $cat->id }}"><i class="fa-solid fa-plus"></i></span>
                                 </button>
                             </div>
