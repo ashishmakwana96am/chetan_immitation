@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Models\CartItem;
 use App\Models\CustomerAddress;
 use App\Models\Product;
@@ -16,6 +17,7 @@ use App\Models\OrderItem;
 use App\Models\Setting;
 use App\Models\Inventory;
 use App\Models\Coupon;
+use App\Models\Customer;
 
 class CheckoutController extends Controller
 {
@@ -422,15 +424,15 @@ class CheckoutController extends Controller
                     'razorpay_signature' => $request->razorpay_signature,
                 ]);
 
-                $orderItems = OrderItem::where('order_id', $order->id)->get();
-                foreach ($orderItems as $item) {
-                    Inventory::where('product_id', $item->product_id)
-                        ->where('location_id', $order->location_id)
-                        ->decrement('quantity', $item->quantity);
-                }
-
+                $customer = Customer::find($order->customer_id);
                 CartItem::where('customer_id', $order->customer_id)->delete();
                 session()->forget('applied_coupon_code');
+
+                try {
+                    Mail::to($customer->email)->send(new \App\Mail\OrderConfirmationMail($order));
+                } catch (\Exception $e) {
+                    Log::error('Order confirmation email failed: ' . $e->getMessage());
+                }
             });
 
             return response()->json([
@@ -679,7 +681,7 @@ class CheckoutController extends Controller
                     'coupon_id' => $coupon ? $coupon->id : null,
                 ]);
 
-                // Create Order Items & Decrement Stock
+                // Create Order Items (NO inventory deduction - will be done when admin approves)
                 foreach ($cartItems as $item) {
                     $price = $item->productVariant
                         ? (float) $item->productVariant->sale_price
@@ -693,15 +695,18 @@ class CheckoutController extends Controller
                         'discount' => 0.0,
                         'total' => $price * $item->qty,
                     ]);
-
-                    Inventory::where('product_id', $item->product_id)
-                        ->where('location_id', $location->id)
-                        ->decrement('quantity', $item->qty);
                 }
 
                 // Clear customer cart and clear coupon session
                 CartItem::where('customer_id', $customer->id)->delete();
                 session()->forget('applied_coupon_code');
+
+                // Send order confirmation email
+                try {
+                    Mail::to($customer->email)->send(new \App\Mail\OrderConfirmationMail($order));
+                } catch (\Exception $e) {
+                    Log::error('COD order confirmation email failed: ' . $e->getMessage());
+                }
 
                 return $order;
             });
