@@ -48,13 +48,16 @@
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
        </svg>
     </button>
-    <div class="p-4 2xl:p-[25px]">
-        <div class="flex flex-col justify-between">
-            <div>
-                <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-                <div class="flex items-center gap-1 mt-[9px]">
-                    <div class="text-[#D5D5D5] text-base">★★★★★</div>
-                    <span class="text-xs text-[#757575]">(0)</span>
+    <div class="p-4 md:p-[25px]">
+        <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
+        <div class="flex items-center gap-1 mt-[9px]">
+            <div class="text-[#D5D5D5] text-base">★★★★★</div>
+            <span class="text-xs text-[#757575]">(0)</span>
+        </div>
+            <div class="flex justify-between flex-wrap">
+                <div class="mt-1 flex items-center gap-1">
+                    <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
+                    @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
                 </div>
                 @php
                     $variantValues = $product->relationLoaded('variants')
@@ -106,6 +109,11 @@
                 @endif
             </div>
         
+        <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300"
+            data-product-id="{{ $product->id }}"
+            data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
+            Add to Cart
+        </button>
     </div>
 </div>
 @empty

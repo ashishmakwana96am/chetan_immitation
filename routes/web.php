@@ -61,6 +61,8 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
     Route::post('/checkout/address/save', [CheckoutController::class, 'saveAddress'])->name('checkout.address.save');
+    Route::post('/checkout/address/set-default', [CheckoutController::class, 'setDefaultAddress'])->name('checkout.address.set-default');
+    Route::delete('/checkout/address/delete', [CheckoutController::class, 'deleteAddress'])->name('checkout.address.delete');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');

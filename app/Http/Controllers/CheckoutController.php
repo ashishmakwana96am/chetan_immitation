@@ -75,15 +75,19 @@ class CheckoutController extends Controller
             'city' => ['required', 'string', 'max:100'],
             'state' => ['required', 'string', 'max:100'],
             'type' => ['required', 'string', 'in:home,work'],
+            'is_default' => ['nullable', 'boolean'],
         ]);
 
         $customer = $this->customer();
 
-        // If this is the first address, it should be default
         $hasAddress = CustomerAddress::where('customer_id', $customer->id)->exists();
-        $isDefault = !$hasAddress;
+        $isDefault = $request->input('is_default', false) ? true : !$hasAddress;
 
-        CustomerAddress::create([
+        if ($isDefault) {
+            CustomerAddress::where('customer_id', $customer->id)->update(['is_default' => false]);
+        }
+
+        $newAddress = CustomerAddress::create([
             'customer_id' => $customer->id,
             'name' => $request->name,
             'phone' => $request->phone,
@@ -98,7 +102,73 @@ class CheckoutController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Address saved successfully.'
+            'message' => 'Address saved successfully.',
+            'address' => $newAddress
+        ]);
+    }
+
+    public function setDefaultAddress(Request $request)
+    {
+        $request->validate([
+            'address_id' => ['required', 'integer']
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Address not found.'
+            ], 404);
+        }
+
+        CustomerAddress::where('customer_id', $customer->id)->update(['is_default' => false]);
+        $address->update(['is_default' => true]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Default address set successfully.'
+        ]);
+    }
+
+    public function deleteAddress(Request $request)
+    {
+        $request->validate([
+            'address_id' => ['required', 'integer']
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Address not found.'
+            ], 404);
+        }
+
+        $wasDefault = $address->is_default;
+        $address->delete();
+
+        if ($wasDefault) {
+            $nextAddress = CustomerAddress::where('customer_id', $customer->id)
+                ->latest()
+                ->first();
+            if ($nextAddress) {
+                $nextAddress->update(['is_default' => true]);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Address deleted successfully.'
         ]);
     }
 }
