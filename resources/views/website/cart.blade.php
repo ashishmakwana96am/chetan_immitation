@@ -224,11 +224,11 @@
                     </div>
                     <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row lg:flex-col">
                         <a href="{{ auth('customer')->check() ? '#' : route('login') . '?intended=' . urlencode(route('cart')) }}"
-                            class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] hover:bg-[#9d6719] transition flex justify-center items-center">
+                            class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] common-btn transition flex justify-center items-center">
                             Process To Checkout
                         </a>
                         <a href="{{ route('shop-by-category') }}"
-                            class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium hover:bg-[#131615] hover:text-white transition">
+                            class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                             Continue Shopping
                         </a>
                     </div>

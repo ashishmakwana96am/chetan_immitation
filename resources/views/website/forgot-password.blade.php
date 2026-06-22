@@ -48,7 +48,7 @@
                     </div>
 
                     <button type="submit" id="sendBtn"
-                        class="w-full h-[52px] bg-[#B4771E] text-white text-lg font-medium hover:bg-[#9d6719] transition flex items-center justify-center gap-2">
+                        class="w-full h-[52px] bg-[#B4771E] text-white text-lg font-medium hover:bg-[#131615] transition flex items-center justify-center gap-2">
                         <span id="sendBtnText">Send OTP</span>
                         <svg id="sendSpinner" class="hidden animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                     </button>
