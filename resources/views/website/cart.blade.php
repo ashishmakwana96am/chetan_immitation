@@ -498,5 +498,17 @@
             }
         }
     }
+
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', function (e) {
+            if (checkoutBtn.classList.contains('pointer-events-none')) {
+                e.preventDefault();
+                return;
+            }
+            checkoutBtn.classList.add('pointer-events-none');
+            checkoutBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        });
+    }
 </script>
 @endsection
