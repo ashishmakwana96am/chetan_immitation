@@ -159,8 +159,8 @@
     <!-- Header -->
     <header class="relative z-50">
         <!-- Top Bar -->
-        <div class="bg-[#B4771E] py-[12px] flex items-center overflow-hidden relative">
-            <p class="text-white text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
+        <div class="bg-[#B4771E] py-2 sm:py-[12px] flex items-center overflow-hidden relative">
+            <p class="text-white text-sm sm:text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
                 Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
             </p>
         </div>
@@ -236,22 +236,16 @@
                     </nav>
 
                     <!-- Right Side -->
-                    <div class="flex items-center gap-5">
+                    <div class="flex items-center gap-2 sm:gap-5">
                         <!-- Mobile Search Icon -->
-                        <button
-                            id="mobileSearchBtn"
-                            class="sm:hidden hover-gold-filter"
-                            type="button"
-                        >
-                            <img
-                                src="{{ asset('website/assets/images/search.png') }}"
-                                class=""
-                                alt="search"
-                            >
-                        </button>
-                        <div class="search-container items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 hidden sm:flex">
-                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
-                            <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
+
+                        <div class="search-container items-center w-[160px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[30px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
+                            <!-- <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0"> -->
+                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                            </svg>
+
                         </div>
 
                         <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter hidden lg:block">
@@ -264,7 +258,7 @@
                             @endauth
                         </a>
 
-                        <a href="{{ route('cart') }}" class="relative hover-gold-filter">
+                        <a href="{{ route('cart') }}" class="relative hover-gold-filter hidden lg:block">
                             <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
                             @auth('customer')
                             @php $cartCount = \App\Models\CartItem::where('customer_id', auth('customer')->id())->sum('qty'); @endphp
@@ -279,7 +273,7 @@
                         </a>
 
                         @auth('customer')
-                        <div class="relative flex items-center" id="userMenuWrap">
+                        <div class="relative items-center hidden lg:flex" id="userMenuWrap">
                             <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none flex items-center p-0 bg-transparent border-0" type="button">
                                 <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                             </button>
@@ -318,7 +312,7 @@
                             </div>
                         </div>
                         @else
-                        <a href="{{ route('login') }}" class="text-white hover-gold-filter">
+                        <a href="{{ route('login') }}" class="text-white hover-gold-filter hidden lg:block">
                             <img src="{{ asset('website/assets/images/user.png') }}" alt="">
                         </a>
                         @endauth
@@ -357,8 +351,8 @@
     <div id="mobileMenu" class="fixed top-0 left-0 w-full h-full bg-white z-[999] translate-x-full transition duration-300 overflow-y-auto">
         <!-- Top Bar inside Mobile Menu -->
         <div class="bg-[#131615]">
-            <div class="bg-[#B4771E] py-[12px] flex items-center overflow-hidden relative">
-                <p class="text-white text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
+            <div class="bg-[#B4771E] py-2 sm:py-[12px] flex items-center overflow-hidden relative">
+                <p class="text-white text-sm sm:text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
                     Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
                 </p>
             </div>
@@ -907,44 +901,6 @@ window.addEventListener('resize', function () {
         }
         document.cookie = "guest_cart=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
     })();
-    </script>
-    <script>
-        const mobileSearchBtn = document.getElementById('mobileSearchBtn');
-        const mobileSearchPopup = document.getElementById('mobileSearchPopup');
-        const closeMobileSearch = document.getElementById('closeMobileSearch');
-        const mobileSearchInput = document.getElementById('mobileSearchInput');
-
-        mobileSearchBtn?.addEventListener('click', () => {
-            mobileSearchPopup.classList.remove('hidden');
-
-            setTimeout(() => {
-                mobileSearchInput.focus();
-            }, 100);
-        });
-
-        closeMobileSearch?.addEventListener('click', () => {
-            mobileSearchPopup.classList.add('hidden');
-        });
-
-        mobileSearchPopup?.addEventListener('click', (e) => {
-            if (e.target === mobileSearchPopup) {
-                mobileSearchPopup.classList.add('hidden');
-            }
-        });
-
-        mobileSearchInput?.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-
-                const value = this.value.trim();
-
-                if(value){
-                    window.location =
-                    "{{ url('/shop') }}?search=" +
-                    encodeURIComponent(value);
-                }
-
-            }
-        });
     </script>
     @yield('page-js')
 </body>

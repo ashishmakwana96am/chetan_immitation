@@ -373,7 +373,7 @@ summary {
 }
 
 .hero-heading{
-    @apply text-[#131615] text-[28px] leading-[50px] md:text-[60px] md:leading-[64px] 2xl:text-[62px] xl:leading-[80px] mb-[15px];
+    @apply text-[#131615] text-[28px] leading-[40px] md:text-[60px] md:leading-[64px] 2xl:text-[62px] xl:leading-[80px] mb-[15px];
 }
 
 .common-btn{

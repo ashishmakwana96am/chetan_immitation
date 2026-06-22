@@ -198,7 +198,7 @@
                                     <input type="checkbox" class="size-checkbox" value="{{ $sizeVal->value }}" {{ in_array($sizeVal->value, $selectedSizes) ? 'checked' : '' }} onchange="priceFilterTouched = false; applyFilters()">
                                     <span></span>
                                 </label>
-                                <span class="text-base 2xl:text-[20px] font-normal text-[#444444]">{{ $sizeVal->value }}</span>
+                                <span class="text-base 2xl:text-lg font-normal text-[#444444]">{{ $sizeVal->value }}</span>
                             </label>
                         </li>
                         @endforeach

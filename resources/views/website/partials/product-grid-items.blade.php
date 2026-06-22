@@ -48,66 +48,68 @@
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
        </svg>
     </button>
-    <div class="p-4 md:p-[25px]">
-        <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-        <div class="flex items-center gap-1 mt-[9px]">
-            <div class="text-[#D5D5D5] text-base">★★★★★</div>
-            <span class="text-xs text-[#757575]">(0)</span>
-        </div>
-            <div class="flex justify-between flex-wrap">
-                <div class="mt-1 flex items-center gap-1">
-                    <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                    @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
-                </div>
-                @php
-                    $variantValues = $product->relationLoaded('variants')
-                        ? $product->variants
-                            ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
-                            ->map(fn($v) => $v->attributeValue->value)
-                            ->unique()
-                            ->values()
-                        : collect();
-                @endphp
-
-                @if($product->variants->isNotEmpty())
-                <div class="mt-1 relative w-full max-w-[100px]">
-                    <select
-                      class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
-                        data-product-id="{{ $product->id }}">
-
-                        @php
-                            $firstVariant = $product->variants->first();
-                            $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
-                                ? $firstVariant->attributeValue->attribute->name
-                                : 'Attribute';
-                        @endphp
-                        <option value="">{{ $attributeName }}</option>
-
-                        @foreach($product->variants as $variant)
-                            @if($variant->attributeValue)
-                                <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
-                                    {{ $variant->attributeValue->value }}
-                                </option>
-                            @endif
-                        @endforeach
-
-                    </select>
-
-                    <svg
-                        class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
-                @endif
+    <div class="p-4 2xl:p-[25px] flex justify-between flex-col">
+        <div>
+            <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
+            <div class="flex items-center gap-1 mt-[9px]">
+                <div class="text-[#D5D5D5] text-base">★★★★★</div>
+                <span class="text-xs text-[#757575]">(0)</span>
             </div>
+            <div class="flex justify-between flex-wrap">
+                    <div class="mt-1 flex items-center gap-1">
+                        <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
+                        @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
+                    </div>
+                    @php
+                        $variantValues = $product->relationLoaded('variants')
+                            ? $product->variants
+                                ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
+                                ->map(fn($v) => $v->attributeValue->value)
+                                ->unique()
+                                ->values()
+                            : collect();
+                    @endphp
+    
+                    @if($product->variants->isNotEmpty())
+                    <div class="mt-1 relative w-full max-w-[100px]">
+                        <select
+                          class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
+                            data-product-id="{{ $product->id }}">
+    
+                            @php
+                                $firstVariant = $product->variants->first();
+                                $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
+                                    ? $firstVariant->attributeValue->attribute->name
+                                    : 'Attribute';
+                            @endphp
+                            <option value="">{{ $attributeName }}</option>
+    
+                            @foreach($product->variants as $variant)
+                                @if($variant->attributeValue)
+                                    <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
+                                        {{ $variant->attributeValue->value }}
+                                    </option>
+                                @endif
+                            @endforeach
+    
+                        </select>
+    
+                        <svg
+                            class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                    @endif
+            </div>
+        </div>
         
         <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300"
             data-product-id="{{ $product->id }}"
