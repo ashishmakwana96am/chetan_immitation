@@ -12,7 +12,84 @@ use App\Models\Inventory;
 
 class ShopCategoryController extends Controller
 {
-    public function index($slug = null)
+    public function index(Request $request, $slug = null)
+    {
+        if (!$request->ajax()) {
+            $filters = [];
+            $redirect = false;
+            
+            if ($slug) {
+                $filters['category'] = $slug;
+                $redirect = true;
+            }
+            
+            if ($request->has('search')) {
+                $filters['search'] = $request->get('search');
+                $redirect = true;
+            }
+            
+            if ($redirect) {
+                session(['shop_filters' => $filters]);
+                return redirect()->route('shop-by-category');
+            }
+            
+            $referer = $request->headers->get('referer');
+            if ($referer && !str_contains($referer, '/shop')) {
+                session()->forget('shop_filters');
+            }
+        }
+
+        $data = $this->getFilteredProducts($slug);
+
+        if (auth('customer')->check()) {
+            auth('customer')->user()->load('wishlists');
+        }
+
+        if ($request->ajax()) {
+            $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
+
+            return response()->json([
+                'html' => $gridHtml,
+                'pagination' => (string) $data['products']->links('vendor.pagination.tailwind'),
+                'count' => $data['products']->total(),
+                'price_range' => [
+                    'min' => $data['catalogMinPrice'],
+                    'max' => $data['catalogMaxPrice'],
+                ],
+            ]);
+        }
+
+        return view('website.shop-by-category', $data);
+    }
+
+    public function filter(Request $request)
+    {
+        session()->put('shop_filters', [
+            'category' => $request->get('category'),
+            'sub_category' => $request->get('sub_category'),
+            'min_price' => $request->get('min_price'),
+            'max_price' => $request->get('max_price'),
+            'size' => $request->get('size'),
+            'sort' => $request->get('sort'),
+            'search' => $request->get('search'),
+        ]);
+
+        $data = $this->getFilteredProducts();
+
+        $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
+
+        return response()->json([
+            'html' => $gridHtml,
+            'pagination' => (string) $data['products']->links('vendor.pagination.tailwind'),
+            'count' => $data['products']->total(),
+            'price_range' => [
+                'min' => $data['catalogMinPrice'],
+                'max' => $data['catalogMaxPrice'],
+            ],
+        ]);
+    }
+
+    private function getFilteredProducts($slug = null)
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
             ->with(['subCategories' => function ($q) {
@@ -71,7 +148,10 @@ class ShopCategoryController extends Controller
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity');
 
-        switch (request('sort')) {
+        $filters = session('shop_filters', []);
+        $sort = $filters['sort'] ?? 'default';
+
+        switch ($sort) {
             case 'price-low':
                 $query->orderByRaw('
                     COALESCE(
@@ -102,36 +182,18 @@ class ShopCategoryController extends Controller
                 $query->latest();
         }
 
-        $products = $query->paginate(9)->onEachSide(1)->withQueryString();
-
-        if (auth('customer')->check()) {
-            auth('customer')->user()->load('wishlists');
-        }
+        $products = $query->paginate(9)->onEachSide(1);
 
         $sizes = $this->getSizes();
-        $hasPriceFilter = request()->has('min_price') || request()->has('max_price');
-        $selectedMinPrice = request()->has('min_price')
-            ? (int) request('min_price')
+        $hasPriceFilter = !empty($filters['min_price']) || !empty($filters['max_price']);
+        $selectedMinPrice = !empty($filters['min_price'])
+            ? (int) $filters['min_price']
             : $catalogMinPrice;
-        $selectedMaxPrice = request()->has('max_price')
-            ? (int) request('max_price')
+        $selectedMaxPrice = !empty($filters['max_price'])
+            ? (int) $filters['max_price']
             : $catalogMaxPrice;
 
-        if (request()->ajax()) {
-            $gridHtml = view('website.partials.product-grid-items', compact('products'))->render();
-
-            return response()->json([
-                'html' => $gridHtml,
-                'pagination' => (string) $products->links('vendor.pagination.tailwind'),
-                'count' => $products->total(),
-                'price_range' => [
-                    'min' => $catalogMinPrice,
-                    'max' => $catalogMaxPrice,
-                ],
-            ]);
-        }
-
-        return view('website.shop-by-category', compact(
+        return compact(
             'categories',
             'products',
             'sizes',
@@ -140,16 +202,18 @@ class ShopCategoryController extends Controller
             'selectedMinPrice',
             'selectedMaxPrice',
             'hasPriceFilter'
-        ));
+        );
     }
 
     private function buildFilteredQuery($slug = null, bool $applyPriceFilter = true)
     {
         $query = Product::where('status', Product::STATUS_ACTIVE);
 
+        $filters = session('shop_filters', []);
+
         $categorySlugs = [];
-        if (request('category')) {
-            $categorySlugs = explode(',', request('category'));
+        if (!empty($filters['category'])) {
+            $categorySlugs = explode(',', $filters['category']);
         } elseif ($slug) {
             $categorySlugs = [$slug];
         }
@@ -165,8 +229,8 @@ class ShopCategoryController extends Controller
             }
         }
 
-        if (request('sub_category')) {
-            $subSlugs = explode(',', request('sub_category'));
+        if (!empty($filters['sub_category'])) {
+            $subSlugs = explode(',', $filters['sub_category']);
             $subIds = SubCategory::whereIn('slug', $subSlugs)->pluck('id');
             if ($subIds->isNotEmpty()) {
                 $query->where(function ($q) use ($subIds) {
@@ -176,7 +240,8 @@ class ShopCategoryController extends Controller
             }
         }
 
-        if ($search = request('search')) {
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
             $searchTerm = '%' . $search . '%';
             $query->where(function ($q) use ($searchTerm, $search) {
                 $q->where('name', 'like', $searchTerm)
@@ -194,8 +259,8 @@ class ShopCategoryController extends Controller
         }
 
         if ($applyPriceFilter) {
-            $minPrice = request()->filled('min_price') ? (float) request('min_price') : null;
-            $maxPrice = request()->filled('max_price') ? (float) request('max_price') : null;
+            $minPrice = !empty($filters['min_price']) ? (float) $filters['min_price'] : null;
+            $maxPrice = !empty($filters['max_price']) ? (float) $filters['max_price'] : null;
 
             if ($minPrice !== null || $maxPrice !== null) {
                 $query->whereRaw('
@@ -220,12 +285,11 @@ class ShopCategoryController extends Controller
             }
         }
 
-        $sizeAttribute = Attribute::where('slug', 'size')->first();
-        if ($sizeAttribute) {
-            $sizeAttribute->load('values');
-
-            if (request('size')) {
-                $sizeValues = explode(',', request('size'));
+        if (!empty($filters['size'])) {
+            $sizeAttribute = Attribute::where('slug', 'size')->first();
+            if ($sizeAttribute) {
+                $sizeAttribute->load('values');
+                $sizeValues = explode(',', $filters['size']);
                 $sizeValueIds = $sizeAttribute->values->whereIn('value', $sizeValues)->pluck('id');
                 if ($sizeValueIds->isNotEmpty()) {
                     $query->whereHas('variants', function ($q) use ($sizeValueIds) {
@@ -233,15 +297,6 @@ class ShopCategoryController extends Controller
                     });
                 }
             }
-        }
-
-        if (request('stock') === 'hide') {
-            $inStockIds = Inventory::select('product_id')
-                ->selectRaw('COALESCE(SUM(quantity), 0) as total_qty')
-                ->groupBy('product_id')
-                ->having('total_qty', '>', 0)
-                ->pluck('product_id');
-            $query->whereIn('id', $inStockIds);
         }
 
         return $query;

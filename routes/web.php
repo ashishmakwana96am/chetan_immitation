@@ -90,6 +90,7 @@ Route::patch('/cart/update', [CartController::class, 'update'])->name('cart.upda
 Route::delete('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 
 Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('shop-by-category');
+Route::post('/shop/filter', [ShopCategoryController::class, 'filter'])->name('shop.filter');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
 Route::get('robots.txt', function () {

@@ -58,8 +58,9 @@
                     @php $catId = 'cat-' . $cat->id; @endphp
                     @php
                         $currentSlug = request()->segment(2);
-                        $selectedCats = request('category') ? explode(',', request('category')) : ($currentSlug ? [$currentSlug] : []);
-                        $selectedSubs = request('sub_category') ? explode(',', request('sub_category')) : [];
+                        $sessionFilters = session('shop_filters', []);
+                        $selectedCats = !empty($sessionFilters['category']) ? explode(',', $sessionFilters['category']) : ($currentSlug ? [$currentSlug] : []);
+                        $selectedSubs = !empty($sessionFilters['sub_category']) ? explode(',', $sessionFilters['sub_category']) : [];
                         $isCatChecked = in_array($cat->slug, $selectedCats);
                         $shouldSelectAllSubs = $isCatChecked && empty($selectedSubs);
                         $isCatOpen = $isCatChecked || $cat->subCategories->pluck('slug')->intersect($selectedSubs)->isNotEmpty();
@@ -186,7 +187,10 @@
                     </svg>
                 </button>
                 <div id="size-section" class="px-5 py-[25px]">
-                    @php $selectedSizes = request('size') ? explode(',', request('size')) : []; @endphp
+                    @php
+                        $sessionFilters = session('shop_filters', []);
+                        $selectedSizes = !empty($sessionFilters['size']) ? explode(',', $sessionFilters['size']) : [];
+                    @endphp
                     <ul>
                         @foreach($sizes as $sizeVal)
                         @php $isLast = $loop->last; @endphp
@@ -229,13 +233,14 @@
                     </button>
     
                     <div class="relative w-full max-w-[200px] sm:max-w-[230px]">
+                        @php $sessionSort = session('shop_filters.sort'); @endphp
                         <select id="sortSelect" onchange="applyFilters()"
                             class="appearance-none w-full px-2 sm:px-5 pr-8 sm:pr-12 h-[42px] border border-[#D5D5D5] rounded-[8px] text-base font-semibold text-[#3D403F] outline-none">
-                            <option value="default" {{ request('sort') == 'default' || !request('sort') ? 'selected' : '' }}>Sorting</option>
-                            <option value="price-low" {{ request('sort') == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
-                            <option value="price-high" {{ request('sort') == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
-                            <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
-                            <option value="popular" {{ request('sort') == 'popular' ? 'selected' : '' }}>Most Popular</option>
+                            <option value="default" {{ $sessionSort == 'default' || !$sessionSort ? 'selected' : '' }}>Sorting</option>
+                            <option value="price-low" {{ $sessionSort == 'price-low' ? 'selected' : '' }}>Price: Low to High</option>
+                            <option value="price-high" {{ $sessionSort == 'price-high' ? 'selected' : '' }}>Price: High to Low</option>
+                            <option value="newest" {{ $sessionSort == 'newest' ? 'selected' : '' }}>Newest First</option>
+                            <option value="popular" {{ $sessionSort == 'popular' ? 'selected' : '' }}>Most Popular</option>
                         </select>
                         <svg class="absolute top-1/2 -translate-y-[50%] right-3 pointer-events-none w-5 h-5" viewBox="0 0 24 24" fill="none">
                             <path d="M6 9L12 15L18 9" stroke="#3D403F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -573,60 +578,54 @@
 
     let stockState = 'show';
 
-    function buildQueryString() {
-        const parts = [];
-
-        const sort = document.getElementById('sortSelect').value;
-        if (sort && sort !== 'default') parts.push('sort=' + sort);
-
+    function getFilterData() {
         const cats = [];
         document.querySelectorAll('.category-checkbox:checked').forEach(cb => cats.push(cb.value));
         const uniqueCats = [...new Set(cats)];
-        if (uniqueCats.length) parts.push('category=' + uniqueCats.join(','));
 
         const subs = [];
         document.querySelectorAll('.subcategory-checkbox:checked').forEach(cb => subs.push(cb.value));
         const uniqueSubs = [...new Set(subs)];
-        if (uniqueSubs.length) parts.push('sub_category=' + uniqueSubs.join(','));
 
-        const minP = document.getElementById('minPriceInput').value;
-        const maxP = document.getElementById('maxPriceInput').value;
-        const minPrice = clampPriceValue(minP, catalogMinPrice);
-        const maxPrice = clampPriceValue(maxP, catalogMaxPrice);
-
-        if (priceFilterTouched) {
-            if (minPrice > catalogMinPrice) parts.push('min_price=' + minPrice);
-            if (maxPrice < catalogMaxPrice) parts.push('max_price=' + maxPrice);
-        }
+        const minPrice = document.getElementById('minPriceInput').value;
+        const maxPrice = document.getElementById('maxPriceInput').value;
 
         const sizes = [];
         document.querySelectorAll('.size-checkbox:checked').forEach(cb => sizes.push(cb.value));
-        if (sizes.length) parts.push('size=' + sizes.join(','));
 
-        return parts.join('&');
+        const sort = document.getElementById('sortSelect').value;
+
+        const headerSearchEl = document.getElementById('headerSearch');
+        const search = headerSearchEl ? headerSearchEl.value.trim() : '';
+
+        return {
+            category: uniqueCats.join(','),
+            sub_category: uniqueSubs.join(','),
+            min_price: priceFilterTouched ? minPrice : '',
+            max_price: priceFilterTouched ? maxPrice : '',
+            size: sizes.join(','),
+            sort: sort !== 'default' ? sort : '',
+            search: search
+        };
     }
 
-    function getCategoryBase() {
-        const idx = window.location.pathname.indexOf('/shop');
-        if (idx !== -1) return window.location.pathname.substring(0, idx + 5);
-        return CATEGORY_BASE_URL;
-    }
-
-    function fetchProducts(page, qs) {
-        if (qs === undefined) {
-            qs = buildQueryString();
-        }
-        const params = new URLSearchParams(qs);
-        params.set('page', page);
+    function fetchProducts(page) {
+        const filterData = getFilterData();
 
         document.getElementById('productGrid').innerHTML =
             '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
 
-        const base = getCategoryBase();
-        const url = base + (qs ? '?' + params.toString() : '?page=' + page);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        fetch('{{ route('shop.filter') }}?page=' + page, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(filterData)
         })
         .then(r => r.json())
         .then(data => {
@@ -643,8 +642,10 @@
                 window.scrollTo({ top: y, behavior: 'smooth' });
             }
         })
-        .catch(() => {
-            window.location.href = url;
+        .catch(err => {
+            console.error('Filtering failed:', err);
+            document.getElementById('productGrid').innerHTML =
+                '<div class="col-span-full text-center py-16"><p class="text-red-500">Something went wrong. Please try again.</p></div>';
         });
     }
 
@@ -652,109 +653,37 @@
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(function () {
             syncResetButton();
-            const qs = buildQueryString();
-            const base = getCategoryBase();
-            const url = base + (qs ? '?' + qs : '');
-            window.history.replaceState({}, '', url);
-            fetchProducts(1, qs);
+            fetchProducts(1);
         }, 250);
     }
 
     function goToPage(page) {
-        const qs = buildQueryString();
-        const base = getCategoryBase();
-        const url = base + (qs ? '?' + qs + '&page=' + page : '?page=' + page);
-        window.history.replaceState({}, '', url);
         fetchProducts(page);
-    }
-
-    function getCategoryFromPath() {
-        const parts = window.location.pathname.replace(/\/+$/, '').split('/');
-        return parts.length > 0 ? parts[parts.length - 1] : null;
-    }
-
-    function syncCheckboxesFromUrl() {
-        const params = new URLSearchParams(window.location.search);
-
-        let catList = [];
-        const catParam = params.get('category');
-        if (catParam) {
-            catList = catParam.split(',');
-        } else {
-            const pathCat = getCategoryFromPath();
-            if (pathCat && pathCat !== 'category') {
-                catList = [pathCat];
-            }
-        }
-
-        const hasSubCategoryParam = params.has('sub_category');
-        const subList = hasSubCategoryParam
-            ? (params.get('sub_category') || '').split(',').filter(Boolean)
-            : [];
-
-        document.querySelectorAll('.category-checkbox').forEach(category => {
-            category.checked = catList.includes(category.value);
-        });
-
-        document.querySelectorAll('.subcategory-checkbox').forEach(cb => {
-            const parentCatId = cb.dataset.categoryId;
-            const parentCheckbox = document.querySelector('.category-checkbox[data-category-id="' + parentCatId + '"]');
-            
-            if (hasSubCategoryParam) {
-                cb.checked = subList.includes(cb.value);
-            } else if (parentCheckbox && parentCheckbox.checked) {
-                cb.checked = true;
-            } else {
-                cb.checked = false;
-            }
-        });
-
-        document.querySelectorAll('.category-checkbox').forEach(cb => {
-            const catId = cb.dataset.categoryId;
-            syncCategoryDropdown('cat-' + catId);
-        });
-
-        const sizeParam = params.get('size');
-        const sizeList = sizeParam ? sizeParam.split(',') : [];
-        document.querySelectorAll('.size-checkbox').forEach(cb => {
-            cb.checked = sizeList.includes(cb.value);
-        });
-
-        const minPrice = params.get('min_price');
-        const maxPrice = params.get('max_price');
-        priceFilterTouched = params.has('min_price') || params.has('max_price');
-        const minVal = minPrice !== null ? parseInt(minPrice) : catalogMinPrice;
-        const maxVal = maxPrice !== null ? parseInt(maxPrice) : catalogMaxPrice;
-        const activeId = document.activeElement ? document.activeElement.id : null;
-        const isEditingPrice = activeId === 'minPriceInput' || activeId === 'maxPriceInput';
-        if (!isEditingPrice && priceFilterTouched) {
-            setPriceInputs(
-                clampPriceValue(minVal, catalogMinPrice),
-                clampPriceValue(maxVal, catalogMaxPrice)
-            );
-            updateRangeTrack();
-        }
     }
 
     function syncResetButton() {
         const hasCategory = document.querySelectorAll('.category-checkbox:checked').length > 0;
         const hasSubCategory = document.querySelectorAll('.subcategory-checkbox:checked').length > 0;
         const hasSize = document.querySelectorAll('.size-checkbox:checked').length > 0;
-        const hasSort = document.getElementById('sortSelect').value !== 'default';
+        const sortSelect = document.getElementById('sortSelect');
+        const hasSort = sortSelect && sortSelect.value !== 'default';
         const hasPrice = priceFilterTouched;
 
         const btn = document.getElementById('resetFiltersBtn');
-        if (hasCategory || hasSubCategory || hasSize || hasSort || hasPrice) {
-            btn.classList.remove('hidden');
-            btn.classList.add('flex');
-        } else {
-            btn.classList.add('hidden');
-            btn.classList.remove('flex');
+        if (btn) {
+            if (hasCategory || hasSubCategory || hasSize || hasSort || hasPrice) {
+                btn.classList.remove('hidden');
+                btn.classList.add('flex');
+            } else {
+                btn.classList.add('hidden');
+                btn.classList.remove('flex');
+            }
         }
     }
 
     function resetAllFilters() {
-        document.getElementById('sortSelect').value = 'default';
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) sortSelect.value = 'default';
 
         document.querySelectorAll('.category-checkbox, .subcategory-checkbox, .size-checkbox').forEach(cb => {
             cb.checked = false;
@@ -768,37 +697,10 @@
         applyFilters();
     }
 
-    function syncCategoryQueryWithSubcategories() {
-        const params = new URLSearchParams(window.location.search);
-        const pathCat = getCategoryFromPath();
-        const hasCategoryFilter = params.has('category') || (pathCat && pathCat !== 'category');
-
-        if (!hasCategoryFilter || params.has('sub_category')) {
-            return;
-        }
-
-        const qs = buildQueryString();
-        if (!qs.includes('sub_category=')) {
-            return;
-        }
-
-        const base = getCategoryBase();
-        const url = base + '?' + qs;
-        window.history.replaceState({}, '', url);
-        fetchProducts(1, qs);
-    }
-
-    function initStockState() {
-        // stock filter removed
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
         initSidebarSectionDropdowns();
         syncPriceInputBounds();
         updateRangeTrack();
-        syncCheckboxesFromUrl();
-        initStockState();
-        syncCategoryQueryWithSubcategories();
         syncResetButton();
 
         const sidebar = document.querySelector('aside');

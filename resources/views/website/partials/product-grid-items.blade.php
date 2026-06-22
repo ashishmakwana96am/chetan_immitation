@@ -1,3 +1,12 @@
+@php
+    if (isset($products)) {
+        if ($products instanceof \Illuminate\Pagination\AbstractPaginator || $products instanceof \Illuminate\Pagination\LengthAwarePaginator) {
+            $products->getCollection()->loadMissing('variants.attributeValue.attribute');
+        } elseif (method_exists($products, 'loadMissing')) {
+            $products->loadMissing('variants.attributeValue.attribute');
+        }
+    }
+@endphp
 @forelse($products as $product)
 @php
     $stockQty   = $product->inventories_sum_quantity ?? 0;
@@ -66,7 +75,13 @@
                       class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
                         data-product-id="{{ $product->id }}">
 
-                        <option value="">Attribute</option>
+                        @php
+                            $firstVariant = $product->variants->first();
+                            $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
+                                ? $firstVariant->attributeValue->attribute->name
+                                : 'Attribute';
+                        @endphp
+                        <option value="">{{ $attributeName }}</option>
 
                         @foreach($product->variants as $variant)
                             @if($variant->attributeValue)
