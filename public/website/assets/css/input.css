@@ -286,6 +286,13 @@ summary {
     position:relative;
 }
 
+@media(max-width:1441px){
+    .custom-checkbox span{
+    width:20px;
+    height:20px;
+    }
+}
+
 .custom-checkbox input:checked + span{
     border-color:#B4771E;
 }
@@ -366,12 +373,12 @@ summary {
 }
 
 .hero-heading{
-    @apply text-[#131615] text-[40px] leading-[50px] md:text-[60px] md:leading-[64px] 2xl:text-[62px] xl:leading-[80px] mb-[15px];
+    @apply text-[#131615] text-[28px] leading-[50px] md:text-[60px] md:leading-[64px] 2xl:text-[62px] xl:leading-[80px] mb-[15px];
 }
 
 .common-btn{
-    @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-[20px] md:px-[24px] 2xl:px-[26px]
-    h-[50px] md:h-[58px] 2xl:h-[62px] text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-300;
+    @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-2 sm:px-[20px] md:px-[24px] 2xl:px-[26px]
+    h-[37px] sm:h-[50px] md:h-[58px] 2xl:h-[62px] text-sm sm:text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-300;
 }
 
 .btn-outline{

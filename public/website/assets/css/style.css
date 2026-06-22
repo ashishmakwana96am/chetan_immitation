@@ -3850,6 +3850,13 @@ summary {
   background: #fff;
   position: relative;
 }
+@media(max-width:1441px){
+    .custom-checkbox span{
+    width:20px;
+    height:20px;
+    }
+}
+
 .custom-checkbox input:checked + span {
   border-color: #B4771E;
 }
@@ -3948,7 +3955,7 @@ summary {
 }
 .hero-heading {
   margin-bottom: 15px;
-  font-size: 40px;
+  font-size: 28px;
   --tw-leading: 50px;
   line-height: 50px;
   color: #131615;
@@ -3969,17 +3976,23 @@ summary {
 }
 .common-btn {
   display: inline-flex;
-  height: 50px;
+  height: 37px;
   align-items: center;
   justify-content: center;
   background-color: #B4771E;
-  padding-inline: 20px;
-  font-size: var(--text-base);
-  line-height: var(--tw-leading, var(--text-base--line-height));
+  padding-inline: 10px;
+  font-size: var(--text-sm);
+  line-height: var(--tw-leading, var(--text-sm--line-height));
   color: var(--color-white);
   transition: all 0.3s ease;
   &:hover {
     background-color: #131615;
+  }
+    @media (width >= 40rem) {
+    height: 50px;
+    padding-inline: 20px;
+    font-size: var(--text-base);
+      line-height: var(--tw-leading, var(--text-base--line-height));
   }
   @media (width >= 48rem) {
     height: 58px;

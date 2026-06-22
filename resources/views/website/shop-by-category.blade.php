@@ -13,7 +13,7 @@
 
             <div class="relative z-10 py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
 
-                <h1 class="font-moglan hero-heading mt-5">
+                <h1 class="font-moglan hero-heading">
                     Explore Our
                     <br>
                     Jewelry Collections
@@ -45,7 +45,7 @@
             <div class="sidebar-section overflow-hidden">
 
                 <button onclick="toggleSection('cat-section','cat-arrow')"
-                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
+                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Category</span>
                     <svg id="cat-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +53,7 @@
                     </svg>
                 </button>
 
-                <div id="cat-section" class="px-5 py-[20px]">
+                <div id="cat-section" class="px-3 2xl:px-5 py-[20px]">
                     @foreach($categories as $cat)
                     @php $catId = 'cat-' . $cat->id; @endphp
                     @php
@@ -65,14 +65,14 @@
                         $shouldSelectAllSubs = $isCatChecked && empty($selectedSubs);
                         $isCatOpen = $isCatChecked || $cat->subCategories->pluck('slug')->intersect($selectedSubs)->isNotEmpty();
                     @endphp
-                    <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
+                    <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-3 2xl:py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
                         <div class="w-full flex items-center justify-between gap-2">
                             <label class="flex items-center gap-[15px] min-w-0 flex-1 cursor-pointer select-none">
                                 <span class="custom-checkbox shrink-0">
                                     <input type="checkbox" class="category-checkbox" value="{{ $cat->slug }}" data-category-id="{{ $cat->id }}" {{ $isCatChecked ? 'checked' : '' }} onchange="handleCategoryFilterChange(this)">
                                     <span></span>
                                 </span>
-                                <h3 class="text-[18px] text-[#3D403F]">
+                                <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">
                                     {{ $cat->name }}
                                     <span class="text-[#757575]">({{ $cat->products_count }})</span>
                                 </h3>
@@ -87,14 +87,14 @@
                             @endif
                         </div>
                         @if($cat->subCategories->isNotEmpty())
-                        <div id="{{ $catId }}-sub" class="{{ $isCatOpen ? '' : 'hidden' }} mt-5 space-y-4 pl-10">
+                        <div id="{{ $catId }}-sub" class="{{ $isCatOpen ? '' : 'hidden' }} mt-5 space-y-4 pl-8 2xl:pl-10">
                             @foreach($cat->subCategories as $sub)
                             <label class="flex items-center gap-4 cursor-pointer select-none">
                                 <span class="custom-checkbox shrink-0">
                                     <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubs)) ? 'checked' : '' }} onchange="handleSubcategoryFilterChange(this)">
                                     <span></span>
                                 </span>
-                                <span class="text-[18px] text-[#757575]">{{ $sub->name }}</span>
+                                <span class="text-base 2xl:text-[18px] text-[#757575]">{{ $sub->name }}</span>
                             </label>
                             @endforeach
                         </div>
@@ -107,24 +107,23 @@
             <!-- Shop By Price -->
             <div class="sidebar-section pb-0 mb-1">
                 <button onclick="toggleSection('price-section','price-arrow')"
-                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
+                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Price</span>
                     <svg id="price-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <div id="price-section" class="p-5 py-[25px]">
+                <div id="price-section" class="px-3 2xl:px-5 py-5 2xl:py-[25px]">
                     <div class="flex gap-4 mb-6">
                         <!-- Min Price -->
                         <div class="relative flex-1">
-                            <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
+                            <span class="absolute left-4 top-[34px] 2xl:top-[44px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="minPriceInput" type="number" value="{{ $selectedMinPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
-                                    text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
+                            <input id="minPriceInput" type="number" value="{{ $selectedMinPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[48px] 2xl:h-[56px] border border-[#D5D5D5] rounded-[2px] text-sm 2xl:text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('min')" onblur="normalizePriceInput('min')" onkeydown="if(event.key==='Enter') this.blur()">
-                            <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
+                            <div class="absolute right-4 top-[34px] 2xl:top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMin()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
                                         <path d="M1 5L5 1L9 5" stroke="#8A8A8A" stroke-width="1.2"
@@ -141,13 +140,12 @@
                         </div>
                         <!-- Max Price -->
                         <div class="relative flex-1">
-                            <span class="absolute left-4 top-[44px] -translate-y-1/2 text-[20px] text-[#131615]">
+                            <span class="absolute left-4 top-[34px] 2xl:top-[44px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
                                 ₹
                             </span>
-                            <input id="maxPriceInput" type="number" value="{{ $selectedMaxPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[56px] border border-[#D5D5D5] rounded-[2px]
-                                    text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
+                            <input id="maxPriceInput" type="number" value="{{ $selectedMaxPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[48px] 2xl:h-[56px] border border-[#D5D5D5] rounded-[2px] text-sm 2xl:text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
                                     outline-none appearance-none" oninput="syncFromInput('max')" onblur="normalizePriceInput('max')" onkeydown="if(event.key==='Enter') this.blur()">
-                            <div class="absolute right-4 top-[38px] -translate-y-1/2 flex flex-col gap-2">
+                            <div class="absolute right-4 top-[34px] 2xl:top-[38px] -translate-y-1/2 flex flex-col gap-2">
                                 <button type="button" onclick="increaseMax()" class="leading-none">
                                     <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
                                         <path d="M1 5L5 1L9 5" stroke="#8A8A8A" stroke-width="1.2"
@@ -179,7 +177,7 @@
             <!-- Size -->
             <div class="sidebar-section pb-0 mb-1">
                 <button onclick="toggleSection('size-section','size-arrow')"
-                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
+                    class="flex items-center justify-between w-full pb-4 2xl:pb-[17px] pt-5 2xl:pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Size</span>
                     <svg id="size-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
@@ -195,12 +193,12 @@
                         @foreach($sizes as $sizeVal)
                         @php $isLast = $loop->last; @endphp
                         <li class="{{ $isLast ? '' : 'border-b border-[#D5D5D5]' }}">
-                            <label class="flex items-center gap-5 {{ $loop->first ? 'pb-[15px]' : 'pt-[15px] pb-[15px]' }} cursor-pointer">
+                            <label class="flex items-center gap-5 {{ $loop->first ? 'pb-[15px]' : 'pt-[10px] 2xl:pt-[15px] pb-[10px] 2xl:pb-[15px]' }} cursor-pointer">
                                 <label class="custom-checkbox">
                                     <input type="checkbox" class="size-checkbox" value="{{ $sizeVal->value }}" {{ in_array($sizeVal->value, $selectedSizes) ? 'checked' : '' }} onchange="priceFilterTouched = false; applyFilters()">
                                     <span></span>
                                 </label>
-                                <span class="text-[20px] font-normal text-[#444444]">{{ $sizeVal->value }}</span>
+                                <span class="text-base 2xl:text-[20px] font-normal text-[#444444]">{{ $sizeVal->value }}</span>
                             </label>
                         </li>
                         @endforeach

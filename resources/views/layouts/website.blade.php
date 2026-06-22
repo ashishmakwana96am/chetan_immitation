@@ -171,7 +171,7 @@
                 <div class="flex items-center justify-between">
                     <!-- Logo -->
                     <a href="{{ url('/') }}">
-                        <img src="{{ asset('website/assets/images/logo.png') }}" class="w-[110px] xl:w-[150px] 2xl:w-auto">
+                        <img src="{{ asset('website/assets/images/logo.png') }}" class="w-[104px] xl:w-[150px] 2xl:w-auto">
                     </a>
 
                     <!-- Desktop Menu -->
@@ -237,7 +237,19 @@
 
                     <!-- Right Side -->
                     <div class="flex items-center gap-5">
-                        <div class="search-container items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 hidden lg:flex">
+                        <!-- Mobile Search Icon -->
+                        <button
+                            id="mobileSearchBtn"
+                            class="sm:hidden hover-gold-filter"
+                            type="button"
+                        >
+                            <img
+                                src="{{ asset('website/assets/images/search.png') }}"
+                                class=""
+                                alt="search"
+                            >
+                        </button>
+                        <div class="search-container items-center w-[200px] 2xl:w-[370px] rounded-sm h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 hidden sm:flex">
                             <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-base placeholder:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
                             <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0">
                         </div>
@@ -319,6 +331,27 @@
                 </div>
             </div>
         </div>
+        <div
+    id="mobileSearchPopup"
+    class="fixed inset-0 bg-black/50 z-[9999] hidden"
+>
+    <div class="bg-white p-4">
+        <div class="flex items-center gap-3">
+
+            <input
+                type="text"
+                id="mobileSearchInput"
+                placeholder="Search products..."
+                class="flex-1 border border-gray-300 rounded px-4 h-11 outline-none"
+            >
+
+            <button id="closeMobileSearch">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+        </div>
+    </div>
+</div>
     </header>
 
     <div id="mobileMenu" class="fixed top-0 left-0 w-full h-full bg-white z-[999] translate-x-full transition duration-300 overflow-y-auto">
@@ -331,7 +364,7 @@
             </div>
             <div class="px-5 flex items-center justify-between">
                 <a href="{{ url('/') }}">
-                    <img src="{{ asset('website/assets/images/logo.png') }}" class="w-[110px] xl:w-[150px] 2xl:w-auto">
+                    <img src="{{ asset('website/assets/images/logo.png') }}" class="w-[104px] xl:w-[150px] 2xl:w-auto">
                 </a>
                 <button id="closeMenu" class="text-white text-2xl">
                     <i class="fa-solid fa-xmark"></i>
@@ -875,7 +908,44 @@ window.addEventListener('resize', function () {
         document.cookie = "guest_cart=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
     })();
     </script>
+    <script>
+        const mobileSearchBtn = document.getElementById('mobileSearchBtn');
+        const mobileSearchPopup = document.getElementById('mobileSearchPopup');
+        const closeMobileSearch = document.getElementById('closeMobileSearch');
+        const mobileSearchInput = document.getElementById('mobileSearchInput');
 
+        mobileSearchBtn?.addEventListener('click', () => {
+            mobileSearchPopup.classList.remove('hidden');
+
+            setTimeout(() => {
+                mobileSearchInput.focus();
+            }, 100);
+        });
+
+        closeMobileSearch?.addEventListener('click', () => {
+            mobileSearchPopup.classList.add('hidden');
+        });
+
+        mobileSearchPopup?.addEventListener('click', (e) => {
+            if (e.target === mobileSearchPopup) {
+                mobileSearchPopup.classList.add('hidden');
+            }
+        });
+
+        mobileSearchInput?.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+
+                const value = this.value.trim();
+
+                if(value){
+                    window.location =
+                    "{{ url('/shop') }}?search=" +
+                    encodeURIComponent(value);
+                }
+
+            }
+        });
+    </script>
     @yield('page-js')
 </body>
 </html>

@@ -250,7 +250,7 @@ grid.innerHTML = pageItems.map(p => `
 
     </div>
 
-    <div class="p-4 md:p-[25px]">
+    <div class="p-4 2xl:p-[25px]">
 
         <h3 class="product-title">
             ${p.name}
@@ -270,12 +270,12 @@ grid.innerHTML = pageItems.map(p => `
 
         <div class="mt-1 flex items-center gap-1">
 
-            <span class="text-lg xl:text-[24px] text-[#131615]">
+            <span class="text-lg 2xl:text-[24px] text-[#131615]">
                 ₹${fmt(p.price)}
             </span>
 
             ${p.mrp > p.price ? `
-            <span class="text-sm xl:text-lg text-[#757575] line-through">
+            <span class="text-sm 2xl:text-lg text-[#757575] line-through">
                 ₹${fmt(p.mrp)}
             </span>
             ` : ''}

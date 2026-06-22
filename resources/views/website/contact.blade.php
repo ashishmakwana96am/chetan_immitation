@@ -16,7 +16,7 @@
                     Get In Touch
                 </span>
 
-                <h1 class="font-moglan hero-heading mt-5">
+                <h1 class="font-moglan hero-heading">
                     We'd Love to Hear
                     <br>
                     From You

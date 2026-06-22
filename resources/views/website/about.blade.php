@@ -16,7 +16,7 @@
                         About Us
                     </span>
 
-                    <h1 class="font-moglan hero-heading mt-5">
+                    <h1 class="font-moglan hero-heading">
                         Crafting Elegance
                         <br>
                         for Every Celebration
