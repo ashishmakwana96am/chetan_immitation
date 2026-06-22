@@ -20,7 +20,7 @@
         $detailUrl .= '?variant=' . $wishlistVariantId;
     }
 @endphp
-<div class="product-card group border border-[#D5D5D5] relative cursor-pointer" data-product-id="{{ $product->id }}">
+<div class="product-card group border border-[#D5D5D5] relative cursor-pointer flex flex-col h-full" data-product-id="{{ $product->id }}">
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
         <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
@@ -48,110 +48,112 @@
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
        </svg>
     </button>
-    <div class="p-4 2xl:p-[25px] flex justify-between flex-col">
-        <div>
-            <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-            <div class="flex items-center gap-1 mt-[9px] mb-1">
-                <div class="text-[#D5D5D5] text-base flex">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 512 512"
-                    fill="currentColor">
-                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 512 512"
-                    fill="currentColor">
-                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 512 512"
-                    fill="currentColor">
-                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 512 512"
-                    fill="currentColor">
-                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 512 512"
-                    fill="currentColor">
-                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                </svg>
+    <div class="p-4 2xl:p-[25px]  flex-1 flex flex-col">
+        <div class="flex justify-between flex-col  h-full">
+            <div>
+                <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
+                <div class="flex items-center gap-1 mt-[9px] mb-1">
+                    <div class="text-[#D5D5D5] text-base flex">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                    </div>
+                    <span class="text-xs text-[#757575]">(0)</span>
                 </div>
-                <span class="text-xs text-[#757575]">(0)</span>
-            </div>
-            <div class="flex justify-between flex-wrap">
-                    <div class="mt-1 flex items-center gap-1">
-                        <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                        @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
-                    </div>
-                    @php
-                        $variantValues = $product->relationLoaded('variants')
-                            ? $product->variants
-                                ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
-                                ->map(fn($v) => $v->attributeValue->value)
-                                ->unique()
-                                ->values()
-                            : collect();
-                    @endphp
-    
-                    @if($product->variants->isNotEmpty())
-                    <div class="mt-1 relative w-full max-w-[90px] sm:max-w-[100px]">
-                        <select
-                          class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
-                            data-product-id="{{ $product->id }}">
-    
-                            @php
-                                $firstVariant = $product->variants->first();
-                                $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
-                                    ? $firstVariant->attributeValue->attribute->name
-                                    : 'Attribute';
-                            @endphp
-                            <option value="">{{ $attributeName }}</option>
-    
-                            @foreach($product->variants as $variant)
-                                @if($variant->attributeValue)
-                                    <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
-                                        {{ $variant->attributeValue->value }}
-                                    </option>
-                                @endif
-                            @endforeach
-    
-                        </select>
-    
-                        <svg
-                            class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </div>
-                    @endif
-            </div>
-        </div>
+                <div class="flex justify-between flex-wrap gap-2">
+                        <div class="mt-1 flex items-center gap-1">
+                            <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
+                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
+                        </div>
+                        @php
+                            $variantValues = $product->relationLoaded('variants')
+                                ? $product->variants
+                                    ->filter(fn($v) => $v->relationLoaded('attributeValue') && $v->attributeValue)
+                                    ->map(fn($v) => $v->attributeValue->value)
+                                    ->unique()
+                                    ->values()
+                                : collect();
+                        @endphp
         
-        <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300"
-            data-product-id="{{ $product->id }}"
-            data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
-            Add to Cart
-        </button>
+                        @if($product->variants->isNotEmpty())
+                        <div class="mt-1 relative w-full max-w-[90px] sm:max-w-[100px]">
+                            <select
+                              class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
+                                data-product-id="{{ $product->id }}">
+        
+                                @php
+                                    $firstVariant = $product->variants->first();
+                                    $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
+                                        ? $firstVariant->attributeValue->attribute->name
+                                        : 'Attribute';
+                                @endphp
+                                <option value="">{{ $attributeName }}</option>
+        
+                                @foreach($product->variants as $variant)
+                                    @if($variant->attributeValue)
+                                        <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
+                                            {{ $variant->attributeValue->value }}
+                                        </option>
+                                    @endif
+                                @endforeach
+        
+                            </select>
+        
+                            <svg
+                                class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor">
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        @endif
+                </div>
+            </div>
+            
+            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300"
+                data-product-id="{{ $product->id }}"
+                data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
+                Add to Cart
+            </button>
+        </div>
     </div>
 </div>
 @empty
