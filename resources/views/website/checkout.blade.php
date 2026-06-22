@@ -25,7 +25,7 @@
 
                     <!-- DELIVERY ADDRESS -->
 
-                    <div class="border border-[#D5D5D5] bg-white rounded-sm overflow-hidden">
+                    <div class="border border-[#D5D5D5] bg-white rounded-sm">
                         <!-- Header -->
 
                         <div class="flex items-center justify-between px-3 sm:px-5 py-[19px] border-b border-[#D5D5D5] flex-row gap-4 flex-wrap">
@@ -262,13 +262,18 @@
     </div>
 </div>
             <!-- Default Address Checkbox -->
-            <div class="mb-5 flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    id="addr_is_default"
-                    name="is_default"
-                    class="w-5 h-5 accent-[#B4771E] cursor-pointer">
-                <label for="addr_is_default" class="text-base md:text-lg text-[#131615] font-semibold cursor-pointer select-none">
+            <div class="mb-5 flex items-center gap-[10px]">
+                <div class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
+                    <input
+                        type="checkbox"
+                        id="addr_is_default"
+                        name="is_default"
+                        class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 peer">
+                    <svg class="w-[13px] h-[13px] text-[#B4771E] opacity-0 peer-checked:opacity-100 transition-opacity duration-200" viewBox="0 0 12 10" fill="none">
+                        <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <label for="addr_is_default" class="text-base text-[#3D403F] cursor-pointer select-none">
                     Set as default address
                 </label>
             </div>
@@ -1411,18 +1416,6 @@ function moveCheckoutItemToWishlist(cartItemId, productId, variantId, btn) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.address-card').forEach(card => {
-        card.addEventListener('click', function() {
-            document.querySelectorAll('.address-card').forEach(c => {
-                c.classList.remove('bg-[#B4771E0D]');
-                c.classList.remove('active-address');
-            });
-            this.classList.add('bg-[#B4771E0D]');
-            this.classList.add('active-address');
-        });
-    });
-});
 </script>
 @endsection
 
