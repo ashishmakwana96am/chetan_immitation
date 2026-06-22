@@ -10,9 +10,9 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-12 items-center">
 
-                <div class="relative z-10 py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
+                <div class="relative z-10 py-10 sm:py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
 
-                    <span class="inline-flex items-center bg-white text-[#B4771E] text-xl px-[15px] py-[10px]">
+                    <span class="inline-flex items-center bg-white text-[#B4771E] text-base md:text-xl px-[15px] py-[10px] mb-2">
                         About Us
                     </span>
 
@@ -59,24 +59,24 @@
 
             <div class="grid md:grid-cols-2 gap-4 mt-10">
 
-                <div class="border border-[#B4771E] rounded-[8px] px-5 py-[18px] flex items-center gap-3 bg-[#B4771E08]">
+                <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
                     <img src="{{ asset('website/assets/images/Vector.png') }}" alt="">
-                    <span class="text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Premium Quality Imitation Jewelry</span>
+                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Premium Quality Imitation Jewelry</span>
                 </div>
 
-                <div class="border border-[#B4771E] rounded-[8px] px-5 py-[18px] flex items-center gap-3 bg-[#B4771E08]">
+                <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
                     <img src="{{ asset('website/assets/images/Vector.png') }}" alt="">
-                    <span class="text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Inspired by Traditional & Modern Designs</span>
+                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Inspired by Traditional & Modern Designs</span>
                 </div>
 
-                <div class="border border-[#B4771E] rounded-[8px] px-5 py-[18px] flex items-center gap-3 bg-[#B4771E08]">
+                <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
                     <img src="{{ asset('website/assets/images/Vector.png') }}" alt="">
-                    <span class="text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Affordable Luxury for Every Occasion</span>
+                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Affordable Luxury for Every Occasion</span>
                 </div>
 
-                <div class="border border-[#B4771E] rounded-[8px] px-5 py-[18px] flex items-center gap-3 bg-[#B4771E08]">
+                <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
                     <img src="{{ asset('website/assets/images/Vector.png') }}" alt="">
-                    <span class="text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Trusted by Thousands of Happy Customers</span>
+                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Trusted by Thousands of Happy Customers</span>
                 </div>
 
             </div>
@@ -89,11 +89,11 @@
                         <img src="{{ asset('website/assets/images/desti1.png') }}" alt="" class="w-full max-w-[40px] md:max-w-[50px]">
                     </div>
 
-                    <h3 class="mt-6 text-[28px] font-bold text-[#131615]">
+                    <h3 class="mt-6 text-2xl sm:text-[28px] font-bold text-[#131615]">
                         What We Do
                     </h3>
 
-                    <p class="mt-4 text-lg leading-8 text-[#3D403F]">
+                    <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
                         We design and offer a wide range of imitation jewelry including necklaces,
                         earrings, rings, bangles, bridal collections, and festive wear. Our collections
                         are carefully selected to bring elegance, style, and confidence to every customer.
@@ -107,11 +107,11 @@
                         <img src="{{ asset('website/assets/images/desti2.png') }}" alt="" class="w-full max-w-[40px] md:max-w-[50px]">
                     </div>
 
-                    <h3 class="mt-6 text-[28px] font-bold text-[#131615]">
+                    <h3 class="mt-6 text-2xl sm:text-[28px] font-bold text-[#131615]">
                         Our Vision
                     </h3>
 
-                    <p class="mt-4 text-lg leading-8 text-[#3D403F]">
+                    <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
                         Our vision is to become a leading jewelry destination known for exceptional designs, trusted
                         quality, and outstanding customer experiences. We continuously strive to bring the latest trends
                         while preserving the beauty of traditional craftsmanship.
@@ -125,11 +125,11 @@
                         <img src="{{ asset('website/assets/images/desti3.png') }}" alt="" class="w-full max-w-[40px] md:max-w-[50px]">
                     </div>
 
-                    <h3 class="mt-6 text-[28px] font-bold text-[#131615]">
+                    <h3 class="mt-6 text-2xl sm:text-[28px] font-bold text-[#131615]">
                         Our Journey
                     </h3>
 
-                    <p class="mt-4 text-lg leading-8 text-[#3D403F]">
+                    <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
                         What started as a passion for beautiful jewelry has grown into a trusted brand serving customers
                         across India. Through dedication, innovation, and customer trust, Chetan Imitation continues to
                         expand its collections and inspire confidence through elegant designs.

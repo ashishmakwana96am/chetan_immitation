@@ -11,7 +11,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 items-center">
 
-            <div class="relative z-10 py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
+            <div class="relative z-10 py-10 sm:py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
 
                 <h1 class="font-moglan hero-heading">
                     Explore Our
@@ -247,7 +247,7 @@
                 </div>
             </div>
 
-            <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-5">
                 @include('website.partials.product-grid-items')
             </div>
 

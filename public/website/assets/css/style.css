@@ -3602,6 +3602,12 @@ body {
   border-radius: 0 !important;
   display: block !important;
 }
+@media(max-width:768px){
+.collection-slider .owl-dot span{
+  width:10px !important;
+  height:3px !important;
+}
+}
 .collection-slider .owl-dot.active span {
   background: #B4771E !important;
 }
@@ -3984,7 +3990,7 @@ summary {
   font-size: var(--text-sm);
   line-height: var(--tw-leading, var(--text-sm--line-height));
   color: var(--color-white);
-  transition: all 0.3s ease;
+  transition: all 0.5s ease;
   &:hover {
     background-color: #131615;
   }
@@ -4448,4 +4454,26 @@ summary {
     height: 100%;
     object-fit: cover;
     display: block;
+}
+.ribbon {
+    position: absolute;
+    top: 18px;
+    left: -58px;
+    width: 220px;
+    transform: rotate(-45deg);
+    z-index: 10;
+}
+
+.ribbon span {
+    display: block;
+    background: #EF1B1B;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 16px;
+    text-align: center;
+    line-height: 14px;
+
+    white-space: normal;
+    word-break: break-word;
 }

@@ -249,7 +249,10 @@
                         </div>
 
                         <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter hidden lg:block">
-                            <img src="{{ asset('website/assets/images/heart.png') }}" alt="heart">
+                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-white">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                                </svg>
+
                             @auth('customer')
                             @php $wishlistCount = auth('customer')->user()->wishlists()->count(); @endphp
                             <span id="wishlistBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] {{ $wishlistCount > 0 ? '' : 'hidden' }}">{{ $wishlistCount }}</span>
@@ -259,7 +262,10 @@
                         </a>
 
                         <a href="{{ route('cart') }}" class="relative hover-gold-filter hidden lg:block">
-                            <img src="{{ asset('website/assets/images/cart.png') }}" alt="cart">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                            </svg>
+
                             @auth('customer')
                             @php $cartCount = \App\Models\CartItem::where('customer_id', auth('customer')->id())->sum('qty'); @endphp
                             <span id="cartBadge" class="absolute -top-2 -right-2 w-[18px] h-[18px] rounded-full bg-[#B78326] text-white text-[11px] font-medium flex items-center justify-center pt-[2px] {{ $cartCount > 0 ? '' : 'hidden' }}">{{ $cartCount }}</span>
@@ -275,7 +281,10 @@
                         @auth('customer')
                         <div class="relative items-center hidden lg:flex" id="userMenuWrap">
                             <button id="userMenuBtn" class="text-white hover-gold-filter focus:outline-none flex items-center p-0 bg-transparent border-0" type="button">
-                                <img src="{{ asset('website/assets/images/user.png') }}" alt="">
+                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-white">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                </svg>
+
                             </button>
                             <div id="userMenuDropdown" class="hidden absolute right-0 top-full w-[200px] z-50" style="padding-top:8px;">
                                 <div class="bg-white border border-[#D5D5D5] rounded-[4px] shadow-lg">
@@ -433,12 +442,12 @@
                         Subscribe to receive exclusive offers, styling tips, and first access to new arrivals
                     </p>
                     <div class="max-w-[520px] mx-auto mt-8 flex flex-col gap-3 sm:gap-0 sm:flex-row">
-                        <input type="email" placeholder="Enter your email" class="flex-1 h-[58px] py-5 px-4 text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] placeholder:text-lg">
-                        <button class="h-[58px] px-8 bg-[#B4771E] text-white text-lg hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-r-[4px] flex items-center justify-center">
+                        <input type="email" placeholder="Enter your email" class="flex-1 h-[40px] md:h-[58px] py-3 md:py-5 px-4 md:text-lg outline-none bg-white rounded-t-[4px] sm:rounded-l-[4px] sm:rounded-r-none rounded-b-none sm:rounded-b-[4px] text-base placeholder:text-base placeholder:md:text-lg">
+                        <button class="h-[40px] md:h-[58px] px-8 bg-[#B4771E] text-white md:text-lg hover:bg-[#b57a1f] transition rounded-b-[4px] sm:rounded-r-[4px] sm:rounded-l-none rounded-t-none sm:rounded-t-r-[4px] flex items-center justify-center text-base">
                             Subscribe
                         </button>
                     </div>
-                    <p class="mt-3 text-[#D5D5D5] text-lg lg:text-xl">
+                    <p class="mt-3 text-[#D5D5D5] text-base sm:text-lg lg:text-xl">
                         We respect your privacy. Unsubscribe at any time.
                     </p>
                 </div>
@@ -453,7 +462,7 @@
             <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-10">
                 <!-- Logo -->
                 <div>
-                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
+                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px] w-[100px] sm:w-full"></a>
                     <p class="text-[#D5D5D5] text-base font-normal">
                         Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
@@ -494,15 +503,22 @@
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Contact Us</h3>
                     <ul class="space-y-4 text-[#D5D5D5] text-base">
                         <li class="flex items-center gap-4">
-                            <img src="{{ asset('website/assets/images/footer-call.png') }}" alt="">
+                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E]">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                            </svg>
                             <a href="tel:+919876543210" class="hover:text-[#B4771E] transition">+91 98765 43210</a>
                         </li>
                         <li class="flex items-center gap-4">
-                            <img src="{{ asset('website/assets/images/footer-mail.png') }}" alt="">
+                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" Box="0 0 24 24" stroke-width="1.5" stroke="currentColor"  class="w-5 h-5 text-[#B4771E]">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                            </svg>
                             <a href="mailto:info@chetanimitation.com" class="hover:text-[#B4771E] transition">info@chetanimitation.com</a>
                         </li>
                         <li class="flex items-start gap-4">
-                            <img src="{{ asset('website/assets/images/footer-location.png') }}" alt="" class="shrink-0 mt-1">
+                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E] shrink-0 mt-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                            </svg>
                             <a href="https://maps.google.com/?q=G-14+Abc+market+Abc+circle+Sudama+chowk+Mota+Varachha+Surat+Gujarat+394101+India" target="_blank" class="hover:text-[#B4771E] transition">
                                 G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat, Gujarat 394101, India
                             </a>

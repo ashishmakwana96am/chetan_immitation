@@ -51,8 +51,44 @@
     <div class="p-4 2xl:p-[25px] flex justify-between flex-col">
         <div>
             <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-            <div class="flex items-center gap-1 mt-[9px]">
-                <div class="text-[#D5D5D5] text-base">★★★★★</div>
+            <div class="flex items-center gap-1 mt-[9px] mb-1">
+                <div class="text-[#D5D5D5] text-base flex">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 512 512"
+                    fill="currentColor">
+                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 512 512"
+                    fill="currentColor">
+                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 512 512"
+                    fill="currentColor">
+                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 512 512"
+                    fill="currentColor">
+                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 512 512"
+                    fill="currentColor">
+                    <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                </svg>
+                </div>
                 <span class="text-xs text-[#757575]">(0)</span>
             </div>
             <div class="flex justify-between flex-wrap">
@@ -71,7 +107,7 @@
                     @endphp
     
                     @if($product->variants->isNotEmpty())
-                    <div class="mt-1 relative w-full max-w-[100px]">
+                    <div class="mt-1 relative w-full max-w-[90px] sm:max-w-[100px]">
                         <select
                           class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
                             data-product-id="{{ $product->id }}">
