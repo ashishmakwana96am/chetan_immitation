@@ -83,7 +83,7 @@
                         <div class="flex-1 min-w-0 flex justify-between flex-col">
                             <div>
                                 <a href="{{ route('product.detail', $product->slug) }}">
-                                    <h3 class="block product-title text-base md:text-[22px] lg:leading-[36px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                    <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                                         {{ $product->name }}
                                     </h3>
                                 </a>
