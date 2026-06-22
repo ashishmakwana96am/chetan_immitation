@@ -16,12 +16,16 @@ class WebsiteContentController extends Controller
         $deliveryReturns = Setting::getValue('delivery_returns', '');
         $privacyPolicy = Setting::getValue('privacy_policy', '');
         $refundCancellation = Setting::getValue('refund_cancellation', '');
+        $razorpayKeyId = Setting::getValue('razorpay_key_id', '');
+        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
 
         return view('website-content.index', compact(
             'termsConditions',
             'deliveryReturns',
             'privacyPolicy',
-            'refundCancellation'
+            'refundCancellation',
+            'razorpayKeyId',
+            'razorpayKeySecret'
         ));
     }
 
@@ -34,6 +38,8 @@ class WebsiteContentController extends Controller
             'delivery_returns' => ['nullable', 'string'],
             'privacy_policy' => ['nullable', 'string'],
             'refund_cancellation' => ['nullable', 'string'],
+            'razorpay_key_id' => ['nullable', 'string', 'max:255'],
+            'razorpay_key_secret' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
@@ -48,6 +54,8 @@ class WebsiteContentController extends Controller
             'delivery_returns',
             'privacy_policy',
             'refund_cancellation',
+            'razorpay_key_id',
+            'razorpay_key_secret',
         ];
 
         $clearedFields = [];

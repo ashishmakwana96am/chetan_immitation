@@ -298,30 +298,31 @@
 </div>
                         <div id="addressesCardsList">
                             @forelse($addresses as $addr)
-                            <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer {{ $addr->is_default ? 'bg-[#B4771E] text-white default-address-card active-address' : 'bg-white text-[#131615]' }}" data-address-id="{{ $addr->id }}">
+                            <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer bg-white {{ $addr->is_default ? 'active-address default-address-card' : '' }} text-[#131615]" data-address-id="{{ $addr->id }}">
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                                            <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon {{ $addr->is_default ? 'brightness-0 invert' : '' }}" />
-                                            <span class="text-sm sm:text-base lg:text-xl font-normal {{ $addr->is_default ? 'text-white' : 'text-[#131615]' }}">
+                                            <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" {{ $addr->is_default ? 'checked' : '' }} />
+                                            <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon" />
+                                            <span class="text-sm sm:text-base lg:text-xl font-normal text-[#131615]">
                                                 Deliver To:
                                             </span>
-                                            <span class="font-semibold text-sm sm:text-base lg:text-xl {{ $addr->is_default ? 'text-white' : 'text-[#131615]' }} customer-name-phone">
+                                            <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615] customer-name-phone">
                                                 {{ $addr->name }}, {{ $addr->phone }}
                                             </span>
                                             @if($addr->is_default)
-                                            <span class="bg-white text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                                            <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
                                                 Default
                                             </span>
                                             @endif
                                         </div>
-                                        <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 {{ $addr->is_default ? 'text-white/90' : 'text-[#3D403F]' }} address-text">
+                                        <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 text-[#3D403F] address-text">
                                             {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}
                                         </p>
                                     </div>
                                     <div class="relative address-menu-container">
                                         <button class="address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
-                                            <i class="fa-solid fa-ellipsis {{ $addr->is_default ? 'text-white' : 'text-[#3D403F]' }}"></i>
+                                            <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                                         </button>
                                         <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
                                             @if(!$addr->is_default)
@@ -495,21 +496,58 @@
                             @endforelse
                         </div>
                     </div>
+
+                    <!-- =====================
+                    PAYMENT METHOD
+                    ===================== -->
+                    <div class="border border-[#D5D5D5] mt-4">
+                        <div class="flex items-center justify-between px-5 py-[19px] border-b border-[#D5D5D5]">
+                            <div class="flex items-center gap-[15px]">
+                                <span class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
+                                    3
+                                </span>
+                                <h3 class="text-base sm:text-lg md:text-xl lg:text-2xl font-medium text-[#131615]">
+                                    Payment Method
+                                </h3>
+                            </div>
+                        </div>
+                        <div class="p-3 sm:p-5 space-y-4">
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <!-- Online Payment (Razorpay) -->
+                                <div class="flex-1 cursor-pointer border border-[#B4771E] bg-[#B4771E0D] p-4 rounded hover:bg-[#B4771E0D] transition" id="onlinePaymentOption" onclick="selectPaymentMethod('online')">
+                                    <div>
+                                        <p class="font-semibold text-[#131615] text-base sm:text-lg">Online Payment</p>
+                                        <p class="text-sm text-[#3D403F]">Pay securely using Razorpay (Cards, UPI, Netbanking)</p>
+                                    </div>
+                                </div>
+                                <!-- Cash on Delivery (COD) -->
+                                <div class="flex-1 cursor-pointer border border-[#D5D5D5] bg-white p-4 rounded hover:bg-[#B4771E0D]/10 transition" id="codPaymentOption" onclick="selectPaymentMethod('cod')">
+                                    <div>
+                                        <p class="font-semibold text-[#131615] text-base sm:text-lg">Cash on Delivery (COD)</p>
+                                        <p class="text-sm text-[#3D403F]">Pay with cash upon delivery of your order</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selectedPaymentMethod" name="payment_method_select" value="online">
+                        </div>
+                    </div>
                 </div>
                 <!-- RIGHT SIDEBAR -->
 
                 <div class="space-y-4">
                     <!-- Coupon -->
-
                     <div class="mb-[30px]">
                         <h3 class="text-lg md:text-[22px] font-medium mb-3">
                             Have a Coupon?
                         </h3>
                         <div class="flex gap-2 flex-wrap md:flex-nowrap">
-                            <input type="text" placeholder="Enter Coupon Code"
-                                class="h-[44px] lg:h-[56px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-lg">
-                            <button class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[56px] whitespace-nowrap text-base md:text-[22px]">
-                                Apply Coupon
+                            <input type="text" id="couponCodeInput" placeholder="Enter Coupon Code"
+                                value="{{ session('applied_coupon_code') }}"
+                                {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
+                                class="h-[44px] lg:h-[56px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-lg flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
+                            <button id="couponActionBtn" onclick="handleCouponAction()"
+                                class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[56px] whitespace-nowrap text-base md:text-[22px] transition">
+                                {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
                             </button>
                         </div>
                     </div>
@@ -524,30 +562,34 @@
                             <span class="font-medium text-[#131615]">Subtotal</span>
                             <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
-                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
+                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
                             <span class="font-medium text-[#131615]">Discount</span>
-                            <span class="font-normal text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
+                            <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
                         </div>
-                     <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
+                        {{--
+                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
                             <span class="font-medium text-[#131615]">Shipping</span>
-                             <span class="font-normal text-[#3D403F]">{{ $shipping > 0 ? '₹' . number_format($shipping, 0) : 'Free' }}</span>
+                            <span class="font-normal text-[#3D403F]">{{ $shipping > 0 ? '₹' . number_format($shipping, 0) : 'Free' }}</span>
                         </div>
+                        --}}
+                        {{--
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
                             <span class="font-medium text-[#131615]">Estimated Tax</span>
-                             <span class="font-normal text-[#3D403F]">₹0</span>
+                            <span class="font-normal text-[#3D403F]">₹0</span>
                         </div>
+                        --}}
                     </div>
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">
                         <span class="font-medium text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
                             Total
                         </span>
-                        <span class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
+                        <span id="checkoutTotalValue" class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
                             ₹{{ number_format($total, 0) }}
                         </span>
                     </div>
-                    <button  onclick="openSuccessModal()"
-                        class="common-btn !w-full mt-[30px]">
-                       Place Order
+                    <button id="placeOrderBtn" onclick="startPaymentFlow()"
+                        class="common-btn !w-full mt-[30px] flex items-center justify-center gap-2">
+                       <span>Place Order</span>
                     </button>
                 </div>
 <!-- Overlay -->
@@ -574,7 +616,7 @@
             <!-- Success Icon -->
 
             <div class="flex justify-center">
-                    <img src="{{ asset('website/assets/images/') }}rightcheck.png" alt="" class="w-[200px] md:w-auto">
+                    <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[200px] md:w-auto">
             </div>
             <!-- Heading -->
 
@@ -608,25 +650,25 @@
 
                 <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-5">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/') }}order1.png" alt="">
+                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
                         <span class=" text-lg sm:text-xl font-semibold">
                             Order ID
                         </span>
                     </div>
-                    <span class="text-[#3D403F] text-base sm:text-lg">
-                        #CI2026071542
+                    <span id="successOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold">
+                        -
                     </span>
                 </div>
                 <!-- Row -->
 
                 <div class="flex justify-between items-center border-b border-[#D5D5D5] py-5">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/') }}order1.png" alt="">
+                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
                         <span class=" text-lg sm:text-xl font-semibold">
 Order Amount
                         </span>
                     </div>
-                    <span class="text-[#3D403F] text-base sm:text-lg">
+                    <span id="successOrderAmount" class="text-[#3D403F] text-base sm:text-lg font-semibold">
                         ₹{{ number_format($total, 0) }}
                     </span>
                 </div>
@@ -634,7 +676,7 @@ Order Amount
 
                 <div class="flex justify-between items-center py-5">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/') }}order1.png" alt="">
+                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
                         <span class=" text-lg sm:text-xl font-semibold">
                          Estimated Delivery
                         </span>
@@ -650,7 +692,7 @@ Order Amount
                 class="bg-[#B4771E]/10
                 p-5 rounded-[5px]  mt-4
                 flex gap-[15px] items-start">
-                <img src="{{ asset('website/assets/images/') }}mail.png" alt="">
+                <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
                 <p class="text-[#131615] text-base md:text-xl">
                     A confirmation email and order details have been sent to your
                     registered email address and mobile number.
@@ -659,18 +701,100 @@ Order Amount
             <!-- Buttons -->
 
             <button
+                onclick="window.location.href='{{ route('home') }}'"
                 class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
                 text-base md:text-[22px] md:leading-[24px] mt-10">
                 View My Orders
             </button>
             <button
-                onclick="closeSuccessModal()"
+                onclick="window.location.href='{{ route('shop-by-category') }}'"
                 class="w-full h-[52px] md:h-[68px]
                 border border-[#131615]
                 text-[#131615]
                 text-base md:text-[22px] md:leading-[24px]
                 mt-[17px]">
                 Continue Shopping
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Failure Modal -->
+<div
+    id="failureModal"
+    class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+    <div class="min-h-full flex items-center justify-center py-5">
+        <!-- Modal -->
+        <div
+            class="relative w-full max-w-[720px]
+            bg-white rounded-[8px]
+            p-4 sm:p-6 md:p-[33px]
+            max-h-[90vh]
+            overflow-y-auto">
+            <!-- Close -->
+
+            <button
+                onclick="closeFailureModal()"
+                class="absolute top-4 right-4 text-[32px] text-[#131615]">
+                &times;
+            </button>
+            <!-- Failure Icon -->
+
+            <div class="flex justify-center">
+                <svg class="w-[120px] md:w-[150px] text-red-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <!-- Heading -->
+
+            <h2
+                class="text-center font-moglan
+                text-[30px]
+                sm:text-[40px]
+                md:text-[50px]
+                leading-tight md:leading-[50px]
+                text-red-600
+                mt-4">
+                Payment Failed!
+            </h2>
+            <!-- Text -->
+
+            <p
+                class="text-center
+                text-[#3D403F]
+                text-base
+                md:text-xl font-normal
+                max-w-[520px]
+                mx-auto
+                mt-5">
+                We were unable to process your payment. Please try again or select a different payment option.
+            </p>
+            <!-- Error Info -->
+
+            <div
+                class="bg-red-50 border border-red-200
+                p-5 rounded-[5px] mt-8
+                flex gap-[15px] items-start">
+                <p id="failureReason" class="text-red-700 text-base md:text-lg">
+                    The payment request was cancelled or declined.
+                </p>
+            </div>
+            <!-- Buttons -->
+
+            <button
+                onclick="retryPaymentFlow()"
+                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
+                text-base md:text-[22px] md:leading-[24px] mt-10">
+                Retry Payment
+            </button>
+            <button
+                onclick="closeFailureModal()"
+                class="w-full h-[52px] md:h-[68px]
+                border border-[#131615]
+                text-[#131615]
+                text-base md:text-[22px] md:leading-[24px]
+                mt-[17px]">
+                Cancel
             </button>
         </div>
     </div>
@@ -728,6 +852,7 @@ YOU MAY ALSO LIKE
 @endsection
 
 @section('page-js')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
 const CHECKOUT_CART_REMOVE_URL = '{{ route('cart.remove') }}';
 const CHECKOUT_WISHLIST_TOGGLE_URL = '{{ route('wishlist.toggle') }}';
@@ -792,6 +917,28 @@ successModal.addEventListener("click",(e)=>{
     }
 });
 
+const failureModal = document.getElementById("failureModal");
+
+function openFailureModal(reason){
+    const reasonEl = document.getElementById("failureReason");
+    if (reasonEl) {
+        reasonEl.textContent = reason || 'Payment transaction was cancelled or declined.';
+    }
+    failureModal.classList.remove("hidden");
+    document.body.classList.add("overflow-hidden");
+}
+
+function closeFailureModal(){
+    failureModal.classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+}
+
+failureModal.addEventListener("click",(e)=>{
+    if(e.target === failureModal){
+        closeFailureModal();
+    }
+});
+
 function setAddrFieldError(field, message) {
     const input = document.querySelector(`.addr-input[name="${field}"]`);
     const error = document.querySelector(`.addr-error[data-error-for="${field}"]`);
@@ -852,7 +999,6 @@ function validateAddressForm() {
     return Object.keys(errors).length === 0;
 }
 
-// Attach input and digit-limit event listeners
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.addr-input').forEach(input => {
         input.addEventListener('input', function() {
@@ -860,7 +1006,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Mobile inputs limit digits & only numbers
     const phoneInputs = ['addr_phone', 'addr_alternate_phone'];
     phoneInputs.forEach(id => {
         const el = document.getElementById(id);
@@ -873,11 +1018,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function createAddressCardHtml(addr) {
-    const isActive = addr.is_default ? 'bg-[#B4771E] text-white default-address-card active-address' : 'bg-white text-[#131615]';
+    const isActive = addr.is_default ? 'active-address default-address-card' : '';
+    const isChecked = addr.is_default ? 'checked' : '';
     const imgName = addr.type === 'work' ? 'home1.png' : 'home.png';
-    const invertClass = addr.is_default ? 'brightness-0 invert' : '';
     const defaultBadge = addr.is_default ? `
-        <span class="bg-white text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
             Default
         </span>
     ` : '';
@@ -886,31 +1031,29 @@ function createAddressCardHtml(addr) {
             Set as Default
         </button>
     ` : '';
-    const textClass = addr.is_default ? 'text-white' : 'text-[#131615]';
-    const pClass = addr.is_default ? 'text-white/90' : 'text-[#3D403F]';
-    const ellipsisColor = addr.is_default ? 'text-white' : 'text-[#3D403F]';
 
     return `
-        <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer ${isActive}" data-address-id="${addr.id}">
+        <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer bg-white text-[#131615] ${isActive}" data-address-id="${addr.id}">
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <img src="{{ asset('website/assets/images') }}/${imgName}" class="address-icon ${invertClass}" />
-                        <span class="text-sm sm:text-base lg:text-xl font-normal ${textClass}">
+                        <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} />
+                        <img src="{{ asset('website/assets/images') }}/${imgName}" class="address-icon" />
+                        <span class="text-sm sm:text-base lg:text-xl font-normal text-[#131615]">
                             Deliver To:
                         </span>
-                        <span class="font-semibold text-sm sm:text-base lg:text-xl ${textClass} customer-name-phone">
+                        <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615] customer-name-phone">
                             ${addr.name}, ${addr.phone}
                         </span>
                         ${defaultBadge}
                     </div>
-                    <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 ${pClass} address-text">
+                    <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 text-[#3D403F] address-text">
                         ${addr.address}, ${addr.city}, ${addr.state}
                     </p>
                 </div>
                 <div class="relative address-menu-container">
                     <button class="address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
-                        <i class="fa-solid fa-ellipsis ${ellipsisColor}"></i>
+                        <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                     </button>
                     <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
                         ${setAsDefaultButton}
@@ -927,22 +1070,23 @@ function createAddressCardHtml(addr) {
 function refreshAddressSelection(selectedId) {
     document.querySelectorAll('.address-card').forEach(card => {
         const addrId = parseInt(card.dataset.addressId);
-        const isDefault = card.classList.contains('default-address-card');
-
-        card.classList.remove('bg-[#B4771E0D]', 'active-address');
+        const radio = card.querySelector('.address-radio');
 
         if (addrId === parseInt(selectedId)) {
             card.classList.add('active-address');
-            if (!isDefault) {
-                card.classList.add('bg-[#B4771E0D]');
+            if (radio) {
+                radio.checked = true;
+            }
+        } else {
+            card.classList.remove('active-address');
+            if (radio) {
+                radio.checked = false;
             }
         }
     });
 }
 
-// 3-dot dropdown logic
 document.addEventListener('click', function(e) {
-    // Hide dropdowns if click outside
     document.querySelectorAll('.address-dropdown').forEach(dropdown => {
         const btn = dropdown.previousElementSibling;
         if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
@@ -950,7 +1094,6 @@ document.addEventListener('click', function(e) {
         }
     });
 
-    // Toggle menu
     const btn = e.target.closest('.address-menu-btn');
     if (btn) {
         e.stopPropagation();
@@ -962,7 +1105,6 @@ document.addEventListener('click', function(e) {
         }
     }
 
-    // Address selection click handler
     const card = e.target.closest('.address-card');
     if (card && !e.target.closest('.address-menu-container')) {
         const addrId = card.dataset.addressId;
@@ -993,27 +1135,9 @@ function setAddressAsDefault(addressId, event) {
         if (data.status === 'success') {
             showCheckoutToast(data.message || 'Default address updated.');
 
-            // 1. Demote old default card
             const oldDefault = document.querySelector('.default-address-card');
             if (oldDefault) {
-                oldDefault.classList.remove('default-address-card', 'bg-[#B4771E]', 'text-white');
-                oldDefault.classList.add('bg-white', 'text-[#131615]');
-
-                const icon = oldDefault.querySelector('.address-icon');
-                if (icon) icon.classList.remove('brightness-0', 'invert');
-
-                const labels = oldDefault.querySelectorAll('span, p');
-                labels.forEach(el => {
-                    if (!el.classList.contains('default-badge')) {
-                        el.classList.remove('text-white', 'text-white/90');
-                        if (el.tagName.toLowerCase() === 'p') {
-                            el.classList.add('text-[#3D403F]');
-                        } else {
-                            el.classList.add('text-[#131615]');
-                        }
-                    }
-                });
-
+                oldDefault.classList.remove('default-address-card');
                 const badge = oldDefault.querySelector('.default-badge');
                 if (badge) badge.remove();
 
@@ -1023,37 +1147,16 @@ function setAddressAsDefault(addressId, event) {
                     const btnHtml = `<button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">Set as Default</button>`;
                     dropdownMenu.insertAdjacentHTML('afterbegin', btnHtml);
                 }
-
-                const ellipsis = oldDefault.querySelector('.address-menu-btn i');
-                if (ellipsis) {
-                    ellipsis.classList.remove('text-white');
-                    ellipsis.classList.add('text-[#3D403F]');
-                }
             }
 
-            // 2. Promote new default card
             const newDefault = document.querySelector(`.address-card[data-address-id="${addressId}"]`);
             if (newDefault) {
-                newDefault.classList.add('default-address-card', 'bg-[#B4771E]', 'text-white');
-                newDefault.classList.remove('bg-white', 'text-[#131615]', 'bg-[#B4771E0D]');
-
-                const icon = newDefault.querySelector('.address-icon');
-                if (icon) icon.classList.add('brightness-0', 'invert');
-
-                const labels = newDefault.querySelectorAll('span, p');
-                labels.forEach(el => {
-                    el.classList.remove('text-[#131615]', 'text-[#3D403F]');
-                    if (el.tagName.toLowerCase() === 'p') {
-                        el.classList.add('text-white/90');
-                    } else {
-                        el.classList.add('text-white');
-                    }
-                });
+                newDefault.classList.add('default-address-card');
 
                 const namePhoneSpan = newDefault.querySelector('.customer-name-phone');
                 if (namePhoneSpan && !newDefault.querySelector('.default-badge')) {
                     namePhoneSpan.insertAdjacentHTML('afterend', `
-                        <span class="bg-white text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
                             Default
                         </span>
                     `);
@@ -1061,12 +1164,6 @@ function setAddressAsDefault(addressId, event) {
 
                 const setDefaultBtn = newDefault.querySelector('.set-default-btn');
                 if (setDefaultBtn) setDefaultBtn.remove();
-
-                const ellipsis = newDefault.querySelector('.address-menu-btn i');
-                if (ellipsis) {
-                    ellipsis.classList.remove('text-[#3D403F]');
-                    ellipsis.classList.add('text-white');
-                }
             }
 
             refreshAddressSelection(addressId);
@@ -1132,26 +1229,11 @@ function deleteAddress(addressId, event) {
                 const latestCard = remainingCards[0];
                 const latestId = latestCard.dataset.addressId;
 
-                latestCard.classList.add('default-address-card', 'bg-[#B4771E]', 'text-white');
-                latestCard.classList.remove('bg-white', 'text-[#131615]', 'bg-[#B4771E0D]');
-
-                const icon = latestCard.querySelector('.address-icon');
-                if (icon) icon.classList.add('brightness-0', 'invert');
-
-                const labels = latestCard.querySelectorAll('span, p');
-                labels.forEach(el => {
-                    el.classList.remove('text-[#131615]', 'text-[#3D403F]');
-                    if (el.tagName.toLowerCase() === 'p') {
-                        el.classList.add('text-white/90');
-                    } else {
-                        el.classList.add('text-white');
-                    }
-                });
-
+                latestCard.classList.add('default-address-card');
                 const namePhoneSpan = latestCard.querySelector('.customer-name-phone');
                 if (namePhoneSpan && !latestCard.querySelector('.default-badge')) {
                     namePhoneSpan.insertAdjacentHTML('afterend', `
-                        <span class="bg-white text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
                             Default
                         </span>
                     `);
@@ -1159,12 +1241,6 @@ function deleteAddress(addressId, event) {
 
                 const setDefaultBtn = latestCard.querySelector('.set-default-btn');
                 if (setDefaultBtn) setDefaultBtn.remove();
-
-                const ellipsis = latestCard.querySelector('.address-menu-btn i');
-                if (ellipsis) {
-                    ellipsis.classList.remove('text-[#3D403F]');
-                    ellipsis.classList.add('text-white');
-                }
 
                 refreshAddressSelection(latestId);
             } else if (wasActive) {
@@ -1244,28 +1320,10 @@ function saveCustomerAddress(e) {
         } else if (data.status === 'success') {
             showCheckoutToast(data.message || 'Address saved successfully.');
 
-            // 1. Demote old default card UI if the new address is default
             if (data.address.is_default) {
                 const oldDefault = document.querySelector('.default-address-card');
                 if (oldDefault) {
-                    oldDefault.classList.remove('default-address-card', 'bg-[#B4771E]', 'text-white');
-                    oldDefault.classList.add('bg-white', 'text-[#131615]');
-
-                    const icon = oldDefault.querySelector('.address-icon');
-                    if (icon) icon.classList.remove('brightness-0', 'invert');
-
-                    const labels = oldDefault.querySelectorAll('span, p');
-                    labels.forEach(el => {
-                        if (!el.classList.contains('default-badge')) {
-                            el.classList.remove('text-white', 'text-white/90');
-                            if (el.tagName.toLowerCase() === 'p') {
-                                el.classList.add('text-[#3D403F]');
-                            } else {
-                                el.classList.add('text-[#131615]');
-                            }
-                        }
-                    });
-
+                    oldDefault.classList.remove('default-address-card');
                     const badge = oldDefault.querySelector('.default-badge');
                     if (badge) badge.remove();
 
@@ -1275,16 +1333,9 @@ function saveCustomerAddress(e) {
                         const btnHtml = `<button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">Set as Default</button>`;
                         dropdownMenu.insertAdjacentHTML('afterbegin', btnHtml);
                     }
-
-                    const ellipsis = oldDefault.querySelector('.address-menu-btn i');
-                    if (ellipsis) {
-                        ellipsis.classList.remove('text-white');
-                        ellipsis.classList.add('text-[#3D403F]');
-                    }
                 }
             }
 
-            // 2. Add new card to cards list dynamically
             const list = document.getElementById('addressesCardsList');
             const noPlaceholder = document.getElementById('noAddressesPlaceholder');
             if (noPlaceholder) {
@@ -1296,10 +1347,8 @@ function saveCustomerAddress(e) {
                 list.insertAdjacentHTML('afterbegin', cardHtml);
             }
 
-            // 3. Mark new card as selected active address
             refreshAddressSelection(data.address.id);
 
-            // 4. Close the modal
             closeModal();
             btn.disabled = false;
             btn.innerText = 'Save Address';
@@ -1322,6 +1371,7 @@ function saveCustomerAddress(e) {
         btn.innerText = 'Save Address';
     });
 }
+
 
 function showCheckoutToast(message, isSuccess = true) {
     if (window.showWishlistToast) {
@@ -1414,6 +1464,326 @@ function moveCheckoutItemToWishlist(cartItemId, productId, variantId, btn) {
         }
         showCheckoutToast('Something went wrong. Please try again.', false);
     });
+}
+
+let currentRzpInstance = null;
+let currentRazorpayOrderId = null;
+let paymentCompleted = false;
+
+function selectPaymentMethod(method) {
+    const onlineOption = document.getElementById('onlinePaymentOption');
+    const codOption = document.getElementById('codPaymentOption');
+    const hiddenInput = document.getElementById('selectedPaymentMethod');
+
+    hiddenInput.value = method;
+
+    if (method === 'online') {
+        onlineOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]');
+        onlineOption.classList.remove('border-[#D5D5D5]', 'bg-white');
+
+        codOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]/10');
+        codOption.classList.add('border-[#D5D5D5]', 'bg-white');
+    } else {
+        codOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]/10');
+        codOption.classList.remove('border-[#D5D5D5]', 'bg-white');
+
+        onlineOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]');
+        onlineOption.classList.add('border-[#D5D5D5]', 'bg-white');
+    }
+}
+
+function handleCouponAction() {
+    const input = document.getElementById('couponCodeInput');
+    const btn = document.getElementById('couponActionBtn');
+    const code = input.value.trim();
+
+    if (!code) {
+        showCheckoutToast('Please enter a coupon code.', false);
+        return;
+    }
+
+    const isApply = btn.textContent.trim() === 'Apply Coupon';
+    const url = isApply ? '{{ route('checkout.coupon.apply') }}' : '{{ route('checkout.coupon.remove') }}';
+    const bodyData = isApply ? JSON.stringify({ code: code }) : JSON.stringify({});
+
+    btn.disabled = true;
+    btn.textContent = isApply ? 'Applying...' : 'Removing...';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CHECKOUT_CSRF,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: bodyData
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw err; });
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            showCheckoutToast(data.message || 'Coupon action completed.');
+            if (isApply) {
+                input.disabled = true;
+                input.classList.add('bg-gray-100', 'cursor-not-allowed');
+                btn.textContent = 'Remove Coupon';
+                btn.disabled = false;
+
+                // Show discount row
+                const discountRow = document.getElementById('checkoutDiscountRow');
+                if (discountRow) {
+                    discountRow.classList.remove('hidden');
+                }
+                const discountVal = document.getElementById('checkoutDiscountValue');
+                if (discountVal) {
+                    discountVal.textContent = data.discount_label;
+                }
+                const totalVal = document.getElementById('checkoutTotalValue');
+                if (totalVal) {
+                    totalVal.textContent = data.total_label;
+                }
+            } else {
+                input.value = '';
+                input.disabled = false;
+                input.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                btn.textContent = 'Apply Coupon';
+                btn.disabled = false;
+
+                // Hide discount row
+                const discountRow = document.getElementById('checkoutDiscountRow');
+                if (discountRow) {
+                    discountRow.classList.add('hidden');
+                }
+                const totalVal = document.getElementById('checkoutTotalValue');
+                if (totalVal) {
+                    totalVal.textContent = data.total_label;
+                }
+            }
+        } else {
+            throw new Error(data.message || 'Coupon action failed.');
+        }
+    })
+    .catch(err => {
+        console.error('Coupon action error:', err);
+        btn.disabled = false;
+        btn.textContent = isApply ? 'Apply Coupon' : 'Remove Coupon';
+        showCheckoutToast(err.message || 'Something went wrong with the coupon.', false);
+    });
+}
+
+function startPaymentFlow() {
+    const activeCard = document.querySelector('.address-card.active-address');
+    if (!activeCard) {
+        showCheckoutToast('Please select a shipping address.', false);
+        return;
+    }
+    const addressId = activeCard.dataset.addressId;
+
+    const paymentMethodSelect = document.getElementById('selectedPaymentMethod');
+    const paymentMethod = paymentMethodSelect ? paymentMethodSelect.value : 'online';
+
+    const placeBtn = document.getElementById('placeOrderBtn');
+    const originalText = placeBtn.innerHTML;
+    placeBtn.disabled = true;
+    placeBtn.innerHTML = `<span>Processing...</span>`;
+
+    if (paymentMethod === 'cod') {
+        fetch('{{ route('checkout.payment.cod') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CHECKOUT_CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ address_id: addressId })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw err; });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
+                document.getElementById('successOrderAmount').textContent = '₹' + data.order.final_amount;
+                
+                openSuccessModal();
+                placeBtn.disabled = false;
+                placeBtn.innerHTML = originalText;
+            } else {
+                throw new Error(data.message || 'Order placement failed.');
+            }
+        })
+        .catch(err => {
+            console.error('COD placement error:', err);
+            placeBtn.disabled = false;
+            placeBtn.innerHTML = originalText;
+            showCheckoutToast(err.message || 'Something went wrong while placing order.', false);
+        });
+    } else {
+        paymentCompleted = false;
+        fetch('{{ route('checkout.payment.initialize') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CHECKOUT_CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ address_id: addressId })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw err; });
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                currentRazorpayOrderId = data.order_id;
+                
+                const options = {
+                    "key": data.key,
+                    "amount": data.amount,
+                    "currency": data.currency,
+                    "name": "Chetan Imitation",
+                    "description": "Order Payment (ORD: " + data.order.order_no + ")",
+                    "order_id": data.order_id,
+                    "method": {
+                        "upi": true,
+                        "card": true,
+                        "netbanking": true,
+                        "wallet": true
+                    },
+                    "handler": function (response) {
+                        paymentCompleted = true;
+                        verifyPayment(response, data.order);
+                    },
+                    "prefill": {
+                        "name": data.prefill.name,
+                        "email": data.prefill.email,
+                        "contact": data.prefill.contact
+                    },
+                    "theme": {
+                        "color": "#B4771E"
+                    },
+                    "modal": {
+                        "ondismiss": function() {
+                            handlePaymentDismissed();
+                        }
+                    }
+                };
+                
+                currentRzpInstance = new Razorpay(options);
+                currentRzpInstance.on('payment.failed', function (response) {
+                    handlePaymentFailed(response.error);
+                });
+                currentRzpInstance.open();
+
+                // Reset button
+                placeBtn.disabled = false;
+                placeBtn.innerHTML = originalText;
+            } else {
+                throw new Error(data.message || 'Initialization failed.');
+            }
+        })
+        .catch(err => {
+            console.error('Payment initialization error:', err);
+            placeBtn.disabled = false;
+            placeBtn.innerHTML = originalText;
+            showCheckoutToast(err.message || 'Something went wrong while placing order.', false);
+        });
+    }
+}
+
+function verifyPayment(rzpResponse, orderDetail) {
+    showCheckoutToast('Verifying payment, please wait...', true);
+
+    fetch('{{ route('checkout.payment.verify') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CHECKOUT_CSRF,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            razorpay_payment_id: rzpResponse.razorpay_payment_id,
+            razorpay_order_id: rzpResponse.razorpay_order_id,
+            razorpay_signature: rzpResponse.razorpay_signature
+        })
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => { throw err; });
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === 'success') {
+            // Update order success modal values
+            document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
+            document.getElementById('successOrderAmount').textContent = '₹' + data.order.final_amount;
+            
+            // Open Success Modal
+            openSuccessModal();
+        } else {
+            throw new Error(data.message || 'Verification failed.');
+        }
+    })
+    .catch(err => {
+        console.error('Payment verification error:', err);
+        openFailureModal(err.message || 'Payment signature verification failed.');
+    });
+}
+
+function handlePaymentDismissed() {
+    if (paymentCompleted) return;
+    if (currentRazorpayOrderId) {
+        // Mark pending order as failed/declined on backend so it is not left orphan
+        fetch('{{ route('checkout.payment.failed') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CHECKOUT_CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ razorpay_order_id: currentRazorpayOrderId })
+        })
+        .catch(err => console.error('Failed to notify cancellation:', err));
+    }
+    openFailureModal('Payment window closed before completing transaction.');
+}
+
+function handlePaymentFailed(error) {
+    if (paymentCompleted) return;
+    if (currentRazorpayOrderId) {
+        fetch('{{ route('checkout.payment.failed') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CHECKOUT_CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ razorpay_order_id: currentRazorpayOrderId })
+        })
+        .catch(err => console.error('Failed to notify error:', err));
+    }
+    openFailureModal(error.description || 'Payment transaction failed.');
+}
+
+function retryPaymentFlow() {
+    closeFailureModal();
+    startPaymentFlow();
 }
 
 </script>

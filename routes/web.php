@@ -63,6 +63,12 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/address/save', [CheckoutController::class, 'saveAddress'])->name('checkout.address.save');
     Route::post('/checkout/address/set-default', [CheckoutController::class, 'setDefaultAddress'])->name('checkout.address.set-default');
     Route::delete('/checkout/address/delete', [CheckoutController::class, 'deleteAddress'])->name('checkout.address.delete');
+    Route::post('/checkout/payment/initialize', [CheckoutController::class, 'initializePayment'])->name('checkout.payment.initialize');
+    Route::post('/checkout/payment/verify', [CheckoutController::class, 'verifyPayment'])->name('checkout.payment.verify');
+    Route::post('/checkout/payment/failed', [CheckoutController::class, 'failedPayment'])->name('checkout.payment.failed');
+    Route::post('/checkout/coupon/apply', [CheckoutController::class, 'applyCoupon'])->name('checkout.coupon.apply');
+    Route::post('/checkout/coupon/remove', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
+    Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');

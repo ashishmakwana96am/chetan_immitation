@@ -4,9 +4,18 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use App\Models\CartItem;
 use App\Models\CustomerAddress;
 use App\Models\Product;
+use App\Models\Location;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Setting;
+use App\Models\Inventory;
+use App\Models\Coupon;
 
 class CheckoutController extends Controller
 {
@@ -19,7 +28,6 @@ class CheckoutController extends Controller
     {
         $customer = $this->customer();
 
-        // Get cart items for the logged-in customer
         $cartItems = CartItem::where('customer_id', $customer->id)
             ->with([
                 'product' => function ($q) {
@@ -33,7 +41,6 @@ class CheckoutController extends Controller
             ->latest()
             ->get();
 
-        // Retrieve user-wise addresses
         $addresses = CustomerAddress::where('customer_id', $customer->id)
             ->orderBy('is_default', 'desc')
             ->latest()
@@ -49,7 +56,6 @@ class CheckoutController extends Controller
             ->limit(4)
             ->get();
 
-        // Calculate totals for checkout summary
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
             $price = $item->productVariant
@@ -58,8 +64,32 @@ class CheckoutController extends Controller
             $subtotal += $price * $item->qty;
         }
         $discount = 0.0;
+        $coupon = null;
+        if (session()->has('applied_coupon_code')) {
+            $coupon = \App\Models\Coupon::where('code', session('applied_coupon_code'))
+                ->where('status', \App\Models\Coupon::STATUS_ACTIVE)
+                ->where(function($q) {
+                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                })
+                ->where(function($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->first();
+            if ($coupon) {
+                if ($coupon->discount_type === 'percentage') {
+                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
+                } else {
+                    $discount = (float) $coupon->discount_value;
+                }
+                if ($discount > $subtotal) {
+                    $discount = $subtotal;
+                }
+            } else {
+                session()->forget('applied_coupon_code');
+            }
+        }
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = $subtotal + $shipping;
+        $total = round($subtotal - $discount);
 
         return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total'));
     }
@@ -170,5 +200,526 @@ class CheckoutController extends Controller
             'status' => 'success',
             'message' => 'Address deleted successfully.'
         ]);
+    }
+
+    public function initializePayment(Request $request)
+    {
+        $request->validate([
+            'address_id' => ['required', 'integer']
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Please select a valid shipping address.'
+            ], 422);
+        }
+
+        $cartItems = CartItem::where('customer_id', $customer->id)
+            ->with([
+                'product' => function ($q) {
+                    $q->withSum('inventories', 'quantity');
+                },
+                'productVariant'
+            ])
+            ->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Your cart is empty.'
+            ], 422);
+        }
+
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            $price = $item->productVariant
+                ? (float) $item->productVariant->sale_price
+                : (float) $item->product->sale_price;
+            $subtotal += $price * $item->qty;
+        }
+        $discount = 0.0;
+        $coupon = null;
+        if (session()->has('applied_coupon_code')) {
+            $coupon = \App\Models\Coupon::where('code', session('applied_coupon_code'))
+                ->where('status', \App\Models\Coupon::STATUS_ACTIVE)
+                ->where(function($q) {
+                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                })
+                ->where(function($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->first();
+            if ($coupon) {
+                if ($coupon->discount_type === 'percentage') {
+                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
+                } else {
+                    $discount = (float) $coupon->discount_value;
+                }
+                if ($discount > $subtotal) {
+                    $discount = $subtotal;
+                }
+            } else {
+                session()->forget('applied_coupon_code');
+            }
+        }
+        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
+        $total = round($subtotal - $discount);
+
+        $location = Location::where('is_default', true)->first()
+            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
+            ?? Location::first();
+
+        if (!$location) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No fulfillment location is active.'
+            ], 422);
+        }
+
+        $razorpayKeyId = Setting::getValue('razorpay_key_id', '');
+        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+
+        if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Razorpay payment gateway is not configured.'
+            ], 500);
+        }
+
+        try {
+            $orderData = DB::transaction(function () use ($customer, $location, $total, $cartItems, $razorpayKeyId, $razorpayKeySecret, $coupon, $address) {
+                $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+
+                $order = Order::create([
+                    'customer_id' => $customer->id,
+                    'customer_address_id' => $address->id,
+                    'location_id' => $location->id,
+                    'order_no' => $orderNo,
+                    'order_type' => 'sale',
+                    'status' => Order::STATUS_PENDING,
+                    'payment_status' => Order::PAYMENT_STATUS_PENDING,
+                    'payment_method' => 'razorpay',
+                    'final_amount' => $total,
+                    'source' => 'ONLINE',
+                    'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
+                    'coupon_id' => $coupon ? $coupon->id : null,
+                ]);
+
+                foreach ($cartItems as $item) {
+                    $price = $item->productVariant
+                        ? (float) $item->productVariant->sale_price
+                        : (float) $item->product->sale_price;
+
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->qty,
+                        'price' => $price,
+                        'discount' => 0.0,
+                        'total' => $price * $item->qty,
+                    ]);
+                }
+
+                $rzpResponse = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                    ->post('https://api.razorpay.com/v1/orders', [
+                        'amount' => (int) round($total * 100),
+                        'currency' => 'INR',
+                        'receipt' => 'rcpt_' . $orderNo,
+                    ]);
+
+                if ($rzpResponse->failed()) {
+                    Log::error('Razorpay Order Creation Failed: ' . $rzpResponse->body());
+                    throw new \Exception('Failed to generate order ID with Razorpay.');
+                }
+
+                $rzpOrder = $rzpResponse->json();
+
+                $order->update([
+                    'razorpay_order_id' => $rzpOrder['id']
+                ]);
+
+                return [
+                    'order_id' => $rzpOrder['id'],
+                    'amount' => $rzpOrder['amount'],
+                    'order_no' => $order->order_no,
+                    'final_amount' => $order->final_amount,
+                ];
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'key' => $razorpayKeyId,
+                'amount' => $orderData['amount'],
+                'currency' => 'INR',
+                'order_id' => $orderData['order_id'],
+                'prefill' => [
+                    'name' => $address->name,
+                    'email' => $address->email ?? $customer->email ?? '',
+                    'contact' => $address->phone,
+                ],
+                'order' => [
+                    'order_no' => $orderData['order_no'],
+                    'final_amount' => number_format($orderData['final_amount'], 0),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function verifyPayment(Request $request)
+    {
+        $request->validate([
+            'razorpay_payment_id' => ['required', 'string'],
+            'razorpay_order_id' => ['required', 'string'],
+            'razorpay_signature' => ['required', 'string'],
+        ]);
+
+        $order = Order::where('razorpay_order_id', $request->razorpay_order_id)->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order not found.'
+            ], 404);
+        }
+
+        if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Payment verified successfully.',
+                'order' => [
+                    'order_no' => $order->order_no,
+                    'final_amount' => number_format($order->final_amount, 0),
+                ]
+            ]);
+        }
+
+        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+
+        $expectedSignature = hash_hmac(
+            'sha256',
+            $request->razorpay_order_id . '|' . $request->razorpay_payment_id,
+            $razorpayKeySecret
+        );
+
+        if (hash_equals($expectedSignature, $request->razorpay_signature)) {
+            DB::transaction(function () use ($order, $request) {
+                $order->update([
+                    'payment_status' => Order::PAYMENT_STATUS_PAID,
+                    'razorpay_payment_id' => $request->razorpay_payment_id,
+                    'razorpay_signature' => $request->razorpay_signature,
+                ]);
+
+                $orderItems = OrderItem::where('order_id', $order->id)->get();
+                foreach ($orderItems as $item) {
+                    Inventory::where('product_id', $item->product_id)
+                        ->where('location_id', $order->location_id)
+                        ->decrement('quantity', $item->quantity);
+                }
+
+                CartItem::where('customer_id', $order->customer_id)->delete();
+                session()->forget('applied_coupon_code');
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Payment verified successfully.',
+                'order' => [
+                    'order_no' => $order->order_no,
+                    'final_amount' => number_format($order->final_amount, 0),
+                ]
+            ]);
+        } else {
+            $order->update([
+                'status' => Order::STATUS_DECLINE,
+                'razorpay_payment_id' => $request->razorpay_payment_id,
+                'razorpay_signature' => $request->razorpay_signature,
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment verification failed.'
+            ], 400);
+        }
+    }
+
+    public function failedPayment(Request $request)
+    {
+        $request->validate([
+            'razorpay_order_id' => ['required', 'string']
+        ]);
+
+        $order = Order::where('razorpay_order_id', $request->razorpay_order_id)->first();
+
+        if ($order && $order->status == Order::STATUS_PENDING && $order->payment_status == Order::PAYMENT_STATUS_PENDING) {
+            $order->update([
+                'status' => Order::STATUS_DECLINE,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Order marked as failed.'
+        ]);
+    }
+
+    public function applyCoupon(Request $request)
+    {
+        $request->validate([
+            'code' => ['required', 'string']
+        ]);
+
+        $coupon = Coupon::where('code', $request->code)
+            ->where('status', Coupon::STATUS_ACTIVE)
+            ->where(function($q) {
+                $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+            })
+            ->where(function($q) {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+            })
+            ->first();
+
+        if (!$coupon) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid or expired coupon code.'
+            ], 422);
+        }
+
+        if ($coupon->usage_limit !== null) {
+            $usedCount = Order::where('coupon_id', $coupon->id)
+                ->where('payment_status', Order::PAYMENT_STATUS_PAID)
+                ->count();
+            if ($usedCount >= $coupon->usage_limit) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'This coupon has reached its usage limit.'
+                ], 422);
+            }
+        }
+
+        session()->put('applied_coupon_code', $coupon->code);
+
+        $customer = $this->customer();
+        $cartItems = CartItem::where('customer_id', $customer->id)->get();
+        
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            $price = $item->productVariant
+                ? (float) $item->productVariant->sale_price
+                : (float) $item->product->sale_price;
+            $subtotal += $price * $item->qty;
+        }
+
+        $discount = 0.0;
+        if ($coupon->discount_type === 'percentage') {
+            $discount = $subtotal * ((float) $coupon->discount_value / 100);
+        } else {
+            $discount = (float) $coupon->discount_value;
+        }
+
+        if ($discount > $subtotal) {
+            $discount = $subtotal;
+        }
+
+        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
+        $total = round($subtotal - $discount);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Coupon applied successfully.',
+            'discount_amount' => $discount,
+            'discount_label' => '-₹' . number_format($discount, 0),
+            'total_amount' => $total,
+            'total_label' => '₹' . number_format($total, 0),
+        ]);
+    }
+
+    public function removeCoupon()
+    {
+        session()->forget('applied_coupon_code');
+
+        $customer = $this->customer();
+        $cartItems = CartItem::where('customer_id', $customer->id)->get();
+        
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            $price = $item->productVariant
+                ? (float) $item->productVariant->sale_price
+                : (float) $item->product->sale_price;
+            $subtotal += $price * $item->qty;
+        }
+
+        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
+        $total = round($subtotal);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Coupon removed successfully.',
+            'total_amount' => $total,
+            'total_label' => '₹' . number_format($total, 0),
+        ]);
+    }
+
+    public function placeCodOrder(Request $request)
+    {
+        $request->validate([
+            'address_id' => ['required', 'integer']
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Please select a valid shipping address.'
+            ], 422);
+        }
+
+        $cartItems = CartItem::where('customer_id', $customer->id)
+            ->with([
+                'product' => function ($q) {
+                    $q->withSum('inventories', 'quantity');
+                },
+                'productVariant'
+            ])
+            ->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Your cart is empty.'
+            ], 422);
+        }
+
+        // Calculate order amount
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            $price = $item->productVariant
+                ? (float) $item->productVariant->sale_price
+                : (float) $item->product->sale_price;
+            $subtotal += $price * $item->qty;
+        }
+        
+        $discount = 0.0;
+        $coupon = null;
+        if (session()->has('applied_coupon_code')) {
+            $coupon = Coupon::where('code', session('applied_coupon_code'))
+                ->where('status', Coupon::STATUS_ACTIVE)
+                ->where(function($q) {
+                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                })
+                ->where(function($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->first();
+            if ($coupon) {
+                if ($coupon->discount_type === 'percentage') {
+                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
+                } else {
+                    $discount = (float) $coupon->discount_value;
+                }
+                if ($discount > $subtotal) {
+                    $discount = $subtotal;
+                }
+            } else {
+                session()->forget('applied_coupon_code');
+            }
+        }
+        
+        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
+        $total = round($subtotal - $discount);
+
+        // Resolve default location
+        $location = Location::where('is_default', true)->first()
+            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
+            ?? Location::first();
+
+        if (!$location) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No fulfillment location is active.'
+            ], 422);
+        }
+
+        try {
+            $order = DB::transaction(function () use ($customer, $location, $total, $cartItems, $coupon, $address) {
+                // Generate Invoice No
+                $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+
+                // Create Order
+                $order = Order::create([
+                    'customer_id' => $customer->id,
+                    'customer_address_id' => $address->id,
+                    'location_id' => $location->id,
+                    'order_no' => $orderNo,
+                    'order_type' => 'sale',
+                    'status' => Order::STATUS_PENDING,
+                    'payment_status' => Order::PAYMENT_STATUS_PENDING,
+                    'payment_method' => 'cod',
+                    'final_amount' => $total,
+                    'source' => 'ONLINE',
+                    'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
+                    'coupon_id' => $coupon ? $coupon->id : null,
+                ]);
+
+                // Create Order Items & Decrement Stock
+                foreach ($cartItems as $item) {
+                    $price = $item->productVariant
+                        ? (float) $item->productVariant->sale_price
+                        : (float) $item->product->sale_price;
+
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->qty,
+                        'price' => $price,
+                        'discount' => 0.0,
+                        'total' => $price * $item->qty,
+                    ]);
+
+                    Inventory::where('product_id', $item->product_id)
+                        ->where('location_id', $location->id)
+                        ->decrement('quantity', $item->qty);
+                }
+
+                // Clear customer cart and clear coupon session
+                CartItem::where('customer_id', $customer->id)->delete();
+                session()->forget('applied_coupon_code');
+
+                return $order;
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Order placed successfully.',
+                'order' => [
+                    'order_no' => $order->order_no,
+                    'final_amount' => number_format($order->final_amount, 0),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

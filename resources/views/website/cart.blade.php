@@ -196,6 +196,7 @@
                             <span class="font-medium text-[#131615]">Subtotal</span>
                             <span class="font-normal text-[#3D403F]" id="summarySubtotal">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
+                        {{--
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px]" id="summaryDiscountRow">
                             <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-green-600" id="summaryDiscount">
@@ -206,14 +207,19 @@
                                 @endif
                             </span>
                         </div>
+                        --}}
+                        {{--
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px]">
                             <span class="font-medium text-[#131615]">Shipping</span>
                             <span class="font-normal text-[#3D403F]" id="summaryShipping">₹{{ number_format($shipping, 0) }}</span>
                         </div>
+                        --}}
+                        {{--
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px]">
                             <span class="font-medium text-[#131615]">Estimated Tax</span>
                             <span class="font-normal text-[#3D403F]">₹0</span>
                         </div>
+                        --}}
                     </div>
 
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">

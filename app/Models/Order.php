@@ -15,6 +15,7 @@ class Order extends Model
 
     protected $fillable = [
         'customer_id',
+        'customer_address_id',
         'location_id',
         'user_id',
         'order_no',
@@ -24,6 +25,9 @@ class Order extends Model
         'payment_method',
         'final_amount',
         'source',
+        'razorpay_order_id',
+        'razorpay_payment_id',
+        'razorpay_signature',
         'discount_type',
         'coupon_id',
     ];
@@ -38,6 +42,11 @@ class Order extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function customerAddress()
+    {
+        return $this->belongsTo(CustomerAddress::class, 'customer_address_id');
     }
 
     public function location()
