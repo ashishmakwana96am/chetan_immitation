@@ -888,5 +888,80 @@ successModal.addEventListener("click",(e)=>{
         closeSuccessModal();
     }
 });
+
+function saveCustomerAddress(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveAddressBtn');
+    btn.disabled = true;
+    btn.innerText = 'Saving...';
+
+    const name = document.getElementById('addr_name').value.trim();
+    const phone = document.getElementById('addr_phone').value.trim();
+    const alternate_phone = document.getElementById('addr_alternate_phone').value.trim();
+    const email = document.getElementById('addr_email').value.trim();
+    const address = document.getElementById('addr_address').value.trim();
+    const city = document.getElementById('addr_city').value.trim();
+    const state = document.getElementById('addr_state').value;
+    const type = document.querySelector('input[name="addressType"]:checked').value;
+
+    if (!name || !phone || !address || !city || !state) {
+        alert('Please fill all required fields (Full Name, Mobile, Address, City, State).');
+        btn.disabled = false;
+        btn.innerText = 'Save Address';
+        return;
+    }
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    fetch('{{ route('checkout.address.save') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            name,
+            phone,
+            alternate_phone,
+            email,
+            address,
+            city,
+            state,
+            type
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            closeModal();
+            window.location.reload();
+        } else {
+            alert(data.message || 'Something went wrong.');
+            btn.disabled = false;
+            btn.innerText = 'Save Address';
+        }
+    })
+    .catch(err => {
+        console.error('Error saving address:', err);
+        alert('Failed to save address. Please try again.');
+        btn.disabled = false;
+        btn.innerText = 'Save Address';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.address-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.address-card').forEach(c => {
+                c.classList.remove('bg-[#B4771E0D]');
+                c.classList.remove('active-address');
+            });
+            this.classList.add('bg-[#B4771E0D]');
+            this.classList.add('active-address');
+        });
+    });
+});
 </script>
 @endsection
