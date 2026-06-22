@@ -175,7 +175,7 @@
                     </a>
 
                     <!-- Desktop Menu -->
-                    <nav class="hidden lg:flex items-center gap-7 xl:gap-10">
+                    <nav class="hidden lg:flex items-center gap-4 xl:gap-10">
                         <a href="{{ url('/') }}" class="{{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
                             Home
                         </a>
@@ -513,7 +513,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="{{ asset('website/assets/js/main.js') }}?v=1.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js" integrity="sha512-bPs7Ae6pVvhOSiIcyUClR7/q2OAsRiovw4vAkX+zJbw3ShAeeqezq50RIIcIURq7Oa20rW2n2q+fyXBNcU9lrw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+   <script>
+    const mobileMenu = document.getElementById('mobileMenu');
 
+window.addEventListener('resize', function () {
+    if (window.innerWidth >= 1024) { // lg breakpoint
+        mobileMenu.classList.remove('translate-x-0');
+        mobileMenu.classList.add('translate-x-full');
+    }
+});
+   </script>
     @auth('customer')
     <script>
     $(function () {
@@ -526,7 +535,7 @@
         //     e.stopPropagation();
         //     $menu.toggleClass('hidden');
         // });
-        
+
         $(function () {
             const $btn = $('#userMenuBtn');
             const $menu = $('#userMenuDropdown');
