@@ -49,7 +49,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Out of Stock</span>
+                            <span class="text-muted">SOLD OUT</span>
                             <h4 class="mb-0 mt-1">{{ $products->where('total_stock', 0)->count() }}</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
@@ -129,7 +129,7 @@
                     <select id="filterStock" class="form-select">
                         <option value="">All</option>
                         <option value="in">In Stock</option>
-                        <option value="out">Out of Stock</option>
+                        <option value="out">SOLD OUT</option>
                     </select>
                 </div>
             </div>

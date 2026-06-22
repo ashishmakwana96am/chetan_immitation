@@ -284,7 +284,7 @@ grid.innerHTML = pageItems.map(p => `
 
         ${!p.inStock ? `
         <p class="text-red-500 text-sm mt-2">
-            Out of Stock
+            SOLD OUT
         </p>
         ` : ''}
 

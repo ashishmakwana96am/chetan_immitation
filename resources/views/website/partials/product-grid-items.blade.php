@@ -24,7 +24,7 @@
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
         <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
-            <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">OUT OF STOCK</span>
+            <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SOLD OUT</span>
         </div>
         @elseif($product->sale)
         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">

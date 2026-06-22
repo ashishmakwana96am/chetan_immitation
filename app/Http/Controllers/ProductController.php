@@ -54,7 +54,7 @@ class ProductController extends Controller
             $stockSum = $product->inventories->sum('quantity');
             $stock = $stockSum > 0
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
-                : '<span class="badge bg-label-danger fw-bold">Out of stock</span>';
+                : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
