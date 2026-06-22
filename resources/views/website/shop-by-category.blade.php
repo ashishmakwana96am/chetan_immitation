@@ -253,7 +253,7 @@
                 @include('website.partials.product-grid-items')
             </div>
 
-            <div id="paginationWrap">
+            <div id="paginationWrap" class="w-full max-w-full overflow-visible">
                 {{ $products->links('vendor.pagination.tailwind') }}
             </div>
 

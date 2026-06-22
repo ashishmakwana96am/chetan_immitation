@@ -109,6 +109,7 @@
 
                 <input
                     type="text"
+                    id="addr_name"
                     placeholder="Enter Your Full Name"
                     class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
@@ -131,6 +132,7 @@
 
                     <input
                         type="text"
+                        id="addr_phone"
                         placeholder="Enter Your Mobile Number"
                         class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
@@ -147,6 +149,7 @@
 
                     <input
                         type="text"
+                        id="addr_alternate_phone"
                         placeholder="Enter Your Mobile Number"
                         class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
@@ -169,7 +172,8 @@
 
                 <input
                     type="email"
-                    value="priyasharma@gmail.com"
+                    id="addr_email"
+                    value="{{ auth('customer')->user()->email ?? '' }}"
                     class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
             </div>
@@ -188,9 +192,10 @@
                 </label>
 
                 <textarea
+                    id="addr_address"
                     rows="4"
                     placeholder="Enter Flat/House/Building Name"
-                     class="w-full text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-n py-3"></textarea>
+                     class="w-full text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none py-3"></textarea>
 
             </div>
 
@@ -211,6 +216,7 @@
 
                     <input
                         type="text"
+                        id="addr_city"
                         placeholder="Town / City"
                         class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
@@ -227,21 +233,22 @@
                     </label>
 
                     <select
+                        id="addr_state"
                          class="w-full h-[48px] md:h-[56px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none">
 
-                        <option>
+                        <option value="">
 
                             Select an Option...
 
                         </option>
 
-                        <option>
+                        <option value="Gujarat">
 
                             Gujarat
 
                         </option>
 
-                        <option>
+                        <option value="Maharashtra">
 
                             Maharashtra
 
@@ -274,6 +281,7 @@
             type="radio"
             name="addressType"
             id="home"
+            value="home"
             class="hidden peer/home"
             checked>
 
@@ -314,6 +322,7 @@
             type="radio"
             name="addressType"
             id="work"
+            value="work"
             class="hidden peer/work">
 
         <label
@@ -355,6 +364,8 @@
             <!-- Save -->
 
             <button
+                id="saveAddressBtn"
+                onclick="saveCustomerAddress(event)"
                 class="w-full h-[52px] md:h-[58px]
                 bg-[#B4771E]
                 hover:bg-[#a86f17]
@@ -374,123 +385,38 @@
 
 </div>
 
-                        <!-- Address 1 -->
-
-                        <div class="bg-[#B4771E0D] border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px]">
-
+                        @forelse($addresses as $addr)
+                        <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer {{ $addr->is_default ? 'bg-[#B4771E0D] active-address' : '' }}" data-address-id="{{ $addr->id }}">
                             <div class="flex justify-between items-start">
-
                                 <div>
-
                                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-
-                                        <img src="{{ asset('website/assets/images/') }}home.png" />
-
+                                        <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" />
                                         <span class="text-sm sm:text-base lg:text-xl text-[#131615] font-normal">
                                             Deliver To:
                                         </span>
-
                                         <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615]">
-                                            Priya Sharma, 394101
+                                            {{ $addr->name }}, {{ $addr->phone }}
                                         </span>
-
-                                        <span
-                                            class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px]">
+                                        @if($addr->is_default)
+                                        <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px]">
                                             Default
                                         </span>
-
+                                        @endif
                                     </div>
-
                                     <p class="mt-[19px] text-sm sm:text-lg text-[#3D403F] leading-5 sm:leading-6">
-                                        123 Shree Residency, Near City Mall, MG Road Satellite,
-                                        Ahmedabad, Gujarat 380015, India
+                                        {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}
                                     </p>
-
                                 </div>
-
                                 <button>
                                     <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                                 </button>
-
                             </div>
-
                         </div>
-                        <!-- Address 2 -->
-
-                        <div class="border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px]">
-
-                            <div class="flex justify-between items-start">
-
-                                <div>
-
-                                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-
-                                        <img src="{{ asset('website/assets/images/') }}home1.png" />
-
-                                        <span class="text-sm sm:text-base lg:text-xl text-[#131615] font-normal">
-                                            Deliver To:
-                                        </span>
-
-                                        <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615]">
-                                            Priya Sharma, 394101
-                                        </span>
-
-
-                                    </div>
-
-                                    <p class="mt-[19px] text-sm sm:text-lg text-[#3D403F] leading-5 sm:leading-6">
-                                        123 Shree Residency, Near City Mall, MG Road Satellite,
-                                        Ahmedabad, Gujarat 380015, India
-                                    </p>
-
-                                </div>
-
-                                <button>
-                                    <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
-                                </button>
-
-                            </div>
-
+                        @empty
+                        <div class="p-5 text-center text-gray-500">
+                            No saved addresses. Please add a new delivery address to proceed.
                         </div>
-                        <!-- Address 3 -->
-
-                        <div class="px-5 py-[30px]">
-
-                            <div class="flex justify-between items-start">
-
-                                <div>
-
-                                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-
-                                        <img src="{{ asset('website/assets/images/') }}home.png" />
-
-                                        <span class="text-sm sm:text-base lg:text-xl text-[#131615] font-normal">
-                                            Deliver To:
-                                        </span>
-
-                                        <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615]">
-                                            Priya Sharma, 394101
-                                        </span>
-                                    </div>
-
-                                    <p class="mt-[19px] text-sm sm:text-lg text-[#3D403F] leading-5 sm:leading-6">
-                                        123 Shree Residency, Near City Mall, MG Road Satellite,
-                                        Ahmedabad, Gujarat 380015, India
-                                    </p>
-
-                                </div>
-
-                                <button>
-                                    <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
-                                </button>
-
-                            </div>
-
-                        </div>
-
-
-
-                    </div>
+                        @endforelse
 
                     <!-- =====================
                 ORDER SUMMARY
@@ -514,427 +440,72 @@
                             </div>
                         </div>
 
-                        <!-- Product 1 -->
-
+                        @forelse($cartItems as $item)
+                            @php
+                                $itemProduct = $item->product;
+                                $itemVariant = $item->productVariant;
+                                $itemPrice = $itemVariant ? $itemVariant->sale_price : $itemProduct->sale_price;
+                                $itemMrp = $itemProduct->mrp;
+                                $itemQty = $item->qty;
+                                $itemDetailUrl = route('product.detail', $itemProduct->slug);
+                                if ($itemVariant) {
+                                    $itemDetailUrl .= '?variant=' . $itemVariant->id;
+                                }
+                            @endphp
                             <div class="border-b border-[#D5D5D5] p-3 lg:p-[25px]">
-
-                    <div class="flex flex-col md:flex-row gap-4">
-
-                        <!-- Image -->
-
-                        <div class="relative shrink-0">
-
-                            <img
-                                src="{{ asset('website/assets/images/') }}detailpage.png"
-                                alt=""
-                                class="w-full h-[240px]">
-
-                            <button
-                                class="absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center">
-
-                              <svg xmlns="http://www.w3.org/2000/svg"
-fill="#E01B1B"
-viewBox="0 0 24 24"
-stroke-width="1.6"
-stroke="#E01B1B"
-class="w-5 h-5">
-
-<path
-stroke-linecap="round"
-stroke-linejoin="round"
-d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-
-</svg>
-
-
-                            </button>
-
-                        </div>
-
-                        <!-- Content -->
-
-                         <div class="flex-1 min-w-0">
-
-                             <h3 class="max-w-[240px] md:max-w-[500px] truncate text-base md:text-[22px] lg:text-[26px] leading-[26px] lg:leading-[36px] font-semibold text-[#131615]">
-                                Royal Rajwadi Kundan Bridal Necklace Set with Pearl Detailing
-                            </h3>
-
-                            <div class="flex items-center gap-2 mt-5">
-
-                                <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                 ₹4,999
-                                </span>
-
-                                <span class="text-[#999] line-through">
-                                   ₹7,999
-                                </span>
-
-                            </div>
-
-                            <div class="sm:mt-[20px] text-[14px]">
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Category:</span>
-                                    <span class="text-[#757575] ml-2">Bridal Necklace Set</span>
-                                </p>
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Color:</span>
-                                    <span class="text-[#777] ml-2">Gold Finish</span>
-                                </p>
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
-                                    <span class="text-[#777] ml-2">In Stock</span>
-                                </p>
-
-                            </div>
-
-                            <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
-
-                              <div class="flex items-center flex-wrap gap-2">
-
-                                <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-5 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg">
-
-                                    <img src="{{ asset('website/assets/images/') }}cart-gray.png" alt="">
-
-                                    Add To Cart
-
-                                </button>
-
-                                <button class="hover:text-red-500 flex items-center gap-[10px] text-base md:text-lg">
-
-                                    <img src="{{ asset('website/assets/images/') }}delete.png" alt="">
-
-                                    Remove From Wishlist
-
-                                </button>
-
-                            </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                        <!-- Product 2 -->
-    <div class="p-3 lg:p-[25px]">
-
-                    <div class="flex flex-col md:flex-row gap-4">
-
-                        <!-- Image -->
-
-                        <div class="relative shrink-0">
-
-                            <img
-                                src="{{ asset('website/assets/images/') }}detailpage.png"
-                                alt=""
-                                class="w-full h-[240px]">
-
-                            <button
-                                class="absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center">
-
-                              <svg xmlns="http://www.w3.org/2000/svg"
-fill="#E01B1B"
-viewBox="0 0 24 24"
-stroke-width="1.6"
-stroke="#E01B1B"
-class="w-5 h-5">
-
-<path
-stroke-linecap="round"
-stroke-linejoin="round"
-d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-
-</svg>
-
-
-                            </button>
-
-                        </div>
-
-                        <!-- Content -->
-
-                         <div class="flex-1 min-w-0">
-
-                             <h3 class="max-w-[240px] md:max-w-[500px] truncate text-base md:text-[22px] lg:text-[26px] leading-[26px] lg:leading-[36px] font-semibold text-[#131615]">
-                               Traditional Meenakari Jhumka Earrings for Women
-                            </h3>
-
-                            <div class="flex items-center gap-2 mt-5">
-
-                                <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                   ₹1,499
-                                </span>
-
-                                <span class="text-[#999] line-through">
-                                   ₹2,999
-                                </span>
-
-                            </div>
-
-                            <div class="sm:mt-[20px] text-[14px]">
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Category:</span>
-                                    <span class="text-[#757575] ml-2">Bridal Necklace Set</span>
-                                </p>
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Color:</span>
-                                    <span class="text-[#777] ml-2">Gold Finish</span>
-                                </p>
-
-                                <p class="text-base sm:text-lg sm:leading-[18px] flex flex-wrap">
-                                    <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
-                                    <span class="text-[#777] ml-2">In Stock</span>
-                                </p>
-
-                            </div>
-
-                            <div class="border-t border-[#D5D5D5] mt-5 pt-[15px]">
-
-                              <div class="flex items-center flex-wrap gap-2">
-
-                                <button class="after:border-r after:border-[#3D403F] after:h-5 after:mx-5 after:content-[''] after:inline-block hover:text-[#B4771E] flex items-center gap-[10px] text-base md:text-lg">
-
-                                    <img src="{{ asset('website/assets/images/') }}cart-gray.png" alt="">
-
-                                    Add To Cart
-
-                                </button>
-
-                                <button class="hover:text-red-500 flex items-center gap-[10px] text-base md:text-lg">
-
-                                    <img src="{{ asset('website/assets/images/') }}delete.png" alt="">
-
-                                    Remove From Wishlist
-
-                                </button>
-
-                            </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                    </div>
-
-                    <!-- =====================
-PAYMENT METHOD
-===================== -->
-
-                    <div class="border border-[#D5D5D5] bg-white overflow-hidden">
-
-                        <!-- Heading -->
-
-                         <div class="flex items-center justify-between px-5 py-[19px] border-b border-[#D5D5D5]">
-
-                            <div class="flex items-center gap-[15px]">
-
-                                <span
-                                    class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
-                                    1
-                                </span>
-
-                                <h3 class="text-base sm:text-lg md:text-xl lg:text-2xl font-medium text-[#131615]">
-                                  Payment Method
-                                </h3>
-
-                            </div>
-                        </div>
-
-                        <!-- Content -->
-
-                        <div class="grid lg:grid-cols-[300px_1fr] py-[19px] px-5 gap-5">
-
-                            <!-- Left Payment Options -->
-
-                          <div class="border border-[#D5D5D5]">
-
-
-                                <!-- Active -->
-
-                                 <label
-        class="flex items-center gap-5 px-5 py-4 border-b border-[#D5D5D5] cursor-pointer
-        peer-has-checked:border-[#B4771E] peer-has-checked:bg-white">
-
-        <input
-            type="radio"
-            name="payment"
-            checked
-            class="peer appearance-none w-7 h-7 rounded-full border border-[#CFCFCF]
-            checked:border-[8px] checked:border-[#B4771E]">
-
-        <img src="{{ asset('website/assets/images/') }}payment1.png" class="w-8">
-
-        <span class="text-base sm:text-lg text-[#3D403F]">
-            Credit / Debit Card
-        </span>
-
-    </label>
-
-                                <!-- UPI -->
- <label
-        class="flex items-center gap-5 px-5 py-4 border-b border-[#D5D5D5] cursor-pointer">
-
-        <input
-            type="radio"
-            name="payment"
-            class="appearance-none w-7 h-7 rounded-full border border-[#CFCFCF]
-            checked:border-[8px] checked:border-[#B4771E]">
-
-        <img src="{{ asset('website/assets/images/') }}upi.png" class="w-10">
-
-        <span class="text-base sm:text-lg text-[#3D403F]">
-            UPI Payment
-        </span>
-
-    </label>
-
-                                <!-- Net Banking -->
-    <label
-        class="flex items-center gap-5 px-5 py-4 border-b border-[#D5D5D5] cursor-pointer">
-
-        <input
-            type="radio"
-            name="payment"
-            class="appearance-none w-7 h-7 rounded-full border border-[#CFCFCF]
-            checked:border-[8px] checked:border-[#B4771E]">
-
-        <img src="{{ asset('website/assets/images/') }}payment3.png" class="w-8">
-
-        <span class="text-base sm:text-lg text-[#3D403F]">
-            Net Banking
-        </span>
-
-    </label>
-
-
-                                <!-- Wallet -->
-
-                       <label
-        class="flex items-center gap-5 px-5 py-4 border-b border-[#D5D5D5] cursor-pointer">
-
-        <input
-            type="radio"
-            name="payment"
-            class="appearance-none w-7 h-7 rounded-full border border-[#CFCFCF]
-            checked:border-[8px] checked:border-[#B4771E]">
-
-        <img src="{{ asset('website/assets/images/') }}payment4.png" class="w-8">
-
-        <span class="text-base sm:text-lg text-[#3D403F]">
-            Wallet Payment
-        </span>
-
-    </label>
-
-                                <!-- COD -->
-
-                           <label
-        class="flex items-center gap-5 px-5 py-4 cursor-pointer">
-
-        <input
-            type="radio"
-            name="payment"
-            class="appearance-none w-7 h-7 rounded-full border border-[#CFCFCF]
-            checked:border-[8px] checked:border-[#B4771E]">
-
-        <img src="{{ asset('website/assets/images/') }}payment5.png" class="w-8">
-
-        <span class="text-base sm:text-lg text-[#3D403F]">
-            Cash on Delivery
-        </span>
-
-    </label>
-
-                            </div>
-
-                            <!-- Right Form -->
-
-                            <div>
-
-                                <!-- Card Holder -->
-
-                                <div>
-
-                                    <label class="block text-base md:text-xl font-medium leading-[20px] mb-[12px]">
-                                        Card Holder Name
-                                    </label>
-
-                                    <input type="text" value="Priya Shrma"
-                                        class="w-full h-[56px] border border-[#D5D5D5] px-5 placeholder:text-[#3D403F] text-[#3D403F] outline-none text-base md:text-lg  placeholder:text-base placeholder:md:text-lg">
-
-                                </div>
-
-                                <!-- Card Number -->
-
-                                <div class="mt-4">
-
-                                    <label class="block text-base md:text-xl font-medium leading-[20px] mb-[12px]">
-                                        Card Number
-                                    </label>
-
-                                    <div class="relative">
-
-                                        <input type="text" value="1234 5678 9012 3456"
-                                            class="w-full h-[56px] border border-[#D5D5D5] px-5 placeholder:text-[#3D403F] text-[#3D403F] pr-[170px] outline-none  text-base md:text-lg  placeholder:text-base placeholder:md:text-lg">
-
-                                        <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-
-                                            <img src="{{ asset('website/assets/images/') }}paymet1.png" class="h-5">
-
-                                            <img src="{{ asset('website/assets/images/') }}paymet2.png" class="h-5">
-
-                                            <img src="{{ asset('website/assets/images/') }}paymet3.png" class="h-4">
-
+                                <div class="flex flex-col md:flex-row gap-4">
+                                    <!-- Image -->
+                                    <div class="relative shrink-0">
+                                        <a href="{{ $itemDetailUrl }}">
+                                            <img
+                                                src="{{ $itemProduct->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}"
+                                                alt="{{ $itemProduct->name }}"
+                                                class="w-[200px] h-[240px] object-cover">
+                                        </a>
+                                    </div>
+
+                                    <!-- Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="max-w-[240px] md:max-w-[500px] truncate text-base md:text-[22px] lg:text-[26px] leading-[26px] lg:leading-[36px] font-semibold text-[#131615]">
+                                            <a href="{{ $itemDetailUrl }}">{{ $itemProduct->name }}</a>
+                                        </h3>
+
+                                        <div class="flex items-center gap-2 mt-5">
+                                            <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
+                                                ₹{{ number_format($itemPrice, 0) }}
+                                            </span>
+                                            @if($itemMrp && $itemMrp > $itemPrice)
+                                            <span class="text-[#999] line-through">
+                                                ₹{{ number_format($itemMrp, 0) }}
+                                            </span>
+                                            @endif
+                                            <span class="text-[#757575] text-sm md:text-base ml-2">Qty: {{ $itemQty }}</span>
                                         </div>
 
+                                        <div class="sm:mt-[20px] text-[14px]">
+                                            <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
+                                                <span class="font-medium text-[#131615] w-[120px]">Category:</span>
+                                                <span class="text-[#757575] ml-2">{{ $itemProduct->category?->name ?? 'N/A' }}</span>
+                                            </p>
+                                            @if($itemVariant && $itemVariant->attributeValue)
+                                            <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap">
+                                                <span class="font-medium text-[#131615] w-[120px]">{{ $itemVariant->attributeValue->attribute->name }}:</span>
+                                                <span class="text-[#777] ml-2">{{ $itemVariant->attributeValue->value }}</span>
+                                            </p>
+                                            @endif
+                                            <p class="text-base sm:text-lg sm:leading-[18px] flex flex-wrap">
+                                                <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
+                                                <span class="text-[#777] ml-2">{{ $itemProduct->inventories_sum_quantity > 0 ? 'In Stock' : 'Out of Stock' }}</span>
+                                            </p>
+                                        </div>
                                     </div>
-
                                 </div>
-
-                                <!-- Expiry + CVV -->
-
-                                <div class="grid grid-cols-2 gap-4 mt-4">
-
-                                    <div>
-
-                                        <label class="block text-base md:text-xl font-medium leading-[20px] mb-[12px]">
-                                            Expiry Date
-                                        </label>
-
-                                        <input type="text" placeholder="MM / YY"
-                                            class="w-full h-[56px] border border-[#D5D5D5] px-5 placeholder:text-[#3D403F] text-[#3D403F] outline-none  text-base md:text-lg  placeholder:text-base placeholder:md:text-lg">
-
-                                    </div>
-
-                                    <div>
-
-                                        <label class="block text-base md:text-xl font-medium leading-[20px] mb-[12px]">
-                                            CVV
-                                        </label>
-
-                                        <input type="text" placeholder="123"
-                                            class="w-full h-[56px] border border-[#D5D5D5] px-5 placeholder:text-[#3D403F] text-[#3D403F] outline-none  text-base md:text-lg 
-                                            placeholder:text-base placeholder:md:text-lg">
-
-                                    </div>
-
-                                </div>
-
                             </div>
-
-                        </div>
-
+                        @empty
+                            <div class="p-5 text-center text-gray-500">
+                                Your cart is empty.
+                            </div>
+                        @endforelse
                     </div>
                 </div>
 
@@ -978,17 +549,17 @@ PAYMENT METHOD
 
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
                             <span class="font-medium text-[#131615]">Subtotal</span>
-                            <span class="font-normal text-[#3D403F]">₹6,498</span>
+                            <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
 
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
                             <span class="font-medium text-[#131615]">Discount</span>
-                            <span class="font-normal text-[#3D403F]">-₹4,500</span>
+                            <span class="font-normal text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
                         </div>
 
                      <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
                             <span class="font-medium text-[#131615]">Shipping</span>
-                             <span class="font-normal text-[#3D403F]">Free</span>
+                             <span class="font-normal text-[#3D403F]">{{ $shipping > 0 ? '₹' . number_format($shipping, 0) : 'Free' }}</span>
                         </div>
 
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
@@ -1005,7 +576,7 @@ PAYMENT METHOD
                         </span>
 
                         <span class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
-                            ₹6,498
+                            ₹{{ number_format($total, 0) }}
                         </span>
 
                     </div>
@@ -1129,7 +700,7 @@ Order Amount
 
                     <span class="text-[#3D403F] text-base sm:text-lg">
 
-                        ₹6,498
+                        ₹{{ number_format($total, 0) }}
 
                     </span>
 
