@@ -522,9 +522,35 @@
         var hideTimer;
 
         // Toggle on click for mobile/touch devices
-        $('#userMenuBtn').on('click', function (e) {
-            e.stopPropagation();
-            $menu.toggleClass('hidden');
+        // $('#userMenuBtn').on('click', function (e) {
+        //     e.stopPropagation();
+        //     $menu.toggleClass('hidden');
+        // });
+        
+        $(function () {
+            const $btn = $('#userMenuBtn');
+            const $menu = $('#userMenuDropdown');
+
+            $btn.on('click touchstart', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if ($menu.hasClass('hidden')) {
+                    $menu.removeClass('hidden');
+                } else {
+                    $menu.addClass('hidden');
+                }
+            });
+
+            $(document).on('click touchstart', function (e) {
+                if (!$(e.target).closest('#userMenuWrap').length) {
+                    $menu.addClass('hidden');
+                }
+            });
+
+            $menu.on('click touchstart', function (e) {
+                e.stopPropagation();
+            });
         });
 
         // Hover for desktop users
