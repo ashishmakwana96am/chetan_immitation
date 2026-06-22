@@ -176,13 +176,13 @@
 
                     <!-- Desktop Menu -->
                     <nav class="hidden lg:flex items-center gap-4 xl:gap-10">
-                        <a href="{{ url('/') }}" class="{{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                        <a href="{{ url('/') }}" class="{{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             Home
                         </a>
 
                         <!-- Mega Menu -->
                         <div class="group relative" onmouseenter="setHeaderCategoryArrow(true)" onmouseleave="resetSubmenus(); setHeaderCategoryArrow(false)" onfocusin="setHeaderCategoryArrow(true)" onfocusout="setHeaderCategoryArrow(false)">
-                            <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                            <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                                 Shop By Category
                                 <i id="desktopShopArrow" class="fa-solid fa-angle-down text-xl transition-transform duration-300"></i>
                             </a>                            <!-- Dropdown -->
@@ -226,11 +226,11 @@
                             </div>
                         </div>
 
-                        <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                        <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             About Us
                         </a>
                         
-                        <a href="{{ route('contact') }}" class="{{ request()->routeIs('contact') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-lg pb-1 transition-colors duration-300">
+                        <a href="{{ route('contact') }}" class="{{ request()->routeIs('contact') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             Contact Us
                         </a>
                     </nav>

@@ -23,7 +23,7 @@
 <div class="product-card group border border-[#D5D5D5] relative cursor-pointer flex flex-col h-full" data-product-id="{{ $product->id }}">
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
-        <div class="absolute top-[25px] left-[-42px] z-10 rotate-[-20deg]">
+        <div class="absolute top-[17px] left-[-39px] z-10 rotate-[-20deg]">
             <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SOLD OUT</span>
         </div>
         @elseif($product->sale)

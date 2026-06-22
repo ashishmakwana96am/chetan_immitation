@@ -10,7 +10,7 @@
 
         <div class="container-1440 !px-0 lg:px-auto">
             <div class="grid grid-cols-12 text-center md:text-left items-center">
-                <div class="col-span-12 md:col-span-8 xl:col-span-6 2xl:col-span-5 px-5 lg:px-0 py-10 relative z-10">
+                <div class="col-span-12 md:col-span-8 xl:col-span-6 2xl:col-span-5 px-5 xl:px-0 py-10 relative z-10">
 
                     <h1 class="hero-heading font-moglan w-full md:max-w-[549px] mx-auto md:mx-0 text-center md:text-left">
                         Jewelry That Completes Your Celebration
