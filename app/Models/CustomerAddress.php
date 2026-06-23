@@ -23,6 +23,7 @@ class CustomerAddress extends Model
 
     protected $casts = [
         'is_default' => 'boolean',
+        'deleted_at' => 'datetime',
     ];
 
     public function customer()
