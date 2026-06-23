@@ -3982,11 +3982,11 @@ summary {
 }
 .common-btn {
   display: inline-flex;
-  height: 37px;
+  height: 42px;
   align-items: center;
   justify-content: center;
   background-color: #B4771E;
-  padding-inline: 10px;
+  padding-inline: 12px;
   font-size: var(--text-sm);
   line-height: var(--tw-leading, var(--text-sm--line-height));
   color: var(--color-white);

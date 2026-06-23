@@ -239,7 +239,7 @@
                     <div class="flex items-center gap-2 sm:gap-5">
                         <!-- Mobile Search Icon -->
 
-                        <div class="search-container items-center w-[160px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[30px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
+                        <div class="search-container items-center w-[170px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
                             <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
                             <!-- <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0"> -->
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white">
@@ -376,7 +376,179 @@
         </div>
 
         <div class="px-[15px] py-[30px]">
-            <a href="{{ url('/') }}" class="block pb-3 md:pb-5 border-b {{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
+            
+        @auth('customer')
+    <div class="border-b">
+
+    <button onclick="toggleMenu('userMenu','userArrow')"
+        class="w-full pb-4 md:pb-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg transition-colors duration-300">
+
+        <div class="flex items-center gap-3">
+
+        <!-- User Icon -->
+        <div class="w-12 h-12 rounded-full border border-[#EFE7DB]
+            bg-[#FAF7F2] flex items-center justify-center shrink-0">
+
+            <svg xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="#B4771E"
+                class="w-6 h-6">
+
+                <path stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0
+                    3.75 3.75 0 0 1 7.5 0ZM4.501
+                    20.118a7.5 7.5 0 0 1 14.998 0A17.933
+                    17.933 0 0 1 12 21.75c-2.676
+                    0-5.216-.584-7.499-1.632Z"/>
+            </svg>
+
+        </div>
+
+        <!-- User Info -->
+        <div class="text-left">
+
+            <p class="font-semibold text-lg leading-[22px] text-[#131615]">
+                {{ auth('customer')->user()->name }}
+            </p>
+
+            <p class="text-[13px] text-[#757575] mt-1">
+                {{ auth('customer')->user()->email }}
+            </p>
+
+        </div>
+
+    </div>
+
+        <i id="userArrow"
+            class="fa-solid fa-angle-down transition duration-300">
+        </i>
+
+    </button>
+
+    <div id="userMenu" class="hidden pb-4">
+
+        @php
+            $cartCount = \App\Models\CartItem::where('customer_id', auth('customer')->id())->sum('qty');
+            $wishlistCount = auth('customer')->user()->wishlists()->count();
+        @endphp
+
+        <!-- Cart -->
+        <a href="{{ route('cart') }}"
+            class="flex items-center justify-between py-3 text-[#131615] hover:text-[#B4771E]">
+
+            <div class="flex items-center gap-3">
+
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                </svg>
+
+                <span>My Cart</span>
+
+            </div>
+
+            <div class="flex items-center gap-2">
+
+                <span
+                    class="w-6 h-6 rounded-full bg-[#B4771E]
+                    text-white text-xs font-semibold
+                    flex items-center justify-center">
+
+                    {{ $cartCount }}
+
+                </span>
+
+                <i class="fa-solid fa-angle-right text-sm"></i>
+
+            </div>
+
+        </a>
+
+            <!-- Wishlist -->
+        <a href="{{ route('wishlist') }}"
+            class="flex items-center justify-between py-3 text-[#131615] hover:text-[#B4771E]">
+
+            <div class="flex items-center gap-3">
+
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                </svg>
+
+                <span>My Wishlist</span>
+
+            </div>
+
+            <div class="flex items-center gap-2">
+
+                <span
+                    class="w-6 h-6 rounded-full bg-[#B4771E]
+                    text-white text-xs font-semibold
+                    flex items-center justify-center">
+
+                    {{ $wishlistCount }}
+
+                </span>
+
+                <i class="fa-solid fa-angle-right text-sm"></i>
+
+            </div>
+
+        </a>
+
+        <!-- Logout -->
+        <button id="mobileLogoutBtn"
+            class="w-full flex items-center gap-3 py-3 text-[#dc2626] hover:text-[#b91c1c]">
+
+         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 rotate-[180deg]">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
+        </svg>
+
+
+            <span>Logout</span>
+
+        </button>
+
+        <form id="mobileLogoutForm"
+            method="POST"
+            action="{{ route('customer.logout') }}"
+            class="hidden">
+            @csrf
+        </form>
+
+    </div>
+
+</div>
+@endauth
+
+@guest('customer')
+
+<a href="{{ route('login') }}"
+    class="flex items-center gap-3 py-4 border-b text-[#131615] hover:text-[#B4771E] text-lg transition-colors duration-300">
+
+    <svg xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-6 h-6">
+
+        <path stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 6a3.75 3.75 0 1 1-7.5 0
+            3.75 3.75 0 0 1 7.5 0ZM4.501
+            20.118a7.5 7.5 0 0 1 14.998 0A17.933
+            17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+    </svg>
+
+    <span>Login</span>
+
+</a>
+
+@endguest
+
+            <a href="{{ url('/') }}" class="block py-4 md:py-5 border-b {{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Home</a>
 
             <!-- Shop By Category -->
             <div class="border-b">

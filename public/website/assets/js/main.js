@@ -442,15 +442,39 @@ function toggleMenu(menuId, iconId){
     menu.classList.toggle("hidden");
 
     if (icon) {
+        // if (iconId === 'shopArrow') {
+        //     setHeaderCategoryArrow(!menu.classList.contains("hidden"), iconId);
+        // } else {
+        //     if (menu.classList.contains("hidden")) {
+        //         icon.innerHTML = '<i class="fa-solid fa-plus"></i>';
+        //     } else {
+        //         icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
+        //     }
+        // }
         if (iconId === 'shopArrow') {
-            setHeaderCategoryArrow(!menu.classList.contains("hidden"), iconId);
-        } else {
-            if (menu.classList.contains("hidden")) {
-                icon.innerHTML = '<i class="fa-solid fa-plus"></i>';
-            } else {
-                icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
-            }
-        }
+
+    setHeaderCategoryArrow(
+        !menu.classList.contains("hidden"),
+        iconId
+    );
+
+} else if (iconId === 'userArrow') {
+
+    if (menu.classList.contains("hidden")) {
+        icon.classList.remove('rotate-180');
+    } else {
+        icon.classList.add('rotate-180');
+    }
+
+} else {
+
+    if (menu.classList.contains("hidden")) {
+        icon.innerHTML = '<i class="fa-solid fa-plus"></i>';
+    } else {
+        icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
+    }
+
+}
     }
 
 }

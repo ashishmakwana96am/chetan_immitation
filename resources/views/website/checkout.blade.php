@@ -28,7 +28,7 @@
                     <div class="border border-[#D5D5D5] bg-white rounded-sm">
                         <!-- Header -->
 
-                        <div class="flex items-center justify-between px-3 sm:px-5 py-[19px] border-b border-[#D5D5D5] flex-row gap-4 flex-wrap">
+                        <div class="flex items-center justify-between px-3 sm:px-3 py-3 border-b border-[#D5D5D5] flex-row gap-4 flex-wrap">
                             <div class="flex items-center gap-2 md:gap-[15px]">
                                 <span
                                     class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
@@ -836,7 +836,7 @@ YOU MAY ALSO LIKE
     <div class="container-1440">
         <!-- Heading -->
 
-        <div class="text-center mb-10 lg:mb-10">
+        <div class="text-center mb-10 lg:mb-7">
             <h2 class="font-moglan hero-title">
                 You May Also Like
             </h2>
