@@ -49,9 +49,11 @@
 
                             <!-- Content -->
                             <div class="flex-1 min-w-0 flex justify-between flex-col">
-                                <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                <div class="flex-1 min-w-0 overflow-hidden">
+                                <h3 class="product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition break-words whitespace-normal">
                                     {{ $item->product->name ?? '' }}
                                 </h3>
+                            </div>
 
                                 <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">

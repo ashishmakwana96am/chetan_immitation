@@ -309,7 +309,7 @@
 <!-- ── ADD/EDIT ADDRESS MODAL (copied from checkout.address) ── -->
 <div id="addressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
     <div class="min-h-full flex items-center justify-center !mt-0 py-5">
-        <div class="relative w-full max-w-[750px] bg-white rounded-[8px] p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5] overflow-y-auto">
+        <div class="relative w-full max-w-[750px] bg-white rounded-[8px] p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5] overflow-y-auto scrollbar-hide">
             
             <!-- Close Button -->
             <button onclick="closeModal()" class="absolute top-4 right-4 md:top-6 md:right-6 text-[35px] leading-none text-[#131615]">
@@ -993,11 +993,20 @@ function editAddr() {
   openModal('addressModal'); 
 }
  
-function openAddrModal() { 
-  editingAddressId = null;
-  document.getElementById('addrModalTitle').textContent = 'Deliver To';
-  resetAddressForm();
-  openModal('addressModal'); 
+function openAddrModal() {
+
+    editingAddressId = null;
+
+    document.getElementById('addrModalTitle').textContent = 'Deliver To';
+
+    resetAddressForm();
+
+    document.getElementById("addressModal").classList.remove("hidden");
+
+    document.documentElement.classList.add("modal-open");
+
+    document.body.classList.add("modal-open");
+
 }
 
 function resetAddressForm() {
