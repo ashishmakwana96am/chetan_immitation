@@ -21,7 +21,7 @@
             <h3 class="text-[#131615] text-2xl font-semibold mb-3">Your wishlist is empty</h3>
             <p class="text-[#757575] text-lg mb-8">Browse our collections and save the pieces you love.</p>
             <a href="{{ route('shop-by-category') }}"
-                class="inline-block bg-[#B4771E] text-white px-8 py-3 text-lg font-medium hover:bg-[#9d6719] transition">
+                class="common-btn inline-flex">
                 Start Shopping
             </a>
         </div>

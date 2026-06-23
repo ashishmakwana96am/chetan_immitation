@@ -25,7 +25,7 @@
 
                     <!-- DELIVERY ADDRESS -->
 
-                    <div class="min-w-0 sticky top-5 border border-[#D5D5D5] bg-white rounded-sm">
+                    <div class="min-w-0 border border-[#D5D5D5] bg-white rounded-sm">
                         <!-- Header -->
 
                         <div class="flex items-center justify-between px-3 sm:px-3 py-3 border-b border-[#D5D5D5] flex-row gap-4 flex-wrap">
@@ -39,8 +39,8 @@
                                 </h3>
                             </div>
                             <button
-                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-base font-medium px-4 md:px-5 h-[35px] transition flex gap-3 md:gap-[9px] items-center rounded-sm"  onclick="openModal()">
-                                <i class="fa-solid fa-plus"></i> Add New
+                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-base font-medium px-4 h-[35px] transition flex gap-3 md:gap-[9px] items-center rounded-sm"  onclick="openModal()">
+                                <i class="fa-solid fa-plus"></i> Add
                             </button>
                         </div>
 <!-- Overlay -->
@@ -58,14 +58,14 @@
 }
 </style>
 <div id="addressModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 overflow-hidden p-4">
-    <div class="min-h-full flex items-center justify-center py-5">
+   class="fixed inset-0 z-50 hidden bg-black/50 overflow-hidden p-4 !mt-0">
+    <div class="min-h-full flex items-center justify-center !mt-0 py-5">
         <!-- Modal Box -->
 
         <div
             class="relative w-full max-w-[750px] bg-white rounded-[8px]
             p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5]
-            overflow-y-auto scrollbar-hide" >
+            overflow-y-auto" >
             <!-- Close -->
 
             <button
@@ -134,6 +134,7 @@
                     type="email"
                     id="addr_email"
                     name="email"
+                    placeholder="Enter Email address"
                     value="{{ auth('customer')->user()->email ?? '' }}"
                     class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="email"></p>
@@ -149,7 +150,7 @@
                     name="address"
                     rows="3"
                     placeholder="Enter Flat/House/Building Name"
-                     class="addr-input w-full text-[#757575] text-base  placeholder:text-base border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y rounded-sm"></textarea>
+                     class="addr-input w-full text-[#757575] text-base min-h-28 placeholder:text-base border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y rounded-sm"></textarea>
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="address"></p>
             </div>
             <!-- City State -->
@@ -291,33 +292,46 @@
 </div>
                         <div id="addressesCardsList">
                             @forelse($addresses as $addr)
-                            <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer bg-white {{ $addr->is_default ? 'active-address default-address-card' : '' }} text-[#131615]" data-address-id="{{ $addr->id }}">
+                            <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] cursor-pointer bg-white border-l-[4px] border-l-transparent last:border-b-0 {{ $addr->is_default ? 'active-address default-address-card' : '' }} text-[#131615]" data-address-id="{{ $addr->id }}">
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                                             <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" {{ $addr->is_default ? 'checked' : '' }} />
-                                            <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon" />
-                                            <span class="text-sm sm:text-base lg:text-xl font-normal text-[#131615]">
+                                            <!-- <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon" /> -->
+                                             @if($addr->type === 'work')
+
+                                                <svg width="19" height="21" viewBox="0 0 19 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M0.75 19.5H17.9375M1.53125 0.75H17.1562M2.3125 0.75V19.5M16.375 0.75V19.5M6.21875 4.65625H7.78125M6.21875 7.78125H7.78125M6.21875 10.9062H7.78125M10.9062 4.65625H12.4687M10.9062 7.78125H12.4687M10.9062 10.9062H12.4687M6.21875 19.5V15.9844C6.21875 15.3375 6.74375 14.8125 7.39062 14.8125H11.2969C11.9437 14.8125 12.4687 15.3375 12.4687 15.9844V19.5" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+
+                                            @else
+                                            
+                                            <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M0.75 10.4211L10.0771 1.09297C10.5354 0.635677 11.2771 0.635677 11.7344 1.09297L21.0625 10.4211M3.09375 8.07734V18.6242C3.09375 19.2711 3.61875 19.7961 4.26562 19.7961H8.5625V14.718C8.5625 14.0711 9.0875 13.5461 9.73437 13.5461H12.0781C12.725 13.5461 13.25 14.0711 13.25 14.718V19.7961H17.5469C18.1937 19.7961 18.7187 19.2711 18.7187 18.6242V8.07734M7 19.7961H15.5937" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+
+                                            @endif
+                                            <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
                                                 Deliver To:
                                             </span>
-                                            <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615] customer-name-phone">
+                                            <span class="font-semibold text-sm sm:text-base lg:text-lg text-[#131615] customer-name-phone">
                                                 {{ $addr->name }}, {{ $addr->phone }}
                                             </span>
                                             @if($addr->is_default)
-                                            <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                                            <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
                                                 Default
                                             </span>
                                             @endif
                                         </div>
-                                        <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 text-[#3D403F] address-text">
+                                        <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
                                             {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}
                                         </p>
                                     </div>
                                     <div class="relative address-menu-container">
-                                        <button class="address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
+                                        <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
                                             <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                                         </button>
-                                        <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
+                                        <!-- <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
                                             @if(!$addr->is_default)
                                             <button onclick="setAddressAsDefault({{ $addr->id }}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">
                                                 Set as Default
@@ -326,6 +340,58 @@
                                             <button onclick="deleteAddress({{ $addr->id }}, event)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
                                                 Delete
                                             </button>
+                                        </div> -->
+                                        <div class="absolute right-0 top-full mt-2 w-[180px]
+                                            bg-white border border-[#D5D5D5]
+                                            rounded-[8px] shadow-[0_4px_20px_rgba(0,0,0,0.12)]
+                                            overflow-hidden z-20 hidden address-dropdown">
+
+                                            <!-- Edit -->
+                                            <button
+                                                onclick="editAddress({{ $addr->id }}, event)"
+                                                class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                                                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12.1767 2.48937L13.5825 1.08271C13.8756 0.789642 14.273 0.625 14.6875 0.625C15.102 0.625 15.4994 0.789642 15.7925 1.08271C16.0856 1.37577 16.2502 1.77325 16.2502 2.18771C16.2502 2.60216 16.0856 2.99964 15.7925 3.29271L6.94333 12.1419C6.50277 12.5822 5.95947 12.9058 5.3625 13.0835L3.125 13.7502L3.79167 11.5127C3.9694 10.9157 4.29303 10.3724 4.73333 9.93187L12.1767 2.48937ZM12.1767 2.48937L14.375 4.68771M13.125 10.4169V14.3752C13.125 14.8725 12.9275 15.3494 12.5758 15.701C12.2242 16.0527 11.7473 16.2502 11.25 16.2502H2.5C2.00272 16.2502 1.52581 16.0527 1.17417 15.701C0.822544 15.3494 0.625 14.8725 0.625 14.3752V5.62521C0.625 5.12793 0.822544 4.65101 1.17417 4.29938C1.52581 3.94775 2.00272 3.75021 2.5 3.75021H6.45833" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Edit
+                                                </span>
+
+                                            </button>
+                                           <div class="mx-3 border-t border-[#D5D5D5]"></div>
+                                            <!-- Delete -->
+                                            <button
+                                                onclick="deleteAddress({{ $addr->id }}, event)"
+                                                class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FFF7F7] transition">
+                                                <svg width="15" height="18" viewBox="0 0 15 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9.78345 6.25043L9.49512 13.7504M5.50512 13.7504L5.21679 6.25043M10.6251 3.2446C11.5949 3.31968 12.5617 3.43003 13.5235 3.57543C13.8085 3.61877 14.0918 3.6646 14.3751 3.71377M13.5235 3.57543L12.6335 15.1446C12.5971 15.6156 12.3843 16.0556 12.0376 16.3765C11.6909 16.6974 11.2359 16.8756 10.7635 16.8754H4.23679C3.76437 16.8756 3.30931 16.6974 2.9626 16.3765C2.6159 16.0556 2.40311 15.6156 2.36679 15.1446L1.47679 3.57543M1.47679 3.57543C1.19179 3.61793 0.908455 3.66377 0.625122 3.71293M1.47679 3.57543C2.43857 3.43003 3.40532 3.31968 4.37512 3.2446M10.6251 3.2446V2.48127C10.6251 1.49793 9.86679 0.677934 8.88346 0.647101C7.96147 0.617633 7.03878 0.617633 6.11679 0.647101C5.13346 0.677934 4.37512 1.49877 4.37512 2.48127V3.2446M10.6251 3.2446C8.54489 3.08383 6.45535 3.08383 4.37512 3.2446" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Remove
+                                                </span>
+
+                                            </button>
+                                            <div class="mx-3 border-t border-[#D5D5D5]"></div>
+                                            @if(!$addr->is_default)
+
+                                            <!-- Set Default -->
+                                            <button
+                                                onclick="setAddressAsDefault({{ $addr->id }}, event)"
+                                                class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                                                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M5.625 8.75L7.5 10.625L10.625 6.25M15.625 8.125C15.625 9.10991 15.431 10.0852 15.0541 10.9951C14.6772 11.9051 14.1247 12.7319 13.4283 13.4283C12.7319 14.1247 11.9051 14.6772 10.9951 15.0541C10.0852 15.431 9.10991 15.625 8.125 15.625C7.14009 15.625 6.16482 15.431 5.25487 15.0541C4.34493 14.6772 3.51814 14.1247 2.8217 13.4283C2.12526 12.7319 1.57281 11.9051 1.1959 10.9951C0.818993 10.0852 0.625 9.10991 0.625 8.125C0.625 6.13588 1.41518 4.22822 2.8217 2.8217C4.22822 1.41518 6.13588 0.625 8.125 0.625C10.1141 0.625 12.0218 1.41518 13.4283 2.8217C14.8348 4.22822 15.625 6.13588 15.625 8.125Z" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Set as Default
+                                                </span>
+
+                                            </button>
+
+                                            @endif
+
                                         </div>
                                     </div>
                                 </div>
@@ -353,7 +419,7 @@
                                 </h3>
                             </div>
                         </div>
-                        <div class="space-y-4">
+                        <div class="">
                             @forelse($cartItems as $item)
                                 @php
                                     $product  = $item->product;
@@ -537,7 +603,7 @@
                             <input type="text" id="couponCodeInput" placeholder="Enter Coupon Code"
                                 value="{{ session('applied_coupon_code') }}"
                                 {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
-                                class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
+                                class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-base placeholder:md:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
                             <button id="couponActionBtn" onclick="handleCouponAction()"
                                 class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm">
                                 {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
@@ -546,34 +612,34 @@
                     </div>
                     <!-- Price Details -->
 
-                <div class="border border-[#D5D5D5] p-4 md:p-5">
-                    <h3 class="text-lg md:text-xl font-medium text-[#131615]">
+                <div class="border border-[#D5D5D5] p-3 md:p-4">
+                    <h3 class="text-lg font-medium text-[#131615]">
                         Price Details
                     </h3>
-                    <div class="border-t border-[#D5D5D5] mt-4 pt-4 space-y-4 text-[14px]">
-                        <div class="flex justify-between text-base sm:text-xl ">
+                    <div class="border-t border-[#D5D5D5] mt-3 pt-3 space-y-3 md:space-y-4 text-[14px]">
+                        <div class="flex justify-between text-base sm:text-lg ">
                             <span class="font-medium text-[#131615]">Subtotal</span>
                             <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
-                        <div class="flex justify-between text-base sm:text-xl {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
+                        <div class="flex justify-between text-base sm:text-lg {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
                             <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
                         </div>
                         {{--
-                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
+                        <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Shipping</span>
                             <span class="font-normal text-[#3D403F]">{{ $shipping > 0 ? '₹' . number_format($shipping, 0) : 'Free' }}</span>
                         </div>
                         --}}
                         {{--
-                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
+                        <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Estimated Tax</span>
                             <span class="font-normal text-[#3D403F]">₹0</span>
                         </div>
                         --}}
                     </div>
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">
-                        <span class="font-medium text-lg md:text-[22px] lg:text-[22px] md:leading-[22px] lg:leading-[24px]">
+                        <span class="font-medium text-lg lg:text-xl">
                             Total
                         </span>
                         <span id="checkoutTotalValue" class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
@@ -581,7 +647,7 @@
                         </span>
                     </div>
                     <button id="placeOrderBtn" onclick="startPaymentFlow()"
-                        class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-7">
+                        class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-5 md:mt-7">
                        <span>Place Order</span>
                     </button>
                 </div>
@@ -589,16 +655,13 @@
 
 <div
     id="successModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
-    <div class="min-h-full flex items-center justify-center py-5">
+    class="fixed inset-0 z-40 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
 
         <div
-            class="relative w-full max-w-[720px]
-            bg-white rounded-[8px]
-            p-4 sm:p-6 md:p-[33px]
-            max-h-[90vh]
-            overflow-y-auto">
+            class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-6 max-h-[90vh]
+            overflow-y-auto scrollbar-hide">
             <!-- Close -->
 
             <button
@@ -609,72 +672,78 @@
             <!-- Success Icon -->
 
             <div class="flex justify-center">
-                    <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[200px] md:w-auto">
+                    <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[80px] md:w-[90px] text-red-500">
             </div>
             <!-- Heading -->
 
             <h2
-                class="text-center font-moglan
-                text-[30px]
-                sm:text-[40px]
-                md:text-[50px]
-                leading-tight md:leading-[50px]
-                text-[#131615]
-                mt-4">
+                class="text-center font-moglan text-[30px] sm:text-[40px]
+                leading-tight text-[#131615] mt-2">
                 Order Placed Successfully!
             </h2>
             <!-- Text -->
 
-            <p
-                class="text-center
-                text-[#3D403F]
-                text-base
-                md:text-xl font-normal
-                max-w-[520px]
-                mx-auto
-                mt-5">
+            <p class="text-center text-[#3D403F] text-sm md:text-base font-normal
+                max-w-[520px] mx-auto mt-3">
                 Thank you for shopping with Chetan Imitation.
                 Your order has been confirmed and is now being processed.
             </p>
             <!-- Order Details -->
 
-            <div class="border border-[#D5D5D5] mt-8 p-[20px] md:p-[30px]">
+            <div class="border border-[#D5D5D5] mt-4 p-4 rounded-sm">
                 <!-- Row -->
 
-                <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-5">
+                <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-3">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class=" text-lg sm:text-xl font-semibold">
+                        <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center">
+                        <svg width="16" height="20" viewBox="0 0 19 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18.25 14.75V11.6875C18.25 10.6432 17.8352 9.64169 17.0967 8.90327C16.3583 8.16484 15.3568 7.75 14.3125 7.75H12.5625C12.2144 7.75 11.8806 7.61172 11.6344 7.36558C11.3883 7.11944 11.25 6.7856 11.25 6.4375V4.6875C11.25 3.64321 10.8352 2.64169 10.0967 1.90327C9.35831 1.16484 8.35679 0.75 7.3125 0.75H5.125M5.125 15.625H13.875M5.125 19.125H9.5M7.75 0.75H2.0625C1.338 0.75 0.75 1.338 0.75 2.0625V22.1875C0.75 22.912 1.338 23.5 2.0625 23.5H16.9375C17.662 23.5 18.25 22.912 18.25 22.1875V11.25C18.25 8.46523 17.1438 5.79451 15.1746 3.82538C13.2055 1.85625 10.5348 0.75 7.75 0.75Z" stroke="#B4771E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
                             Order ID
                         </span>
                     </div>
-                    <span id="successOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold">
+                    <span id="successOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold text-end">
                         -
                     </span>
                 </div>
                 <!-- Row -->
 
-                <div class="flex justify-between items-center border-b border-[#D5D5D5] py-5">
+                <div class="flex justify-between items-center border-b border-[#D5D5D5] py-2 md:py-3">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class=" text-lg sm:text-xl font-semibold">
+                      <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center text-[#B4771E]">
+                        
+                    <svg width="16" height="16" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14.75 6.875H7.75M14.75 10.375H7.75M11.25 17.375L7.75 13.875H9.5C10.4283 13.875 11.3185 13.5063 11.9749 12.8499C12.6313 12.1935 13 11.3033 13 10.375C13 9.44674 12.6313 8.5565 11.9749 7.90013C11.3185 7.24375 10.4283 6.875 9.5 6.875M21.75 11.25C21.75 12.6289 21.4784 13.9943 20.9507 15.2682C20.4231 16.5421 19.6496 17.6996 18.6746 18.6746C17.6996 19.6496 16.5421 20.4231 15.2682 20.9507C13.9943 21.4784 12.6289 21.75 11.25 21.75C9.87112 21.75 8.50574 21.4784 7.23182 20.9507C5.95791 20.4231 4.80039 19.6496 3.82538 18.6746C2.85036 17.6996 2.07694 16.5421 1.54926 15.2682C1.02159 13.9943 0.75 12.6289 0.75 11.25C0.75 8.46523 1.85625 5.79451 3.82538 3.82538C5.79451 1.85625 8.46523 0.75 11.25 0.75C14.0348 0.75 16.7055 1.85625 18.6746 3.82538C20.6438 5.79451 21.75 8.46523 21.75 11.25Z" stroke="#B4771E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
 Order Amount
                         </span>
                     </div>
-                    <span id="successOrderAmount" class="text-[#3D403F] text-base sm:text-lg font-semibold">
+                    <span id="successOrderAmount" class="text-[#3D403F] text-base font-semibold text-end">
                         ₹{{ number_format($total, 0) }}
                     </span>
                 </div>
                 <!-- Row -->
 
-                <div class="flex justify-between items-center py-5">
+                <div class="flex justify-between items-center pt-3">
                     <div class="flex items-center gap-[15px]">
-                      <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class=" text-lg sm:text-xl font-semibold">
+                      <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center">
+                        
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+                    </svg>
+
+
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
                          Estimated Delivery
                         </span>
                     </div>
-                    <span class="text-[#3D403F] text-base sm:text-lg">
+                    <span class="text-[#3D403F] text-base text-end">
                         4–7 Business Days
                     </span>
                 </div>
@@ -682,10 +751,21 @@ Order Amount
             <!-- Info -->
 
             <div
-                class="bg-[#B4771E]/10
-                p-5 rounded-[5px]  mt-4
-                flex gap-[15px] items-start">
-                <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
+                class="bg-[#B4771E]/10 p-4 rounded-[5px] mt-3 flex gap-[15px] items-start">
+               
+               <div>
+                 <svg width="40" height="40" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_292_2508)">
+                <path d="M29 0.150391C44.9078 0.150391 57.8496 13.0922 57.8496 29C57.8496 44.9078 44.9078 57.8496 29 57.8496C13.0922 57.8496 0.150391 44.9078 0.150391 29C0.150391 13.0922 13.0922 0.150391 29 0.150391ZM29 2.56836C14.4257 2.56836 2.56836 14.4257 2.56836 29C2.56836 43.5743 14.4257 55.4316 29 55.4316C43.5743 55.4316 55.4316 43.5743 55.4316 29C55.4316 14.4257 43.5743 2.56836 29 2.56836ZM15.3711 17.1992H42.6289C44.3692 17.1992 45.7852 18.6152 45.7852 20.3555V37.6445C45.7852 39.3848 44.3692 40.8018 42.6289 40.8018H15.3711C13.6307 40.8018 12.2139 39.3848 12.2139 37.6445V20.3555C12.2139 18.6152 13.6308 17.1992 15.3711 17.1992ZM43.123 21.0283L29.752 31.6465C29.5319 31.8214 29.2659 31.9082 29 31.9082C28.7342 31.9082 28.4682 31.8212 28.248 31.6465L14.876 21.0283L14.6328 20.835V37.6445C14.633 37.8401 14.7113 38.0278 14.8496 38.166C14.9879 38.3042 15.1756 38.3826 15.3711 38.3828H42.6289C42.8244 38.3826 43.0121 38.3043 43.1504 38.166C43.2887 38.0278 43.367 37.8401 43.3672 37.6445V20.835L43.123 21.0283ZM17.3262 19.8848L28.9062 29.0811L29 29.1553L29.0938 29.0811L40.6729 19.8848L41.0098 19.6172H16.9902L17.3262 19.8848Z" fill="#B4771E" stroke="#F8F2E9" stroke-width="0.3"/>
+                </g>
+                <defs>
+                <clipPath id="clip0_292_2508">
+                <rect width="58" height="58" fill="white"/>
+                </clipPath>
+                </defs>
+                </svg>
+               </div>
+
                 <p class="text-[#131615] text-base md:text-lg">
                     A confirmation email and order details have been sent to your
                     registered email address and mobile number.
@@ -695,17 +775,12 @@ Order Amount
 
             <button
                 onclick="window.location.href='{{ route('home') }}'"
-                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
-                text-base md:text-[22px] md:leading-[24px] mt-10">
+                class="common-btn mt-5 w-full">
                 View My Orders
             </button>
             <button
                 onclick="window.location.href='{{ route('shop-by-category') }}'"
-                class="w-full h-[52px] md:h-[68px]
-                border border-[#131615]
-                text-[#131615]
-                text-base md:text-[22px] md:leading-[24px]
-                mt-[17px]">
+                class="common-btn mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Continue Shopping
             </button>
         </div>
@@ -715,15 +790,12 @@ Order Amount
 <!-- Failure Modal -->
 <div
     id="failureModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
-    <div class="min-h-full flex items-center justify-center py-5">
+    class="fixed inset-0 z-40 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
         <div
-            class="relative w-full max-w-[720px]
-            bg-white rounded-[8px]
-            p-4 sm:p-6 md:p-[33px]
-            max-h-[90vh]
-            overflow-y-auto">
+            class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px]
+            max-h-[90vh] overflow-y-auto scrollbar-hide">
             <!-- Close -->
 
             <button
@@ -741,34 +813,21 @@ Order Amount
             <!-- Heading -->
 
             <h2
-                class="text-center font-moglan
-                text-[30px]
-                sm:text-[40px]
-                md:text-[50px]
-                leading-tight md:leading-[50px]
-                text-red-600
-                mt-4">
+                class=" text-red-600 font-moglan text-[30px] sm:text-[40px]
+                leading-tight mt-2 text-center">
                 Payment Failed!
             </h2>
             <!-- Text -->
 
-            <p
-                class="text-center
-                text-[#3D403F]
-                text-base
-                md:text-xl font-normal
-                max-w-[520px]
-                mx-auto
-                mt-5">
+            <p class="text-center text-[#3D403F] text-sm md:text-base font-normal
+                max-w-[520px] mx-auto mt-3">
                 We were unable to process your payment. Please try again or select a different payment option.
             </p>
             <!-- Error Info -->
 
             <div
-                class="bg-red-50 border border-red-200
-                p-5 rounded-[5px] mt-8
-                flex gap-[15px] items-start">
-                <p id="failureReason" class="text-red-700 text-base md:text-lg">
+                class="bg-red-50 border border-red-200 p-3 rounded-[5px] mt-4 flex gap-[15px] items-start">
+                <p id="failureReason" class="text-red-700 text-base">
                     The payment request was cancelled or declined.
                 </p>
             </div>
@@ -776,17 +835,12 @@ Order Amount
 
             <button
                 onclick="retryPaymentFlow()"
-                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
-                text-base md:text-[22px] md:leading-[24px] mt-10">
+                class="w-full common-btn mt-7">
                 Retry Payment
             </button>
             <button
                 onclick="closeFailureModal()"
-                class="w-full h-[52px] md:h-[68px]
-                border border-[#131615]
-                text-[#131615]
-                text-base md:text-[22px] md:leading-[24px]
-                mt-[17px]">
+                class="common-btn mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Cancel
             </button>
         </div>
@@ -837,7 +891,7 @@ Order Amount
 YOU MAY ALSO LIKE
 ========================= -->
 @if(isset($relatedProducts) && $relatedProducts->isNotEmpty())
-<section class="section-space">
+<section class="section-space-bottom">
     <div class="container-1440">
         <!-- Heading -->
 
@@ -879,15 +933,18 @@ function resetAddressForm() {
     clearAddrErrors();
 }
 
-function openModal(){
+function openModal() {
     modal.classList.remove("hidden");
-    document.body.classList.add("overflow-hidden");
+
+    document.documentElement.classList.add("modal-open"); // html
+    document.body.classList.add("modal-open"); // body
 }
 
-function closeModal(){
+function closeModal() {
     modal.classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
-    resetAddressForm();
+
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
 }
 
 // overlay click
@@ -1027,7 +1084,7 @@ function createAddressCardHtml(addr) {
     const isChecked = addr.is_default ? 'checked' : '';
     const imgName = addr.type === 'work' ? 'home1.png' : 'home.png';
     const defaultBadge = addr.is_default ? `
-        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+        <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
             Default
         </span>
     ` : '';
@@ -1038,26 +1095,26 @@ function createAddressCardHtml(addr) {
     ` : '';
 
     return `
-        <div class="address-card border-b border-[#D5D5D5] px-5 py-5 sm:py-[30px] cursor-pointer bg-white text-[#131615] ${isActive}" data-address-id="${addr.id}">
+        <div class="address-card border-b border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 cursor-pointer bg-white text-[#131615] ${isActive}" data-address-id="${addr.id}">
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                         <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} />
                         <img src="{{ asset('website/assets/images') }}/${imgName}" class="address-icon" />
-                        <span class="text-sm sm:text-base lg:text-xl font-normal text-[#131615]">
+                        <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
                             Deliver To:
                         </span>
-                        <span class="font-semibold text-sm sm:text-base lg:text-xl text-[#131615] customer-name-phone">
+                        <span class="font-semibold text-sm sm:text-base lg:text-lg text-[#131615] customer-name-phone">
                             ${addr.name}, ${addr.phone}
                         </span>
                         ${defaultBadge}
                     </div>
-                    <p class="mt-[19px] text-sm sm:text-lg leading-5 sm:leading-6 text-[#3D403F] address-text">
+                    <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
                         ${addr.address}, ${addr.city}, ${addr.state}
                     </p>
                 </div>
                 <div class="relative address-menu-container">
-                    <button class="address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
+                    <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
                         <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                     </button>
                     <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
@@ -1161,7 +1218,7 @@ function setAddressAsDefault(addressId, event) {
                 const namePhoneSpan = newDefault.querySelector('.customer-name-phone');
                 if (namePhoneSpan && !newDefault.querySelector('.default-badge')) {
                     namePhoneSpan.insertAdjacentHTML('afterend', `
-                        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                        <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
                             Default
                         </span>
                     `);
