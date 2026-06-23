@@ -674,7 +674,7 @@ function goOrderPage(n) { orderPage=n; renderOrders(); }
 function filterOrders() { orderPage=1; renderOrders(); }
  
 function viewOrder(id) {
-  window.location.href = '/my-profile/order/' + id;
+  window.location.href = '{{ route('customer.profile.view-order', ['id' => '__ID__']) }}'.replace('__ID__', id);
 }
  
 // ─────────────────────────────────────────────
@@ -1272,7 +1272,7 @@ function openModal(id) {
     document.body.classList.add('overflow-hidden');
   }
 }
-function closeModal() {
+function closeModal(id) {
   document.getElementById('addressModal').classList.add('hidden');
   document.getElementById('orderModal').classList.add('hidden');
   document.getElementById('orderModal').classList.remove('flex');
