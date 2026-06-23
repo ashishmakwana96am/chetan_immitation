@@ -461,9 +461,13 @@ function toggleMenu(menuId, iconId){
 } else if (iconId === 'userArrow') {
 
     if (menu.classList.contains("hidden")) {
-        icon.classList.remove('rotate-180');
+
+        icon.style.transform = "rotate(0deg)";
+
     } else {
-        icon.classList.add('rotate-180');
+
+        icon.style.transform = "rotate(180deg)";
+
     }
 
 } else {

@@ -423,8 +423,8 @@
     </div>
 
         <i id="userArrow"
-            class="fa-solid fa-angle-down transition duration-300">
-        </i>
+            class="fa-solid fa-angle-down transition-transform duration-300">
+            </i>
 
     </button>
 
