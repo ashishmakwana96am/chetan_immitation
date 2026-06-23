@@ -71,6 +71,16 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class);
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
+    }
+
+    public function scopeWithReviewStats($query)
+    {
+        return $query->withCount('reviews')->withAvg('reviews', 'rating');
+    }
+
     public function getVariantStock($locationId = null)
     {
         $variants = $this->variants()->with('attributeValue.attribute')->get();

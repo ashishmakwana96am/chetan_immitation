@@ -146,7 +146,8 @@ class ShopCategoryController extends Controller
 
         $query = $this->buildFilteredQuery($slug, true)
             ->with('primaryImage', 'variants.attributeValue')
-            ->withSum('inventories', 'quantity');
+            ->withSum('inventories', 'quantity')
+            ->withReviewStats();
 
         $filters = session('shop_filters', []);
         $sort = $filters['sort'] ?? 'default';
@@ -176,7 +177,7 @@ class ShopCategoryController extends Controller
                 $query->latest('created_at');
                 break;
             case 'popular':
-                $query->inRandomOrder();
+                $query->orderByDesc('reviews_count');
                 break;
             default:
                 $query->latest();

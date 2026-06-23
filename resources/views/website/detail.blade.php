@@ -111,15 +111,13 @@
                     {{ $product->name }}
                 </h1>
 
+                @php
+                    $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
+                    $reviewCount = (int) ($product->reviews_count ?? 0);
+                @endphp
                 <div class="flex items-center gap-2 mt-3">
-                    <div class="flex text-[#B4771E] text-[14px]">
-                       <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
-                       <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
-                       <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
-                       <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
-                       <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
-                    </div>
-                    <span class="text-[#757575] text-base md:text-xl">(0)</span>
+                    @include('website.partials.star-rating', ['rating' => $avgRating, 'size' => 'md'])
+                    <span class="text-[#757575] text-base md:text-xl">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
                 </div>
 
                 @php
@@ -276,62 +274,44 @@
 
 </section>
 
-<!-- <section>
-
+@if($topReviews->isNotEmpty())
+<section class="section-space-bottom">
     <div class="container-1440">
-
         <div class="text-center mb-10 lg:mb-14">
             <h2 class="font-moglan hero-title">Customer Reviews & Ratings</h2>
             <p class="hero-para">See what our customers are saying about this product.</p>
         </div>
 
         <div class="space-y-5">
-
+            @foreach($topReviews as $review)
+            @php
+                $authorName = $review->customer->display_name ?: $review->customer->name;
+                $authorAvatar = $review->customer->avatar
+                    ? asset($review->customer->avatar)
+                    : 'https://ui-avatars.com/api/?name=' . urlencode($authorName) . '&background=B4771E&color=fff&size=120&bold=true';
+            @endphp
             <div class="border border-[#D5D5D5] p-4 lg:p-5">
-                <h4 class="text-[#131615] text-lg md:text-xl font-medium">Friday, May 15, 2026</h4>
-                <p class="mt-[14px] md:mt-[17px] text-[#3D403F] text-base md:text-lg">The necklace looked stunning and elegant for my wedding day.</p>
+                <h4 class="text-[#131615] text-lg md:text-xl font-medium">{{ $review->created_at->format('l, F j, Y') }}</h4>
+                @if($review->comment)
+                <p class="mt-[14px] md:mt-[17px] text-[#3D403F] text-base md:text-lg">{{ $review->comment }}</p>
+                @endif
                 <div class="border-t border-[#e3e3e3] mt-4 md:mt-5 pt-4">
                     <div class="flex items-center gap-4">
-                        <img src="{{ asset('website/assets/images/star1.jpg') }}" alt="" class="w-[60px] h-[60px] rounded-full">
+                        <img src="{{ $authorAvatar }}" alt="{{ $authorName }}" class="w-[60px] h-[60px] rounded-full object-cover">
                         <div>
-                            <h5 class="text-[#131615] text-lg md:text-xl">Meera Patel</h5>
-                            <div class="flex mt-1 text-[#B4771E] text-[18px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="" class="w-full max-w-[25px]">
+                            <h5 class="text-[#131615] text-lg md:text-xl">{{ $authorName }}</h5>
+                            <div class="flex mt-1">
+                                @include('website.partials.star-rating', ['rating' => $review->rating, 'size' => 'lg'])
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="border border-[#D5D5D5] p-4 lg:p-5">
-                <h4 class="text-[#131615] text-lg md:text-xl font-medium">Thursday, May 28, 2026</h4>
-                <p class="mt-[14px] md:mt-[17px] text-[#3D403F] text-base md:text-lg">The necklace exceeded my expectations with its elegant design, premium finishing, and beautiful detailing.</p>
-                <div class="border-t border-[#e3e3e3] mt-4 md:mt-5 pt-4">
-                    <div class="flex items-center gap-4">
-                        <img src="{{ asset('website/assets/images/star2.jpg') }}" alt="" class="w-[60px] h-[60px] rounded-full object-cover">
-                        <div>
-                            <h5 class="text-[#131615] text-lg md:text-xl">Anjali Verma</h5>
-                            <div class="flex mt-1 text-[#B4771E] text-[18px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="" class="w-full max-w-[25px]">
-                               <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="" class="w-full max-w-[25px]">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            @endforeach
         </div>
-
     </div>
-
-</section> -->
+</section>
+@endif
 
 <!-- You May Also Like -->
 <section class="section-space-bottom">

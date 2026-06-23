@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Models\CustomerAddress;
 use App\Models\Order;
+use App\Models\ProductReview;
 
 class ProfileController extends Controller
 {
@@ -38,24 +39,69 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update customer avatar photo.
+     */
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
+        ]);
+
+        $customer = $this->customer();
+
+        if ($customer->avatar) {
+            $oldPath = public_path($customer->avatar);
+            if (file_exists($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+
+        $avatarsDir = public_path('avatars');
+        if (!is_dir($avatarsDir)) {
+            mkdir($avatarsDir, 0755, true);
+        }
+
+        $filename     = 'avatar_' . $customer->id . '_' . time() . '.' . $request->file('avatar')->getClientOriginalExtension();
+        $request->file('avatar')->move($avatarsDir, $filename);
+        $relativePath = 'avatars/' . $filename;
+
+        $customer->update(['avatar' => $relativePath]);
+
+        return response()->json([
+            'status'     => 'success',
+            'message'    => 'Profile photo updated successfully.',
+            'avatar_url' => asset($relativePath) . '?t=' . time(),
+        ]);
+    }
+
+    /**
      * Update customer profile details.
      */
     public function updateProfile(Request $request)
     {
         $customer = $this->customer();
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20'],
+            'name'         => ['required', 'string', 'max:255'],
+            'display_name' => ['nullable', 'string', 'max:255'],
+            'phone'        => ['required', 'string', 'max:20'],
         ]);
+
+        $name        = trim($request->name);
+        $displayName = trim((string) $request->input('display_name', ''));
 
         $customer->update([
-            'name' => $request->name,
-            'phone' => $request->phone,
+            'name'         => $name,
+            'display_name' => ($displayName !== '' && $displayName !== $name) ? $displayName : null,
+            'phone'        => $request->phone,
         ]);
 
+        $customer->refresh();
+
         return response()->json([
-            'status' => 'success',
-            'message' => 'Profile details updated successfully.'
+            'status'       => 'success',
+            'message'      => 'Profile details updated successfully.',
+            'name'         => $customer->name,
+            'display_name' => $customer->display_name,
         ]);
     }
 
@@ -108,6 +154,11 @@ class ProfileController extends Controller
             ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress'])
             ->firstOrFail();
 
-        return view('website.view-order', compact('order'));
+        $reviewsByProduct = ProductReview::where('customer_id', $customer->id)
+            ->where('order_id', $order->id)
+            ->get()
+            ->keyBy('product_id');
+
+        return view('website.view-order', compact('order', 'reviewsByProduct'));
     }
 }

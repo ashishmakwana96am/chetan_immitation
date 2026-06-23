@@ -2,8 +2,12 @@
     if (isset($products)) {
         if ($products instanceof \Illuminate\Pagination\AbstractPaginator || $products instanceof \Illuminate\Pagination\LengthAwarePaginator) {
             $products->getCollection()->loadMissing('variants.attributeValue.attribute');
+            $products->getCollection()->loadCount('reviews')->loadAvg('reviews', 'rating');
         } elseif (method_exists($products, 'loadMissing')) {
             $products->loadMissing('variants.attributeValue.attribute');
+            if (method_exists($products, 'loadCount')) {
+                $products->loadCount('reviews')->loadAvg('reviews', 'rating');
+            }
         }
     }
 @endphp
@@ -52,45 +56,13 @@
         <div class="flex justify-between flex-col  h-full">
             <div>
                 <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
+                @php
+                    $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
+                    $reviewCount = (int) ($product->reviews_count ?? 0);
+                @endphp
                 <div class="flex items-center gap-1 mt-[9px] mb-1">
-                    <div class="text-[#D5D5D5] text-base flex">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                    </div>
-                    <span class="text-xs text-[#757575]">(0)</span>
+                    @include('website.partials.star-rating', ['rating' => $avgRating, 'size' => 'sm'])
+                    <span class="text-xs text-[#757575]">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
                 </div>
                 <div class="flex justify-between flex-wrap gap-2">
                         <div class="mt-1 flex items-center gap-1">

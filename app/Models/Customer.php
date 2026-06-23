@@ -11,9 +11,11 @@ class Customer extends Authenticatable
 
     protected $fillable = [
         'name',
+        'display_name',
         'phone',
         'email',
         'password',
+        'avatar',
         'is_website',
         'status',
         'otp',
@@ -47,5 +49,10 @@ class Customer extends Authenticatable
     public function addresses()
     {
         return $this->hasMany(CustomerAddress::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
     }
 }

@@ -178,11 +178,13 @@
         <div>
           <!-- Avatar -->
           <div class="relative w-[90px] md:w-[120px] h-[90px] md:h-[120px] mb-6">
-            <img id="avatarImg" src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=160&q=80"
+            <img id="avatarImg"
+              src="{{ auth('customer')->user()->avatar ? asset(auth('customer')->user()->avatar) : '' }}"
+              onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode(auth('customer')->user()->name) }}&background=B4771E&color=fff&size=120&bold=true'"
               class="w-[90px] md:w-[120px] h-[90px] md:h-[120px] rounded-full object-cover border-2 border-gray-200" />
             <label class="absolute bottom-0 right-0 w-[30px] h-[30px] bg-[#B4771E] rounded-full flex items-center justify-center cursor-pointer">
               <span class="text-white text-sm leading-none">✎</span>
-              <input type="file" accept="image/*" class="hidden" onchange="changeAvatar(event)" />
+              <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="changeAvatar(event)" />
             </label>
           </div>
  
@@ -196,9 +198,13 @@
             </div>
             <div>
               <label class="block text-base md:text-lg font-medium text-[#131615] mb-1.5">Display name</label>
-              <input type="text" id="acctDisplayName" value="{{ auth('customer')->user()->name }}"
+              <input type="text" id="acctDisplayName"
+                value="{{ auth('customer')->user()->display_name ?: auth('customer')->user()->name }}"
+                data-custom="{{ auth('customer')->user()->display_name ? '1' : '0' }}"
+                placeholder="Enter your display name"
                 class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575]" />
-              <p class="text-sm md:text-base text-[#3D403F]">This will be how your name will be displayed in the account section and in reviews</p>
+              <p class="text-sm md:text-base text-[#3D403F] mt-1">This will be how your name will be displayed in the account section and in reviews</p>
+              <p class="field-error text-sm text-red-600 mt-1 hidden" id="acctDisplayName-error"></p>
             </div>
             <div>
               <label class="block text-base md:text-lg font-medium text-[#131615] mb-1.5">Email address</label>
@@ -500,6 +506,8 @@ const orders = [
       if ($o->items->count() > 1) {
           $productName .= ' + ' . ($o->items->count() - 1) . ' more item(s)';
       }
+
+      $totalQty = $o->items->sum('quantity');
       
       $statusStr = 'Pending';
       if ($o->status == \App\Models\Order::STATUS_APPROVE) {
@@ -522,6 +530,7 @@ const orders = [
       mrp: {{ $o->final_amount ?? 0 }},
       orderDate: @json($o->created_at->format('d M Y')),
       deliveryDate: @json($o->status == \App\Models\Order::STATUS_DELIVERED && $o->updated_at ? $o->updated_at->format('d M Y') : '-'),
+      quantity: {{ $totalQty }},
       status: @json($statusStr),
       img: @json($productImg)
     },
@@ -612,6 +621,10 @@ function getFilteredOrders() {
   });
 }
  
+function orderDetailUrl(id) {
+  return '{{ route('customer.profile.view-order', ['id' => '__ID__']) }}'.replace('__ID__', id);
+}
+
 function renderOrders() {
   const filtered = getFilteredOrders();
   const total = filtered.length;
@@ -629,16 +642,16 @@ function renderOrders() {
       <div class="border border-[#D5D5D5] p-4 bg-white">
         <div class="flex flex-col sm:flex-row gap-4">
             <!-- Product Image -->
-            <div class="group relative shrink-0 sm:w-[190px] sm:h-[190px] overflow-hidden cursor-pointer">
+            <a href="${orderDetailUrl(o.id)}" class="group relative shrink-0 sm:w-[190px] sm:h-[190px] overflow-hidden block">
                 <img
                     src="${o.img}"
                     alt="${o.name}"
                     class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
-            </div>
+            </a>
             <!-- Product Details -->
             <div class="flex-1 min-w-0 flex justify-between flex-col">
-                <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                    ${o.name}
+                <h3 class="block product-title text-base md:text-[22px] font-semibold w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <a href="${orderDetailUrl(o.id)}" class="text-[#131615] hover:text-[#B4771E] transition">${o.name}</a>
                 </h3>
                 <!-- Price + Status -->
                 <div class="flex justify-between items-center mt-[23px]">
@@ -668,6 +681,14 @@ function renderOrders() {
                         </div>
                         <div class="flex text-base">
                            <span class="font-medium text-[#131615] w-[120px]">
+                                Quantity:
+                            </span>
+                            <span class="text-[#757575] ml-2">
+                                ${o.quantity}
+                            </span>
+                        </div>
+                        <div class="flex text-base">
+                           <span class="font-medium text-[#131615] w-[120px]">
                                 Order Date:
                             </span>
                             <span class="text-[#757575] ml-2">
@@ -693,6 +714,15 @@ function renderOrders() {
     `).join('');
   }
   renderOrderPagination(totalPages);
+}
+
+function scrollToOrderList() {
+  const listEl = document.getElementById('orderList');
+  if (!listEl || !listEl.firstElementChild) return;
+
+  const yOffset = -150;
+  const y = listEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
 }
  
 function renderOrderPagination(totalPages) {
@@ -759,7 +789,7 @@ function renderOrderPagination(totalPages) {
     </nav>
   `;
 }
-function goOrderPage(n) { orderPage=n; renderOrders(); }
+function goOrderPage(n) { orderPage = n; renderOrders(); scrollToOrderList(); }
 function filterOrders() { orderPage=1; renderOrders(); }
  
 function viewOrder(id) {
@@ -1184,12 +1214,66 @@ function saveCustomerAddress(e) {
 // ACCOUNT DETAILS
 // ─────────────────────────────────────────────
 function changeAvatar(e) {
-  const file=e.target.files[0]; if(!file) return;
-  const r=new FileReader(); r.onload=ev=>document.getElementById('avatarImg').src=ev.target.result; r.readAsDataURL(file);
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Show preview immediately
+  const reader = new FileReader();
+  reader.onload = ev => document.getElementById('avatarImg').src = ev.target.result;
+  reader.readAsDataURL(file);
+
+  // Upload to server
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  fetch('{{ route('customer.profile.avatar') }}', {
+    method: 'POST',
+    headers: {
+      'X-CSRF-TOKEN': getCsrfToken(),
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    },
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'success') {
+      // Set the persisted URL so page refresh also shows correct image
+      document.getElementById('avatarImg').src = data.avatar_url;
+      document.getElementById('avatarFileInput').value = '';
+      if (window.showWishlistToast) window.showWishlistToast(data.message || 'Profile photo updated!');
+    } else {
+      if (window.showWishlistToast) window.showWishlistToast(data.message || 'Failed to update photo.', false);
+    }
+  })
+  .catch(() => {
+    if (window.showWishlistToast) window.showWishlistToast('Something went wrong uploading photo.', false);
+  });
+}
+
+function syncDisplayNameField() {
+  const nameInput = document.getElementById('acctName');
+  const displayInput = document.getElementById('acctDisplayName');
+  if (!nameInput || !displayInput || displayInput.dataset.custom === '1') return;
+  displayInput.value = nameInput.value.trim();
+}
+
+function setDisplayNameCustomized(isCustom) {
+  const displayInput = document.getElementById('acctDisplayName');
+  if (displayInput) displayInput.dataset.custom = isCustom ? '1' : '0';
+}
+
+function updateNavbarCustomerName(name, displayName) {
+  const shownName = (displayName && displayName.trim()) ? displayName.trim() : name;
+  const navName = document.getElementById('navbarCustomerName');
+  if (navName) navName.textContent = shownName;
+  const mobileNavName = document.getElementById('mobileNavbarCustomerName');
+  if (mobileNavName) mobileNavName.textContent = shownName;
 }
 
 function saveAccount(btn) {
   const name = document.getElementById('acctName').value.trim();
+  const displayName = document.getElementById('acctDisplayName').value.trim();
   const phone = document.getElementById('acctPhone').value.trim();
   const currentPassword = document.getElementById('pw1').value.trim();
   const newPassword = document.getElementById('pw2').value.trim();
@@ -1222,11 +1306,18 @@ function saveAccount(btn) {
       'X-Requested-With': 'XMLHttpRequest',
       'Accept': 'application/json'
     },
-    body: JSON.stringify({ name, phone })
+    body: JSON.stringify({ name, display_name: displayName, phone })
   })
   .then(r => r.json())
   .then(data => {
     if (data.status === 'success') {
+      if (data.name) {
+        document.getElementById('acctName').value = data.name;
+      }
+      const shownDisplayName = data.display_name || data.name || name;
+      document.getElementById('acctDisplayName').value = shownDisplayName;
+      setDisplayNameCustomized(!!data.display_name);
+      updateNavbarCustomerName(data.name || name, data.display_name);
       // 2. If password change is requested
       if (newPassword || currentPassword || confirmPassword) {
         if (!currentPassword) {
@@ -1333,6 +1424,17 @@ function showFieldError(id, msg) {
 
 // Bind password togglers (pure JS)
 document.addEventListener('DOMContentLoaded', () => {
+  const nameInput = document.getElementById('acctName');
+  const displayInput = document.getElementById('acctDisplayName');
+
+  if (nameInput) {
+    nameInput.addEventListener('input', syncDisplayNameField);
+  }
+
+  if (displayInput) {
+    displayInput.addEventListener('input', () => setDisplayNameCustomized(true));
+  }
+
   document.querySelectorAll('.toggle-password').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();

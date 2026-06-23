@@ -18,6 +18,7 @@ class HomeController extends Controller
         $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->inRandomOrder()
             ->limit(8)
             ->get();
@@ -25,6 +26,7 @@ class HomeController extends Controller
         $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->latest()
             ->limit(4)
             ->get();
@@ -117,7 +119,14 @@ class HomeController extends Controller
             ->where('status', Product::STATUS_ACTIVE)
             ->with('primaryImage', 'images', 'variants.attributeValue.attribute', 'category', 'subCategory')
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->firstOrFail();
+
+        $topReviews = $product->reviews()
+            ->with('customer')
+            ->latest()
+            ->limit(2)
+            ->get();
 
         $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
             ->where('id', '!=', $product->id)
@@ -128,6 +137,7 @@ class HomeController extends Controller
             })
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->inRandomOrder()
             ->limit(4)
             ->get();
@@ -149,6 +159,6 @@ class HomeController extends Controller
             }
         }
 
-        return view('website.detail', compact('product', 'relatedProducts', 'wishlistItem'));
+        return view('website.detail', compact('product', 'relatedProducts', 'wishlistItem', 'topReviews'));
     }
 }

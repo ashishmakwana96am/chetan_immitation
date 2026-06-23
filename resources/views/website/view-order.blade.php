@@ -76,8 +76,8 @@
                                     </p>
 
                                     <p class="text-base flex flex-wrap">
-                                        <span class="font-medium text-[#131615] w-[120px]">Color:</span>
-                                        <span class="text-[#757575] ml-2">Gold Finish</span>
+                                        <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
+                                        <span class="text-[#757575] ml-2">{{ $item->quantity }}</span>
                                     </p>
 
                                     <p class="text-base flex flex-wrap">
@@ -185,61 +185,64 @@
                             </div>
                         </div>
                     </div>
+
+                    @if($order->status == \App\Models\Order::STATUS_DELIVERED && $item->product)
+                    @php
+                        $existingReview = $reviewsByProduct->get($item->product_id);
+                        $reviewAuthorName = auth('customer')->user()->display_name ?: auth('customer')->user()->name;
+                        $reviewAuthorAvatar = auth('customer')->user()->avatar
+                            ? asset(auth('customer')->user()->avatar)
+                            : 'https://ui-avatars.com/api/?name=' . urlencode($reviewAuthorName) . '&background=B4771E&color=fff&size=120&bold=true';
+                    @endphp
+                    <div class="border-t mt-6 pt-6" id="review-block-{{ $item->product_id }}">
+                        @if($existingReview)
+                        <div class="review-submitted">
+                            <h3 class="text-xl text-[#131615] font-semibold">Your Review</h3>
+                            <p class="text-sm text-[#757575] mt-1">Review submitted for {{ $item->product->name }}</p>
+                            <div class="mt-4 border border-[#D5D5D5] p-4">
+                                <h4 class="text-[#131615] text-lg font-medium">{{ $existingReview->created_at->format('l, F j, Y') }}</h4>
+                                @if($existingReview->comment)
+                                <p class="mt-3 text-[#3D403F] text-base">{{ $existingReview->comment }}</p>
+                                @endif
+                                <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
+                                    <img src="{{ $reviewAuthorAvatar }}" alt="{{ $reviewAuthorName }}" class="w-[50px] h-[50px] rounded-full object-cover">
+                                    <div>
+                                        <h5 class="text-[#131615] text-lg font-medium">{{ $reviewAuthorName }}</h5>
+                                        @include('website.partials.star-rating', ['rating' => $existingReview->rating, 'size' => 'md', 'class' => 'mt-1'])
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @else
+                        <div class="review-form-wrap" data-product-id="{{ $item->product_id }}" data-order-id="{{ $order->id }}">
+                            <h3 class="text-xl text-[#131615] font-semibold">Write A Review</h3>
+                            <p class="text-sm text-[#757575] mt-1">Share your experience with {{ $item->product->name }}</p>
+                            <div class="flex gap-0.5 mt-3 review-stars" role="radiogroup" aria-label="Rating">
+                                @for($star = 1; $star <= 5; $star++)
+                                <div class="review-star-item relative w-5 h-5 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="absolute inset-0 w-5 h-5" viewBox="0 0 512 512" fill="#D2D2D2" aria-hidden="true">
+                                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="review-star-fill absolute inset-0 w-5 h-5 pointer-events-none" viewBox="0 0 512 512" fill="#B4771E" style="clip-path: inset(0 100% 0 0);" aria-hidden="true">
+                                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                                    </svg>
+                                    <button type="button" class="review-half-btn absolute left-0 top-0 w-1/2 h-full z-10 cursor-pointer" data-rating="{{ $star - 0.5 }}" aria-label="{{ $star - 0.5 }} stars"></button>
+                                    <button type="button" class="review-half-btn absolute right-0 top-0 w-1/2 h-full z-10 cursor-pointer" data-rating="{{ $star }}" aria-label="{{ $star }} stars"></button>
+                                </div>
+                                @endfor
+                            </div>
+                            <input type="hidden" class="review-rating-input" value="0">
+                            <textarea placeholder="Write Your Review" class="review-comment-input w-full h-[120px] border border-[#D5D5D5] px-5 py-4 outline-none resize-none text-[#131615] placeholder:text-[#757575] placeholder:text-sm leading-6 mt-5"></textarea>
+                            <p class="review-error text-sm text-red-600 mt-2 hidden"></p>
+                            <button type="button" class="review-submit-btn common-btn lg:h-[50px] mt-5" onclick="submitProductReview(this)">
+                                Submit
+                            </button>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
                 </div>
                 @endforeach
-
-                <!-- Review Section (Static/Non-dynamic as requested) -->
-                <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white">
-                    <h3 class="text-xl text-[#131615] font-semibold">
-                        Write A Review
-                    </h3>
-                    <div class="flex gap-1 text-[#B4771E] text-xl mt-3">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 512 512"
-                        fill="currentColor">
-
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 512 512"
-                        fill="currentColor" class="text-[#D2D2D2]">
-
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                    </div>
-                    <textarea placeholder="Write Your Review" class="w-full h-[120px] border border-[#D5D5D5] px-5 py-4 outline-none resize-none text-[#131615] placeholder:text-[#757575] placeholder:text-sm leading-6 mt-5"></textarea>
-                    <button class="common-btn ! lg:h-[50px] mt-5">
-                        Submit
-                    </button>
-                </div>
             </div>
 
             <!-- RIGHT -->
@@ -378,4 +381,141 @@
         </div>
     </div>
 </section>
+@endsection
+
+@section('page-js')
+<script>
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+
+function paintReviewStars(container, rating) {
+    const value = parseFloat(rating) || 0;
+    container.querySelectorAll('.review-star-item').forEach((item, index) => {
+        const fill = Math.min(1, Math.max(0, value - index));
+        const fillEl = item.querySelector('.review-star-fill');
+        if (!fillEl) return;
+        fillEl.style.clipPath = fill > 0
+            ? `inset(0 ${(1 - fill) * 100}% 0 0)`
+            : 'inset(0 100% 0 0)';
+    });
+}
+
+document.querySelectorAll('.review-form-wrap').forEach(wrap => {
+    const starsWrap = wrap.querySelector('.review-stars');
+    const ratingInput = wrap.querySelector('.review-rating-input');
+
+    starsWrap.querySelectorAll('.review-half-btn').forEach(btn => {
+        btn.addEventListener('mouseenter', () => paintReviewStars(wrap, parseFloat(btn.dataset.rating)));
+        btn.addEventListener('click', () => {
+            const rating = parseFloat(btn.dataset.rating);
+            ratingInput.value = rating;
+            paintReviewStars(wrap, rating);
+        });
+    });
+
+    starsWrap.addEventListener('mouseleave', () => {
+        paintReviewStars(wrap, parseFloat(ratingInput.value) || 0);
+    });
+});
+
+function buildStarRatingHtml(rating, size) {
+    const value = parseFloat(rating) || 0;
+    const starSize = size || 20;
+    const path = 'm512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z';
+
+    return Array.from({ length: 5 }, (_, index) => {
+        const fill = Math.min(1, Math.max(0, value - index));
+        const clipRight = fill > 0 ? (1 - fill) * 100 : 100;
+        const fillSvg = fill > 0
+            ? `<svg xmlns="http://www.w3.org/2000/svg" class="absolute top-0 left-0" width="${starSize}" height="${starSize}" viewBox="0 0 512 512" fill="#B4771E" style="clip-path: inset(0 ${clipRight}% 0 0);"><path d="${path}"/></svg>`
+            : '';
+
+        return `<span class="relative inline-block shrink-0" style="width:${starSize}px;height:${starSize}px;"><svg xmlns="http://www.w3.org/2000/svg" width="${starSize}" height="${starSize}" viewBox="0 0 512 512" fill="#D2D2D2"><path d="${path}"/></svg>${fillSvg}</span>`;
+    }).join('');
+}
+
+function renderSubmittedReviewHtml(review) {
+    const stars = buildStarRatingHtml(review.rating, 20);
+
+    const commentHtml = review.comment
+        ? `<p class="mt-3 text-[#3D403F] text-base">${review.comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
+        : '';
+
+    return `
+        <div class="review-submitted">
+            <h3 class="text-xl text-[#131615] font-semibold">Your Review</h3>
+            <div class="mt-4 border border-[#D5D5D5] p-4">
+                <h4 class="text-[#131615] text-lg font-medium">${review.created_at}</h4>
+                ${commentHtml}
+                <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
+                    <img src="${review.author_avatar}" alt="${review.author_name}" class="w-[50px] h-[50px] rounded-full object-cover">
+                    <div>
+                        <h5 class="text-[#131615] text-lg font-medium">${review.author_name}</h5>
+                        <div class="flex items-center gap-0.5 mt-1">${stars}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function submitProductReview(btn) {
+    const wrap = btn.closest('.review-form-wrap');
+    const productId = wrap.dataset.productId;
+    const orderId = wrap.dataset.orderId;
+    const rating = parseFloat(wrap.querySelector('.review-rating-input').value);
+    const comment = wrap.querySelector('.review-comment-input').value.trim();
+    const errorEl = wrap.querySelector('.review-error');
+
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+
+    if (!rating || rating < 0.5) {
+        errorEl.textContent = 'Please select a star rating.';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    fetch('{{ route('customer.reviews.store') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            order_id: orderId,
+            product_id: productId,
+            rating: rating,
+            comment: comment
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const block = document.getElementById('review-block-' + productId);
+            if (block) block.innerHTML = renderSubmittedReviewHtml(data.review);
+            if (window.showWishlistToast) {
+                window.showWishlistToast(data.message || 'Review submitted successfully!');
+            }
+        } else {
+            errorEl.textContent = data.message || 'Failed to submit review.';
+            errorEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+        }
+    })
+    .catch(() => {
+        errorEl.textContent = 'Something went wrong. Please try again.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+    });
+}
+</script>
 @endsection

@@ -39,7 +39,7 @@
                                 </h3>
                             </div>
                             <button
-                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-base font-medium px-4 h-[35px] transition flex gap-3 md:gap-[9px] items-center rounded-sm"  onclick="openModal()">
+                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-base font-medium px-4 h-[35px] transition flex gap-3 md:gap-[9px] items-center rounded-sm"  onclick="openAddAddressModal()">
                                 <i class="fa-solid fa-plus"></i> Add
                             </button>
                         </div>
@@ -75,7 +75,7 @@
             </button>
             <!-- Heading -->
 
-            <h2 class="text-xl lg:text-[22px] lg:leading-[24px] font-medium text-[#131615] mb-4">
+            <h2 id="addrModalTitle" class="text-xl lg:text-[22px] lg:leading-[24px] font-medium text-[#131615] mb-4">
                 Deliver To
             </h2>
             <!-- Full Name -->
@@ -949,6 +949,24 @@ const CHECKOUT_LOGIN_URL = '{{ route('login') }}?intended={{ urlencode(route('ch
 const CHECKOUT_CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
 const modal = document.getElementById("addressModal");
+let editingAddressId = null;
+
+const checkoutAddresses = [
+    @foreach($addresses as $addr)
+    {
+        id: {{ $addr->id }},
+        name: @json($addr->name),
+        phone: @json($addr->phone),
+        alternate_phone: @json($addr->alternate_phone ?? ''),
+        email: @json($addr->email ?? ''),
+        address: @json($addr->address),
+        city: @json($addr->city),
+        state: @json($addr->state),
+        type: @json($addr->type),
+        is_default: {{ $addr->is_default ? 'true' : 'false' }}
+    },
+    @endforeach
+];
 
 function resetAddressForm() {
     document.getElementById('addr_name').value = '';
@@ -966,8 +984,49 @@ function resetAddressForm() {
 function openModal() {
     modal.classList.remove("hidden");
 
-    document.documentElement.classList.add("modal-open"); // html
-    document.body.classList.add("modal-open"); // body
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
+}
+
+function openAddAddressModal() {
+    editingAddressId = null;
+    document.getElementById('addrModalTitle').textContent = 'Deliver To';
+    resetAddressForm();
+    document.getElementById('saveAddressBtn').innerText = 'Save Address';
+    openModal();
+}
+
+function editAddress(addressId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+
+    document.querySelectorAll('.address-dropdown').forEach(dropdown => dropdown.classList.add('hidden'));
+
+    const addr = checkoutAddresses.find(a => a.id === addressId);
+    if (!addr) return;
+
+    editingAddressId = addressId;
+    document.getElementById('addrModalTitle').textContent = 'Edit Address';
+    document.getElementById('addr_name').value = addr.name;
+    document.getElementById('addr_phone').value = addr.phone;
+    document.getElementById('addr_alternate_phone').value = addr.alternate_phone || '';
+    document.getElementById('addr_email').value = addr.email || '';
+    document.getElementById('addr_address').value = addr.address;
+    document.getElementById('addr_city').value = addr.city;
+    document.getElementById('addr_state').value = addr.state;
+    document.getElementById('addr_is_default').checked = !!addr.is_default;
+
+    if (addr.type === 'work') {
+        document.getElementById('work').checked = true;
+    } else {
+        document.getElementById('home').checked = true;
+    }
+
+    document.getElementById('saveAddressBtn').innerText = 'Update Address';
+    clearAddrErrors();
+    openModal();
 }
 
 function closeModal() {
@@ -975,6 +1034,9 @@ function closeModal() {
 
     document.documentElement.classList.remove("modal-open");
     document.body.classList.remove("modal-open");
+    editingAddressId = null;
+    document.getElementById('addrModalTitle').textContent = 'Deliver To';
+    document.getElementById('saveAddressBtn').innerText = 'Save Address';
 }
 
 // overlay click
@@ -1113,25 +1175,23 @@ document.addEventListener('DOMContentLoaded', () => {
 function createAddressCardHtml(addr) {
     const isActive = addr.is_default ? 'active-address default-address-card' : '';
     const isChecked = addr.is_default ? 'checked' : '';
-    const imgName = addr.type === 'work' ? 'home1.png' : 'home.png';
     const defaultBadge = addr.is_default ? `
         <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
             Default
         </span>
     ` : '';
     const setAsDefaultButton = !addr.is_default ? `
-        <button onclick="setAddressAsDefault(${addr.id}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">
-            Set as Default
+        <button onclick="setAddressAsDefault(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn">
+            <span class="text-base font-normal">Set as Default</span>
         </button>
     ` : '';
 
     return `
-        <div class="address-card border-b border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 cursor-pointer bg-white text-[#131615] ${isActive}" data-address-id="${addr.id}">
+        <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] cursor-pointer bg-white border-l-[4px] border-l-transparent last:border-b-0 ${isActive} text-[#131615]" data-address-id="${addr.id}">
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                         <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} />
-                        <img src="{{ asset('website/assets/images') }}/${imgName}" class="address-icon" />
                         <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
                             Deliver To:
                         </span>
@@ -1148,11 +1208,15 @@ function createAddressCardHtml(addr) {
                     <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
                         <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                     </button>
-                    <div class="absolute right-0 mt-1 w-36 bg-white border border-[#D5D5D5] shadow-md rounded z-10 hidden address-dropdown text-left">
-                        ${setAsDefaultButton}
-                        <button onclick="deleteAddress(${addr.id}, event)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
-                            Delete
+                    <div class="absolute right-0 top-full mt-2 w-[180px] bg-white border border-[#D5D5D5] rounded-[8px] shadow-[0_4px_20px_rgba(0,0,0,0.12)] overflow-hidden z-20 hidden address-dropdown">
+                        <button onclick="editAddress(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                            <span class="text-base font-normal">Edit</span>
                         </button>
+                        <div class="mx-3 border-t border-[#D5D5D5]"></div>
+                        <button onclick="deleteAddress(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FFF7F7] transition">
+                            <span class="text-base font-normal">Remove</span>
+                        </button>
+                        ${!addr.is_default ? '<div class="mx-3 border-t border-[#D5D5D5]"></div>' + setAsDefaultButton : ''}
                     </div>
                 </div>
             </div>
@@ -1305,6 +1369,11 @@ function deleteAddress(addressId, event) {
                 card.remove();
             }
 
+            const addrIndex = checkoutAddresses.findIndex(a => a.id === addressId);
+            if (addrIndex !== -1) {
+                checkoutAddresses.splice(addrIndex, 1);
+            }
+
             const remainingCards = document.querySelectorAll('.address-card');
             if (remainingCards.length === 0) {
                 const list = document.getElementById('addressesCardsList');
@@ -1377,25 +1446,36 @@ function saveCustomerAddress(e) {
     const failureBox = document.getElementById('addressFailure');
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    fetch('{{ route('checkout.address.save') }}', {
-        method: 'POST',
+    const payload = {
+        name,
+        phone,
+        alternate_phone,
+        email,
+        address,
+        city,
+        state,
+        type,
+        is_default
+    };
+
+    let url = '{{ route('checkout.address.save') }}';
+    let method = 'POST';
+
+    if (editingAddressId) {
+        payload.address_id = editingAddressId;
+        url = '{{ route('checkout.address.update') }}';
+        method = 'PATCH';
+    }
+
+    fetch(url, {
+        method: method,
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken,
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         },
-        body: JSON.stringify({
-            name,
-            phone,
-            alternate_phone,
-            email,
-            address,
-            city,
-            state,
-            type,
-            is_default
-        })
+        body: JSON.stringify(payload)
     })
     .then(r => {
         if (!r.ok && r.status !== 422) {
@@ -1411,20 +1491,20 @@ function saveCustomerAddress(e) {
             btn.disabled = false;
             btn.innerText = 'Save Address';
         } else if (data.status === 'success') {
-            showCheckoutToast(data.message || 'Address saved successfully.');
+            showCheckoutToast(data.message || (editingAddressId ? 'Address updated successfully.' : 'Address saved successfully.'));
 
             if (data.address.is_default) {
                 const oldDefault = document.querySelector('.default-address-card');
-                if (oldDefault) {
-                    oldDefault.classList.remove('default-address-card');
+                if (oldDefault && parseInt(oldDefault.dataset.addressId) !== parseInt(data.address.id)) {
+                    oldDefault.classList.remove('default-address-card', 'active-address');
                     const badge = oldDefault.querySelector('.default-badge');
                     if (badge) badge.remove();
 
                     const oldDefaultId = oldDefault.dataset.addressId;
                     const dropdownMenu = oldDefault.querySelector('.address-dropdown');
                     if (dropdownMenu && !dropdownMenu.querySelector('.set-default-btn')) {
-                        const btnHtml = `<button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">Set as Default</button>`;
-                        dropdownMenu.insertAdjacentHTML('afterbegin', btnHtml);
+                        const btnHtml = `<div class="mx-3 border-t border-[#D5D5D5]"></div><button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn"><span class="text-base font-normal">Set as Default</span></button>`;
+                        dropdownMenu.insertAdjacentHTML('beforeend', btnHtml);
                     }
                 }
             }
@@ -1436,13 +1516,27 @@ function saveCustomerAddress(e) {
             }
 
             const cardHtml = createAddressCardHtml(data.address);
-            if (list) {
-                list.insertAdjacentHTML('afterbegin', cardHtml);
+
+            if (editingAddressId) {
+                const existingCard = document.querySelector(`.address-card[data-address-id="${editingAddressId}"]`);
+                if (existingCard) {
+                    existingCard.outerHTML = cardHtml;
+                }
+                const idx = checkoutAddresses.findIndex(a => a.id === editingAddressId);
+                if (idx !== -1) {
+                    checkoutAddresses[idx] = data.address;
+                }
+            } else {
+                checkoutAddresses.unshift(data.address);
+                if (list) {
+                    list.insertAdjacentHTML('afterbegin', cardHtml);
+                }
             }
 
             refreshAddressSelection(data.address.id);
 
             closeModal();
+            resetAddressForm();
             btn.disabled = false;
             btn.innerText = 'Save Address';
         } else {

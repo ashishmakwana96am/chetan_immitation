@@ -59,6 +59,7 @@ class CheckoutController extends Controller
             ->whereNotIn('id', $productIds ?: [0])
             ->with(['primaryImage', 'variants.attributeValue'])
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->inRandomOrder()
             ->limit(4)
             ->get();

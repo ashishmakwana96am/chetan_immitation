@@ -289,7 +289,7 @@
                             <div id="userMenuDropdown" class="hidden absolute right-0 top-full w-[200px] z-50" style="padding-top:8px;">
                                 <div class="bg-white border border-[#D5D5D5] rounded-[4px] shadow-lg">
                                 <div class="px-4 py-3 border-b border-[#D5D5D5]">
-                                    <p class="text-sm font-semibold text-[#131615] truncate">{{ Auth::guard('customer')->user()->name }}</p>
+                                    <p id="navbarCustomerName" class="text-sm font-semibold text-[#131615] truncate">{{ Auth::guard('customer')->user()->display_name ?: Auth::guard('customer')->user()->name }}</p>
                                     <p class="text-xs text-[#757575] truncate">{{ Auth::guard('customer')->user()->email }}</p>
                                 </div>
                                 <a href="{{ route('customer.profile') }}"
@@ -420,8 +420,8 @@
         <!-- User Info -->
         <div class="text-left">
 
-            <p class="font-semibold text-lg leading-[22px] text-[#131615]">
-                {{ auth('customer')->user()->name }}
+            <p id="mobileNavbarCustomerName" class="font-semibold text-lg leading-[22px] text-[#131615]">
+                {{ auth('customer')->user()->display_name ?: auth('customer')->user()->name }}
             </p>
 
             <p class="text-[13px] text-[#757575] mt-1">

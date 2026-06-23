@@ -20,6 +20,7 @@ use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
+use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReviewController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
@@ -58,8 +59,8 @@ Route::post('/register', [MemberRegisterController::class, 'store'])->name('regi
 
 // Customer protected routes
 Route::middleware('auth:customer')->group(function () {
-    Route::get('/my-profile', [WebsiteProfileController::class, 'index'])->name('customer.profile');
-    Route::get('/my-profile/order/{id}', [WebsiteProfileController::class, 'viewOrder'])->name('customer.profile.view-order');
+    Route::get('/my-account', [WebsiteProfileController::class, 'index'])->name('customer.profile');
+    Route::get('/my-account/order/{id}', [WebsiteProfileController::class, 'viewOrder'])->name('customer.profile.view-order');
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
@@ -69,6 +70,8 @@ Route::middleware('auth:customer')->group(function () {
     Route::delete('/checkout/address/delete', [CheckoutController::class, 'deleteAddress'])->name('checkout.address.delete');
     Route::post('/customer/profile/update', [WebsiteProfileController::class, 'updateProfile'])->name('customer.profile.update');
     Route::post('/customer/profile/change-password', [WebsiteProfileController::class, 'updateCustomerPassword'])->name('customer.profile.update-password');
+    Route::post('/customer/profile/avatar', [WebsiteProfileController::class, 'updateAvatar'])->name('customer.profile.avatar');
+    Route::post('/customer/reviews', [WebsiteProductReviewController::class, 'store'])->name('customer.reviews.store');
     Route::post('/checkout/payment/initialize', [CheckoutController::class, 'initializePayment'])->name('checkout.payment.initialize');
     Route::post('/checkout/payment/verify', [CheckoutController::class, 'verifyPayment'])->name('checkout.payment.verify');
     Route::post('/checkout/payment/failed', [CheckoutController::class, 'failedPayment'])->name('checkout.payment.failed');

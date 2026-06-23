@@ -37,6 +37,7 @@ class WishlistController extends Controller
             ->whereNotIn('id', $wishlistProductIds)
             ->with(['primaryImage', 'variants.attributeValue'])
             ->withSum('inventories', 'quantity')
+            ->withReviewStats()
             ->inRandomOrder()
             ->limit(4)
             ->get();
