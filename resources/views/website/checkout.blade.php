@@ -652,8 +652,8 @@
                     </button>
                 </div>
 <!-- ── PAYMENT VERIFYING LOADER ── -->
-<div id="paymentLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm">
-    <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center">
+<div id="paymentLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm !mt-0">
+    <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center !mt-0">
         <!-- Spinner -->
         <div class="relative w-20 h-20">
             <svg class="animate-spin w-20 h-20 text-[#B4771E]" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -662,9 +662,18 @@
             </svg>
             <!-- Coin icon center -->
             <div class="absolute inset-0 flex items-center justify-center">
-                <svg class="w-8 h-8 text-[#B4771E]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33"/>
-                </svg>
+             <svg xmlns="http://www.w3.org/2000/svg"
+     width="20"
+     height="20"
+     viewBox="0 0 32 32"
+     fill="#B4771E">
+    
+    <path d="M8 10a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H9a1 1 0 0 1-1-1z"/>
+    
+    <path d="M8 5a1 1 0 0 1 1-1h16a1 1 0 1 1 0 2H9a1 1 0 0 1-1-1z"/>
+    
+    <path d="M12.5 5a1 1 0 0 1 1-1 7.5 7.5 0 0 1 0 15h-1.913l9.086 8.26a1 1 0 1 1-1.346 1.48l-11-10A1 1 0 0 1 9 17h4.5a5.5 5.5 0 0 0 0-11 1 1 0 0 1-1-1z"/>
+</svg>
             </div>
         </div>
         <div>
