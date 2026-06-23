@@ -161,13 +161,30 @@
                 </div>
 
                 <div class="flex gap-3 mt-6">
+                    @php $detailStock = $product->inventories_sum_quantity ?? 0; @endphp
+                    @if($detailStock < 1)
+                    <button id="addToCartBtn"
+                        class="common-btn h-[50px] w-full max-w-[300px] opacity-50 cursor-not-allowed pointer-events-none"
+                        data-product-id="{{ $product->id }}"
+                        data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}"
+                        disabled>
+                        Sold Out
+                    </button>
+                    @else
                     <button id="addToCartBtn"
                         class="common-btn h-[50px] w-full max-w-[300px]"
                         data-product-id="{{ $product->id }}"
                         data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
                         Add To Cart
                     </button>
-                    <button class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px]">Buy Now</button>
+                    @endif
+                    <button id="buyNowBtn"
+                        class="border border-[#131615] common-btn bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] h-[50px] w-full max-w-[300px] {{ $detailStock < 1 ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}"
+                        data-product-id="{{ $product->id }}"
+                        data-login-url="{{ route('login') }}?intended={{ urlencode(url()->current()) }}"
+                        {{ $detailStock < 1 ? 'disabled' : '' }}>
+                        Buy Now
+                    </button>
                 </div>
 
                 @php
@@ -594,6 +611,372 @@ if (minusBtn) {
         var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
 
         window.addToCart(productId, variantId, qty, addBtn, loginUrl);
+    });
+}());
+</script>
+
+{{-- ══ BUY NOW — Address Modal ══ --}}
+<div id="buyNowAddressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+    <div class="min-h-full flex items-center justify-center py-5">
+        <div class="relative w-full max-w-[560px] bg-white rounded-[8px] p-5 md:p-7 max-h-[90vh] overflow-y-auto border border-[#D5D5D5]">
+            <button onclick="closeBuyNowAddressModal()" class="absolute top-4 right-4 text-[32px] leading-none text-[#131615]">&times;</button>
+            <h2 class="text-xl md:text-[24px] font-medium text-[#131615] mb-5">Select Delivery Address</h2>
+
+            {{-- No addresses --}}
+            @if(auth('customer')->check() && \App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->count() === 0)
+            <p class="text-[#757575] text-base mb-5">No saved addresses. Please <a href="{{ route('customer.profile') }}" class="text-[#B4771E] underline">add an address</a> first.</p>
+            @else
+            <div id="buyNowAddressList" class="space-y-3 mb-6">
+                @if(auth('customer')->check())
+                @foreach(\App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->orderByDesc('is_default')->get() as $addr)
+                <label class="flex items-start gap-3 border border-[#D5D5D5] p-4 cursor-pointer rounded has-[:checked]:border-[#B4771E] has-[:checked]:bg-[#B4771E0A]">
+                    <input type="radio" name="buynow_address" value="{{ $addr->id }}" class="mt-1 accent-[#B4771E]" {{ $addr->is_default ? 'checked' : '' }}>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-[#131615] text-base">{{ $addr->name }} — {{ $addr->phone }}</p>
+                        <p class="text-[#757575] text-sm mt-1">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}</p>
+                        @if($addr->is_default)
+                        <span class="inline-block mt-1 bg-[#B4771E29] text-[#B4771E] text-xs px-2 py-0.5">Default</span>
+                        @endif
+                    </div>
+                </label>
+                @endforeach
+                @endif
+            </div>
+            <button onclick="startBuyNowPayment()" id="buyNowProceedBtn"
+                class="w-full h-[50px] bg-[#B4771E] hover:bg-[#9d6719] text-white text-lg font-medium transition rounded-sm">
+                Proceed to Pay
+            </button>
+            @endif
+        </div>
+    </div>
+</div>
+
+{{-- ══ BUY NOW — Payment Loader ══ --}}
+<div id="buyNowLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center">
+        <div class="relative w-20 h-20">
+            <svg class="animate-spin w-20 h-20 text-[#B4771E]" viewBox="0 0 50 50" fill="none">
+                <circle cx="25" cy="25" r="20" stroke="#F3E3C8" stroke-width="5"/>
+                <path d="M25 5 A20 20 0 0 1 45 25" stroke="#B4771E" stroke-width="5" stroke-linecap="round"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <svg class="w-8 h-8 text-[#B4771E]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33"/>
+                </svg>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-xl font-semibold text-[#131615] mb-2">Verifying Payment</h3>
+            <p class="text-sm text-[#757575] leading-relaxed">Please wait while we confirm your payment. Do not close or refresh the page.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0s"></span>
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0.15s"></span>
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0.3s"></span>
+        </div>
+    </div>
+</div>
+
+{{-- ══ BUY NOW — Success Modal ══ --}}
+<div id="buyNowSuccessModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+    <div class="min-h-full flex items-center justify-center py-5">
+        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto">
+            <button onclick="closeBuyNowSuccessModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>
+            <div class="flex justify-center">
+                <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[200px] md:w-auto">
+            </div>
+            <h2 class="text-center font-moglan text-[30px] sm:text-[40px] md:text-[50px] leading-tight text-[#131615] mt-4">Order Placed Successfully!</h2>
+            <p class="text-center text-[#3D403F] text-base md:text-xl max-w-[520px] mx-auto mt-5">
+                Thank you for shopping with Chetan Imitation. Your order has been confirmed and is now being processed.
+            </p>
+            <div class="border border-[#D5D5D5] mt-8 p-[20px] md:p-[30px]">
+                <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-5">
+                    <div class="flex items-center gap-[15px]">
+                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
+                        <span class="text-lg sm:text-xl font-semibold">Order ID</span>
+                    </div>
+                    <span id="buyNowSuccessOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold">-</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-[#D5D5D5] py-5">
+                    <div class="flex items-center gap-[15px]">
+                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
+                        <span class="text-lg sm:text-xl font-semibold">Order Amount</span>
+                    </div>
+                    <span id="buyNowSuccessOrderAmount" class="text-[#3D403F] text-base sm:text-lg font-semibold">-</span>
+                </div>
+                <div class="flex justify-between items-center py-5">
+                    <div class="flex items-center gap-[15px]">
+                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
+                        <span class="text-lg sm:text-xl font-semibold">Estimated Delivery</span>
+                    </div>
+                    <span class="text-[#3D403F] text-base sm:text-lg">4–7 Business Days</span>
+                </div>
+            </div>
+            <div class="bg-[#B4771E]/10 p-5 rounded-[5px] mt-4 flex gap-[15px] items-start">
+                <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
+                <p class="text-[#131615] text-base md:text-lg">A confirmation email and order details have been sent to your registered email address and mobile number.</p>
+            </div>
+            <button onclick="window.location.href='{{ route('customer.profile') }}'"
+                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white text-base md:text-[22px] mt-10">
+                View My Orders
+            </button>
+            <button onclick="closeBuyNowSuccessModal()"
+                class="w-full h-[52px] md:h-[68px] border border-[#131615] text-[#131615] text-base md:text-[22px] mt-[17px]">
+                Continue Shopping
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- ══ BUY NOW — Failure Modal ══ --}}
+<div id="buyNowFailureModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+    <div class="min-h-full flex items-center justify-center py-5">
+        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto">
+            <button onclick="closeBuyNowFailureModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>
+            <div class="flex justify-center">
+                <svg class="w-[120px] md:w-[150px] text-red-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h2 class="text-center font-moglan text-[30px] sm:text-[40px] md:text-[50px] leading-tight text-red-600 mt-4">Payment Failed!</h2>
+            <p class="text-center text-[#3D403F] text-base md:text-xl max-w-[520px] mx-auto mt-5">
+                We were unable to process your payment. Please try again or select a different payment option.
+            </p>
+            <div class="bg-red-50 border border-red-200 p-5 rounded-[5px] mt-8 flex gap-[15px] items-start">
+                <p id="buyNowFailureReason" class="text-red-700 text-base md:text-lg">The payment request was cancelled or declined.</p>
+            </div>
+            <button onclick="retryBuyNow()"
+                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white text-base md:text-[22px] mt-10">
+                Retry Payment
+            </button>
+            <button onclick="closeBuyNowFailureModal()"
+                class="w-full h-[52px] md:h-[68px] border border-[#131615] text-[#131615] text-base md:text-[22px] mt-[17px]">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+(function () {
+    var isLoggedIn    = {{ auth('customer')->check() ? 'true' : 'false' }};
+    var csrfToken     = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    var buyNowRzpInstance  = null;
+    var buyNowRazorpayOrderId = null;
+    var buyNowPaymentCompleted = false;
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+    function getActiveVariantId() {
+        var btn = document.querySelector('.variant-selector.active');
+        return btn ? (btn.dataset.variantId || null) : null;
+    }
+
+    function showLoader() {
+        var el = document.getElementById('buyNowLoader');
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+    function hideLoader() {
+        var el = document.getElementById('buyNowLoader');
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    window.openBuyNowAddressModal = function () {
+        document.getElementById('buyNowAddressModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    };
+    window.closeBuyNowAddressModal = function () {
+        document.getElementById('buyNowAddressModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    };
+    window.closeBuyNowSuccessModal = function () {
+        document.getElementById('buyNowSuccessModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        window.location.href = '{{ route('shop-by-category') }}';
+    };
+    window.closeBuyNowFailureModal = function () {
+        document.getElementById('buyNowFailureModal').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    function openSuccessModal(orderNo, amount) {
+        document.getElementById('buyNowSuccessOrderId').textContent = '#' + orderNo;
+        document.getElementById('buyNowSuccessOrderAmount').textContent = '₹' + amount;
+        document.getElementById('buyNowSuccessModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+    function openFailureModal(reason) {
+        document.getElementById('buyNowFailureReason').textContent = reason || 'Payment was cancelled or declined.';
+        document.getElementById('buyNowFailureModal').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    // ── Buy Now button click ──────────────────────────────────────────────────
+    var buyNowBtn = document.getElementById('buyNowBtn');
+    if (buyNowBtn) {
+        buyNowBtn.addEventListener('click', function () {
+            if (!isLoggedIn) {
+                window.location.href = buyNowBtn.dataset.loginUrl;
+                return;
+            }
+            var hasVariants = document.querySelectorAll('.variant-selector').length > 0;
+            if (hasVariants && !getActiveVariantId()) {
+                if (window.showWishlistToast) window.showWishlistToast('Please select attribute first', false);
+                return;
+            }
+            openBuyNowAddressModal();
+        });
+    }
+
+    // ── Proceed to Pay ────────────────────────────────────────────────────────
+    window.startBuyNowPayment = function () {
+        var selectedAddr = document.querySelector('input[name="buynow_address"]:checked');
+        if (!selectedAddr) {
+            if (window.showWishlistToast) window.showWishlistToast('Please select a delivery address.', false);
+            return;
+        }
+
+        var productId = document.getElementById('buyNowBtn').dataset.productId;
+        var variantId = getActiveVariantId();
+        var qty       = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+        var addressId = selectedAddr.value;
+
+        var proceedBtn = document.getElementById('buyNowProceedBtn');
+        proceedBtn.disabled = true;
+        proceedBtn.textContent = 'Processing...';
+
+        buyNowPaymentCompleted = false;
+
+        fetch('{{ route('buynow.payment.initialize') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                address_id: addressId,
+                product_id: productId,
+                variant_id: variantId || null,
+                qty: qty
+            })
+        })
+        .then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw e; });
+            return r.json();
+        })
+        .then(function (data) {
+            proceedBtn.disabled = false;
+            proceedBtn.textContent = 'Proceed to Pay';
+
+            if (data.status !== 'success') throw new Error(data.message || 'Initialization failed.');
+
+            buyNowRazorpayOrderId = data.order_id;
+            closeBuyNowAddressModal();
+
+            var options = {
+                key:         data.key,
+                amount:      data.amount,
+                currency:    data.currency,
+                name:        'Chetan Imitation',
+                description: 'Order Payment (ORD: ' + data.order.order_no + ')',
+                order_id:    data.order_id,
+                handler: function (response) {
+                    buyNowPaymentCompleted = true;
+                    showLoader();
+                    fetch('{{ route('checkout.payment.verify') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            razorpay_payment_id:  response.razorpay_payment_id,
+                            razorpay_order_id:    response.razorpay_order_id,
+                            razorpay_signature:   response.razorpay_signature
+                        })
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        hideLoader();
+                        if (d.status === 'success') {
+                            openSuccessModal(d.order.order_no, d.order.final_amount);
+                        } else {
+                            openFailureModal(d.message || 'Verification failed.');
+                        }
+                    })
+                    .catch(function (err) {
+                        hideLoader();
+                        openFailureModal(err.message || 'Payment signature verification failed.');
+                    });
+                },
+                prefill: { name: data.prefill.name, email: data.prefill.email, contact: data.prefill.contact },
+                theme: { color: '#B4771E' },
+                modal: {
+                    ondismiss: function () {
+                        if (buyNowPaymentCompleted) return;
+                        if (buyNowRazorpayOrderId) {
+                            fetch('{{ route('checkout.payment.failed') }}', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                                body: JSON.stringify({ razorpay_order_id: buyNowRazorpayOrderId })
+                            }).catch(function () {});
+                        }
+                        openFailureModal('Payment window closed before completing transaction.');
+                    }
+                }
+            };
+
+            buyNowRzpInstance = new Razorpay(options);
+            buyNowRzpInstance.on('payment.failed', function (resp) {
+                if (buyNowPaymentCompleted) return;
+                if (buyNowRazorpayOrderId) {
+                    fetch('{{ route('checkout.payment.failed') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                        body: JSON.stringify({ razorpay_order_id: buyNowRazorpayOrderId })
+                    }).catch(function () {});
+                }
+                openFailureModal(resp.error.description || 'Payment transaction failed.');
+            });
+            buyNowRzpInstance.open();
+        })
+        .catch(function (err) {
+            proceedBtn.disabled = false;
+            proceedBtn.textContent = 'Proceed to Pay';
+            if (window.showWishlistToast) window.showWishlistToast(err.message || 'Something went wrong.', false);
+        });
+    };
+
+    window.retryBuyNow = function () {
+        closeBuyNowFailureModal();
+        openBuyNowAddressModal();
+    };
+
+    // Overlay / ESC close
+    ['buyNowAddressModal', 'buyNowSuccessModal', 'buyNowFailureModal'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', function (e) {
+            if (e.target === el) {
+                if (id === 'buyNowSuccessModal') { closeBuyNowSuccessModal(); }
+                else if (id === 'buyNowFailureModal') { closeBuyNowFailureModal(); }
+                else { closeBuyNowAddressModal(); }
+            }
+        });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!document.getElementById('buyNowSuccessModal').classList.contains('hidden')) { closeBuyNowSuccessModal(); return; }
+        if (!document.getElementById('buyNowFailureModal').classList.contains('hidden')) { closeBuyNowFailureModal(); return; }
+        if (!document.getElementById('buyNowAddressModal').classList.contains('hidden')) { closeBuyNowAddressModal(); return; }
     });
 }());
 </script>

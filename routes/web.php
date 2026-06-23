@@ -75,6 +75,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/coupon/apply', [CheckoutController::class, 'applyCoupon'])->name('checkout.coupon.apply');
     Route::post('/checkout/coupon/remove', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
     Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
+    Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');

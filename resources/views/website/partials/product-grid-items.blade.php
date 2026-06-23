@@ -148,10 +148,11 @@
                 </div>
             </div>
             
-            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300 rounded-sm"
+            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] transition duration-300 rounded-sm {{ $stockQty < 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white' }}"
                 data-product-id="{{ $product->id }}"
-                data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
-                Add to Cart
+                data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}"
+                {{ $stockQty < 1 ? 'disabled' : '' }}>
+                {{ $stockQty < 1 ? 'Sold Out' : 'Add to Cart' }}
             </button>
         </div>
     </div>

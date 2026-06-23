@@ -651,6 +651,35 @@
                        <span>Place Order</span>
                     </button>
                 </div>
+<!-- ── PAYMENT VERIFYING LOADER ── -->
+<div id="paymentLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center">
+        <!-- Spinner -->
+        <div class="relative w-20 h-20">
+            <svg class="animate-spin w-20 h-20 text-[#B4771E]" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="25" cy="25" r="20" stroke="#F3E3C8" stroke-width="5"/>
+                <path d="M25 5 A20 20 0 0 1 45 25" stroke="#B4771E" stroke-width="5" stroke-linecap="round"/>
+            </svg>
+            <!-- Coin icon center -->
+            <div class="absolute inset-0 flex items-center justify-center">
+                <svg class="w-8 h-8 text-[#B4771E]" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33"/>
+                </svg>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-xl font-semibold text-[#131615] mb-2">Verifying Payment</h3>
+            <p class="text-sm text-[#757575] leading-relaxed">Please wait while we confirm your payment. Do not close or refresh the page.</p>
+        </div>
+        <!-- Animated dots -->
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0s"></span>
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0.15s"></span>
+            <span class="w-2 h-2 rounded-full bg-[#B4771E] animate-bounce" style="animation-delay:0.3s"></span>
+        </div>
+    </div>
+</div>
+
 <!-- Overlay -->
 
 <div
@@ -774,8 +803,9 @@ Order Amount
             <!-- Buttons -->
 
             <button
-                onclick="window.location.href='{{ route('home') }}'"
-                class="common-btn mt-5 w-full">
+                onclick="window.location.href='{{ route('customer.profile') }}'"
+                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
+                text-base md:text-[22px] md:leading-[24px] mt-10">
                 View My Orders
             </button>
             <button
@@ -971,6 +1001,7 @@ function openSuccessModal(){
 function closeSuccessModal(){
     successModal.classList.add("hidden");
     document.body.classList.remove("overflow-hidden");
+    window.location.href = '{{ route('shop-by-category') }}';
 }
 
 successModal.addEventListener("click",(e)=>{
@@ -1765,8 +1796,22 @@ function startPaymentFlow() {
     }
 }
 
+function showPaymentLoader() {
+    const loader = document.getElementById('paymentLoader');
+    loader.classList.remove('hidden');
+    loader.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+}
+
+function hidePaymentLoader() {
+    const loader = document.getElementById('paymentLoader');
+    loader.classList.add('hidden');
+    loader.classList.remove('flex');
+    document.body.classList.remove('overflow-hidden');
+}
+
 function verifyPayment(rzpResponse, orderDetail) {
-    showCheckoutToast('Verifying payment, please wait...', true);
+    showPaymentLoader();
 
     fetch('{{ route('checkout.payment.verify') }}', {
         method: 'POST',
@@ -1794,7 +1839,8 @@ function verifyPayment(rzpResponse, orderDetail) {
             document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
             document.getElementById('successOrderAmount').textContent = '₹' + data.order.final_amount;
             
-            // Open Success Modal
+            // Hide loader, open Success Modal
+            hidePaymentLoader();
             openSuccessModal();
         } else {
             throw new Error(data.message || 'Verification failed.');
@@ -1802,6 +1848,7 @@ function verifyPayment(rzpResponse, orderDetail) {
     })
     .catch(err => {
         console.error('Payment verification error:', err);
+        hidePaymentLoader();
         openFailureModal(err.message || 'Payment signature verification failed.');
     });
 }

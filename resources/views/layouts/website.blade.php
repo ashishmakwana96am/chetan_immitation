@@ -1067,6 +1067,9 @@ window.addEventListener('resize', function () {
             var btn = e.target.closest('.add-to-cart-btn');
             if (!btn) return;
 
+            // Block disabled / sold-out buttons
+            if (btn.disabled || btn.hasAttribute('disabled')) return;
+
             var card      = btn.closest('.product-card');
             var productId = btn.dataset.productId;
             var loginUrl  = btn.dataset.loginUrl;

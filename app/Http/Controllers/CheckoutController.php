@@ -540,6 +540,147 @@ class CheckoutController extends Controller
         ]);
     }
 
+    /**
+     * POST /buy-now/payment/initialize
+     * Direct Buy Now — single product, bypasses cart.
+     */
+    public function buyNowInitialize(Request $request)
+    {
+        $request->validate([
+            'address_id'  => ['required', 'integer'],
+            'product_id'  => ['required', 'integer', 'exists:products,id'],
+            'variant_id'  => ['nullable', 'integer', 'exists:product_variants,id'],
+            'qty'         => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json(['status' => 'error', 'message' => 'Please select a valid shipping address.'], 422);
+        }
+
+        $product = Product::where('status', Product::STATUS_ACTIVE)
+            ->withSum('inventories', 'quantity')
+            ->find($request->product_id);
+
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Product not found.'], 404);
+        }
+
+        if (($product->inventories_sum_quantity ?? 0) < 1) {
+            return response()->json(['status' => 'error', 'message' => 'This product is currently out of stock.'], 422);
+        }
+
+        $qty = max(1, (int) ($request->qty ?? 1));
+
+        $price = $product->sale_price;
+        if ($request->filled('variant_id')) {
+            $variant = \App\Models\ProductVariant::where('product_id', $product->id)
+                ->where('status', 1)
+                ->find($request->variant_id);
+            if (!$variant) {
+                return response()->json(['status' => 'error', 'message' => 'Variant not found.'], 422);
+            }
+            $price = $variant->sale_price;
+        }
+
+        $total = round((float) $price * $qty);
+
+        $location = Location::where('is_default', true)->first()
+            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
+            ?? Location::first();
+
+        if (!$location) {
+            return response()->json(['status' => 'error', 'message' => 'No fulfillment location is active.'], 422);
+        }
+
+        $razorpayKeyId     = Setting::getValue('razorpay_key_id', '');
+        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+
+        if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+            return response()->json(['status' => 'error', 'message' => 'Razorpay payment gateway is not configured.'], 500);
+        }
+
+        try {
+            $orderData = DB::transaction(function () use (
+                $customer, $location, $total, $product, $request, $qty, $price,
+                $razorpayKeyId, $razorpayKeySecret, $address
+            ) {
+                $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+
+                $order = Order::create([
+                    'customer_id'          => $customer->id,
+                    'customer_address_id'  => $address->id,
+                    'location_id'          => $location->id,
+                    'order_no'             => $orderNo,
+                    'order_type'           => 'sale',
+                    'status'               => Order::STATUS_PENDING,
+                    'payment_status'       => Order::PAYMENT_STATUS_PENDING,
+                    'payment_method'       => 'razorpay',
+                    'final_amount'         => $total,
+                    'source'               => 'ONLINE',
+                    'discount_type'        => 'MANUAL',
+                    'coupon_id'            => null,
+                ]);
+
+                OrderItem::create([
+                    'order_id'   => $order->id,
+                    'product_id' => $product->id,
+                    'quantity'   => $qty,
+                    'price'      => $price,
+                    'discount'   => 0.0,
+                    'total'      => $price * $qty,
+                ]);
+
+                $rzpResponse = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                    ->post('https://api.razorpay.com/v1/orders', [
+                        'amount'   => (int) round($total * 100),
+                        'currency' => 'INR',
+                        'receipt'  => 'rcpt_' . $orderNo,
+                    ]);
+
+                if ($rzpResponse->failed()) {
+                    Log::error('Razorpay BuyNow Order Creation Failed: ' . $rzpResponse->body());
+                    throw new \Exception('Failed to generate order ID with Razorpay.');
+                }
+
+                $rzpOrder = $rzpResponse->json();
+                $order->update(['razorpay_order_id' => $rzpOrder['id']]);
+
+                return [
+                    'order_id'     => $rzpOrder['id'],
+                    'amount'       => $rzpOrder['amount'],
+                    'order_no'     => $order->order_no,
+                    'final_amount' => $order->final_amount,
+                ];
+            });
+
+            return response()->json([
+                'status'   => 'success',
+                'key'      => $razorpayKeyId,
+                'amount'   => $orderData['amount'],
+                'currency' => 'INR',
+                'order_id' => $orderData['order_id'],
+                'prefill'  => [
+                    'name'    => $address->name,
+                    'email'   => $address->email ?? $customer->email ?? '',
+                    'contact' => $address->phone,
+                ],
+                'order' => [
+                    'order_no'     => $orderData['order_no'],
+                    'final_amount' => number_format($orderData['final_amount'], 0),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function applyCoupon(Request $request)
     {
         $request->validate([

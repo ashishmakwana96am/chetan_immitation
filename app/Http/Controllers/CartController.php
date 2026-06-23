@@ -108,9 +108,16 @@ class CartController extends Controller
         $qty       = max(1, (int) ($request->qty ?? 1));
 
         // Verify product is active
-        $product = Product::where('status', Product::STATUS_ACTIVE)->find($productId);
+        $product = Product::where('status', Product::STATUS_ACTIVE)
+            ->withSum('inventories', 'quantity')
+            ->find($productId);
         if (!$product) {
             return response()->json(['status' => 'error', 'message' => 'Product not found.'], 404);
+        }
+
+        // Verify stock
+        if (($product->inventories_sum_quantity ?? 0) < 1) {
+            return response()->json(['status' => 'error', 'message' => 'This product is currently out of stock.'], 422);
         }
 
         // Verify variant belongs to product
