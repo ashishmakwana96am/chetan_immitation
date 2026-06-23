@@ -1,18 +1,25 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class ProfileController extends Controller
 {
+    /**
+     * Show admin password change form.
+     */
     public function showChangePasswordForm()
     {
         return view('profile.change-password');
     }
 
+    /**
+     * Change admin password.
+     */
     public function changePassword(Request $request)
     {
         $user = auth()->user();

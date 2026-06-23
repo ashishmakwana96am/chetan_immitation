@@ -19,7 +19,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\WebsiteContentController;
@@ -57,12 +58,17 @@ Route::post('/register', [MemberRegisterController::class, 'store'])->name('regi
 
 // Customer protected routes
 Route::middleware('auth:customer')->group(function () {
+    Route::get('/my-profile', [WebsiteProfileController::class, 'index'])->name('customer.profile');
+    Route::get('/my-profile/order/{id}', [WebsiteProfileController::class, 'viewOrder'])->name('customer.profile.view-order');
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
     Route::post('/checkout/address/save', [CheckoutController::class, 'saveAddress'])->name('checkout.address.save');
+    Route::patch('/checkout/address/update', [CheckoutController::class, 'updateAddress'])->name('checkout.address.update');
     Route::post('/checkout/address/set-default', [CheckoutController::class, 'setDefaultAddress'])->name('checkout.address.set-default');
     Route::delete('/checkout/address/delete', [CheckoutController::class, 'deleteAddress'])->name('checkout.address.delete');
+    Route::post('/customer/profile/update', [WebsiteProfileController::class, 'updateProfile'])->name('customer.profile.update');
+    Route::post('/customer/profile/change-password', [WebsiteProfileController::class, 'updateCustomerPassword'])->name('customer.profile.update-password');
     Route::post('/checkout/payment/initialize', [CheckoutController::class, 'initializePayment'])->name('checkout.payment.initialize');
     Route::post('/checkout/payment/verify', [CheckoutController::class, 'verifyPayment'])->name('checkout.payment.verify');
     Route::post('/checkout/payment/failed', [CheckoutController::class, 'failedPayment'])->name('checkout.payment.failed');
@@ -226,8 +232,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('attributes/{attribute}/toggle-status', [AttributeController::class, 'toggleStatus'])->name('attributes.toggle-status');
 
         // Profile
-        Route::get('profile/change-password', [ProfileController::class, 'showChangePasswordForm'])->name('profile.change-password');
-        Route::post('profile/change-password', [ProfileController::class, 'changePassword'])->name('profile.update-password');
+        Route::get('profile/change-password', [AdminProfileController::class, 'showChangePasswordForm'])->name('profile.change-password');
+        Route::post('profile/change-password', [AdminProfileController::class, 'changePassword'])->name('profile.update-password');
 
         // Website Content
         Route::get('website-content', [WebsiteContentController::class, 'index'])->name('website-content.index');

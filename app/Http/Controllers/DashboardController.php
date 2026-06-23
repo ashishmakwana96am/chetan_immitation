@@ -78,7 +78,7 @@ class DashboardController extends Controller
             'this_month' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
             'total'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->sum('final_amount'),
             'pending'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
-            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_APPROVE)->count(),
+            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
             'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 

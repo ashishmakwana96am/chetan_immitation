@@ -40,12 +40,18 @@ class SaleController extends Controller
         $statusColors = [
             1 => 'bg-label-secondary',
             2 => 'bg-label-success',
-            3 => 'bg-label-danger',
+            3 => 'bg-label-info',
+            4 => 'bg-label-warning',
+            5 => 'bg-label-success',
+            6 => 'bg-label-danger',
         ];
         $statusLabels = [
             1 => 'Pending',
             2 => 'Approve',
-            3 => 'Decline',
+            3 => 'Shipped',
+            4 => 'Out for delivery',
+            5 => 'Delivered',
+            6 => 'Decline',
         ];
 
         $paymentColors = [
@@ -71,13 +77,13 @@ class SaleController extends Controller
             if ($canEdit && $order->status == 1) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditSalesStatus && $order->status == 1) {
+            if ($canEditSalesStatus) {
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditSalesPaymentStatus && ($order->status == 1 || ($order->status == 2 && $order->payment_status == 1))) {
+            if ($canEditSalesPaymentStatus) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete && $order->status == 3) {
+            if ($canDelete && $order->status == 6) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
@@ -159,7 +165,7 @@ class SaleController extends Controller
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
             'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id'              => ['nullable', 'exists:coupons,id'],
@@ -378,7 +384,7 @@ class SaleController extends Controller
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'integer', 'in:1,2,3'],
+            'status'                 => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
             'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id'              => ['nullable', 'exists:coupons,id'],
@@ -501,7 +507,7 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'status'         => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2'],
         ]);
 
@@ -512,12 +518,37 @@ class SaleController extends Controller
         try {
             DB::transaction(function () use ($request, $sale) {
                 if ($request->filled('status')) {
-                    $newStatus = $request->status;
-                    $oldStatus = $sale->status;
+                    $newStatus = (int)$request->status;
+                    $oldStatus = (int)$sale->status;
 
                     if ($newStatus != $oldStatus) {
-                        // 1. Transition TO approve (from pending or decline)
-                        if ($newStatus == 2) {
+                        // 1. Terminal status validation
+                        if ($oldStatus == Order::STATUS_DELIVERED) {
+                            throw new \Exception('Delivered orders cannot be modified.');
+                        }
+                        if ($oldStatus == Order::STATUS_DECLINE) {
+                            throw new \Exception('Declined orders cannot be modified.');
+                        }
+
+                        // 2. Backward progression validation
+                        if ($oldStatus == Order::STATUS_APPROVE && $newStatus == Order::STATUS_PENDING) {
+                            throw new \Exception('Cannot change status back to Pending once approved.');
+                        }
+                        if ($oldStatus == Order::STATUS_SHIPPED && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_DECLINE])) {
+                            throw new \Exception('Cannot change status back once shipped.');
+                        }
+                        if ($oldStatus == Order::STATUS_OUT_FOR_DELIVERY && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_DECLINE])) {
+                            throw new \Exception('Cannot change status back once out for delivery.');
+                        }
+
+                        $deductedGroup = [2, 3, 4, 5];
+                        $restoredGroup = [1, 6];
+
+                        $oldInDeducted = in_array($oldStatus, $deductedGroup);
+                        $newInDeducted = in_array($newStatus, $deductedGroup);
+
+                        // Transition from Restored to Deducted group: deduct stock
+                        if (!$oldInDeducted && $newInDeducted) {
                             foreach ($sale->items as $item) {
                                 $stock = Inventory::where('product_id', $item->product_id)
                                     ->where('location_id', $sale->location_id)
@@ -536,8 +567,8 @@ class SaleController extends Controller
                                     ->decrement('quantity', $item->quantity);
                             }
                         }
-                        // 2. Transition FROM approve (to pending or decline)
-                        elseif ($oldStatus == 2) {
+                        // Transition from Deducted to Restored group: restore stock
+                        elseif ($oldInDeducted && !$newInDeducted) {
                             // Restore stock
                             foreach ($sale->items as $item) {
                                 Inventory::where('product_id', $item->product_id)
@@ -546,10 +577,30 @@ class SaleController extends Controller
                             }
                         }
 
-                        if ($newStatus == 3) {
-                            $sale->update(['status' => $newStatus, 'payment_status' => 1]);
-                        } else {
-                            $sale->update(['status' => $newStatus]);
+                        $updateData = ['status' => $newStatus];
+                        if ($newStatus == Order::STATUS_DECLINE) {
+                            $updateData['payment_status'] = 1;
+                        }
+
+                        // Record dates for status change
+                        if ($newStatus == Order::STATUS_APPROVE) {
+                            $updateData['confirmed_at'] = now();
+                        } elseif ($newStatus == Order::STATUS_SHIPPED) {
+                            $updateData['shipped_at'] = now();
+                        } elseif ($newStatus == Order::STATUS_OUT_FOR_DELIVERY) {
+                            $updateData['out_for_delivery_at'] = now();
+                        } elseif ($newStatus == Order::STATUS_DELIVERED) {
+                            $updateData['delivered_at'] = now();
+                        }
+
+                        $sale->update($updateData);
+
+                        if ($sale->customer && $sale->customer->email) {
+                            try {
+                                \Illuminate\Support\Facades\Mail::to($sale->customer->email)->send(new \App\Mail\OrderStatusMail($sale));
+                            } catch (\Exception $mailEx) {
+                                \Illuminate\Support\Facades\Log::error('Failed to send status mail: ' . $mailEx->getMessage());
+                            }
                         }
                     }
                 }
@@ -569,7 +620,7 @@ class SaleController extends Controller
     {
         $this->authorize('delete sales');
 
-        if ($sale->status != 3) {
+        if ($sale->status != 6) {
             return response()->json(['status' => 'error', 'message' => 'Only declined sales can be deleted.'], 422);
         }
 

@@ -108,17 +108,28 @@
             $(document).on('click', '.change-sale-status-btn', function (e) {
                 e.preventDefault();
                 const url = $(this).data('url');
-                const currentStatus = $(this).data('current');
+                const currentStatus = parseInt($(this).data('current'));
+                const selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
+
+                const opt1 = (currentStatus !== 1) ? 'disabled' : '';
+                const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
+                const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
+                const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
+                const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
+                const opt6 = (![1, 2, 6].includes(currentStatus)) ? 'disabled' : '';
 
                 Swal.fire({
                     title: 'Update Sale Status',
                     html: `
                         <div class="mb-3 text-start">
                             <label for="swal-sale-status" class="form-label fw-semibold mb-2">Select Sale Status</label>
-                            <select id="swal-sale-status" class="form-select form-select-lg">
-                                <option value="1" ${currentStatus == 1 ? 'selected' : ''}>Pending</option>
-                                <option value="2" ${currentStatus == 2 ? 'selected' : ''}>Approve</option>
-                                <option value="3" ${currentStatus == 3 ? 'selected' : ''}>Decline</option>
+                            <select id="swal-sale-status" class="form-select form-select-lg" ${selectDisabled}>
+                                <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
+                                <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
+                                <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
+                                <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
+                                <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
+                                <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
                             </select>
                         </div>
                     `,

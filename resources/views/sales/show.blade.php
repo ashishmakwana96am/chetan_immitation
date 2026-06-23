@@ -7,12 +7,18 @@
         $statusColors = [
             1 => 'bg-label-secondary',
             2 => 'bg-label-success',
-            3 => 'bg-label-danger',
+            3 => 'bg-label-info',
+            4 => 'bg-label-warning',
+            5 => 'bg-label-success',
+            6 => 'bg-label-danger',
         ];
         $statusLabels = [
             1 => 'Pending',
             2 => 'Approve',
-            3 => 'Decline',
+            3 => 'Shipped',
+            4 => 'Out for delivery',
+            5 => 'Delivered',
+            6 => 'Decline',
         ];
 
         $paymentColors = [
@@ -37,12 +43,12 @@
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
             </a>
             @can('edit sales')
-                @if($order->status == 1)
-                    <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-info">
-                        <i class="ti ti-pencil me-1"></i> Edit
-                    </a>
-                @endif
-                @if(($order->payment_status ?? 1) == 1 && $order->status == 2)
+                <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-info">
+                    <i class="ti ti-pencil me-1"></i> Edit
+                </a>
+                
+                <!-- Payment Status Button -->
+                @if(($order->payment_status ?? 1) == 1)
                     <button class="btn btn-success"
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
                         data-confirm-method="PATCH"
@@ -53,29 +59,41 @@
                         data-confirm-data='{"payment_status":2}'>
                         <i class="ti ti-credit-card me-1"></i> Mark Paid
                     </button>
-                @endif
-                @if($order->status == 1)
-                    <button class="btn btn-primary"
+                @else
+                    <button class="btn btn-label-warning"
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
                         data-confirm-method="PATCH"
-                        data-confirm-title="Approve Sale"
-                        data-confirm-text="Mark this sale as approved?"
-                        data-confirm-btn="Yes, Approve"
-                        data-confirm-btn-class="btn-primary"
-                        data-confirm-data='{"status":2}'>
-                        <i class="ti ti-check me-1"></i> Approve
-                    </button>
-                    <button class="btn btn-label-danger"
-                        data-common-confirm="{{ route('admin.sales.status', $order) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Decline Sale"
-                        data-confirm-text="Decline this sale? Stock will be restored."
-                        data-confirm-btn="Yes, Decline"
-                        data-confirm-btn-class="btn-danger"
-                        data-confirm-data='{"status":3}'>
-                        <i class="ti ti-x me-1"></i> Decline
+                        data-confirm-title="Mark as Pending"
+                        data-confirm-text="Mark this sale's payment as pending?"
+                        data-confirm-btn="Yes, Mark Pending"
+                        data-confirm-btn-class="btn-warning"
+                        data-confirm-data='{"payment_status":1}'>
+                        <i class="ti ti-credit-card-off me-1"></i> Mark Pending
                     </button>
                 @endif
+
+                <!-- Order Status Dropdown -->
+                @php
+                    $currentStatus = (int)$order->status;
+                    $selectDisabled = in_array($currentStatus, [5, 6]) ? 'disabled' : '';
+
+                    $opt1 = ($currentStatus !== 1) ? 'disabled' : '';
+                    $opt2 = (!in_array($currentStatus, [1, 2])) ? 'disabled' : '';
+                    $opt3 = (!in_array($currentStatus, [2, 3])) ? 'disabled' : '';
+                    $opt4 = (!in_array($currentStatus, [3, 4])) ? 'disabled' : '';
+                    $opt5 = (!in_array($currentStatus, [4, 5])) ? 'disabled' : '';
+                    $opt6 = (!in_array($currentStatus, [1, 2, 6])) ? 'disabled' : '';
+                @endphp
+                <div class="d-inline-block me-1">
+                    <select id="change-sale-status" class="form-select" data-current="{{ $order->status }}" {{ $selectDisabled }}>
+                        <option value="1" {{ $order->status == 1 ? 'selected' : '' }} {{ $opt1 }}>Pending</option>
+                        <option value="2" {{ $order->status == 2 ? 'selected' : '' }} {{ $opt2 }}>Approve</option>
+                        <option value="3" {{ $order->status == 3 ? 'selected' : '' }} {{ $opt3 }}>Shipped</option>
+                        <option value="4" {{ $order->status == 4 ? 'selected' : '' }} {{ $opt4 }}>Out for delivery</option>
+                        <option value="5" {{ $order->status == 5 ? 'selected' : '' }} {{ $opt5 }}>Delivered</option>
+                        <option value="6" {{ $order->status == 6 ? 'selected' : '' }} {{ $opt6 }}>Decline</option>
+                    </select>
+                </div>
             @endcan
             <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
@@ -320,4 +338,54 @@
         </div>
 
     </div>
+@endsection
+
+@section('page-js')
+    <script>
+        $(document).ready(function () {
+            $('#change-sale-status').on('change', function () {
+                const status = $(this).val();
+                const url = "{{ route('admin.sales.status', $order) }}";
+                
+                Swal.fire({
+                    title: 'Update Sale Status',
+                    text: 'Are you sure you want to update the status of this sale?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Update',
+                    customClass: {
+                        confirmButton: 'btn btn-primary me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: url,
+                            type: 'PATCH',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                status: status
+                            },
+                            success: function (res) {
+                                if (res.status === 'success') {
+                                    toastr.success(res.message);
+                                    setTimeout(() => location.reload(), 800);
+                                }
+                            },
+                            error: function (xhr) {
+                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                                // Reset select value to current status on error
+                                $('#change-sale-status').val($('#change-sale-status').data('current'));
+                            }
+                        });
+                    } else {
+                        // Reset select value to current status if cancelled
+                        $('#change-sale-status').val($('#change-sale-status').data('current'));
+                    }
+                });
+            });
+        });
+    </script>
 @endsection

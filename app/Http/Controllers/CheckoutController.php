@@ -43,6 +43,11 @@ class CheckoutController extends Controller
             ->latest()
             ->get();
 
+        if ($cartItems->isEmpty()) {
+            return redirect()->route('shop-by-category')
+                ->with('error', 'Your cart is empty. Please add items before proceeding to checkout.');
+        }
+
         $addresses = CustomerAddress::where('customer_id', $customer->id)
             ->orderBy('is_default', 'desc')
             ->latest()
@@ -139,6 +144,61 @@ class CheckoutController extends Controller
         ]);
     }
 
+    public function updateAddress(Request $request)
+    {
+        $request->validate([
+            'address_id' => ['required', 'integer'],
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:20'],
+            'alternate_phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'address' => ['required', 'string'],
+            'city' => ['required', 'string', 'max:100'],
+            'state' => ['required', 'string', 'max:100'],
+            'type' => ['required', 'string', 'in:home,work'],
+            'is_default' => ['nullable', 'boolean'],
+        ]);
+
+        $customer = $this->customer();
+
+        $address = CustomerAddress::where('customer_id', $customer->id)
+            ->where('id', $request->address_id)
+            ->first();
+
+        if (!$address) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Address not found.'
+            ], 404);
+        }
+
+        $isDefault = $request->input('is_default', false) ? true : $address->is_default;
+
+        if ($isDefault) {
+            CustomerAddress::where('customer_id', $customer->id)
+                ->where('id', '!=', $address->id)
+                ->update(['is_default' => false]);
+        }
+
+        $address->update([
+            'name' => $request->name,
+            'phone' => $request->phone,
+            'alternate_phone' => $request->alternate_phone,
+            'email' => $request->email,
+            'address' => $request->address,
+            'city' => $request->city,
+            'state' => $request->state,
+            'type' => $request->type,
+            'is_default' => $isDefault,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Address updated successfully.',
+            'address' => $address->fresh()
+        ]);
+    }
+
     public function setDefaultAddress(Request $request)
     {
         $request->validate([
@@ -189,18 +249,21 @@ class CheckoutController extends Controller
         $wasDefault = $address->is_default;
         $address->delete();
 
+        $newDefaultId = null;
         if ($wasDefault) {
             $nextAddress = CustomerAddress::where('customer_id', $customer->id)
                 ->latest()
                 ->first();
             if ($nextAddress) {
                 $nextAddress->update(['is_default' => true]);
+                $newDefaultId = $nextAddress->id;
             }
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Address deleted successfully.'
+            'message' => 'Address deleted successfully.',
+            'new_default_id' => $newDefaultId
         ]);
     }
 
