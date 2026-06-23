@@ -3764,9 +3764,9 @@ select {
   transition: background .15s, color .15s, border-color .15s;
 }
 .tab-btn.active {
-  background: #fef3d0;
-  color: #b8860b;
-  border-left: 3px solid #b8860b;
+  background: #F7F4EF;
+  color: #B4771E;
+  border-left: 3px solid #B4771E;
 }
 .tab-btn:not(.active) {
   border-left: 3px solid transparent;
@@ -4493,4 +4493,11 @@ body.modal-open {
     overflow: hidden !important;
     height: 100%;
     touch-action: none;
+}
+#accountSidebar.show{
+    left:0;
+}
+
+body.sidebar-open{
+    overflow:hidden;
 }

@@ -39,55 +39,55 @@
                     $step5_done = ($status == 5);
                     $is_cancelled = ($status == 6);
                 @endphp
-                <div class="border border-[#D5D5D5] p-4 md:p-6 bg-white">
+                <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white group">
                     <div class="">
                         <div class="flex flex-col md:flex-row gap-4">
                             <!-- Image -->
-                            <div class="relative shrink-0">
-                                <img src="{{ $productImg }}" alt="" class="w-full md:w-[230px] h-[230px] object-cover">
+                            <div class="relative shrink-0 sm:w-[190px] sm:h-[190px] overflow-hidden cursor-pointer">
+                                <img src="{{ $productImg }}" alt="" class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </div>
 
                             <!-- Content -->
-                            <div class="flex-1 min-w-0">
-                                <h3 class="max-w-[240px] md:max-w-[500px] truncate text-base md:text-[22px] lg:text-[26px] leading-[26px] lg:leading-[36px] font-semibold text-[#131615]">
+                            <div class="flex-1 min-w-0 flex justify-between flex-col">
+                                <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                                     {{ $item->product->name ?? '' }}
                                 </h3>
 
-                                <div class="flex items-center gap-2 mt-5">
+                                <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
                                         ₹{{ number_format($item->price, 0) }}
                                     </span>
                                     @if($item->product && $item->product->mrp > $item->price)
-                                    <span class="text-[#999] line-through">
+                                    <span class="text-[#757575] line-through text-base md:text-lg">
                                         ₹{{ number_format($item->product->mrp, 0) }}
                                     </span>
                                     @endif
                                 </div>
 
-                                <div class="sm:mt-[20px] text-[14px]">
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap gap-2">
-                                        <span class="font-medium text-[#131615] w-[130px] mr-2">Order ID:</span>
-                                        <span class="text-[#757575] font-semibold">#{{ $order->order_no }}</span>
+                                <div class="mt-2 sm:mt-4 space-y-2">
+                                    <p class="text-base flex flex-wrap">
+                                        <span class="font-medium text-[#131615] w-[120px]">Order ID:</span>
+                                        <span class="text-[#757575] ml-2">#{{ $order->order_no }}</span>
                                     </p>
 
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap gap-2">
-                                        <span class="font-medium text-[#131615] w-[130px] mr-2">Category:</span>
-                                        <span class="text-[#757575]">{{ $item->product->category->name ?? 'Imitation Jewelry' }}</span>
+                                    <p class="text-base flex flex-wrap">
+                                        <span class="font-medium text-[#131615] w-[120px]">Category:</span>
+                                        <span class="text-[#757575] ml-2">{{ $item->product->category->name ?? 'Imitation Jewelry' }}</span>
                                     </p>
 
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap gap-2">
-                                        <span class="font-medium text-[#131615] w-[130px] mr-2">Color:</span>
-                                        <span class="text-[#777]">Gold Finish</span>
+                                    <p class="text-base flex flex-wrap">
+                                        <span class="font-medium text-[#131615] w-[120px]">Color:</span>
+                                        <span class="text-[#757575] ml-2">Gold Finish</span>
                                     </p>
 
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap gap-2">
-                                        <span class="font-medium text-[#131615] w-[130px] mr-2">Order Date:</span>
-                                        <span class="text-[#757575]">{{ $order->created_at->format('d M Y') }}</span>
+                                    <p class="text-base flex flex-wrap">
+                                        <span class="font-medium text-[#131615] w-[120px]">Order Date:</span>
+                                        <span class="text-[#757575] ml-2">{{ $order->created_at->format('d M Y') }}</span>
                                     </p>
 
-                                    <p class="text-base sm:text-lg sm:leading-[18px] mb-[10px] md:mb-[15px] flex flex-wrap gap-2">
-                                        <span class="font-medium text-[#131615] w-[130px] mr-2">Delivery Date:</span>
-                                        <span class="text-[#757575]">{{ $order->status == 5 && $order->updated_at ? $order->updated_at->format('d M Y') : '-' }}</span>
+                                    <p class="text-base flex flex-wrap">
+                                        <span class="font-medium text-[#131615] w-[120px]">Delivery Date:</span>
+                                        <span class="text-[#757575] ml-2">{{ $order->status == 5 && $order->updated_at ? $order->updated_at->format('d M Y') : '-' }}</span>
                                     </p>
                                 </div>
                             </div>
@@ -189,19 +189,54 @@
                 @endforeach
 
                 <!-- Review Section (Static/Non-dynamic as requested) -->
-                <div class="border border-[#D5D5D5] p-5 bg-white">
+                <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white">
                     <h3 class="text-xl text-[#131615] font-semibold">
                         Write A Review
                     </h3>
                     <div class="flex gap-1 text-[#B4771E] text-xl mt-3">
-                        <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="">
-                        <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="">
-                        <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="">
-                        <img src="{{ asset('website/assets/images/svg-yello.png') }}" alt="">
-                        <img src="{{ asset('website/assets/images/SVG-gray.png') }}" alt="">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 512 512"
+                        fill="currentColor">
+
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 512 512"
+                        fill="currentColor" class="text-[#D2D2D2]">
+
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
                     </div>
                     <textarea placeholder="Write Your Review" class="w-full h-[120px] border border-[#D5D5D5] px-5 py-4 outline-none resize-none text-[#131615] placeholder:text-[#757575] placeholder:text-sm leading-6 mt-5"></textarea>
-                    <button class="common-btn ! lg:h-[62px] mt-5">
+                    <button class="common-btn ! lg:h-[50px] mt-5">
                         Submit
                     </button>
                 </div>
@@ -220,7 +255,7 @@
             @endphp
             <div class="space-y-5">
                 <!-- Delivery Details -->
-                <div class="border border-[#D5D5D5] p-5 bg-white">
+                <div class="border border-[#D5D5D5] p-4 bg-white">
                     <h3 class="text-[16px] md:text-[18px] font-semibold text-[#131615]">
                         Delivery details
                     </h3>
@@ -246,7 +281,7 @@
                 </div>
 
                 <!-- Price Details -->
-                <div class="border border-[#D5D5D5] p-5 bg-white">
+                <div class="border border-[#D5D5D5] p-4 bg-white">
                     <h3 class="text-[16px] md:text-[18px] font-semibold text-[#131615]">
                         Price Details
                     </h3>
@@ -272,7 +307,7 @@
                         </div>
                         --}}
                     </div>
-                    <div class="border-t mt-5 pt-5 flex justify-between">
+                    <div class="border-t mt-4 pt-4 flex justify-between">
                         <span class="font-semibold text-lg md:text-xl">
                             Total
                         </span>
@@ -280,7 +315,7 @@
                             ₹{{ number_format($finalAmount, 0) }}
                         </span>
                     </div>
-                    <div class="mt-5 flex justify-between flex-wrap">
+                    <div class="mt-4 flex justify-between flex-wrap">
                         <p class="mb-4 text-lg md:text-xl">
                             Paid By :
                         </p>
@@ -295,10 +330,10 @@
                             </span>
                             @endif
                         </p>
-                        <button onclick="window.print()" class="common-btn !w-full !lg:h-[62px]">
+                        <button onclick="window.print()" class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-3">
                             Download Invoice
                         </button>
-                        <a href="{{ route('customer.profile') }}" class="common-btn flex items-center justify-center !w-full mt-4 border border-[#B4771E] !bg-transparent !text-[#B4771E] hover:!bg-[#B4771E] hover:!text-white transition text-print-hide">
+                        <a href="{{ route('customer.profile') }}" class="flex items-center justify-center w-full h-[52px] border mt-4 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] text-print-hide">
                             Back To Orders
                         </a>
                     </div>

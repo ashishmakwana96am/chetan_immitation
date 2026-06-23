@@ -65,7 +65,7 @@
         <div
             class="relative w-full max-w-[750px] bg-white rounded-[8px]
             p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5]
-            overflow-y-auto" >
+            overflow-y-auto scrollbar-hide" >
             <!-- Close -->
 
             <button
@@ -486,7 +486,7 @@
                                                         ₹{{ number_format($price, 0) }}
                                                     </span>
                                                     @if($mrp > $price)
-                                                    <span class="text-[#999] line-through text-base md:text-lg">
+                                                    <span class="text-[#757575] line-through text-base md:text-lg">
                                                         ₹{{ number_format($mrp, 0) }}
                                                     </span>
                                                     @endif
@@ -684,7 +684,7 @@
 
 <div
     id="successModal"
-    class="fixed inset-0 z-40 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
     <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
 

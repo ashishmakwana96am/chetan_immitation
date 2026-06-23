@@ -90,7 +90,7 @@
                                         ₹{{ number_format($prod->sale_price, 0) }}
                                     </span>
                                     @if($prod->mrp && $prod->mrp > $prod->sale_price)
-                                    <span class="text-[#999] line-through text-base md:text-lg">
+                                    <span class="text-[#757575] line-through text-base md:text-lg">
                                         ₹{{ number_format($prod->mrp, 0) }}
                                     </span>
                                     @endif
@@ -426,7 +426,7 @@ $(function () {
 
         var priceHtml = '<span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">₹' + p.sale_price + '</span>';
         if (p.mrp) {
-            priceHtml += '<span class="text-[#999] line-through text-base md:text-lg">₹' + p.mrp + '</span>';
+            priceHtml += '<span class="text-[#757575] line-through text-base md:text-lg">₹' + p.mrp + '</span>';
         }
 
         var metaHtml = '';

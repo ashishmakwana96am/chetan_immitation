@@ -212,7 +212,7 @@ body {
     input::placeholder, textarea::placeholder { color: #bbb; font-size: 13px; }
     select { appearance: none; -webkit-appearance: none; }
     .tab-btn { transition: background .15s, color .15s, border-color .15s; }
-    .tab-btn.active { background: #fef3d0; color: #b8860b; border-left: 3px solid #b8860b; }
+    .tab-btn.active { background: #F7F4EF; color: #B4771E; border-left: 3px solid #B4771E; }
     .tab-btn:not(.active) { border-left: 3px solid transparent; }
     .tab-btn:not(.active):hover { background: #fafaf7; }
     .sort-wrap { position: relative; }
@@ -516,4 +516,11 @@ body.modal-open {
     overflow: hidden !important;
     height: 100%;
     touch-action: none;
+}
+#accountSidebar.show{
+    left:0;
+}
+
+body.sidebar-open{
+    overflow:hidden;
 }

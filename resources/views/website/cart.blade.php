@@ -93,7 +93,7 @@
                                         ₹{{ number_format($price, 0) }}
                                     </span>
                                     @if($mrp > $price)
-                                    <span class="text-[#999] line-through text-base md:text-lg">
+                                    <span class="text-[#757575] line-through text-base md:text-lg">
                                         ₹{{ number_format($mrp, 0) }}
                                     </span>
                                     @endif
