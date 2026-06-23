@@ -111,7 +111,7 @@
                 </div>
                 <div>
                      <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
-                        Alternate Phone Number (Optional)
+                        Alternate Phone Number
                     </label>
                     <input
                         type="text"
@@ -763,7 +763,7 @@ Order Amount
                       <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center">
                         
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"  stroke="#B4771E" />
                     </svg>
 
 
@@ -804,13 +804,13 @@ Order Amount
 
             <button
                 onclick="window.location.href='{{ route('customer.profile') }}'"
-                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white
-                text-base md:text-[22px] md:leading-[24px] mt-10">
+                class="w-full h-[52px] bg-[#B4771E] text-white
+                text-base md:text-[22px] md:leading-[24px] mt-7">
                 View My Orders
             </button>
             <button
                 onclick="window.location.href='{{ route('shop-by-category') }}'"
-                class="common-btn mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
+                class="common-btn h-[52px] mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Continue Shopping
             </button>
         </div>
@@ -820,7 +820,7 @@ Order Amount
 <!-- Failure Modal -->
 <div
     id="failureModal"
-    class="fixed inset-0 z-40 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
     <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
         <div
@@ -836,7 +836,7 @@ Order Amount
             <!-- Failure Icon -->
 
             <div class="flex justify-center">
-                <svg class="w-[120px] md:w-[150px] text-red-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <svg class="w-[120px] text-red-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
             </div>
@@ -865,12 +865,12 @@ Order Amount
 
             <button
                 onclick="retryPaymentFlow()"
-                class="w-full common-btn mt-7">
+                class="w-full common-btn mt-5 h-[52px]">
                 Retry Payment
             </button>
             <button
                 onclick="closeFailureModal()"
-                class="common-btn mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
+                class="common-btn h-[52px] mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Cancel
             </button>
         </div>
