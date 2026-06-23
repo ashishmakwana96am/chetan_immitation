@@ -383,7 +383,7 @@ summary {
 
 .common-btn{
     @apply inline-flex items-center justify-center bg-[#B4771E] text-white px-3 sm:px-[20px] md:px-[24px] 2xl:px-[26px]
-    h-[42px] sm:h-[50px] md:h-[58px] 2xl:h-[62px] text-sm sm:text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-500;
+    h-[42px] sm:h-[50px] md:h-[58px] 2xl:h-[62px] text-sm sm:text-base md:text-lg lg:text-xl hover:bg-[#131615] transition-all duration-500 rounded-sm;
 }
 
 .btn-outline{
@@ -500,4 +500,14 @@ summary {
 
     white-space: normal;
     word-break: break-word;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

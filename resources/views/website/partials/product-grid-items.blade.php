@@ -148,7 +148,7 @@
                 </div>
             </div>
             
-            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300"
+            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white transition duration-300 rounded-sm"
                 data-product-id="{{ $product->id }}"
                 data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}">
                 Add to Cart

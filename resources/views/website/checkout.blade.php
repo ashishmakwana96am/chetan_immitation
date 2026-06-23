@@ -7,7 +7,7 @@
         <div class="container-1440">
             <!-- Heading -->
 
-            <div class="text-center mb-10">
+            <div class="text-center mb-7">
                <h2 class="font-moglan hero-title">
                     Secure Checkout
                 </h2>
@@ -15,31 +15,31 @@
                     Complete your order securely and receive your jewelry at your doorstep.
                 </p>
             </div>
-            <div class="grid xl:grid-cols-[953px_1fr] gap-6 items-start">
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start ">
                 <!-- LEFT SIDE -->
 
-                <div class="space-y-6">
+                <div class="min-w-0 space-y-6">
                     <!-- =====================
                 DELIVERY ADDRESS
                 ===================== -->
 
                     <!-- DELIVERY ADDRESS -->
 
-                    <div class="border border-[#D5D5D5] bg-white rounded-sm">
+                    <div class="min-w-0 sticky top-5 border border-[#D5D5D5] bg-white rounded-sm">
                         <!-- Header -->
 
                         <div class="flex items-center justify-between px-3 sm:px-3 py-3 border-b border-[#D5D5D5] flex-row gap-4 flex-wrap">
                             <div class="flex items-center gap-2 md:gap-[15px]">
                                 <span
-                                    class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
+                                    class="w-7 h-7 rounded-full bg-[#B4771E] text-white text-base flex items-center justify-center font-medium">
                                     1
                                 </span>
-                                <h3 class="text-base sm:text-lg md:text-xl lg:text-2xl font-medium text-[#131615]">
+                                <h3 class="text-base sm:text-lg md:text-xl font-medium text-[#131615]">
                                     Delivery Address
                                 </h3>
                             </div>
                             <button
-                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-lg font-medium px-4 md:px-5 h-[40px] transition flex gap-3 md:gap-[9px] items-center"  onclick="openModal()">
+                                class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-sm md:text-base font-medium px-4 md:px-5 h-[35px] transition flex gap-3 md:gap-[9px] items-center rounded-sm"  onclick="openModal()">
                                 <i class="fa-solid fa-plus"></i> Add New
                             </button>
                         </div>
@@ -58,15 +58,14 @@
 }
 </style>
 <div id="addressModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+    class="fixed inset-0 z-50 hidden bg-black/50 overflow-hidden p-4">
     <div class="min-h-full flex items-center justify-center py-5">
         <!-- Modal Box -->
 
         <div
             class="relative w-full max-w-[750px] bg-white rounded-[8px]
-            p-4 sm:p-6 md:p-[24px]
-            max-h-[90vh] border border-[#D5D5D5]
-            overflow-y-auto scrollbar-none">
+            p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5]
+            overflow-y-auto scrollbar-hide" >
             <!-- Close -->
 
             <button
@@ -76,13 +75,13 @@
             </button>
             <!-- Heading -->
 
-            <h2 class="text-[24px] md:text-[30px] leading-[24px] md:leading-[30px] font-medium text-[#131615] mb-[20px]">
+            <h2 class="text-xl lg:text-[22px] lg:leading-[24px] font-medium text-[#131615] mb-4">
                 Deliver To
             </h2>
             <!-- Full Name -->
 
             <div class="mb-4">
-                <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                     Full Name <span class="text-red-600">*</span>
                 </label>
                 <input
@@ -90,14 +89,14 @@
                     id="addr_name"
                     name="name"
                     placeholder="Enter Your Full Name"
-                    class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                    class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="name"></p>
             </div>
             <!-- Mobile -->
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                 <div>
-                    <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         Mobile Number <span class="text-red-600">*</span>
                     </label>
                     <input
@@ -107,11 +106,11 @@
                         placeholder="Enter Your Mobile Number"
                         maxlength="10"
                         inputmode="numeric"
-                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="phone"></p>
                 </div>
                 <div>
-                     <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         Alternate Phone Number (Optional)
                     </label>
                     <input
@@ -121,14 +120,14 @@
                         placeholder="Enter Your Mobile Number"
                         maxlength="10"
                         inputmode="numeric"
-                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="alternate_phone"></p>
                 </div>
             </div>
             <!-- Email -->
 
             <div class="mb-4">
-                 <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                 <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                     Email address
                 </label>
                 <input
@@ -136,13 +135,13 @@
                     id="addr_email"
                     name="email"
                     value="{{ auth('customer')->user()->email ?? '' }}"
-                    class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                    class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="email"></p>
             </div>
             <!-- Address -->
 
             <div class="mb-4">
-                <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                     Flat/House/Building Name <span class="text-red-600">*</span>
                 </label>
                 <textarea
@@ -150,14 +149,14 @@
                     name="address"
                     rows="3"
                     placeholder="Enter Flat/House/Building Name"
-                     class="addr-input w-full text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y"></textarea>
+                     class="addr-input w-full text-[#757575] text-base  placeholder:text-base border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y rounded-sm"></textarea>
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="address"></p>
             </div>
             <!-- City State -->
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                 <div>
-                    <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         Town / City <span class="text-red-600">*</span>
                     </label>
                     <input
@@ -165,17 +164,17 @@
                         id="addr_city"
                         name="city"
                         placeholder="Town / City"
-                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="city"></p>
                 </div>
                 <div>
-                    <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         State / County <span class="text-red-600">*</span>
                     </label>
                     <select
                         id="addr_state"
                         name="state"
-                         class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base sm:text-lg placeholder:text-base placeholder:sm:text-lg border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                         class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base  placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
                         <option value="">
                             Select an Option...
                         </option>
@@ -192,7 +191,7 @@
             <!-- Address Type -->
 
       <div class="mb-5">
-    <label class="block text-base md:text-xl text-[#131615] mb-2 font-semibold">
+    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
         Type Of Address
     </label>
     <div class="flex flex-wrap gap-4">
@@ -207,9 +206,9 @@
             checked>
         <label
             for="home"
-            class="cursor-pointer py-[8px] px-4 border border-[#D5D5D5]
+            class="cursor-pointer py-[6px] px-4 border border-[#D5D5D5]
             rounded flex items-center gap-[8px]
-            text-base sm:text-lg
+            text-base
             text-[#131615]
             peer-checked/home:bg-[#B4771E1A]
             peer-checked/home:border-[#B4771E1A]
@@ -238,9 +237,9 @@
             class="hidden peer/work">
         <label
             for="work"
-            class="cursor-pointer py-[8px] px-4 border border-[#D5D5D5]
+            class="cursor-pointer py-[6px] px-4 border border-[#D5D5D5]
             rounded flex items-center gap-[8px]
-            text-base sm:text-lg
+            text-base
             text-[#131615]
             peer-checked/work:bg-[#B4771E1A]
             peer-checked/work:border-[#B4771E1A]
@@ -284,13 +283,7 @@
             <button
                 id="saveAddressBtn"
                 onclick="saveCustomerAddress(event)"
-                class="w-full h-[52px] md:h-[58px]
-                bg-[#B4771E]
-                hover:bg-[#a86f17]
-                text-white
-                text-lg md:text-[24px]
-                font-medium
-                rounded">
+                class="common-btn w-full h-[52px] rounded-sm">
                 Save Address
             </button>
         </div>
@@ -349,18 +342,18 @@
                 ===================== -->
 
                     <div class="border border-[#D5D5D5]">
-                          <div class="flex items-center justify-between px-5 py-[19px] border-b border-[#D5D5D5] ">
+                          <div class="flex items-center justify-between px-3 sm:px-3 py-3 border-b border-[#D5D5D5] ">
                             <div class="flex items-center gap-[15px]">
                                 <span
-                                    class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
+                                    class="w-7 h-7 rounded-full bg-[#B4771E] text-white text-base flex items-center justify-center font-medium">
                                     2
                                 </span>
-                                <h3 class="text-base sm:text-lg md:text-xl lg:text-2xl font-medium text-[#131615]">
+                                <h3 class="text-base sm:text-lg md:text-xl font-medium text-[#131615]">
                                    Order Summary
                                 </h3>
                             </div>
                         </div>
-                        <div class="p-3 sm:p-5 space-y-4">
+                        <div class="space-y-4">
                             @forelse($cartItems as $item)
                                 @php
                                     $product  = $item->product;
@@ -383,8 +376,8 @@
                                         && auth('customer')->user()->wishlists->contains('product_id', $product->id);
                                 @endphp
 
-                                <div class="cart-item group wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-id="{{ $item->id }}" data-price="{{ $price }}">
-                                    <div class="flex flex-col sm:flex-row gap-4">
+                                <div class="cart-item group wishlist-item border-b border-[#D5D5D5] p-3 lg:p-4 last:border-0" data-id="{{ $item->id }}" data-price="{{ $price }}">
+                                    <div class="flex flex-col sm:flex-row gap-4 group">
                                         {{-- Image --}}
                                         <div class="relative shrink-0 sm:w-[190px] sm:h-[190px] overflow-hidden cursor-pointer">
                                             @if($stockQty < 1)
@@ -415,7 +408,7 @@
                                             </button>
                                         </div>
                                         {{-- Content --}}
-                                        <div class="flex-1 min-w-0 flex justify-between flex-col">
+                                        <div class="flex-1 min-w-0 flex flex-col justify-between">
                                             <div>
                                                 <a href="{{ $detailUrl }}">
                                                     <h3 class="block product-title text-base md:text-[22px] font-semibold text-[#131615] hover:text-[#B4771E] transition w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -472,14 +465,14 @@
                                                 <div class="flex items-center flex-wrap gap-2 text-[#3D403F]">
                                                     <button type="button" onclick="removeCheckoutItem({{ $item->id }})"
                                                         class="after:border-r after:border-[#3D403F] after:h-5 after:sm:mx-4 after:content-[''] after:inline-block hover:text-red-500 flex items-center gap-[10px] text-sm sm:text-base transition">
-                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 sm:size-5 -mt-1">
+                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 sm:size-5 -mt-0.5">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                                         </svg>
                                                         Remove From Cart
                                                     </button>
                                                     <button type="button" onclick="moveCheckoutItemToWishlist({{ $item->id }}, {{ $product->id }}, {{ $variant?->id ?? 'null' }}, this)"
                                                         class="hover:text-[#B4771E] flex items-center gap-[10px] text-sm sm:text-base transition">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="size-4 sm:size-5 -mt-1">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="size-4 sm:size-5 -mt-0.5">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"></path>
                                                         </svg>
                                                         Move to Wishlist
@@ -501,17 +494,17 @@
                     PAYMENT METHOD
                     ===================== -->
                     <div class="border border-[#D5D5D5] mt-4">
-                        <div class="flex items-center justify-between px-5 py-[19px] border-b border-[#D5D5D5]">
+                        <div class="flex items-center justify-between px-3 sm:px-3 py-3 border-b border-[#D5D5D5]">
                             <div class="flex items-center gap-[15px]">
-                                <span class="w-[34px] h-[34px] rounded-full bg-[#B4771E] text-white text-base sm:text-lg flex items-center justify-center font-medium">
+                                <span class="w-7 h-7 rounded-full bg-[#B4771E] text-white text-base flex items-center justify-center font-medium">
                                     3
                                 </span>
-                                <h3 class="text-base sm:text-lg md:text-xl lg:text-2xl font-medium text-[#131615]">
+                                <h3 class="text-base sm:text-lg md:text-xl font-medium text-[#131615]">
                                     Payment Method
                                 </h3>
                             </div>
                         </div>
-                        <div class="p-3 sm:p-5 space-y-4">
+                        <div class="p-3 sm:p-5">
                             <div class="flex flex-col sm:flex-row gap-4">
                                 <!-- Online Payment (Razorpay) -->
                                 <div class="flex-1 cursor-pointer border border-[#B4771E] bg-[#B4771E0D] p-4 rounded hover:bg-[#B4771E0D] transition" id="onlinePaymentOption" onclick="selectPaymentMethod('online')">
@@ -521,7 +514,7 @@
                                     </div>
                                 </div>
                                 <!-- Cash on Delivery (COD) -->
-                                <div class="flex-1 cursor-pointer border border-[#D5D5D5] bg-white p-4 rounded hover:bg-[#B4771E0D]/10 transition" id="codPaymentOption" onclick="selectPaymentMethod('cod')">
+                                <div class="flex-1 cursor-pointer border border-[#D5D5D5] bg-white p-4 rounded hover:bg-[#B4771E0D]/10 transition hover:border-[#B4771E]" id="codPaymentOption" onclick="selectPaymentMethod('cod')">
                                     <div>
                                         <p class="font-semibold text-[#131615] text-base sm:text-lg">Cash on Delivery (COD)</p>
                                         <p class="text-sm text-[#3D403F]">Pay with cash upon delivery of your order</p>
@@ -536,17 +529,17 @@
 
                 <div class="space-y-4">
                     <!-- Coupon -->
-                    <div class="mb-[30px]">
-                        <h3 class="text-lg md:text-[22px] font-medium mb-3">
+                    <div class="mb-6">
+                        <h3 class="text-lg md:text-xl font-medium mb-3">
                             Have a Coupon?
                         </h3>
                         <div class="flex gap-2 flex-wrap md:flex-nowrap">
                             <input type="text" id="couponCodeInput" placeholder="Enter Coupon Code"
                                 value="{{ session('applied_coupon_code') }}"
                                 {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
-                                class="h-[44px] lg:h-[56px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-lg flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
+                                class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
                             <button id="couponActionBtn" onclick="handleCouponAction()"
-                                class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[56px] whitespace-nowrap text-base md:text-[22px] transition">
+                                class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm">
                                 {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
                             </button>
                         </div>
@@ -554,15 +547,15 @@
                     <!-- Price Details -->
 
                 <div class="border border-[#D5D5D5] p-4 md:p-5">
-                    <h3 class="text-lg md:text-[22px] md:leading-[22px] font-medium text-[#131615]">
+                    <h3 class="text-lg md:text-xl font-medium text-[#131615]">
                         Price Details
                     </h3>
-                    <div class="border-t border-[#D5D5D5] mt-[20px] pt-[20px] space-y-5 text-[14px]">
-                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] ">
+                    <div class="border-t border-[#D5D5D5] mt-4 pt-4 space-y-4 text-[14px]">
+                        <div class="flex justify-between text-base sm:text-xl ">
                             <span class="font-medium text-[#131615]">Subtotal</span>
                             <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
-                        <div class="flex justify-between text-base sm:text-xl sm:leading-[20px] {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
+                        <div class="flex justify-between text-base sm:text-xl {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
                             <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
                         </div>
@@ -580,7 +573,7 @@
                         --}}
                     </div>
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">
-                        <span class="font-medium text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
+                        <span class="font-medium text-lg md:text-[22px] lg:text-[22px] md:leading-[22px] lg:leading-[24px]">
                             Total
                         </span>
                         <span id="checkoutTotalValue" class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
@@ -588,7 +581,7 @@
                         </span>
                     </div>
                     <button id="placeOrderBtn" onclick="startPaymentFlow()"
-                        class="common-btn !w-full mt-[30px] flex items-center justify-center gap-2">
+                        class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-7">
                        <span>Place Order</span>
                     </button>
                 </div>
@@ -693,7 +686,7 @@ Order Amount
                 p-5 rounded-[5px]  mt-4
                 flex gap-[15px] items-start">
                 <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
-                <p class="text-[#131615] text-base md:text-xl">
+                <p class="text-[#131615] text-base md:text-lg">
                     A confirmation email and order details have been sent to your
                     registered email address and mobile number.
                 </p>
@@ -801,25 +794,37 @@ Order Amount
 </div>
                     <!-- Why Shop -->
 
-                    <div class="border border-[#D5D5D5] p-4 md:p-5">
-                         <h3 class="text-lg md:text-[22px] md:leading-[22px] font-medium text-[#131615] mb-[24px]">
+                    <div class="border border-[#D5D5D5] p-4 md:p-4">
+                         <h3 class="text-lg md:text-xl font-medium text-[#131615] mb-5">
                             Why Shop With Us?
                         </h3>
-                         <div class="space-y-4 text-[#131615]">
-                             <div class="flex gap-3 text-base md:text-xl font-normal">
-                                 <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
+                         <div class="space-y-3 text-[#131615]">
+                             <div class="flex gap-3 text-base md:text-lg font-normal">
+                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+
                                 <span>100% Secure Checkout</span>
                             </div>
-                             <div class="flex gap-3 text-base md:text-xl font-normal">
-                                 <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
+                             <div class="flex gap-3 text-base md:text-lg font-normal">
+                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+
                                 <span>Premium Quality jewelry</span>
                             </div>
-                             <div class="flex gap-3 text-base md:text-xl font-normal">
-                                 <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
+                             <div class="flex gap-3 text-base md:text-lg font-normal">
+                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+
                                 <span>Easy Return and Exchange</span>
                             </div>
-                             <div class="flex gap-3 text-base md:text-xl font-normal">
-                                 <i class="fa-solid fa-check text-[#B4771E] mt-1"></i>
+                             <div class="flex gap-3 text-base md:text-lg font-normal">
+                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+
                                 <span>Secure Packaging</span>
                             </div>
                         </div>
@@ -836,7 +841,7 @@ YOU MAY ALSO LIKE
     <div class="container-1440">
         <!-- Heading -->
 
-        <div class="text-center mb-10 lg:mb-7">
+        <div class="text-center mb-7">
             <h2 class="font-moglan hero-title">
                 You May Also Like
             </h2>

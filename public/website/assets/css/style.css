@@ -3990,6 +3990,7 @@ summary {
   font-size: var(--text-sm);
   line-height: var(--tw-leading, var(--text-sm--line-height));
   color: var(--color-white);
+  border-radius: var(--radius-sm);
   transition: all 0.5s ease;
   &:hover {
     background-color: #131615;
@@ -4476,4 +4477,14 @@ summary {
 
     white-space: normal;
     word-break: break-word;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
