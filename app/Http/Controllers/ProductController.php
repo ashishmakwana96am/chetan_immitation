@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Picqer\Barcode\BarcodeGeneratorSVG;
 
 class ProductController extends Controller
 {
@@ -56,6 +57,15 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
 
+            $barcode = $product->barcode
+                ? '<div class="d-flex align-items-center gap-2">
+                    <code>' . $product->barcode . '</code>
+                    <button onclick="viewBarcode(\'' . $product->barcode . '\', ' . $product->id . ')" class="btn btn-sm btn-icon btn-label-secondary" title="View Barcode">
+                        <i class="ti ti-barcode"></i>
+                    </button>
+                   </div>'
+                : '<span class="text-muted">-</span>';
+
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
@@ -80,6 +90,7 @@ class ProductController extends Controller
                 'image'          => $image,
                 'name'           => $nameHtml,
                 'sku'            => '<code>' . $product->sku . '</code>',
+                'barcode'        => $barcode,
                 'category'       => $product->category->name ?? '-',
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
@@ -592,6 +603,20 @@ class ProductController extends Controller
             }
         }
         return null;
+    }
+
+    public function generateBarcodeImage(Product $product)
+    {
+        $this->authorize('view products');
+
+        if (empty($product->barcode)) {
+            return response()->json(['status' => 'error', 'message' => 'No barcode found for this product'], 404);
+        }
+
+        $generator = new BarcodeGeneratorSVG();
+        $barcode = $generator->getBarcode($product->barcode, $generator::TYPE_CODE_128);
+
+        return response($barcode, 200)->header('Content-Type', 'image/svg+xml');
     }
 
 }

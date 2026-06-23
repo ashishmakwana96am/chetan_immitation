@@ -15,6 +15,7 @@ class Product extends Model
         'category_id',
         'sub_category_id',
         'sku',
+        'barcode',
         'description',
         'additional_information',
         'product_highlights',
@@ -278,5 +279,25 @@ class Product extends Model
     public function getIsVariableAttribute()
     {
         return $this->type === 'variable';
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($product) {
+            if (empty($product->barcode)) {
+                $product->barcode = self::generateUniqueBarcode();
+            }
+        });
+    }
+
+    public static function generateUniqueBarcode()
+    {
+        do {
+            $barcode = 'PRD' . str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+        } while (self::where('barcode', $barcode)->exists());
+
+        return $barcode;
     }
 }

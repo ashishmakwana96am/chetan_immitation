@@ -31,6 +31,11 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Barcode <small class="text-muted">(Auto-generated)</small></label>
+                                <input type="text" id="barcodePreview" class="form-control bg-light" placeholder="Will be generated on save" readonly />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Category <span class="text-danger">*</span></label>
                                 <select name="category_id" id="productCategory" class="form-select">
                                     <option value="">-- Select Category --</option>

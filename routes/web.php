@@ -140,6 +140,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::get('products/{product}/barcode', [ProductController::class, 'generateBarcodeImage'])->name('products.barcode');
         Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
         Route::delete('products/images/{image}', [ProductController::class, 'destroyImage'])->name('products.images.destroy');
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');

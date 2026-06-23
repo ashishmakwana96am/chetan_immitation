@@ -87,6 +87,17 @@
                             <p class="mb-0"><code>{{ $product->sku }}</code></p>
                         </div>
                         <div class="col-md-6">
+                            <p class="text-muted small mb-1">Barcode</p>
+                            <div class="d-flex align-items-center gap-2">
+                                <p class="mb-0"><code>{{ $product->barcode ?? '-' }}</code></p>
+                                @if($product->barcode)
+                                <button onclick="printBarcode({{ $product->id }})" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
+                                    <i class="ti ti-printer"></i>
+                                </button>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-6">
                             <p class="text-muted small mb-1">Category</p>
                             <p class="mb-0">
                                 <span class="badge bg-label-primary">{{ $product->category->name ?? '-' }}</span>
@@ -323,6 +334,32 @@
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/swiper/swiper.js') }}"></script>
     <script>
+        window.printBarcode = function(productId) {
+            var barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
+            var productName = @json($product->name);
+            var barcodeValue = @json($product->barcode ?? '');
+            
+            var printWindow = window.open('', '_blank');
+            var html = '<!DOCTYPE html><html><head><title>Print Barcode</title>';
+            html += '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}';
+            html += '.barcode-label{border:2px solid #000;padding:20px;max-width:300px;margin:0 auto}';
+            html += '.product-name{font-size:16px;font-weight:bold;margin-bottom:10px;word-wrap:break-word}';
+            html += '.barcode-value{font-size:14px;margin-bottom:10px;font-family:monospace}';
+            html += '.barcode-image{max-width:100%;height:auto}';
+            html += '@media print{body{margin:0;padding:0}.barcode-label{border:2px solid #000;page-break-inside:avoid}}</style>';
+            html += '</head><body>';
+            html += '<div class="barcode-label">';
+            html += '<div class="product-name">' + productName + '</div>';
+            html += '<div class="barcode-value">' + barcodeValue + '</div>';
+            html += '<img src="' + barcodeUrl + '" alt="Barcode" class="barcode-image" />';
+            html += '</div>';
+            html += '<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>';
+            html += '</body></html>';
+            
+            printWindow.document.write(html);
+            printWindow.document.close();
+        }
+
         $(document).ready(function () {
 
             @if($product->images->count() > 1)

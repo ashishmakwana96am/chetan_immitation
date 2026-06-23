@@ -38,6 +38,19 @@
                                     placeholder="e.g. IPH-15-PRO" value="{{ $product->sku }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Barcode</label>
+                                <div class="d-flex gap-2">
+                                    <input type="text" name="barcode" class="form-control bg-light" 
+                                        placeholder="Auto-generated" value="{{ $product->barcode ?? '' }}" readonly />
+                                    @if($product->barcode)
+                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }})" class="btn btn-icon btn-label-secondary" title="View Barcode">
+                                        <i class="ti ti-barcode"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                <div class="invalid-feedback"></div>
+                            </div>
                              <div class="col-md-6">
                                  <label class="form-label">Category <span class="text-danger">*</span></label>
                                  <select name="category_id" id="productCategory" class="form-select">
@@ -867,6 +880,33 @@
                     }
                 }
             });
+
+            window.viewBarcode = function(barcode, productId) {
+                const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
+                const modal = `
+                    <div class="modal fade" id="barcodeModal" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Product Barcode</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <p class="fw-bold mb-3">${barcode}</p>
+                                    <img src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 150px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('#barcodeModal').remove();
+                $('body').append(modal);
+                const modalEl = new bootstrap.Modal(document.getElementById('barcodeModal'));
+                modalEl.show();
+                document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {
+                    this.remove();
+                });
+            };
 
         });
     </script>
