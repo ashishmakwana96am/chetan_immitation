@@ -299,7 +299,7 @@
                                     </svg>
                                     My Account
                                 </a>
-                                <a href="{{ route('cart') }}"
+                                <!-- <a href="{{ route('cart') }}"
                                     class="flex items-center gap-2 w-full px-4 py-3 text-base text-[#131615] hover:bg-[#f9f3e8] hover:text-[#B4771E] transition border-b border-[#D5D5D5]">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 shrink-0">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
@@ -312,9 +312,12 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                                     </svg>
                                     My Wishlist
-                                </a>
+                                </a> -->
                                 <button id="logoutBtn" type="button"
                                     class="w-full text-left px-4 py-3 text-base text-[#dc2626] hover:bg-[#fff5f5] transition flex items-center gap-2">
+                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 shrink-0 rotate-[180deg]">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
+                                    </svg>
                                     <span id="logoutBtnText">Logout</span>
                                     <svg id="logoutSpinner" class="hidden animate-spin w-4 h-4 text-[#dc2626]" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
