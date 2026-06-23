@@ -57,7 +57,7 @@ class Order extends Model
 
     public function customerAddress()
     {
-        return $this->belongsTo(CustomerAddress::class, 'customer_address_id');
+        return $this->belongsTo(CustomerAddress::class, 'customer_address_id')->withTrashed();
     }
 
     public function location()
