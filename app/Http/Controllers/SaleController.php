@@ -123,12 +123,13 @@ class SaleController extends Controller
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'    => $p->id,
-                'name'  => $p->name,
-                'price' => $p->sale_price,
-                'sku'   => $p->sku,
-                'label' => $p->name . ' (' . $p->sku . ')',
-                'type'  => $p->type,
+                'id'      => $p->id,
+                'name'    => $p->name,
+                'price'   => $p->sale_price,
+                'sku'     => $p->sku,
+                'barcode' => $p->barcode,
+                'label'   => $p->name . ' (' . $p->sku . ')',
+                'type'    => $p->type,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -327,12 +328,13 @@ class SaleController extends Controller
 
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'    => $p->id,
-                'name'  => $p->name,
-                'price' => $p->sale_price,
-                'sku'   => $p->sku,
-                'label' => $p->name . ' (' . $p->sku . ')',
-                'type'  => $p->type,
+                'id'      => $p->id,
+                'name'    => $p->name,
+                'price'   => $p->sale_price,
+                'sku'     => $p->sku,
+                'barcode' => $p->barcode,
+                'label'   => $p->name . ' (' . $p->sku . ')',
+                'type'    => $p->type,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {

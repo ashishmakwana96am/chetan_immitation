@@ -90,7 +90,7 @@
                         <div class="position-relative">
                             <div class="input-group input-group-merge">
                                 <span class="input-group-text"><i class="ti ti-search"></i></span>
-                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name or SKU..." autocomplete="off">
+                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name, SKU or barcode..." autocomplete="off">
                             </div>
                             <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
                                 <!-- Search results will appear here -->
@@ -370,7 +370,8 @@ $(document).ready(function () {
         }
 
         const matchedProducts = allProducts.filter(p => 
-            p.label.toLowerCase().includes(query)
+            p.label.toLowerCase().includes(query) ||
+            (p.barcode && p.barcode.toLowerCase().includes(query))
         );
 
         if (matchedProducts.length === 0) {
@@ -388,7 +389,7 @@ $(document).ready(function () {
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
                     <div>
                         <div class="fw-semibold">${p.name}</div>
-                        <small class="text-muted">SKU: ${p.sku}</small>
+                        <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
                     </div>
                     ${priceBadge}
                 </a>
