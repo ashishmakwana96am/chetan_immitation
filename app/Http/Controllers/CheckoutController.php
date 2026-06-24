@@ -99,7 +99,15 @@ class CheckoutController extends Controller
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
         $total = round($subtotal - $discount);
 
-        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon'));
+        $paymentMethodCod      = (bool) Setting::getValue('payment_method_cod', true);
+        $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
+
+        // Ensure at least one method is on (safety fallback)
+        if (!$paymentMethodCod && !$paymentMethodRazorpay) {
+            $paymentMethodCod = true;
+        }
+
+        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'paymentMethodCod', 'paymentMethodRazorpay'));
     }
 
     public function saveAddress(Request $request)
@@ -273,6 +281,14 @@ class CheckoutController extends Controller
         $request->validate([
             'address_id' => ['required', 'integer']
         ]);
+
+        // Guard: Razorpay must be enabled in settings
+        if (!(bool) Setting::getValue('payment_method_razorpay', true)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Online payment is currently unavailable.'
+            ], 422);
+        }
 
         $customer = $this->customer();
 
@@ -557,6 +573,14 @@ class CheckoutController extends Controller
             'qty'         => ['nullable', 'integer', 'min:1'],
         ]);
 
+        // Guard: Razorpay must be enabled in settings
+        if (!(bool) Setting::getValue('payment_method_razorpay', true)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Online payment is currently unavailable.'
+            ], 422);
+        }
+
         $customer = $this->customer();
 
         $address = CustomerAddress::where('customer_id', $customer->id)
@@ -796,6 +820,14 @@ class CheckoutController extends Controller
         $request->validate([
             'address_id' => ['required', 'integer']
         ]);
+
+        // Guard: COD must be enabled in settings
+        if (!(bool) Setting::getValue('payment_method_cod', true)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Cash on Delivery is currently unavailable.'
+            ], 422);
+        }
 
         $customer = $this->customer();
 

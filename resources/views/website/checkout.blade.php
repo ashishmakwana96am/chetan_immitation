@@ -573,21 +573,27 @@
                         <div class="p-3 sm:p-5">
                             <div class="flex flex-col sm:flex-row gap-4">
                                 <!-- Online Payment (Razorpay) -->
+                                @if($paymentMethodRazorpay)
                                 <div class="flex-1 cursor-pointer border border-[#B4771E] bg-[#B4771E0D] p-4 rounded hover:bg-[#B4771E0D] transition" id="onlinePaymentOption" onclick="selectPaymentMethod('online')">
                                     <div>
                                         <p class="font-semibold text-[#131615] text-base sm:text-lg">Online Payment</p>
-                                        <p class="text-sm text-[#3D403F]">Pay securely using Razorpay (Cards, UPI, Netbanking)</p>
+                                        <p class="text-sm text-[#3D403F]">Pay securely using (Cards, UPI, Netbanking)</p>
                                     </div>
                                 </div>
+                                @endif
                                 <!-- Cash on Delivery (COD) -->
+                                @if($paymentMethodCod)
                                 <div class="flex-1 cursor-pointer border border-[#D5D5D5] bg-white p-4 rounded hover:bg-[#B4771E0D]/10 transition hover:border-[#B4771E]" id="codPaymentOption" onclick="selectPaymentMethod('cod')">
                                     <div>
                                         <p class="font-semibold text-[#131615] text-base sm:text-lg">Cash on Delivery (COD)</p>
                                         <p class="text-sm text-[#3D403F]">Pay with cash upon delivery of your order</p>
                                     </div>
                                 </div>
+                                @endif
                             </div>
-                            <input type="hidden" id="selectedPaymentMethod" name="payment_method_select" value="online">
+                            {{-- Default selected method: first enabled one --}}
+                            <input type="hidden" id="selectedPaymentMethod" name="payment_method_select"
+                                value="{{ $paymentMethodRazorpay ? 'online' : 'cod' }}">
                         </div>
                     </div>
                 </div>
@@ -1682,17 +1688,23 @@ function selectPaymentMethod(method) {
     hiddenInput.value = method;
 
     if (method === 'online') {
-        onlineOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]');
-        onlineOption.classList.remove('border-[#D5D5D5]', 'bg-white');
-
-        codOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]/10');
-        codOption.classList.add('border-[#D5D5D5]', 'bg-white');
+        if (onlineOption) {
+            onlineOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]');
+            onlineOption.classList.remove('border-[#D5D5D5]', 'bg-white');
+        }
+        if (codOption) {
+            codOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]/10');
+            codOption.classList.add('border-[#D5D5D5]', 'bg-white');
+        }
     } else {
-        codOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]/10');
-        codOption.classList.remove('border-[#D5D5D5]', 'bg-white');
-
-        onlineOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]');
-        onlineOption.classList.add('border-[#D5D5D5]', 'bg-white');
+        if (codOption) {
+            codOption.classList.add('border-[#B4771E]', 'bg-[#B4771E0D]/10');
+            codOption.classList.remove('border-[#D5D5D5]', 'bg-white');
+        }
+        if (onlineOption) {
+            onlineOption.classList.remove('border-[#B4771E]', 'bg-[#B4771E0D]');
+            onlineOption.classList.add('border-[#D5D5D5]', 'bg-white');
+        }
     }
 }
 

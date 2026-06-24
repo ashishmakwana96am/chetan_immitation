@@ -130,14 +130,14 @@
                 @php
                     $cs  = (int)$order->status;
                     $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
-                    $o1  = ($cs !== 1)                          ? 'disabled' : '';
-                    $o2  = (!in_array($cs, [1, 2]))             ? 'disabled' : '';
-                    $o3  = (!in_array($cs, [2, 3]))             ? 'disabled' : '';
-                    $o4  = (!in_array($cs, [3, 4]))             ? 'disabled' : '';
-                    $o5  = (!in_array($cs, [4, 5]))             ? 'disabled' : '';
-                    $o6  = (in_array($cs, [5, 6]))              ? 'disabled' : '';
+                    $o1  = ($cs === 1) ? '' : 'disabled';
+                    $o2  = ($cs === 2) ? '' : ((!in_array($cs, [1, 2])) ? 'disabled' : '');
+                    $o3  = ($cs === 3) ? '' : ((!in_array($cs, [2, 3])) ? 'disabled' : '');
+                    $o4  = ($cs === 4) ? '' : ((!in_array($cs, [3, 4])) ? 'disabled' : '');
+                    $o5  = ($cs === 5) ? '' : ((!in_array($cs, [4, 5])) ? 'disabled' : '');
+                    $o6  = ($cs === 6) ? '' : ((in_array($cs, [5, 6]))  ? 'disabled' : '');
                 @endphp
-                <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} style="min-width:160px;width:auto;">
+                <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} autocomplete="off" style="min-width:160px;width:auto;">
                     <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
                     <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
                     <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>

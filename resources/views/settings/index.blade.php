@@ -11,8 +11,58 @@
 <form id="settingsForm">
     @csrf
     <div class="row g-4">
-        <!-- Razorpay Settings -->
+
+        <!-- Payment Methods -->
         <div class="col-12">
+            <div class="card">
+                <div class="card-header"><h5 class="mb-0">Payment Methods</h5></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Enable or disable the payment methods shown to customers at checkout. At least one method must remain enabled.</p>
+                    <div id="payment-method-error" class="alert alert-danger d-none mb-3 py-2"></div>
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Razorpay -->
+                        <div class="d-flex align-items-center justify-content-between border rounded p-3">
+                            <div>
+                                <p class="fw-semibold mb-0">Online Payment (Razorpay)</p>
+                                <p class="text-muted small mb-0">Cards, UPI, Netbanking via Razorpay</p>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input payment-method-toggle" type="checkbox"
+                                    id="payment_method_razorpay_toggle"
+                                    name="payment_method_razorpay"
+                                    value="1"
+                                    style="width:2.5rem; height:1.35rem; cursor:pointer;"
+                                    {{ $paymentMethodRazorpay ? 'checked' : '' }} />
+                                <label class="form-check-label ms-2" for="payment_method_razorpay_toggle" id="razorpay_method_label">
+                                    {{ $paymentMethodRazorpay ? 'Enabled' : 'Disabled' }}
+                                </label>
+                            </div>
+                        </div>
+                        <!-- COD -->
+                        <div class="d-flex align-items-center justify-content-between border rounded p-3">
+                            <div>
+                                <p class="fw-semibold mb-0">Cash on Delivery (COD)</p>
+                                <p class="text-muted small mb-0">Customer pays with cash upon delivery</p>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input payment-method-toggle" type="checkbox"
+                                    id="payment_method_cod_toggle"
+                                    name="payment_method_cod"
+                                    value="1"
+                                    style="width:2.5rem; height:1.35rem; cursor:pointer;"
+                                    {{ $paymentMethodCod ? 'checked' : '' }} />
+                                <label class="form-check-label ms-2" for="payment_method_cod_toggle" id="cod_method_label">
+                                    {{ $paymentMethodCod ? 'Enabled' : 'Disabled' }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Razorpay Settings — only visible when Razorpay is enabled -->
+        <div class="col-12" id="razorpaySettingsCard" {{ $paymentMethodRazorpay ? '' : 'style=display:none' }}>
             <div class="card">
                 <div class="card-header"><h5 class="mb-0">Razorpay Payment Gateway Settings</h5></div>
                 <div class="card-body">
@@ -80,6 +130,26 @@
                             <input type="text" name="announcement_text" id="announcement_text" class="form-control" value="{{ $announcementText }}" placeholder="Enter Announcement Bar Text" />
                             <div class="invalid-feedback"></div>
                         </div>
+
+                        <div class="col-12 mt-3">
+                            <div class="d-flex align-items-center justify-content-between border rounded p-3">
+                                <div>
+                                    <p class="fw-semibold mb-0">Coming Soon Mode</p>
+                                    <p class="text-muted small mb-0">When enabled, all website pages show a "Coming Soon" screen. Admin panel remains accessible.</p>
+                                </div>
+                                <div class="form-check form-switch mb-0 ms-3">
+                                    <input class="form-check-input" type="checkbox"
+                                        id="coming_soon_toggle"
+                                        name="coming_soon"
+                                        value="1"
+                                        style="width:2.5rem; height:1.35rem; cursor:pointer;"
+                                        {{ $comingSoon ? 'checked' : '' }} />
+                                    <label class="form-check-label ms-2" for="coming_soon_toggle" id="coming_soon_label">
+                                        {{ $comingSoon ? 'Enabled' : 'Disabled' }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -114,6 +184,27 @@ $(document).ready(function () {
             label.text('Test Mode').removeClass('text-success').addClass('text-primary');
             $('#razorpay_payment_mode').val('test');
         }
+    });
+
+    // Payment method toggle labels + show/hide Razorpay settings card
+    $(document).on('change', '.payment-method-toggle', function () {
+        const isChecked = this.checked;
+        const labelId = this.id === 'payment_method_razorpay_toggle' ? 'razorpay_method_label' : 'cod_method_label';
+        $('#' + labelId).text(isChecked ? 'Enabled' : 'Disabled');
+
+        // Show/hide Razorpay gateway settings card based on Razorpay toggle
+        if (this.id === 'payment_method_razorpay_toggle') {
+            if (isChecked) {
+                $('#razorpaySettingsCard').slideDown(200);
+            } else {
+                $('#razorpaySettingsCard').slideUp(200);
+            }
+        }
+    });
+
+    // Coming soon toggle label
+    $('#coming_soon_toggle').on('change', function () {
+        $('#coming_soon_label').text(this.checked ? 'Enabled' : 'Disabled');
     });
 
     $('#settingsForm').on('submit', function (e) {
@@ -162,6 +253,7 @@ $(document).ready(function () {
                     // Update original data attribute
                     var newMode = $('#razorpay_payment_mode').val();
                     $('#razorpay_payment_mode').data('original', newMode);
+                    $('#payment-method-error').addClass('d-none');
                 }
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
             },
@@ -169,7 +261,16 @@ $(document).ready(function () {
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
+                    // Show payment method error prominently
+                    if (errors.payment_method_cod || errors.payment_method_razorpay) {
+                        const msg = (errors.payment_method_cod || errors.payment_method_razorpay)[0];
+                        $('#payment-method-error').text(msg).removeClass('d-none');
+                        $('html, body').animate({ scrollTop: $('#payment-method-error').offset().top - 100 }, 300);
+                    } else {
+                        $('#payment-method-error').addClass('d-none');
+                    }
                     $.each(errors, function (field, messages) {
+                        if (field === 'payment_method_cod' || field === 'payment_method_razorpay') return;
                         let input = form.find('[name="' + field + '"]');
                         if (input.length) {
                             input.addClass('is-invalid');

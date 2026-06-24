@@ -19,10 +19,11 @@ class PurchaseInvoiceController extends Controller
     public function index()
     {
         $this->authorize('view purchases');
-        return view('purchases.index');
+        $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
+        return view('purchases.index', compact('suppliers'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view purchases');
 
@@ -32,6 +33,21 @@ class PurchaseInvoiceController extends Controller
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
                 });
+            })
+            ->when($request->supplier_id, function($q) use ($request) {
+                $q->where('supplier_id', $request->supplier_id);
+            })
+            ->when($request->status, function($q) use ($request) {
+                $q->where('status', $request->status);
+            })
+            ->when($request->payment_status, function($q) use ($request) {
+                $q->where('payment_status', $request->payment_status);
+            })
+            ->when($request->start_date, function($q) use ($request) {
+                $q->whereDate('created_at', '>=', $request->start_date);
+            })
+            ->when($request->end_date, function($q) use ($request) {
+                $q->whereDate('created_at', '<=', $request->end_date);
             })
             ->orderBy('id', 'desc')
             ->get();

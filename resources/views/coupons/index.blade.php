@@ -30,6 +30,7 @@
                         <th>Code</th>
                         <th>Discount</th>
                         <th>Usage Limit</th>
+                        <th>Used Count</th>
                         <th>Validity</th>
                         <th>Status</th>
                         <th>Created Date</th>
@@ -59,6 +60,7 @@
                     { data: 'code' },
                     { data: 'discount' },
                     { data: 'usage_limit' },
+                    { data: 'usage_count' },
                     { data: 'validity' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },

@@ -12,12 +12,15 @@ class SettingController extends Controller
     {
         $this->authorize('view settings');
 
-        $razorpayPaymentMode = Setting::getValue('razorpay_payment_mode', 'test');
-        $razorpayTestKeyId = Setting::getValue('razorpay_test_key_id', '');
+        $razorpayPaymentMode   = Setting::getValue('razorpay_payment_mode', 'test');
+        $razorpayTestKeyId     = Setting::getValue('razorpay_test_key_id', '');
         $razorpayTestKeySecret = Setting::getValue('razorpay_test_key_secret', '');
-        $razorpayLiveKeyId = Setting::getValue('razorpay_live_key_id', '');
+        $razorpayLiveKeyId     = Setting::getValue('razorpay_live_key_id', '');
         $razorpayLiveKeySecret = Setting::getValue('razorpay_live_key_secret', '');
-        $announcementText = Setting::getValue('announcement_text', '');
+        $announcementText      = Setting::getValue('announcement_text', '');
+        $paymentMethodCod      = (bool) Setting::getValue('payment_method_cod', true);
+        $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
+        $comingSoon            = (bool) Setting::getValue('coming_soon', false);
 
         return view('settings.index', compact(
             'razorpayPaymentMode',
@@ -25,7 +28,10 @@ class SettingController extends Controller
             'razorpayTestKeySecret',
             'razorpayLiveKeyId',
             'razorpayLiveKeySecret',
-            'announcementText'
+            'announcementText',
+            'paymentMethodCod',
+            'paymentMethodRazorpay',
+            'comingSoon'
         ));
     }
 
@@ -34,22 +40,38 @@ class SettingController extends Controller
         $this->authorize('edit settings');
 
         $validator = Validator::make($request->all(), [
-            'razorpay_payment_mode' => ['nullable', 'string', 'in:test,live'],
-            'announcement_text' => ['nullable', 'string', 'max:500'],
+            'razorpay_payment_mode'   => ['nullable', 'string', 'in:test,live'],
+            'announcement_text'       => ['nullable', 'string', 'max:500'],
+            'payment_method_cod'      => ['nullable', 'boolean'],
+            'payment_method_razorpay' => ['nullable', 'boolean'],
+            'coming_soon'             => ['nullable', 'boolean'],
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
 
-        Setting::setValue('razorpay_payment_mode', $request->razorpay_payment_mode ?? 'test');
-        Setting::setValue('announcement_text', $request->announcement_text ?? '');
+        $codEnabled      = $request->boolean('payment_method_cod');
+        $razorpayEnabled = $request->boolean('payment_method_razorpay');
+
+        if (!$codEnabled && !$razorpayEnabled) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['payment_method_cod' => ['At least one payment method must be enabled.']],
+            ], 422);
+        }
+
+        Setting::setValue('razorpay_payment_mode',   $request->razorpay_payment_mode ?? 'test');
+        Setting::setValue('announcement_text',        $request->announcement_text ?? '');
+        Setting::setValue('payment_method_cod',       $codEnabled ? '1' : '0');
+        Setting::setValue('payment_method_razorpay',  $razorpayEnabled ? '1' : '0');
+        Setting::setValue('coming_soon',              $request->boolean('coming_soon') ? '1' : '0');
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Settings updated successfully.',
         ]);
     }

@@ -19,21 +19,46 @@ class ProductController extends Controller
     public function index()
     {
         $this->authorize('view products');
-        return view('products.index');
+        $categories = Category::orderBy('name')->get();
+        return view('products.index', compact('categories'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view products');
 
-        $user = auth()->user();
-        $products = Product::with([
-            'category', 
-            'primaryImage', 
-            'inventories' => function($q) use ($user) {
-                $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
+        $user        = auth()->user();
+        $isRestricted = $user->location_id && $user->type !== 'super-admin';
+
+        $query = Product::with([
+            'category',
+            'primaryImage',
+            'inventories' => function($q) use ($isRestricted, $user) {
+                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
             }
-        ])->orderBy('id', 'desc')->get();
+        ])
+        ->when($request->category_id, function($q) use ($request) {
+            $q->where('category_id', $request->category_id);
+        })
+        ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
+            $q->where('status', $request->status);
+        });
+
+        // Apply stock_status filter at DB level for accuracy and performance
+        if ($request->stock_status === 'in_stock') {
+            $query->whereHas('inventories', function($q) use ($isRestricted, $user) {
+                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
+                $q->where('quantity', '>', 0);
+            });
+        } elseif ($request->stock_status === 'out_of_stock') {
+            // Products that have no inventory row with quantity > 0 (for the given location scope)
+            $query->whereDoesntHave('inventories', function($q) use ($isRestricted, $user) {
+                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
+                $q->where('quantity', '>', 0);
+            });
+        }
+
+        $products = $query->orderBy('id', 'desc')->get();
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
@@ -96,6 +121,7 @@ class ProductController extends Controller
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
                 'sale_price'     => format_price($product->sale_price),
+                'mrp'            => format_price($product->mrp),
                 'status'         => $status,
                 'actions'        => $actions,
             ];

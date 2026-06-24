@@ -33,4 +33,9 @@ class Coupon extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

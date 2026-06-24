@@ -106,13 +106,13 @@
 
                 let stars = '';
                 for (let i = 0; i < full; i++) {
-                    stars += '<i class="ti ti-star-filled text-warning" style="font-size:1.15rem;"></i>';
+                    stars += '<i class="fa-solid fa-star text-warning" style="font-size:1.15rem;"></i>';
                 }
                 if (half) {
-                    stars += '<i class="ti ti-star-half-filled text-warning" style="font-size:1.15rem;"></i>';
+                    stars += '<i class="fa-solid fa-star-half-stroke text-warning" style="font-size:1.15rem;"></i>';
                 }
                 for (let i = 0; i < empty; i++) {
-                    stars += '<i class="ti ti-star text-muted" style="font-size:1.15rem;"></i>';
+                    stars += '<i class="fa-regular fa-star text-warning" style="font-size:1.15rem;"></i>';
                 }
                 const starsHtml = `${stars} <small class="text-muted ms-1">(${rating.toFixed(1)})</small>`;
 

@@ -52,10 +52,26 @@ $(document).ready(function () {
 
     // Expose helpers globally so any page can call them without duplicating code
     window.showAjaxLoader = function (btn) {
-        if (btn) disableBtn($(btn), 'Processing...');
+        if (btn) {
+            disableBtn($(btn), 'Processing...');
+        } else {
+            var el = document.getElementById('ajaxLoaderOverlay');
+            if (el) {
+                el.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        }
     };
     window.hideAjaxLoader = function (btn) {
-        if (btn) enableBtn($(btn));
+        if (btn) {
+            enableBtn($(btn));
+        } else {
+            var el = document.getElementById('ajaxLoaderOverlay');
+            if (el) {
+                el.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
     };
 
     // -------------------------------------------------------

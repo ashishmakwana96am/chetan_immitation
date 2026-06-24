@@ -18,7 +18,7 @@ class CouponController extends Controller
     {
         $this->authorize('view coupons');
 
-        $coupons = Coupon::with('createdBy')->orderBy('id', 'desc')->get();
+        $coupons = Coupon::with('createdBy')->withCount('orders')->orderBy('id', 'desc')->get();
         $canEdit   = auth()->user()->can('edit coupons');
         $canDelete = auth()->user()->can('delete coupons');
 
@@ -63,6 +63,7 @@ class CouponController extends Controller
                 'code'           => '<code class="fw-bold text-primary">' . htmlspecialchars($coupon->code) . '</code>',
                 'discount'       => $discount,
                 'usage_limit'    => $coupon->usage_limit ? $coupon->usage_limit : 'Unlimited',
+                'usage_count'    => $coupon->orders_count,
                 'validity'       => $validity,
                 'status'         => $status,
                 'created_at'     => format_date($coupon->created_at),

@@ -27,9 +27,9 @@ class ProductReviewController extends Controller
             $full    = (int) floor($rating);
             $half    = ($rating - $full) >= 0.5 ? 1 : 0;
             $empty   = 5 - $full - $half;
-            $stars   = str_repeat('<i class="ti ti-star-filled text-warning" style="font-size:0.85rem;"></i>', $full)
-                     . ($half ? '<i class="ti ti-star-half-filled text-warning" style="font-size:0.85rem;"></i>' : '')
-                     . str_repeat('<i class="ti ti-star text-muted" style="font-size:0.85rem;"></i>', $empty);
+            $stars   = str_repeat('<i class="fa-solid fa-star text-warning" style="font-size:0.85rem;"></i>', $full)
+                     . ($half ? '<i class="fa-solid fa-star-half-stroke text-warning" style="font-size:0.85rem;"></i>' : '')
+                     . str_repeat('<i class="fa-regular fa-star text-warning" style="font-size:0.85rem;"></i>', $empty);
             $starsHtml = '<span class="d-flex align-items-center gap-1">' . $stars . ' <small class="text-muted ms-1">(' . number_format($rating, 1) . ')</small></span>';
 
             $actions = '<div class="dropdown table-action-dropdown">'

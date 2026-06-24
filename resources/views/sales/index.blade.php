@@ -49,6 +49,69 @@
         @endcan
     </div>
 
+    <!-- Hidden Filter Dropdown Source -->
+    <div class="d-none" id="filterDropdownSource">
+        <div class="dropdown d-inline-block" id="filterDropdownContainer">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
+                <i class="ti ti-filter me-1"></i> Filter
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
+                <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+                
+                <!-- Status -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-status">Sale Status</label>
+                    <select id="filter-status" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="1">Pending</option>
+                        <option value="2">Approved</option>
+                        <option value="3">Shipped</option>
+                        <option value="4">Out for delivery</option>
+                        <option value="5">Delivered</option>
+                        <option value="6">Declined</option>
+                    </select>
+                </div>
+
+                <!-- Payment Status -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-payment-status">Payment Status</label>
+                    <select id="filter-payment-status" class="form-select">
+                        <option value="">All Payments</option>
+                        <option value="1">Pending</option>
+                        <option value="2">Paid</option>
+                    </select>
+                </div>
+
+                <!-- Source -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-source">Source</label>
+                    <select id="filter-source" class="form-select">
+                        <option value="">All Sources</option>
+                        <option value="POS">POS</option>
+                        <option value="ONLINE">ONLINE</option>
+                    </select>
+                </div>
+
+                <!-- Date Range -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1">Date Range</label>
+                    <div class="w-100">
+                        <input type="date" id="filter-start-date" class="form-control mb-2" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                        <div class="text-center text-muted small mb-2">to</div>
+                        <input type="date" id="filter-end-date" class="form-control" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                    </div>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <div class="d-flex justify-content-between gap-2 pt-2">
+                    <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
+                    <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="ordersTable">
@@ -78,7 +141,18 @@
             const table = $('#ordersTable').DataTable({
                 responsive : false,
                 order      : [],
-                ajax       : { url: '{{ route('admin.sales.data') }}', dataSrc: 'data', cache: false },
+                ajax       : {
+                    url: '{{ route('admin.sales.data') }}',
+                    dataSrc: 'data',
+                    cache: false,
+                    data: function(d) {
+                        d.status = $('#filter-status').val();
+                        d.payment_status = $('#filter-payment-status').val();
+                        d.source = $('#filter-source').val();
+                        d.start_date = $('#filter-start-date').val();
+                        d.end_date = $('#filter-end-date').val();
+                    }
+                },
                 columns    : [
                     { data: 'index',          width: '5%' },
                     { data: 'order_no' },
@@ -246,6 +320,44 @@
                         });
                     }
                 });
+            });
+
+            // Append the filter dropdown next to search input after DataTable has initialized
+            if ($('#filterDropdownSource').length) {
+                const $filterDropdown = $('#filterDropdownSource').html();
+                $('#ordersTable_filter').addClass('d-flex align-items-center justify-content-md-end gap-2').prepend($filterDropdown);
+                $('#filterDropdownSource').remove();
+            }
+
+            // Apply Filter button handler
+            $(document).on('click', '#btnApplyFilter', function (e) {
+                e.preventDefault();
+                window.refreshTable();
+                
+                // Close the dropdown after applying
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
+                    dropdownInstance.hide();
+                }
+            });
+
+            // Clear Filter button handler
+            $(document).on('click', '#btnClearFilter', function (e) {
+                e.preventDefault();
+                $('#filter-status').val('');
+                $('#filter-payment-status').val('');
+                $('#filter-source').val('');
+                $('#filter-start-date').val('');
+                $('#filter-end-date').val('');
+                window.refreshTable();
+                
+                // Close the dropdown after clearing
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
+                    dropdownInstance.hide();
+                }
             });
         });
     </script>

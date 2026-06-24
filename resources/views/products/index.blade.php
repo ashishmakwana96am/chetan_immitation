@@ -41,11 +41,62 @@
                         <th>Stock</th>
                         <th>Purchase Price</th>
                         <th>Sale Price</th>
+                        <th>MRP</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
             </table>
+        </div>
+    </div>
+
+    <!-- Hidden Filter Dropdown Source -->
+    <div class="d-none" id="filterDropdownSource">
+        <div class="dropdown d-inline-block" id="filterDropdownContainer">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
+                <i class="ti ti-filter me-1"></i> Filter
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
+                <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+                
+                <!-- Category -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-category">Category</label>
+                    <select id="filter-category" class="form-select">
+                        <option value="">All Categories</option>
+                        @foreach($categories as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Status -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
+                    <select id="filter-status" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="1">Active</option>
+                        <option value="0">Inactive</option>
+                    </select>
+                </div>
+
+                <!-- Stock Status -->
+                <div class="mb-3 text-start">
+                    <label class="form-label fw-medium text-muted mb-1" for="filter-stock-status">Stock Status</label>
+                    <select id="filter-stock-status" class="form-select">
+                        <option value="">All</option>
+                        <option value="in_stock">In Stock</option>
+                        <option value="out_of_stock">Sold Out</option>
+                    </select>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <div class="d-flex justify-content-between gap-2 pt-2">
+                    <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
+                    <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -85,19 +136,65 @@
                 { data: 'stock' },
                 { data: 'purchase_price' },
                 { data: 'sale_price' },
+                { data: 'mrp' },
                 { data: 'status',         orderable: false },
                 { data: 'actions',        orderable: false },
             );
 
             const table = $('#productsTable').DataTable({
                 responsive : false,
-                ajax       : { url: '{{ route('admin.products.data') }}', dataSrc: 'data' },
+                ajax       : { 
+                    url: '{{ route('admin.products.data') }}', 
+                    dataSrc: 'data',
+                    cache: false,
+                    data: function(d) {
+                        d.category_id = $('#filter-category').val();
+                        d.status = $('#filter-status').val();
+                        d.stock_status = $('#filter-stock-status').val();
+                    }
+                },
                 columns    : columns,
             });
 
             window.refreshTable = function () {
                 table.ajax.reload(null, false);
             };
+
+            // Append the filter dropdown next to search input after DataTable has initialized
+            if ($('#filterDropdownSource').length) {
+                const $filterDropdown = $('#filterDropdownSource').html();
+                $('#productsTable_filter').addClass('d-flex align-items-center justify-content-md-end gap-2').prepend($filterDropdown);
+                $('#filterDropdownSource').remove();
+            }
+
+            // Apply Filter button handler
+            $(document).on('click', '#btnApplyFilter', function (e) {
+                e.preventDefault();
+                window.refreshTable();
+                
+                // Close the dropdown after applying
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
+                    dropdownInstance.hide();
+                }
+            });
+
+            // Clear Filter button handler
+            $(document).on('click', '#btnClearFilter', function (e) {
+                e.preventDefault();
+                $('#filter-category').val('');
+                $('#filter-status').val('');
+                $('#filter-stock-status').val('');
+                window.refreshTable();
+                
+                // Close the dropdown after clearing
+                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
+                if (dropdownToggleEl) {
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
+                    dropdownInstance.hide();
+                }
+            });
 
             window.viewBarcode = function(barcode, productId) {
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
