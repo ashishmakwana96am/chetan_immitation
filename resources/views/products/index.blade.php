@@ -15,7 +15,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Products List</h4>
         <div class="d-flex gap-2">
-            <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-secondary d-none">
+            <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-label-primary d-none">
                 <i class="ti ti-printer me-1"></i> <span id="bulkPrintBtnText">Bulk Print Barcodes</span>
             </button>
             @can('create products')

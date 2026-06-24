@@ -354,6 +354,16 @@ $(document).ready(function () {
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
 
+    searchInput.on('keydown', function(e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            const firstItem = searchResults.find('.search-result-item').first();
+            if (firstItem.length > 0) {
+                firstItem.click();
+            }
+        }
+    });
+
     searchInput.on('input', function() {
         const query = $(this).val().toLowerCase().trim();
         searchResults.empty();
