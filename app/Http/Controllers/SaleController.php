@@ -287,7 +287,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -299,7 +299,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'items.product.variants.attributeValue.attribute']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
@@ -509,8 +509,9 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status'         => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
-            'payment_status' => ['nullable', 'integer', 'in:1,2'],
+            'status'               => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
+            'payment_status'       => ['nullable', 'integer', 'in:1,2'],
+            'cancellation_reason'  => ['nullable', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
@@ -532,15 +533,22 @@ class SaleController extends Controller
                             throw new \Exception('Declined orders cannot be modified.');
                         }
 
-                        // 2. Backward progression validation
-                        if ($oldStatus == Order::STATUS_APPROVE && $newStatus == Order::STATUS_PENDING) {
-                            throw new \Exception('Cannot change status back to Pending once approved.');
+                        // 2. Backward progression validation (Decline is always allowed from any non-terminal status)
+                        if ($newStatus !== Order::STATUS_DECLINE) {
+                            if ($oldStatus == Order::STATUS_APPROVE && $newStatus == Order::STATUS_PENDING) {
+                                throw new \Exception('Cannot change status back to Pending once approved.');
+                            }
+                            if ($oldStatus == Order::STATUS_SHIPPED && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE])) {
+                                throw new \Exception('Cannot change status back once shipped.');
+                            }
+                            if ($oldStatus == Order::STATUS_OUT_FOR_DELIVERY && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_SHIPPED])) {
+                                throw new \Exception('Cannot change status back once out for delivery.');
+                            }
                         }
-                        if ($oldStatus == Order::STATUS_SHIPPED && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_DECLINE])) {
-                            throw new \Exception('Cannot change status back once shipped.');
-                        }
-                        if ($oldStatus == Order::STATUS_OUT_FOR_DELIVERY && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_DECLINE])) {
-                            throw new \Exception('Cannot change status back once out for delivery.');
+
+                        // Require cancellation reason when declining
+                        if ($newStatus == Order::STATUS_DECLINE && empty($request->cancellation_reason)) {
+                            throw new \Exception('Please provide a cancellation reason.');
                         }
 
                         $deductedGroup = [2, 3, 4, 5];
@@ -582,6 +590,7 @@ class SaleController extends Controller
                         $updateData = ['status' => $newStatus];
                         if ($newStatus == Order::STATUS_DECLINE) {
                             $updateData['payment_status'] = 1;
+                            $updateData['cancellation_reason'] = $request->cancellation_reason;
                         }
 
                         // Record dates for status change

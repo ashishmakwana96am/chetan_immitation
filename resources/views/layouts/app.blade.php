@@ -573,6 +573,54 @@
     </script>
 
     @yield('page-js')
+    {{-- Branded Full-Page AJAX Loader Overlay --}}
+    <div id="ajaxLoaderOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,0.82); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:20px; padding:40px 48px; display:flex; flex-direction:column; align-items:center; gap:20px; box-shadow:0 12px 48px rgba(0,0,0,0.12); min-width:220px; position:relative;">
+
+            {{-- Animated concentric arcs --}}
+            <div style="position:relative; width:100px; height:100px; display:flex; align-items:center; justify-content:center;">
+                {{-- Arc 1 — outermost --}}
+                <svg style="position:absolute; top:0; left:0; animation: arcSpin1 1.4s linear infinite;" width="100" height="100" viewBox="0 0 100 100" fill="none">
+                    <path d="M50 8 A42 42 0 0 1 92 50" stroke="#B4771E" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M50 92 A42 42 0 0 1 8 50" stroke="#B4771E" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                {{-- Arc 2 — middle --}}
+                <svg style="position:absolute; top:10px; left:10px; animation: arcSpin2 1.8s linear infinite reverse;" width="80" height="80" viewBox="0 0 80 80" fill="none">
+                    <path d="M40 6 A34 34 0 0 1 74 40" stroke="#2E9BBF" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M40 74 A34 34 0 0 1 6 40" stroke="#2E9BBF" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+                {{-- Arc 3 — inner --}}
+                <svg style="position:absolute; top:20px; left:20px; animation: arcSpin1 1.1s linear infinite;" width="60" height="60" viewBox="0 0 60 60" fill="none">
+                    <path d="M30 4 A26 26 0 0 1 56 30" stroke="#B4771E" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 4"/>
+                    <path d="M30 56 A26 26 0 0 1 4 30" stroke="#B4771E" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 4"/>
+                </svg>
+                {{-- Logo in center --}}
+                <img src="{{ asset('website/assets/images/logo.png') }}" alt="Chetan Imitation" style="width:40px; height:40px; object-fit:contain; border-radius:8px; position:relative; z-index:2;">
+            </div>
+
+            {{-- LOADING text --}}
+            <p style="margin:0; font-size:0.8rem; font-weight:700; letter-spacing:0.25em; color:#3D403F;">
+                L<span id="ajaxLoadDot1" style="color:#B4771E;">O</span>A<span id="ajaxLoadDot2" style="color:#2E9BBF;">D</span>ING
+                <span id="ajaxLoadDots" style="color:#B4771E;">...</span>
+            </p>
+        </div>
+    </div>
+    <style>
+        @keyframes arcSpin1 { to { transform: rotate(360deg); } }
+        @keyframes arcSpin2 { to { transform: rotate(-360deg); } }
+    </style>
+    <script>
+        window.showAjaxLoader = function () {
+            var el = document.getElementById('ajaxLoaderOverlay');
+            el.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        };
+        window.hideAjaxLoader = function () {
+            var el = document.getElementById('ajaxLoaderOverlay');
+            el.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+    </script>
 </body>
 
 </html>

@@ -3,12 +3,13 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Order;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderConfirmationMail extends Mailable
 {
@@ -18,13 +19,22 @@ class OrderConfirmationMail extends Mailable
 
     public function __construct(Order $order)
     {
+        // Eager load all relations needed for PDF + email
+        $order->loadMissing([
+            'customer',
+            'location',
+            'coupon',
+            'customerAddress',
+            'user',
+            'items.product.variants.attributeValue.attribute',
+        ]);
         $this->order = $order;
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Order Confirmation - ' . $this->order->order_no,
+            subject: 'Order Confirmed — ' . $this->order->order_no,
         );
     }
 
@@ -37,6 +47,18 @@ class OrderConfirmationMail extends Mailable
 
     public function attachments(): array
     {
-        return [];
+        try {
+            $pdf = Pdf::loadView('sales.pdf', ['order' => $this->order])
+                ->setPaper('a4', 'portrait');
+
+            return [
+                Attachment::fromData(
+                    fn () => $pdf->output(),
+                    'invoice-' . $this->order->order_no . '.pdf'
+                )->withMime('application/pdf'),
+            ];
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 }

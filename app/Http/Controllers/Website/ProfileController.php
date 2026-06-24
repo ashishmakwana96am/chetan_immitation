@@ -143,6 +143,24 @@ class ProfileController extends Controller
     }
 
     /**
+     * Download invoice PDF for a customer order.
+     */
+    public function downloadInvoice($id)
+    {
+        $customer = $this->customer();
+
+        $order = Order::where('customer_id', $customer->id)
+            ->where('id', $id)
+            ->with(['items.product.variants.attributeValue.attribute', 'customer', 'location', 'coupon', 'customerAddress', 'user'])
+            ->firstOrFail();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.pdf', ['order' => $order])
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download('invoice-' . $order->order_no . '.pdf');
+    }
+    
+    /**
      * View specific order details page.
      */
     public function viewOrder($id)

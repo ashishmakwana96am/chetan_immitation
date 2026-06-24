@@ -50,6 +50,14 @@ $(document).ready(function () {
            .html(btn.data('original-text'));
     }
 
+    // Expose helpers globally so any page can call them without duplicating code
+    window.showAjaxLoader = function (btn) {
+        if (btn) disableBtn($(btn), 'Processing...');
+    };
+    window.hideAjaxLoader = function (btn) {
+        if (btn) enableBtn($(btn));
+    };
+
     // -------------------------------------------------------
     // Clear validation error on input/change globally
     // -------------------------------------------------------
@@ -328,11 +336,14 @@ $(document).ready(function () {
             if (result.value) {
                 const ajaxData = Object.assign({ _token: csrfToken }, data);
 
+                window.showAjaxLoader();
+
                 $.ajax({
                     url     : url,
                     type    : method,
                     data    : ajaxData,
                     success : function (res) {
+                        window.hideAjaxLoader();
                         if (res.status === 'success') {
                             toastr.success(res.message);
                             if (typeof window.onConfirmSuccess === 'function') {
@@ -343,6 +354,7 @@ $(document).ready(function () {
                         }
                     },
                     error : function (xhr) {
+                        window.hideAjaxLoader();
                         const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
                         toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                     }

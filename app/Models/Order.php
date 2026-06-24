@@ -37,6 +37,7 @@ class Order extends Model
         'shipped_at',
         'out_for_delivery_at',
         'delivered_at',
+        'cancellation_reason',
     ];
 
     protected function casts(): array

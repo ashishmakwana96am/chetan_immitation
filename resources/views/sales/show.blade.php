@@ -2,6 +2,47 @@
 
 @section('title', 'Sale ' . $order->order_no)
 
+@section('page-css')
+<style>
+    .sale-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        font-size: 0.875rem;
+    }
+    .sale-info-row:last-child { border-bottom: none; }
+    .sale-info-label { color: #8592a3; font-size: 0.8rem; flex-shrink: 0; padding-right: 8px; }
+    .sale-info-value { font-weight: 500; text-align: right; }
+    .card-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #B4771E;
+        margin-bottom: 4px;
+    }
+    .card { border: 1px solid rgba(75,70,92,0.1); border-radius: 0.5rem; }
+    .card-header {
+        background: #fff;
+        border-bottom: 1px solid rgba(75,70,92,0.08);
+        padding: 0.9rem 1.25rem;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    .card-header .card-title-icon {
+        width: 30px; height: 30px;
+        background: rgba(180,119,30,0.1);
+        border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
+    .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
+    .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
+</style>
+@endsection
+
 @section('content')
     @php
         $statusColors = [
@@ -20,34 +61,46 @@
             5 => 'Delivered',
             6 => 'Decline',
         ];
+        $paymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
+        $paymentLabels = [1 => 'Pending',          2 => 'Paid'];
 
-        $paymentColors = [
-            1 => 'bg-label-warning',
-            2 => 'bg-label-info',
-        ];
-        $paymentLabels = [
-            1 => 'Pending',
-            2 => 'Paid',
-        ];
-
+        $isOnline          = ($order->source ?? 'POS') === 'ONLINE';
         $totalItemDiscount = $order->items->sum('discount_amount');
-        $subtotal = $order->final_amount + $totalItemDiscount;
+        // True subtotal = sum of (price × qty) for each item, before any discount
+        $itemsGross        = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
+        $subtotal          = $itemsGross;
+        // Coupon discount = actual deducted amount (gross - item discounts - final_amount)
+        $couponDiscount = 0;
+        $couponCode     = null;
+        if ($order->coupon_id && $order->coupon) {
+            $couponCode     = $order->coupon->code;
+            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
+        }
     @endphp
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    {{-- ── Page header ────────────────────────────────────────── --}}
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Sale <code>{{ $order->order_no }}</code></h4>
+            <small class="text-muted">{{ format_date($order->created_at) }}</small>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-info" target="_blank">
-                <i class="ti ti-file-type-pdf me-1"></i> Download PDF
-            </a>
-            @can('edit sales')
-                <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-info">
-                    <i class="ti ti-pencil me-1"></i> Edit
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+
+            @can('download sales')
+                <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
+                    <i class="ti ti-file-type-pdf me-1"></i> PDF
                 </a>
-                
-                <!-- Payment Status Button -->
+            @endcan
+
+            @can('edit sales')
+                @if($order->status == 1)
+                    <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
+                        <i class="ti ti-pencil me-1"></i> Edit
+                    </a>
+                @endif
+            @endcan
+
+            @can('edit sales payment status')
                 @if(($order->payment_status ?? 1) == 1)
                     <button class="btn btn-success"
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
@@ -63,7 +116,7 @@
                     <button class="btn btn-label-warning"
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
                         data-confirm-method="PATCH"
-                        data-confirm-title="Mark as Pending"
+                        data-confirm-title="Mark Payment Pending"
                         data-confirm-text="Mark this sale's payment as pending?"
                         data-confirm-btn="Yes, Mark Pending"
                         data-confirm-btn-class="btn-warning"
@@ -71,118 +124,200 @@
                         <i class="ti ti-credit-card-off me-1"></i> Mark Pending
                     </button>
                 @endif
-
-                <!-- Order Status Dropdown -->
-                @php
-                    $currentStatus = (int)$order->status;
-                    $selectDisabled = in_array($currentStatus, [5, 6]) ? 'disabled' : '';
-
-                    $opt1 = ($currentStatus !== 1) ? 'disabled' : '';
-                    $opt2 = (!in_array($currentStatus, [1, 2])) ? 'disabled' : '';
-                    $opt3 = (!in_array($currentStatus, [2, 3])) ? 'disabled' : '';
-                    $opt4 = (!in_array($currentStatus, [3, 4])) ? 'disabled' : '';
-                    $opt5 = (!in_array($currentStatus, [4, 5])) ? 'disabled' : '';
-                    $opt6 = (!in_array($currentStatus, [1, 2, 6])) ? 'disabled' : '';
-                @endphp
-                <div class="d-inline-block me-1">
-                    <select id="change-sale-status" class="form-select" data-current="{{ $order->status }}" {{ $selectDisabled }}>
-                        <option value="1" {{ $order->status == 1 ? 'selected' : '' }} {{ $opt1 }}>Pending</option>
-                        <option value="2" {{ $order->status == 2 ? 'selected' : '' }} {{ $opt2 }}>Approve</option>
-                        <option value="3" {{ $order->status == 3 ? 'selected' : '' }} {{ $opt3 }}>Shipped</option>
-                        <option value="4" {{ $order->status == 4 ? 'selected' : '' }} {{ $opt4 }}>Out for delivery</option>
-                        <option value="5" {{ $order->status == 5 ? 'selected' : '' }} {{ $opt5 }}>Delivered</option>
-                        <option value="6" {{ $order->status == 6 ? 'selected' : '' }} {{ $opt6 }}>Decline</option>
-                    </select>
-                </div>
             @endcan
+
+            @can('edit sales status')
+                @php
+                    $cs  = (int)$order->status;
+                    $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
+                    $o1  = ($cs !== 1)                          ? 'disabled' : '';
+                    $o2  = (!in_array($cs, [1, 2]))             ? 'disabled' : '';
+                    $o3  = (!in_array($cs, [2, 3]))             ? 'disabled' : '';
+                    $o4  = (!in_array($cs, [3, 4]))             ? 'disabled' : '';
+                    $o5  = (!in_array($cs, [4, 5]))             ? 'disabled' : '';
+                    $o6  = (in_array($cs, [5, 6]))              ? 'disabled' : '';
+                @endphp
+                <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} style="min-width:160px;width:auto;">
+                    <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
+                    <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
+                    <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
+                    <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
+                    <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
+                    <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Decline</option>
+                </select>
+            @endcan
+
             <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
             </a>
+
         </div>
+
+        {{-- Decline reason — shown below when Decline selected --}}
+        @can('edit sales status')
+        <div id="cancel-reason-wrap" class="d-flex align-items-center gap-2 mt-2" style="display:none !important;">
+            <textarea id="cancel-reason-input" class="form-control form-control-sm" rows="1" maxlength="500"
+                placeholder="Cancellation reason..." style="width:260px; resize:none;"></textarea>
+            <button id="confirm-decline-btn" class="btn btn-danger btn-sm">Confirm</button>
+            <button type="button" class="btn btn-label-secondary btn-sm" id="cancel-decline-btn">Cancel</button>
+        </div>
+        @endcan
     </div>
 
     <div class="row g-4">
 
-        <!-- Sale Info -->
-        <div class="col-lg-4">
+        {{-- ══════════════════ LEFT COLUMN ══════════════════ --}}
+        <div class="col-lg-4 d-flex flex-column gap-4">
+
+            {{-- Sale Info --}}
             <div class="card">
-                <div class="card-header"><h5 class="mb-0">Sale Info</h5></div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Sale No</p>
-                        <p class="fw-semibold mb-0"><code>{{ $order->order_no }}</code></p>
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-receipt-2"></i></span>
+                    <h6 class="mb-0 fw-semibold">Sale Info</h6>
+                </div>
+                <div class="card-body py-1 px-3">
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Sale No</span>
+                        <code class="sale-info-value">{{ $order->order_no }}</code>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Customer</p>
-                        <p class="fw-semibold mb-0">{{ $order->customer->name ?? 'Walk-in Customer' }}</p>
-                        @if($order->customer?->phone)
-                            <small class="text-muted">{{ $order->customer->phone }}</small>
-                        @endif
-                    </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Location</p>
-                        <p class="mb-0">{{ $order->location->name ?? '-' }}</p>
-                    </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Status</p>
-                        <span class="badge {{ $statusColors[$order->status] ?? 'bg-label-secondary' }}">{{ $statusLabels[$order->status] ?? 'Pending' }}</span>
-                    </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Payment Status</p>
-                        <span class="badge {{ $paymentColors[$order->payment_status ?? 1] ?? 'bg-label-secondary' }}">{{ $paymentLabels[$order->payment_status ?? 1] ?? 'Pending' }}</span>
-                    </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Payment Method</p>
-                        <p class="mb-0">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
-                    </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Source</p>
-                        <p class="mb-0">
-                            @if(($order->source ?? 'POS') === 'ONLINE')
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Source</span>
+                        <span class="sale-info-value">
+                            @if($isOnline)
                                 <span class="badge bg-label-success">ONLINE</span>
                             @else
-                                <span class="badge bg-label-info">POS</span>
+                                <span class="badge bg-label-primary">POS</span>
                             @endif
-                        </p>
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Discount Type</p>
-                        <p class="mb-0">
-                            @if(($order->discount_type ?? 'MANUAL') === 'COUPON')
-                                <span class="badge bg-label-primary">COUPON</span>
-                            @else
-                                <span class="badge bg-label-secondary">MANUAL</span>
-                            @endif
-                        </p>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Status</span>
+                        <span class="badge {{ $statusColors[$order->status] ?? 'bg-label-secondary' }}">
+                            {{ $statusLabels[$order->status] ?? 'Pending' }}
+                        </span>
                     </div>
-                    @if($order->coupon_id)
-                        <div class="mb-3">
-                            <p class="text-muted small mb-1">Coupon</p>
-                            <p class="mb-0"><code>{{ $order->coupon->code ?? '-' }}</code></p>
-                        </div>
+
+                    @if($order->status == 6 && $order->cancellation_reason)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Cancel Reason</span>
+                        <span class="sale-info-value text-danger" style="max-width:65%;">{{ $order->cancellation_reason }}</span>
+                    </div>
                     @endif
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Served By</p>
-                        <p class="mb-0">{{ $order->user->name ?? '-' }}</p>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Payment</span>
+                        <span class="badge {{ $paymentColors[$order->payment_status ?? 1] ?? 'bg-label-secondary' }}">
+                            {{ $paymentLabels[$order->payment_status ?? 1] ?? 'Pending' }}
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Date</p>
-                        <p class="mb-0">{{ format_date($order->created_at) }}</p>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Method</span>
+                        <span class="sale-info-value">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</span>
+                    </div>
+
+                    @if($couponCode)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Coupon</span>
+                        <span class="sale-info-value">
+                            <code>{{ $couponCode }}</code>
+                            @if($couponDiscount > 0)
+                                <small class="text-muted d-block">-{{ format_price($couponDiscount) }}</small>
+                            @endif
+                        </span>
+                    </div>
+                    @endif
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Date</span>
+                        <span class="sale-info-value">{{ format_date($order->created_at) }}</span>
                     </div>
 
                 </div>
             </div>
+
+            {{-- Customer --}}
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-user"></i></span>
+                    <h6 class="mb-0 fw-semibold">Customer</h6>
+                </div>
+                <div class="card-body py-1 px-3">
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Name</span>
+                        <span class="sale-info-value">{{ $order->customer->name ?? 'Walk-in Customer' }}</span>
+                    </div>
+                    @if($order->customer?->phone)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Phone</span>
+                        <span class="sale-info-value">{{ $order->customer->phone }}</span>
+                    </div>
+                    @endif
+                    @if($order->customer?->email)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Email</span>
+                        <span class="sale-info-value">{{ $order->customer->email }}</span>
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Delivery Address — online only --}}
+            @if($isOnline && $order->customerAddress)
+                @php $addr = $order->customerAddress; @endphp
+                <div class="card">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <span class="card-title-icon"><i class="ti ti-map-pin"></i></span>
+                        <h6 class="mb-0 fw-semibold">Delivery Address</h6>
+                    </div>
+                    <div class="card-body py-1 px-3">
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Name</span>
+                            <span class="sale-info-value">{{ $addr->name }}</span>
+                        </div>
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Phone</span>
+                            <span class="sale-info-value">{{ $addr->phone }}</span>
+                        </div>
+                        @if($addr->alternate_phone)
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Alt. Phone</span>
+                            <span class="sale-info-value">{{ $addr->alternate_phone }}</span>
+                        </div>
+                        @endif
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Address</span>
+                            <span class="sale-info-value" style="max-width:65%;">{{ $addr->address }}</span>
+                        </div>
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">City</span>
+                            <span class="sale-info-value">{{ $addr->city }}</span>
+                        </div>
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">State</span>
+                            <span class="sale-info-value">{{ $addr->state }}</span>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
         </div>
 
-        <!-- Items -->
+        {{-- ══════════════════ RIGHT COLUMN ══════════════════ --}}
         <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header"><h5 class="mb-0">Sale Items</h5></div>
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
+                    <h6 class="mb-0 fw-semibold">Sale Items</h6>
+                </div>
                 <div class="table-responsive">
                     <table class="table mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>#</th>
+                                <th style="width:4%">#</th>
                                 <th>Product</th>
                                 <th class="text-end">Price</th>
                                 <th class="text-end">Qty</th>
@@ -192,86 +327,53 @@
                         </thead>
                         <tbody>
                             @php
-                                $preparedItems = collect();
+                                $preparedItems    = collect();
                                 $groupedByProduct = $order->items->groupBy('product_id');
-
                                 foreach ($groupedByProduct as $productId => $siblings) {
-                                    $siblings = $siblings->sortBy('id')->values();
+                                    $siblings  = $siblings->sortBy('id')->values();
                                     $firstItem = $siblings->first();
-                                    $product = $firstItem->product ?? null;
-                                    
+                                    $product   = $firstItem->product ?? null;
+
                                     if ($product && $product->type === 'variable') {
                                         $parentItem = $firstItem;
                                         $parentItem->is_parent = true;
                                         $parentItem->resolved_variant_name = null;
-                                        
-                                        $variantItems = $siblings->slice(1)->values();
-                                        $variants = $product->variants ?? collect();
-                                        
-                                        $matchedMap = [];
+
+                                        $variantItems      = $siblings->slice(1)->values();
+                                        $variants          = $product->variants ?? collect();
+                                        $matchedMap        = [];
                                         $unmatchedSiblings = $variantItems->all();
-                                        
+
                                         foreach ($variants as $v) {
                                             $matchedIdx = -1;
                                             foreach ($unmatchedSiblings as $idx => $sibling) {
-                                                if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
-                                                    $matchedIdx = $idx;
-                                                    break;
-                                                }
+                                                if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) { $matchedIdx = $idx; break; }
                                             }
                                             if ($matchedIdx !== -1) {
-                                                $matchedSibling = $unmatchedSiblings[$matchedIdx];
-                                                $variantName = null;
-                                                if ($v->attributeValue) {
-                                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                                                }
-                                                $matchedSibling->resolved_variant_name = $variantName;
-                                                $matchedSibling->is_parent = false;
-                                                $matchedMap[$matchedSibling->id] = $matchedSibling;
+                                                $ms    = $unmatchedSiblings[$matchedIdx];
+                                                $vName = $v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null;
+                                                $ms->resolved_variant_name = $vName;
+                                                $ms->is_parent = false;
+                                                $matchedMap[$ms->id] = $ms;
                                                 unset($unmatchedSiblings[$matchedIdx]);
                                             }
                                         }
-                                        
                                         $unmatchedSiblings = array_values($unmatchedSiblings);
                                         $unmatchedVariants = [];
                                         foreach ($variants as $v) {
-                                            $variantName = null;
-                                            if ($v->attributeValue) {
-                                                $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                                            }
-                                            
-                                            $alreadyMatched = false;
-                                            foreach ($matchedMap as $ms) {
-                                                if ($ms->resolved_variant_name === $variantName) {
-                                                    $alreadyMatched = true;
-                                                    break;
-                                                }
-                                            }
-                                            
-                                            if (!$alreadyMatched) {
-                                                $unmatchedVariants[] = $v;
-                                            }
+                                            $vName   = $v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null;
+                                            $already = false;
+                                            foreach ($matchedMap as $ms) { if ($ms->resolved_variant_name === $vName) { $already = true; break; } }
+                                            if (!$already) $unmatchedVariants[] = $v;
                                         }
-                                        
                                         foreach ($unmatchedSiblings as $idx => $sibling) {
-                                            if (isset($unmatchedVariants[$idx])) {
-                                                $v = $unmatchedVariants[$idx];
-                                                $variantName = null;
-                                                if ($v->attributeValue) {
-                                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                                                }
-                                                $sibling->resolved_variant_name = $variantName;
-                                            } else {
-                                                $sibling->resolved_variant_name = null;
-                                            }
+                                            $v = $unmatchedVariants[$idx] ?? null;
+                                            $sibling->resolved_variant_name = $v ? ($v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null) : null;
                                             $sibling->is_parent = false;
                                             $matchedMap[$sibling->id] = $sibling;
                                         }
-                                        
                                         $preparedItems->push($parentItem);
-                                        foreach ($variantItems as $vItem) {
-                                            $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
-                                        }
+                                        foreach ($variantItems as $vItem) { $preparedItems->push($matchedMap[$vItem->id] ?? $vItem); }
                                     } else {
                                         foreach ($siblings as $sibling) {
                                             $sibling->is_parent = true;
@@ -284,52 +386,68 @@
 
                             @foreach($preparedItems as $index => $item)
                                 <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td @if(!$item->is_parent) style="padding-left: 4.5rem;" @endif>
-                                        <p class="fw-semibold mb-0">
-                                            @if(!$item->is_parent)
-                                                <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
-                                                <span class="text-muted small">{{ $item->resolved_variant_name }}</span>
-                                            @else
-                                                {{ $item->product->name ?? '-' }}
+                                    <td class="text-muted small">{{ $index + 1 }}</td>
+                                    <td @if(!$item->is_parent) style="padding-left:3rem;" @endif>
+                                        @if(!$item->is_parent)
+                                            <span class="text-muted fw-bold me-1" style="font-size:1rem;">&#8627;</span>
+                                            <span class="text-muted small">{{ $item->resolved_variant_name }}</span>
+                                        @else
+                                            <span class="fw-semibold">{{ $item->product->name ?? '-' }}</span>
+                                            @if($item->product?->sku)
+                                                <br><small class="text-muted">{{ $item->product->sku }}</small>
                                             @endif
-                                        </p>
-                                        @if($item->is_parent)
-                                            <small class="text-muted">{{ $item->product->sku ?? '' }}</small>
                                         @endif
                                     </td>
-                                    <td class="text-end text-nowrap">{{ format_price($item->price) }}</td>
-                                    <td class="text-end text-nowrap">{{ $item->quantity }}</td>
-                                    <td class="text-end text-nowrap">
+                                    <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
+                                    <td class="text-end text-nowrap small">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap small">
                                         @if($item->discount_amount > 0)
                                             @if($item->discount_type === 'percentage')
-                                                {{ number_format($item->discount_value, 2) }}% 
-                                                <small class="text-muted d-block">( -{{ format_price($item->discount_amount) }} )</small>
+                                                {{ number_format($item->discount_value, 2) }}%
+                                                <small class="text-muted d-block">(-{{ format_price($item->discount_amount) }})</small>
                                             @else
                                                 -{{ format_price($item->discount_amount) }}
                                             @endif
                                         @else
-                                            -
+                                            <span class="text-muted">-</span>
                                         @endif
                                     </td>
-                                    <td class="text-end text-nowrap fw-semibold text-primary">{{ format_price($item->total) }}</td>
+                                    <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($item->total) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="5" class="text-end fw-bold">Items Total</td>
-                                <td class="text-end text-nowrap fw-bold">{{ format_price($subtotal) }}</td>
+                        <tfoot>
+                            <tr class="table-light">
+                                <td colspan="5" class="text-end tfoot-label">Subtotal</td>
+                                <td class="text-end tfoot-amount">{{ format_price($subtotal) }}</td>
                             </tr>
                             @if($totalItemDiscount > 0)
                             <tr>
-                                <td colspan="5" class="text-end fw-bold text-danger">Discount</td>
-                                <td class="text-end text-nowrap fw-bold text-danger">-{{ format_price($totalItemDiscount) }}</td>
+                                <td colspan="5" class="text-end tfoot-label text-danger">Item Discount</td>
+                                <td class="text-end tfoot-amount text-danger">-{{ format_price($totalItemDiscount) }}</td>
                             </tr>
                             @endif
+                            @if($couponDiscount > 0 && $couponCode)
                             <tr>
-                                <td colspan="5" class="text-end fw-bold text-primary fs-5">Final Amount</td>
-                                <td class="text-end text-nowrap fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</td>
+                                <td colspan="5" class="text-end tfoot-label" style="color:#2e7d32;">
+                                    Coupon Discount &nbsp;<code style="color:#2e7d32;">{{ $couponCode }}</code>
+                                    @if($order->coupon->discount_type === 'percentage')
+                                        <span class="text-muted small">({{ number_format($order->coupon->discount_value, 0) }}% off)</span>
+                                    @endif
+                                </td>
+                                <td class="text-end tfoot-amount" style="color:#2e7d32;">-{{ format_price($couponDiscount) }}</td>
+                            </tr>
+                            @elseif($order->coupon_id && $order->coupon)
+                            <tr>
+                                <td colspan="5" class="text-end tfoot-label" style="color:#2e7d32;">
+                                    Coupon Applied &nbsp;<code style="color:#2e7d32;">{{ $order->coupon->code }}</code>
+                                </td>
+                                <td class="text-end tfoot-amount" style="color:#2e7d32;">-</td>
+                            </tr>
+                            @endif
+                            <tr style="border-top:2px solid #B4771E;">
+                                <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
+                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($order->final_amount) }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -341,51 +459,101 @@
 @endsection
 
 @section('page-js')
-    <script>
-        $(document).ready(function () {
-            $('#change-sale-status').on('change', function () {
-                const status = $(this).val();
-                const url = "{{ route('admin.sales.status', $order) }}";
-                
-                Swal.fire({
-                    title: 'Update Sale Status',
-                    text: 'Are you sure you want to update the status of this sale?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, Update',
-                    customClass: {
-                        confirmButton: 'btn btn-primary me-3',
-                        cancelButton: 'btn btn-label-secondary'
+<script>
+$(document).ready(function () {
+
+    $('#change-sale-status').on('change', function () {
+        const status  = $(this).val();
+        const current = $(this).data('current');
+        const url     = "{{ route('admin.sales.status', $order) }}";
+
+        if (status == '6') {
+            $('#cancel-reason-wrap').show();
+            return;
+        }
+        $('#cancel-reason-wrap').hide();
+
+        Swal.fire({
+            title: 'Update Sale Status',
+            text: 'Are you sure you want to update the status of this sale?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Update',
+            customClass: { confirmButton: 'btn btn-primary me-3', cancelButton: 'btn btn-label-secondary' },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url, type: 'PATCH',
+                    data: { _token: '{{ csrf_token() }}', status: status },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 800);
+                        }
                     },
-                    buttonsStyling: false
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: url,
-                            type: 'PATCH',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                status: status
-                            },
-                            success: function (res) {
-                                if (res.status === 'success') {
-                                    toastr.success(res.message);
-                                    setTimeout(() => location.reload(), 800);
-                                }
-                            },
-                            error: function (xhr) {
-                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                                // Reset select value to current status on error
-                                $('#change-sale-status').val($('#change-sale-status').data('current'));
-                            }
-                        });
-                    } else {
-                        // Reset select value to current status if cancelled
-                        $('#change-sale-status').val($('#change-sale-status').data('current'));
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                        $('#change-sale-status').val(current);
                     }
                 });
-            });
+            } else {
+                $('#change-sale-status').val(current);
+            }
         });
-    </script>
+    });
+
+    $('#confirm-decline-btn').on('click', function () {
+        const reason  = $('#cancel-reason-input').val().trim();
+        const current = $('#change-sale-status').data('current');
+        if (!reason) { toastr.error('Please enter a cancellation reason.'); return; }
+
+        const url = "{{ route('admin.sales.status', $order) }}";
+        Swal.fire({
+            title: 'Decline Order',
+            text: 'Are you sure you want to decline this order?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Decline',
+            customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url, type: 'PATCH',
+                    data: { _token: '{{ csrf_token() }}', status: 6, cancellation_reason: reason },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 800);
+                        }
+                    },
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                        $('#change-sale-status').val(current);
+                        $('#cancel-reason-wrap').hide();
+                    }
+                });
+            } else {
+                $('#change-sale-status').val(current);
+                $('#cancel-reason-wrap').hide();
+            }
+        });
+    });
+
+    $('#cancel-decline-btn').on('click', function () {
+        $('#change-sale-status').val($('#change-sale-status').data('current'));
+        $('#cancel-reason-input').val('');
+        $('#cancel-reason-wrap').hide();
+    });
+});
+</script>
 @endsection

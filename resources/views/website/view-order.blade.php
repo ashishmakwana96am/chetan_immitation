@@ -134,6 +134,19 @@
                                 </p>
                             </div>
                         </div>
+
+                        @if($order->cancellation_reason)
+                        <div class="mt-4 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                            </svg>
+                            <div>
+                                <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
+                                <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
+                            </div>
+                        </div>
+                        @endif
+
                         @else
                         <div class="grid grid-cols-5 relative">
                             <!-- Item 1 (Order Placed) -->
@@ -389,9 +402,12 @@
                             </span>
                             @endif
                         </p>
-                        <button onclick="window.print()" class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-3">
+                        <a href="{{ route('customer.profile.order-invoice', $order->id) }}" class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] transition common-btn mt-3 flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
                             Download Invoice
-                        </button>
+                        </a>
                         <a href="{{ route('customer.profile') }}" class="flex items-center justify-center w-full h-[52px] border mt-4 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] text-print-hide">
                             Back To Orders
                         </a>

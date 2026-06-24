@@ -62,6 +62,7 @@ Route::post('/register', [MemberRegisterController::class, 'store'])->name('regi
 Route::middleware('auth:customer')->group(function () {
     Route::get('/my-account', [WebsiteProfileController::class, 'index'])->name('customer.profile');
     Route::get('/my-account/order/{id}', [WebsiteProfileController::class, 'viewOrder'])->name('customer.profile.view-order');
+    Route::get('/my-account/order/{id}/invoice', [WebsiteProfileController::class, 'downloadInvoice'])->name('customer.profile.order-invoice');
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');

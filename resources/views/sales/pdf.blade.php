@@ -2,257 +2,524 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Sale {{ $order->order_no }}</title>
+    <title>Invoice {{ $order->order_no }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #333; }
-        .page { padding: 30px; }
 
-        /* Header */
-        .header { width: 100%; margin-bottom: 30px; border-bottom: 2px solid #B4771E; padding-bottom: 20px; }
-        .header table { width: 100%; margin-bottom: 0; }
-        .header table td { border: none; padding: 0; vertical-align: top; }
-        .header-right { text-align: right; }
-        .company-name { font-size: 22px; font-weight: bold; color: #B4771E; }
-        .company-sub { font-size: 11px; color: #888; margin-top: 4px; }
-        .sale-title h2 { font-size: 20px; color: #B4771E; text-transform: uppercase; }
-        .sale-no { font-size: 13px; font-weight: bold; margin-top: 4px; }
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 11px;
+            color: #2d2d2d;
+            background: #fff;
+        }
 
-        /* Status badge */
-        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .status-pending   { background: #e0e0e0; color: #555; }
-        .status-approve   { background: #d4edda; color: #155724; }
-        .status-decline   { background: #f8d7da; color: #721c24; }
+        /* ─── Layout ──────────────────────────────── */
+        .page {
+            padding: 36px 40px 30px 40px;
+        }
 
-        /* Info section */
-        .info-section { width: 100%; margin-bottom: 25px; }
-        .info-section table { width: 100%; margin-bottom: 0; }
-        .info-section table td { border: none; padding: 0; vertical-align: top; width: 50%; }
-        .info-box { padding-right: 10px; }
-        .info-box-right { padding-left: 10px; text-align: right; }
-        .info-box h4, .info-box-right h4 { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .info-box p, .info-box-right p { margin-bottom: 4px; font-size: 12px; }
-        .label { color: #888; font-size: 11px; }
+        /* ─── Header ──────────────────────────────── */
+        .header-wrap {
+            width: 100%;
+            margin-bottom: 28px;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .header-table td {
+            border: none;
+            padding: 0;
+            vertical-align: middle;
+        }
+        .logo-cell {
+            width: 180px;
+        }
+        .logo-cell img {
+            max-width: 160px;
+            max-height: 56px;
+            object-fit: contain;
+        }
+        .brand-cell {
+            padding-left: 14px;
+            vertical-align: middle;
+        }
+        .brand-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #B4771E;
+            letter-spacing: 0.3px;
+        }
+        .brand-tagline {
+            font-size: 9.5px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .invoice-label-cell {
+            text-align: right;
+            vertical-align: middle;
+        }
+        .invoice-label {
+            font-size: 24px;
+            font-weight: bold;
+            color: #B4771E;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .invoice-no {
+            font-size: 12px;
+            font-weight: bold;
+            color: #444;
+            margin-top: 4px;
+        }
 
-        /* Items table */
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        thead th { background: #B4771E; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; }
-        tbody td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        .text-right { text-align: right; }
+        /* ─── Gold divider ────────────────────────── */
+        .divider {
+            width: 100%;
+            height: 2px;
+            background: #B4771E;
+            margin-bottom: 24px;
+        }
+        .divider-thin {
+            width: 100%;
+            height: 1px;
+            background: #e8e0d2;
+            margin: 18px 0;
+        }
 
-        /* Totals */
-        .totals-section { width: 250px; float: right; margin-bottom: 20px; }
-        .totals-row { width: 100%; }
-        .totals-row table { margin-bottom: 0; }
-        .totals-row table td { border: none; padding: 4px 0; font-size: 12px; }
-        .totals-grand table td { font-size: 14px; font-weight: bold; color: #B4771E; border-top: 2px solid #B4771E; padding-top: 8px; }
+        /* ─── Status badge ────────────────────────── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-pending        { background: #f2f2f2;  color: #666;    border: 1px solid #ddd; }
+        .badge-approve        { background: #e8f5e9;  color: #2e7d32; border: 1px solid #c8e6c9; }
+        .badge-shipped        { background: #e3f2fd;  color: #1565c0; border: 1px solid #bbdefb; }
+        .badge-outdelivery    { background: #fff8e1;  color: #f57f17; border: 1px solid #ffe082; }
+        .badge-delivered      { background: #e8f5e9;  color: #2e7d32; border: 1px solid #c8e6c9; }
+        .badge-decline        { background: #fce4ec;  color: #c62828; border: 1px solid #f8bbd0; }
+        .badge-paid           { background: #e3f2fd;  color: #1565c0; border: 1px solid #bbdefb; }
+        .badge-unpaid         { background: #fff8e1;  color: #f57f17; border: 1px solid #ffe082; }
+        .badge-online         { background: #e8f5e9;  color: #2e7d32; border: 1px solid #c8e6c9; }
+        .badge-pos            { background: #e3f2fd;  color: #1565c0; border: 1px solid #bbdefb; }
 
-        /* Footer */
-        .footer { margin-top: 40px; border-top: 1px solid #eee; padding-top: 15px; text-align: center; color: #aaa; font-size: 10px; }
+        /* ─── Info section ────────────────────────── */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+        .info-table td {
+            border: none;
+            padding: 0;
+            vertical-align: top;
+            width: 33.33%;
+        }
+        .info-box {
+            padding-right: 16px;
+        }
+        .info-box-mid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        .info-box-right {
+            padding-left: 16px;
+            text-align: right;
+        }
+        .info-section-title {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #B4771E;
+            border-bottom: 1px solid #e8e0d2;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+        }
+        .info-row {
+            margin-bottom: 5px;
+            font-size: 10.5px;
+            line-height: 1.5;
+        }
+        .info-label {
+            color: #888;
+            font-size: 9.5px;
+        }
+        .info-value {
+            font-weight: bold;
+            color: #2d2d2d;
+        }
+
+        /* ─── Items table ──────────────────────────── */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 0;
+        }
+        .items-table thead tr {
+            background: #B4771E;
+        }
+        .items-table thead th {
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 9.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: none;
+        }
+        .items-table thead th.text-right { text-align: right; }
+        .items-table tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0ebe2;
+            font-size: 10.5px;
+            color: #2d2d2d;
+            vertical-align: middle;
+        }
+        .items-table tbody tr:nth-child(even) td {
+            background: #fdf9f4;
+        }
+        .items-table tbody td.text-right { text-align: right; }
+        .items-table tfoot td {
+            padding: 7px 10px;
+            border: none;
+            font-size: 10.5px;
+        }
+        .items-table tfoot td.text-right { text-align: right; }
+        .items-table tfoot tr.subtotal-row td { border-top: 1px solid #e8e0d2; }
+        .items-table tfoot tr.discount-row td { color: #c62828; }
+        .items-table tfoot tr.coupon-row td   { color: #2e7d32; }
+        .items-table tfoot tr.total-row td {
+            border-top: 2px solid #B4771E;
+            font-size: 13px;
+            font-weight: bold;
+            color: #B4771E;
+            padding-top: 10px;
+        }
+
+        /* ─── Delivery address box ─────────────────── */
+        .address-box {
+            border: 1px solid #e8e0d2;
+            border-radius: 4px;
+            padding: 10px 14px;
+            background: #fdf9f4;
+            margin-bottom: 24px;
+        }
+        .address-box-title {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #B4771E;
+            margin-bottom: 7px;
+        }
+        .address-row {
+            font-size: 10.5px;
+            margin-bottom: 3px;
+            color: #2d2d2d;
+            line-height: 1.5;
+        }
+
+        /* ─── Footer ───────────────────────────────── */
+        .footer {
+            margin-top: 32px;
+            border-top: 1px solid #e8e0d2;
+            padding-top: 12px;
+            text-align: center;
+        }
+        .footer-text {
+            font-size: 9px;
+            color: #aaa;
+        }
+        .footer-thank {
+            font-size: 10.5px;
+            color: #B4771E;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* ─── Watermark strip ──────────────────────── */
+        .strip-bar {
+            width: 100%;
+            height: 5px;
+            background: #B4771E;
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
+
+@php
+    $statusLabels = [
+        1 => 'Pending',
+        2 => 'Approved',
+        3 => 'Shipped',
+        4 => 'Out for Delivery',
+        5 => 'Delivered',
+        6 => 'Declined',
+    ];
+    $statusBadge = [
+        1 => 'badge-pending',
+        2 => 'badge-approve',
+        3 => 'badge-shipped',
+        4 => 'badge-outdelivery',
+        5 => 'badge-delivered',
+        6 => 'badge-decline',
+    ];
+    $payLabels = [1 => 'Unpaid', 2 => 'Paid'];
+    $payBadge  = [1 => 'badge-unpaid', 2 => 'badge-paid'];
+
+    $isOnline          = ($order->source ?? 'POS') === 'ONLINE';
+    $totalItemDiscount = $order->items->sum('discount_amount');
+    // True subtotal = sum of (price × qty) before any discount
+    $subtotal          = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
+    // Coupon discount = actual amount deducted by coupon
+    $couponDiscount = 0;
+    $couponCode     = null;
+    if ($order->coupon_id && $order->coupon) {
+        $couponCode     = $order->coupon->code;
+        $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
+    }
+
+    // Prepare items with variant resolution
+    $preparedItems    = collect();
+    $groupedByProduct = $order->items->groupBy('product_id');
+    foreach ($groupedByProduct as $productId => $siblings) {
+        $siblings  = $siblings->sortBy('id')->values();
+        $firstItem = $siblings->first();
+        $product   = $firstItem->product ?? null;
+
+        if ($product && $product->type === 'variable') {
+            $parentItem = $firstItem;
+            $parentItem->is_parent = true;
+            $parentItem->resolved_variant_name = null;
+
+            $variantItems      = $siblings->slice(1)->values();
+            $variants          = $product->variants ?? collect();
+            $matchedMap        = [];
+            $unmatchedSiblings = $variantItems->all();
+
+            foreach ($variants as $v) {
+                $matchedIdx = -1;
+                foreach ($unmatchedSiblings as $idx => $sibling) {
+                    if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
+                        $matchedIdx = $idx;
+                        break;
+                    }
+                }
+                if ($matchedIdx !== -1) {
+                    $ms          = $unmatchedSiblings[$matchedIdx];
+                    $vName       = null;
+                    if ($v->attributeValue) {
+                        $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                    }
+                    $ms->resolved_variant_name = $vName;
+                    $ms->is_parent             = false;
+                    $matchedMap[$ms->id]       = $ms;
+                    unset($unmatchedSiblings[$matchedIdx]);
+                }
+            }
+
+            $unmatchedSiblings = array_values($unmatchedSiblings);
+            $unmatchedVariants = [];
+            foreach ($variants as $v) {
+                $vName = null;
+                if ($v->attributeValue) {
+                    $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                }
+                $already = false;
+                foreach ($matchedMap as $ms) {
+                    if ($ms->resolved_variant_name === $vName) { $already = true; break; }
+                }
+                if (!$already) $unmatchedVariants[] = $v;
+            }
+
+            foreach ($unmatchedSiblings as $idx => $sibling) {
+                $v = $unmatchedVariants[$idx] ?? null;
+                $sibling->resolved_variant_name = $v
+                    ? (($v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null))
+                    : null;
+                $sibling->is_parent = false;
+                $matchedMap[$sibling->id] = $sibling;
+            }
+
+            $preparedItems->push($parentItem);
+            foreach ($variantItems as $vItem) {
+                $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
+            }
+        } else {
+            foreach ($siblings as $sibling) {
+                $sibling->is_parent = true;
+                $sibling->resolved_variant_name = null;
+                $preparedItems->push($sibling);
+            }
+        }
+    }
+@endphp
+
+<div class="strip-bar"></div>
 <div class="page">
 
-    <!-- Header -->
-    <div class="header">
-        <table>
+    {{-- ── HEADER ─────────────────────────────────────────────────── --}}
+    <div class="header-wrap">
+        <table class="header-table">
             <tr>
-                <td>
-                    <div class="company-name">Chetan Imitation</div>
-                    <div class="company-sub">Sales Management System</div>
+                <td class="logo-cell">
+                    <img src="{{ public_path('assets/img/logo.png') }}" alt="Chetan Imitation" />
                 </td>
-                <td class="header-right">
-                    <div class="sale-title">
-                        <h2>Sale Invoice</h2>
-                        <div class="sale-no">{{ $order->order_no }}</div>
-                        <div style="margin-top:6px;">
-                            @php
-                                $statusClass = [
-                                    1 => 'status-pending',
-                                    2 => 'status-approve',
-                                    3 => 'status-decline',
-                                ];
-                                $statusLabels = [
-                                    1 => 'Pending',
-                                    2 => 'Approve',
-                                    3 => 'Decline',
-                                ];
-                            @endphp
-                            <span class="status-badge {{ $statusClass[$order->status] ?? 'status-pending' }}">
-                                {{ $statusLabels[$order->status] ?? 'Pending' }}
-                            </span>
-                        </div>
-                    </div>
+                <td class="brand-cell">
+                    <div class="brand-name">Chetan Imitation</div>
+                    <div class="brand-tagline">Premium Imitation Jewellery</div>
+                </td>
+                <td class="invoice-label-cell">
+                    <div class="invoice-label">Sale Invoice</div>
+                    <div class="invoice-no">{{ $order->order_no }}</div>
                 </td>
             </tr>
         </table>
     </div>
 
-    <!-- Info Section -->
-    <div class="info-section">
-        <table>
-            <tr>
-                <td>
-                    <div class="info-box">
-                        <h4>Customer Details</h4>
-                        <p><strong>{{ $order->customer->name ?? 'Walk-in Customer' }}</strong></p>
-                        @if($order->customer?->phone)
-                            <p><span class="label">Phone:</span> {{ $order->customer->phone }}</p>
-                        @endif
-                        @if($order->customer?->email)
-                            <p><span class="label">Email:</span> {{ $order->customer->email }}</p>
-                        @endif
-                    </div>
-                </td>
-                <td>
-                    <div class="info-box-right">
-                        <h4>Sale Details</h4>
-                        <p><span class="label">Sale No:</span> <strong>{{ $order->order_no }}</strong></p>
-                        <p><span class="label">Date:</span> {{ format_date($order->created_at) }}</p>
-                        <p><span class="label">Location:</span> {{ $order->location->name ?? '-' }}</p>
-                        <p><span class="label">Served By:</span> {{ $order->user->name ?? '-' }}</p>
-                        <p><span class="label">Payment:</span> {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</p>
-                        @php
-                            $payLabels = [1 => 'Pending', 2 => 'Paid'];
-                        @endphp
-                        <p><span class="label">Payment Status:</span> {{ $payLabels[$order->payment_status ?? 1] ?? 'Pending' }}</p>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
+    <div class="divider"></div>
 
-    <!-- Items Table -->
-    <table>
+    {{-- ── INFO SECTION ────────────────────────────────────────────── --}}
+    <table class="info-table">
+        <tr>
+            {{-- Customer --}}
+            <td>
+                <div class="info-box">
+                    <div class="info-section-title">Customer</div>
+                    <div class="info-row">
+                        <div class="info-value">{{ $order->customer->name ?? 'Walk-in Customer' }}</div>
+                    </div>
+                    @if($order->customer?->phone)
+                    <div class="info-row">
+                        <span class="info-label">Phone: </span>{{ $order->customer->phone }}
+                    </div>
+                    @endif
+                    @if($order->customer?->email)
+                    <div class="info-row">
+                        <span class="info-label">Email: </span>{{ $order->customer->email }}
+                    </div>
+                    @endif
+                </div>
+            </td>
+
+            {{-- Payment --}}
+            <td>
+                <div class="info-box-mid">
+                    <div class="info-section-title">Payment</div>
+                    <div class="info-row">
+                        <span class="info-label">Method: </span>
+                        <span class="info-value">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Payment Status: </span>
+                        <span class="info-value">{{ $payLabels[$order->payment_status ?? 1] ?? 'Unpaid' }}</span>
+                    </div>
+                    @if($order->coupon_id && $order->coupon)
+                    <div class="info-row">
+                        <span class="info-label">Coupon: </span>
+                        <span class="info-value">{{ $order->coupon->code }}</span>
+                    </div>
+                    @endif
+                    @if($isOnline && $order->razorpay_payment_id)
+                    <div class="info-row">
+                        <span class="info-label">Razorpay ID: </span>
+                        <span class="info-value" style="font-size:9.5px;">{{ $order->razorpay_payment_id }}</span>
+                    </div>
+                    @endif
+                    @if($order->status == 6 && $order->cancellation_reason)
+                    <div class="info-row" style="margin-top:3px;">
+                        <span class="info-label">Cancel Reason: </span>
+                        <span style="color:#c62828;">{{ $order->cancellation_reason }}</span>
+                    </div>
+                    @endif
+                </div>
+            </td>
+
+            {{-- Sale Details --}}
+            <td>
+                <div class="info-box-right">
+                    <div class="info-section-title">Sale Details</div>
+                    <div class="info-row">
+                        <span class="info-label">Date: </span>
+                        <span class="info-value">{{ format_date($order->created_at) }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Sale No: </span>
+                        <span class="info-value">{{ $order->order_no }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Generated: </span>{{ now()->format('d M Y') }}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    {{-- ── DELIVERY ADDRESS (online orders only) ───────────────────── --}}
+    @if($isOnline && $order->customerAddress)
+        @php $addr = $order->customerAddress; @endphp
+        <div class="address-box">
+            <div class="address-box-title">&#x1F4CD; Delivery Address</div>
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <td style="width:50%; border:none; padding:0; vertical-align:top;">
+                        <div class="address-row"><strong>{{ $addr->name }}</strong></div>
+                        <div class="address-row">{{ $addr->phone }}@if($addr->alternate_phone) &nbsp;/&nbsp; {{ $addr->alternate_phone }}@endif</div>
+                        <div class="address-row">{{ $addr->address }}</div>
+                    </td>
+                    <td style="width:50%; border:none; padding:0; vertical-align:top; text-align:right;">
+                        <div class="address-row">{{ $addr->city }}, {{ $addr->state }}</div>
+                        @if($addr->email)
+                        <div class="address-row">{{ $addr->email }}</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endif
+
+    {{-- ── ITEMS TABLE ──────────────────────────────────────────────── --}}
+    <table class="items-table">
         <thead>
             <tr>
-                <th>#</th>
-                <th>Product</th>
-                <th>SKU</th>
-                <th class="text-right">Price</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Discount</th>
-                <th class="text-right">Total</th>
+                <th style="width:4%;">#</th>
+                <th style="width:38%;">Product</th>
+                <th style="width:12%;">SKU</th>
+                <th class="text-right" style="width:12%;">Price</th>
+                <th class="text-right" style="width:8%;">Qty</th>
+                <th class="text-right" style="width:14%;">Discount</th>
+                <th class="text-right" style="width:12%;">Total</th>
             </tr>
         </thead>
         <tbody>
-            @php
-                $preparedItems = collect();
-                $groupedByProduct = $order->items->groupBy('product_id');
-
-                foreach ($groupedByProduct as $productId => $siblings) {
-                    $siblings = $siblings->sortBy('id')->values();
-                    $firstItem = $siblings->first();
-                    $product = $firstItem->product ?? null;
-                    
-                    if ($product && $product->type === 'variable') {
-                        $parentItem = $firstItem;
-                        $parentItem->is_parent = true;
-                        $parentItem->resolved_variant_name = null;
-                        
-                        $variantItems = $siblings->slice(1)->values();
-                        $variants = $product->variants ?? collect();
-                        
-                        $matchedMap = [];
-                        $unmatchedSiblings = $variantItems->all();
-                        
-                        foreach ($variants as $v) {
-                            $matchedIdx = -1;
-                            foreach ($unmatchedSiblings as $idx => $sibling) {
-                                if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
-                                    $matchedIdx = $idx;
-                                    break;
-                                }
-                            }
-                            if ($matchedIdx !== -1) {
-                                $matchedSibling = $unmatchedSiblings[$matchedIdx];
-                                $variantName = null;
-                                if ($v->attributeValue) {
-                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                                }
-                                $matchedSibling->resolved_variant_name = $variantName;
-                                $matchedSibling->is_parent = false;
-                                $matchedMap[$matchedSibling->id] = $matchedSibling;
-                                unset($unmatchedSiblings[$matchedIdx]);
-                            }
-                        }
-                        
-                        $unmatchedSiblings = array_values($unmatchedSiblings);
-                        $unmatchedVariants = [];
-                        foreach ($variants as $v) {
-                            $variantName = null;
-                            if ($v->attributeValue) {
-                                $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                            }
-                            
-                            $alreadyMatched = false;
-                            foreach ($matchedMap as $ms) {
-                                if ($ms->resolved_variant_name === $variantName) {
-                                    $alreadyMatched = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!$alreadyMatched) {
-                                $unmatchedVariants[] = $v;
-                            }
-                        }
-                        
-                        foreach ($unmatchedSiblings as $idx => $sibling) {
-                            if (isset($unmatchedVariants[$idx])) {
-                                $v = $unmatchedVariants[$idx];
-                                $variantName = null;
-                                if ($v->attributeValue) {
-                                    $variantName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
-                                }
-                                $sibling->resolved_variant_name = $variantName;
-                            } else {
-                                $sibling->resolved_variant_name = null;
-                            }
-                            $sibling->is_parent = false;
-                            $matchedMap[$sibling->id] = $sibling;
-                        }
-                        
-                        $preparedItems->push($parentItem);
-                        foreach ($variantItems as $vItem) {
-                            $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
-                        }
-                    } else {
-                        foreach ($siblings as $sibling) {
-                            $sibling->is_parent = true;
-                            $sibling->resolved_variant_name = null;
-                            $preparedItems->push($sibling);
-                        }
-                    }
-                }
-            @endphp
-
             @foreach($preparedItems as $index => $item)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td @if(!$item->is_parent) style="padding-left: 35px;" @endif>
+                    <td @if(!$item->is_parent) style="padding-left:28px;" @endif>
                         @if(!$item->is_parent)
-                            <span style="color: #888; font-weight: bold; margin-right: 5px;">↳</span>
-                            <span style="font-size: 11px; color: #666;">{{ $item->resolved_variant_name }}</span>
+                            <span style="color:#B4771E; font-weight:bold; margin-right:4px;">&#8627;</span>
+                            <span style="font-size:10px; color:#666;">{{ $item->resolved_variant_name ?? '-' }}</span>
                         @else
                             <strong>{{ $item->product->name ?? '-' }}</strong>
                         @endif
                     </td>
                     <td>
-                        @if($item->is_parent)
-                            {{ $item->product->sku ?? '-' }}
-                        @else
-                            -
-                        @endif
+                        @if($item->is_parent) {{ $item->product->sku ?? '-' }} @else - @endif
                     </td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
                     <td class="text-right">{{ $item->quantity }}</td>
                     <td class="text-right">
                         @if($item->discount_amount > 0)
                             @if($item->discount_type === 'percentage')
-                                {{ number_format($item->discount_value, 2) }}% (-{{ format_price($item->discount_amount) }})
+                                {{ number_format($item->discount_value, 2) }}%<br>
+                                <span style="font-size:9.5px; color:#888;">(-{{ format_price($item->discount_amount) }})</span>
                             @else
                                 -{{ format_price($item->discount_amount) }}
                             @endif
@@ -264,44 +531,56 @@
                 </tr>
             @endforeach
         </tbody>
+        <tfoot>
+            <tr class="subtotal-row">
+                <td colspan="6" class="text-right" style="font-weight:bold; color:#555;">Subtotal</td>
+                <td class="text-right" style="font-weight:bold;">{{ format_price($subtotal) }}</td>
+            </tr>
+            @if($totalItemDiscount > 0)
+            <tr class="discount-row">
+                <td colspan="6" class="text-right">Item Discount</td>
+                <td class="text-right">-{{ format_price($totalItemDiscount) }}</td>
+            </tr>
+            @endif
+            @if($couponDiscount > 0 && $couponCode)
+            <tr class="coupon-row">
+                <td colspan="6" class="text-right">
+                    Coupon Discount &nbsp; {{ $couponCode }}
+                    @if($order->coupon->discount_type === 'percentage')
+                        ({{ number_format($order->coupon->discount_value, 0) }}% off)
+                    @endif
+                </td>
+                <td class="text-right">-{{ format_price($couponDiscount) }}</td>
+            </tr>
+            @elseif($order->coupon_id && $order->coupon)
+            <tr class="coupon-row">
+                <td colspan="6" class="text-right">
+                    Coupon Applied &nbsp; {{ $order->coupon->code }}
+                </td>
+                <td class="text-right">-</td>
+            </tr>
+            @endif
+            <tr class="total-row">
+                <td colspan="6" class="text-right">Final Amount</td>
+                <td class="text-right">{{ format_price($order->final_amount) }}</td>
+            </tr>
+        </tfoot>
     </table>
 
-    @php
-        $totalItemDiscount = $order->items->sum('discount_amount');
-        $subtotal = $order->final_amount + $totalItemDiscount;
-    @endphp
-    <!-- Totals -->
-    <div class="totals-section">
-        <div class="totals-row">
-            <table>
-                <tr>
-                    <td>Items Total</td>
-                    <td class="text-right">{{ format_price($subtotal) }}</td>
-                </tr>
-                @if($totalItemDiscount > 0)
-                <tr>
-                    <td style="color:#ea5455;">Discount</td>
-                    <td class="text-right" style="color:#ea5455;">-{{ format_price($totalItemDiscount) }}</td>
-                </tr>
-                @endif
-            </table>
-        </div>
-        <div class="totals-grand">
-            <table>
-                <tr>
-                    <td>Final Amount</td>
-                    <td class="text-right">{{ format_price($order->final_amount) }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-    <div style="clear:both;"></div>
-
-    <!-- Footer -->
+    {{-- ── FOOTER ────────────────────────────────────────────────────── --}}
     <div class="footer">
-        <p>Generated on {{ now()->format('d M Y, H:i') }} &nbsp;|&nbsp; {{ config('app.name') }}</p>
+        <div class="footer-thank">Thank you for your business!</div>
+        <div class="footer-text">
+            Generated on {{ now()->format('d M Y, H:i') }}
+            &nbsp;&bull;&nbsp;
+            {{ config('app.name', 'Chetan Imitation') }}
+            &nbsp;&bull;&nbsp;
+            This is a computer-generated invoice and does not require a signature.
+        </div>
     </div>
 
 </div>
+<div class="strip-bar"></div>
+
 </body>
 </html>

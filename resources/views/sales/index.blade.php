@@ -57,7 +57,7 @@
                         <th>#</th>
                         <th>Sale No</th>
                         <th>Customer</th>
-                        <th>Location</th>
+                        <!-- <th>Location</th> -->
                         <th>Source</th>
                         <th>Amount</th>
                         <th>Status</th>
@@ -83,7 +83,7 @@
                     { data: 'index',          width: '5%' },
                     { data: 'order_no' },
                     { data: 'customer' },
-                    { data: 'location' },
+                    // { data: 'location' },
                     { data: 'source' },
                     { data: 'final_amount' },
                     { data: 'status',         orderable: false },
@@ -116,7 +116,7 @@
                 const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
                 const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
                 const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
-                const opt6 = (![1, 2, 6].includes(currentStatus)) ? 'disabled' : '';
+                const opt6 = ([5, 6].includes(currentStatus)) ? 'disabled' : '';
 
                 Swal.fire({
                     title: 'Update Sale Status',
@@ -132,6 +132,10 @@
                                 <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
                             </select>
                         </div>
+                        <div class="mb-3 text-start" id="swal-reason-wrap" style="display:none;">
+                            <label for="swal-cancel-reason" class="form-label fw-semibold mb-2">Cancellation Reason <span class="text-danger">*</span></label>
+                            <textarea id="swal-cancel-reason" class="form-control" rows="3" maxlength="500" placeholder="Enter the reason for cancellation..."></textarea>
+                        </div>
                     `,
                     showCancelButton: true,
                     confirmButtonText: 'Update',
@@ -141,29 +145,56 @@
                         cancelButton: 'btn btn-label-secondary'
                     },
                     buttonsStyling: false,
+                    allowOutsideClick: () => !Swal.isLoading(),
+                    didOpen: () => {
+                        document.getElementById('swal-sale-status').addEventListener('change', function () {
+                            const reasonWrap = document.getElementById('swal-reason-wrap');
+                            reasonWrap.style.display = (this.value == '6') ? 'block' : 'none';
+                        });
+                        if (currentStatus == 6) {
+                            document.getElementById('swal-reason-wrap').style.display = 'block';
+                        }
+                    },
                     preConfirm: () => {
-                        return document.getElementById('swal-sale-status').value;
+                        const status = document.getElementById('swal-sale-status').value;
+                        const reason = document.getElementById('swal-cancel-reason').value.trim();
+                        if (status == '6' && !reason) {
+                            Swal.showValidationMessage('Please enter a cancellation reason.');
+                            return false;
+                        }
+                        Swal.showLoading();
+                        window.showAjaxLoader();
+                        return new Promise((resolve, reject) => {
+                            $.ajax({
+                                url: url,
+                                type: 'PATCH',
+                                data: {
+                                    _token: $('meta[name="csrf-token"]').attr('content'),
+                                    status: status,
+                                    cancellation_reason: reason
+                                },
+                                success: function (res) {
+                                    window.hideAjaxLoader();
+                                    if (res.status === 'success') {
+                                        resolve(res);
+                                    } else {
+                                        Swal.showValidationMessage(res.message || 'Something went wrong.');
+                                        reject();
+                                    }
+                                },
+                                error: function (xhr) {
+                                    window.hideAjaxLoader();
+                                    const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                                    Swal.showValidationMessage(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                                    reject();
+                                }
+                            });
+                        });
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
-                        $.ajax({
-                            url: url,
-                            type: 'PATCH',
-                            data: {
-                                _token: $('meta[name="csrf-token"]').attr('content'),
-                                status: result.value
-                            },
-                            success: function (res) {
-                                if (res.status === 'success') {
-                                    toastr.success(res.message);
-                                    window.refreshTable();
-                                }
-                            },
-                            error: function (xhr) {
-                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                            }
-                        });
+                        toastr.success(result.value.message);
+                        window.refreshTable();
                     }
                 });
             });
@@ -197,6 +228,7 @@
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
+                        window.showAjaxLoader();
                         $.ajax({
                             url: url,
                             type: 'PATCH',
@@ -205,12 +237,14 @@
                                 payment_status: result.value
                             },
                             success: function (res) {
+                                window.hideAjaxLoader();
                                 if (res.status === 'success') {
                                     toastr.success(res.message);
                                     window.refreshTable();
                                 }
                             },
                             error: function (xhr) {
+                                window.hideAjaxLoader();
                                 const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
                                 toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
                             }
