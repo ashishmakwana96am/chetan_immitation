@@ -628,17 +628,7 @@
                             <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
                         <div class="flex justify-between text-base sm:text-lg {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
-                            <span class="font-medium text-[#131615]" id="checkoutDiscountLabel">
-                                @if($coupon)
-                                    @if($coupon->discount_type === 'percentage')
-                                        Discount ({{ (int)$coupon->discount_value }}% Off)
-                                    @else
-                                        Discount (Flat ₹{{ (int)$coupon->discount_value }} Off)
-                                    @endif
-                                @else
-                                    Discount
-                                @endif
-                            </span>
+                            <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
                         </div>
                         {{--
@@ -822,7 +812,7 @@ Order Amount
 
                 <p class="text-[#131615] text-base md:text-lg">
                     A confirmation email and order details have been sent to your
-                    registered email address.
+                    registered email address and mobile number.
                 </p>
             </div>
             <!-- Buttons -->
@@ -1365,82 +1355,84 @@ function deleteAddress(addressId, event) {
         event.preventDefault();
     }
 
-    window.showDeleteConfirm(() => {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    if (!confirm('Are you sure you want to delete this address?')) {
+        return;
+    }
 
-        fetch('{{ route('checkout.address.delete') }}', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ address_id: addressId })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') {
-                showCheckoutToast(data.message || 'Address deleted successfully.', true);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-                const card = document.querySelector(`.address-card[data-address-id="${addressId}"]`);
-                const wasDefault = card ? card.classList.contains('default-address-card') : false;
-                const wasActive = card ? card.classList.contains('active-address') : false;
+    fetch('{{ route('checkout.address.delete') }}', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ address_id: addressId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showCheckoutToast(data.message || 'Address deleted.');
 
-                if (card) {
-                    card.remove();
-                }
+            const card = document.querySelector(`.address-card[data-address-id="${addressId}"]`);
+            const wasDefault = card ? card.classList.contains('default-address-card') : false;
+            const wasActive = card ? card.classList.contains('active-address') : false;
 
-                const addrIndex = checkoutAddresses.findIndex(a => a.id === addressId);
-                if (addrIndex !== -1) {
-                    checkoutAddresses.splice(addrIndex, 1);
-                }
-
-                const remainingCards = document.querySelectorAll('.address-card');
-                if (remainingCards.length === 0) {
-                    const list = document.getElementById('addressesCardsList');
-                    if (list) {
-                        list.innerHTML = `
-                            <div id="noAddressesPlaceholder" class="p-5 text-center text-gray-500">
-                                No saved addresses. Please add a new delivery address to proceed.
-                            </div>
-                        `;
-                    }
-                    return;
-                }
-
-                if (wasDefault) {
-                    const latestCard = remainingCards[0];
-                    const latestId = latestCard.dataset.addressId;
-
-                    latestCard.classList.add('default-address-card');
-                    const namePhoneSpan = latestCard.querySelector('.customer-name-phone');
-                    if (namePhoneSpan && !latestCard.querySelector('.default-badge')) {
-                        namePhoneSpan.insertAdjacentHTML('afterend', `
-                            <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
-                                Default
-                            </span>
-                        `);
-                    }
-
-                    const setDefaultBtn = latestCard.querySelector('.set-default-btn');
-                    if (setDefaultBtn) setDefaultBtn.remove();
-
-                    refreshAddressSelection(latestId);
-                } else if (wasActive) {
-                    const defaultCard = document.querySelector('.default-address-card');
-                    if (defaultCard) {
-                        refreshAddressSelection(defaultCard.dataset.addressId);
-                    }
-                }
-            } else {
-                showCheckoutToast(data.message || 'Failed to delete address.', false);
+            if (card) {
+                card.remove();
             }
-        })
-        .catch(err => {
-            console.error('Error deleting address:', err);
-            showCheckoutToast('Something went wrong.', false);
-        });
+
+            const addrIndex = checkoutAddresses.findIndex(a => a.id === addressId);
+            if (addrIndex !== -1) {
+                checkoutAddresses.splice(addrIndex, 1);
+            }
+
+            const remainingCards = document.querySelectorAll('.address-card');
+            if (remainingCards.length === 0) {
+                const list = document.getElementById('addressesCardsList');
+                if (list) {
+                    list.innerHTML = `
+                        <div id="noAddressesPlaceholder" class="p-5 text-center text-gray-500">
+                            No saved addresses. Please add a new delivery address to proceed.
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            if (wasDefault) {
+                const latestCard = remainingCards[0];
+                const latestId = latestCard.dataset.addressId;
+
+                latestCard.classList.add('default-address-card');
+                const namePhoneSpan = latestCard.querySelector('.customer-name-phone');
+                if (namePhoneSpan && !latestCard.querySelector('.default-badge')) {
+                    namePhoneSpan.insertAdjacentHTML('afterend', `
+                        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                            Default
+                        </span>
+                    `);
+                }
+
+                const setDefaultBtn = latestCard.querySelector('.set-default-btn');
+                if (setDefaultBtn) setDefaultBtn.remove();
+
+                refreshAddressSelection(latestId);
+            } else if (wasActive) {
+                const defaultCard = document.querySelector('.default-address-card');
+                if (defaultCard) {
+                    refreshAddressSelection(defaultCard.dataset.addressId);
+                }
+            }
+        } else {
+            showCheckoutToast(data.message || 'Failed to delete address.', false);
+        }
+    })
+    .catch(err => {
+        console.error('Error deleting address:', err);
+        showCheckoutToast('Something went wrong.', false);
     });
 }
 
@@ -1755,10 +1747,6 @@ function handleCouponAction() {
                 if (discountRow) {
                     discountRow.classList.remove('hidden');
                 }
-                const discountLabel = document.getElementById('checkoutDiscountLabel');
-                if (discountLabel && data.discount_desc) {
-                    discountLabel.textContent = data.discount_desc;
-                }
                 const discountVal = document.getElementById('checkoutDiscountValue');
                 if (discountVal) {
                     discountVal.textContent = data.discount_label;
@@ -1778,10 +1766,6 @@ function handleCouponAction() {
                 const discountRow = document.getElementById('checkoutDiscountRow');
                 if (discountRow) {
                     discountRow.classList.add('hidden');
-                }
-                const discountLabel = document.getElementById('checkoutDiscountLabel');
-                if (discountLabel) {
-                    discountLabel.textContent = 'Discount';
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {

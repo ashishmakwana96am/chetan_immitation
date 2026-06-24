@@ -752,7 +752,7 @@ Order Amount
             </div>
             <button onclick="window.location.href='{{ route('customer.profile') }}'"
                 class="w-full h-[52px] bg-[#B4771E] text-white
-                text-base md:text-[22px] md:leading-[24px] mt-7">
+                text-base md:text-lg mt-7 common-btn">
                 View My Orders
             </button>
             <button onclick="closeBuyNowSuccessModal()"

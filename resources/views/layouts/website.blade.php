@@ -1179,10 +1179,10 @@ window.addEventListener('resize', function () {
                 
                 <!-- Action Buttons -->
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <button id="deleteConfirmCancelBtn" onclick="closeDeleteConfirmModal()" class="flex-1 h-12 border-2 border-[#131615] text-[#131615] font-medium rounded-sm transition hover:bg-gray-50">
+                    <button id="deleteConfirmCancelBtn" onclick="closeDeleteConfirmModal()" class="flex items-center justify-center w-full h-[52px] border-2 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                         Cancel
                     </button>
-                    <button id="deleteConfirmConfirmBtn" class="flex-1 h-12 bg-[#B4771E] text-white font-medium rounded-sm transition hover:bg-[#b67d1f]">
+                    <button id="deleteConfirmConfirmBtn" class="w-full bg-[#B4771E] text-white text-lg font-medium h-[52px] common-btn transition flex justify-center items-center">
                         Yes, delete it!
                     </button>
                 </div>
