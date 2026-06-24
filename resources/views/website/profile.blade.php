@@ -26,8 +26,8 @@
             d="M4 6h16M4 12h16M4 18h16"/>
     </svg>
 
-    <span class="font-medium">
-        My Account
+    <span id="mobileSidebarTitle" class="font-medium">
+      My Orders
     </span>
 </button>
 
@@ -587,6 +587,8 @@ function switchTab(tab, btn) {
   btn.classList.remove('text-[#3D403F]','font-normal');
   document.getElementById('pageTitle').textContent = titles[tab][0];
   document.getElementById('pageSubtitle').textContent = titles[tab][1];
+
+  document.getElementById('mobileSidebarTitle').textContent = titles[tab][0];
   if (tab === 'orders') renderOrders();
   if (tab === 'addresses') renderAddresses();
 }
