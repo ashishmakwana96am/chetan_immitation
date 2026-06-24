@@ -1224,12 +1224,25 @@ function createAddressCardHtml(addr) {
                         <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
                     </button>
                     <div class="absolute right-0 top-full mt-2 w-[180px] bg-white border border-[#D5D5D5] rounded-[8px] shadow-[0_4px_20px_rgba(0,0,0,0.12)] overflow-hidden z-20 hidden address-dropdown">
-                        <button onclick="editAddress(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
-                            <span class="text-base font-normal">Edit</span>
+                        <button onclick="editAddress(${addr.id}, event)"  class="w-full flex items-center gap-3 p-3
+                        text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                           <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12.1767 2.48937L13.5825 1.08271C13.8756 0.789642 14.273 0.625 14.6875 0.625C15.102 0.625 15.4994 0.789642 15.7925 1.08271C16.0856 1.37577 16.2502 1.77325 16.2502 2.18771C16.2502 2.60216 16.0856 2.99964 15.7925 3.29271L6.94333 12.1419C6.50277 12.5822 5.95947 12.9058 5.3625 13.0835L3.125 13.7502L3.79167 11.5127C3.9694 10.9157 4.29303 10.3724 4.73333 9.93187L12.1767 2.48937ZM12.1767 2.48937L14.375 4.68771M13.125 10.4169V14.3752C13.125 14.8725 12.9275 15.3494 12.5758 15.701C12.2242 16.0527 11.7473 16.2502 11.25 16.2502H2.5C2.00272 16.2502 1.52581 16.0527 1.17417 15.701C0.822544 15.3494 0.625 14.8725 0.625 14.3752V5.62521C0.625 5.12793 0.822544 4.65101 1.17417 4.29938C1.52581 3.94775 2.00272 3.75021 2.5 3.75021H6.45833" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Edit
+                                                </span>
+
                         </button>
                         <div class="mx-3 border-t border-[#D5D5D5]"></div>
-                        <button onclick="deleteAddress(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FFF7F7] transition">
-                            <span class="text-base font-normal">Remove</span>
+                        <button onclick="deleteAddress(${addr.id}, event)" class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FFF7F7] transition">
+                           <svg width="15" height="18" viewBox="0 0 15 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9.78345 6.25043L9.49512 13.7504M5.50512 13.7504L5.21679 6.25043M10.6251 3.2446C11.5949 3.31968 12.5617 3.43003 13.5235 3.57543C13.8085 3.61877 14.0918 3.6646 14.3751 3.71377M13.5235 3.57543L12.6335 15.1446C12.5971 15.6156 12.3843 16.0556 12.0376 16.3765C11.6909 16.6974 11.2359 16.8756 10.7635 16.8754H4.23679C3.76437 16.8756 3.30931 16.6974 2.9626 16.3765C2.6159 16.0556 2.40311 15.6156 2.36679 15.1446L1.47679 3.57543M1.47679 3.57543C1.19179 3.61793 0.908455 3.66377 0.625122 3.71293M1.47679 3.57543C2.43857 3.43003 3.40532 3.31968 4.37512 3.2446M10.6251 3.2446V2.48127C10.6251 1.49793 9.86679 0.677934 8.88346 0.647101C7.96147 0.617633 7.03878 0.617633 6.11679 0.647101C5.13346 0.677934 4.37512 1.49877 4.37512 2.48127V3.2446M10.6251 3.2446C8.54489 3.08383 6.45535 3.08383 4.37512 3.2446" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Remove
+                                                </span>
                         </button>
                         ${!addr.is_default ? '<div class="mx-3 border-t border-[#D5D5D5]"></div>' + setAsDefaultButton : ''}
                     </div>
