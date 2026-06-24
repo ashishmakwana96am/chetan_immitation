@@ -242,7 +242,7 @@
                     @if($order->status == \App\Models\Order::STATUS_DELIVERED && $item->product)
                     @php
                         $existingReview = $reviewsByProduct->get($item->product_id);
-                        $reviewAuthorName = auth('customer')->user()->display_name ?: auth('customer')->user()->name;
+                        $reviewAuthorName = auth('customer')->user()->name;
                         $reviewAuthorAvatar = auth('customer')->user()->avatar
                             ? asset(auth('customer')->user()->avatar)
                             : 'https://ui-avatars.com/api/?name=' . urlencode($reviewAuthorName) . '&background=B4771E&color=fff&size=120&bold=true';

@@ -33,6 +33,7 @@ use App\Http\Controllers\CustomerPasswordResetController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\ShopCategoryController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\CheckoutController;
 use Illuminate\Support\Facades\Route;
 
@@ -165,6 +166,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
+
+        // Product Reviews
+        Route::get('product-reviews/data', [ProductReviewController::class, 'data'])->name('product-reviews.data');
+        Route::get('product-reviews', [ProductReviewController::class, 'index'])->name('product-reviews.index');
+        Route::delete('product-reviews/{productReview}', [ProductReviewController::class, 'destroy'])->name('product-reviews.destroy');
 
         // Coupons
         Route::get('coupons/data', [CouponController::class, 'data'])->name('coupons.data');

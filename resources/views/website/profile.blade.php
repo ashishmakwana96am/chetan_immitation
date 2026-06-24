@@ -201,16 +201,6 @@
               <p class="field-error text-sm text-red-600 mt-1 hidden" id="acctName-error"></p>
             </div>
             <div>
-              <label class="block text-base md:text-lg font-medium text-[#131615] mb-1.5">Display name</label>
-              <input type="text" id="acctDisplayName"
-                value="{{ auth('customer')->user()->display_name ?: auth('customer')->user()->name }}"
-                data-custom="{{ auth('customer')->user()->display_name ? '1' : '0' }}"
-                placeholder="Enter your display name"
-                class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575]" />
-              <p class="text-sm md:text-base text-[#3D403F] mt-1">This will be how your name will be displayed in the account section and in reviews</p>
-              <p class="field-error text-sm text-red-600 mt-1 hidden" id="acctDisplayName-error"></p>
-            </div>
-            <div>
               <label class="block text-base md:text-lg font-medium text-[#131615] mb-1.5">Email address</label>
               <input type="email" id="acctEmail" value="{{ auth('customer')->user()->email }}" disabled
                 class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575] bg-gray-100 cursor-not-allowed" />
@@ -1287,29 +1277,15 @@ function changeAvatar(e) {
   });
 }
 
-function syncDisplayNameField() {
-  const nameInput = document.getElementById('acctName');
-  const displayInput = document.getElementById('acctDisplayName');
-  if (!nameInput || !displayInput || displayInput.dataset.custom === '1') return;
-  displayInput.value = nameInput.value.trim();
-}
-
-function setDisplayNameCustomized(isCustom) {
-  const displayInput = document.getElementById('acctDisplayName');
-  if (displayInput) displayInput.dataset.custom = isCustom ? '1' : '0';
-}
-
-function updateNavbarCustomerName(name, displayName) {
-  const shownName = (displayName && displayName.trim()) ? displayName.trim() : name;
+function updateNavbarCustomerName(name) {
   const navName = document.getElementById('navbarCustomerName');
-  if (navName) navName.textContent = shownName;
+  if (navName) navName.textContent = name;
   const mobileNavName = document.getElementById('mobileNavbarCustomerName');
-  if (mobileNavName) mobileNavName.textContent = shownName;
+  if (mobileNavName) mobileNavName.textContent = name;
 }
 
 function saveAccount(btn) {
   const name = document.getElementById('acctName').value.trim();
-  const displayName = document.getElementById('acctDisplayName').value.trim();
   const phone = document.getElementById('acctPhone').value.trim();
   const currentPassword = document.getElementById('pw1').value.trim();
   const newPassword = document.getElementById('pw2').value.trim();
@@ -1342,7 +1318,7 @@ function saveAccount(btn) {
       'X-Requested-With': 'XMLHttpRequest',
       'Accept': 'application/json'
     },
-    body: JSON.stringify({ name, display_name: displayName, phone })
+    body: JSON.stringify({ name, phone })
   })
   .then(r => r.json())
   .then(data => {
@@ -1350,10 +1326,7 @@ function saveAccount(btn) {
       if (data.name) {
         document.getElementById('acctName').value = data.name;
       }
-      const shownDisplayName = data.display_name || data.name || name;
-      document.getElementById('acctDisplayName').value = shownDisplayName;
-      setDisplayNameCustomized(!!data.display_name);
-      updateNavbarCustomerName(data.name || name, data.display_name);
+      updateNavbarCustomerName(data.name || name);
       // 2. If password change is requested
       if (newPassword || currentPassword || confirmPassword) {
         if (!currentPassword) {
@@ -1461,14 +1434,9 @@ function showFieldError(id, msg) {
 // Bind password togglers (pure JS)
 document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('acctName');
-  const displayInput = document.getElementById('acctDisplayName');
 
   if (nameInput) {
-    nameInput.addEventListener('input', syncDisplayNameField);
-  }
-
-  if (displayInput) {
-    displayInput.addEventListener('input', () => setDisplayNameCustomized(true));
+    nameInput.addEventListener('input', function() {});
   }
 
   document.querySelectorAll('.toggle-password').forEach(btn => {

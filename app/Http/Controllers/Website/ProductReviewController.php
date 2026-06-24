@@ -71,10 +71,10 @@ class ProductReviewController extends Controller
                 'rating'       => (float) $review->rating,
                 'comment'      => $review->comment,
                 'created_at'   => $review->created_at->format('l, F j, Y'),
-                'author_name'  => $review->customer->display_name ?: $review->customer->name,
+                'author_name'  => $review->customer->name,
                 'author_avatar'=> $review->customer->avatar
                     ? asset($review->customer->avatar)
-                    : 'https://ui-avatars.com/api/?name=' . urlencode($review->customer->display_name ?: $review->customer->name) . '&background=B4771E&color=fff&size=120&bold=true',
+                    : 'https://ui-avatars.com/api/?name=' . urlencode($review->customer->name) . '&background=B4771E&color=fff&size=120&bold=true',
             ],
         ]);
     }

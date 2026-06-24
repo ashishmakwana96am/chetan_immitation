@@ -82,16 +82,13 @@ class ProfileController extends Controller
         $customer = $this->customer();
         $request->validate([
             'name'         => ['required', 'string', 'max:255'],
-            'display_name' => ['nullable', 'string', 'max:255'],
             'phone'        => ['required', 'string', 'max:20'],
         ]);
 
         $name        = trim($request->name);
-        $displayName = trim((string) $request->input('display_name', ''));
 
         $customer->update([
             'name'         => $name,
-            'display_name' => ($displayName !== '' && $displayName !== $name) ? $displayName : null,
             'phone'        => $request->phone,
         ]);
 
@@ -101,7 +98,6 @@ class ProfileController extends Controller
             'status'       => 'success',
             'message'      => 'Profile details updated successfully.',
             'name'         => $customer->name,
-            'display_name' => $customer->display_name,
         ]);
     }
 

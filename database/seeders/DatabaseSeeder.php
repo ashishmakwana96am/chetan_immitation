@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             SuperAdminSeeder::class,
             DummyDataSeeder::class,
+            ProductReviewModuleSeeder::class,
         ]);
     }
 }
