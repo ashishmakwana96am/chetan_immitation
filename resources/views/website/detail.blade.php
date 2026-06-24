@@ -668,50 +668,95 @@ if (minusBtn) {
 </div>
 
 {{-- ══ BUY NOW — Success Modal ══ --}}
-<div id="buyNowSuccessModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
-    <div class="min-h-full flex items-center justify-center py-5">
-        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto">
+<div id="buyNowSuccessModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4 !mt-0">
+    <div class="min-h-full flex items-center justify-center py-5 !mt-0">
+        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onclick="closeBuyNowSuccessModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>
             <div class="flex justify-center">
-                <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[200px] md:w-auto">
+                <img src="{{ asset('website/assets/images/rightcheck.png') }}" alt="" class="w-[80px] md:w-[90px] text-red-500">
             </div>
-            <h2 class="text-center font-moglan text-[30px] sm:text-[40px] md:text-[50px] leading-tight text-[#131615] mt-4">Order Placed Successfully!</h2>
-            <p class="text-center text-[#3D403F] text-base md:text-xl max-w-[520px] mx-auto mt-5">
+            <h2 class="text-center font-moglan text-[30px] sm:text-[40px]
+                leading-tight text-[#131615] mt-2">Order Placed Successfully!</h2>
+            <p class="text-center text-[#3D403F] text-sm md:text-base font-normal
+                max-w-[520px] mx-auto mt-3">
                 Thank you for shopping with Chetan Imitation. Your order has been confirmed and is now being processed.
             </p>
-            <div class="border border-[#D5D5D5] mt-8 p-[20px] md:p-[30px]">
-                <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-5">
-                    <div class="flex items-center gap-[15px]">
-                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class="text-lg sm:text-xl font-semibold">Order ID</span>
+            <div class="border border-[#D5D5D5] mt-4 p-4 rounded-sm">
+                <div class="flex justify-between items-center border-b border-[#D5D5D5] pb-3">
+                      <div class="flex items-center gap-[15px]">
+                        <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center">
+                        <svg width="16" height="20" viewBox="0 0 19 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18.25 14.75V11.6875C18.25 10.6432 17.8352 9.64169 17.0967 8.90327C16.3583 8.16484 15.3568 7.75 14.3125 7.75H12.5625C12.2144 7.75 11.8806 7.61172 11.6344 7.36558C11.3883 7.11944 11.25 6.7856 11.25 6.4375V4.6875C11.25 3.64321 10.8352 2.64169 10.0967 1.90327C9.35831 1.16484 8.35679 0.75 7.3125 0.75H5.125M5.125 15.625H13.875M5.125 19.125H9.5M7.75 0.75H2.0625C1.338 0.75 0.75 1.338 0.75 2.0625V22.1875C0.75 22.912 1.338 23.5 2.0625 23.5H16.9375C17.662 23.5 18.25 22.912 18.25 22.1875V11.25C18.25 8.46523 17.1438 5.79451 15.1746 3.82538C13.2055 1.85625 10.5348 0.75 7.75 0.75Z" stroke="#B4771E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
+                            Order ID
+                        </span>
                     </div>
-                    <span id="buyNowSuccessOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold">-</span>
+                    <span id="buyNowSuccessOrderId" class="text-[#3D403F] text-base sm:text-lg font-mono font-semibold text-end">-</span>
                 </div>
                 <div class="flex justify-between items-center border-b border-[#D5D5D5] py-5">
-                    <div class="flex items-center gap-[15px]">
-                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class="text-lg sm:text-xl font-semibold">Order Amount</span>
+                     <div class="flex items-center gap-[15px]">
+                      <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center text-[#B4771E]">
+                        
+                    <svg width="16" height="16" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14.75 6.875H7.75M14.75 10.375H7.75M11.25 17.375L7.75 13.875H9.5C10.4283 13.875 11.3185 13.5063 11.9749 12.8499C12.6313 12.1935 13 11.3033 13 10.375C13 9.44674 12.6313 8.5565 11.9749 7.90013C11.3185 7.24375 10.4283 6.875 9.5 6.875M21.75 11.25C21.75 12.6289 21.4784 13.9943 20.9507 15.2682C20.4231 16.5421 19.6496 17.6996 18.6746 18.6746C17.6996 19.6496 16.5421 20.4231 15.2682 20.9507C13.9943 21.4784 12.6289 21.75 11.25 21.75C9.87112 21.75 8.50574 21.4784 7.23182 20.9507C5.95791 20.4231 4.80039 19.6496 3.82538 18.6746C2.85036 17.6996 2.07694 16.5421 1.54926 15.2682C1.02159 13.9943 0.75 12.6289 0.75 11.25C0.75 8.46523 1.85625 5.79451 3.82538 3.82538C5.79451 1.85625 8.46523 0.75 11.25 0.75C14.0348 0.75 16.7055 1.85625 18.6746 3.82538C20.6438 5.79451 21.75 8.46523 21.75 11.25Z" stroke="#B4771E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
+Order Amount
+                        </span>
                     </div>
-                    <span id="buyNowSuccessOrderAmount" class="text-[#3D403F] text-base sm:text-lg font-semibold">-</span>
+                    <span id="buyNowSuccessOrderAmount" class="text-[#3D403F] text-base font-semibold text-end">-</span>
                 </div>
                 <div class="flex justify-between items-center py-5">
                     <div class="flex items-center gap-[15px]">
-                        <img src="{{ asset('website/assets/images/order1.png') }}" alt="">
-                        <span class="text-lg sm:text-xl font-semibold">Estimated Delivery</span>
+                      <div class="w-10 h-10 rounded-full bg-[#B4771E]/10 flex justify-center items-center">
+                        
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"  stroke="#B4771E" />
+                    </svg>
+
+
+                        </div>
+                        <span class="text-base md:text-lg font-semibold">
+                         Estimated Delivery
+                        </span>
                     </div>
-                    <span class="text-[#3D403F] text-base sm:text-lg">4–7 Business Days</span>
+                   <span class="text-[#3D403F] text-base text-end">
+                        4–7 Business Days
+                    </span>
                 </div>
             </div>
-            <div class="bg-[#B4771E]/10 p-5 rounded-[5px] mt-4 flex gap-[15px] items-start">
-                <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
-                <p class="text-[#131615] text-base md:text-lg">A confirmation email and order details have been sent to your registered email address.</p>
+             <div
+                class="bg-[#B4771E]/10 p-4 rounded-[5px] mt-3 flex gap-[15px] items-start">
+               
+               <div>
+                 <svg width="40" height="40" viewBox="0 0 58 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_292_2508)">
+                <path d="M29 0.150391C44.9078 0.150391 57.8496 13.0922 57.8496 29C57.8496 44.9078 44.9078 57.8496 29 57.8496C13.0922 57.8496 0.150391 44.9078 0.150391 29C0.150391 13.0922 13.0922 0.150391 29 0.150391ZM29 2.56836C14.4257 2.56836 2.56836 14.4257 2.56836 29C2.56836 43.5743 14.4257 55.4316 29 55.4316C43.5743 55.4316 55.4316 43.5743 55.4316 29C55.4316 14.4257 43.5743 2.56836 29 2.56836ZM15.3711 17.1992H42.6289C44.3692 17.1992 45.7852 18.6152 45.7852 20.3555V37.6445C45.7852 39.3848 44.3692 40.8018 42.6289 40.8018H15.3711C13.6307 40.8018 12.2139 39.3848 12.2139 37.6445V20.3555C12.2139 18.6152 13.6308 17.1992 15.3711 17.1992ZM43.123 21.0283L29.752 31.6465C29.5319 31.8214 29.2659 31.9082 29 31.9082C28.7342 31.9082 28.4682 31.8212 28.248 31.6465L14.876 21.0283L14.6328 20.835V37.6445C14.633 37.8401 14.7113 38.0278 14.8496 38.166C14.9879 38.3042 15.1756 38.3826 15.3711 38.3828H42.6289C42.8244 38.3826 43.0121 38.3043 43.1504 38.166C43.2887 38.0278 43.367 37.8401 43.3672 37.6445V20.835L43.123 21.0283ZM17.3262 19.8848L28.9062 29.0811L29 29.1553L29.0938 29.0811L40.6729 19.8848L41.0098 19.6172H16.9902L17.3262 19.8848Z" fill="#B4771E" stroke="#F8F2E9" stroke-width="0.3"/>
+                </g>
+                <defs>
+                <clipPath id="clip0_292_2508">
+                <rect width="58" height="58" fill="white"/>
+                </clipPath>
+                </defs>
+                </svg>
+               </div>
+
+                <p class="text-[#131615] text-base md:text-lg">
+                    A confirmation email and order details have been sent to your
+                    registered email address.
+                </p>
             </div>
             <button onclick="window.location.href='{{ route('customer.profile') }}'"
-                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white text-base md:text-[22px] mt-10">
+                class="w-full h-[52px] bg-[#B4771E] text-white
+                text-base md:text-[22px] md:leading-[24px] mt-7">
                 View My Orders
             </button>
             <button onclick="closeBuyNowSuccessModal()"
-                class="w-full h-[52px] md:h-[68px] border border-[#131615] text-[#131615] text-base md:text-[22px] mt-[17px]">
+                class="common-btn h-[52px] mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Continue Shopping
             </button>
         </div>
@@ -719,28 +764,36 @@ if (minusBtn) {
 </div>
 
 {{-- ══ BUY NOW — Failure Modal ══ --}}
-<div id="buyNowFailureModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
-    <div class="min-h-full flex items-center justify-center py-5">
-        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto">
+<div id="buyNowFailureModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4 !mt-0">
+    <div class="min-h-full flex items-center justify-center !mt-0">
+        <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onclick="closeBuyNowFailureModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>
             <div class="flex justify-center">
                 <svg class="w-[120px] md:w-[150px] text-red-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
             </div>
-            <h2 class="text-center font-moglan text-[30px] sm:text-[40px] md:text-[50px] leading-tight text-red-600 mt-4">Payment Failed!</h2>
-            <p class="text-center text-[#3D403F] text-base md:text-xl max-w-[520px] mx-auto mt-5">
+             <h2
+                class=" text-red-600 font-moglan text-[30px] sm:text-[40px]
+                leading-tight mt-2 text-center">
+                Payment Failed!
+            </h2>
+              <p class="text-center text-[#3D403F] text-sm md:text-base font-normal
+                max-w-[520px] mx-auto mt-3">
                 We were unable to process your payment. Please try again or select a different payment option.
             </p>
-            <div class="bg-red-50 border border-red-200 p-5 rounded-[5px] mt-8 flex gap-[15px] items-start">
-                <p id="buyNowFailureReason" class="text-red-700 text-base md:text-lg">The payment request was cancelled or declined.</p>
+            <div
+                class="bg-red-50 border border-red-200 p-3 rounded-[5px] mt-4 flex gap-[15px] items-start">
+                <p id="failureReason" class="text-red-700 text-base">
+                    The payment request was cancelled or declined.
+                </p>
             </div>
             <button onclick="retryBuyNow()"
-                class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white text-base md:text-[22px] mt-10">
+                 class="w-full common-btn mt-5 h-[52px]">
                 Retry Payment
             </button>
             <button onclick="closeBuyNowFailureModal()"
-                class="w-full h-[52px] md:h-[68px] border border-[#131615] text-[#131615] text-base md:text-[22px] mt-[17px]">
+                  class="common-btn h-[52px] mt-4 md:mt-5 w-full border-2 border-[#131615] text-[#131615] font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                 Cancel
             </button>
         </div>
