@@ -308,7 +308,17 @@
             responsive : false,
             order      : [[7, 'desc']],
             orderFixed : { pre: [[7, 'desc']] },
-            columnDefs : [{ targets: [6, 7], visible: false }],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    searchable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                },
+                { targets: [6, 7], visible: false }
+            ],
             rowGroup   : {
                 dataSrc: 6,
                 startRender: function (rows, group) {

@@ -157,7 +157,15 @@
                     }
                 },
                 columns    : [
-                    { data: 'index',          width: '5%' },
+                    {
+                        data: null,
+                        width: '5%',
+                        orderable: false,
+                        searchable: false,
+                        render: function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    },
                     { data: 'order_no' },
                     { data: 'customer' },
                     // { data: 'location' },
