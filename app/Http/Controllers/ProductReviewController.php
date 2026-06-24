@@ -32,14 +32,22 @@ class ProductReviewController extends Controller
                      . str_repeat('<i class="ti ti-star text-muted" style="font-size:0.85rem;"></i>', $empty);
             $starsHtml = '<span class="d-flex align-items-center gap-1">' . $stars . ' <small class="text-muted ms-1">(' . number_format($rating, 1) . ')</small></span>';
 
-            $actions = '';
+            $actions = '<div class="dropdown table-action-dropdown">'
+                . '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>'
+                . '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">'
+                . '<button class="dropdown-item view-review-btn" '
+                . ' data-product="' . e($review->product->name ?? '-') . '"'
+                . ' data-customer="' . e($review->customer->name ?? '-') . '"'
+                . ' data-rating="' . e($starsHtml) . '"'
+                . ' data-comment="' . e($review->comment ?? '-') . '"'
+                . ' data-date="' . format_date($review->created_at) . '">'
+                . '<i class="ti ti-eye me-2"></i>View</button>';
+
             if ($canDelete) {
-                $actions = '<div class="dropdown table-action-dropdown">'
-                    . '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>'
-                    . '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">'
-                    . '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.product-reviews.destroy', $review) . '" data-row-id="review-row-' . $review->id . '"><i class="ti ti-trash me-2"></i>Delete</button>'
-                    . '</div></div>';
+                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.product-reviews.destroy', $review) . '" data-row-id="review-row-' . $review->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
+
+            $actions .= '</div></div>';
 
             return [
                 'index'      => $index + 1,

@@ -145,7 +145,6 @@
                         cancelButton: 'btn btn-label-secondary'
                     },
                     buttonsStyling: false,
-                    allowOutsideClick: () => !Swal.isLoading(),
                     didOpen: () => {
                         document.getElementById('swal-sale-status').addEventListener('change', function () {
                             const reasonWrap = document.getElementById('swal-reason-wrap');
@@ -162,39 +161,35 @@
                             Swal.showValidationMessage('Please enter a cancellation reason.');
                             return false;
                         }
-                        Swal.showLoading();
-                        window.showAjaxLoader();
-                        return new Promise((resolve, reject) => {
-                            $.ajax({
-                                url: url,
-                                type: 'PATCH',
-                                data: {
-                                    _token: $('meta[name="csrf-token"]').attr('content'),
-                                    status: status,
-                                    cancellation_reason: reason
-                                },
-                                success: function (res) {
-                                    window.hideAjaxLoader();
-                                    if (res.status === 'success') {
-                                        resolve(res);
-                                    } else {
-                                        Swal.showValidationMessage(res.message || 'Something went wrong.');
-                                        reject();
-                                    }
-                                },
-                                error: function (xhr) {
-                                    window.hideAjaxLoader();
-                                    const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                                    Swal.showValidationMessage(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                                    reject();
-                                }
-                            });
-                        });
+                        return { status: status, reason: reason };
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
-                        toastr.success(result.value.message);
-                        window.refreshTable();
+                        const { status, reason } = result.value;
+                        window.showAjaxLoader();
+                        $.ajax({
+                            url: url,
+                            type: 'PATCH',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content'),
+                                status: status,
+                                cancellation_reason: reason
+                            },
+                            success: function (res) {
+                                window.hideAjaxLoader();
+                                if (res.status === 'success') {
+                                    toastr.success(res.message);
+                                    window.refreshTable();
+                                } else {
+                                    toastr.error(res.message || 'Something went wrong.');
+                                }
+                            },
+                            error: function (xhr) {
+                                window.hideAjaxLoader();
+                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                            }
+                        });
                     }
                 });
             });
