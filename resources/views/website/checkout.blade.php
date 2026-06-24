@@ -628,18 +628,7 @@
                             <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
                         </div>
                         <div class="flex justify-between text-base sm:text-lg {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
-                            <span class="font-medium text-[#131615]">
-                                Discount
-                                <span id="checkoutDiscountDesc" class="text-xs sm:text-sm text-[#B4771E] font-medium">
-                                    @if($coupon)
-                                        @if($coupon->discount_type === 'percentage')
-                                            ({{ (int) $coupon->discount_value }}% Off)
-                                        @else
-                                            (Flat ₹{{ number_format($coupon->discount_value, 0) }} Off)
-                                        @endif
-                                    @endif
-                                </span>
-                            </span>
+                            <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
                         </div>
                         {{--
@@ -1787,10 +1776,6 @@ function handleCouponAction() {
                 if (discountVal) {
                     discountVal.textContent = data.discount_label;
                 }
-                const discountDesc = document.getElementById('checkoutDiscountDesc');
-                if (discountDesc) {
-                    discountDesc.textContent = data.discount_desc ? data.discount_desc.replace(/^Discount\s*/i, '') : '';
-                }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
                     totalVal.textContent = data.total_label;
@@ -1806,10 +1791,6 @@ function handleCouponAction() {
                 const discountRow = document.getElementById('checkoutDiscountRow');
                 if (discountRow) {
                     discountRow.classList.add('hidden');
-                }
-                const discountDesc = document.getElementById('checkoutDiscountDesc');
-                if (discountDesc) {
-                    discountDesc.textContent = '';
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
@@ -2056,3 +2037,5 @@ function retryPaymentFlow() {
 
 </script>
 @endsection
+
+
