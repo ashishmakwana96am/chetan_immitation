@@ -38,7 +38,7 @@ class ProductReviewController extends Controller
                 . '<button class="dropdown-item view-review-btn" '
                 . ' data-product="' . e($review->product->name ?? '-') . '"'
                 . ' data-customer="' . e($review->customer->name ?? '-') . '"'
-                . ' data-rating="' . e($starsHtml) . '"'
+                . ' data-rating="' . $rating . '"'
                 . ' data-comment="' . e($review->comment ?? '-') . '"'
                 . ' data-date="' . format_date($review->created_at) . '">'
                 . '<i class="ti ti-eye me-2"></i>View</button>';
