@@ -573,7 +573,7 @@ const titles = {
   orders:    ['My Orders',       'Track your orders, view purchase history, and manage your jewelry collections with ease.'],
   addresses: ['Billing address', 'Manage your delivery addresses for faster and hassle-free checkout.'],
   account:   ['Account Details', 'Manage your personal information, contact details, and account preferences.'],
-  logout:    ['My Account',      ''],
+  logout:    ['Log Out',      ''],
 };
  
 function switchTab(tab, btn) {
@@ -590,7 +590,7 @@ function switchTab(tab, btn) {
   if (tab === 'orders') renderOrders();
   if (tab === 'addresses') renderAddresses();
 }
- 
+
 // ─────────────────────────────────────────────
 // ORDERS
 // ─────────────────────────────────────────────
@@ -1512,5 +1512,34 @@ document.addEventListener("keydown", (e) => {
 // ─────────────────────────────────────────────
 renderOrders();
 renderAddresses();
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const sidebar = document.getElementById("accountSidebar");
+    const overlay = document.getElementById("sidebarOverlay");
+    const toggleBtn = document.getElementById("sidebarToggle");
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+            sidebar.classList.remove("left-[-100%]");
+            sidebar.classList.add("left-0");
+            overlay.classList.remove("hidden");
+
+            document.body.style.overflow = "hidden";
+        });
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove("left-0");
+        sidebar.classList.add("left-[-100%]");
+        overlay.classList.add("hidden");
+
+        document.body.style.overflow = "";
+    }
+
+    overlay?.addEventListener("click", closeSidebar);
+
+    window.closeSidebar = closeSidebar;
+});
 </script>
 @endsection
