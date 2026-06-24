@@ -1196,8 +1196,14 @@ function createAddressCardHtml(addr) {
         </span>
     ` : '';
     const setAsDefaultButton = !addr.is_default ? `
-        <button onclick="setAddressAsDefault(${addr.id}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn">
-            <span class="text-base font-normal">Set as Default</span>
+        <button onclick="setAddressAsDefault(${addr.id}, event)" class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M5.625 8.75L7.5 10.625L10.625 6.25M15.625 8.125C15.625 9.10991 15.431 10.0852 15.0541 10.9951C14.6772 11.9051 14.1247 12.7319 13.4283 13.4283C12.7319 14.1247 11.9051 14.6772 10.9951 15.0541C10.0852 15.431 9.10991 15.625 8.125 15.625C7.14009 15.625 6.16482 15.431 5.25487 15.0541C4.34493 14.6772 3.51814 14.1247 2.8217 13.4283C2.12526 12.7319 1.57281 11.9051 1.1959 10.9951C0.818993 10.0852 0.625 9.10991 0.625 8.125C0.625 6.13588 1.41518 4.22822 2.8217 2.8217C4.22822 1.41518 6.13588 0.625 8.125 0.625C10.1141 0.625 12.0218 1.41518 13.4283 2.8217C14.8348 4.22822 15.625 6.13588 15.625 8.125Z" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Set as Default
+                                                </span>
         </button>
     ` : '';
 
@@ -1531,7 +1537,13 @@ function saveCustomerAddress(e) {
                     const oldDefaultId = oldDefault.dataset.addressId;
                     const dropdownMenu = oldDefault.querySelector('.address-dropdown');
                     if (dropdownMenu && !dropdownMenu.querySelector('.set-default-btn')) {
-                        const btnHtml = `<div class="mx-3 border-t border-[#D5D5D5]"></div><button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full flex items-center gap-3 p-3 text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn"><span class="text-base font-normal">Set as Default</span></button>`;
+                        const btnHtml = `<div class="mx-3 border-t border-[#D5D5D5]"></div><button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full flex items-center gap-3 p-3
+                                                text-[#4A4A4A] hover:bg-[#FAFAFA] transition set-default-btn"> <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M5.625 8.75L7.5 10.625L10.625 6.25M15.625 8.125C15.625 9.10991 15.431 10.0852 15.0541 10.9951C14.6772 11.9051 14.1247 12.7319 13.4283 13.4283C12.7319 14.1247 11.9051 14.6772 10.9951 15.0541C10.0852 15.431 9.10991 15.625 8.125 15.625C7.14009 15.625 6.16482 15.431 5.25487 15.0541C4.34493 14.6772 3.51814 14.1247 2.8217 13.4283C2.12526 12.7319 1.57281 11.9051 1.1959 10.9951C0.818993 10.0852 0.625 9.10991 0.625 8.125C0.625 6.13588 1.41518 4.22822 2.8217 2.8217C4.22822 1.41518 6.13588 0.625 8.125 0.625C10.1141 0.625 12.0218 1.41518 13.4283 2.8217C14.8348 4.22822 15.625 6.13588 15.625 8.125Z" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span class="text-base font-normal">
+                                                    Set as Default
+                                                </span></button>`;
                         dropdownMenu.insertAdjacentHTML('beforeend', btnHtml);
                     }
                 }
