@@ -93,7 +93,7 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             }
-            if ($canEdit && $order->status == 1) {
+            if ($canEdit && $order->status == 1 && ($order->source ?? 'POS') !== 'ONLINE') {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canEditSalesStatus) {
@@ -177,7 +177,6 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'location_id'            => ['required', 'exists:locations,id'],
             'customer_id'            => ['nullable', 'exists:customers,id'],
-            'date'                   => ['required', 'date'],
             'payment_method'         => ['required', 'string'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
@@ -254,7 +253,6 @@ class SaleController extends Controller
                 ];
             }
 
-            // Overall discount calculation (removed/hardcoded to 0)
             $order = Order::create([
                 'customer_id'     => $request->customer_id,
                 'location_id'     => $request->location_id,
@@ -269,11 +267,6 @@ class SaleController extends Controller
                 'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
                 'coupon_id'       => $request->input('coupon_id', null),
             ]);
-
-            if ($request->filled('date')) {
-                $order->created_at = $request->date;
-                $order->save();
-            }
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
@@ -336,6 +329,11 @@ class SaleController extends Controller
             abort(403);
         }
 
+        if (($sale->source ?? 'POS') === 'ONLINE') {
+            return redirect()->route('admin.sales.show', $sale)
+                ->with('error', 'Online orders cannot be edited from sales.');
+        }
+
         if ($sale->status != 1) {
             return redirect()->route('admin.sales.show', $sale)
                 ->with('error', 'Only pending sales can be edited.');
@@ -390,6 +388,10 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales');
 
+        if (($sale->source ?? 'POS') === 'ONLINE') {
+            return response()->json(['status' => 'error', 'message' => 'Online orders cannot be edited from sales.'], 422);
+        }
+
         if ($sale->status != 1) {
             return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
         }
@@ -397,7 +399,6 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'location_id'        => ['required', 'exists:locations,id'],
             'customer_id'        => ['nullable', 'exists:customers,id'],
-            'date'               => ['required', 'date'],
             'payment_method'     => ['required', 'string'],
             'items'              => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -487,11 +488,6 @@ class SaleController extends Controller
                 'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : ($sale->discount_type ?? 'MANUAL'),
                 'coupon_id'       => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
             ]);
-
-            if ($request->filled('date')) {
-                $sale->created_at = $request->date;
-                $sale->save();
-            }
 
             foreach ($itemsData as $item) {
                 OrderItem::create([

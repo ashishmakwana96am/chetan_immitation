@@ -82,35 +82,37 @@
                     <hr class="my-4 border-light" />
 
                     <!-- Test Credentials -->
-                    <div class="row g-3">
+                    <div class="row g-3 razorpay-credentials-section" id="razorpayTestCredentials" {{ $razorpayPaymentMode === 'test' ? '' : 'style=display:none' }}>
                         <div class="col-12"><h6 class="mb-0 text-primary">Test Mode Credentials</h6></div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_test_key_id">Razorpay Test Key ID</label>
-                            <input type="text" id="razorpay_test_key_id" class="form-control bg-light text-muted" value="{{ $razorpayTestKeyId }}" readonly />
+                            <input type="text" name="razorpay_test_key_id" id="razorpay_test_key_id" class="form-control" value="{{ $razorpayTestKeyId }}" placeholder="Enter Razorpay test key ID" />
+                            <div class="invalid-feedback"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_test_key_secret">Razorpay Test Key Secret</label>
                             <div class="input-group input-group-merge">
-                                <input type="password" id="razorpay_test_key_secret" class="form-control bg-light text-muted" value="{{ $razorpayTestKeySecret }}" readonly />
-                                <span class="input-group-text cursor-pointer bg-light"><i class="ti ti-eye-off"></i></span>
+                                <input type="password" name="razorpay_test_key_secret" id="razorpay_test_key_secret" class="form-control" value="{{ $razorpayTestKeySecret }}" placeholder="Enter Razorpay test key secret" />
+                                <span class="input-group-text cursor-pointer toggle-secret"><i class="ti ti-eye-off"></i></span>
+                                <div class="invalid-feedback"></div>
                             </div>
                         </div>
                     </div>
 
-                    <hr class="my-4 border-light" />
-
                     <!-- Live Credentials -->
-                    <div class="row g-3">
+                    <div class="row g-3 razorpay-credentials-section" id="razorpayLiveCredentials" {{ $razorpayPaymentMode === 'live' ? '' : 'style=display:none' }}>
                         <div class="col-12"><h6 class="mb-0 text-success">Live Mode Credentials</h6></div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_live_key_id">Razorpay Live Key ID</label>
-                            <input type="text" id="razorpay_live_key_id" class="form-control bg-light text-muted" value="{{ $razorpayLiveKeyId }}" readonly />
+                            <input type="text" name="razorpay_live_key_id" id="razorpay_live_key_id" class="form-control" value="{{ $razorpayLiveKeyId }}" placeholder="Enter Razorpay live key ID" />
+                            <div class="invalid-feedback"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_live_key_secret">Razorpay Live Key Secret</label>
                             <div class="input-group input-group-merge">
-                                <input type="password" id="razorpay_live_key_secret" class="form-control bg-light text-muted" value="{{ $razorpayLiveKeySecret }}" readonly />
-                                <span class="input-group-text cursor-pointer bg-light"><i class="ti ti-eye-off"></i></span>
+                                <input type="password" name="razorpay_live_key_secret" id="razorpay_live_key_secret" class="form-control" value="{{ $razorpayLiveKeySecret }}" placeholder="Enter Razorpay live key secret" />
+                                <span class="input-group-text cursor-pointer toggle-secret"><i class="ti ti-eye-off"></i></span>
+                                <div class="invalid-feedback"></div>
                             </div>
                         </div>
                     </div>
@@ -173,6 +175,12 @@
 @section('page-js')
 <script>
 $(document).ready(function () {
+    function syncRazorpayCredentialsVisibility() {
+        const mode = $('#razorpay_payment_mode').val();
+        $('#razorpayTestCredentials').toggle(mode === 'test');
+        $('#razorpayLiveCredentials').toggle(mode === 'live');
+    }
+
     // Handle toggle switch change
     $('#razorpay_payment_mode_switch').on('change', function () {
         var isChecked = this.checked;
@@ -184,6 +192,18 @@ $(document).ready(function () {
             label.text('Test Mode').removeClass('text-success').addClass('text-primary');
             $('#razorpay_payment_mode').val('test');
         }
+        syncRazorpayCredentialsVisibility();
+    });
+
+    syncRazorpayCredentialsVisibility();
+
+    $(document).on('click', '.toggle-secret', function () {
+        const input = $(this).closest('.input-group').find('input');
+        const icon = $(this).find('i');
+        const shouldShow = input.attr('type') === 'password';
+
+        input.attr('type', shouldShow ? 'text' : 'password');
+        icon.toggleClass('ti-eye-off', !shouldShow).toggleClass('ti-eye', shouldShow);
     });
 
     // Payment method toggle labels + show/hide Razorpay settings card

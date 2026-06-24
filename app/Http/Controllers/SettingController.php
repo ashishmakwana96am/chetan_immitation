@@ -41,6 +41,10 @@ class SettingController extends Controller
 
         $validator = Validator::make($request->all(), [
             'razorpay_payment_mode'   => ['nullable', 'string', 'in:test,live'],
+            'razorpay_test_key_id'    => ['nullable', 'string', 'max:255'],
+            'razorpay_test_key_secret' => ['nullable', 'string', 'max:255'],
+            'razorpay_live_key_id'    => ['nullable', 'string', 'max:255'],
+            'razorpay_live_key_secret' => ['nullable', 'string', 'max:255'],
             'announcement_text'       => ['nullable', 'string', 'max:500'],
             'payment_method_cod'      => ['nullable', 'boolean'],
             'payment_method_razorpay' => ['nullable', 'boolean'],
@@ -65,6 +69,10 @@ class SettingController extends Controller
         }
 
         Setting::setValue('razorpay_payment_mode',   $request->razorpay_payment_mode ?? 'test');
+        Setting::setValue('razorpay_test_key_id',     $request->razorpay_test_key_id ?? '');
+        Setting::setValue('razorpay_test_key_secret', $request->razorpay_test_key_secret ?? '');
+        Setting::setValue('razorpay_live_key_id',     $request->razorpay_live_key_id ?? '');
+        Setting::setValue('razorpay_live_key_secret', $request->razorpay_live_key_secret ?? '');
         Setting::setValue('announcement_text',        $request->announcement_text ?? '');
         Setting::setValue('payment_method_cod',       $codEnabled ? '1' : '0');
         Setting::setValue('payment_method_razorpay',  $razorpayEnabled ? '1' : '0');

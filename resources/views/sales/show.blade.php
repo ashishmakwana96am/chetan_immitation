@@ -93,7 +93,7 @@
             @endcan
 
             @can('edit sales')
-                @if($order->status == 1)
+                @if($order->status == 1 && !$isOnline)
                     <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
