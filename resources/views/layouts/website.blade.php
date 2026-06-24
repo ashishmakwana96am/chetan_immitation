@@ -645,7 +645,7 @@
             <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-10">
                 <!-- Logo -->
                 <div>
-                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px] w-[130px]"></a>
+                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
                     <p class="text-[#D5D5D5] text-base font-normal">
                         Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
@@ -1123,6 +1123,30 @@ window.addEventListener('resize', function () {
                 }
             });
         }
+
+        // ── Auto-open third party URLs in new tab ───────────────────────────────
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) {
+                return;
+            }
+
+            try {
+                const linkUrl = new URL(link.href);
+                if (linkUrl.host !== window.location.host) {
+                    link.setAttribute('target', '_blank');
+                    const existingRel = link.getAttribute('rel') || '';
+                    if (!existingRel.includes('noopener')) {
+                        link.setAttribute('rel', (existingRel + ' noopener noreferrer').trim());
+                    }
+                }
+            } catch (err) {
+                // Ignore invalid URLs
+            }
+        });
 
         // Clean up old guest cart cookie and localStorage
         if (localStorage.getItem('guest_cart')) {

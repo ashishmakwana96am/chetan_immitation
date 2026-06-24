@@ -488,6 +488,27 @@
                     }
                 }
             });
+
+            $(document).on('click', 'a', function (e) {
+                const link = this;
+                const href = $(link).attr('href');
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('tel:') || href.startsWith('mailto:')) {
+                    return;
+                }
+
+                try {
+                    const linkUrl = new URL(link.href);
+                    if (linkUrl.host !== window.location.host) {
+                        $(link).attr('target', '_blank');
+                        const existingRel = $(link).attr('rel') || '';
+                        if (!existingRel.includes('noopener')) {
+                            $(link).attr('rel', $.trim(existingRel + ' noopener noreferrer'));
+                        }
+                    }
+                } catch (err) {
+                    // Ignore invalid URLs
+                }
+            });
         });
     </script>
 
