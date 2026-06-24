@@ -13,6 +13,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Module::whereIn('name', ['Settings', 'System Settings'])->delete();
+
         $permissions = [
             'view settings' => 'Settings',
             'edit settings' => 'Settings',
@@ -29,7 +31,7 @@ return new class extends Migration
         }
 
         $parent = Module::create([
-            'name'           => 'Settings',
+            'name'           => 'System Settings',
             'icon'           => null,
             'route'          => null,
             'active_pattern' => 'admin/settings*',
@@ -47,6 +49,7 @@ return new class extends Migration
             'sort_order'     => 1,
         ]);
 
+        // Seed announcement text setting
         Setting::setValue('announcement_text', 'Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999');
     }
 
@@ -58,6 +61,7 @@ return new class extends Migration
         Setting::where('key', 'announcement_text')->delete();
 
         Module::where('name', 'Settings')->delete();
+        Module::where('name', 'System Settings')->delete();
 
         $permissions = ['view settings', 'edit settings'];
         foreach ($permissions as $name) {
