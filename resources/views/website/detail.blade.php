@@ -285,7 +285,7 @@
         <div class="space-y-5">
             @foreach($topReviews as $review)
             @php
-                $authorName = $review->customer->display_name ?: $review->customer->name;
+                $authorName = $review->customer->display_name ?: $review->customer->display_name ?? 'Anonymous';
                 $authorAvatar = $review->customer->avatar
                     ? asset($review->customer->avatar)
                     : 'https://ui-avatars.com/api/?name=' . urlencode($authorName) . '&background=B4771E&color=fff&size=120&bold=true';
