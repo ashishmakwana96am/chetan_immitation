@@ -15,6 +15,11 @@ class ShopCategoryController extends Controller
     public function index(Request $request, $slug = null)
     {
         if (!$request->ajax()) {
+            if ($request->has('clear_search')) {
+                session()->forget('shop_filters');
+                return redirect()->route('shop-by-category');
+            }
+
             $filters = [];
             $redirect = false;
             
@@ -24,7 +29,40 @@ class ShopCategoryController extends Controller
             }
             
             if ($request->has('search')) {
-                $filters['search'] = $request->get('search');
+                $searchVal = trim($request->get('search'));
+                $filters['search'] = $searchVal;
+
+                $searchValLower = strtolower($searchVal);
+                $singular = \Illuminate\Support\Str::singular($searchValLower);
+                $plural = \Illuminate\Support\Str::plural($searchValLower);
+                $searchTerms = array_unique([$searchValLower, $singular, $plural]);
+
+                $matchingCategory = Category::where('status', Category::STATUS_ACTIVE)
+                    ->where(function($q) use ($searchTerms) {
+                        foreach ($searchTerms as $term) {
+                            $q->orWhereRaw('LOWER(name) = ?', [$term]);
+                        }
+                    })
+                    ->first();
+
+                if ($matchingCategory) {
+                    $filters['category'] = $matchingCategory->slug;
+                } else {
+                    $matchingSubCategory = SubCategory::where('status', SubCategory::STATUS_ACTIVE)
+                        ->where(function($q) use ($searchTerms) {
+                            foreach ($searchTerms as $term) {
+                                $q->orWhereRaw('LOWER(name) = ?', [$term]);
+                            }
+                        })
+                        ->first();
+                    if ($matchingSubCategory) {
+                        $filters['sub_category'] = $matchingSubCategory->slug;
+                        if ($matchingSubCategory->category) {
+                            $filters['category'] = $matchingSubCategory->category->slug;
+                        }
+                    }
+                }
+
                 $redirect = true;
             }
             
@@ -243,20 +281,22 @@ class ShopCategoryController extends Controller
 
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $searchTerm = '%' . $search . '%';
-            $query->where(function ($q) use ($searchTerm, $search) {
-                $q->where('name', 'like', $searchTerm)
-                  ->orWhere('sale_price', is_numeric($search) ? (float) $search : -1)
-                  ->orWhereHas('category', function ($cq) use ($searchTerm) {
-                      $cq->where('name', 'like', $searchTerm);
-                  })
-                  ->orWhereHas('subCategory', function ($sq) use ($searchTerm) {
-                      $sq->where('name', 'like', $searchTerm);
-                  })
-                  ->orWhereHas('variants.attributeValue', function ($vq) use ($searchTerm) {
-                      $vq->where('value', 'like', $searchTerm);
-                  });
-            });
+            if (!$this->isMatchedFilterActive($search, $filters)) {
+                $searchTerm = '%' . $search . '%';
+                $query->where(function ($q) use ($searchTerm, $search) {
+                    $q->where('name', 'like', $searchTerm)
+                      ->orWhere('sale_price', is_numeric($search) ? (float) $search : -1)
+                      ->orWhereHas('category', function ($cq) use ($searchTerm) {
+                          $cq->where('name', 'like', $searchTerm);
+                      })
+                      ->orWhereHas('subCategory', function ($sq) use ($searchTerm) {
+                          $sq->where('name', 'like', $searchTerm);
+                      })
+                      ->orWhereHas('variants.attributeValue', function ($vq) use ($searchTerm) {
+                          $vq->where('value', 'like', $searchTerm);
+                      });
+                });
+            }
         }
 
         if ($applyPriceFilter) {
@@ -313,5 +353,51 @@ class ShopCategoryController extends Controller
         $sizeAttribute->load('values');
 
         return $sizeAttribute->values;
+    }
+
+    private function isMatchedFilterActive($searchVal, $filters)
+    {
+        if (empty($searchVal)) {
+            return false;
+        }
+
+        $searchValLower = strtolower(trim($searchVal));
+        $singular = \Illuminate\Support\Str::singular($searchValLower);
+        $plural = \Illuminate\Support\Str::plural($searchValLower);
+        $searchTerms = array_unique([$searchValLower, $singular, $plural]);
+
+        // Find if there is a matching Category
+        $matchingCategory = Category::where('status', Category::STATUS_ACTIVE)
+            ->where(function($q) use ($searchTerms) {
+                foreach ($searchTerms as $term) {
+                    $q->orWhereRaw('LOWER(name) = ?', [$term]);
+                }
+            })
+            ->first();
+
+        if ($matchingCategory) {
+            $selectedCats = !empty($filters['category']) ? explode(',', $filters['category']) : [];
+            if (in_array($matchingCategory->slug, $selectedCats)) {
+                return true;
+            }
+        }
+
+        // Find if there is a matching SubCategory
+        $matchingSubCategory = SubCategory::where('status', SubCategory::STATUS_ACTIVE)
+            ->where(function($q) use ($searchTerms) {
+                foreach ($searchTerms as $term) {
+                    $q->orWhereRaw('LOWER(name) = ?', [$term]);
+                }
+            })
+            ->first();
+
+        if ($matchingSubCategory) {
+            $selectedSubs = !empty($filters['sub_category']) ? explode(',', $filters['sub_category']) : [];
+            if (in_array($matchingSubCategory->slug, $selectedSubs)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -240,12 +240,13 @@
                         <!-- Mobile Search Icon -->
 
                         <div class="search-container items-center w-[170px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
-                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
-                            <!-- <img src="{{ asset('website/assets/images/search.png') }}" alt="" class="text-white w-[16px] h-[16px] pointer-events-none ml-2 shrink-0"> -->
-                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') ?? session('shop_filters.search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
+                            <svg id="clearHeaderSearch" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-white/60 hover:text-white cursor-pointer mr-2 {{ (request('search') ?? session('shop_filters.search')) ? '' : 'hidden' }} shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>
-
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                            </svg>
                         </div>
 
                         <a href="{{ auth('customer')->check() ? route('wishlist') : route('login') . '?intended=' . urlencode(route('wishlist')) }}" class="relative hover-gold-filter hidden lg:block">
@@ -1095,6 +1096,33 @@ window.addEventListener('resize', function () {
 
             window.addToCart(productId, variantId, 1, btn, loginUrl);
         });
+
+        // ── Search Input clear functionality ──────────────────────────────────────
+        const headerSearch = document.getElementById('headerSearch');
+        const clearHeaderSearch = document.getElementById('clearHeaderSearch');
+
+        if (headerSearch && clearHeaderSearch) {
+            const toggleClearIcon = () => {
+                if (headerSearch.value.trim().length > 0) {
+                    clearHeaderSearch.classList.remove('hidden');
+                } else {
+                    clearHeaderSearch.classList.add('hidden');
+                }
+            };
+
+            headerSearch.addEventListener('input', toggleClearIcon);
+            
+            clearHeaderSearch.addEventListener('click', () => {
+                headerSearch.value = '';
+                clearHeaderSearch.classList.add('hidden');
+                headerSearch.focus();
+                
+                // If we are currently on the shop page, reload to clear filters
+                if (window.location.pathname.includes('/shop')) {
+                    window.location.href = '{{ url('/shop') }}?clear_search=1';
+                }
+            });
+        }
 
         // Clean up old guest cart cookie and localStorage
         if (localStorage.getItem('guest_cart')) {
