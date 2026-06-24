@@ -183,7 +183,11 @@
               onerror="this.src='https://ui-avatars.com/api/?name={{ urlencode(auth('customer')->user()->name) }}&background=B4771E&color=fff&size=120&bold=true'"
               class="w-[90px] md:w-[120px] h-[90px] md:h-[120px] rounded-full object-cover border-2 border-gray-200" />
             <label class="absolute bottom-0 right-0 w-[30px] h-[30px] bg-[#B4771E] rounded-full flex items-center justify-center cursor-pointer">
-              <span class="text-white text-sm leading-none">✎</span>
+              <span class="text-white text-sm leading-none">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10.9905 2.10621L12.2017 0.894326C12.4542 0.641843 12.7966 0.5 13.1537 0.5C13.5108 0.5 13.8532 0.641843 14.1057 0.894326C14.3582 1.14681 14.5 1.48925 14.5 1.84631C14.5 2.20338 14.3582 2.54582 14.1057 2.7983L3.7896 13.1144C3.41004 13.4937 2.94198 13.7725 2.42767 13.9256L0.5 14.5L1.07435 12.5723C1.22747 12.058 1.50629 11.59 1.88562 11.2104L10.9913 2.10621H10.9905ZM10.9905 2.10621L12.8845 4.00013" stroke="white" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            </span>
               <input type="file" id="avatarFileInput" accept="image/*" class="hidden" onchange="changeAvatar(event)" />
             </label>
           </div>
