@@ -14,11 +14,16 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Products List</h4>
-        @can('create products')
-            <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
-                <i class="ti ti-plus me-1"></i> Add Product
-            </a>
-        @endcan
+        <div class="d-flex gap-2">
+            <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-secondary d-none">
+                <i class="ti ti-printer me-1"></i> <span id="bulkPrintBtnText">Bulk Print Barcodes</span>
+            </button>
+            @can('create products')
+                <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
+                    <i class="ti ti-plus me-1"></i> Add Product
+                </a>
+            @endcan
+        </div>
     </div>
 
     <div class="card">
@@ -26,6 +31,7 @@
             <table class="table border-top" id="productsTable">
                 <thead>
                     <tr>
+                        <th style="width: 30px;"><input type="checkbox" id="selectAllProducts" class="form-check-input"></th>
                         <th>#</th>
                         <th>Image</th>
                         <th>Name</th>
@@ -51,6 +57,25 @@
         $(document).ready(function () {
             const columns = [];
             columns.push(
+                { 
+                    data: null, 
+                    orderable: false, 
+                    searchable: false,
+                    width: '3%',
+                    render: function (data, type, row) {
+                        if (row.raw_barcode) {
+                            const tempDiv = document.createElement("div");
+                            tempDiv.innerHTML = row.name;
+                            const plainName = tempDiv.textContent || tempDiv.innerText || "";
+                            
+                            return `<input type="checkbox" class="form-check-input product-select-checkbox" 
+                                value="${row.id}" 
+                                data-barcode="${row.raw_barcode}" 
+                                data-name="${plainName.replace(/"/g, '&quot;')}">`;
+                        }
+                        return '';
+                    }
+                },
                 { data: 'index',          width: '5%' },
                 { data: 'image',          orderable: false },
                 { data: 'name' },
@@ -78,15 +103,39 @@
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
                 const modal = `
                     <div class="modal fade" id="barcodeModal" tabindex="-1">
-                        <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-dialog modal-dialog-centered modal-sm">
                             <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Product Barcode</h5>
+                                <div class="modal-header border-bottom-0 pb-0">
+                                    <h5 class="modal-title fw-semibold">Product Barcode</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body text-center">
-                                    <p class="fw-bold mb-3">${barcode}</p>
-                                    <img src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 150px;">
+                                <div class="modal-body text-center pt-2">
+                                    <!-- Spinner Loader -->
+                                    <div id="barcodeLoader" class="py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted small mt-2 mb-0">Generating barcode...</p>
+                                    </div>
+                                    
+                                    <!-- Barcode Content -->
+                                    <div id="barcodeContent" class="d-none">
+                                        <div class="bg-light p-3 rounded mb-3 d-inline-block w-100">
+                                            <div class="mb-2">
+                                                <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
+                                            </div>
+                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
+                                        </div>
+                                        
+                                        <div class="form-group mb-3 text-start">
+                                            <label for="printQty" class="form-label fw-medium text-secondary small">Print Quantity</label>
+                                            <input type="number" id="printQty" class="form-control" value="1" min="1" max="100">
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-primary w-100" id="printBarcodeBtn">
+                                            <i class="ti ti-printer me-1"></i> Print Barcode
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -96,10 +145,218 @@
                 $('body').append(modal);
                 const modalEl = new bootstrap.Modal(document.getElementById('barcodeModal'));
                 modalEl.show();
+                
+                const $loader = $('#barcodeLoader');
+                const $content = $('#barcodeContent');
+                const $img = $('#barcodeImage');
+                const $printBtn = $('#printBarcodeBtn');
+                const $printQty = $('#printQty');
+                
+                // Show content when image loads
+                $img.on('load', function() {
+                    $loader.addClass('d-none');
+                    $content.removeClass('d-none');
+                }).on('error', function() {
+                    $loader.html('<p class="text-danger mb-0">Failed to load barcode image.</p>');
+                });
+                
+                // Handle printing
+                $printBtn.on('click', function() {
+                    const qty = parseInt($printQty.val()) || 1;
+                    const printWindow = window.open('', '_blank');
+                    let html = '<!DOCTYPE html><html><head><title>Print Barcodes</title>';
+                    html += '<style>';
+                    html += 'body { font-family: Arial, sans-serif; margin: 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }';
+                    html += '.barcode-label { border: 1px dashed #999; padding: 15px; text-align: center; width: 220px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; }';
+                    html += '.barcode-value { font-size: 14px; margin-bottom: 8px; font-family: monospace; font-weight: bold; }';
+                    html += '.barcode-image { max-width: 100%; height: auto; }';
+                    html += '@media print { body { padding: 0; } .barcode-label { border: 1px solid #000; page-break-inside: avoid; } }';
+                    html += '</style>';
+                    html += '</head><body>';
+                    
+                    for (let i = 0; i < qty; i++) {
+                        html += '<div class="barcode-label">';
+                        html += '<div class="barcode-value">' + barcode + '</div>';
+                        html += '<img src="' + barcodeUrl + '" class="barcode-image" />';
+                        html += '</div>';
+                    }
+                    
+                    html += '<script>';
+                    html += 'window.onload = function() {';
+                    html += '    setTimeout(function() {';
+                    html += '        window.print();';
+                    html += '        window.onafterprint = function() { window.close(); };';
+                    html += '        setTimeout(function() { window.close(); }, 500);';
+                    html += '    }, 500);';
+                    html += '};';
+                    html += '<\/script>';
+                    html += '</body></html>';
+                    
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                });
+                
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {
                     this.remove();
                 });
             };
+
+            // Checkbox selection behavior
+            $(document).on('change', '#selectAllProducts', function() {
+                const checked = this.checked;
+                $('.product-select-checkbox').each(function() {
+                    this.checked = checked;
+                });
+                toggleBulkPrintButton();
+            });
+
+            $(document).on('change', '.product-select-checkbox', function() {
+                const totalCheckboxes = $('.product-select-checkbox').length;
+                const checkedCheckboxes = $('.product-select-checkbox:checked').length;
+                $('#selectAllProducts').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
+                toggleBulkPrintButton();
+            });
+
+            // When Datatable redraws (e.g. pagination, sorting), reset Select All & checkboxes
+            table.on('draw', function() {
+                $('#selectAllProducts').prop('checked', false);
+                toggleBulkPrintButton();
+            });
+
+            function toggleBulkPrintButton() {
+                const checkedCount = $('.product-select-checkbox:checked').length;
+                if (checkedCount > 0) {
+                    $('#bulkPrintBarcodesBtn').removeClass('d-none');
+                    $('#bulkPrintBtnText').text(`Bulk Print Barcodes (${checkedCount})`);
+                } else {
+                    $('#bulkPrintBarcodesBtn').addClass('d-none');
+                }
+            }
+
+            // Bulk print modal triggers and operations
+            $(document).on('click', '#bulkPrintBarcodesBtn', function() {
+                $('#bulkBarcodeModal').remove();
+                
+                let listHtml = '';
+                $('.product-select-checkbox:checked').each(function() {
+                    const id = $(this).val();
+                    const barcode = $(this).data('barcode');
+                    const name = $(this).data('name');
+                    
+                    listHtml += `
+                        <tr class="bulk-item-row" data-id="${id}" data-barcode="${barcode}">
+                            <td>
+                                <div class="fw-semibold text-dark">${name}</div>
+                            </td>
+                            <td><code>${barcode}</code></td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm bulk-item-qty" value="1" min="1" max="100">
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                const modalHtml = `
+                    <div class="modal fade" id="bulkBarcodeModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-bottom">
+                                    <h5 class="modal-title fw-semibold">Bulk Print Barcodes</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3 d-flex align-items-center gap-2 bg-light p-2 rounded">
+                                        <label for="bulkDefaultQty" class="form-label mb-0 fw-medium small text-secondary">Set Qty for All:</label>
+                                        <input type="number" id="bulkDefaultQty" class="form-control form-control-sm w-25" value="1" min="1">
+                                        <button type="button" id="applyBulkDefaultQty" class="btn btn-sm btn-primary">Apply</button>
+                                    </div>
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Product</th>
+                                                    <th>Barcode</th>
+                                                    <th style="width: 100px;">Qty</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${listHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-top-0 pt-0">
+                                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="startBulkPrintBtn">
+                                        <i class="ti ti-printer me-1"></i> Print Barcodes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('body').append(modalHtml);
+                const modalEl = new bootstrap.Modal(document.getElementById('bulkBarcodeModal'));
+                modalEl.show();
+            });
+
+            // Apply bulk quantity
+            $(document).on('click', '#applyBulkDefaultQty', function() {
+                const val = parseInt($('#bulkDefaultQty').val()) || 1;
+                $('.bulk-item-qty').val(val);
+            });
+
+            // Start bulk printing
+            $(document).on('click', '#startBulkPrintBtn', function() {
+                const printItems = [];
+                $('.bulk-item-row').each(function() {
+                    const id = $(this).data('id');
+                    const barcode = $(this).data('barcode');
+                    const qty = parseInt($(this).find('.bulk-item-qty').val()) || 1;
+                    const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', id);
+                    printItems.push({ barcodeUrl, barcode, qty });
+                });
+
+                if (printItems.length === 0) return;
+
+                const printWindow = window.open('', '_blank');
+                let html = '<!DOCTYPE html><html><head><title>Print Barcodes</title>';
+                html += '<style>';
+                html += 'body { font-family: Arial, sans-serif; margin: 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }';
+                html += '.barcode-label { border: 1px dashed #999; padding: 15px; text-align: center; width: 220px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; }';
+                html += '.barcode-value { font-size: 14px; margin-bottom: 8px; font-family: monospace; font-weight: bold; }';
+                html += '.barcode-image { max-width: 100%; height: auto; }';
+                html += '@media print { body { padding: 0; } .barcode-label { border: 1px solid #000; page-break-inside: avoid; } }';
+                html += '</style>';
+                html += '</head><body>';
+
+                printItems.forEach(item => {
+                    for (let i = 0; i < item.qty; i++) {
+                        html += '<div class="barcode-label">';
+                        html += '<div class="barcode-value">' + item.barcode + '</div>';
+                        html += '<img src="' + item.barcodeUrl + '" class="barcode-image" />';
+                        html += '</div>';
+                    }
+                });
+
+                html += '<script>';
+                html += 'window.onload = function() {';
+                html += '    setTimeout(function() {';
+                html += '        window.print();';
+                html += '        window.onafterprint = function() { window.close(); };';
+                html += '        setTimeout(function() { window.close(); }, 500);';
+                html += '    }, 500);';
+                html += '};';
+                html += '<\/script>';
+                html += '</body></html>';
+
+                printWindow.document.write(html);
+                printWindow.document.close();
+                
+                // Hide bulk modal
+                bootstrap.Modal.getInstance(document.getElementById('bulkBarcodeModal')).hide();
+            });
         });
     </script>
 @endsection

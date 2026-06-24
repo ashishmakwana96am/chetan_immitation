@@ -885,15 +885,39 @@
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
                 const modal = `
                     <div class="modal fade" id="barcodeModal" tabindex="-1">
-                        <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-dialog modal-dialog-centered modal-sm">
                             <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Product Barcode</h5>
+                                <div class="modal-header border-bottom-0 pb-0">
+                                    <h5 class="modal-title fw-semibold">Product Barcode</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body text-center">
-                                    <p class="fw-bold mb-3">${barcode}</p>
-                                    <img src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 150px;">
+                                <div class="modal-body text-center pt-2">
+                                    <!-- Spinner Loader -->
+                                    <div id="barcodeLoader" class="py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted small mt-2 mb-0">Generating barcode...</p>
+                                    </div>
+                                    
+                                    <!-- Barcode Content -->
+                                    <div id="barcodeContent" class="d-none">
+                                        <div class="bg-light p-3 rounded mb-3 d-inline-block w-100">
+                                            <div class="mb-2">
+                                                <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
+                                            </div>
+                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
+                                        </div>
+                                        
+                                        <div class="form-group mb-3 text-start">
+                                            <label for="printQty" class="form-label fw-medium text-secondary small">Print Quantity</label>
+                                            <input type="number" id="printQty" class="form-control" value="1" min="1" max="100">
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-primary w-100" id="printBarcodeBtn">
+                                            <i class="ti ti-printer me-1"></i> Print Barcode
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -903,6 +927,57 @@
                 $('body').append(modal);
                 const modalEl = new bootstrap.Modal(document.getElementById('barcodeModal'));
                 modalEl.show();
+                
+                const $loader = $('#barcodeLoader');
+                const $content = $('#barcodeContent');
+                const $img = $('#barcodeImage');
+                const $printBtn = $('#printBarcodeBtn');
+                const $printQty = $('#printQty');
+                
+                // Show content when image loads
+                $img.on('load', function() {
+                    $loader.addClass('d-none');
+                    $content.removeClass('d-none');
+                }).on('error', function() {
+                    $loader.html('<p class="text-danger mb-0">Failed to load barcode image.</p>');
+                });
+                
+                // Handle printing
+                $printBtn.on('click', function() {
+                    const qty = parseInt($printQty.val()) || 1;
+                    const printWindow = window.open('', '_blank');
+                    let html = '<!DOCTYPE html><html><head><title>Print Barcodes</title>';
+                    html += '<style>';
+                    html += 'body { font-family: Arial, sans-serif; margin: 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }';
+                    html += '.barcode-label { border: 1px dashed #999; padding: 15px; text-align: center; width: 220px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; }';
+                    html += '.barcode-value { font-size: 14px; margin-bottom: 8px; font-family: monospace; font-weight: bold; }';
+                    html += '.barcode-image { max-width: 100%; height: auto; }';
+                    html += '@media print { body { padding: 0; } .barcode-label { border: 1px solid #000; page-break-inside: avoid; } }';
+                    html += '</style>';
+                    html += '</head><body>';
+                    
+                    for (let i = 0; i < qty; i++) {
+                        html += '<div class="barcode-label">';
+                        html += '<div class="barcode-value">' + barcode + '</div>';
+                        html += '<img src="' + barcodeUrl + '" class="barcode-image" />';
+                        html += '</div>';
+                    }
+                    
+                    html += '<script>';
+                    html += 'window.onload = function() {';
+                    html += '    setTimeout(function() {';
+                    html += '        window.print();';
+                    html += '        window.onafterprint = function() { window.close(); };';
+                    html += '        setTimeout(function() { window.close(); }, 500);';
+                    html += '    }, 500);';
+                    html += '};';
+                    html += '<\/script>';
+                    html += '</body></html>';
+                    
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                });
+                
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {
                     this.remove();
                 });
