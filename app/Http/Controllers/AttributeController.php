@@ -16,11 +16,17 @@ class AttributeController extends Controller
         return view('attributes.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view attributes');
 
-        $attributes = Attribute::with('createdBy', 'values')->orderBy('id', 'desc')->get();
+        $query = Attribute::with('createdBy', 'values')->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $attributes = $query->get();
         $canEdit   = auth()->user()->can('edit attributes');
         $canDelete = auth()->user()->can('delete attributes');
 

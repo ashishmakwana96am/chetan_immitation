@@ -12,14 +12,24 @@ class SubCategoryController extends Controller
     public function index()
     {
         $this->authorize('view sub categories');
-        return view('sub_categories.index');
+        $categories = Category::where('status', 1)->orderBy('name')->get();
+        return view('sub_categories.index', compact('categories'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view sub categories');
 
-        $subCategories = SubCategory::with(['category', 'createdBy'])->orderBy('id', 'desc')->get();
+        $query = SubCategory::with(['category', 'createdBy'])->orderBy('id', 'desc');
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $subCategories = $query->get();
         $canEdit       = auth()->user()->can('edit sub categories');
         $canDelete     = auth()->user()->can('delete sub categories');
 

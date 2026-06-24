@@ -13,14 +13,21 @@ class PermissionController extends Controller
     {
         $this->authorize('view permissions');
         $permissions = Permission::withCount('roles')->orderBy('id', 'desc')->get();
-        return view('permissions.index', compact('permissions'));
+        $modules     = Permission::whereNotNull('module')->distinct()->orderBy('module')->pluck('module');
+        return view('permissions.index', compact('permissions', 'modules'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view permissions');
 
-        $permissions = Permission::withCount('roles')->orderBy('id', 'desc')->get();
+        $query = Permission::withCount('roles')->orderBy('id', 'desc');
+
+        if ($request->filled('module')) {
+            $query->where('module', $request->module);
+        }
+
+        $permissions = $query->get();
         $canEdit     = auth()->user()->can('edit permissions');
         $canDelete   = auth()->user()->can('delete permissions');
 

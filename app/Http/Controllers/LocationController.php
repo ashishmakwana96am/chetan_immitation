@@ -15,11 +15,20 @@ class LocationController extends Controller
         return view('locations.index', compact('locations'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view locations');
 
-        $locations = Location::with('createdBy')->orderBy('id', 'desc')->get();
+        $query = Location::with('createdBy')->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('is_default')) {
+            $query->where('is_default', (bool) $request->is_default);
+        }
+
+        $locations = $query->get();
 
         $canEdit   = auth()->user()->can('edit locations');
         $canDelete = auth()->user()->can('delete locations');

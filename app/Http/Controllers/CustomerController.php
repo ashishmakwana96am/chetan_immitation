@@ -15,11 +15,23 @@ class CustomerController extends Controller
         return view('customers.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view customers');
 
-        $customers = Customer::orderBy('id', 'desc')->get();
+        $query = Customer::orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $customers = $query->get();
         $canEdit   = auth()->user()->can('edit customers');
         $canDelete = auth()->user()->can('delete customers');
 

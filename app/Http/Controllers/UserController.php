@@ -18,14 +18,26 @@ class UserController extends Controller
             ->where('type', '!=', 'super-admin')
             ->orderBy('id', 'desc')
             ->get();
-        return view('users.index', compact('users'));
+        $roles = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
+        return view('users.index', compact('users', 'roles'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view users');
 
-        $users             = User::with('roles')->where('type', '!=', 'super-admin')->orderBy('id', 'desc')->get();
+        $query = User::with('roles')->where('type', '!=', 'super-admin')->orderBy('id', 'desc');
+
+        if ($request->filled('role_id')) {
+            $query->whereHas('roles', function ($q) use ($request) {
+                $q->where('id', $request->role_id);
+            });
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $users             = $query->get();
         $canEdit           = auth()->user()->can('edit users');
         $canDelete         = auth()->user()->can('delete users');
         $canChangePassword = auth()->user()->can('change users password');

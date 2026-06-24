@@ -15,11 +15,20 @@ class CategoryController extends Controller
         return view('categories.index', compact('categories'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view categories');
 
-        $categories = Category::with('createdBy')->orderBy('id', 'desc')->get();
+        $query = Category::with('createdBy')->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('is_featured')) {
+            $query->where('is_featured', $request->is_featured);
+        }
+
+        $categories = $query->get();
         $canEdit    = auth()->user()->can('edit categories');
         $canDelete  = auth()->user()->can('delete categories');
 

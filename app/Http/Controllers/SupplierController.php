@@ -14,11 +14,17 @@ class SupplierController extends Controller
         return view('suppliers.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view suppliers');
 
-        $suppliers = Supplier::with('createdBy')->orderBy('id', 'desc')->get();
+        $query = Supplier::with('createdBy')->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $suppliers = $query->get();
         $canEdit   = auth()->user()->can('edit suppliers');
         $canDelete = auth()->user()->can('delete suppliers');
 

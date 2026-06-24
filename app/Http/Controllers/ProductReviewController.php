@@ -13,11 +13,17 @@ class ProductReviewController extends Controller
         return view('product-reviews.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view product reviews');
 
-        $reviews   = ProductReview::with(['product', 'customer'])->orderBy('id', 'desc')->get();
+        $query = ProductReview::with(['product', 'customer'])->orderBy('id', 'desc');
+
+        if ($request->filled('rating')) {
+            $query->where('rating', $request->rating);
+        }
+
+        $reviews = $query->get();
         $canDelete = auth()->user()->can('delete product reviews');
 
         $data = $reviews->map(function ($review, $index) use ($canDelete) {

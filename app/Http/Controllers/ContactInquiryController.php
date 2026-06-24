@@ -55,11 +55,27 @@ class ContactInquiryController extends Controller
         return view('contact-inquiries.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view contact inquiries');
 
-        $inquiries = ContactInquiry::orderBy('id', 'desc')->get();
+        $query = ContactInquiry::orderBy('id', 'desc');
+
+        if ($request->filled('emailed')) {
+            if ($request->emailed == '1') {
+                $query->whereNotNull('emailed_at');
+            } else {
+                $query->whereNull('emailed_at');
+            }
+        }
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $inquiries = $query->get();
 
         $canDelete = auth()->user()->can('delete contact inquiries');
 

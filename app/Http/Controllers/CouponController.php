@@ -14,11 +14,20 @@ class CouponController extends Controller
         return view('coupons.index');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $this->authorize('view coupons');
 
-        $coupons = Coupon::with('createdBy')->withCount('orders')->orderBy('id', 'desc')->get();
+        $query = Coupon::with('createdBy')->withCount('orders')->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('discount_type')) {
+            $query->where('discount_type', $request->discount_type);
+        }
+
+        $coupons = $query->get();
         $canEdit   = auth()->user()->can('edit coupons');
         $canDelete = auth()->user()->can('delete coupons');
 

@@ -14,10 +14,59 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Products List</h4>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
             <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-label-primary d-none">
                 <i class="ti ti-printer me-1"></i> <span id="bulkPrintBtnText">Bulk Print Barcodes</span>
             </button>
+
+            {{-- Filter Dropdown --}}
+            <div class="dropdown d-inline-block" id="filterDropdownContainer">
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
+                    <i class="ti ti-filter me-1"></i> Filter
+                </button>
+                <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
+                    <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+
+                    {{-- Category --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-category">Category</label>
+                        <select id="filter-category" class="form-select">
+                            <option value="">All Categories</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Status --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
+                        <select id="filter-status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="1">Active</option>
+                            <option value="0">Inactive</option>
+                        </select>
+                    </div>
+
+                    {{-- Stock Status --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-stock-status">Stock Status</label>
+                        <select id="filter-stock-status" class="form-select">
+                            <option value="">All</option>
+                            <option value="in_stock">In Stock</option>
+                            <option value="out_of_stock">Sold Out</option>
+                        </select>
+                    </div>
+
+                    <div class="dropdown-divider"></div>
+
+                    <div class="d-flex justify-content-between gap-2 pt-2">
+                        <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
+                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
+                    </div>
+                </div>
+            </div>
+
             @can('create products')
                 <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
                     <i class="ti ti-plus me-1"></i> Add Product
@@ -50,55 +99,7 @@
         </div>
     </div>
 
-    <!-- Hidden Filter Dropdown Source -->
-    <div class="d-none" id="filterDropdownSource">
-        <div class="dropdown d-inline-block" id="filterDropdownContainer">
-            <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
-                <i class="ti ti-filter me-1"></i> Filter
-            </button>
-            <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
-                <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
-                
-                <!-- Category -->
-                <div class="mb-3 text-start">
-                    <label class="form-label fw-medium text-muted mb-1" for="filter-category">Category</label>
-                    <select id="filter-category" class="form-select">
-                        <option value="">All Categories</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
 
-                <!-- Status -->
-                <div class="mb-3 text-start">
-                    <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
-                    <select id="filter-status" class="form-select">
-                        <option value="">All Statuses</option>
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-                    </select>
-                </div>
-
-                <!-- Stock Status -->
-                <div class="mb-3 text-start">
-                    <label class="form-label fw-medium text-muted mb-1" for="filter-stock-status">Stock Status</label>
-                    <select id="filter-stock-status" class="form-select">
-                        <option value="">All</option>
-                        <option value="in_stock">In Stock</option>
-                        <option value="out_of_stock">Sold Out</option>
-                    </select>
-                </div>
-
-                <div class="dropdown-divider"></div>
-
-                <div class="d-flex justify-content-between gap-2 pt-2">
-                    <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
-                    <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
-                </div>
-            </div>
-        </div>
-    </div>
 @endsection
 
 @section('page-js')
@@ -160,12 +161,7 @@
                 table.ajax.reload(null, false);
             };
 
-            // Append the filter dropdown next to search input after DataTable has initialized
-            if ($('#filterDropdownSource').length) {
-                const $filterDropdown = $('#filterDropdownSource').html();
-                $('#productsTable_filter').addClass('d-flex align-items-center justify-content-md-end gap-2').prepend($filterDropdown);
-                $('#filterDropdownSource').remove();
-            }
+
 
             // Apply Filter button handler
             $(document).on('click', '#btnApplyFilter', function (e) {
