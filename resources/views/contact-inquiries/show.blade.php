@@ -43,22 +43,6 @@
                             <th scope="row" style="width: 150px;">Submitted At</th>
                             <td>{{ $contactInquiry->created_at->format('d M Y, h:i A') }}</td>
                         </tr>
-                        <tr>
-                            <th scope="row">Email Status</th>
-                            <td>
-                                @if($contactInquiry->emailed_at)
-                                    <span class="badge bg-label-success">Sent</span>
-                                    <br>
-                                    <small class="text-muted">Sent at: {{ $contactInquiry->emailed_at->format('d M Y, h:i A') }}</small>
-                                @else
-                                    <span class="badge bg-label-warning">Pending</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">ID</th>
-                            <td>{{ $contactInquiry->id }}</td>
-                        </tr>
                     </tbody>
                 </table>
             </div>

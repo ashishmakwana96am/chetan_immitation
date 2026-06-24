@@ -806,7 +806,7 @@ Order Amount
 
                 <p class="text-[#131615] text-base md:text-lg">
                     A confirmation email and order details have been sent to your
-                    registered email address and mobile number.
+                    registered email address.
                 </p>
             </div>
             <!-- Buttons -->

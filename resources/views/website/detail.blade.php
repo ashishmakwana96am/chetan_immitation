@@ -704,7 +704,7 @@ if (minusBtn) {
             </div>
             <div class="bg-[#B4771E]/10 p-5 rounded-[5px] mt-4 flex gap-[15px] items-start">
                 <img src="{{ asset('website/assets/images/mail.png') }}" alt="">
-                <p class="text-[#131615] text-base md:text-lg">A confirmation email and order details have been sent to your registered email address and mobile number.</p>
+                <p class="text-[#131615] text-base md:text-lg">A confirmation email and order details have been sent to your registered email address.</p>
             </div>
             <button onclick="window.location.href='{{ route('customer.profile') }}'"
                 class="w-full h-[52px] md:h-[68px] bg-[#B4771E] text-white text-base md:text-[22px] mt-10">

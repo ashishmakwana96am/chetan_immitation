@@ -22,7 +22,6 @@
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Subject</th>
-                        <th>Status</th>
                         <th>Date</th>
                         <th>Actions</th>
                     </tr>
@@ -33,10 +32,7 @@
 @endsection
 
 @section('page-js')
-    <script src="{{ asset('assets/vendor/libs/datatables/datatables.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/datatables-responsive/datatables.responsive.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
             const table = $('#contactInquiriesTable').DataTable({
@@ -49,11 +45,10 @@
                     { data: 'email' },
                     { data: 'phone' },
                     { data: 'subject' },
-                    { data: 'emailed', orderable: false },
                     { data: 'created_at' },
                     { data: 'actions', orderable: false },
                 ],
-                order: [[6, 'desc']],
+                order: [[5, 'desc']],
                 pageLength: 10,
                 lengthMenu: [10, 25, 50, 100],
                 language: {

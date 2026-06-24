@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
-    data-assets-path="{{ asset('assets/') }}" data-template="vertical-menu-template-no-customizer">
+    data-assets-path="{{ asset('assets') }}/" data-template="vertical-menu-template-no-customizer">
 
 <head>
     <meta charset="utf-8" />
