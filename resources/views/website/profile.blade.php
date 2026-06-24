@@ -13,7 +13,7 @@
  
   <button
     id="sidebarToggle"
-    class="lg:hidden flex items-center gap-2 border border-[#D5D5D5] px-4 py-3 rounded-md mb-4"
+    class="lg:hidden text-base flex items-center gap-2 border border-[#D5D5D5] px-3 py-2 rounded-md mb-4"
 >
     <svg xmlns="http://www.w3.org/2000/svg"
         class="w-6 h-6"
@@ -103,7 +103,7 @@
     </aside>
  
     <!-- ══ TAB PANELS ══ -->
-    <div class="flex-1 min-w-0">
+    <div class="flex-1 w-full lg:min-w-0">
  
       <!-- ─── TAB: MY ORDERS ─────────────────────────── -->
       <div id="tab-orders" class="tab-panel">
@@ -228,7 +228,7 @@
                 <input id="pw1" type="password" placeholder="Enter Current Password" autocomplete="new-password"
                   class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575] pr-11" />
                 <button type="button" class="toggle-password absolute right-4 top-1/2 -translate-y-[50%] text-gray-500 hover:text-gray-700" style="background: none; border: none; padding: 0; outline: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;" data-target="pw1" tabindex="-1">
-                  <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  <svg class="eye-off" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
@@ -240,7 +240,7 @@
                 <input id="pw2" type="password" placeholder="Enter New Password" autocomplete="new-password"
                   class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575] pr-11" />
                 <button type="button" class="toggle-password absolute right-4 top-1/2 -translate-y-[50%] text-gray-500 hover:text-gray-700" style="background: none; border: none; padding: 0; outline: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;" data-target="pw2" tabindex="-1">
-                  <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  <svg class="eye-off" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
@@ -252,14 +252,14 @@
                 <input id="pw3" type="password" placeholder="Confirm New Password" autocomplete="new-password"
                   class="w-full border border-[#D5D5D5] rounded px-3 py-2.5 text-sm md:text-base placeholder:text-sm placeholder:md:text-base text-[#131615] placeholder:text-[#757575] pr-11" />
                 <button type="button" class="toggle-password absolute right-4 top-1/2 -translate-y-[50%] text-gray-500 hover:text-gray-700" style="background: none; border: none; padding: 0; outline: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;" data-target="pw3" tabindex="-1">
-                  <svg class="eye-off" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  <svg class="eye-off" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
               <p class="field-error text-sm text-red-600 mt-1 hidden" id="pw3-error"></p>
             </div>
           </div>
-          <button onclick="saveAccount(this)" class="common-btn h-[52px] rounded-sm">Save Changes</button>
+          <button onclick="saveAccount(this)" class="common-btn md:h-[52px] rounded-sm">Save Changes</button>
           <p id="acctSaved" class="hidden text-xs text-green-600 mt-2 font-medium">✓ Changes saved successfully!</p>
         </div>
       </div>
