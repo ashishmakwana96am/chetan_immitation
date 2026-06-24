@@ -118,12 +118,12 @@
                                             <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                         </p>
                                         @endif
-                                        @if($stockQty > 0)
+                                        <!-- @if($stockQty > 0)
                                         <p class="text-base flex flex-wrap">
                                             <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
                                             <span class="text-[#777] ml-2">In Stock</span>
                                         </p>
-                                        @endif
+                                        @endif -->
                                         <p class="text-base flex flex-wrap">
                                             <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
                                             <span class="text-[#B4771E] font-semibold ml-2 item-total-display">

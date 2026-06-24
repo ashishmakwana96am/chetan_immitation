@@ -27,10 +27,10 @@
                 <!-- Product Card(s) -->
                 @foreach($order->items as $item)
                 @php
-                    $productImg = ($item->product && $item->product->primaryImage) 
-                        ? $item->product->primaryImage->image_url 
+                    $productImg = ($item->product && $item->product->primaryImage)
+                        ? $item->product->primaryImage->image_url
                         : asset('website/assets/images/detailpage.png');
-                        
+
                     $status = $order->status;
                     $step1_done = true;
                     $step2_done = in_array($status, [2, 3, 4, 5]);
@@ -87,10 +87,15 @@
                                         <span class="text-[#757575] ml-2">{{ $order->created_at->format('d M Y') }}</span>
                                     </p>
 
+                                    @php
+                                        $deliveryDateVal = $order->status == 5 && $order->updated_at ? $order->updated_at->format('d M Y') : '-';
+                                    @endphp
+                                    @if(trim($deliveryDateVal) !== '-')
                                     <p class="text-base flex flex-wrap">
                                         <span class="font-medium text-[#131615] w-[120px]">Delivery Date:</span>
-                                        <span class="text-[#757575] ml-2">{{ $order->status == 5 && $order->updated_at ? $order->updated_at->format('d M Y') : '-' }}</span>
+                                        <span class="text-[#757575] ml-2">{{ $deliveryDateVal }}</span>
                                     </p>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -98,6 +103,38 @@
 
                     <!-- Tracking -->
                     <div class="border-t mt-6 pt-6">
+                        @if($is_cancelled)
+                        <div class="grid grid-cols-2 relative max-w-[400px]">
+                            <!-- Item 1 (Order Placed) -->
+                            <div class="relative text-center">
+                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] bg-red-500"></div>
+                                <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </div>
+                                <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
+                                    Order Placed
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
+                                </p>
+                            </div>
+
+                            <!-- Item 2 (Cancelled) -->
+                            <div class="relative text-center">
+                                <div class="relative z-10 w-5 h-5 rounded-full bg-red-500 mx-auto flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                </div>
+                                <p class="text-red-600 font-semibold text-xs sm:text-sm md:text-base mt-3">
+                                    Cancelled
+                                    @if($order->updated_at)
+                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                        @else
                         <div class="grid grid-cols-5 relative">
                             <!-- Item 1 (Order Placed) -->
                             <div class="relative text-center">
@@ -186,6 +223,7 @@
                                 </p>
                             </div>
                         </div>
+                        @endif
                     </div>
 
                     @if($order->status == \App\Models\Order::STATUS_DELIVERED && $item->product)
@@ -297,7 +335,16 @@
                         </div>
                         @if($discount > 0)
                         <div class="flex justify-between text-base md:text-lg font-medium">
-                            <span class="text-[#131615]">Discount</span>
+                            <span class="text-[#131615]">
+                                Discount
+                                @if($order->coupon)
+                                    @if($order->coupon->discount_type === 'percentage')
+                                        ({{ (int)$order->coupon->discount_value }}% Off)
+                                    @else
+                                        (Flat ₹{{ (int)$order->coupon->discount_value }} Off)
+                                    @endif
+                                @endif
+                            </span>
                             <span class="text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
                         </div>
                         @endif
@@ -327,7 +374,14 @@
                         <p class="mb-4 text-lg md:text-lg">
                             @if(strtolower($order->payment_method) === 'cod')
                             <span class="text-[#131615] flex items-center flex-wrap gap-2">
-                                <img src="{{ asset('website/assets/images/payment1.png') }}" alt="" class="w-8">  Cash on Delivery
+                            <svg width="32" height="24" viewBox="0 0 32 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 8.76953C12.4159 8.76953 9.5 11.6854 9.5 15.2695C9.5 18.8537 12.4159 21.7695 16 21.7695C19.5841 21.7695 22.5 18.8537 22.5 15.2695C22.5 11.6854 19.5841 8.76953 16 8.76953ZM16 20.7695C12.9673 20.7695 10.5 18.3022 10.5 15.2695C10.5 12.2368 12.9673 9.76953 16 9.76953C19.0327 9.76953 21.5 12.2368 21.5 15.2695C21.5 18.3022 19.0327 20.7695 16 20.7695Z" fill="#131615"/>
+                                <path d="M30.4414 6.76988L30.1218 4.21281C30.0183 3.38469 29.2599 2.79838 28.4259 2.91331L27.7021 3.01681L27.232 1.13638C27.1837 0.942589 27.0971 0.760412 26.9774 0.600545C26.8577 0.440678 26.7072 0.306344 26.5348 0.205432C26.3625 0.104521 26.1717 0.039065 25.9737 0.0129103C25.7757 -0.0132445 25.5745 0.000428904 25.3818 0.0531267L1.42431 6.77181C0.63225 6.81138 0 7.46819 0 8.26988V22.2699C0 23.0969 0.672938 23.7699 1.5 23.7699H30.5C31.3271 23.7699 32 23.0969 32 22.2699V8.26988C32 7.49525 31.4002 6.76988 30.4414 6.76988ZM28.565 3.90356C28.6306 3.8945 28.6973 3.89855 28.7613 3.91548C28.8253 3.93241 28.8853 3.96189 28.9378 4.00221C28.9903 4.04252 29.0343 4.09286 29.0672 4.15032C29.1001 4.20777 29.1213 4.27118 29.1294 4.33688L29.4336 6.76994H8.52637L28.565 3.90356ZM25.6469 1.01738C25.711 1.00007 25.778 0.995732 25.8438 1.0046C25.9096 1.01348 25.973 1.03539 26.0303 1.06905C26.0876 1.10272 26.1376 1.14746 26.1773 1.20067C26.2171 1.25388 26.2459 1.31448 26.2619 1.37894L26.707 3.15919L8.95531 5.69838L25.6469 1.01738ZM31 22.2699C31 22.5456 30.7757 22.7699 30.5 22.7699H1.5C1.22431 22.7699 1 22.5456 1 22.2699V8.26988C1 7.99456 1.22375 7.7705 1.49894 7.76994C1.65731 7.76963 -0.994499 7.76988 30.5 7.76988C30.7757 7.76988 31 7.99419 31 8.26988V22.2699Z" fill="#131615"/>
+                                <path d="M29.5 10.2695C28.9486 10.2695 28.5 9.82091 28.5 9.26953C28.5 9.13692 28.4473 9.00975 28.3536 8.91598C28.2598 8.82221 28.1326 8.76953 28 8.76953H21.5C21.3674 8.76953 21.2402 8.82221 21.1464 8.91598C21.0527 9.00975 21 9.13692 21 9.26953C21 9.40214 21.0527 9.52932 21.1464 9.62308C21.2402 9.71685 21.3674 9.76953 21.5 9.76953H27.5633C27.7446 10.4713 28.2983 11.025 29 11.2062V19.3328C28.2982 19.514 27.7446 20.0677 27.5633 20.7695H21.5C21.3674 20.7695 21.2402 20.8221 21.1464 20.9159C21.0527 21.0097 21 21.1369 21 21.2695C21 21.4021 21.0527 21.5293 21.1464 21.623C21.2402 21.7168 21.3674 21.7695 21.5 21.7695H28C28.1326 21.7695 28.2598 21.7168 28.3536 21.623C28.4473 21.5293 28.5 21.4021 28.5 21.2695C28.5 20.7181 28.9486 20.2695 29.5 20.2695C29.6326 20.2695 29.7598 20.2168 29.8536 20.123C29.9473 20.0293 30 19.9021 30 19.7695V10.7695C30 10.6369 29.9473 10.5097 29.8535 10.416C29.7598 10.3222 29.6326 10.2695 29.5 10.2695ZM10.5 20.7695H4.43669C4.25544 20.0677 3.70175 19.5141 3 19.3328V11.2062C3.70181 11.025 4.25544 10.4713 4.43669 9.76953H10.5C10.6326 9.76953 10.7598 9.71685 10.8536 9.62308C10.9473 9.52932 11 9.40214 11 9.26953C11 9.13692 10.9473 9.00975 10.8536 8.91598C10.7598 8.82221 10.6326 8.76953 10.5 8.76953H4C3.86739 8.76953 3.74021 8.82221 3.64645 8.91598C3.55268 9.00975 3.5 9.13692 3.5 9.26953C3.5 9.82091 3.05137 10.2695 2.5 10.2695C2.36739 10.2695 2.24021 10.3222 2.14645 10.416C2.05268 10.5097 2 10.6369 2 10.7695V19.7695C2 19.9021 2.05268 20.0293 2.14645 20.1231C2.24021 20.2169 2.36739 20.2695 2.5 20.2695C3.05137 20.2695 3.5 20.7182 3.5 21.2695C3.5 21.4021 3.55268 21.5293 3.64645 21.6231C3.74021 21.7169 3.86739 21.7695 4 21.7695H10.5C10.6326 21.7695 10.7598 21.7169 10.8536 21.6231C10.9473 21.5293 11 21.4021 11 21.2695C11 21.1369 10.9473 21.0097 10.8536 20.916C10.7598 20.8222 10.6326 20.7695 10.5 20.7695Z" fill="#131615"/>
+                                <path d="M4.5 15.2695C4.5 16.0966 5.17294 16.7695 6 16.7695C6.82706 16.7695 7.5 16.0966 7.5 15.2695C7.5 14.4425 6.82706 13.7695 6 13.7695C5.17294 13.7695 4.5 14.4425 4.5 15.2695ZM6.5 15.2695C6.5 15.5452 6.27569 15.7695 6 15.7695C5.72431 15.7695 5.5 15.5452 5.5 15.2695C5.5 14.9938 5.72431 14.7695 6 14.7695C6.27569 14.7695 6.5 14.9938 6.5 15.2695ZM27.5 15.2695C27.5 14.4425 26.8271 13.7695 26 13.7695C25.1729 13.7695 24.5 14.4425 24.5 15.2695C24.5 16.0966 25.1729 16.7695 26 16.7695C26.8271 16.7695 27.5 16.0967 27.5 15.2695ZM25.5 15.2695C25.5 14.9938 25.7243 14.7695 26 14.7695C26.2757 14.7695 26.5 14.9938 26.5 15.2695C26.5 15.5452 26.2757 15.7695 26 15.7695C25.7243 15.7695 25.5 15.5452 25.5 15.2695Z" fill="#131615"/>
+                                <circle cx="16" cy="15.3848" r="3" fill="#131615"/>
+                            </svg>
+                            Cash on Delivery
                             </span>
                             @else
                             <span class="text-[#131615] flex items-center flex-wrap gap-2">

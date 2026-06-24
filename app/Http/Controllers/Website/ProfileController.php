@@ -151,7 +151,7 @@ class ProfileController extends Controller
 
         $order = Order::where('customer_id', $customer->id)
             ->where('id', $id)
-            ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress'])
+            ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress', 'coupon'])
             ->firstOrFail();
 
         $reviewsByProduct = ProductReview::where('customer_id', $customer->id)

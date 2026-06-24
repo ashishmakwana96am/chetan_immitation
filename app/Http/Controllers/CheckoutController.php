@@ -99,7 +99,7 @@ class CheckoutController extends Controller
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
         $total = round($subtotal - $discount);
 
-        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total'));
+        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon'));
     }
 
     public function saveAddress(Request $request)
@@ -532,14 +532,15 @@ class CheckoutController extends Controller
         $order = Order::where('razorpay_order_id', $request->razorpay_order_id)->first();
 
         if ($order && $order->status == Order::STATUS_PENDING && $order->payment_status == Order::PAYMENT_STATUS_PENDING) {
-            $order->update([
-                'status' => Order::STATUS_DECLINE,
-            ]);
+            DB::transaction(function () use ($order) {
+                $order->items()->delete();
+                $order->delete();
+            });
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Order marked as failed.'
+            'message' => 'Order deleted successfully.'
         ]);
     }
 
@@ -744,7 +745,13 @@ class CheckoutController extends Controller
             $discount = $subtotal;
         }
 
-        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
+        $discountDesc = 'Discount';
+        if ($coupon->discount_type === 'percentage') {
+            $discountDesc = 'Discount (' . (int)$coupon->discount_value . '% Off)';
+        } else {
+            $discountDesc = 'Discount (Flat ₹' . (int)$coupon->discount_value . ' Off)';
+        }
+
         $total = round($subtotal - $discount);
 
         return response()->json([
@@ -752,6 +759,7 @@ class CheckoutController extends Controller
             'message' => 'Coupon applied successfully.',
             'discount_amount' => $discount,
             'discount_label' => '-₹' . number_format($discount, 0),
+            'discount_desc' => $discountDesc,
             'total_amount' => $total,
             'total_label' => '₹' . number_format($total, 0),
         ]);

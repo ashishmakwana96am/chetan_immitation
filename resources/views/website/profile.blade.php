@@ -526,12 +526,21 @@ const orders = [
           $statusStr = 'Cancelled';
       }
     @endphp
+    @php
+      $totalMrp = $o->items->sum(function($item) {
+          $mrp = $item->product ? (float)$item->product->mrp : (float)$item->price;
+          if ($mrp <= 0) {
+              $mrp = (float)$item->price;
+          }
+          return round($mrp) * $item->quantity;
+      });
+    @endphp
     {
       id: {{ $o->id }},
       orderId: @json($o->order_no),
       name: @json($productName),
       price: {{ $o->final_amount ?? 0 }},
-      mrp: {{ $o->final_amount ?? 0 }},
+      mrp: {{ $totalMrp ?? 0 }},
       orderDate: @json($o->created_at->format('d M Y')),
       deliveryDate: @json($o->status == \App\Models\Order::STATUS_DELIVERED && $o->updated_at ? $o->updated_at->format('d M Y') : '-'),
       quantity: {{ $totalQty }},
@@ -595,6 +604,14 @@ function switchTab(tab, btn) {
   document.getElementById('mobileSidebarTitle').textContent = titles[tab][0];
   if (tab === 'orders') renderOrders();
   if (tab === 'addresses') renderAddresses();
+
+  // Set hash in URL
+  if (window.location.hash !== '#' + tab) {
+    window.location.hash = tab;
+  }
+
+  // Close mobile sidebar if open
+  if (window.closeSidebar) window.closeSidebar();
 }
 
 // ─────────────────────────────────────────────
@@ -665,9 +682,11 @@ function renderOrders() {
                         <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
                             ₹${o.price.toLocaleString('en-IN')}
                         </span>
+                        ${o.mrp > o.price ? `
                         <span class="text-[#757575] line-through text-base md:text-lg">
                             ₹${o.mrp.toLocaleString('en-IN')}
                         </span>
+                        ` : ''}
                     </div>
                     <div class="flex items-center gap-2 ${statusColor(o.status)} text-base md:text-lg">
                         <span class="w-[8px] h-[8px] rounded-full ${statusDot(o.status)}"></span>
@@ -677,22 +696,16 @@ function renderOrders() {
                 <!-- Details + Button -->
                 <div class="flex justify-between md:items-end mt-[30px] flex-col md:flex-row gap-3">
                     <div class="space-y-2">
-                        <div class="flex text-base ">
+                        ${o.orderId && o.orderId.trim() !== '-' ? `
+                        <div class="flex text-base">
                             <span class="font-medium text-[#131615] w-[120px]">
                                 Order ID:
                             </span>
                             <span class="text-[#757575] ml-2">
                                 ${o.orderId}
                             </span>
-                        </div>
-                        <div class="flex text-base">
-                           <span class="font-medium text-[#131615] w-[120px]">
-                                Quantity:
-                            </span>
-                            <span class="text-[#757575] ml-2">
-                                ${o.quantity}
-                            </span>
-                        </div>
+                        </div>` : ''}
+                        ${o.orderDate && o.orderDate.trim() !== '-' ? `
                         <div class="flex text-base">
                            <span class="font-medium text-[#131615] w-[120px]">
                                 Order Date:
@@ -700,7 +713,8 @@ function renderOrders() {
                             <span class="text-[#757575] ml-2">
                                 ${o.orderDate}
                             </span>
-                        </div>
+                        </div>` : ''}
+                        ${o.deliveryDate && o.deliveryDate.trim() !== '-' ? `
                         <div class="flex text-base">
                              <span class="font-medium text-[#131615] w-[120px]">
                                 Delivery Date:
@@ -708,7 +722,7 @@ function renderOrders() {
                             <span class="text-[#757575] ml-2">
                                 ${o.deliveryDate}
                             </span>
-                        </div>
+                        </div>` : ''}
                     </div>
                     <button onclick="viewOrder(${o.id})" class="common-btn h-[46px] text-lg">
                         View Order
@@ -891,47 +905,54 @@ function getCsrfToken() {
 
 function deleteAddr() {
   if (!activeDropdownId) return;
-  if (!confirm('Are you sure you want to delete this address?')) return;
   
   const idToDelete = activeDropdownId;
   document.getElementById('addrDropdown').classList.add('hidden');
   
-  fetch('{{ route('checkout.address.delete') }}', {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRF-TOKEN': getCsrfToken(),
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json'
-    },
-    body: JSON.stringify({ address_id: idToDelete })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.status === 'success') {
-      addresses = addresses.filter(a => a.id !== idToDelete);
-      
-      if (data.new_default_id) {
-        addresses.forEach(a => a.isDefault = (a.id === data.new_default_id));
-      } else if (addresses.length > 0 && !addresses.some(a => a.isDefault)) {
-        addresses[0].isDefault = true;
+  window.showDeleteConfirm(() => {
+    fetch('{{ route('checkout.address.delete') }}', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ address_id: idToDelete })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'success') {
+        addresses = addresses.filter(a => a.id !== idToDelete);
+        
+        if (data.new_default_id) {
+          addresses.forEach(a => a.isDefault = (a.id === data.new_default_id));
+        } else if (addresses.length > 0 && !addresses.some(a => a.isDefault)) {
+          addresses[0].isDefault = true;
+        }
+        
+        if (window.showWishlistToast) {
+          window.showWishlistToast(data.message || 'Address deleted successfully.', true);
+        } else {
+          alert(data.message || 'Address deleted successfully.');
+        }
+        renderAddresses();
+      } else {
+        if (window.showWishlistToast) {
+          window.showWishlistToast(data.message || 'Failed to delete address.', false);
+        } else {
+          alert(data.message || 'Failed to delete address.');
+        }
       }
-      
+    })
+    .catch(err => {
+      console.error('Error deleting address:', err);
       if (window.showWishlistToast) {
-        window.showWishlistToast(data.message || 'Address deleted successfully.');
+        window.showWishlistToast('Something went wrong.', false);
+      } else {
+        alert('Something went wrong.');
       }
-      renderAddresses();
-    } else {
-      if (window.showWishlistToast) {
-        window.showWishlistToast(data.message || 'Failed to delete address.', false);
-      }
-    }
-  })
-  .catch(err => {
-    console.error('Error deleting address:', err);
-    if (window.showWishlistToast) {
-      window.showWishlistToast('Something went wrong.', false);
-    }
+    });
   });
 }
  
@@ -1531,6 +1552,17 @@ document.addEventListener("DOMContentLoaded", () => {
             switchTab(tab, tabBtn);
         }
     }
+
+    // Listen for hashchange event to handle back/forward navigation
+    window.addEventListener('hashchange', () => {
+        let newTab = window.location.hash.replace('#', '');
+        if (newTab && ['orders', 'addresses', 'account', 'logout'].includes(newTab)) {
+            const tabBtn = document.querySelector(`[data-tab="${newTab}"]`);
+            if (tabBtn) {
+                switchTab(newTab, tabBtn);
+            }
+        }
+    });
 
     const sidebar = document.getElementById("accountSidebar");
     const overlay = document.getElementById("sidebarOverlay");

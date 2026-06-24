@@ -1155,6 +1155,72 @@ window.addEventListener('resize', function () {
         document.cookie = "guest_cart=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
     })();
     </script>
+
+    <!-- Custom Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto">
+        <div class="min-h-full flex items-center justify-center !mt-0">
+            <div class="relative w-full max-w-[500px] bg-white rounded-[8px] p-6 sm:p-8 border border-[#D5D5D5] shadow-lg text-center">
+                <!-- Close Button -->
+                <button onclick="closeDeleteConfirmModal()" class="absolute top-4 right-4 text-[32px] text-[#131615] leading-none">&times;</button>
+                
+                <!-- Alert Icon / Warning Sign -->
+                <div class="flex justify-center mb-4">
+                    <div class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path>
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Heading -->
+                <h3 class="text-xl sm:text-2xl font-semibold text-[#131615] mb-2">Are you sure?</h3>
+                <!-- Description -->
+                <p class="text-gray-500 text-sm sm:text-base mb-6">You want to delete this address?</p>
+                
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="deleteConfirmCancelBtn" onclick="closeDeleteConfirmModal()" class="flex-1 h-12 border-2 border-[#131615] text-[#131615] font-medium rounded-sm transition hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button id="deleteConfirmConfirmBtn" class="flex-1 h-12 bg-[#B4771E] text-white font-medium rounded-sm transition hover:bg-[#b67d1f]">
+                        Yes, delete it!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.showDeleteConfirm = function(onConfirm) {
+        const modal = document.getElementById('deleteConfirmModal');
+        const confirmBtn = document.getElementById('deleteConfirmConfirmBtn');
+        if (!modal || !confirmBtn) return;
+
+        modal.classList.remove('hidden');
+        document.documentElement.classList.add('modal-open');
+        document.body.classList.add('modal-open');
+
+        const handleConfirm = function(e) {
+            e.preventDefault();
+            window.closeDeleteConfirmModal();
+            if (typeof onConfirm === 'function') {
+                onConfirm();
+            }
+        };
+
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        newConfirmBtn.addEventListener('click', handleConfirm);
+    };
+
+    window.closeDeleteConfirmModal = function() {
+        const modal = document.getElementById('deleteConfirmModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        document.documentElement.classList.remove('modal-open');
+        document.body.classList.remove('modal-open');
+    };
+    </script>
     @yield('page-js')
 </body>
 </html>
