@@ -60,10 +60,14 @@
                     $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
                     $reviewCount = (int) ($product->reviews_count ?? 0);
                 @endphp
-                <div class="flex items-center gap-1 mt-[9px] mb-1">
-                    @include('website.partials.star-rating', ['rating' => $avgRating, 'size' => 'sm'])
-                    <span class="text-xs text-[#757575]">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
+                @if($reviewCount > 0)
+                <div class="flex items-center gap-1 mt-2 mb-1" style="line-height:1;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="#B4771E" aria-hidden="true" style="flex-shrink:0; display:inline-block; vertical-align:middle; margin-top:-1px;">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                    <span class="text-xs text-[#757575]" style="vertical-align:middle; line-height:1;">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
                 </div>
+                @endif
                 <div class="flex justify-between flex-wrap gap-2">
                         <div class="mt-1 flex items-center gap-1">
                             <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
