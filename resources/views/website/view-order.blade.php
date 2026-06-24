@@ -350,13 +350,6 @@
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span class="text-[#131615]">
                                 Discount
-                                @if($order->coupon)
-                                    @if($order->coupon->discount_type === 'percentage')
-                                        ({{ (int)$order->coupon->discount_value }}% Off)
-                                    @else
-                                        (Flat ₹{{ (int)$order->coupon->discount_value }} Off)
-                                    @endif
-                                @endif
                             </span>
                             <span class="text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
                         </div>
