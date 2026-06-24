@@ -205,6 +205,7 @@
                                 <th class="text-end text-nowrap">Total Amount</th>
                                 <th>Actions</th>
                                 <th class="d-none">date_group</th>
+                                <th class="d-none">date_sort</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -243,6 +244,7 @@
                                         </div>
                                     </td>
                                     <td class="d-none">{{ $invoice->created_at->format('d M Y') }}</td>
+                                    <td class="d-none">{{ $invoice->created_at->format('Ymd') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -304,8 +306,9 @@
 
         $('#purchasesReportTable').DataTable({
             responsive : false,
-            order      : [[6, 'desc']],
-            columnDefs : [{ targets: 6, visible: false }],
+            order      : [[7, 'desc']],
+            orderFixed : { pre: [[7, 'desc']] },
+            columnDefs : [{ targets: [6, 7], visible: false }],
             rowGroup   : {
                 dataSrc: 6,
                 startRender: function (rows, group) {

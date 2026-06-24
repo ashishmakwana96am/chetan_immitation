@@ -22,12 +22,17 @@ class ShopCategoryController extends Controller
 
             $filters = [];
             $redirect = false;
-            
+
             if ($slug) {
                 $filters['category'] = $slug;
                 $redirect = true;
             }
-            
+
+            if ($request->has('sub_category') && $request->get('sub_category')) {
+                $filters['sub_category'] = $request->get('sub_category');
+                $redirect = true;
+            }
+
             if ($request->has('search')) {
                 $searchVal = trim($request->get('search'));
                 $filters['search'] = $searchVal;
@@ -65,14 +70,16 @@ class ShopCategoryController extends Controller
 
                 $redirect = true;
             }
-            
+
             if ($redirect) {
+                // Incoming link has explicit filter intent — save to session and redirect cleanly
                 session(['shop_filters' => $filters]);
-                return redirect()->route('shop-by-category');
+                return redirect()->route('shop-by-category', ['_f' => '1']);
             }
-            
-            $referer = $request->headers->get('referer');
-            if ($referer && !str_contains($referer, '/shop')) {
+
+            // No slug, no search, no sub_category, no _f marker — plain /shop visit with no filter intent.
+            // Always clear session so the user sees all products fresh.
+            if (!$request->has('_f')) {
                 session()->forget('shop_filters');
             }
         }

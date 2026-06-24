@@ -122,6 +122,8 @@
                         <th>Status</th>
                         <th>Payment Status</th>
                         <th>Actions</th>
+                        <th class="d-none">Date Group</th>
+                        <th class="d-none">Date Sort</th>
                     </tr>
                 </thead>
             </table>
@@ -135,7 +137,8 @@
         $(document).ready(function () {
             const table = $('#purchasesTable').DataTable({
                 responsive : false,
-                order      : [],
+                order      : [[8, 'desc']],
+                orderFixed : { pre: [[8, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.purchases.data') }}',
                     dataSrc: 'data',
@@ -157,6 +160,7 @@
                     { data: 'payment_status', orderable: false },
                     { data: 'actions',        orderable: false },
                     { data: 'date_group',     visible: false },
+                    { data: 'date_sort',      visible: false },
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',

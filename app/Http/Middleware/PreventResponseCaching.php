@@ -29,13 +29,6 @@ class PreventResponseCaching
             
             Artisan::call('event:clear');
             Artisan::call('queue:clear');
-            
-            if (file_exists(base_path('bootstrap/cache/services.php'))) {
-                @unlink(base_path('bootstrap/cache/services.php'));
-            }
-            if (file_exists(base_path('bootstrap/cache/packages.php'))) {
-                @unlink(base_path('bootstrap/cache/packages.php'));
-            }
         } catch (\Exception $e) {
             Log::error('Error clearing cache: ' . $e->getMessage());
         }

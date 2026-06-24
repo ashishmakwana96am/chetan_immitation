@@ -217,6 +217,7 @@
                                 <th class="text-end text-nowrap">Final Amount</th>
                                 <th>Actions</th>
                                 <th class="d-none">date_group</th>
+                                <th class="d-none">date_sort</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -255,6 +256,7 @@
                                         </div>
                                     </td>
                                     <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
+                                    <td class="d-none">{{ $order->created_at->format('Ymd') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -316,8 +318,9 @@
 
         $('#salesReportTable').DataTable({
             responsive : false,
-            order      : [[8, 'desc']],
-            columnDefs : [{ targets: 8, visible: false }],
+            order      : [[9, 'desc']],
+            orderFixed : { pre: [[9, 'desc']] },
+            columnDefs : [{ targets: [8, 9], visible: false }],
             rowGroup   : {
                 dataSrc: 8,
                 startRender: function (rows, group) {
