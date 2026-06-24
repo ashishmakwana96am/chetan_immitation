@@ -604,7 +604,7 @@ if (minusBtn) {
 
             {{-- No addresses --}}
             @if(auth('customer')->check() && \App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->count() === 0)
-            <p class="text-[#757575] text-base mb-5">No saved addresses. Please <a href="{{ route('customer.profile') }}" class="text-[#B4771E] underline">add an address</a> first.</p>
+            <p class="text-[#757575] text-base mb-5">No saved addresses. Please <a href="{{ route('customer.profile') }}#addresses" class="text-[#B4771E] underline">add an address</a> first.</p>
             @else
             <div id="buyNowAddressList" class="space-y-3 mb-6">
                 @if(auth('customer')->check())

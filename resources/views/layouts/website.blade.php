@@ -645,7 +645,7 @@
             <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-10">
                 <!-- Logo -->
                 <div>
-                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px] w-[100px] sm:w-full"></a>
+                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px] w-[130px]"></a>
                     <p class="text-[#D5D5D5] text-base font-normal">
                         Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>

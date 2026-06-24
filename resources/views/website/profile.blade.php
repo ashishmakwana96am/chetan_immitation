@@ -1521,6 +1521,17 @@ renderAddresses();
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+    // Check hash or query param for active tab
+    const urlParams = new URLSearchParams(window.location.search);
+    let tab = urlParams.get('tab') || window.location.hash.replace('#', '');
+    
+    if (tab && ['orders', 'addresses', 'account', 'logout'].includes(tab)) {
+        const tabBtn = document.querySelector(`[data-tab="${tab}"]`);
+        if (tabBtn) {
+            switchTab(tab, tabBtn);
+        }
+    }
+
     const sidebar = document.getElementById("accountSidebar");
     const overlay = document.getElementById("sidebarOverlay");
     const toggleBtn = document.getElementById("sidebarToggle");
