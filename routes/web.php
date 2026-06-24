@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\WebsiteContentController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MemberRegisterController;
 use App\Http\Controllers\CustomerLoginController;
@@ -243,6 +244,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Website Content
         Route::get('website-content', [WebsiteContentController::class, 'index'])->name('website-content.index');
         Route::post('website-content', [WebsiteContentController::class, 'update'])->name('website-content.update');
+
+        // Settings
+        Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
     });
 
 });

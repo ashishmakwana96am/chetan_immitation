@@ -103,26 +103,6 @@
             </div>
         </div>
 
-        <!-- Razorpay Settings -->
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header"><h5 class="mb-0">Razorpay Payment Gateway Settings</h5></div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label font-semibold" for="razorpay_key_id">Razorpay Key ID</label>
-                            <input type="text" name="razorpay_key_id" id="razorpay_key_id" class="form-control" value="{{ $razorpayKeyId }}" placeholder="Enter Razorpay Key ID" />
-                            <div class="invalid-feedback"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label font-semibold" for="razorpay_key_secret">Razorpay Key Secret</label>
-                            <input type="password" name="razorpay_key_secret" id="razorpay_key_secret" class="form-control" value="{{ $razorpayKeySecret }}" placeholder="Enter Razorpay Key Secret" />
-                            <div class="invalid-feedback"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Submit -->
         <div class="col-12">

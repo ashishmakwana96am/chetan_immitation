@@ -161,7 +161,7 @@
         <!-- Top Bar -->
         <div class="bg-[#B4771E] py-2 sm:py-[12px] flex items-center overflow-hidden relative">
             <p class="text-white text-sm sm:text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
-                Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
+                {{ \App\Models\Setting::getValue('announcement_text', 'Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999') }}
             </p>
         </div>
 
@@ -373,7 +373,7 @@
         <div class="bg-[#131615]">
             <div class="bg-[#B4771E] py-2 sm:py-[12px] flex items-center overflow-hidden relative">
                 <p class="text-white text-sm sm:text-base whitespace-nowrap" style="animation: marquee 25s linear infinite;">
-                    Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999
+                    {{ \App\Models\Setting::getValue('announcement_text', 'Festive Season Sale: Up to 40% Off | Free Shipping on Orders Above ₹1999') }}
                 </p>
             </div>
             <div class="px-5 flex items-center justify-between">

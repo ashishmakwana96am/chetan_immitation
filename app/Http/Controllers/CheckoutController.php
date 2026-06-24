@@ -349,8 +349,9 @@ class CheckoutController extends Controller
             ], 422);
         }
 
-        $razorpayKeyId = Setting::getValue('razorpay_key_id', '');
-        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+        $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+        $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+        $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
 
         if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
             return response()->json([
@@ -472,7 +473,8 @@ class CheckoutController extends Controller
             ]);
         }
 
-        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+        $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+        $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
 
         $expectedSignature = hash_hmac(
             'sha256',
@@ -599,8 +601,9 @@ class CheckoutController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No fulfillment location is active.'], 422);
         }
 
-        $razorpayKeyId     = Setting::getValue('razorpay_key_id', '');
-        $razorpayKeySecret = Setting::getValue('razorpay_key_secret', '');
+        $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+        $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+        $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
 
         if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
             return response()->json(['status' => 'error', 'message' => 'Razorpay payment gateway is not configured.'], 500);
