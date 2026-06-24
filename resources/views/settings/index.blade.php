@@ -91,11 +91,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_test_key_secret">Razorpay Test Key Secret</label>
-                            <div class="input-group input-group-merge">
+                            <div class="input-group input-group-merge" id="test-secret-group">
                                 <input type="password" name="razorpay_test_key_secret" id="razorpay_test_key_secret" class="form-control" value="{{ $razorpayTestKeySecret }}" placeholder="Enter Razorpay test key secret" />
-                                <span class="input-group-text cursor-pointer toggle-secret"><i class="ti ti-eye-off"></i></span>
-                                <div class="invalid-feedback"></div>
+                                <span class="input-group-text cursor-pointer"><i class="ti ti-eye-off"></i></span>
                             </div>
+                            <div class="invalid-feedback"></div>
                         </div>
                     </div>
 
@@ -109,11 +109,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="razorpay_live_key_secret">Razorpay Live Key Secret</label>
-                            <div class="input-group input-group-merge">
+                            <div class="input-group input-group-merge" id="live-secret-group">
                                 <input type="password" name="razorpay_live_key_secret" id="razorpay_live_key_secret" class="form-control" value="{{ $razorpayLiveKeySecret }}" placeholder="Enter Razorpay live key secret" />
-                                <span class="input-group-text cursor-pointer toggle-secret"><i class="ti ti-eye-off"></i></span>
-                                <div class="invalid-feedback"></div>
+                                <span class="input-group-text cursor-pointer"><i class="ti ti-eye-off"></i></span>
                             </div>
+                            <div class="invalid-feedback"></div>
                         </div>
                     </div>
 
@@ -197,16 +197,15 @@ $(document).ready(function () {
 
     syncRazorpayCredentialsVisibility();
 
-    $(document).on('click', '.toggle-secret', function () {
-        const input = $(this).closest('.input-group').find('input');
-        const icon = $(this).find('i');
-        const shouldShow = input.attr('type') === 'password';
+    $(document).on('click', '.toggle-secret-btn', function () {
+        const targetId = $(this).data('target');
+        const $input = $('#' + targetId);
+        const $icon = $(this).find('i');
+        const isPassword = $input.attr('type') === 'password';
 
-        input.attr('type', shouldShow ? 'text' : 'password');
-        icon.toggleClass('ti-eye-off', !shouldShow).toggleClass('ti-eye', shouldShow);
-    });
-
-    // Payment method toggle labels + show/hide Razorpay settings card
+        $input.attr('type', isPassword ? 'text' : 'password');
+        $icon.toggleClass('ti-eye-off', !isPassword).toggleClass('ti-eye', isPassword);
+    });    // Payment method toggle labels + show/hide Razorpay settings card
     $(document).on('change', '.payment-method-toggle', function () {
         const isChecked = this.checked;
         const labelId = this.id === 'payment_method_razorpay_toggle' ? 'razorpay_method_label' : 'cod_method_label';
@@ -305,6 +304,34 @@ $(document).ready(function () {
             }
         });
     }
+});
+
+// Direct eye-toggle handlers — same pattern as admin login page
+document.addEventListener('DOMContentLoaded', function () {
+    function bindSecretToggle(groupId, inputId) {
+        const group = document.getElementById(groupId);
+        if (!group) return;
+        const toggleBtn = group.querySelector('.input-group-text');
+        if (!toggleBtn) return;
+        toggleBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = document.getElementById(inputId);
+            const icon = this.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('ti-eye-off');
+                icon.classList.add('ti-eye');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('ti-eye');
+                icon.classList.add('ti-eye-off');
+            }
+        });
+    }
+
+    bindSecretToggle('test-secret-group', 'razorpay_test_key_secret');
+    bindSecretToggle('live-secret-group', 'razorpay_live_key_secret');
 });
 </script>
 @endsection
