@@ -199,7 +199,14 @@ class ReportController extends Controller
             }
         }
 
-        return view('reports.stock-inventory', ['products' => $productsList, 'locations' => $locations, 'categories' => $categories]);
+        $activeProductCount = Product::where('status', 1)->count();
+        $soldoutProductCount = Product::where('status', 1)->whereHas('inventories', function($q) {
+            $q->selectRaw('product_id, SUM(quantity) as total_stock')
+              ->groupBy('product_id')
+              ->havingRaw('total_stock <= 0');
+        })->count();
+
+        return view('reports.stock-inventory', ['products' => $productsList, 'locations' => $locations, 'categories' => $categories, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
     }
 
     public function purchases(Request $request)
