@@ -38,15 +38,21 @@
         <a class="product-detail-link" href="{{ $detailUrl }}">
             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
              {{-- Rating Badge --}}
+            @php
+                $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
+                $reviewCount = (int) ($product->reviews_count ?? 0);
+            @endphp
+            @if($reviewCount > 0)
             <div
                 class="absolute bottom-3 left-3 z-20 backdrop-blur-md bg-white/70 border border-white/60 rounded-lg shadow-sm px-2 py-1">
-                <div class="flex items-center font-medium text-[#131615]">
+                <div class="flex items-center font-semibold text-[#131615]">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="#B4771E" aria-hidden="true" style="flex-shrink:0; display:inline-block; vertical-align:middle; margin-top:-1px;">
                         <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
                     </svg>
-                  <span class="text-[13px] leading-[13px] ml-2 mt-1">4.1</span>
+                  <span class="text-[13px] leading-[13px] ml-1.5 mt-0.5">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
                 </div>
             </div>
+            @endif
         </a>
     </div>
     <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
@@ -67,18 +73,6 @@
         <div class="flex justify-between flex-col  h-full">
             <div>
                 <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-                @php
-                    $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
-                    $reviewCount = (int) ($product->reviews_count ?? 0);
-                @endphp
-                @if($reviewCount > 0)
-                <div class="flex items-center gap-1 mt-2 mb-1" style="line-height:1;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="#B4771E" aria-hidden="true" style="flex-shrink:0; display:inline-block; vertical-align:middle; margin-top:-1px;">
-                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
-                    </svg>
-                    <span class="text-xs text-[#757575]" style="vertical-align:middle; line-height:1;">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
-                </div>
-                @endif
                 <div class="flex justify-between flex-wrap gap-2">
                         <div class="mt-1 flex items-center gap-1">
                             <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
