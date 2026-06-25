@@ -268,9 +268,6 @@ class ShopCategoryController extends Controller
                 ->pluck('id');
             if ($catIds->isNotEmpty()) {
                 $query->whereIn('category_id', $catIds);
-                if (!(clone $query)->exists()) {
-                    $query = Product::where('status', Product::STATUS_ACTIVE);
-                }
             }
         }
 

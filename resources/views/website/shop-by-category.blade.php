@@ -74,7 +74,9 @@
                                 </span>
                                 <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">
                                     {{ $cat->name }}
-                                    <span class="text-[#757575]">({{ $cat->products_count }})</span>
+                                    @if($cat->products_count > 0)
+                                        <span class="text-[#757575]">({{ $cat->products_count }})</span>
+                                    @endif
                                 </h3>
                             </label>
                             @if($cat->subCategories->isNotEmpty())
@@ -175,7 +177,7 @@
 
             @if($sizes->isNotEmpty())
             <!-- Size -->
-            <div class="sidebar-section pb-0 mb-1">
+            <!-- <div class="sidebar-section pb-0 mb-1">
                 <button onclick="toggleSection('size-section','size-arrow')"
                     class="flex items-center justify-between w-full pb-4 2xl:pb-[17px] pt-5 2xl:pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Size</span>
@@ -204,7 +206,7 @@
                         @endforeach
                     </ul>
                 </div>
-            </div>
+            </div> -->
             @endif
 
 
