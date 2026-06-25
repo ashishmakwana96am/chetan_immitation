@@ -104,7 +104,7 @@ class ShopCategoryController extends Controller
     public function filter(Request $request)
     {
         try {
-            session()->put('shop_filters', [
+            $filterData = [
                 'category'    => $request->input('category'),
                 'sub_category'=> $request->input('sub_category'),
                 'min_price'   => $request->input('min_price'),
@@ -112,7 +112,21 @@ class ShopCategoryController extends Controller
                 'size'        => $request->input('size'),
                 'sort'        => $request->input('sort'),
                 'search'      => $request->input('search'),
-            ]);
+            ];
+
+            $hasActiveFilters = !empty($filterData['category'])
+                || !empty($filterData['sub_category'])
+                || !empty($filterData['min_price'])
+                || !empty($filterData['max_price'])
+                || !empty($filterData['size'])
+                || !empty($filterData['sort'])
+                || !empty($filterData['search']);
+
+            if ($hasActiveFilters) {
+                session()->put('shop_filters', $filterData);
+            } else {
+                session()->forget('shop_filters');
+            }
 
             if (auth('customer')->check()) {
                 auth('customer')->user()->load('wishlists');

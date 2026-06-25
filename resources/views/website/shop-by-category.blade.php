@@ -727,6 +727,18 @@
             cb.checked = false;
         });
 
+        document.querySelectorAll('[id$="-sub"]').forEach(el => {
+            el.classList.add('hidden');
+            el.dataset.open = 'false';
+        });
+        document.querySelectorAll('[id$="-arrow"]').forEach(el => {
+            el.classList.add('transition-transform', 'duration-300');
+            el.classList.remove('rotate-180');
+            el.style.rotate = '';
+            el.style.transform = 'rotate(0deg)';
+            el.setAttribute('aria-expanded', 'false');
+        });
+
         priceFilterTouched = false;
         setPriceInputs(catalogMinPrice, catalogMaxPrice);
         updateRangeTrack();
