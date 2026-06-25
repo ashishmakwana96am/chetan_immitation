@@ -49,7 +49,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="#B4771E" aria-hidden="true" style="flex-shrink:0; display:inline-block; vertical-align:middle; margin-top:-1px;">
                         <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
                     </svg>
-                  <span class="text-[13px] leading-[13px] ml-1.5 mt-0.5">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
+                  <span class="text-[13px] leading-[13px] ml-1.5 mt-0.5">{{ number_format($avgRating, 1) }} | {{ $reviewCount }}</span>
                 </div>
             </div>
             @endif
