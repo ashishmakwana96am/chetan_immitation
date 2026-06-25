@@ -113,7 +113,15 @@ class ReportController extends Controller
             }
         }
 
-        return view('reports.products', ['products' => $productsList, 'categories' => $categories]);
+        $totalProducts = Product::count();
+        $activeProductCount = Product::where('status', 1)->count();
+        $soldoutProductCount = Product::where('status', 1)
+            ->whereDoesntHave('inventories', function ($q) {
+                $q->where('quantity', '>', 0);
+            })
+            ->count();
+
+        return view('reports.products', ['products' => $productsList, 'categories' => $categories,'totalProducts' => $totalProducts, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
     }
 
     public function stockInventory()

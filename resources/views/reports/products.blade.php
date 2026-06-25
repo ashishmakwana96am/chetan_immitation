@@ -24,7 +24,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Total Products</span>
-                            <h4 class="mb-0 mt-1">{{ count($products) }}</h4>
+                            <h4 class="mb-0 mt-1">{{ $totalProducts }}</h4>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
                     </div>
@@ -37,7 +37,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Active Products</span>
-                            <h4 class="mb-0 mt-1">{{ $products->where('status', 1)->count() }}</h4>
+                            <h4 class="mb-0 mt-1">{{ $activeProductCount }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-check ti-sm"></i></span>
                     </div>
@@ -50,7 +50,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">SOLD OUT</span>
-                            <h4 class="mb-0 mt-1">{{ $products->where('total_stock', 0)->count() }}</h4>
+                            <h4 class="mb-0 mt-1">{{ $soldoutProductCount }}</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
                     </div>
