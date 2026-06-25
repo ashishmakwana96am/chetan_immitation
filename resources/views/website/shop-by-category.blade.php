@@ -118,7 +118,7 @@
                     <div class="flex gap-4 mb-6">
                         <!-- Min Price -->
                         <div class="relative flex-1">
-                            <span class="absolute left-4 top-[34px] 2xl:top-[44px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
+                            <span class="absolute left-4 top-[34px] 2xl:top-[39px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
                                 ₹
                             </span>
                             <input id="minPriceInput" type="number" value="{{ $selectedMinPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[48px] 2xl:h-[56px] border border-[#D5D5D5] rounded-[2px] text-sm 2xl:text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
@@ -140,7 +140,7 @@
                         </div>
                         <!-- Max Price -->
                         <div class="relative flex-1">
-                            <span class="absolute left-4 top-[34px] 2xl:top-[44px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
+                            <span class="absolute left-4 top-[34px] 2xl:top-[39px] -translate-y-1/2 text-sm 2xl:text-[20px] text-[#131615]">
                                 ₹
                             </span>
                             <input id="maxPriceInput" type="number" value="{{ $selectedMaxPrice }}" min="{{ $catalogMinPrice }}" max="{{ $catalogMaxPrice }}" class="w-full h-[48px] 2xl:h-[56px] border border-[#D5D5D5] rounded-[2px] text-sm 2xl:text-[20px] font-normal text-[#3D403F] pl-8 pr-5 py-[14px]
