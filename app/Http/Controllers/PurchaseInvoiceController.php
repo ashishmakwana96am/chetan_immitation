@@ -160,7 +160,6 @@ class PurchaseInvoiceController extends Controller
 
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
-            'date'                   => ['required', 'date'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
@@ -198,11 +197,6 @@ class PurchaseInvoiceController extends Controller
                 'payment_status' => $request->payment_status ?? 1,
                 'created_by'     => auth()->id(),
             ]);
-
-            if ($request->filled('date')) {
-                $invoice->created_at = $request->date;
-                $invoice->save();
-            }
 
             foreach ($request->items as $itemData) {
                 $item = PurchaseItem::create([
@@ -293,7 +287,6 @@ class PurchaseInvoiceController extends Controller
 
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
-            'date'                   => ['required', 'date'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
@@ -324,18 +317,13 @@ class PurchaseInvoiceController extends Controller
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
- 
+  
             $purchase->update([
                 'supplier_id'    => $request->supplier_id,
                 'total_amount'   => $totalAmount,
                 'status'         => $newStatus,
                 'payment_status' => $request->payment_status ?? 1,
             ]);
-
-            if ($request->filled('date')) {
-                $purchase->created_at = $request->date;
-                $purchase->save();
-            }
 
             $purchase->items()->delete();
 

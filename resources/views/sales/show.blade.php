@@ -236,6 +236,30 @@
                         <span class="sale-info-value">{{ format_date($order->created_at) }}</span>
                     </div>
 
+                    @if($order->razorpay_order_id)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Razorpay Order ID</span>
+                        <div class="sale-info-value d-flex gap-2 align-items-center">
+                            <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->razorpay_order_id }}</code>
+                            <button type="button" class="btn btn-sm btn-label-secondary" onclick="copyToClipboard('razorpayOrderId', this)" title="Copy">
+                                <i class="ti ti-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+
+                    @if($order->razorpay_payment_id)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Razorpay Payment ID</span>
+                        <div class="sale-info-value d-flex gap-2 align-items-center">
+                            <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->razorpay_payment_id }}</code>
+                            <button type="button" class="btn btn-sm btn-label-secondary" onclick="copyToClipboard('razorpayPaymentId', this)" title="Copy">
+                                <i class="ti ti-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+
                 </div>
             </div>
 
@@ -467,6 +491,25 @@
 @section('page-js')
 <script>
 $(document).ready(function () {
+
+    function copyToClipboard(elementId, button) {
+        const element = document.getElementById(elementId);
+        const text = element.textContent.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHtml = button.innerHTML;
+            button.innerHTML = '<i class="ti ti-check"></i>';
+            button.classList.add('btn-success');
+            button.classList.remove('btn-label-secondary');
+            toastr.success('Copied to clipboard');
+            setTimeout(() => {
+                button.innerHTML = originalHtml;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-label-secondary');
+            }, 1500);
+        }).catch(() => {
+            toastr.error('Failed to copy');
+        });
+    }
 
     $('#change-sale-status').on('change', function () {
         const status  = $(this).val();

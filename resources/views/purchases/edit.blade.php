@@ -44,11 +44,6 @@
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Date <span class="text-danger">*</span></label>
-                                <input type="text" name="date" class="form-control flatpickr" value="{{ $purchase->created_at->format('Y-m-d') }}" placeholder="DD-MM-YYYY" />
-                                <div class="invalid-feedback"></div>
-                            </div>
                         </div>
                     </div>
                 </div>

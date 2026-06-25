@@ -739,7 +739,6 @@ class CheckoutController extends Controller
 
         if ($coupon->usage_limit !== null) {
             $usedCount = Order::where('coupon_id', $coupon->id)
-                ->where('payment_status', Order::PAYMENT_STATUS_PAID)
                 ->count();
             if ($usedCount >= $coupon->usage_limit) {
                 return response()->json([
