@@ -190,6 +190,7 @@ function render() {
  
   // Grid
   const noRes = document.getElementById('noResults');
+  if (!noRes) return;
   if (!pageItems.length) { grid.innerHTML=''; noRes.classList.remove('hidden'); }
   else {
     noRes.classList.add('hidden');
@@ -314,6 +315,7 @@ grid.innerHTML = pageItems.map(p => `
 function renderPagination(totalPages) {
 
     const pg = document.getElementById('pagination');
+    if (!pg) return;
 
     if (totalPages <= 1) {
         pg.innerHTML = '';
