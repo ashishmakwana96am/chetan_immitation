@@ -739,6 +739,11 @@
             el.setAttribute('aria-expanded', 'false');
         });
 
+        const headerSearchEl = document.getElementById('headerSearch');
+        if (headerSearchEl) {
+            headerSearchEl.value = '';
+        }
+
         priceFilterTouched = false;
         setPriceInputs(catalogMinPrice, catalogMaxPrice);
         updateRangeTrack();

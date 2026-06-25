@@ -384,10 +384,7 @@ class ShopCategoryController extends Controller
      * - Only category selected (no subs): show all products of that category.
      * - Subcategory(ies) selected:
      *     - If selected sub has products → show those sub's products only.
-     *     - If selected sub has NO products → fallback: show parent category's
-     *       products that have NO sub_category_id assigned.
-     *     - If neither the sub nor the parent category (unassigned) has products
-     *       → show nothing (whereRaw('1 = 0')).
+     *     - If selected sub has NO products → show nothing (no fallback).
      * - Multiple subs selected → OR all the above conditions together.
      * - If both full categories AND subs are selected:
      *     - Full-category entries show ALL products of that category.
@@ -408,17 +405,7 @@ class ShopCategoryController extends Controller
                 ->pluck('total', 'sub_category_id')
             : collect();
 
-        $parentCatIds = $subCategories->pluck('category_id')->filter()->unique()->values();
-        $orphanProductCounts = $parentCatIds->isNotEmpty()
-            ? Product::where('status', Product::STATUS_ACTIVE)
-                ->whereIn('category_id', $parentCatIds)
-                ->whereNull('sub_category_id')
-                ->selectRaw('category_id, COUNT(*) as total')
-                ->groupBy('category_id')
-                ->pluck('total', 'category_id')
-            : collect();
-
-        $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts, $orphanProductCounts) {
+        $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts) {
             $applied = false;
 
             if ($catIds->isNotEmpty()) {
@@ -427,22 +414,12 @@ class ShopCategoryController extends Controller
             }
 
             foreach ($subCategories as $subCategory) {
-                $branch = function ($subQ) use ($subCategory, $subProductCounts, $orphanProductCounts) {
+                $branch = function ($subQ) use ($subCategory, $subProductCounts) {
                     $subCount = (int) ($subProductCounts[$subCategory->id] ?? 0);
 
                     if ($subCount > 0) {
                         $subQ->where('sub_category_id', $subCategory->id);
                         return;
-                    }
-
-                    if ($subCategory->category_id) {
-                        $orphanCount = (int) ($orphanProductCounts[$subCategory->category_id] ?? 0);
-
-                        if ($orphanCount > 0) {
-                            $subQ->where('category_id', $subCategory->category_id)
-                                ->whereNull('sub_category_id');
-                            return;
-                        }
                     }
 
                     $subQ->whereRaw('1 = 0');
