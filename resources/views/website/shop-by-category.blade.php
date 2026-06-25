@@ -406,6 +406,7 @@
     function handleCategoryFilterChange(categoryCheckbox) {
         syncSubcategoriesWhenCategoryChecked(categoryCheckbox);
         syncCategoryDropdown('cat-' + categoryCheckbox.dataset.categoryId);
+        clearHeaderSearch();
         priceFilterTouched = false;
         applyFilters();
     }
@@ -429,8 +430,16 @@
         }
 
         syncCategoryDropdown('cat-' + parentCatId);
+        clearHeaderSearch();
         priceFilterTouched = false;
         applyFilters();
+    }
+
+    function clearHeaderSearch() {
+        const headerSearchEl = document.getElementById('headerSearch');
+        if (headerSearchEl) {
+            headerSearchEl.value = '';
+        }
     }
 
     function setSectionDropdownState(contentId, arrowId, open) {
