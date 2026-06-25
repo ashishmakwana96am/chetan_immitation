@@ -300,6 +300,12 @@
                             <span class="sale-info-label">State</span>
                             <span class="sale-info-value">{{ $addr->state }}</span>
                         </div>
+                        @if($addr->pincode)
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Pincode</span>
+                            <span class="sale-info-value">{{ $addr->pincode }}</span>
+                        </div>
+                        @endif
                     </div>
                 </div>
             @endif

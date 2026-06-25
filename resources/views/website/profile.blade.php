@@ -360,8 +360,8 @@
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="address"></p>
             </div>
             
-            <!-- City & State -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <!-- City & State & Pincode -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         Town / City <span class="text-red-600">*</span>
@@ -379,6 +379,13 @@
                         <option value="Maharashtra">Maharashtra</option>
                     </select>
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="state"></p>
+                </div>
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Pincode <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="addr_pincode" name="pincode" placeholder="Pincode" maxlength="6" inputmode="numeric" class="addr-input w-full h-[48px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="pincode"></p>
                 </div>
             </div>
             
@@ -559,7 +566,7 @@ let addresses = [
     state: @json($addr->state),
     type: @json($addr->type),
     isDefault: {{ $addr->is_default ? 'true' : 'false' }},
-    pin: @json($pin)
+    pin: @json($addr->pincode ?: $pin)
   },
   @endforeach
 ];
@@ -999,6 +1006,7 @@ function editAddr() {
   document.getElementById('addr_address').value = a.addr;
   document.getElementById('addr_city').value = a.city;
   document.getElementById('addr_state').value = a.state;
+  document.getElementById('addr_pincode').value = a.pin || '';
   document.getElementById('addr_is_default').checked = a.isDefault;
   
   if (a.type === 'home') {
@@ -1034,6 +1042,7 @@ function resetAddressForm() {
     document.getElementById('addr_address').value = '';
     document.getElementById('addr_city').value = '';
     document.getElementById('addr_state').value = '';
+    document.getElementById('addr_pincode').value = '';
     document.getElementById('home').checked = true;
     document.getElementById('addr_is_default').checked = false;
     clearAddrErrors();
@@ -1075,6 +1084,7 @@ function validateAddressForm() {
     const address = document.getElementById('addr_address').value.trim();
     const city = document.getElementById('addr_city').value.trim();
     const state = document.getElementById('addr_state').value;
+    const pincode = document.getElementById('addr_pincode').value.trim();
 
     if (!name) errors.name = 'Please enter your full name.';
     if (!phone) errors.phone = 'Please enter your mobile number.';
@@ -1091,6 +1101,12 @@ function validateAddressForm() {
     if (!address) errors.address = 'Please enter Flat/House/Building Name.';
     if (!city) errors.city = 'Please enter town / city.';
     if (!state) errors.state = 'Please select state.';
+
+    if (pincode === '') {
+        errors.pincode = 'Please enter pincode.';
+    } else if (!/^[0-9]{6}$/.test(pincode)) {
+        errors.pincode = 'Please enter a valid 6 digit pincode.';
+    }
 
     Object.keys(errors).forEach(field => {
         setAddrFieldError(field, errors[field]);
@@ -1115,6 +1131,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    const pincodeEl = document.getElementById('addr_pincode');
+    if (pincodeEl) {
+        pincodeEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 6);
+        });
+    }
 });
  
 function saveCustomerAddress(e) {
@@ -1136,6 +1159,7 @@ function saveCustomerAddress(e) {
   const address = document.getElementById('addr_address').value.trim();
   const city = document.getElementById('addr_city').value.trim();
   const state = document.getElementById('addr_state').value;
+  const pincode = document.getElementById('addr_pincode').value.trim();
   const type = document.querySelector('input[name="addressType"]:checked').value;
   const is_default = document.getElementById('addr_is_default').checked ? 1 : 0;
   
@@ -1147,6 +1171,7 @@ function saveCustomerAddress(e) {
     address,
     city,
     state,
+    pincode,
     type,
     is_default
   };
@@ -1203,7 +1228,7 @@ function saveCustomerAddress(e) {
         state: savedAddr.state,
         type: savedAddr.type,
         isDefault: savedAddr.is_default,
-        pin: pin
+        pin: savedAddr.pincode || pin
       };
       
       if (editingAddressId) {

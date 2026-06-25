@@ -120,6 +120,7 @@ class CheckoutController extends Controller
             'address' => ['required', 'string'],
             'city' => ['required', 'string', 'max:100'],
             'state' => ['required', 'string', 'max:100'],
+            'pincode' => ['required', 'string', 'max:10'],
             'type' => ['required', 'string', 'in:home,work'],
             'is_default' => ['nullable', 'boolean'],
         ]);
@@ -142,6 +143,7 @@ class CheckoutController extends Controller
             'address' => $request->address,
             'city' => $request->city,
             'state' => $request->state,
+            'pincode' => $request->pincode,
             'type' => $request->type,
             'is_default' => $isDefault,
         ]);
@@ -164,6 +166,7 @@ class CheckoutController extends Controller
             'address' => ['required', 'string'],
             'city' => ['required', 'string', 'max:100'],
             'state' => ['required', 'string', 'max:100'],
+            'pincode' => ['required', 'string', 'max:10'],
             'type' => ['required', 'string', 'in:home,work'],
             'is_default' => ['nullable', 'boolean'],
         ]);
@@ -197,6 +200,7 @@ class CheckoutController extends Controller
             'address' => $request->address,
             'city' => $request->city,
             'state' => $request->state,
+            'pincode' => $request->pincode,
             'type' => $request->type,
             'is_default' => $isDefault,
         ]);

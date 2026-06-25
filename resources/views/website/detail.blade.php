@@ -613,7 +613,7 @@ if (minusBtn) {
                     <input type="radio" name="buynow_address" value="{{ $addr->id }}" class="mt-1 accent-[#B4771E]" {{ $addr->is_default ? 'checked' : '' }}>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-[#131615] text-base">{{ $addr->name }} — {{ $addr->phone }}</p>
-                        <p class="text-[#757575] text-sm mt-1">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}</p>
+                        <p class="text-[#757575] text-sm mt-1">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}</p>
                         @if($addr->is_default)
                         <span class="inline-block mt-1 bg-[#B4771E29] text-[#B4771E] text-xs px-2 py-0.5">Default</span>
                         @endif
@@ -929,6 +929,17 @@ Order Amount
                 name:        'Chetan Imitation',
                 description: 'Order Payment (ORD: ' + data.order.order_no + ')',
                 order_id:    data.order_id,
+                config: {
+                    display: {
+                        hide: [
+                            { method: 'paylater' },
+                            { method: 'wallet' }
+                        ],
+                        preferences: {
+                            show_default_blocks: true
+                        }
+                    }
+                },
                 handler: function (response) {
                     buyNowPaymentCompleted = true;
                     showLoader();

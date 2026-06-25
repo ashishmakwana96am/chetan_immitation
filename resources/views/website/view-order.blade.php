@@ -321,7 +321,7 @@
                             <span class="font-semibold text-[#131615]">
                                 {{ ucfirst($order->customerAddress->type ?? 'Home') }}:
                             </span>
-                            {{ $order->customerAddress->address ?? '' }}, {{ $order->customerAddress->city ?? '' }}, {{ $order->customerAddress->state ?? '' }}
+                            {{ $order->customerAddress->address ?? '' }}, {{ $order->customerAddress->city ?? '' }}, {{ $order->customerAddress->state ?? '' }}{{ !empty($order->customerAddress->pincode) ? ' - ' . $order->customerAddress->pincode : '' }}
                         </p>
                     </div>
                     <div class="border-t border-[#D5D5D5] my-4"></div>

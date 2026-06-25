@@ -475,7 +475,7 @@
                         <div class="address-row">{{ $addr->address }}</div>
                     </td>
                     <td style="width:50%; border:none; padding:0; vertical-align:top; text-align:right;">
-                        <div class="address-row">{{ $addr->city }}, {{ $addr->state }}</div>
+                        <div class="address-row">{{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}</div>
                         @if($addr->email)
                         <div class="address-row">{{ $addr->email }}</div>
                         @endif

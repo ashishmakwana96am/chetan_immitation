@@ -153,9 +153,7 @@
                      class="addr-input w-full text-[#757575] text-base min-h-28 placeholder:text-base border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y rounded-sm"></textarea>
                 <p class="addr-error mt-2 text-sm text-red-600" data-error-for="address"></p>
             </div>
-            <!-- City State -->
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                 <div>
                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
                         Town / City <span class="text-red-600">*</span>
@@ -187,6 +185,20 @@
                         </option>
                     </select>
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="state"></p>
+                </div>
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Pincode <span class="text-red-600">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="addr_pincode"
+                        name="pincode"
+                        placeholder="Pincode"
+                        maxlength="6"
+                        inputmode="numeric"
+                        class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="pincode"></p>
                 </div>
             </div>
             <!-- Address Type -->
@@ -324,7 +336,7 @@
                                             @endif
                                         </div>
                                         <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
-                                            {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}
+                                            {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}
                                         </p>
                                     </div>
                                     <div class="relative address-menu-container">
@@ -977,6 +989,7 @@ const checkoutAddresses = [
         address: @json($addr->address),
         city: @json($addr->city),
         state: @json($addr->state),
+        pincode: @json($addr->pincode ?? ''),
         type: @json($addr->type),
         is_default: {{ $addr->is_default ? 'true' : 'false' }}
     },
@@ -991,6 +1004,7 @@ function resetAddressForm() {
     document.getElementById('addr_address').value = '';
     document.getElementById('addr_city').value = '';
     document.getElementById('addr_state').value = '';
+    document.getElementById('addr_pincode').value = '';
     document.getElementById('home').checked = true;
     document.getElementById('addr_is_default').checked = false;
     clearAddrErrors();
@@ -1031,6 +1045,7 @@ function editAddress(addressId, event) {
     document.getElementById('addr_address').value = addr.address;
     document.getElementById('addr_city').value = addr.city;
     document.getElementById('addr_state').value = addr.state;
+    document.getElementById('addr_pincode').value = addr.pincode || '';
     document.getElementById('addr_is_default').checked = !!addr.is_default;
 
     if (addr.type === 'work') {
@@ -1162,6 +1177,13 @@ function validateAddressForm() {
     if (!city) errors.city = 'Please enter town / city.';
     if (!state) errors.state = 'Please select state.';
 
+    const pincode = document.getElementById('addr_pincode').value.trim();
+    if (!pincode) {
+        errors.pincode = 'Please enter pincode.';
+    } else if (!/^[0-9]{6}$/.test(pincode)) {
+        errors.pincode = 'Please enter a valid 6 digit pincode.';
+    }
+
     Object.keys(errors).forEach(field => {
         setAddrFieldError(field, errors[field]);
     });
@@ -1185,6 +1207,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    const pincodeEl = document.getElementById('addr_pincode');
+    if (pincodeEl) {
+        pincodeEl.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 6);
+        });
+    }
 });
 
 function createAddressCardHtml(addr) {
@@ -1222,7 +1251,7 @@ function createAddressCardHtml(addr) {
                         ${defaultBadge}
                     </div>
                     <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
-                        ${addr.address}, ${addr.city}, ${addr.state}
+                        ${addr.address}, ${addr.city}, ${addr.state}${addr.pincode ? ' - ' + addr.pincode : ''}
                     </p>
                 </div>
                 <div class="relative address-menu-container">
@@ -1474,6 +1503,7 @@ function saveCustomerAddress(e) {
     const address = document.getElementById('addr_address').value.trim();
     const city = document.getElementById('addr_city').value.trim();
     const state = document.getElementById('addr_state').value;
+    const pincode = document.getElementById('addr_pincode').value.trim();
     const type = document.querySelector('input[name="addressType"]:checked').value;
     const is_default = document.getElementById('addr_is_default').checked ? 1 : 0;
 
@@ -1488,6 +1518,7 @@ function saveCustomerAddress(e) {
         address,
         city,
         state,
+        pincode,
         type,
         is_default
     };
@@ -1893,7 +1924,18 @@ function startPaymentFlow() {
                         "upi": true,
                         "card": true,
                         "netbanking": true,
-                        "wallet": true
+                        "wallet": false
+                    },
+                    "config": {
+                        "display": {
+                            "hide": [
+                                { "method": "paylater" },
+                                { "method": "wallet" }
+                            ],
+                            "preferences": {
+                                "show_default_blocks": true
+                            }
+                        }
                     },
                     "handler": function (response) {
                         paymentCompleted = true;

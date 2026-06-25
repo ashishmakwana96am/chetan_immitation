@@ -145,7 +145,7 @@
                                         <strong>{{ $order->customerAddress->name }}</strong><br>
                                         {{ $order->customerAddress->phone }}<br>
                                         {{ $order->customerAddress->address }},<br>
-                                        {{ $order->customerAddress->city }}, {{ $order->customerAddress->state }}
+                                        {{ $order->customerAddress->city }}, {{ $order->customerAddress->state }}{{ $order->customerAddress->pincode ? ' - ' . $order->customerAddress->pincode : '' }}
                                     </p>
                                 </td>
                                 @endif

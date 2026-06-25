@@ -17,6 +17,7 @@ class CustomerAddress extends Model
         'address',
         'city',
         'state',
+        'pincode',
         'type',
         'is_default',
     ];
