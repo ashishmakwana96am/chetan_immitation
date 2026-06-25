@@ -72,13 +72,10 @@ class ShopCategoryController extends Controller
             }
 
             if ($redirect) {
-                // Incoming link has explicit filter intent — save to session and redirect cleanly
                 session(['shop_filters' => $filters]);
                 return redirect()->route('shop-by-category', ['_f' => '1']);
             }
 
-            // No slug, no search, no sub_category, no _f marker — plain /shop visit with no filter intent.
-            // Always clear session so the user sees all products fresh.
             if (!$request->has('_f')) {
                 session()->forget('shop_filters');
             }
