@@ -9,6 +9,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Http\Request;
+use Illuminate\View\Compilers\CompilerException;
+use Illuminate\Support\Facades\File;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -55,6 +57,17 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (\Throwable $e, Request $request) {
+            if ($e instanceof CompilerException && str_contains($e->getMessage(), 'No such file or directory')) {
+                File::delete(storage_path('framework/views/*.php'));
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => 'View cache cleared. Please retry.',
+                    ], 503);
+                }
+                return response('View cache cleared. Please refresh.', 503)->header('Retry-After', '2');
+            }
+
             $debug = config('app.debug', false);
             if ($debug) {
                 return null;
