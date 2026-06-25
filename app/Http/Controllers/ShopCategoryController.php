@@ -280,16 +280,6 @@ class ShopCategoryController extends Controller
 
                 if ($subHasProducts) {
                     $query->whereIn('sub_category_id', $subIds);
-                } else {
-                    if (empty($categorySlugs)) {
-                        $parentCatIds = SubCategory::whereIn('id', $subIds)
-                            ->pluck('category_id')
-                            ->filter()
-                            ->unique();
-                        if ($parentCatIds->isNotEmpty()) {
-                            $query->whereIn('category_id', $parentCatIds);
-                        }
-                    }
                 }
             }
         }
