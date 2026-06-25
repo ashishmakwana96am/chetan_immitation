@@ -61,9 +61,12 @@
                         $sessionFilters = session('shop_filters', []);
                         $selectedCats = !empty($sessionFilters['category']) ? explode(',', $sessionFilters['category']) : ($currentSlug ? [$currentSlug] : []);
                         $selectedSubs = !empty($sessionFilters['sub_category']) ? explode(',', $sessionFilters['sub_category']) : [];
-                        $isCatChecked = in_array($cat->slug, $selectedCats);
+                        $catSubSlugs = $cat->subCategories->pluck('slug')->all();
+                        $selectedSubsInCat = array_values(array_intersect($selectedSubs, $catSubSlugs));
+                        $allSubsSelected = empty($catSubSlugs) || count($selectedSubsInCat) === count($catSubSlugs);
+                        $isCatChecked = in_array($cat->slug, $selectedCats) && $allSubsSelected;
                         $shouldSelectAllSubs = $isCatChecked && empty($selectedSubs);
-                        $isCatOpen = $isCatChecked || $cat->subCategories->pluck('slug')->intersect($selectedSubs)->isNotEmpty();
+                        $isCatOpen = $isCatChecked || !empty($selectedSubsInCat);
                     @endphp
                     <div class="{{ $loop->last ? 'border-b-0 py-5' : 'border-b border-[#D5D5D5] py-3 2xl:py-4' }} {{ $loop->first ? 'pb-5' : '' }}">
                         <div class="w-full flex items-center justify-between gap-2">
@@ -93,7 +96,7 @@
                             @foreach($cat->subCategories as $sub)
                             <label class="flex items-center gap-4 cursor-pointer select-none">
                                 <span class="custom-checkbox shrink-0">
-                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubs)) ? 'checked' : '' }} onchange="handleSubcategoryFilterChange(this)">
+                                    <input type="checkbox" class="subcategory-checkbox" value="{{ $sub->slug }}" data-category-id="{{ $cat->id }}" {{ ($shouldSelectAllSubs || in_array($sub->slug, $selectedSubsInCat)) ? 'checked' : '' }} onchange="handleSubcategoryFilterChange(this)">
                                     <span></span>
                                 </span>
                                 <span class="text-base 2xl:text-[18px] text-[#757575]">{{ $sub->name }}</span>
@@ -638,11 +641,21 @@
             },
             body: JSON.stringify(filterData)
         })
-        .then(r => r.json())
-        .then(data => {
+        .then(function (r) {
+            if (!r.ok) {
+                throw new Error('Filter request failed');
+            }
+            return r.json();
+        })
+        .then(function (data) {
+            if (!data || typeof data.html !== 'string') {
+                throw new Error('Invalid filter response');
+            }
+
             document.getElementById('productGrid').innerHTML = data.html;
-            document.getElementById('paginationWrap').innerHTML = data.pagination;
-            if (data.price_range) {
+            document.getElementById('paginationWrap').innerHTML = data.pagination || '';
+
+            if (data.price_range && typeof data.price_range.min === 'number' && typeof data.price_range.max === 'number') {
                 updateCatalogPriceRange(data.price_range.min, data.price_range.max);
             }
 
@@ -653,10 +666,11 @@
                 window.scrollTo({ top: y, behavior: 'smooth' });
             }
         })
-        .catch(err => {
+        .catch(function (err) {
             console.error('Filtering failed:', err);
             document.getElementById('productGrid').innerHTML =
                 '<div class="col-span-full text-center py-16"><p class="text-red-500">Something went wrong. Please try again.</p></div>';
+            document.getElementById('paginationWrap').innerHTML = '';
         });
     }
 

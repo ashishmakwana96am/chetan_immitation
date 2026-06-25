@@ -23,13 +23,13 @@ class ShopCategoryController extends Controller
             $filters = [];
             $redirect = false;
 
-            if ($slug) {
+            if ($slug && !($request->has('sub_category') && $request->input('sub_category'))) {
                 $filters['category'] = $slug;
                 $redirect = true;
             }
 
-            if ($request->has('sub_category') && $request->get('sub_category')) {
-                $filters['sub_category'] = $request->get('sub_category');
+            if ($request->filled('sub_category')) {
+                $filters['sub_category'] = $request->input('sub_category');
                 $redirect = true;
             }
 
@@ -62,9 +62,6 @@ class ShopCategoryController extends Controller
                         ->first();
                     if ($matchingSubCategory) {
                         $filters['sub_category'] = $matchingSubCategory->slug;
-                        if ($matchingSubCategory->category) {
-                            $filters['category'] = $matchingSubCategory->category->slug;
-                        }
                     }
                 }
 
@@ -107,13 +104,13 @@ class ShopCategoryController extends Controller
     public function filter(Request $request)
     {
         session()->put('shop_filters', [
-            'category' => $request->get('category'),
-            'sub_category' => $request->get('sub_category'),
-            'min_price' => $request->get('min_price'),
-            'max_price' => $request->get('max_price'),
-            'size' => $request->get('size'),
-            'sort' => $request->get('sort'),
-            'search' => $request->get('search'),
+            'category' => $request->input('category'),
+            'sub_category' => $request->input('sub_category'),
+            'min_price' => $request->input('min_price'),
+            'max_price' => $request->input('max_price'),
+            'size' => $request->input('size'),
+            'sort' => $request->input('sort'),
+            'search' => $request->input('search'),
         ]);
 
         $data = $this->getFilteredProducts();
@@ -257,42 +254,32 @@ class ShopCategoryController extends Controller
 
         $categorySlugs = [];
         if (!empty($filters['category'])) {
-            $categorySlugs = explode(',', $filters['category']);
+            $categorySlugs = array_values(array_filter(array_map('trim', explode(',', $filters['category']))));
         } elseif ($slug) {
             $categorySlugs = [$slug];
         }
 
+        $subSlugs = [];
+        if (!empty($filters['sub_category'])) {
+            $subSlugs = array_values(array_filter(array_map('trim', explode(',', $filters['sub_category']))));
+        }
+
+        $catIds = collect();
         if (!empty($categorySlugs)) {
             $catIds = Category::whereIn('slug', $categorySlugs)
                 ->where('status', Category::STATUS_ACTIVE)
                 ->pluck('id');
-            if ($catIds->isNotEmpty()) {
-                $query->whereIn('category_id', $catIds);
-            }
         }
 
-        if (!empty($filters['sub_category'])) {
-            $subSlugs = explode(',', $filters['sub_category']);
-            $subIds = SubCategory::whereIn('slug', $subSlugs)->pluck('id');
+        $subIds = collect();
+        if (!empty($subSlugs)) {
+            $subIds = SubCategory::whereIn('slug', $subSlugs)
+                ->where('status', SubCategory::STATUS_ACTIVE)
+                ->pluck('id');
+        }
 
-            if ($subIds->isNotEmpty()) {
-                $subHasProducts = (clone $query)->whereIn('sub_category_id', $subIds)->exists();
-
-                if ($subHasProducts) {
-                    $query->whereIn('sub_category_id', $subIds);
-                } else {
-                    if (empty($categorySlugs)) {
-                        $parentCatIds = SubCategory::whereIn('id', $subIds)
-                            ->pluck('category_id')
-                            ->filter()
-                            ->unique();
-
-                        if ($parentCatIds->isNotEmpty()) {
-                            $query->whereIn('category_id', $parentCatIds);
-                        }
-                    }
-                }
-            }
+        if ($catIds->isNotEmpty() || $subIds->isNotEmpty()) {
+            $this->applyCategorySubCategoryFilters($query, $catIds, $subIds);
         }
 
         if (!empty($filters['search'])) {
@@ -357,6 +344,72 @@ class ShopCategoryController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * Apply category / sub-category filters with OR logic.
+     * Sub-category with no products falls back to its parent category products.
+     * If both sub and parent category have no products, that selection matches nothing.
+     */
+    private function applyCategorySubCategoryFilters($query, $catIds, $subIds)
+    {
+        $subCategories = $subIds->isNotEmpty()
+            ? SubCategory::whereIn('id', $subIds)->get(['id', 'category_id'])
+            : collect();
+
+        $subProductCounts = $subIds->isNotEmpty()
+            ? Product::where('status', Product::STATUS_ACTIVE)
+                ->whereIn('sub_category_id', $subIds)
+                ->selectRaw('sub_category_id, COUNT(*) as total')
+                ->groupBy('sub_category_id')
+                ->pluck('total', 'sub_category_id')
+            : collect();
+
+        $parentCatIds = $subCategories->pluck('category_id')->filter()->unique()->values();
+        $catProductCounts = $parentCatIds->isNotEmpty()
+            ? Product::where('status', Product::STATUS_ACTIVE)
+                ->whereIn('category_id', $parentCatIds)
+                ->selectRaw('category_id, COUNT(*) as total')
+                ->groupBy('category_id')
+                ->pluck('total', 'category_id')
+            : collect();
+
+        $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts, $catProductCounts) {
+            $applied = false;
+
+            if ($catIds->isNotEmpty()) {
+                $q->whereIn('category_id', $catIds);
+                $applied = true;
+            }
+
+            foreach ($subCategories as $subCategory) {
+                $branch = function ($subQ) use ($subCategory, $subProductCounts, $catProductCounts) {
+                    $subCount = (int) ($subProductCounts[$subCategory->id] ?? 0);
+
+                    if ($subCount > 0) {
+                        $subQ->where('sub_category_id', $subCategory->id);
+                        return;
+                    }
+
+                    if ($subCategory->category_id) {
+                        $catCount = (int) ($catProductCounts[$subCategory->category_id] ?? 0);
+                        if ($catCount > 0) {
+                            $subQ->where('category_id', $subCategory->category_id);
+                            return;
+                        }
+                    }
+
+                    $subQ->whereRaw('1 = 0');
+                };
+
+                if ($applied) {
+                    $q->orWhere($branch);
+                } else {
+                    $q->where($branch);
+                    $applied = true;
+                }
+            }
+        });
     }
 
     private function getSizes()
