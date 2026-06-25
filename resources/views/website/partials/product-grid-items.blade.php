@@ -37,6 +37,16 @@
         @endif
         <a class="product-detail-link" href="{{ $detailUrl }}">
             <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+             {{-- Rating Badge --}}
+            <div
+                class="absolute bottom-3 left-3 z-20 backdrop-blur-md bg-white/70 border border-white/60 rounded-lg shadow-sm px-2 py-1">
+                <div class="flex items-center font-medium text-[#131615]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="#B4771E" aria-hidden="true" style="flex-shrink:0; display:inline-block; vertical-align:middle; margin-top:-1px;">
+                        <path d="m512 197.816-186.039-12.231L255.898 9.569l-70.063 176.016L0 197.816l142.534 121.026-46.772 183.589L255.898 401.21l160.137 101.221-46.772-183.589z"/>
+                    </svg>
+                  <span class="text-[13px] leading-[13px] ml-2 mt-1">4.1</span>
+                </div>
+            </div>
         </a>
     </div>
     <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
@@ -52,6 +62,7 @@
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
        </svg>
     </button>
+ 
     <div class="p-4 2xl:p-[25px]  flex-1 flex flex-col">
         <div class="flex justify-between flex-col  h-full">
             <div>
