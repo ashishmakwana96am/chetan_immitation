@@ -722,11 +722,13 @@ class CheckoutController extends Controller
 
         $coupon = Coupon::where('code', $request->code)
             ->where('status', Coupon::STATUS_ACTIVE)
-            ->where(function($q) {
-                $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+            ->where(function ($q) {
+                $q->whereNull('start_date')
+                ->orWhereDate('start_date', '<=', today());
             })
-            ->where(function($q) {
-                $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                ->orWhereDate('end_date', '>=', today());
             })
             ->first();
 
