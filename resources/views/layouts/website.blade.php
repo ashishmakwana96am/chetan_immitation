@@ -9,8 +9,8 @@
         <meta name="robots" content="noindex, nofollow">
     @endif
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
-    <!-- Tailwind CSS (compiled) -->
-    <link rel="stylesheet" href="{{ asset('website/assets/css/style.css') }}">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Owl Carousel CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
