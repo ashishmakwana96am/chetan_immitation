@@ -348,8 +348,10 @@ class ShopCategoryController extends Controller
 
     /**
      * Apply category / sub-category filters with OR logic.
-     * Sub-category with no products falls back to its parent category products.
-     * If both sub and parent category have no products, that selection matches nothing.
+     * Full category selection shows all products in that category.
+     * Partial sub-category selection shows only selected sub products;
+     * empty subs fall back to category products not assigned to any sub.
+     * Products in unchecked subs of the same category are always excluded.
      */
     private function applyCategorySubCategoryFilters($query, $catIds, $subIds)
     {
@@ -366,15 +368,39 @@ class ShopCategoryController extends Controller
             : collect();
 
         $parentCatIds = $subCategories->pluck('category_id')->filter()->unique()->values();
-        $catProductCounts = $parentCatIds->isNotEmpty()
+
+        $orphanProductCounts = $parentCatIds->isNotEmpty()
             ? Product::where('status', Product::STATUS_ACTIVE)
                 ->whereIn('category_id', $parentCatIds)
+                ->whereNull('sub_category_id')
                 ->selectRaw('category_id, COUNT(*) as total')
                 ->groupBy('category_id')
                 ->pluck('total', 'category_id')
             : collect();
 
-        $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts, $catProductCounts) {
+        $partialCategoryIds = collect();
+        foreach ($subCategories->groupBy('category_id') as $categoryId => $selectedSubsInCat) {
+            if (!$categoryId || $catIds->contains($categoryId)) {
+                continue;
+            }
+
+            $totalSubsInCat = SubCategory::where('category_id', $categoryId)
+                ->where('status', SubCategory::STATUS_ACTIVE)
+                ->count();
+
+            if ($totalSubsInCat > 0 && $selectedSubsInCat->count() < $totalSubsInCat) {
+                $partialCategoryIds->push($categoryId);
+            }
+        }
+
+        $excludedSubIds = $partialCategoryIds->isNotEmpty()
+            ? SubCategory::whereIn('category_id', $partialCategoryIds)
+                ->where('status', SubCategory::STATUS_ACTIVE)
+                ->whereNotIn('id', $subIds)
+                ->pluck('id')
+            : collect();
+
+        $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts, $orphanProductCounts) {
             $applied = false;
 
             if ($catIds->isNotEmpty()) {
@@ -383,7 +409,7 @@ class ShopCategoryController extends Controller
             }
 
             foreach ($subCategories as $subCategory) {
-                $branch = function ($subQ) use ($subCategory, $subProductCounts, $catProductCounts) {
+                $branch = function ($subQ) use ($subCategory, $subProductCounts, $orphanProductCounts) {
                     $subCount = (int) ($subProductCounts[$subCategory->id] ?? 0);
 
                     if ($subCount > 0) {
@@ -392,9 +418,11 @@ class ShopCategoryController extends Controller
                     }
 
                     if ($subCategory->category_id) {
-                        $catCount = (int) ($catProductCounts[$subCategory->category_id] ?? 0);
-                        if ($catCount > 0) {
-                            $subQ->where('category_id', $subCategory->category_id);
+                        $orphanCount = (int) ($orphanProductCounts[$subCategory->category_id] ?? 0);
+
+                        if ($orphanCount > 0) {
+                            $subQ->where('category_id', $subCategory->category_id)
+                                ->whereNull('sub_category_id');
                             return;
                         }
                     }
@@ -410,6 +438,13 @@ class ShopCategoryController extends Controller
                 }
             }
         });
+
+        if ($excludedSubIds->isNotEmpty()) {
+            $query->where(function ($q) use ($excludedSubIds) {
+                $q->whereNull('sub_category_id')
+                    ->orWhereNotIn('sub_category_id', $excludedSubIds);
+            });
+        }
     }
 
     private function getSizes()
