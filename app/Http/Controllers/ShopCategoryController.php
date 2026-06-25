@@ -222,7 +222,8 @@ class ShopCategoryController extends Controller
                 $query->latest('created_at');
                 break;
             case 'popular':
-                $query->orderByDesc('reviews_count');
+                $query->orderByRaw('(SELECT COUNT(*) FROM product_reviews WHERE product_reviews.product_id = products.id) DESC')
+                      ->orderByRaw('(SELECT COALESCE(AVG(rating), 0) FROM product_reviews WHERE product_reviews.product_id = products.id) DESC');
                 break;
             default:
                 $query->latest();
