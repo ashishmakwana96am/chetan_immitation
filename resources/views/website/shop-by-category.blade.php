@@ -63,7 +63,7 @@
                         $selectedSubs = !empty($sessionFilters['sub_category']) ? explode(',', $sessionFilters['sub_category']) : [];
                         $catSubSlugs = $cat->subCategories->pluck('slug')->all();
                         $selectedSubsInCat = array_values(array_intersect($selectedSubs, $catSubSlugs));
-                        $allSubsSelected = empty($catSubSlugs) || count($selectedSubsInCat) === count($catSubSlugs);
+                        $allSubsSelected = empty($catSubSlugs) || empty($selectedSubs) || count($selectedSubsInCat) === count($catSubSlugs);
                         $isCatChecked = in_array($cat->slug, $selectedCats) && $allSubsSelected;
                         $shouldSelectAllSubs = $isCatChecked && empty($selectedSubs);
                         $isCatOpen = $isCatChecked || !empty($selectedSubsInCat);
@@ -629,7 +629,8 @@
         document.getElementById('productGrid').innerHTML =
             '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
 
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
         fetch('{{ route('shop.filter') }}?page=' + page, {
             method: 'POST',
@@ -642,10 +643,16 @@
             body: JSON.stringify(filterData)
         })
         .then(function (r) {
-            if (!r.ok) {
-                throw new Error('Filter request failed');
+            if (r.status === 419) {
+                window.location.reload();
+                return Promise.reject(new Error('csrf_expired'));
             }
-            return r.json();
+            return r.json().then(function (data) {
+                if (!r.ok) {
+                    return Promise.reject(new Error(data.message || 'Server error ' + r.status));
+                }
+                return data;
+            });
         })
         .then(function (data) {
             if (!data || typeof data.html !== 'string') {
@@ -667,9 +674,15 @@
             }
         })
         .catch(function (err) {
+            if (err && err.message === 'csrf_expired') return;
+
             console.error('Filtering failed:', err);
             document.getElementById('productGrid').innerHTML =
-                '<div class="col-span-full text-center py-16"><p class="text-red-500">Something went wrong. Please try again.</p></div>';
+                '<div class="col-span-full text-center py-16">' +
+                    '<svg class="mx-auto w-10 h-10 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>' +
+                    '<p class="text-gray-500 font-medium">Could not load products.</p>' +
+                    '<button onclick="fetchProducts(1)" class="mt-3 px-4 py-2 text-sm border border-[#B4771E] text-[#B4771E] rounded hover:bg-[#B4771E] hover:text-white transition">Try Again</button>' +
+                '</div>';
             document.getElementById('paginationWrap').innerHTML = '';
         });
     }

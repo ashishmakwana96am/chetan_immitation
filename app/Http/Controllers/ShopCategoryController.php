@@ -103,29 +103,46 @@ class ShopCategoryController extends Controller
 
     public function filter(Request $request)
     {
-        session()->put('shop_filters', [
-            'category' => $request->input('category'),
-            'sub_category' => $request->input('sub_category'),
-            'min_price' => $request->input('min_price'),
-            'max_price' => $request->input('max_price'),
-            'size' => $request->input('size'),
-            'sort' => $request->input('sort'),
-            'search' => $request->input('search'),
-        ]);
+        try {
+            session()->put('shop_filters', [
+                'category'    => $request->input('category'),
+                'sub_category'=> $request->input('sub_category'),
+                'min_price'   => $request->input('min_price'),
+                'max_price'   => $request->input('max_price'),
+                'size'        => $request->input('size'),
+                'sort'        => $request->input('sort'),
+                'search'      => $request->input('search'),
+            ]);
 
-        $data = $this->getFilteredProducts();
+            if (auth('customer')->check()) {
+                auth('customer')->user()->load('wishlists');
+            }
 
-        $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
+            $data = $this->getFilteredProducts();
 
-        return response()->json([
-            'html' => $gridHtml,
-            'pagination' => (string) $data['products']->links('vendor.pagination.tailwind'),
-            'count' => $data['products']->total(),
-            'price_range' => [
-                'min' => $data['catalogMinPrice'],
-                'max' => $data['catalogMaxPrice'],
-            ],
-        ]);
+            $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
+
+            return response()->json([
+                'html'        => $gridHtml,
+                'pagination'  => (string) $data['products']->links('vendor.pagination.tailwind'),
+                'count'       => $data['products']->total(),
+                'price_range' => [
+                    'min' => $data['catalogMinPrice'],
+                    'max' => $data['catalogMaxPrice'],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('ShopCategoryController@filter error: ' . $e->getMessage(), [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Filter failed. Please try again.',
+            ], 500);
+        }
     }
 
     private function getFilteredProducts($slug = null)
@@ -347,11 +364,21 @@ class ShopCategoryController extends Controller
     }
 
     /**
-     * Apply category / sub-category filters with OR logic.
-     * Full category selection shows all products in that category.
-     * Partial sub-category selection shows only selected sub products;
-     * empty subs fall back to category products not assigned to any sub.
-     * Products in unchecked subs of the same category are always excluded.
+     * Apply category / sub-category filters.
+     *
+     * Rules:
+     * - Only category selected (no subs): show all products of that category.
+     * - Subcategory(ies) selected:
+     *     - If selected sub has products → show those sub's products only.
+     *     - If selected sub has NO products → fallback: show parent category's
+     *       products that have NO sub_category_id assigned.
+     *     - If neither the sub nor the parent category (unassigned) has products
+     *       → show nothing (whereRaw('1 = 0')).
+     * - Multiple subs selected → OR all the above conditions together.
+     * - If both full categories AND subs are selected:
+     *     - Full-category entries show ALL products of that category.
+     *     - Sub entries apply per-sub logic above.
+     *     - Combined with OR.
      */
     private function applyCategorySubCategoryFilters($query, $catIds, $subIds)
     {
@@ -368,7 +395,6 @@ class ShopCategoryController extends Controller
             : collect();
 
         $parentCatIds = $subCategories->pluck('category_id')->filter()->unique()->values();
-
         $orphanProductCounts = $parentCatIds->isNotEmpty()
             ? Product::where('status', Product::STATUS_ACTIVE)
                 ->whereIn('category_id', $parentCatIds)
@@ -376,28 +402,6 @@ class ShopCategoryController extends Controller
                 ->selectRaw('category_id, COUNT(*) as total')
                 ->groupBy('category_id')
                 ->pluck('total', 'category_id')
-            : collect();
-
-        $partialCategoryIds = collect();
-        foreach ($subCategories->groupBy('category_id') as $categoryId => $selectedSubsInCat) {
-            if (!$categoryId || $catIds->contains($categoryId)) {
-                continue;
-            }
-
-            $totalSubsInCat = SubCategory::where('category_id', $categoryId)
-                ->where('status', SubCategory::STATUS_ACTIVE)
-                ->count();
-
-            if ($totalSubsInCat > 0 && $selectedSubsInCat->count() < $totalSubsInCat) {
-                $partialCategoryIds->push($categoryId);
-            }
-        }
-
-        $excludedSubIds = $partialCategoryIds->isNotEmpty()
-            ? SubCategory::whereIn('category_id', $partialCategoryIds)
-                ->where('status', SubCategory::STATUS_ACTIVE)
-                ->whereNotIn('id', $subIds)
-                ->pluck('id')
             : collect();
 
         $query->where(function ($q) use ($catIds, $subCategories, $subProductCounts, $orphanProductCounts) {
@@ -438,13 +442,6 @@ class ShopCategoryController extends Controller
                 }
             }
         });
-
-        if ($excludedSubIds->isNotEmpty()) {
-            $query->where(function ($q) use ($excludedSubIds) {
-                $q->whereNull('sub_category_id')
-                    ->orWhereNotIn('sub_category_id', $excludedSubIds);
-            });
-        }
     }
 
     private function getSizes()
