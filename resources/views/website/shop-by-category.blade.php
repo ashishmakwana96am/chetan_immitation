@@ -585,7 +585,15 @@
         const uniqueCats = [...new Set(cats)];
 
         const subs = [];
-        document.querySelectorAll('.subcategory-checkbox:checked').forEach(cb => subs.push(cb.value));
+        document.querySelectorAll('.subcategory-checkbox:checked').forEach(cb => {
+            const parentCatId = cb.dataset.categoryId;
+            const parentIsChecked = document.querySelector(
+                '.category-checkbox[data-category-id="' + parentCatId + '"]:checked'
+            );
+            if (!parentIsChecked) {
+                subs.push(cb.value);
+            }
+        });
         const uniqueSubs = [...new Set(subs)];
 
         const minPrice = document.getElementById('minPriceInput').value;

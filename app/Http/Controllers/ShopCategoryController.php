@@ -271,19 +271,32 @@ class ShopCategoryController extends Controller
                 ->pluck('id');
             if ($catIds->isNotEmpty()) {
                 $query->whereIn('category_id', $catIds);
-            } elseif ($slug) {
-                abort(404);
+                if (!(clone $query)->exists()) {
+                    $query = Product::where('status', Product::STATUS_ACTIVE);
+                }
             }
         }
 
         if (!empty($filters['sub_category'])) {
             $subSlugs = explode(',', $filters['sub_category']);
             $subIds = SubCategory::whereIn('slug', $subSlugs)->pluck('id');
+
             if ($subIds->isNotEmpty()) {
-                $query->where(function ($q) use ($subIds) {
-                    $q->whereIn('sub_category_id', $subIds)
-                      ->orWhereNull('sub_category_id');
-                });
+                $subHasProducts = (clone $query)->whereIn('sub_category_id', $subIds)->exists();
+
+                if ($subHasProducts) {
+                    $query->whereIn('sub_category_id', $subIds);
+                } else {
+                    if (empty($categorySlugs)) {
+                        $parentCatIds = SubCategory::whereIn('id', $subIds)
+                            ->pluck('category_id')
+                            ->filter()
+                            ->unique();
+                        if ($parentCatIds->isNotEmpty()) {
+                            $query->whereIn('category_id', $parentCatIds);
+                        }
+                    }
+                }
             }
         }
 
