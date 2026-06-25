@@ -45,7 +45,7 @@ class GenerateBarcodesForExistingProducts extends Command
 
         foreach ($productsWithoutBarcode as $product) {
             try {
-                $barcode = Product::generateUniqueBarcode();
+                $barcode = Product::generateUniqueBarcode($product->category_id);
                 $product->barcode = $barcode;
                 $product->save();
                 $successCount++;

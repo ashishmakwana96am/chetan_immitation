@@ -287,15 +287,24 @@ class Product extends Model
 
         static::creating(function ($product) {
             if (empty($product->barcode)) {
-                $product->barcode = self::generateUniqueBarcode();
+                $product->barcode = self::generateUniqueBarcode($product->category_id);
             }
         });
     }
 
-    public static function generateUniqueBarcode()
+    public static function generateUniqueBarcode($categoryId = null)
     {
+        $prefix = 'PRD';
+
+        if ($categoryId) {
+            $category = Category::find($categoryId);
+            if ($category && $category->slug) {
+                $prefix = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $category->slug), 0, 4));
+            }
+        }
+
         do {
-            $barcode = 'PRD' . str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+            $barcode = $prefix . str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
         } while (self::where('barcode', $barcode)->exists());
 
         return $barcode;
