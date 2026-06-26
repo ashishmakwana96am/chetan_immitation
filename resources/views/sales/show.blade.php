@@ -241,9 +241,10 @@
                         <span class="sale-info-label">Razorpay Order ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
                             <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->razorpay_order_id }}</code>
-                            <button type="button" class="btn btn-sm btn-label-secondary" onclick="copyToClipboard('razorpayOrderId', this)" title="Copy">
-                                <i class="ti ti-copy"></i>
-                            </button>
+                            <i class="ti ti-copy text-primary"
+                            style="cursor: pointer;"
+                            onclick="copyToClipboard('razorpayOrderId', this)"
+                            title="Copy"></i>
                         </div>
                     </div>
                     @endif
@@ -253,9 +254,10 @@
                         <span class="sale-info-label">Razorpay Payment ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
                             <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->razorpay_payment_id }}</code>
-                            <button type="button" class="btn btn-sm btn-label-secondary" onclick="copyToClipboard('razorpayPaymentId', this)" title="Copy">
-                                <i class="ti ti-copy"></i>
-                            </button>
+                            <i class="ti ti-copy text-primary"
+                            style="cursor: pointer;"
+                            onclick="copyToClipboard('razorpayPaymentId', this)"
+                            title="Copy"></i>
                         </div>
                     </div>
                     @endif

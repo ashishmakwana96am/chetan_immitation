@@ -26,7 +26,7 @@
 
         <!-- Logo -->
         <div class="app-brand mb-4" style="overflow: visible;">
-          <a href="{{ url('/') }}" class="app-brand-link gap-2" style="width: 100%; overflow: visible;">
+          <a href="{{ route('admin.login') }}" class="app-brand-link gap-2" style="width: 100%; overflow: visible;">
             <span class="app-brand-logo ecom" style="display: flex; justify-content: flex-start; width: 100%; overflow: visible;">
               <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 160px; height: auto; display: block;" />
             </span>
