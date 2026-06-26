@@ -577,6 +577,31 @@ class ProductController extends Controller
         return response()->json($subCategories);
     }
 
+    public function search(Request $request)
+    {
+        $this->authorize('view products');
+
+        $query = Product::where('status', 1)
+            ->when($request->q, function ($q) use ($request) {
+                $q->where(function ($sub) use ($request) {
+                    $sub->where('name', 'like', '%' . $request->q . '%')
+                        ->orWhere('sku', 'like', '%' . $request->q . '%');
+                });
+            })
+            ->orderBy('name')
+            ->limit(50)
+            ->get(['id', 'name', 'sku']);
+
+        return response()->json($query->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'text' => $product->name . ' (' . $product->sku . ')',
+                'name' => $product->name,
+                'sku' => $product->sku,
+            ];
+        }));
+    }
+
     private function saveBase64Image($base64Data, $subDir = 'products')
     {
         if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {

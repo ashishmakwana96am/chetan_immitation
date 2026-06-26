@@ -43,6 +43,11 @@ class PurchaseInvoiceController extends Controller
             ->when($request->payment_status, function($q) use ($request) {
                 $q->where('payment_status', $request->payment_status);
             })
+            ->when($request->product_id, function($q) use ($request) {
+                $q->whereHas('items', function($sub) use ($request) {
+                    $sub->where('product_id', $request->product_id);
+                });
+            })
             ->when($request->start_date, function($q) use ($request) {
                 $q->whereDate('created_at', '>=', $request->start_date);
             })

@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
     <style>
         #purchasesTable tbody tr.group-header td {
             background-color: #f0f2f5;
@@ -48,7 +49,7 @@
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
                     <i class="ti ti-filter me-1"></i> Filter
                 </button>
-                <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
+                <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
                     <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
 
                     {{-- Supplier --}}
@@ -80,6 +81,14 @@
                             <option value="">All Payments</option>
                             <option value="1">Pending</option>
                             <option value="2">Paid</option>
+                        </select>
+                    </div>
+
+                    {{-- Product --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
+                        <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
+                            <option value="">All Products</option>
                         </select>
                     </div>
 
@@ -133,8 +142,39 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
         $(document).ready(function () {
+            // Initialize Select2 for product search
+            $('#filter-product').select2({
+                ajax: {
+                    url: '{{ route('admin.products.search') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data
+                        };
+                    },
+                    cache: true
+                },
+                minimumInputLength: 1,
+                placeholder: 'Search products...',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#filterDropdownContainer')
+            });
+
+            // Prevent Bootstrap dropdown from closing when clicking on Select2
+            $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
+                e.stopPropagation();
+            });
+
             const table = $('#purchasesTable').DataTable({
                 responsive : false,
                 order      : [[8, 'desc']],
@@ -147,6 +187,7 @@
                         d.supplier_id = $('#filter-supplier').val();
                         d.status = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
+                        d.product_id = $('#filter-product').val();
                         d.start_date = $('#filter-start-date').val();
                         d.end_date = $('#filter-end-date').val();
                     }
@@ -317,6 +358,7 @@
                 $('#filter-supplier').val('');
                 $('#filter-status').val('');
                 $('#filter-payment-status').val('');
+                $('#filter-product').val('').trigger('change');
                 $('#filter-start-date').val('');
                 $('#filter-end-date').val('');
                 window.refreshTable();
