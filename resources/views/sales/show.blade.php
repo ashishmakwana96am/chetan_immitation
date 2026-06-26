@@ -498,7 +498,6 @@ function copyToClipboard(elementId, button) {
 
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(() => {
-            showCopySuccess(button);
             toastr.success('Copied to clipboard');
         }).catch(() => {
             fallbackCopyTextToClipboard(text, button);
@@ -519,25 +518,12 @@ function fallbackCopyTextToClipboard(text, button) {
 
     try {
         document.execCommand('copy');
-        showCopySuccess(button);
         toastr.success('Copied to clipboard');
     } catch (err) {
         toastr.error('Failed to copy');
     }
 
     document.body.removeChild(textArea);
-}
-
-function showCopySuccess(button) {
-    const originalHtml = button.innerHTML;
-    button.innerHTML = '<i class="ti ti-check"></i>';
-    button.classList.add('btn-success');
-    button.classList.remove('btn-label-secondary', 'text-primary');
-    setTimeout(() => {
-        button.innerHTML = originalHtml;
-        button.classList.remove('btn-success');
-        button.classList.add('btn-label-secondary', 'text-primary');
-    }, 1500);
 }
 
 $(document).ready(function () {
