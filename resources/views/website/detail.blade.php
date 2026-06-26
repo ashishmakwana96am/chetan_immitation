@@ -117,7 +117,7 @@
                 @endphp
                 <div class="flex items-center gap-2 mt-3">
                     @include('website.partials.star-rating', ['rating' => $avgRating, 'size' => 'md'])
-                    <span class="text-[#757575] text-base md:text-xl mt-1">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
+                    <span class="text-[#757575] text-base md:text-xl !leading-[20px] mt-1">{{ number_format($avgRating, 1) }} ({{ $reviewCount }})</span>
                 </div>
 
                 @php

@@ -69,7 +69,7 @@
        </svg>
     </button>
  
-    <div class="p-4 2xl:p-[25px]  flex-1 flex flex-col">
+    <div class="p-4 2xl:p-[20px]  flex-1 flex flex-col">
         <div class="flex justify-between flex-col  h-full">
             <div>
                 <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
@@ -129,7 +129,7 @@
                 </div>
             </div>
             
-            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[28px] transition duration-300 rounded-sm {{ $stockQty < 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white' }}"
+            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[24px] transition duration-300 rounded-sm {{ $stockQty < 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white' }}"
                 data-product-id="{{ $product->id }}"
                 data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}"
                 {{ $stockQty < 1 ? 'disabled' : '' }}>
