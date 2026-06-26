@@ -492,26 +492,55 @@
 
 @section('page-js')
 <script>
-$(document).ready(function () {
+function copyToClipboard(elementId, button) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent.trim();
 
-    function copyToClipboard(elementId, button) {
-        const element = document.getElementById(elementId);
-        const text = element.textContent.trim();
+    if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(() => {
-            const originalHtml = button.innerHTML;
-            button.innerHTML = '<i class="ti ti-check"></i>';
-            button.classList.add('btn-success');
-            button.classList.remove('btn-label-secondary');
+            showCopySuccess(button);
             toastr.success('Copied to clipboard');
-            setTimeout(() => {
-                button.innerHTML = originalHtml;
-                button.classList.remove('btn-success');
-                button.classList.add('btn-label-secondary');
-            }, 1500);
         }).catch(() => {
-            toastr.error('Failed to copy');
+            fallbackCopyTextToClipboard(text, button);
         });
+    } else {
+        fallbackCopyTextToClipboard(text, button);
     }
+}
+
+function fallbackCopyTextToClipboard(text, button) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        document.execCommand('copy');
+        showCopySuccess(button);
+        toastr.success('Copied to clipboard');
+    } catch (err) {
+        toastr.error('Failed to copy');
+    }
+
+    document.body.removeChild(textArea);
+}
+
+function showCopySuccess(button) {
+    const originalHtml = button.innerHTML;
+    button.innerHTML = '<i class="ti ti-check"></i>';
+    button.classList.add('btn-success');
+    button.classList.remove('btn-label-secondary', 'text-primary');
+    setTimeout(() => {
+        button.innerHTML = originalHtml;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-label-secondary', 'text-primary');
+    }, 1500);
+}
+
+$(document).ready(function () {
 
     $('#change-sale-status').on('change', function () {
         const status  = $(this).val();
