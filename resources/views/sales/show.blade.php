@@ -112,17 +112,6 @@
                         data-confirm-data='{"payment_status":2}'>
                         <i class="ti ti-credit-card me-1"></i> Mark Paid
                     </button>
-                @else
-                    <button class="btn btn-label-warning"
-                        data-common-confirm="{{ route('admin.sales.status', $order) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Mark Payment Pending"
-                        data-confirm-text="Mark this sale's payment as pending?"
-                        data-confirm-btn="Yes, Mark Pending"
-                        data-confirm-btn-class="btn-warning"
-                        data-confirm-data='{"payment_status":1}'>
-                        <i class="ti ti-credit-card-off me-1"></i> Mark Pending
-                    </button>
                 @endif
             @endcan
 

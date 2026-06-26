@@ -12,9 +12,9 @@
             @endphp
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.purchases.pdf', $purchase) }}" class="btn btn-label-info" target="_blank">
+            <!-- <a href="{{ route('admin.purchases.pdf', $purchase) }}" class="btn btn-label-info" target="_blank">
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
-            </a>
+            </a> -->
             @can('edit purchases')
                 @if($purchase->status == 1)
                     <a href="{{ route('admin.purchases.edit', $purchase) }}" class="btn btn-label-info">
