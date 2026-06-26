@@ -11,9 +11,12 @@ class Setting extends Model
     public static function getValue(string $key, mixed $default = null): mixed
     {
         $setting = self::where('key', $key)->first();
-        if (!$setting) return $default;
+        if (! $setting) {
+            return $default;
+        }
         $value = $setting->value;
         $decoded = json_decode($value, true);
+
         return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
     }
 

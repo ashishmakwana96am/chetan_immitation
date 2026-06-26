@@ -545,10 +545,7 @@
             @if($couponDiscount > 0 && $couponCode)
             <tr class="coupon-row">
                 <td colspan="6" class="text-right">
-                    Coupon Discount &nbsp; {{ $couponCode }}
-                    @if($order->coupon->discount_type === 'percentage')
-                        ({{ number_format($order->coupon->discount_value, 0) }}% off)
-                    @endif
+                    Discount
                 </td>
                 <td class="text-right">-{{ format_price($couponDiscount) }}</td>
             </tr>

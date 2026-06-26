@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
+    use SoftDeletes;
+
     const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
@@ -25,7 +29,7 @@ class Category extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('uploads/' . $this->image) : null;
+        return $this->image ? asset('uploads/'.$this->image) : null;
     }
 
     public function createdBy()
@@ -35,11 +39,11 @@ class Category extends Model
 
     public function subCategories()
     {
-        return $this->hasMany(SubCategory::class)->where('status', SubCategory::STATUS_ACTIVE);
+        return $this->hasMany(SubCategory::class)->withTrashed()->where('status', SubCategory::STATUS_ACTIVE);
     }
 
     public function products()
     {
-        return $this->hasMany(Product::class)->where('status', Product::STATUS_ACTIVE);
+        return $this->hasMany(Product::class)->withTrashed()->where('status', Product::STATUS_ACTIVE);
     }
 }

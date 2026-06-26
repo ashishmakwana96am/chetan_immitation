@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Location extends Model
 {
     const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
@@ -32,6 +33,6 @@ class Location extends Model
 
     public function orders()
     {
-        return $this->hasMany(\App\Models\Order::class);
+        return $this->hasMany(Order::class);
     }
 }

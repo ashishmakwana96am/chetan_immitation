@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Customer extends Authenticatable
 {
-    const STATUS_ACTIVE   = 1;
+    use SoftDeletes;
+
+    const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
@@ -29,8 +33,8 @@ class Customer extends Authenticatable
     protected function casts(): array
     {
         return [
-            'is_website'     => 'boolean',
-            'password'       => 'hashed',
+            'is_website' => 'boolean',
+            'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];
     }

@@ -1193,6 +1193,12 @@ function validateAddressForm() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const successMsg = sessionStorage.getItem('checkout_address_success');
+    if (successMsg) {
+        showCheckoutToast(successMsg, true);
+        sessionStorage.removeItem('checkout_address_success');
+    }
+
     document.querySelectorAll('.addr-input').forEach(input => {
         input.addEventListener('input', function() {
             setAddrFieldError(this.getAttribute('name'), '');
@@ -1354,40 +1360,8 @@ function setAddressAsDefault(addressId, event) {
     .then(r => r.json())
     .then(data => {
         if (data.status === 'success') {
-            showCheckoutToast(data.message || 'Default address updated.');
-
-            const oldDefault = document.querySelector('.default-address-card');
-            if (oldDefault) {
-                oldDefault.classList.remove('default-address-card');
-                const badge = oldDefault.querySelector('.default-badge');
-                if (badge) badge.remove();
-
-                const oldDefaultId = oldDefault.dataset.addressId;
-                const dropdownMenu = oldDefault.querySelector('.address-dropdown');
-                if (dropdownMenu && !dropdownMenu.querySelector('.set-default-btn')) {
-                    const btnHtml = `<button onclick="setAddressAsDefault(${oldDefaultId}, event)" class="w-full text-left px-4 py-2 text-sm text-[#131615] hover:bg-gray-100 transition set-default-btn">Set as Default</button>`;
-                    dropdownMenu.insertAdjacentHTML('afterbegin', btnHtml);
-                }
-            }
-
-            const newDefault = document.querySelector(`.address-card[data-address-id="${addressId}"]`);
-            if (newDefault) {
-                newDefault.classList.add('default-address-card');
-
-                const namePhoneSpan = newDefault.querySelector('.customer-name-phone');
-                if (namePhoneSpan && !newDefault.querySelector('.default-badge')) {
-                    namePhoneSpan.insertAdjacentHTML('afterend', `
-                        <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
-                            Default
-                        </span>
-                    `);
-                }
-
-                const setDefaultBtn = newDefault.querySelector('.set-default-btn');
-                if (setDefaultBtn) setDefaultBtn.remove();
-            }
-
-            refreshAddressSelection(addressId);
+            sessionStorage.setItem('checkout_address_success', data.message || 'Default address updated successfully.');
+            window.location.reload();
         } else {
             showCheckoutToast(data.message || 'Failed to update default address.', false);
         }
@@ -1404,12 +1378,21 @@ function deleteAddress(addressId, event) {
         event.preventDefault();
     }
 
-    if (!confirm('Are you sure you want to delete this address?')) {
-        return;
-    }
-
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
+    if (typeof window.showDeleteConfirm === 'function') {
+        window.showDeleteConfirm(() => {
+            doDeleteAddress(addressId, csrfToken);
+        });
+    } else {
+        // Fallback if global confirm not available
+        if (confirm('Are you sure you want to delete this address?')) {
+            doDeleteAddress(addressId, csrfToken);
+        }
+    }
+}
+
+function doDeleteAddress(addressId, csrfToken) {
     fetch('{{ route('checkout.address.delete') }}', {
         method: 'DELETE',
         headers: {
@@ -1459,7 +1442,7 @@ function deleteAddress(addressId, event) {
                 const namePhoneSpan = latestCard.querySelector('.customer-name-phone');
                 if (namePhoneSpan && !latestCard.querySelector('.default-badge')) {
                     namePhoneSpan.insertAdjacentHTML('afterend', `
-                        <span class="bg-[#B4771E] text-white text-sm sm:text-base lg:text-lg px-2 sm:px-[15px] py-[6px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                        <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
                             Default
                         </span>
                     `);

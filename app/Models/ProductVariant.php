@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProductVariant extends Model
 {
     const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
@@ -21,7 +22,7 @@ class ProductVariant extends Model
     {
         return [
             'purchase_price' => 'decimal:2',
-            'sale_price'     => 'decimal:2',
+            'sale_price' => 'decimal:2',
         ];
     }
 

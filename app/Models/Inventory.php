@@ -17,7 +17,7 @@ class Inventory extends Model
     {
         return [
             'created_by' => 'integer',
-            'quantity'   => 'integer',
+            'quantity' => 'integer',
         ];
     }
 

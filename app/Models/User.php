@@ -9,9 +9,10 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [

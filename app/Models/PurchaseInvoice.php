@@ -3,14 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseInvoice extends Model
 {
+    use SoftDeletes;
+
     const STATUS_PENDING = 1;
+
     const STATUS_APPROVE = 2;
+
     const STATUS_DECLINE = 3;
 
     const PAYMENT_STATUS_PENDING = 1;
+
     const PAYMENT_STATUS_PAID = 2;
 
     protected $fillable = [
@@ -31,7 +37,7 @@ class PurchaseInvoice extends Model
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class);
+        return $this->belongsTo(Supplier::class)->withTrashed();
     }
 
     public function items()

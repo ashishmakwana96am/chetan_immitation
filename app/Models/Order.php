@@ -3,17 +3,26 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
+    use SoftDeletes;
+
     const STATUS_PENDING = 1;
+
     const STATUS_APPROVE = 2;
+
     const STATUS_SHIPPED = 3;
+
     const STATUS_OUT_FOR_DELIVERY = 4;
+
     const STATUS_DELIVERED = 5;
+
     const STATUS_DECLINE = 6;
 
     const PAYMENT_STATUS_PENDING = 1;
+
     const PAYMENT_STATUS_PAID = 2;
 
     protected $fillable = [
@@ -43,17 +52,17 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'final_amount'        => 'decimal:2',
-            'confirmed_at'        => 'datetime',
-            'shipped_at'          => 'datetime',
+            'final_amount' => 'decimal:2',
+            'confirmed_at' => 'datetime',
+            'shipped_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
-            'delivered_at'        => 'datetime',
+            'delivered_at' => 'datetime',
         ];
     }
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     public function customerAddress()

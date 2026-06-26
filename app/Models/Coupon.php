@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Coupon extends Model
 {
     const STATUS_ACTIVE = 1;
+
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
@@ -23,10 +24,10 @@ class Coupon extends Model
     ];
 
     protected $casts = [
-        'start_date'     => 'date',
-        'end_date'       => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'discount_value' => 'decimal:2',
-        'usage_limit'    => 'integer',
+        'usage_limit' => 'integer',
     ];
 
     public function createdBy()

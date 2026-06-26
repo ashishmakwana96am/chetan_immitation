@@ -13,7 +13,7 @@ class Module extends Model
         'route',
         'active_pattern',
         'permission',
-        'sort_order'
+        'sort_order',
     ];
 
     public function parent()

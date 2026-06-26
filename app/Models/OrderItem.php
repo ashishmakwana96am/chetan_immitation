@@ -20,10 +20,10 @@ class OrderItem extends Model
     protected function casts(): array
     {
         return [
-            'price'           => 'decimal:2',
-            'discount_value'  => 'decimal:2',
+            'price' => 'decimal:2',
+            'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
-            'total'           => 'decimal:2',
+            'total' => 'decimal:2',
         ];
     }
 
@@ -34,6 +34,6 @@ class OrderItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class)->withTrashed();
     }
 }
