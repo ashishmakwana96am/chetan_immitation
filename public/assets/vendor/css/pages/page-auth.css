@@ -29,7 +29,7 @@
   position: relative;
 }
 .authentication-wrapper.authentication-cover .authentication-inner .auth-cover-bg .auth-illustration {
-  max-height: 65%;
+  max-height: 100%;
   z-index: 1;
 }
 .authentication-wrapper.authentication-cover .authentication-inner .platform-bg {
@@ -93,7 +93,7 @@
   background-color: #fff;
 }
 .light-style .auth-cover-bg-color {
-  background-color: #f8f7fa;
+  /* background-color: #f8f7fa; */
 }
 
 .dark-style .authentication-wrapper.authentication-bg {
