@@ -88,7 +88,7 @@
 
             @can('download sales')
                 <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
-                    <i class="ti ti-file-type-pdf me-1"></i> PDF
+                    <i class="ti ti-file-type-pdf me-1"></i> Invoice
                 </a>
             @endcan
 
@@ -243,7 +243,7 @@
                             <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->razorpay_order_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
-                            onclick="copyToClipboard('razorpayOrderId', this)"
+                            onclick="copyToClipboard('razorpayOrderId')"
                             title="Copy"></i>
                         </div>
                     </div>
@@ -256,7 +256,7 @@
                             <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->razorpay_payment_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
-                            onclick="copyToClipboard('razorpayPaymentId', this)"
+                            onclick="copyToClipboard('razorpayPaymentId')"
                             title="Copy"></i>
                         </div>
                     </div>
@@ -489,7 +489,7 @@
 
 @section('page-js')
 <script>
-function copyToClipboard(elementId, button) {
+function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
     const text = element.textContent.trim();
 
@@ -497,14 +497,14 @@ function copyToClipboard(elementId, button) {
         navigator.clipboard.writeText(text).then(() => {
             toastr.success('Copied to clipboard');
         }).catch(() => {
-            fallbackCopyTextToClipboard(text, button);
+            fallbackCopyTextToClipboard(text);
         });
     } else {
-        fallbackCopyTextToClipboard(text, button);
+        fallbackCopyTextToClipboard(text);
     }
 }
 
-function fallbackCopyTextToClipboard(text, button) {
+function fallbackCopyTextToClipboard(text) {
     const textArea = document.createElement('textarea');
     textArea.value = text;
     textArea.style.position = 'fixed';
