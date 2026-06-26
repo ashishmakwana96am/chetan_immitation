@@ -787,10 +787,6 @@ class CheckoutController extends Controller
             'status' => 'success',
             'message' => 'Coupon applied successfully.',
             'discount_amount' => $discount,
-            'discount_label' => '-₹' . number_format($discount, 0),
-            'discount_desc' => $discountDesc,
-            'total_amount' => $total,
-            'total_label' => '₹' . number_format($total, 0),
         ]);
     }
 

@@ -974,6 +974,7 @@ const CHECKOUT_CART_REMOVE_URL = '{{ route('cart.remove') }}';
 const CHECKOUT_WISHLIST_TOGGLE_URL = '{{ route('wishlist.toggle') }}';
 const CHECKOUT_LOGIN_URL = '{{ route('login') }}?intended={{ urlencode(route('checkout')) }}';
 const CHECKOUT_CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+const CHECKOUT_SUBTOTAL = {{ $subtotal }};
 
 const modal = document.getElementById("addressModal");
 let editingAddressId = null;
@@ -1805,11 +1806,12 @@ function handleCouponAction() {
                 }
                 const discountVal = document.getElementById('checkoutDiscountValue');
                 if (discountVal) {
-                    discountVal.textContent = data.discount_label;
+                    discountVal.textContent = '-₹' + Math.round(data.discount_amount);
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
-                    totalVal.textContent = data.total_label;
+                    const total = CHECKOUT_SUBTOTAL - data.discount_amount;
+                    totalVal.textContent = '₹' + Math.round(total);
                 }
             } else {
                 input.value = '';
@@ -1825,7 +1827,7 @@ function handleCouponAction() {
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
-                    totalVal.textContent = data.total_label;
+                    totalVal.textContent = '₹' + Math.round(CHECKOUT_SUBTOTAL);
                 }
             }
         } else {

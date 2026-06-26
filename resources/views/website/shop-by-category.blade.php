@@ -437,8 +437,12 @@
 
     function clearHeaderSearch() {
         const headerSearchEl = document.getElementById('headerSearch');
+        const clearIcon = document.getElementById('clearHeaderSearch');
         if (headerSearchEl) {
             headerSearchEl.value = '';
+            if (clearIcon) {
+                clearIcon.classList.add('hidden');
+            }
         }
     }
 
