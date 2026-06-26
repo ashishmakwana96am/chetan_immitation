@@ -619,7 +619,7 @@
                 <div class="text-center w-full">
                     <div class="w-12 h-[2px] bg-[#B4771E] mx-auto mb-5"></div>
                     <h2 class="font-moglan text-white text-[32px] md:text-[48px] lg:text-[54px] leading-none">
-                        Stay Updated with New Jewelry Collections
+                        Stay Updated with New Jewellery Collections
                     </h2>
                     <p class="mt-[15px] text-white/90 text-[14px] md:text-[20px] font-normal">
                         Subscribe to receive exclusive offers, styling tips, and first access to new arrivals
@@ -647,7 +647,7 @@
                 <div>
                     <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
                     <p class="text-[#D5D5D5] text-base font-normal">
-                        Premium imitation jewelry crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
+                        Premium imitation jewellery crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
                 </div>
 

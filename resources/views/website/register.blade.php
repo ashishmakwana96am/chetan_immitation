@@ -105,8 +105,8 @@
                 <img src="{{ asset('website/assets/images/account.png') }}" alt="Register" class="absolute inset-0 w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/20 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 w-full p-6 text-white">
-                    <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Begin Your Jewelry Journey</h3>
-                    <p class="mt-3 text-lg leading-7">Create your account to save favorites, track orders, enjoy faster checkout, and discover exclusive jewelry collections.</p>
+                    <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Begin Your Jewellery Journey</h3>
+                    <p class="mt-3 text-lg leading-7">Create your account to save favorites, track orders, enjoy faster checkout, and discover exclusive jewellery collections.</p>
                 </div>
             </div>
 

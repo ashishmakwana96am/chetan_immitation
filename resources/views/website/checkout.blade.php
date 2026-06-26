@@ -12,7 +12,7 @@
                     Secure Checkout
                 </h2>
                <p class="hero-para">
-                    Complete your order securely and receive your jewelry at your doorstep.
+                    Complete your order securely and receive your jewellery at your doorstep.
                 </p>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start ">
@@ -922,7 +922,7 @@ Order Amount
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                 </svg>
 
-                                <span>Premium Quality jewelry</span>
+                                <span>Premium Quality jewellery</span>
                             </div>
                              <div class="flex gap-3 text-base md:text-lg font-normal">
                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">

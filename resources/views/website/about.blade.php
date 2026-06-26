@@ -23,7 +23,7 @@
                     </h1>
 
                     <p class="hero-para max-w-[750px]">
-                        At Chetan Imitation, we believe jewelry is more than an
+                        At Chetan Imitation, we believe jewellery is more than an
                         accessory—it's a reflection of tradition, beauty, and
                         personal style. Our collections are thoughtfully curated
                         to bring timeless elegance and modern sophistication
@@ -48,11 +48,11 @@
             <div class="text-center">
 
                 <h2 class="font-moglan hero-title">
-                    Trusted Jewelry Destination
+                    Trusted Jewellery Destination
                 </h2>
 
                 <p class="hero-para">
-                    Premium imitation jewelry crafted for every special occasion beautifully.
+                    Premium imitation jewellery crafted for every special occasion beautifully.
                 </p>
 
             </div>
@@ -61,7 +61,7 @@
 
                 <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
                     <img src="{{ asset('website/assets/images/Vector.png') }}" alt="">
-                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Premium Quality Imitation Jewelry</span>
+                    <span class="text-base md:text-lg md:text-[20px] xl:leading-[20px] text-[#131615]">Premium Quality Imitation Jewellery</span>
                 </div>
 
                 <div class="border border-[#B4771E] rounded-[8px] px-3 sm:px-5 py-3 sm:py-[18px] flex items-center gap-3 bg-[#B4771E08]">
@@ -94,7 +94,7 @@
                     </h3>
 
                     <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
-                        We design and offer a wide range of imitation jewelry including necklaces,
+                        We design and offer a wide range of imitation jewellery including necklaces,
                         earrings, rings, bangles, bridal collections, and festive wear. Our collections
                         are carefully selected to bring elegance, style, and confidence to every customer.
                     </p>
@@ -112,7 +112,7 @@
                     </h3>
 
                     <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
-                        Our vision is to become a leading jewelry destination known for exceptional designs, trusted
+                        Our vision is to become a leading jewellery destination known for exceptional designs, trusted
                         quality, and outstanding customer experiences. We continuously strive to bring the latest trends
                         while preserving the beauty of traditional craftsmanship.
                     </p>
@@ -130,7 +130,7 @@
                     </h3>
 
                     <p class="mt-4 text-base sm:text-lg sm:leading-8 text-[#3D403F]">
-                        What started as a passion for beautiful jewelry has grown into a trusted brand serving customers
+                        What started as a passion for beautiful jewellery has grown into a trusted brand serving customers
                         across India. Through dedication, innovation, and customer trust, Chetan Imitation continues to
                         expand its collections and inspire confidence through elegant designs.
                     </p>
@@ -155,7 +155,7 @@
             </span>
 
             <p class="text-[#131615] text-base sm:text-lg lg:text-[24px] sm:leading-[34px] px-5 md:px-7 lg:px-10">
-                Jewelry is more than an accessory-it is a reflection of personality,
+                Jewellery is more than an accessory-it is a reflection of personality,
                 tradition, and celebration. At Chetan Imitation, every piece is crafted
                 to make life's special moments even more memorable.
             </p>

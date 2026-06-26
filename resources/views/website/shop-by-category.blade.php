@@ -16,11 +16,11 @@
                 <h1 class="font-moglan hero-heading">
                     Explore Our
                     <br>
-                    Jewelry Collections
+                    Jewellery Collections
                 </h1>
 
                 <p class="hero-para max-w-[750px]">
-                    Discover handcrafted imitation jewelry designed for weddings, festive celebrations, parties, and elegant everyday wear.
+                    Discover handcrafted imitation jewellery designed for weddings, festive celebrations, parties, and elegant everyday wear.
                 </p>
 
             </div>

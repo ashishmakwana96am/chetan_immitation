@@ -68,7 +68,7 @@
             </div>
         </div>
         
-        <p>Thank you for choosing Chetan Imitation for your jewelry collection.</p>
+        <p>Thank you for choosing Chetan Imitation for your jewellery collection.</p>
         
         <a href="{{ route('home') }}" class="btn">View My Orders</a>
         

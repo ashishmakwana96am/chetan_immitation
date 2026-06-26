@@ -23,7 +23,7 @@
                 </h1>
 
                 <p class="hero-para max-w-[550px]">
-                    Whether you have questions about our jewelry collections, need assistance with an order, or want
+                    Whether you have questions about our jewellery collections, need assistance with an order, or want
                     styling recommendations, our team is here to help.
                 </p>
 
@@ -219,7 +219,7 @@
 
         <div class="text-center mb-10 lg:mb-12">
             <h2 class="font-moglan hero-title">Visit Our Store</h2>
-            <p class="hero-para">Discover our latest jewelry collections and receive personalized assistance at our store.</p>
+            <p class="hero-para">Discover our latest jewellery collections and receive personalized assistance at our store.</p>
         </div>
 
         <div class="border border-[#D5D5D5] overflow-hidden bg-white">

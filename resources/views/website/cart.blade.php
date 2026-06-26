@@ -9,7 +9,7 @@
 
         <div class="text-center mb-7">
             <h2 class="font-moglan hero-title">Shopping Cart</h2>
-            <p class="hero-para">Review your selected jewelry before proceeding to checkout.</p>
+            <p class="hero-para">Review your selected jewellery before proceeding to checkout.</p>
         </div>
 
         {{-- Empty cart --}}

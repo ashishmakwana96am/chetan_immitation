@@ -8,7 +8,7 @@
   <!-- Page Title (dynamic) -->
   <div class="text-center mb-7">
      <h2 id="pageTitle" class="font-moglan hero-title">My Orders</h2>
-     <p id="pageSubtitle" class="hero-para">Track your orders, view purchase history, and manage your jewelry collections with ease.</p>
+     <p id="pageSubtitle" class="hero-para">Track your orders, view purchase history, and manage your jewellery collections with ease.</p>
   </div>
  
   <button
@@ -580,7 +580,7 @@ let editingAddressId = null;
 // TAB SWITCH
 // ─────────────────────────────────────────────
 const titles = {
-  orders:    ['My Orders',       'Track your orders, view purchase history, and manage your jewelry collections with ease.'],
+  orders:    ['My Orders',       'Track your orders, view purchase history, and manage your jewellery collections with ease.'],
   addresses: ['Billing address', 'Manage your delivery addresses for faster and hassle-free checkout.'],
   account:   ['Account Details', 'Manage your personal information, contact details, and account preferences.'],
   logout:    ['Log Out',      ''],

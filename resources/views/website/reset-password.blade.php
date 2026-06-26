@@ -84,7 +84,7 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/20 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 w-full p-5 lg:p-[25px] text-white">
                     <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Almost There!</h3>
-                    <p class="mt-3 text-lg leading-7">Create a strong password to keep your account secure and continue enjoying our exclusive jewelry collections.</p>
+                    <p class="mt-3 text-lg leading-7">Create a strong password to keep your account secure and continue enjoying our exclusive jewellery collections.</p>
                 </div>
             </div>
 

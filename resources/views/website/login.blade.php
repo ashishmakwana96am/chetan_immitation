@@ -30,7 +30,7 @@
                     Login To Your Account
                 </h1>
                 <p class="mt-5 text-[#3D403F] text-lg text-center">
-                    Access your account, track orders, and save favorite jewelry.
+                    Access your account, track orders, and save favorite jewellery.
                 </p>
 
                 {{-- Flash / query-param success --}}
@@ -107,7 +107,7 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/20 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 w-full p-5 lg:p-[25px] text-white">
                     <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Timeless Elegance Awaits</h3>
-                    <p class="mt-3 text-lg leading-7">Sign in to discover exquisite jewelry collections crafted for every celebration and special moment.</p>
+                    <p class="mt-3 text-lg leading-7">Sign in to discover exquisite jewellery collections crafted for every celebration and special moment.</p>
                 </div>
             </div>
 

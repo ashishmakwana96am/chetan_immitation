@@ -74,7 +74,7 @@
 
                                     <p class="text-base flex flex-wrap">
                                         <span class="font-medium text-[#131615] w-[120px]">Category:</span>
-                                        <span class="text-[#757575] ml-2">{{ $item->product->category->name ?? 'Imitation Jewelry' }}</span>
+                                        <span class="text-[#757575] ml-2">{{ $item->product->category->name ?? 'Imitation Jewellery' }}</span>
                                     </p>
 
                                     <p class="text-base flex flex-wrap">
@@ -411,12 +411,12 @@
     </div>
 </section>
 
-<!-- Follow Our Jewelry Journey Section -->
+<!-- Follow Our Jewellery Journey Section -->
 <section class="section-space-bottom">
     <div class="">
         <div class="text-center px-5">
             <h2 class="hero-title">
-                Follow Our Jewelry Journey
+                Follow Our Jewellery Journey
             </h2>
         </div>
         <div class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">

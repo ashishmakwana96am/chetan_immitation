@@ -64,7 +64,7 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-[#B4771E]/95 via-[#B4771E]/25 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 p-6 lg:p-8 text-white">
                     <h3 class="text-[28px] lg:text-[32px] font-bold leading-tight">Get Back To Shopping</h3>
-                    <p class="mt-3 text-lg leading-7">We'll help you regain access to your account so you can continue discovering timeless jewelry pieces.</p>
+                    <p class="mt-3 text-lg leading-7">We'll help you regain access to your account so you can continue discovering timeless jewellery pieces.</p>
                 </div>
             </div>
 

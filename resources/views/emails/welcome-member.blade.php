@@ -29,7 +29,7 @@
 
             <h1 style="color:#131615;font-size:26px;font-weight:700;margin:0 0 8px;">Welcome, {{ $customer->name }}! 🎉</h1>
             <p style="color:#3D403F;font-size:16px;line-height:1.7;margin:0 0 24px;">
-                Thank you for creating your account with <strong>Chetan Imitation</strong>. We're thrilled to have you as a member of our jewelry family!
+                Thank you for creating your account with <strong>Chetan Imitation</strong>. We're thrilled to have you as a member of our jewellery family!
             </p>
 
             <!-- Details box -->

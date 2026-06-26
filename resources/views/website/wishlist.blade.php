@@ -9,7 +9,7 @@
 
         <div class="text-center mb-7">
             <h2 class="font-moglan hero-title">My Wishlist</h2>
-            <p class="hero-para">Save your favorite jewelry pieces and shop them anytime.</p>
+            <p class="hero-para">Save your favorite jewellery pieces and shop them anytime.</p>
         </div>
 
         {{-- Empty State --}}
