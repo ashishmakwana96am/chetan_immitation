@@ -462,10 +462,7 @@
                             @if($couponDiscount > 0 && $couponCode)
                             <tr>
                                 <td colspan="5" class="text-end tfoot-label" style="color:#2e7d32;">
-                                    Coupon Discount &nbsp;<code style="color:#2e7d32;">{{ $couponCode }}</code>
-                                    @if($order->coupon->discount_type === 'percentage')
-                                        <span class="text-muted small">({{ number_format($order->coupon->discount_value, 0) }}% off)</span>
-                                    @endif
+                                    Discount
                                 </td>
                                 <td class="text-end tfoot-amount" style="color:#2e7d32;">-{{ format_price($couponDiscount) }}</td>
                             </tr>
