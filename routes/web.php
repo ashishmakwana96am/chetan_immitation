@@ -1,40 +1,40 @@
 <?php
 
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ContactInquiryController;
-use App\Http\Controllers\SubCategoryController;
-use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CouponController;
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\SaleController;
-use App\Http\Controllers\LocationController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PurchaseInvoiceController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
-use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReviewController;
-use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
-use App\Http\Controllers\ModuleController;
-use App\Http\Controllers\AttributeController;
-use App\Http\Controllers\WebsiteContentController;
-use App\Http\Controllers\SettingController;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\MemberRegisterController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerLoginController;
 use App\Http\Controllers\CustomerPasswordResetController;
-use App\Http\Controllers\WishlistController;
-use App\Http\Controllers\ShopCategoryController;
-use App\Http\Controllers\CartController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\MemberRegisterController;
+use App\Http\Controllers\ModuleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
-use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\PurchaseInvoiceController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\ShopCategoryController;
+use App\Http\Controllers\SubCategoryController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReviewController;
+use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
+use App\Http\Controllers\WebsiteContentController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes
@@ -101,11 +101,12 @@ Route::get('robots.txt', function () {
     } else {
         $content = "User-agent: *\nDisallow:";
     }
+
     return response($content, 200)->header('Content-Type', 'text/plain');
 });
 
 // Required by Laravel's password broker to generate reset URL in email
-Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('guest:web');
+Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('admin.guest:web');
 
 // Admin routes
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -115,7 +116,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     // Guest routes
-    Route::middleware('guest:web')->group(function () {
+    Route::middleware('admin.guest:web')->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login']);
 
@@ -257,5 +258,4 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
     });
-
 });

@@ -1,16 +1,17 @@
 <?php
 
+use App\Http\Middleware\ComingSoon;
+use App\Http\Middleware\PreventResponseCaching;
+use App\Http\Middleware\RedirectIfAdminAuthenticated;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\PreventResponseCaching;
-use App\Http\Middleware\ComingSoon;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Illuminate\Auth\Access\AuthorizationException;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Http\Request;
-use Illuminate\View\Compilers\CompilerException;
 use Illuminate\Support\Facades\File;
+use Illuminate\View\Compilers\CompilerException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: [
             'guest_cart',
+        ]);
+
+        $middleware->alias([
+            'admin.guest' => RedirectIfAdminAuthenticated::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -39,32 +44,35 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'This action is unauthorized.',
                 ], 403);
             }
+
             return redirect()->route('admin.dashboard');
         });
 
         $exceptions->render(function (AuthorizationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'This action is unauthorized.',
                 ], 403);
             }
+
             return redirect()->route('admin.dashboard');
         });
 
-        $exceptions->render(function (\Throwable $e, Request $request) {
+        $exceptions->render(function (Throwable $e, Request $request) {
             if ($e instanceof CompilerException && str_contains($e->getMessage(), 'No such file or directory')) {
                 File::delete(storage_path('framework/views/*.php'));
                 if ($request->expectsJson()) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => 'View cache cleared. Please retry.',
                     ], 503);
                 }
+
                 return response('View cache cleared. Please refresh.', 503)->header('Retry-After', '2');
             }
 
@@ -81,20 +89,22 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($statusCode === 404) {
                 if ($request->expectsJson()) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => 'Resource not found.',
                     ], 404);
                 }
+
                 return response()->view('errors.404_error', [], 404);
             }
 
             if ($statusCode === 500) {
                 if ($request->expectsJson()) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => 'Internal Server Error.',
                     ], 500);
                 }
+
                 return response()->view('errors.500_error', [], 500);
             }
 
