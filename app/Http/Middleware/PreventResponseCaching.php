@@ -18,22 +18,7 @@ class PreventResponseCaching
      */
     public function handle(Request $request, Closure $next): Response
     {
-        try {
-            Cache::flush();
-
-            Artisan::call('cache:clear');
-            Artisan::call('config:clear');
-            Artisan::call('view:clear');
-            Artisan::call('route:clear');
-            Artisan::call('optimize:clear');
-            
-            Artisan::call('event:clear');
-            Artisan::call('queue:clear');
-        } catch (\Exception $e) {
-            Log::error('Error clearing cache: ' . $e->getMessage());
-        }
-
-        $response = $next($request);
+         $response = $next($request);
 
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         $response->headers->set('Pragma', 'no-cache');
