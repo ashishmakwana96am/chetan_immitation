@@ -57,7 +57,7 @@
                                 <span class="input-group-text"><i class="ti ti-search"></i></span>
                                 <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name, SKU or barcode..." autocomplete="off">
                             </div>
-                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
+                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
                                 <!-- Search results will appear here -->
                             </div>
                         </div>
@@ -420,7 +420,7 @@ $(document).ready(function () {
                     ${imageHtml}
                     <div class="flex-grow-1 min-w-0">
                         <div class="fw-semibold text-truncate">${p.name}</div>
-                        <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                        <small class="text-muted text-truncate d-block">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
                     </div>
                     ${priceBadge}
                 </a>
