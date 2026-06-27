@@ -19,17 +19,13 @@ class ProductReviewController extends Controller
 
         $query = ProductReview::with(['product', 'customer'])->orderBy('id', 'desc');
 
-        if ($request->filled('rating')) {
-            $query->where('rating', $request->rating);
-        }
-
         $reviews = $query->get();
         $canDelete = auth()->user()->can('delete product reviews');
 
         $data = $reviews->map(function ($review, $index) use ($canDelete) {
 
             // Stars HTML (filled ★ + empty ☆)
-            $rating  = (float) $review->rating;
+            $rating = (float) $review->rating;
             $full    = (int) floor($rating);
             $half    = ($rating - $full) >= 0.5 ? 1 : 0;
             $empty   = 5 - $full - $half;
@@ -38,22 +34,12 @@ class ProductReviewController extends Controller
                      . str_repeat('<i class="fa-regular fa-star text-warning" style="font-size:0.85rem;"></i>', $empty);
             $starsHtml = '<span class="d-flex align-items-center gap-1">' . $stars . ' <small class="text-muted ms-1">(' . number_format($rating, 1) . ')</small></span>';
 
-            $actions = '<div class="dropdown table-action-dropdown">'
-                . '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>'
-                . '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">'
-                . '<button class="dropdown-item view-review-btn" '
-                . ' data-product="' . e($review->product->name ?? '-') . '"'
-                . ' data-customer="' . e($review->customer->name ?? '-') . '"'
-                . ' data-rating="' . $rating . '"'
-                . ' data-comment="' . e($review->comment ?? '-') . '"'
-                . ' data-date="' . format_date($review->created_at) . '">'
-                . '<i class="ti ti-eye me-2"></i>View</button>';
-
-            if ($canDelete) {
-                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.product-reviews.destroy', $review) . '" data-row-id="review-row-' . $review->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
-            }
-
-            $actions .= '</div></div>';
+            // Comment with show more/less toggle
+            $comment = $review->comment ?? '';
+            $truncated = strlen($comment) > 100 ? substr($comment, 0, 100) . '...' : $comment;
+            $commentHtml = $comment
+                ? '<span class="review-toggle" data-full="' . e($comment) . '" data-expanded="false" style="cursor: pointer;">' . e($truncated) . ($comment !== $truncated ? ' <span class="text-primary">Show more</span>' : '') . '</span>'
+                : '<span class="text-muted">-</span>';
 
             return [
                 'index'      => $index + 1,
@@ -61,11 +47,8 @@ class ProductReviewController extends Controller
                               . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : ''),
                 'customer'   => e($review->customer->name ?? '-'),
                 'rating'     => $starsHtml,
-                'comment'    => $review->comment
-                    ? '<span class="text-truncate d-inline-block" style="max-width:300px;" title="' . e($review->comment) . '">' . e($review->comment) . '</span>'
-                    : '<span class="text-muted">-</span>',
+                'comment'    => $commentHtml,
                 'created_at' => format_date($review->created_at),
-                'actions'    => $actions,
             ];
         });
 

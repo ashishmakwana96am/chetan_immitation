@@ -19,6 +19,7 @@ class HomeController extends Controller
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
+            ->having('inventories_sum_quantity', '>', 0)
             ->inRandomOrder()
             ->limit(8)
             ->get();
@@ -27,6 +28,7 @@ class HomeController extends Controller
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
+            ->having('inventories_sum_quantity', '>', 0)
             ->latest()
             ->limit(4)
             ->get();

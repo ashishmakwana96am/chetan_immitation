@@ -78,7 +78,7 @@
                             </table>
                         </div>
                         <div id="noItemsMsg" class="text-center text-muted py-4">
-                            No items added yet. Click "Add Item" to start.
+                            No items added yet.
                         </div>
                     </div>
                 </div>
@@ -201,9 +201,11 @@
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
-                <div class="d-flex flex-column mb-1">
-                    <span class="product-name-display fw-semibold text-heading"></span>
-                    <small class="product-sku-display text-muted"></small>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="d-flex flex-column">
+                        <span class="product-name-display fw-semibold text-heading"></span>
+                        <small class="product-sku-display text-muted"></small>
+                    </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
@@ -274,15 +276,17 @@
     <!-- Variant Row Template -->
     <template id="variantRowTemplate">
         <tr class="item-row variant-row" data-parent-id="__PARENT_ID__" data-variant-id="__VARIANT_ID__" data-index="__INDEX__">
-            <td style="padding-left: 4.5rem;">
-                <div class="d-flex flex-column mb-1">
-                    <div>
-                        <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
-                        <span class="variant-name-display fw-semibold text-heading"></span>
+            <td>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <div class="d-flex flex-column ms-2">
+                        <div>
+                            <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
+                            <span class="variant-name-display fw-semibold text-heading"></span>
+                        </div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
-                <small class="text-muted stock-info-display ms-3"></small>
+                <small class="text-muted stock-info-display ms-2"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -333,6 +337,7 @@ $(document).ready(function () {
                 'barcode' => $p->barcode,
                 'type' => $p->type,
                 'purchase_price' => $p->purchase_price,
+                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -397,10 +402,14 @@ $(document).ready(function () {
             const priceBadge = isVar
                 ? '<span class="badge bg-label-warning">Variable</span>'
                 : '<span class="badge bg-label-primary">' + symbol + ' ' + formatPrice(p.purchase_price) + '</span>';
+            const imageHtml = p.image
+                ? `<img src="${p.image}" alt="" class="me-2 rounded" style="width: 36px; height: 36px; object-fit: cover;">`
+                : `<div class="me-2 rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;"><i class="ti ti-package fs-4 text-muted"></i></div>`;
             const item = $(`
-                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
-                    <div>
-                        <div class="fw-semibold">${p.name}</div>
+                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
+                    ${imageHtml}
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-semibold text-truncate">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
                     </div>
                     ${priceBadge}
@@ -714,8 +723,6 @@ $(document).ready(function () {
         allocInputs.each(function (i) {
             $(this).val(i === 0 ? base + remainder : base);
         });
-
-        updateRemainingQty(idx, qty);
     }
     function renderAllocationSection() {
         let hasItems = false;
@@ -786,14 +793,9 @@ $(document).ready(function () {
                 });
 
                 block.append(`
-                    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
-                        <div>
-                            <h5 class="mb-0 text-primary fw-bold">${productName}</h5>
-                            <small class="text-muted">${sku.replace('SKU: ', 'SKU: ')} | Target Quantity: <span class="fw-bold">${qty}</span></small>
-                        </div>
-                        <span class="badge bg-label-secondary alloc-remaining-wrapper-${idx}">
-                            Remaining: <strong class="alloc-remaining-${idx}">${qty}</strong>
-                        </span>
+                    <div class="mb-4 pb-2 border-bottom">
+                        <h5 class="mb-0 text-primary fw-bold">${productName}</h5>
+                        <small class="text-muted">${sku.replace('SKU: ', 'SKU: ')} | Quantity: <span class="fw-bold">${qty}</span></small>
                     </div>
                 `);
 
@@ -824,13 +826,14 @@ $(document).ready(function () {
                 $('#allocationBody').append(block);
 
                 if (existingAllocations.length > 0) {
-                    updateRemainingQty(idx, qty);
+                    // Just update the small text with new quantity
+                    block.find('small').html(`${sku} | Quantity: <span class="fw-bold">${qty}</span>`);
                 } else {
                     autoDistribute(idx, qty);
                 }
             } else {
                 // If block already exists (e.g. user changes quantity after adding)
-                block.find('.alloc-remaining-wrapper-' + idx).prev().find('small').html(`${sku} | Target Quantity: <span class="fw-bold">${qty}</span>`);
+                block.find('small').html(`${sku} | Quantity: <span class="fw-bold">${qty}</span>`);
                 autoDistribute(idx, qty);
             }
 
@@ -840,37 +843,21 @@ $(document).ready(function () {
                 listItem = $('<a>', {
                     id: 'allocation-list-item-' + idx,
                     href: 'javascript:void(0)',
-                    class: 'list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3',
+                    class: 'list-group-item list-group-item-action p-3',
                     'data-item-idx': idx
                 });
                 
                 listItem.append(`
-                    <div class="d-flex flex-column min-w-0 me-2">
-                        <span class="fw-semibold text-heading text-truncate">${productName}</span>
-                        <small class="text-muted text-truncate">Target: ${qty}</small>
+                    <div>
+                        <span class="fw-semibold text-heading d-block text-truncate">${productName}</span>
+                        <small class="text-muted d-block">Target: ${qty}</small>
                     </div>
-                    <div class="badge-container"></div>
                 `);
 
                 itemsList.append(listItem);
             } else {
                 listItem.find('span.text-heading').text(productName);
                 listItem.find('small').text('Target: ' + qty);
-            }
-
-            // Sync current list item badge status
-            const total = qty;
-            let allocated = 0;
-            $('.alloc-qty[data-item-idx="' + idx + '"]').each(function () {
-                allocated += parseInt($(this).val()) || 0;
-            });
-            const remaining = total - allocated;
-            const badgeContainer = listItem.find('.badge-container');
-            badgeContainer.empty();
-            if (remaining === 0) {
-                badgeContainer.append(`<span class="badge bg-label-success rounded-pill px-2 py-1"><i class="ti ti-check fs-6"></i></span>`);
-            } else {
-                badgeContainer.append(`<span class="badge bg-label-warning rounded-pill px-2 py-1">${allocated}/${total}</span>`);
             }
         });
 
@@ -902,41 +889,37 @@ $(document).ready(function () {
     }
 
     // -------------------------------------------------------
-    // Live remaining qty counter
+    // Live remaining qty counter with auto-distribute
     // -------------------------------------------------------
     $(document).on('input', '.alloc-qty', function () {
         const idx     = $(this).data('item-idx');
         const itemRow = $('#itemsBody .item-row[data-index="' + idx + '"]');
         const total   = parseInt(itemRow.find('.item-qty').val()) || 0;
-        updateRemainingQty(idx, total);
-    });
-
-    function updateRemainingQty(idx, total) {
-        let allocated = 0;
-        $('.alloc-qty[data-item-idx="' + idx + '"]').each(function () {
-            allocated += parseInt($(this).val()) || 0;
-        });
-        const remaining = total - allocated;
         
-        const el = $('.alloc-remaining-' + idx);
-        if (el.length > 0) {
-            el.text(remaining);
-            el.removeClass('text-success text-danger');
-            el.addClass(remaining === 0 ? 'text-success' : 'text-danger');
+        const changedInput = this;
+        const val = parseInt($(changedInput).val()) || 0;
+        
+        // Auto-adjust other inputs to keep total equal to item quantity
+        const otherInputs = $('.alloc-qty[data-item-idx="' + idx + '"]').not(changedInput);
+        const otherCount = otherInputs.length;
+        
+        if (otherCount === 0) return;
+        
+        const remaining = total - val;
+        if (remaining < 0) {
+            // If changed value exceeds total, cap it
+            $(changedInput).val(total);
+            return;
         }
-
-        // Update badge on the left list item
-        const listItem = $('#allocation-list-item-' + idx);
-        if (listItem.length > 0) {
-            const badgeContainer = listItem.find('.badge-container');
-            badgeContainer.empty();
-            if (remaining === 0) {
-                badgeContainer.append(`<span class="badge bg-label-success rounded-pill px-2 py-1"><i class="ti ti-check fs-6"></i></span>`);
-            } else {
-                badgeContainer.append(`<span class="badge bg-label-warning rounded-pill px-2 py-1">${allocated}/${total}</span>`);
-            }
-        }
-    }
+        
+        // Distribute remaining evenly among other inputs
+        const perInput = Math.floor(remaining / otherCount);
+        const remainder = remaining % otherCount;
+        
+        otherInputs.each(function(i) {
+            $(this).val(i === 0 ? perInput + remainder : perInput);
+        });
+    });
 
     // -------------------------------------------------------
     // Handle list item selection click

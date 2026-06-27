@@ -53,7 +53,7 @@
                                 <label class="form-label">Customer</label>
                                 <div class="input-group">
                                     <select name="customer_id" class="form-select" id="customerSelect">
-                                        <option value="">-- Walk-in Customer --</option>
+                                        <option value="" {{ !$order->customer_id ? 'selected' : '' }}>-- Walk-in Customer --</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}>
                                                 {{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}
@@ -186,6 +186,7 @@
                 <div class="d-flex flex-column mb-1">
                     <span class="product-name-display fw-semibold text-heading"></span>
                     <small class="product-sku-display text-muted"></small>
+                    <small class="stock-display text-muted d-block"></small>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
@@ -234,6 +235,7 @@
                     <div class="d-flex flex-column ms-2">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
+                        <small class="stock-display text-muted d-block"></small>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -284,6 +286,7 @@
                         <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
                         <span class="variant-name-display fw-semibold text-heading"></span>
                     </div>
+                    <small class="stock-display text-muted d-block ms-3"></small>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <small class="text-muted stock-info-display ms-3"></small>
@@ -390,10 +393,14 @@ $(document).ready(function () {
             const priceBadge = isVar
                 ? '<span class="badge bg-label-warning">Variable</span>'
                 : '<span class="badge bg-label-primary">' + symbol + ' ' + formatPrice(p.price) + '</span>';
+            const imageHtml = p.image
+                ? `<img src="${p.image}" alt="" class="me-2 rounded" style="width: 36px; height: 36px; object-fit: cover;">`
+                : `<div class="me-2 rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;"><i class="ti ti-package fs-4 text-muted"></i></div>`;
             const item = $(`
-                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
-                    <div>
-                        <div class="fw-semibold">${p.name}</div>
+                <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
+                    ${imageHtml}
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-semibold text-truncate">${p.name}</div>
                         <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
                     </div>
                     ${priceBadge}
@@ -698,8 +705,9 @@ $(document).ready(function () {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-info-display');
+        const stockDisplayTable = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
-        if (!productId || !locationId) { stockDisplay.text('').removeAttr('title').css('cursor', ''); return; }
+        if (!productId || !locationId) { stockDisplay.text('').removeAttr('title').css('cursor', ''); stockDisplayTable.text(''); return; }
         $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
@@ -719,6 +727,11 @@ $(document).ready(function () {
                     .css('cursor', 'help')
                     .removeClass('text-success text-danger')
                     .addClass(qty > 0 ? 'text-success' : 'text-danger');
+                
+                stockDisplayTable
+                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+                    .removeClass('text-success text-danger text-warning')
+                    .addClass(qty > 0 ? (qty < 10 ? 'text-warning' : 'text-success') : 'text-danger');
             });
     }
 

@@ -148,7 +148,7 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
         $user      = auth()->user();
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
@@ -254,7 +254,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products  = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {

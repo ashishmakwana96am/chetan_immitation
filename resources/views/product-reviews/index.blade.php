@@ -10,31 +10,6 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Product Reviews</h4>
-        {{-- Filter Dropdown --}}
-        <div class="dropdown d-inline-block" id="filterDropdownContainer">
-            <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
-                <i class="ti ti-filter me-1"></i> Filter
-            </button>
-            <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
-                <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
-                <div class="mb-3 text-start">
-                    <label class="form-label fw-medium text-muted mb-1" for="filter-rating">Rating</label>
-                    <select id="filter-rating" class="form-select">
-                        <option value="">All Ratings</option>
-                        <option value="5">★★★★★ (5)</option>
-                        <option value="4">★★★★☆ (4)</option>
-                        <option value="3">★★★☆☆ (3)</option>
-                        <option value="2">★★☆☆☆ (2)</option>
-                        <option value="1">★☆☆☆☆ (1)</option>
-                    </select>
-                </div>
-                <div class="dropdown-divider"></div>
-                <div class="d-flex justify-content-between gap-2 pt-2">
-                    <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
-                    <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="card">
@@ -48,7 +23,6 @@
                         <th>Rating</th>
                         <th>Review</th>
                         <th>Date</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
             </table>
@@ -103,10 +77,7 @@
                 ajax       : {
                     url: '{{ route('admin.product-reviews.data') }}',
                     dataSrc: 'data',
-                    cache: false,
-                    data: function(d) {
-                        d.rating = $('#filter-rating').val();
-                    }
+                    cache: false
                 },
                 columns    : [
                     { data: 'index',      width: '5%' },
@@ -115,7 +86,6 @@
                     { data: 'rating',     orderable: false },
                     { data: 'comment',    orderable: false },
                     { data: 'created_at' },
-                    { data: 'actions',    orderable: false }
                 ],
             });
 
@@ -123,59 +93,25 @@
                 table.ajax.reload(null, false);
             };
 
-            // Apply Filter
-            $(document).on('click', '#btnApplyFilter', function (e) {
+            // Show more / less for comment column
+            $(document).on('click', '.review-toggle', function (e) {
                 e.preventDefault();
-                window.refreshTable();
-                const btn = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (btn) { (bootstrap.Dropdown.getInstance(btn) || new bootstrap.Dropdown(btn)).hide(); }
+                const $this = $(this);
+                const fullText = $this.data('full');
+                const isExpanded = $this.data('expanded');
+                
+                if (isExpanded) {
+                    $this.html(truncate(fullText, 100) + ' <span class="text-primary review-toggle" data-full="' + fullText + '" data-expanded="false">Show more</span>');
+                } else {
+                    $this.html(fullText + ' <span class="text-primary review-toggle" data-full="' + fullText + '" data-expanded="true">Show less</span>');
+                }
+                $this.data('expanded', !isExpanded);
             });
 
-            // Clear Filter
-            $(document).on('click', '#btnClearFilter', function (e) {
-                e.preventDefault();
-                $('#filter-rating').val('');
-                window.refreshTable();
-                const btn = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (btn) { (bootstrap.Dropdown.getInstance(btn) || new bootstrap.Dropdown(btn)).hide(); }
-            });
-
-            $(document).on('click', '.view-review-btn', function (e) {
-                e.preventDefault();
-                const product = $(this).attr('data-product');
-                const customer = $(this).attr('data-customer');
-                const rating = parseFloat($(this).attr('data-rating') || 0);
-                const comment = $(this).attr('data-comment');
-                const date = $(this).attr('data-date');
-
-                // Generate Stars HTML
-                const full = Math.floor(rating);
-                const half = (rating - full) >= 0.5 ? 1 : 0;
-                const empty = 5 - full - half;
-
-                let stars = '';
-                for (let i = 0; i < full; i++) {
-                    stars += '<i class="fa-solid fa-star text-warning" style="font-size:1.15rem;"></i>';
-                }
-                if (half) {
-                    stars += '<i class="fa-solid fa-star-half-stroke text-warning" style="font-size:1.15rem;"></i>';
-                }
-                for (let i = 0; i < empty; i++) {
-                    stars += '<i class="fa-regular fa-star text-warning" style="font-size:1.15rem;"></i>';
-                }
-                const starsHtml = `${stars} <small class="text-muted ms-1">(${rating.toFixed(1)})</small>`;
-
-                // Populate modal
-                $('#modal-review-product').text(product);
-                $('#modal-review-customer').text(customer);
-                $('#modal-review-rating').html(starsHtml);
-                $('#modal-review-comment').text(comment);
-                $('#modal-review-date').text(date);
-
-                // Show Bootstrap modal
-                const myModal = new bootstrap.Modal(document.getElementById('viewReviewModal'));
-                myModal.show();
-            });
+            function truncate(text, length) {
+                if (text.length <= length) return text;
+                return text.substring(0, length) + '...';
+            }
         });
     </script>
 @endsection

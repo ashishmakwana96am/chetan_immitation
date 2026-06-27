@@ -101,10 +101,10 @@ class SaleController extends Controller
             if ($canEdit && $order->status == 1 && ($order->source ?? 'POS') !== 'ONLINE') {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditSalesStatus) {
+            if ($canEditSalesStatus && !in_array($order->status, [2, 3, 4, 5, 6])) {
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditSalesPaymentStatus) {
+            if ($canEditSalesPaymentStatus && $order->payment_status != 2) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             if ($canDelete && $order->status == 6) {
@@ -144,7 +144,7 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
@@ -155,6 +155,7 @@ class SaleController extends Controller
                 'barcode' => $p->barcode,
                 'label'   => $p->name . ' (' . $p->sku . ')',
                 'type'    => $p->type,
+                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -346,7 +347,7 @@ class SaleController extends Controller
 
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
 
         $allProducts = $products->map(function ($p) {
@@ -358,6 +359,7 @@ class SaleController extends Controller
                 'barcode' => $p->barcode,
                 'label'   => $p->name . ' (' . $p->sku . ')',
                 'type'    => $p->type,
+                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {

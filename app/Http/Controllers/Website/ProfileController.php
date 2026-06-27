@@ -31,6 +31,7 @@ class ProfileController extends Controller
             ->get();
             
         $orders = Order::where('customer_id', $customer->id)
+            ->where('source', 'ONLINE')
             ->with(['items.product.primaryImage'])
             ->latest()
             ->get();
