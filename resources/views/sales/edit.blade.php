@@ -695,15 +695,13 @@ $(document).ready(function () {
 
     $(document).on('change', '#locationSelect', function () {
         $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
-    });
-
-    function updateStockInfo(row) {
+    });    function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
 
-        if (!productId || !locationId) {
+        if (!productId) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
             return;
         }
@@ -719,13 +717,26 @@ $(document).ready(function () {
         let hasStock = false;
 
         if (product.type === 'variable') {
-            const locStock = product.stock_by_location?.[locationId];
-            if (locStock) {
-                if (variantId === 'parent') {
-                    qty = locStock.parent ?? 0;
-                } else if (variantId) {
-                    qty = locStock.variants?.[variantId] ?? 0;
+            if (locationId) {
+                const locStock = product.stock_by_location?.[locationId];
+                if (locStock) {
+                    if (variantId === 'parent') {
+                        qty = locStock.parent ?? 0;
+                    } else if (variantId) {
+                        qty = locStock.variants?.[variantId] ?? 0;
+                    }
                 }
+            } else {
+                Object.keys(product.stock_by_location || {}).forEach(locId => {
+                    const locStockData = product.stock_by_location[locId];
+                    let lQty = 0;
+                    if (variantId === 'parent') {
+                        lQty = locStockData.parent ?? 0;
+                    } else if (variantId) {
+                        lQty = locStockData.variants?.[variantId] ?? 0;
+                    }
+                    qty += lQty;
+                });
             }
             
             Object.keys(product.stock_by_location || {}).forEach(locId => {
@@ -744,7 +755,13 @@ $(document).ready(function () {
                 }
             });
         } else {
-            qty = product.stock_by_location?.[locationId] ?? 0;
+            if (locationId) {
+                qty = product.stock_by_location?.[locationId] ?? 0;
+            } else {
+                Object.keys(product.stock_by_location || {}).forEach(locId => {
+                    qty += (product.stock_by_location[locId] ?? 0);
+                });
+            }
             
             Object.keys(product.stock_by_location || {}).forEach(locId => {
                 const lQty = product.stock_by_location[locId] ?? 0;
@@ -761,8 +778,9 @@ $(document).ready(function () {
             breakdownText += 'No stock in any branch';
         }
 
+        const labelPrefix = locationId ? 'Stock: ' : 'Total Stock: ';
         stockDisplay
-            .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+            .text(qty === 0 ? 'Out of Stock' : labelPrefix + qty)
             .attr('title', breakdownText.trim())
             .css('cursor', 'help')
             .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
