@@ -105,28 +105,40 @@
                     #allocationItemsList .list-group-item:hover:not(.active) small {
                         color: rgba(180, 119, 30, 0.8) !important;
                     }
+                    .allocation-panel {
+                        height: 500px;
+                        overflow: hidden;
+                    }
+                    .allocation-panel .list-group-flush {
+                        overflow-y: auto;
+                        flex: 1;
+                    }
+                    .allocation-panel .card-body {
+                        overflow-y: auto;
+                        flex: 1;
+                    }
                 </style>
                 <div class="card mb-4" id="allocationCard" style="display:none!important;">
                     <div class="card-header border-bottom">
                         <h5 class="mb-0">Location Allocation</h5>
                         <small class="text-muted">Allocate each item's quantity across locations. Total allocated must equal item quantity.</small>
                     </div>
-                    <div class="row g-0">
+                    <div class="row g-0 allocation-panel">
                         <!-- Left Panel: Item List with Search -->
-                        <div class="col-md-4 border-end d-flex flex-column" style="height: 450px;">
-                            <div class="p-2 border-bottom">
+                        <div class="col-md-4 border-end d-flex flex-column">
+                            <div class="p-2 border-bottom flex-shrink-0">
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text"><i class="ti ti-search fs-5"></i></span>
                                     <input type="text" id="allocationSearch" class="form-control form-control-sm" placeholder="Search product..." />
                                 </div>
                             </div>
-                            <div class="list-group list-group-flush flex-grow-1" id="allocationItemsList" style="overflow-y: auto;">
+                            <div class="list-group list-group-flush flex-grow-1" id="allocationItemsList">
                                 <!-- populated by JS -->
                             </div>
                         </div>
                         <!-- Right Panel: Allocation Form -->
-                        <div class="col-md-8 d-flex flex-column" style="height: 450px; overflow-y: auto;">
-                            <div class="card-body h-100" id="allocationBody" style="min-height: 250px;">
+                        <div class="col-md-8 d-flex flex-column">
+                            <div class="card-body flex-grow-1" id="allocationBody">
                                 <!-- populated by JS -->
                             </div>
                         </div>
