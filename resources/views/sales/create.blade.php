@@ -333,6 +333,7 @@ $(document).ready(function () {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     const allProducts = @json($allProducts);
+    const locations = @json($locations);
     updateSummary();
 
     window.refreshTable = function () {
@@ -565,28 +566,66 @@ $(document).ready(function () {
             return;
         }
 
-        $.get('{{ route('admin.inventory.stock', [], false) }}', { product_id: productId, location_id: locationId, variant_id: variantId })
-            .done(function (res) {
-                const qty = res.data?.quantity ?? 0;
-                const breakdown = res.data?.breakdown || [];
-                
-                let titleText = 'Stock Breakdown:\n';
-                if (breakdown.length > 0) {
-                    breakdown.forEach(item => {
-                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
-                    });
-                } else {
-                    titleText += 'No stock in any branch';
+        const product = allProducts.find(p => p.id == productId);
+        if (!product) {
+            stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
+            return;
+        }
+
+        let qty = 0;
+        let breakdownText = 'Stock Breakdown:\n';
+        let hasStock = false;
+
+        if (product.type === 'variable') {
+            const locStock = product.stock_by_location?.[locationId];
+            if (locStock) {
+                if (variantId === 'parent') {
+                    qty = locStock.parent ?? 0;
+                } else if (variantId) {
+                    qty = locStock.variants?.[variantId] ?? 0;
                 }
-                
-                stockDisplay
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
-                    .attr('title', titleText.trim())
-                    .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
-                    .show();
+            }
+            
+            Object.keys(product.stock_by_location || {}).forEach(locId => {
+                const locStockData = product.stock_by_location[locId];
+                const loc = locations.find(l => l.id == locId);
+                const locName = loc ? loc.name : 'Unknown';
+                let lQty = 0;
+                if (variantId === 'parent') {
+                    lQty = locStockData.parent ?? 0;
+                } else if (variantId) {
+                    lQty = locStockData.variants?.[variantId] ?? 0;
+                }
+                if (lQty > 0) {
+                    breakdownText += `- ${locName}: ${lQty}\n`;
+                    hasStock = true;
+                }
             });
+        } else {
+            qty = product.stock_by_location?.[locationId] ?? 0;
+            
+            Object.keys(product.stock_by_location || {}).forEach(locId => {
+                const lQty = product.stock_by_location[locId] ?? 0;
+                const loc = locations.find(l => l.id == locId);
+                const locName = loc ? loc.name : 'Unknown';
+                if (lQty > 0) {
+                    breakdownText += `- ${locName}: ${lQty}\n`;
+                    hasStock = true;
+                }
+            });
+        }
+
+        if (!hasStock) {
+            breakdownText += 'No stock in any branch';
+        }
+
+        stockDisplay
+            .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+            .attr('title', breakdownText.trim())
+            .css('cursor', 'help')
+            .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+            .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+            .show();
     }
 
     // -------------------------------------------------------

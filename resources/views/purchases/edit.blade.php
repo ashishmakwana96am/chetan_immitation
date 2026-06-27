@@ -330,6 +330,7 @@ $(document).ready(function () {
             return ['id' => $l->id, 'name' => $l->name];
         })->values()->all();
 
+        $products->load('inventories');
         $mappedProducts = $products->map(function($p) {
             $data = [
                 'id' => $p->id,
@@ -354,6 +355,24 @@ $(document).ready(function () {
                     ];
                 })->all();
             }
+
+            // Calculate stock by location
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent' => $locData['parent'],
+                        'variants' => $locData['variants']
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
             return $data;
         })->values()->all();
     @endphp
@@ -834,28 +853,57 @@ $(document).ready(function () {
             return;
         }
 
-        $.get('{{ route('admin.inventory.stock', [], false) }}', { product_id: productId, variant_id: variantId })
-            .done(function (res) {
-                const qty = res.data?.quantity ?? 0;
-                const breakdown = res.data?.breakdown || [];
-                
-                let titleText = 'Stock Breakdown:\n';
-                if (breakdown.length > 0) {
-                    breakdown.forEach(item => {
-                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
-                    });
-                } else {
-                    titleText += 'No stock in any branch';
+        const product = allProducts.find(p => p.id == productId);
+        if (!product) {
+            stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
+            return;
+        }
+
+        let qty = 0;
+        let breakdownText = 'Stock Breakdown:\n';
+        let hasStock = false;
+
+        if (product.type === 'variable') {
+            Object.keys(product.stock_by_location || {}).forEach(locId => {
+                const locStockData = product.stock_by_location[locId];
+                const loc = locations.find(l => l.id == locId);
+                const locName = loc ? loc.name : 'Unknown';
+                let lQty = 0;
+                if (variantId === 'parent') {
+                    lQty = locStockData.parent ?? 0;
+                } else if (variantId) {
+                    lQty = locStockData.variants?.[variantId] ?? 0;
                 }
-                
-                stockDisplay
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
-                    .attr('title', titleText.trim())
-                    .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
-                    .show();
+                qty += lQty;
+                if (lQty > 0) {
+                    breakdownText += `- ${locName}: ${lQty}\n`;
+                    hasStock = true;
+                }
             });
+        } else {
+            Object.keys(product.stock_by_location || {}).forEach(locId => {
+                const lQty = product.stock_by_location[locId] ?? 0;
+                const loc = locations.find(l => l.id == locId);
+                const locName = loc ? loc.name : 'Unknown';
+                qty += lQty;
+                if (lQty > 0) {
+                    breakdownText += `- ${locName}: ${lQty}\n`;
+                    hasStock = true;
+                }
+            });
+        }
+
+        if (!hasStock) {
+            breakdownText += 'No stock in any branch';
+        }
+
+        stockDisplay
+            .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+            .attr('title', breakdownText.trim())
+            .css('cursor', 'help')
+            .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+            .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+            .show();
     }
 
     // -------------------------------------------------------

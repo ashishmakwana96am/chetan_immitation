@@ -144,7 +144,7 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage', 'inventories')->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
@@ -171,6 +171,24 @@ class SaleController extends Controller
                     ];
                 })->all();
             }
+
+            // Calculate stock by location
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent' => $locData['parent'],
+                        'variants' => $locData['variants']
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
             return $data;
         })->values();
         return view('sales.create', compact('customers', 'locations', 'products', 'orderNo', 'allProducts'));
@@ -347,7 +365,7 @@ class SaleController extends Controller
 
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with('variants.attributeValue.attribute', 'primaryImage', 'inventories')->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
 
         $allProducts = $products->map(function ($p) {
@@ -375,6 +393,24 @@ class SaleController extends Controller
                     ];
                 })->all();
             }
+
+            // Calculate stock by location
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent' => $locData['parent'],
+                        'variants' => $locData['variants']
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
             return $data;
         })->values();
 
