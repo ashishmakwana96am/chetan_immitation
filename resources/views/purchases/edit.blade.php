@@ -834,7 +834,7 @@ $(document).ready(function () {
             return;
         }
 
-        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, variant_id: variantId })
+        $.get('{{ route('admin.inventory.stock', [], false) }}', { product_id: productId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
                 const breakdown = res.data?.breakdown || [];

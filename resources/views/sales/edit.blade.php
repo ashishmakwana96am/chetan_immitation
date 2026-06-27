@@ -336,7 +336,7 @@ $(document).ready(function () {
     updateSummary();
 
     window.refreshTable = function () {
-        $.get('{{ route('admin.customers.data') }}', function (res) {
+        $.get('{{ route('admin.customers.data', [], false) }}', function (res) {
             const select  = $('#customerSelect');
             const current = select.val();
             select.find('option:not(:first)').remove();
@@ -705,7 +705,7 @@ $(document).ready(function () {
             stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
             return;
         }
-        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
+        $.get('{{ route('admin.inventory.stock', [], false) }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
                 const breakdown = res.data?.breakdown || [];
