@@ -183,14 +183,16 @@
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
-                <div class="d-flex flex-column mb-1">
-                    <span class="product-name-display fw-semibold text-heading"></span>
-                    <small class="product-sku-display text-muted"></small>
-                    <small class="stock-display text-muted d-block"></small>
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
+                    <div class="d-flex flex-column">
+                        <span class="product-name-display fw-semibold text-heading"></span>
+                        <small class="product-sku-display text-muted"></small>
+                        <div><span class="badge stock-display mt-1"></span></div>
+                    </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -231,16 +233,16 @@
     <template id="parentRowTemplate">
         <tr class="item-row parent-row" data-product-id="__PRODUCT_ID__" data-variant-id="parent" data-index="__INDEX__">
             <td>
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <div class="d-flex flex-column ms-2">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
+                    <div class="d-flex flex-column">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
-                        <small class="stock-display text-muted d-block"></small>
+                        <div><span class="badge stock-display mt-1"></span></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display ms-2"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -281,15 +283,17 @@
     <template id="variantRowTemplate">
         <tr class="item-row variant-row" data-parent-id="__PARENT_ID__" data-variant-id="__VARIANT_ID__" data-index="__INDEX__">
             <td style="padding-left: 4.5rem;">
-                <div class="d-flex flex-column mb-1">
-                    <div>
-                        <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
-                        <span class="variant-name-display fw-semibold text-heading"></span>
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
+                    <div class="d-flex flex-column">
+                        <div>
+                            <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
+                            <span class="variant-name-display fw-semibold text-heading"></span>
+                        </div>
+                        <div class="ms-3"><span class="badge stock-display mt-1"></span></div>
                     </div>
-                    <small class="stock-display text-muted d-block ms-3"></small>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
-                <small class="text-muted stock-info-display ms-3"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -440,6 +444,10 @@ $(document).ready(function () {
     });
 
     function addItemRow(product) {
+        const productImgHtml = product.image
+            ? `<img src="${product.image}" alt="" class="rounded" style="width: 35px; height: 35px; object-fit: cover;">`
+            : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;"><i class="ti ti-photo text-muted" style="font-size: 1.2rem;"></i></div>`;
+
         if (product.type === 'variable') {
             // 1. Add Parent Row
             const parentTemplate = document.getElementById('parentRowTemplate').innerHTML
@@ -452,6 +460,7 @@ $(document).ready(function () {
             parentRow.find('.product-id-input').val(product.id);
             parentRow.find('.product-name-display').text(product.name);
             parentRow.find('.product-sku-display').text('SKU: ' + product.sku);
+            parentRow.find('.product-image-container').html(productImgHtml);
             parentRow.find('.item-price').val(product.price != null ? product.price : 0);
             parentRow.find('.item-qty').val(1); // Default parent qty to 1
 
@@ -476,6 +485,7 @@ $(document).ready(function () {
 
                     vRow.find('.product-id-input').val(product.id);
                     vRow.find('.variant-name-display').text(v.attr_name + ': ' + v.value_name);
+                    vRow.find('.product-image-container').html(productImgHtml);
                     vRow.find('.item-price').val(v.sale_price != null ? v.sale_price : 0);
                     vRow.find('.item-qty').val(0); // Default to 0
 
@@ -500,6 +510,7 @@ $(document).ready(function () {
             row.find('.product-id-input').val(product.id);
             row.find('.product-name-display').text(product.name);
             row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-image-container').html(productImgHtml);
             row.data('product-name', product.name);
             row.data('index', itemIndex);
             row.find('.item-price').val(product.price != null ? product.price : 0);
@@ -532,6 +543,9 @@ $(document).ready(function () {
             if (!product) return;
 
             const itemsForProduct = grouped[productId];
+            const productImgHtml = product.image
+                ? `<img src="${product.image}" alt="" class="rounded" style="width: 35px; height: 35px; object-fit: cover;">`
+                : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;"><i class="ti ti-photo text-muted" style="font-size: 1.2rem;"></i></div>`;
 
             if (product.type === 'variable') {
                 // 1. Add Parent Row
@@ -545,6 +559,7 @@ $(document).ready(function () {
                 parentRow.find('.product-id-input').val(product.id);
                 parentRow.find('.product-name-display').text(product.name);
                 parentRow.find('.product-sku-display').text('SKU: ' + product.sku);
+                parentRow.find('.product-image-container').html(productImgHtml);
                 parentRow.data('product-name', product.name);
                 parentRow.data('index', itemIndex);
 
@@ -572,6 +587,7 @@ $(document).ready(function () {
 
                         vRow.find('.product-id-input').val(product.id);
                         vRow.find('.variant-name-display').text(v.attr_name + ': ' + v.value_name);
+                        vRow.find('.product-image-container').html(productImgHtml);
                         
                         vRow.data('product-name', product.name + ' (' + v.attr_name + ': ' + v.value_name + ')');
                         vRow.data('index', itemIndex);
@@ -647,6 +663,7 @@ $(document).ready(function () {
                 row.find('.product-id-input').val(product.id);
                 row.find('.product-name-display').text(product.name);
                 row.find('.product-sku-display').text('SKU: ' + product.sku);
+                row.find('.product-image-container').html(productImgHtml);
                 row.data('product-name', product.name);
                 row.data('index', itemIndex);
                 row.find('.item-price').val(item.price != null ? item.price : 0);
@@ -704,10 +721,12 @@ $(document).ready(function () {
     function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
-        const stockDisplay = row.find('.stock-info-display');
-        const stockDisplayTable = row.find('.stock-display');
+        const stockDisplay = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
-        if (!productId || !locationId) { stockDisplay.text('').removeAttr('title').css('cursor', ''); stockDisplayTable.text(''); return; }
+        if (!productId || !locationId) {
+            stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
+            return;
+        }
         $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
@@ -722,16 +741,13 @@ $(document).ready(function () {
                     titleText += 'No stock in any branch';
                 }
                 
-                stockDisplay.text('Stock: ' + qty)
+                stockDisplay
+                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
                     .attr('title', titleText.trim())
                     .css('cursor', 'help')
-                    .removeClass('text-success text-danger')
-                    .addClass(qty > 0 ? 'text-success' : 'text-danger');
-                
-                stockDisplayTable
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
-                    .removeClass('text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'text-warning' : 'text-success') : 'text-danger');
+                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+                    .show();
             });
     }
 

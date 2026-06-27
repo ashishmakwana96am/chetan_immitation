@@ -201,15 +201,16 @@
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
-                <div class="d-flex align-items-center gap-2 mb-1">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
                     <div class="d-flex flex-column">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
+                        <div><span class="badge stock-info-display mt-1"></span></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -239,15 +240,16 @@
     <template id="parentRowTemplate">
         <tr class="item-row parent-row" data-product-id="__PRODUCT_ID__" data-variant-id="parent" data-index="__INDEX__">
             <td>
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <div class="d-flex flex-column ms-2">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
+                    <div class="d-flex flex-column">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
+                        <div><span class="badge stock-info-display mt-1"></span></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display ms-2"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -276,17 +278,18 @@
     <!-- Variant Row Template -->
     <template id="variantRowTemplate">
         <tr class="item-row variant-row" data-parent-id="__PARENT_ID__" data-variant-id="__VARIANT_ID__" data-index="__INDEX__">
-            <td>
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <div class="d-flex flex-column ms-2">
+            <td style="padding-left: 4.5rem;">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="product-image-container"></span>
+                    <div class="d-flex flex-column">
                         <div>
                             <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
                             <span class="variant-name-display fw-semibold text-heading"></span>
                         </div>
+                        <div class="ms-3"><span class="badge stock-info-display mt-1"></span></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
-                <small class="text-muted stock-info-display ms-2"></small>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -473,6 +476,10 @@ $(document).ready(function () {
     });
 
     function addItemRow(product) {
+        const productImgHtml = product.image
+            ? `<img src="${product.image}" alt="" class="rounded" style="width: 35px; height: 35px; object-fit: cover;">`
+            : `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;"><i class="ti ti-package text-muted" style="font-size: 1.2rem;"></i></div>`;
+
         if (product.type === 'variable') {
             // 1. Add Parent Row
             const parentTemplate = document.getElementById('parentRowTemplate').innerHTML
@@ -485,6 +492,7 @@ $(document).ready(function () {
             parentRow.find('.product-id-input').val(product.id);
             parentRow.find('.product-name-display').text(product.name);
             parentRow.find('.product-sku-display').text('SKU: ' + product.sku);
+            parentRow.find('.product-image-container').html(productImgHtml);
             parentRow.find('.purchase-price').val(product.purchase_price != null ? product.purchase_price : 0);
             parentRow.find('.item-qty').val(1); // Default parent qty to 1
 
@@ -509,6 +517,7 @@ $(document).ready(function () {
 
                     vRow.find('.product-id-input').val(product.id);
                     vRow.find('.variant-name-display').text(v.attr_name + ': ' + v.value_name);
+                    vRow.find('.product-image-container').html(productImgHtml);
                     vRow.find('.purchase-price').val(v.purchase_price != null ? v.purchase_price : 0);
                     vRow.find('.item-qty').val(0); // Default to 0
 
@@ -533,6 +542,7 @@ $(document).ready(function () {
             row.find('.product-id-input').val(product.id);
             row.find('.product-name-display').text(product.name);
             row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-image-container').html(productImgHtml);
             row.data('product-name', product.name);
             row.data('index', itemIndex);
             row.find('.purchase-price').val(product.purchase_price != null ? product.purchase_price : 0);
@@ -682,7 +692,7 @@ $(document).ready(function () {
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
 
         if (!productId) {
-            stockDisplay.text('').removeAttr('title').css('cursor', '');
+            stockDisplay.text('').removeAttr('title').css('cursor', '').removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning').hide();
             return;
         }
 
@@ -701,11 +711,12 @@ $(document).ready(function () {
                 }
                 
                 stockDisplay
-                    .text('Total Stock: ' + qty)
+                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
                     .attr('title', titleText.trim())
                     .css('cursor', 'help')
-                    .removeClass('text-success text-danger')
-                    .addClass(qty > 0 ? 'text-success' : 'text-danger');
+                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+                    .show();
             });
     }
 
@@ -850,14 +861,12 @@ $(document).ready(function () {
                 listItem.append(`
                     <div>
                         <span class="fw-semibold text-heading d-block text-truncate">${productName}</span>
-                        <small class="text-muted d-block">Target: ${qty}</small>
                     </div>
                 `);
 
                 itemsList.append(listItem);
             } else {
                 listItem.find('span.text-heading').text(productName);
-                listItem.find('small').text('Target: ' + qty);
             }
         });
 
