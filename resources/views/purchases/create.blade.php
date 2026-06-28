@@ -2,6 +2,48 @@
 
 @section('title', 'New Purchase Invoice')
 
+@section('page-css')
+<style>
+    /* Hide spinners in input fields */
+    #itemsTable input[type=number]::-webkit-outer-spin-button,
+    #itemsTable input[type=number]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    #itemsTable input[type=number] {
+        -moz-appearance: textfield;
+    }
+    
+    /* Column Width Alignments */
+    #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
+        width: 45% !important;
+    }
+    #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
+        width: 12% !important;
+        min-width: 85px !important;
+    }
+    #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
+        width: 25% !important;
+        min-width: 150px !important;
+    }
+    #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
+        width: 15% !important;
+        min-width: 140px !important;
+    }
+    #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
+        width: 3% !important;
+    }
+    
+    /* Make inputs look consistent and prevent clipping */
+    #itemsTable .item-qty {
+        border-radius: 0.375rem !important;
+    }
+    #itemsTable .input-group {
+        flex-wrap: nowrap !important;
+    }
+</style>
+@endsection
+
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">New Purchase Invoice</h4>
@@ -60,18 +102,18 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                            <th width="30%">Product</th>
-                                            <th width="20%">Qty</th>
-                                            <th width="25%">Price</th>
-                                            <th width="20%">Total</th>
-                                            <th width="5%"></th>
+                                            <th>Product</th>
+                                            <th>Qty</th>
+                                            <th>Price</th>
+                                            <th>Total</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                 <tbody id="itemsBody"></tbody>
                                 <tfoot>
                                     <tr class="table-light">
                                         <td colspan="3" class="text-end fw-semibold">Grand Total</td>
-                                        <td class="fw-bold text-primary" id="grandTotal">{{ currency_symbol() }} 0.00</td>
+                                        <td class="fw-bold text-primary text-nowrap" id="grandTotal">{{ currency_symbol() }} 0.00</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -186,12 +228,15 @@
     </form>
 
     <!-- Item Row Template -->
+    <!-- Item Row Template -->
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
             <td>
                 <div class="d-flex flex-column mb-1">
                     <span class="product-name-display fw-semibold text-heading"></span>
                     <small class="product-sku-display text-muted"></small>
+                    <div class="variant-select-container"></div>
+                    <div><span class="badge stock-info-display mt-1"></span></div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
@@ -200,7 +245,7 @@
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
                     class="form-control form-control-sm item-qty"
-                    placeholder="0" min="1" value="1" />
+                    placeholder="1" min="1" value="1" />
             </td>
             <td>
                 <div class="input-group input-group-sm">
@@ -211,85 +256,10 @@
                 </div>
             </td>
             <td>
-                <span class="item-total fw-semibold">{{ currency_symbol() }} 0.00</span>
+                <span class="item-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
             </td>
             <td>
-                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn">
-                    <i class="ti ti-trash"></i>
-                </button>
-            </td>
-        </tr>
-    </template>
-
-    <!-- Parent Row Template -->
-    <template id="parentRowTemplate">
-        <tr class="item-row parent-row" data-product-id="__PRODUCT_ID__" data-variant-id="parent" data-index="__INDEX__">
-            <td>
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <div class="d-flex flex-column ms-2">
-                        <span class="product-name-display fw-semibold text-heading"></span>
-                        <small class="product-sku-display text-muted"></small>
-                    </div>
-                </div>
-                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
-                <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display ms-2"></small>
-            </td>
-            <td>
-                <input type="number" name="items[__INDEX__][quantity]"
-                    class="form-control form-control-sm item-qty"
-                    placeholder="0" min="0" value="0" />
-            </td>
-            <td>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                    <input type="number" name="items[__INDEX__][purchase_price]"
-                        class="form-control form-control-sm purchase-price"
-                        placeholder="0.00" step="0.01" min="0" value="0" />
-                </div>
-            </td>
-            <td>
-                <span class="parent-total fw-semibold">{{ currency_symbol() }} 0.00</span>
-            </td>
-            <td>
-                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-parent-btn" title="Remove Product">
-                    <i class="ti ti-trash"></i>
-                </button>
-            </td>
-        </tr>
-    </template>
-
-    <!-- Variant Row Template -->
-    <template id="variantRowTemplate">
-        <tr class="item-row variant-row" data-parent-id="__PARENT_ID__" data-variant-id="__VARIANT_ID__" data-index="__INDEX__">
-            <td style="padding-left: 4.5rem;">
-                <div class="d-flex flex-column mb-1">
-                    <div>
-                        <span class="text-muted me-2 fw-bold" style="font-size: 1.1rem;">↳</span>
-                        <span class="variant-name-display fw-semibold text-heading"></span>
-                    </div>
-                </div>
-                <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
-                <small class="text-muted stock-info-display ms-3"></small>
-            </td>
-            <td>
-                <input type="number" name="items[__INDEX__][quantity]"
-                    class="form-control form-control-sm item-qty"
-                    placeholder="0" min="0" value="0" />
-            </td>
-            <td>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                    <input type="number" name="items[__INDEX__][purchase_price]"
-                        class="form-control form-control-sm purchase-price"
-                        placeholder="0.00" step="0.01" min="0" value="0" />
-                </div>
-            </td>
-            <td>
-                <span class="item-total fw-semibold">{{ currency_symbol() }} 0.00</span>
-            </td>
-            <td>
-                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-variant-btn" title="Remove Variant">
+                <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn" title="Remove Item">
                     <i class="ti ti-trash"></i>
                 </button>
             </td>
@@ -411,14 +381,17 @@ $(document).ready(function () {
     // Handle product selection
     $(document).on('click', '.search-result-item', function() {
         const product = $(this).data('product');
-
         let exists = false;
-        // Check if product or its variants are already in the list
-        $('.product-id-input').each(function() {
-            if ($(this).val() == product.id) {
-                exists = true;
-            }
-        });
+
+        if (product.type !== 'variable') {
+            $('.product-id-input').each(function() {
+                const row = $(this).closest('.item-row');
+                const rowProduct = row.data('product');
+                if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
+                    exists = true;
+                }
+            });
+        }
 
         if (exists) {
             toastr.warning('Product is already in the list.');
@@ -435,121 +408,80 @@ $(document).ready(function () {
         searchInput.focus();
     });
 
-    // Expand/Collapse variants toggle
-    $(document).on('click', '.toggle-variants-btn', function () {
-        const parentRow = $(this).closest('.parent-row');
-        const productId = parentRow.data('product-id');
-        const icon = $(this).find('i');
-        
-        const variantRows = $(`.variant-row[data-parent-id="${productId}"]`);
-        variantRows.toggle();
-        
-        if (icon.hasClass('ti-chevron-down')) {
-            icon.removeClass('ti-chevron-down').addClass('ti-chevron-right');
-        } else {
-            icon.removeClass('ti-chevron-right').addClass('ti-chevron-down');
-        }
-    });
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null) {
+        const template = document.getElementById('itemRowTemplate').innerHTML
+            .replaceAll('__INDEX__', itemIndex);
 
-    function addItemRow(product) {
+        $('#itemsBody').append(template);
+        $('#noItemsMsg').addClass('d-none');
+
+        const row = $('#itemsBody .item-row').last();
+        row.find('.product-id-input').val(product.id);
+        row.find('.product-name-display').text(product.name);
+        
+        row.data('product', product);
+        row.data('index', itemIndex);
+
         if (product.type === 'variable') {
-            // 1. Add Parent Row
-            const parentTemplate = document.getElementById('parentRowTemplate').innerHTML
-                .replaceAll('__INDEX__', itemIndex)
-                .replaceAll('__PRODUCT_ID__', product.id);
-            $('#itemsBody').append(parentTemplate);
-            $('#noItemsMsg').addClass('d-none');
-
-            const parentRow = $('#itemsBody .parent-row').last();
-            parentRow.find('.product-id-input').val(product.id);
-            parentRow.find('.product-name-display').text(product.name);
-            parentRow.find('.product-sku-display').text('SKU: ' + product.sku);
-            parentRow.find('.purchase-price').val(product.purchase_price != null ? product.purchase_price : 0);
-            parentRow.find('.item-qty').val(1); // Default parent qty to 1
-
-            parentRow.data('product-name', product.name);
-            parentRow.data('index', itemIndex);
-
-            updateRowTotal(parentRow);
-            updateStockInfo(parentRow);
-
-            itemIndex++;
-
-            // 2. Add Variant Rows under it
-            if (product.variants && product.variants.length > 0) {
-                product.variants.forEach(function(v) {
-                    const variantTemplate = document.getElementById('variantRowTemplate').innerHTML
-                        .replaceAll('__INDEX__', itemIndex)
-                        .replaceAll('__PARENT_ID__', product.id)
-                        .replaceAll('__VARIANT_ID__', v.id);
-
-                    $('#itemsBody').append(variantTemplate);
-                    const vRow = $('#itemsBody .variant-row').last();
-
-                    vRow.find('.product-id-input').val(product.id);
-                    vRow.find('.variant-name-display').text(v.attr_name + ': ' + v.value_name);
-                    vRow.find('.purchase-price').val(v.purchase_price != null ? v.purchase_price : 0);
-                    vRow.find('.item-qty').val(0); // Default to 0
-
-                    vRow.data('product-name', product.name + ' (' + v.attr_name + ': ' + v.value_name + ')');
-                    vRow.data('index', itemIndex);
-
-                    updateRowTotal(vRow);
-                    updateStockInfo(vRow);
-
-                    itemIndex++;
-                });
-            }
-        } else {
-            // Normal product
-            const template = document.getElementById('itemRowTemplate').innerHTML
-                .replaceAll('__INDEX__', itemIndex);
-
-            $('#itemsBody').append(template);
-            $('#noItemsMsg').addClass('d-none');
-
-            const row = $('#itemsBody .item-row').last();
-            row.find('.product-id-input').val(product.id);
-            row.find('.product-name-display').text(product.name);
+            // Build variant select dropdown
+            let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
+            product.variants.forEach(v => {
+                const optPrice = v.purchase_price != null ? v.purchase_price : 0;
+                const selected = (selectedVariantId && selectedVariantId == v.id) || (!selectedVariantId && product.variants[0].id == v.id) ? 'selected' : '';
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+            });
+            selectHtml += `</select>`;
+            row.find('.variant-select-container').html(selectHtml);
+            
+            // Set initial variant
+            const selectedOpt = row.find('.variant-select option:selected');
+            const initialVariantId = selectedOpt.val();
+            const initialPrice = price != null ? price : selectedOpt.data('price');
+            
+            row.attr('data-variant-id', initialVariantId);
+            row.data('variant-id', initialVariantId);
+            row.find('.purchase-price').val(initialPrice);
             row.find('.product-sku-display').text('SKU: ' + product.sku);
+
+            const variantText = selectedOpt.text().split(' (')[0];
+            row.data('product-name', product.name + ' (' + variantText + ')');
+        } else {
+            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.purchase-price').val(price != null ? price : (product.purchase_price != null ? product.purchase_price : 0));
             row.data('product-name', product.name);
-            row.data('index', itemIndex);
-            row.find('.purchase-price').val(product.purchase_price != null ? product.purchase_price : 0);
-            row.find('.item-qty').val(1);
-
-            updateRowTotal(row);
-            updateStockInfo(row);
-
-            itemIndex++;
         }
+
+        row.find('.item-qty').val(qty);
+
+        updateRowTotal(row);
+        updateStockInfo(row);
+
+        itemIndex++;
         updateGrandTotal();
         renderAllocationSection();
     }
 
-    // Remove Parent Product Row and all its variants
-    $(document).on('click', '.remove-parent-btn', function () {
-        const parentRow = $(this).closest('.parent-row');
-        const productId = parentRow.data('product-id');
+    $(document).on('change', '.variant-select', function() {
+        const row = $(this).closest('.item-row');
+        const product = row.data('product');
+        const selectedOpt = $(this).find('option:selected');
+        const variantId = selectedOpt.val();
+        const price = selectedOpt.data('price');
         
-        $(`.variant-row[data-parent-id="${productId}"]`).each(function() {
-            const idx = $(this).data('index');
-            $('#allocation-item-' + idx).remove();
-            $('#allocation-list-item-' + idx).remove();
-            $(this).remove();
-        });
+        row.attr('data-variant-id', variantId);
+        row.data('variant-id', variantId);
+        row.find('.purchase-price').val(price);
         
-        parentRow.remove();
-
-        if ($('#itemsBody .item-row').length === 0) {
-            $('#noItemsMsg').removeClass('d-none');
-            $('#allocationCard').hide();
-        } else {
-            renderAllocationSection();
-        }
+        const variantText = selectedOpt.text().split(' (')[0];
+        row.data('product-name', product.name + ' (' + variantText + ')');
+        
+        updateRowTotal(row);
+        updateStockInfo(row);
         updateGrandTotal();
+        renderAllocationSection();
     });
 
-    // Remove Normal Item Row
+    // Remove Item Row
     $(document).on('click', '.remove-item-btn', function () {
         const row = $(this).closest('.item-row');
         const idx = row.data('index');
@@ -1028,16 +960,133 @@ $(document).ready(function () {
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.invalid-feedback').text('');
 
-        const disabledInputs = [];
-        $('.variant-row, .parent-row').each(function () {
-            const qty = parseInt($(this).find('.item-qty').val()) || 0;
-            if (qty <= 0) {
-                $(this).find('input').each(function () {
-                    if (!$(this).prop('disabled')) {
-                        $(this).prop('disabled', true);
-                        disabledInputs.push($(this));
-                    }
+        // Remove any previously appended hidden mapping container
+        $('#hiddenSubmitContainer').remove();
+
+        // Create a container for our mapped inputs
+        const hiddenContainer = $('<div id="hiddenSubmitContainer" style="display: none;"></div>');
+        form.append(hiddenContainer);
+
+        // Disable all inputs in the visible table and allocation body so they are NOT serialized
+        const visibleInputs = $('#itemsTable, #allocationBody').find('input, select');
+        visibleInputs.prop('disabled', true);
+
+        // Group UI rows by product ID to prepare the backend format
+        const itemsByProduct = {};
+        $('.item-row').each(function() {
+            const row = $(this);
+            const product = row.data('product');
+            const qty = parseInt(row.find('.item-qty').val()) || 0;
+            if (qty <= 0) return; // skip rows with 0 qty
+
+            // Get allocations from the allocation section for this row index
+            const uiIdx = row.data('index');
+            const allocations = [];
+            $(`.alloc-qty[data-item-idx="${uiIdx}"]`).each(function() {
+                const allocInput = $(this);
+                const locId = allocInput.siblings('input[type="hidden"]').val();
+                const allocQty = parseInt(allocInput.val()) || 0;
+                allocations.push({
+                    location_id: locId,
+                    quantity: allocQty
                 });
+            });
+
+            if (!itemsByProduct[product.id]) {
+                itemsByProduct[product.id] = [];
+            }
+            itemsByProduct[product.id].push({
+                row: row,
+                product: product,
+                qty: qty,
+                variantId: row.data('variant-id'),
+                purchase_price: parseFloat(row.find('.purchase-price').val()) || 0,
+                allocations: allocations
+            });
+        });
+
+        let submitIdx = 0;
+
+        Object.keys(itemsByProduct).forEach(productId => {
+            const productItems = itemsByProduct[productId];
+            const firstItem = productItems[0];
+            const product = firstItem.product;
+
+            if (product.type === 'variable') {
+                // 1. Parent Record: sum of quantities and allocations
+                let parentQty = 0;
+                productItems.forEach(item => parentQty += item.qty);
+
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${parentQty}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${product.purchase_price != null ? product.purchase_price : 0}">`);
+
+                // Sum allocations by location ID
+                const parentAllocations = {};
+                productItems.forEach(item => {
+                    item.allocations.forEach(alloc => {
+                        parentAllocations[alloc.location_id] = (parentAllocations[alloc.location_id] || 0) + alloc.quantity;
+                    });
+                });
+
+                let locIdx = 0;
+                Object.keys(parentAllocations).forEach(locId => {
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${locId}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${parentAllocations[locId]}">`);
+                    locIdx++;
+                });
+                submitIdx++;
+
+                // 2. Variant Records (must be in the exact order of product.variants)
+                product.variants.forEach(v => {
+                    const matchedItems = productItems.filter(item => item.variantId == v.id);
+                    let vQty = 0;
+                    let vPrice = v.purchase_price != null ? v.purchase_price : 0;
+                    const vAllocations = {};
+
+                    if (matchedItems.length > 0) {
+                        matchedItems.forEach(item => {
+                            vQty += item.qty;
+                            item.allocations.forEach(alloc => {
+                                vAllocations[alloc.location_id] = (vAllocations[alloc.location_id] || 0) + alloc.quantity;
+                            });
+                        });
+                        vPrice = matchedItems[0].purchase_price;
+                    }
+
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}" class="v-input" data-qty="${vQty}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${vQty}" class="v-input" data-qty="${vQty}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${vPrice}" class="v-input" data-qty="${vQty}">`);
+
+                    let locIdx = 0;
+                    locations.forEach(loc => {
+                        const allocQty = vAllocations[loc.id] || 0;
+                        hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${loc.id}" class="v-input" data-qty="${vQty}">`);
+                        hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${allocQty}" class="v-input" data-qty="${vQty}">`);
+                        locIdx++;
+                    });
+                    submitIdx++;
+                });
+            } else {
+                // Simple Product
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${firstItem.qty}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${firstItem.purchase_price}">`);
+
+                let locIdx = 0;
+                firstItem.allocations.forEach(alloc => {
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${alloc.location_id}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${alloc.quantity}">`);
+                    locIdx++;
+                });
+                submitIdx++;
+            }
+        });
+
+        // Disable variant inputs that have quantity <= 0
+        hiddenContainer.find('.v-input').each(function() {
+            if (parseInt($(this).attr('data-qty')) <= 0) {
+                $(this).prop('disabled', true);
             }
         });
 
@@ -1048,30 +1097,21 @@ $(document).ready(function () {
             type    : 'POST',
             data    : form.serialize(),
             success : function (res) {
-                disabledInputs.forEach(input => input.prop('disabled', false));
+                visibleInputs.prop('disabled', false);
+                hiddenContainer.remove();
                 if (res.status === 'success') {
                     toastr.success(res.message);
                     setTimeout(() => window.location.href = '{{ route('admin.purchases.index') }}', 800);
                 }
             },
             error   : function (xhr) {
-                disabledInputs.forEach(input => input.prop('disabled', false));
+                visibleInputs.prop('disabled', false);
+                hiddenContainer.remove();
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Purchase');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     $.each(errors, function (field, messages) {
-                        let inputName = field;
-                        if (field.includes('.')) {
-                            let parts = field.split('.');
-                            inputName = parts[0] + '[' + parts.slice(1).join('][') + ']';
-                        }
-                        let input = form.find('[name="' + inputName + '"]');
-                        if (input.length) {
-                            input.addClass('is-invalid');
-                            input.siblings('.invalid-feedback').text(messages[0]);
-                        } else {
-                            toastr.error(messages[0]);
-                        }
+                        toastr.error(messages[0]);
                     });
                 } else {
                     toastr.error('Something went wrong. Please try again.');

@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             SuperAdminSeeder::class,
             DummyDataSeeder::class,
             ProductReviewModuleSeeder::class,
+            VariableProductSeeder::class,
         ]);
     }
 }

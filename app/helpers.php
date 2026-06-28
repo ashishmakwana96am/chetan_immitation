@@ -166,9 +166,9 @@ if (!function_exists('format_price')) {
     /**
      * Return a formatted price with currency symbol in Indian numbering format.
      */
-    function format_price(float|int|string $amount, int $decimals = 2): string
+    function format_price(float|int|string|null $amount, int $decimals = 2): string
     {
-        $amount = (float) $amount;
+        $amount = (float) ($amount ?? 0);
         $negative = $amount < 0 ? '-' : '';
         $amount = abs($amount);
         
