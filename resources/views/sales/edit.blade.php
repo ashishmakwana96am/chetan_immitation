@@ -733,77 +733,26 @@ $(document).ready(function () {
         const visibleInputs = $('#itemsTable').find('input, select');
         visibleInputs.prop('disabled', true);
 
-        // Group UI rows by product ID to prepare the backend format
-        const itemsByProduct = {};
+        // Submit each visible row as a separate item so different variants stay separate.
+        let submitIdx = 0;
         $('.item-row').each(function() {
             const row = $(this);
             const product = row.data('product');
             const qty = parseInt(row.find('.item-qty').val()) || 0;
             if (qty <= 0) return; // skip rows with 0 qty
 
-            if (!itemsByProduct[product.id]) {
-                itemsByProduct[product.id] = [];
-            }
-            itemsByProduct[product.id].push({
-                row: row,
-                product: product,
-                qty: qty,
-                variantId: row.data('variant-id'),
-                price: parseFloat(row.find('.item-price').val()) || 0,
-                discount_type: row.find('.item-discount-type').val() || 'flat',
-                discount_value: parseFloat(row.find('.item-discount-value').val()) || 0
-            });
-        });
+            const variantId = row.data('variant-id') || '';
+            const price = parseFloat(row.find('.item-price').val()) || 0;
+            const discountType = row.find('.item-discount-type').val() || 'flat';
+            const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
-        let submitIdx = 0;
-
-        Object.keys(itemsByProduct).forEach(productId => {
-            const productItems = itemsByProduct[productId];
-            const firstItem = productItems[0];
-            const product = firstItem.product;
-
-            if (product.type === 'variable') {
-                // Variant Records (must be in the exact order of product.variants)
-                product.variants.forEach(v => {
-                    const matchedItems = productItems.filter(item => item.variantId == v.id);
-                    let vQty = 0;
-                    let vPrice = v.sale_price != null ? v.sale_price : 0;
-                    let vDiscType = 'flat';
-                    let vDiscVal = 0;
-
-                    if (matchedItems.length > 0) {
-                        matchedItems.forEach(item => {
-                            vQty += item.qty;
-                        });
-                        vPrice = matchedItems[0].price;
-                        vDiscType = matchedItems[0].discount_type;
-                        vDiscVal = matchedItems[0].discount_value;
-                    }
-
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${v.id}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${vQty}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${vPrice}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${vDiscType}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${vDiscVal}" class="v-input" data-qty="${vQty}">`);
-                    submitIdx++;
-                });
-            } else {
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${firstItem.qty}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${firstItem.price}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${firstItem.discount_type}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${firstItem.discount_value}">`);
-                submitIdx++;
-            }
-        });
-
-        // Disable variant inputs that have quantity <= 0
-        hiddenContainer.find('.v-input').each(function() {
-            if (parseInt($(this).attr('data-qty')) <= 0) {
-                $(this).prop('disabled', true);
-            }
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${price}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${discountValue}">`);
+            submitIdx++;
         });
 
         $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');

@@ -801,6 +801,7 @@ $(document).ready(function () {
                 }
             } else {
                 // If block already exists (e.g. user changes quantity after adding)
+                block.find('h5').text(productName);
                 block.find('.alloc-remaining-wrapper-' + idx).prev().find('small').html(`${sku} | Quantity: <span class="fw-bold">${qty}</span>`);
                 autoDistribute(idx, qty);
             }
