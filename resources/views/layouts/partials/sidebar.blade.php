@@ -1,5 +1,5 @@
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-  <div class="app-brand ecom" style="display: flex; align-items: center; background-color: #000; height: 95px; position: relative; z-index: 10; padding-top: 5px; padding-bottom: 5px;">
+  <div class="app-brand ecom" style="display: flex; align-items: center; background-color: #000; position: relative; z-index: 10; padding-top: 5px; padding-bottom: 5px;">
     <a href="{{ route('admin.dashboard') }}" class="app-brand-link" style="flex: 1; overflow: visible; min-width: 0;">
       <span class="app-brand-logo ecom" style="display: flex; align-items: center; width: 100%; overflow: visible;">
         <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 200px; max-height: 85px; height: auto; object-fit: contain; display: block;" />

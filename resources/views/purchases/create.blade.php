@@ -19,8 +19,8 @@
         width: 45% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
-        width: 12% !important;
-        min-width: 85px !important;
+        width: 16% !important;
+        min-width: 110px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
         width: 25% !important;
@@ -31,7 +31,12 @@
         min-width: 140px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
-        width: 3% !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        text-align: center !important;
     }
     
     /* Make inputs look consistent and prevent clipping */
@@ -40,6 +45,12 @@
     }
     #itemsTable .input-group {
         flex-wrap: nowrap !important;
+    }
+    #itemsTable .product-sku-display {
+        white-space: nowrap !important;
+    }
+    .compact-entry-layout .card.mb-4 {
+        margin-bottom: 0 !important;
     }
 </style>
 @endsection
@@ -54,7 +65,9 @@
 
     <form id="purchaseForm" action="{{ route('admin.purchases.store') }}" method="POST">
         @csrf
-        <div class="row g-4">
+        <div class="row g-3 compact-entry-layout">
+            <div class="col-lg-8">
+                <div class="row g-3">
 
             <!-- Invoice Details (Full Width) -->
             <div class="col-12">
@@ -103,10 +116,10 @@
                                     <thead>
                                         <tr class="table-light">
                                             <th style="width: 50%;">Product</th>
-                                            <th style="width: 15%;">Qty</th>
+                                            <th style="width: 16%;">Qty</th>
                                             <th style="width: 15%;">Price</th>
                                             <th style="width: 17%;">Total</th>
-                                            <th style="width: 3%;"></th>
+                                            <th style="width: 44px;"></th>
                                         </tr>
                                     </thead>
                                 <tbody id="itemsBody"></tbody>
@@ -177,9 +190,14 @@
                     </div>
                 </div>
             </div>
+                </div>
+            </div>
 
-            <!-- Bottom widgets: Summary (col-md-4) -->
-            <div class="col-md-4" id="summaryColumn" style="display: none;">
+            <div class="col-lg-4">
+                <div class="row g-3">
+
+            <!-- Bottom widgets: Summary -->
+            <div class="col-12" id="summaryColumn" style="display: none;">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Summary</h5></div>
                     <div class="card-body">
@@ -195,8 +213,8 @@
                 </div>
             </div>
 
-            <!-- Purchase Status (col-md-4) -->
-            <div class="col-md-4">
+            <!-- Purchase Status -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Purchase Status</h5></div>
                     <div class="card-body">
@@ -209,8 +227,8 @@
                 </div>
             </div>
 
-            <!-- Supplier Payment Status (col-md-4) -->
-            <div class="col-md-4">
+            <!-- Supplier Payment Status -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Supplier Payment Status</h5></div>
                     <div class="card-body">
@@ -222,17 +240,19 @@
                 </div>
             </div>
 
-            <!-- Action buttons (col-12, 50% / 50% width) -->
-            <div class="col-12 mt-3">
+            <!-- Action buttons -->
+            <div class="col-12">
                 <div class="row g-3">
-                    <div class="col-6">
-                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5 fw-semibold" id="submitBtn">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5" id="submitBtn">
                             <i class="ti ti-device-floppy me-1"></i> Save Purchase
                         </button>
                     </div>
-                    <div class="col-6">
-                        <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 fw-semibold d-flex align-items-center justify-content-center">Cancel</a>
+                    <div class="col-12">
+                        <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 d-flex align-items-center justify-content-center">Cancel</a>
                     </div>
+                </div>
+            </div>
                 </div>
             </div>
 
@@ -244,12 +264,13 @@
         <tr class="item-row" data-index="__INDEX__">
             <td class="align-middle">
                 <div class="d-flex align-items-center">
-                    <div class="product-image-container me-3"></div>
                     <div class="d-flex flex-column mb-1">
                         <span class="product-name-display fw-semibold text-heading"></span>
-                        <small class="product-sku-display text-muted"></small>
+                        <div class="d-flex align-items-center gap-2 flex-nowrap">
+                            <small class="product-sku-display text-muted"></small>
+                            <span class="badge stock-info-display text-nowrap"></span>
+                        </div>
                         <div class="variant-select-container"></div>
-                        <div><span class="badge stock-info-display mt-1"></span></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -438,12 +459,7 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
-        
-        const rowImgHtml = product.image 
-            ? `<img src="${product.image}" class="rounded" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name}" />`
-            : `<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
-        row.find('.product-image-container').html(rowImgHtml);
-        
+
         row.data('product', product);
         row.data('index', itemIndex);
 
