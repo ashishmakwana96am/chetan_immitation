@@ -171,7 +171,6 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Location</th>
-                                            <th class="text-center">Parent Product</th>
                                             @foreach($product->variants as $v)
                                                 <th class="text-center">
                                                     {{ $v->attributeValue->attribute->name ?? '' }}: {{ $v->attributeValue->value ?? '' }}
@@ -182,7 +181,6 @@
                                     </thead>
                                     <tbody>
                                         @php
-                                            $grandTotalParent = 0;
                                             $grandTotalVariants = [];
                                             foreach($product->variants as $v) {
                                                 $grandTotalVariants[$v->id] = 0;
@@ -191,20 +189,14 @@
                                         @endphp
                                         @foreach($variantStock as $locId => $data)
                                             @php
-                                                $locTotal = $data['parent'];
+                                                $locTotal = 0;
                                                 foreach($data['variants'] as $vId => $qty) {
                                                     $locTotal += $qty;
                                                 }
-                                                $grandTotalParent += $data['parent'];
                                                 $grandTotalAll += $locTotal;
                                             @endphp
                                             <tr>
                                                 <td class="fw-semibold text-heading">{{ $data['location_name'] }}</td>
-                                                <td class="text-center">
-                                                    <span class="badge bg-label-{{ $data['parent'] > 0 ? 'success' : ($data['parent'] < 0 ? 'danger' : 'secondary') }} fs-6">
-                                                        {{ $data['parent'] }}
-                                                    </span>
-                                                </td>
                                                 @foreach($product->variants as $v)
                                                     @php
                                                         $vQty = $data['variants'][$v->id] ?? 0;
@@ -225,9 +217,6 @@
                                     <tfoot class="table-light">
                                         <tr class="fw-bold">
                                             <td>Grand Total</td>
-                                            <td class="text-center text-success">
-                                                <span class="badge bg-success text-white fs-6">{{ $grandTotalParent }}</span>
-                                            </td>
                                             @foreach($product->variants as $v)
                                                 <td class="text-center text-success">
                                                     <span class="badge bg-success text-white fs-6">{{ $grandTotalVariants[$v->id] ?? 0 }}</span>
