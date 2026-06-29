@@ -266,10 +266,11 @@ class PurchaseInvoiceController extends Controller
 
         $existingItems = $purchase->items->map(function ($item) {
             return [
-                'product_id'     => $item->product_id,
-                'purchase_price' => $item->purchase_price,
-                'quantity'       => $item->quantity,
-                'allocations'    => $item->allocations->map(function ($a) {
+                'product_id'         => $item->product_id,
+                'product_variant_id' => $item->product_variant_id,
+                'purchase_price'     => $item->purchase_price,
+                'quantity'           => $item->quantity,
+                'allocations'        => $item->allocations->map(function ($a) {
                     return [
                         'location_id' => $a->location_id,
                         'quantity'    => $a->quantity,

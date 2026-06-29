@@ -131,10 +131,10 @@ class Product extends Model
             }
         }
 
-        // 2. Get all approved sales for this product
+        // 2. Get approved sales for this product
         $orderItems = OrderItem::where('product_id', $this->id)
             ->whereHas('order', function ($q) {
-                $q->where('status', 2);
+                $q->where('status', Order::STATUS_APPROVE);
             })
             ->with('order')
             ->get();

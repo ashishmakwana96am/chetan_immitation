@@ -556,40 +556,27 @@ $(document).ready(function () {
         const existingItems = @json($existingItems);
         if (!existingItems || existingItems.length === 0) return;
 
-        // Group existing items by product_id
-        const grouped = {};
         existingItems.forEach(function(item) {
-            if (!grouped[item.product_id]) {
-                grouped[item.product_id] = [];
-            }
-            grouped[item.product_id].push(item);
-        });
+            if (parseInt(item.quantity) <= 0) return;
 
-        // For each unique product_id
-        Object.keys(grouped).forEach(function(productId) {
-            const product = allProducts.find(p => p.id == productId);
+            const product = allProducts.find(p => p.id == item.product_id);
             if (!product) return;
 
-            const itemsForProduct = grouped[productId];
-
             if (product.type === 'variable') {
-                const variantItems = itemsForProduct.slice(1);
-                
-                variantItems.forEach(item => {
-                    if (parseInt(item.quantity) <= 0) return;
-                    
-                    let matchedVariant = product.variants.find(v => parseFloat(v.purchase_price) == parseFloat(item.purchase_price));
-                    
-                    if (!matchedVariant && product.variants.length > 0) {
-                        matchedVariant = product.variants[0];
-                    }
-                    
-                    if (matchedVariant) {
-                        addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, item.allocations);
-                    }
-                });
+                let matchedVariant = product.variants.find(v => v.id == item.product_variant_id);
+
+                if (!matchedVariant) {
+                    matchedVariant = product.variants.find(v => parseFloat(v.purchase_price) == parseFloat(item.purchase_price));
+                }
+
+                if (!matchedVariant && product.variants.length > 0) {
+                    matchedVariant = product.variants[0];
+                }
+
+                if (matchedVariant) {
+                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, item.allocations);
+                }
             } else {
-                const item = itemsForProduct[0];
                 addItemRow(product, null, item.quantity, item.purchase_price, item.allocations);
             }
         });
@@ -1057,8 +1044,8 @@ $(document).ready(function () {
         const visibleInputs = $('#itemsTable, #allocationBody').find('input, select');
         visibleInputs.prop('disabled', true);
 
-        // Group UI rows by product ID to prepare the backend format
-        const itemsByProduct = {};
+        // Submit each visible row separately so variant quantities and allocations stay independent.
+        let submitIdx = 0;
         $('.item-row').each(function() {
             const row = $(this);
             const product = row.data('product');
@@ -1078,80 +1065,19 @@ $(document).ready(function () {
                 });
             });
 
-            if (!itemsByProduct[product.id]) {
-                itemsByProduct[product.id] = [];
-            }
-            itemsByProduct[product.id].push({
-                row: row,
-                product: product,
-                qty: qty,
-                variantId: row.data('variant-id'),
-                purchase_price: parseFloat(row.find('.purchase-price').val()) || 0,
-                allocations: allocations
+            const variantId = row.data('variant-id') || '';
+            const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
+
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
+
+            allocations.forEach((alloc, locIdx) => {
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${alloc.location_id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${alloc.quantity}">`);
             });
-        });
-
-        let submitIdx = 0;
-
-        Object.keys(itemsByProduct).forEach(productId => {
-            const productItems = itemsByProduct[productId];
-            const firstItem = productItems[0];
-            const product = firstItem.product;
-
-            if (product.type === 'variable') {
-                // Variant Records (must be in the exact order of product.variants)
-                product.variants.forEach(v => {
-                    const matchedItems = productItems.filter(item => item.variantId == v.id);
-                    let vQty = 0;
-                    let vPrice = v.purchase_price != null ? v.purchase_price : 0;
-                    const vAllocations = {};
-
-                    if (matchedItems.length > 0) {
-                        matchedItems.forEach(item => {
-                            vQty += item.qty;
-                            item.allocations.forEach(alloc => {
-                                vAllocations[alloc.location_id] = (vAllocations[alloc.location_id] || 0) + alloc.quantity;
-                            });
-                        });
-                        vPrice = matchedItems[0].purchase_price;
-                    }
-
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${v.id}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${vQty}" class="v-input" data-qty="${vQty}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${vPrice}" class="v-input" data-qty="${vQty}">`);
-
-                    let locIdx = 0;
-                    locations.forEach(loc => {
-                        const allocQty = vAllocations[loc.id] || 0;
-                        hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${loc.id}" class="v-input" data-qty="${vQty}">`);
-                        hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${allocQty}" class="v-input" data-qty="${vQty}">`);
-                        locIdx++;
-                    });
-                    submitIdx++;
-                });
-            } else {
-                // Simple Product
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${firstItem.qty}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${firstItem.purchase_price}">`);
-
-                let locIdx = 0;
-                firstItem.allocations.forEach(alloc => {
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${alloc.location_id}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${alloc.quantity}">`);
-                    locIdx++;
-                });
-                submitIdx++;
-            }
-        });
-
-        // Disable variant inputs that have quantity <= 0
-        hiddenContainer.find('.v-input').each(function() {
-            if (parseInt($(this).attr('data-qty')) <= 0) {
-                $(this).prop('disabled', true);
-            }
+            submitIdx++;
         });
 
         $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');

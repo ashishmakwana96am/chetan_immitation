@@ -233,18 +233,12 @@ class SaleController extends Controller
         $isApprove = ($request->status ?? 2) == 2;
 
         if ($isApprove) {
-            foreach ($request->items as $index => $item) {
-                $available = Inventory::where('product_id', $item['product_id'])
-                    ->where('location_id', $request->location_id)
-                    ->value('quantity') ?? 0;
-
-                if ($available < $item['quantity']) {
-                    $product = Product::find($item['product_id']);
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $available . ' available.']],
-                    ], 422);
-                }
+            $stockError = $this->getStockError($request->items, (int) $request->location_id);
+            if ($stockError) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['items' => [$stockError]],
+                ], 422);
             }
         }
 
@@ -457,25 +451,17 @@ class SaleController extends Controller
         $isApprove = ($request->status ?? 2) == 2;
 
         if ($isApprove) {
-            foreach ($request->items as $index => $item) {
-                // Since the order was previously 'pending', no stock was deducted.
-                // Thus, the available stock is simply the current inventory quantity.
-                $available = Inventory::where('product_id', $item['product_id'])
-                    ->where('location_id', $request->location_id)
-                    ->value('quantity') ?? 0;
-
-                if ($available < $item['quantity']) {
-                    $product = Product::find($item['product_id']);
-                    return response()->json([
-                        'status'  => 'error',
-                        'message' => ['items' => ['Item #' . ($index + 1) . ' (' . $product->name . '): Only ' . $available . ' available.']],
-                    ], 422);
-                }
+            $stockError = $this->getStockError($request->items, (int) $request->location_id);
+            if ($stockError) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['items' => [$stockError]],
+                ], 422);
             }
         }
 
         DB::transaction(function () use ($request, $isApprove, $sale) {
-            // Delete old items (we don't need to increment inventory because they were pending and had no stock deducted)
+            // The sale is pending here, so its existing items have not reduced stock.
             $sale->items()->delete();
 
             $totalAmount = 0.0;
@@ -614,15 +600,9 @@ class SaleController extends Controller
 
                         // Transition from Restored to Deducted group: deduct stock
                         if (!$oldInDeducted && $newInDeducted) {
-                            foreach ($sale->items as $item) {
-                                $stock = Inventory::where('product_id', $item->product_id)
-                                    ->where('location_id', $sale->location_id)
-                                    ->value('quantity') ?? 0;
-
-                                if ($stock < $item->quantity) {
-                                    $product = Product::find($item->product_id);
-                                    throw new \Exception('Product "' . $product->name . '" only has ' . $stock . ' units in stock.');
-                                }
+                            $stockError = $this->getStockError($sale->items, (int) $sale->location_id);
+                            if ($stockError) {
+                                throw new \Exception($stockError);
                             }
 
                             // Deduct stock
@@ -680,6 +660,67 @@ class SaleController extends Controller
         }
 
         return response()->json(['status' => 'success', 'message' => 'Sale status updated successfully.']);
+    }
+
+    private function getStockError(iterable $items, int $locationId): ?string
+    {
+        $requested = [];
+
+        foreach ($items as $item) {
+            $productId = (int) (is_array($item) ? $item['product_id'] : $item->product_id);
+            $variantId = is_array($item)
+                ? ($item['product_variant_id'] ?? null)
+                : $item->product_variant_id;
+            $variantId = $variantId ? (int) $variantId : null;
+            $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
+            $key = $productId . ':' . ($variantId ?? 0);
+
+            if (!isset($requested[$key])) {
+                $requested[$key] = [
+                    'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'quantity' => 0,
+                ];
+            }
+
+            $requested[$key]['quantity'] += $quantity;
+        }
+
+        foreach ($requested as $stockRequest) {
+            $product = Product::with('variants.attributeValue.attribute')
+                ->find($stockRequest['product_id']);
+
+            if (!$product) {
+                return 'Selected product was not found.';
+            }
+
+            $variantId = $stockRequest['variant_id'];
+            $label = $product->name;
+
+            if ($variantId) {
+                $variant = $product->variants->firstWhere('id', $variantId);
+                if (!$variant) {
+                    return 'Selected variant does not belong to product "' . $product->name . '".';
+                }
+
+                $stockData = $product->getVariantStock($locationId);
+                $available = (int) ($stockData['variants'][$variantId] ?? 0);
+                $attributeName = $variant->attributeValue->attribute->name ?? 'Variant';
+                $attributeValue = $variant->attributeValue->value ?? $variantId;
+                $label .= ' (' . $attributeName . ': ' . $attributeValue . ')';
+            } else {
+                $available = (int) (Inventory::where('product_id', $product->id)
+                    ->where('location_id', $locationId)
+                    ->value('quantity') ?? 0);
+            }
+
+            if ($available < $stockRequest['quantity']) {
+                return 'Product "' . $label . '" only has ' . $available
+                    . ' units in stock; ' . $stockRequest['quantity'] . ' requested.';
+            }
+        }
+
+        return null;
     }
 
     public function destroy(Order $sale)
