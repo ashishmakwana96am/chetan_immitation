@@ -158,7 +158,7 @@ if (!function_exists('currency_symbol')) {
      */
     function currency_symbol(): string
     {
-        return config('app.currency_symbol', '$');
+        return config('app.currency_symbol', '₹');
     }
 }
 
