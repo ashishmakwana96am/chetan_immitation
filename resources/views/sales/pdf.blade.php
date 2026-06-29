@@ -295,62 +295,86 @@
         $product   = $firstItem->product ?? null;
 
         if ($product && $product->type === 'variable') {
-            $parentItem = $firstItem;
-            $parentItem->is_parent = true;
-            $parentItem->resolved_variant_name = null;
+            $hasNewVariantIdTracking = $siblings->contains(fn($i) => !is_null($i->product_variant_id));
 
-            $variantItems      = $siblings->slice(1)->values();
-            $variants          = $product->variants ?? collect();
-            $matchedMap        = [];
-            $unmatchedSiblings = $variantItems->all();
+            if ($hasNewVariantIdTracking) {
+                $parentItem = $siblings->first(fn($i) => is_null($i->product_variant_id));
+                $variantItems = $siblings->filter(fn($i) => !is_null($i->product_variant_id))->values();
 
-            foreach ($variants as $v) {
-                $matchedIdx = -1;
-                foreach ($unmatchedSiblings as $idx => $sibling) {
-                    if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
-                        $matchedIdx = $idx;
-                        break;
+                if ($parentItem) {
+                    $parentItem->is_parent = true;
+                    $parentItem->resolved_variant_name = null;
+                    $preparedItems->push($parentItem);
+                }
+
+                foreach ($variantItems as $vItem) {
+                    $vItem->is_parent = false;
+                    $vName = null;
+                    $v = $product->variants->firstWhere('id', $vItem->product_variant_id);
+                    if ($v && $v->attributeValue) {
+                        $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                    }
+                    $vItem->resolved_variant_name = $vName;
+                    $preparedItems->push($vItem);
+                }
+            } else {
+                $parentItem = $firstItem;
+                $parentItem->is_parent = true;
+                $parentItem->resolved_variant_name = null;
+
+                $variantItems      = $siblings->slice(1)->values();
+                $variants          = $product->variants ?? collect();
+                $matchedMap        = [];
+                $unmatchedSiblings = $variantItems->all();
+
+                foreach ($variants as $v) {
+                    $matchedIdx = -1;
+                    foreach ($unmatchedSiblings as $idx => $sibling) {
+                        if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) {
+                            $matchedIdx = $idx;
+                            break;
+                        }
+                    }
+                    if ($matchedIdx !== -1) {
+                        $ms          = $unmatchedSiblings[$matchedIdx];
+                        $vName       = null;
+                        if ($v->attributeValue) {
+                            $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                        }
+                        $ms->resolved_variant_name = $vName;
+                        $ms->is_parent             = false;
+                        $matchedMap[$ms->id]       = $ms;
+                        unset($unmatchedSiblings[$matchedIdx]);
                     }
                 }
-                if ($matchedIdx !== -1) {
-                    $ms          = $unmatchedSiblings[$matchedIdx];
-                    $vName       = null;
+
+                $unmatchedSiblings = array_values($unmatchedSiblings);
+                $unmatchedVariants = [];
+                foreach ($variants as $v) {
+                    $vName = null;
                     if ($v->attributeValue) {
                         $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
                     }
-                    $ms->resolved_variant_name = $vName;
-                    $ms->is_parent             = false;
-                    $matchedMap[$ms->id]       = $ms;
-                    unset($unmatchedSiblings[$matchedIdx]);
+                    $already = false;
+                    foreach ($matchedMap as $ms) {
+                        if ($ms->resolved_variant_name === $vName) { $already = true; break; }
+                    }
+                    if (!$already) $unmatchedVariants[] = $v;
                 }
-            }
 
-            $unmatchedSiblings = array_values($unmatchedSiblings);
-            $unmatchedVariants = [];
-            foreach ($variants as $v) {
-                $vName = null;
-                if ($v->attributeValue) {
-                    $vName = ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '');
+                foreach ($unmatchedSiblings as $idx => $sibling) {
+                    $v = $unmatchedVariants[$idx] ?? null;
+                    $sibling->resolved_variant_name = $v
+                        ? (($v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null))
+                        : null;
+                    $sibling->is_parent = false;
+                    $matchedMap[$sibling->id] = $sibling;
                 }
-                $already = false;
-                foreach ($matchedMap as $ms) {
-                    if ($ms->resolved_variant_name === $vName) { $already = true; break; }
+
+                $preparedItems->push($parentItem);
+                foreach ($variantItems as $vItem) {
+                    $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
                 }
-                if (!$already) $unmatchedVariants[] = $v;
-            }
-
-            foreach ($unmatchedSiblings as $idx => $sibling) {
-                $v = $unmatchedVariants[$idx] ?? null;
-                $sibling->resolved_variant_name = $v
-                    ? (($v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null))
-                    : null;
-                $sibling->is_parent = false;
-                $matchedMap[$sibling->id] = $sibling;
-            }
-
-            $preparedItems->push($parentItem);
-            foreach ($variantItems as $vItem) {
-                $preparedItems->push($matchedMap[$vItem->id] ?? $vItem);
             }
         } else {
             foreach ($siblings as $sibling) {
@@ -490,8 +514,7 @@
         <thead>
             <tr>
                 <th style="width:4%;">#</th>
-                <th style="width:38%;">Product</th>
-                <th style="width:12%;">SKU</th>
+                <th style="width:50%;">Product</th>
                 <th class="text-right" style="width:12%;">Price</th>
                 <th class="text-right" style="width:8%;">Qty</th>
                 <th class="text-right" style="width:14%;">Discount</th>
@@ -510,18 +533,14 @@
                             <strong>{{ $item->product->name ?? '-' }}</strong>
                         @endif
                     </td>
-                    <td>
-                        @if($item->is_parent) {{ $item->product->sku ?? '-' }} @else - @endif
-                    </td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
                     <td class="text-right">{{ $item->quantity }}</td>
                     <td class="text-right">
                         @if($item->discount_amount > 0)
                             @if($item->discount_type === 'percentage')
-                                {{ number_format($item->discount_value, 2) }}%<br>
-                                <span style="font-size:9.5px; color:#888;">(-{{ format_price($item->discount_amount) }})</span>
+                                {{ number_format($item->discount_value, 2) }}%
                             @else
-                                -{{ format_price($item->discount_amount) }}
+                                {{ format_price($item->discount_amount) }}
                             @endif
                         @else
                             -
@@ -533,32 +552,32 @@
         </tbody>
         <tfoot>
             <tr class="subtotal-row">
-                <td colspan="6" class="text-right" style="font-weight:bold; color:#555;">Subtotal</td>
+                <td colspan="5" class="text-right" style="font-weight:bold; color:#555;">Subtotal</td>
                 <td class="text-right" style="font-weight:bold;">{{ format_price($subtotal) }}</td>
             </tr>
             @if($totalItemDiscount > 0)
             <tr class="discount-row">
-                <td colspan="6" class="text-right">Item Discount</td>
+                <td colspan="5" class="text-right">Item Discount</td>
                 <td class="text-right">-{{ format_price($totalItemDiscount) }}</td>
             </tr>
             @endif
             @if($couponDiscount > 0 && $couponCode)
             <tr class="coupon-row">
-                <td colspan="6" class="text-right">
+                <td colspan="5" class="text-right">
                     Discount
                 </td>
                 <td class="text-right">-{{ format_price($couponDiscount) }}</td>
             </tr>
             @elseif($order->coupon_id && $order->coupon)
             <tr class="coupon-row">
-                <td colspan="6" class="text-right">
+                <td colspan="5" class="text-right">
                     Coupon Applied &nbsp; {{ $order->coupon->code }}
                 </td>
                 <td class="text-right">-</td>
             </tr>
             @endif
             <tr class="total-row">
-                <td colspan="6" class="text-right">Final Amount</td>
+                <td colspan="5" class="text-right">Final Amount</td>
                 <td class="text-right">{{ format_price($order->final_amount) }}</td>
             </tr>
         </tfoot>

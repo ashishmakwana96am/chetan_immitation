@@ -62,19 +62,17 @@
         @method('PUT')
         <div class="row g-4">
 
-            <!-- Main -->
-            <div class="col-lg-8">
-
-                <!-- Invoice Details -->
+            <!-- Invoice Details (Full Width) -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Invoice Details</h5></div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label">Invoice No</label>
                                 <input type="text" class="form-control" value="{{ $purchase->invoice_no }}" disabled />
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label">Supplier <span class="text-danger">*</span></label>
                                 <select name="supplier_id" class="form-select">
                                     <option value="">-- Select Supplier --</option>
@@ -89,8 +87,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Purchase Items -->
+            <!-- Purchase Items (Full Width) -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header border-bottom pb-3" style="z-index: 10;">
                         <h5 class="mb-3">Purchase Items</h5>
@@ -109,11 +109,11 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                            <th>Product</th>
-                                            <th>Qty</th>
-                                            <th>Price</th>
-                                            <th>Total</th>
-                                            <th></th>
+                                            <th style="width: 50%;">Product</th>
+                                            <th style="width: 15%;">Qty</th>
+                                            <th style="width: 15%;">Price</th>
+                                            <th style="width: 17%;">Total</th>
+                                            <th style="width: 3%;"></th>
                                         </tr>
                                     </thead>
                                 <tbody id="itemsBody"></tbody>
@@ -131,8 +131,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Location Allocation -->
+            <!-- Location Allocation (Full Width) -->
+            <div class="col-12" id="allocationCard">
                 <style>
                     #allocationItemsList .list-group-item.active {
                         background-color: #B4771E !important;
@@ -155,21 +157,21 @@
                         color: rgba(180, 119, 30, 0.8) !important;
                     }
                 </style>
-                <div class="card mb-4" id="allocationCard">
+                <div class="card mb-4">
                     <div class="card-header border-bottom">
                         <h5 class="mb-0">Location Allocation</h5>
                         <small class="text-muted">Allocate each item's quantity across locations. Total allocated must equal item quantity.</small>
                     </div>
                     <div class="row g-0">
                         <!-- Left Panel: Item List with Search -->
-                        <div class="col-md-4 border-end d-flex flex-column" style="height: 450px;">
+                        <div class="col-md-4 border-end d-flex flex-column" style="height: 450px; overflow-x: hidden;">
                             <div class="p-2 border-bottom">
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text"><i class="ti ti-search fs-5"></i></span>
                                     <input type="text" id="allocationSearch" class="form-control form-control-sm" placeholder="Search product..." />
                                 </div>
                             </div>
-                            <div class="list-group list-group-flush flex-grow-1" id="allocationItemsList" style="overflow-y: auto;">
+                            <div class="list-group list-group-flush flex-grow-1" id="allocationItemsList" style="overflow-y: auto; overflow-x: hidden;">
                                 <!-- populated by JS -->
                             </div>
                         </div>
@@ -181,11 +183,10 @@
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Sidebar -->
-            <div class="col-lg-4">
+            <!-- Bottom widgets: Summary (col-md-4) -->
+            <div class="col-md-4" id="summaryColumn">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Summary</h5></div>
                     <div class="card-body">
@@ -199,8 +200,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Purchase Status -->
+            <!-- Purchase Status (col-md-4) -->
+            <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Purchase Status</h5></div>
                     <div class="card-body">
@@ -211,8 +214,10 @@
                         </select>
                     </div>
                 </div>
+            </div>
 
-                <!-- Supplier Payment Status -->
+            <!-- Supplier Payment Status (col-md-4) -->
+            <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Supplier Payment Status</h5></div>
                     <div class="card-body">
@@ -222,12 +227,19 @@
                         </select>
                     </div>
                 </div>
+            </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <i class="ti ti-device-floppy me-1"></i> Update Purchase
-                    </button>
-                    <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary">Cancel</a>
+            <!-- Action buttons (col-12, 50% / 50% width) -->
+            <div class="col-12 mt-3">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5 fw-semibold" id="submitBtn">
+                            <i class="ti ti-device-floppy me-1"></i> Update Purchase
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 fw-semibold d-flex align-items-center justify-content-center">Cancel</a>
+                    </div>
                 </div>
             </div>
 
@@ -235,37 +247,38 @@
     </form>
 
     <!-- Item Row Template -->
-    <!-- Item Row Template -->
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
-            <td>
-                <div class="d-flex flex-column mb-1">
-                    <span class="product-name-display fw-semibold text-heading"></span>
-                    <small class="product-sku-display text-muted"></small>
-                    <div class="variant-select-container"></div>
-                    <div><span class="badge stock-info-display mt-1"></span></div>
+            <td class="align-middle">
+                <div class="d-flex align-items-center">
+                    <div class="product-image-container me-3"></div>
+                    <div class="d-flex flex-column mb-1">
+                        <span class="product-name-display fw-semibold text-heading"></span>
+                        <small class="product-sku-display text-muted"></small>
+                        <div class="variant-select-container"></div>
+                        <div><span class="badge stock-info-display mt-1"></span></div>
+                    </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display"></small>
             </td>
-            <td>
+            <td class="align-middle">
                 <input type="number" name="items[__INDEX__][quantity]"
-                    class="form-control form-control-sm item-qty"
+                    class="form-control item-qty"
                     placeholder="1" min="1" value="1" />
             </td>
-            <td>
-                <div class="input-group input-group-sm">
+            <td class="align-middle">
+                <div class="input-group">
                     <span class="input-group-text">{{ currency_symbol() }}</span>
                     <input type="number" name="items[__INDEX__][purchase_price]"
-                        class="form-control form-control-sm purchase-price"
+                        class="form-control purchase-price"
                         placeholder="0.00" step="0.01" min="0" value="0" />
                 </div>
             </td>
-            <td>
+            <td class="align-middle">
                 <span class="item-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
             </td>
-            <td>
+            <td class="align-middle">
                 <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn" title="Remove Item">
                     <i class="ti ti-trash"></i>
                 </button>
@@ -298,6 +311,7 @@ $(document).ready(function () {
                 'barcode' => $p->barcode,
                 'type' => $p->type,
                 'purchase_price' => $p->purchase_price,
+                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -362,11 +376,18 @@ $(document).ready(function () {
             const priceBadge = isVar
                 ? '<span class="badge bg-label-warning">Variable</span>'
                 : '<span class="badge bg-label-primary">' + symbol + ' ' + formatPrice(p.purchase_price) + '</span>';
+            const imgHtml = p.image 
+                ? `<img src="${p.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${p.name}" />`
+                : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
+
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
-                    <div>
-                        <div class="fw-semibold">${p.name}</div>
-                        <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                    <div class="d-flex align-items-center">
+                        ${imgHtml}
+                        <div>
+                            <div class="fw-semibold">${p.name}</div>
+                            <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                        </div>
                     </div>
                     ${priceBadge}
                 </a>
@@ -381,134 +402,6 @@ $(document).ready(function () {
     // Hide search results when clicking outside
     $(document).on('click', function(e) {
         if (!$(e.target).closest('#productSearchInput, #productSearchResults').length) {
-                });
-
-                // Hide search results when clicking outside
-                $(document).on('click', function(e) {
-                    if (!$(e.target).closest('#productSearchInput, #productSearchResults').length) {
-                        searchResults.hide();
-                    }
-                });
-
-                // Handle product selection
-                $(document).on('click', '.search-result-item', function() {
-                    const product = $(this).data('product');
-                    let exists = false;
-
-                    if (product.type !== 'variable') {
-                        $('.product-id-input').each(function() {
-                            const row = $(this).closest('.item-row');
-                            const rowProduct = row.data('product');
-                            if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
-                                exists = true;
-                            }
-                        });
-                    }
-
-                    if (exists) {
-                        toastr.warning('Product is already in the list.');
-                        searchInput.val('');
-                        searchResults.hide().empty();
-                        searchInput.focus();
-                        return;
-                    }
-
-                    addItemRow(product);
-
-                    searchInput.val('');
-                    searchResults.hide().empty();
-                    searchInput.focus();
-                });
-
-                function addItemRow(product, selectedVariantId = null, qty = 1, price = null, allocations = []) {
-                    const template = document.getElementById('itemRowTemplate').innerHTML
-                        .replaceAll('__INDEX__', itemIndex);
-
-                    $('#itemsBody').append(template);
-                    $('#noItemsMsg').addClass('d-none');
-
-                    const row = $('#itemsBody .item-row').last();
-                    row.find('.product-id-input').val(product.id);
-                    row.find('.product-name-display').text(product.name);
-                    
-                    row.data('product', product);
-                    row.data('index', itemIndex);
-
-                    if (allocations && allocations.length > 0) {
-                        row.data('existing-allocations', allocations);
-                    }
-
-                    if (product.type === 'variable') {
-                        // Build variant select dropdown
-                        let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2" name="items[${itemIndex}][variant_id]">`;
-                        product.variants.forEach(v => {
-                            const optPrice = v.purchase_price != null ? v.purchase_price : 0;
-                            const selected = (selectedVariantId && selectedVariantId == v.id) || (!selectedVariantId && product.variants[0].id == v.id) ? 'selected' : '';
-                            selectHtml += `<option value="${v.id}" data-price="${optPrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
-                        });
-                        selectHtml += `</select>`;
-                        row.find('.variant-select-container').html(selectHtml);
-                        
-                        // Set initial variant
-                        const selectedOpt = row.find('.variant-select option:selected');
-                        const initialVariantId = selectedOpt.val();
-                        const initialPrice = price != null ? price : selectedOpt.data('price');
-                        
-                        row.attr('data-variant-id', initialVariantId);
-                        row.data('variant-id', initialVariantId);
-                        row.find('.purchase-price').val(initialPrice);
-                        row.find('.product-sku-display').text('SKU: ' + product.sku);
-
-                        const variantText = selectedOpt.text().split(' (')[0];
-                        row.data('product-name', product.name + ' (' + variantText + ')');
-                    } else {
-                        row.find('.product-sku-display').text('SKU: ' + product.sku);
-                        row.find('.purchase-price').val(price != null ? price : (product.purchase_price != null ? product.purchase_price : 0));
-                        row.data('product-name', product.name);
-                    }
-
-                    row.find('.item-qty').val(qty);
-
-                    updateRowTotal(row);
-                    updateStockInfo(row);
-
-                    itemIndex++;
-                    updateGrandTotal();
-                    renderAllocationSection();
-                }
-
-                $(document).on('change', '.variant-select', function() {
-                    const row = $(this).closest('.item-row');
-                    const product = row.data('product');
-                    const selectedOpt = $(this).find('option:selected');
-                    const variantId = selectedOpt.val();
-                    const price = selectedOpt.data('price');
-                    
-                    row.attr('data-variant-id', variantId);
-                    row.data('variant-id', variantId);
-                    row.find('.purchase-price').val(price);
-                    
-                    const variantText = selectedOpt.text().split(' (')[0];
-                    row.data('product-name', product.name + ' (' + variantText + ')');
-                    
-                    updateRowTotal(row);
-                    updateStockInfo(row);
-                    updateGrandTotal();
-                    renderAllocationSection();
-                });
-
-                // Remove Item Row
-                $(document).on('click', '.remove-item-btn', function () {
-                    const row = $(this).closest('.item-row');
-                    const idx = row.data('index');
-                    row.remove();
-                    $('#allocation-item-' + idx).remove();
-                    $('#allocation-list-item-' + idx).remove();
-
-                    if ($('#itemsBody .item-row').length === 0) {
-                        $('#noItemsMsg').removeClass('d-none');
-                        $('#allocationCard').hide();
-                    } else {
             searchResults.hide();
         }
     });
@@ -553,6 +446,11 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
+        
+        const rowImgHtml = product.image 
+            ? `<img src="${product.image}" class="rounded" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name}" />`
+            : `<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
+        row.find('.product-image-container').html(rowImgHtml);
         
         row.data('product', product);
         row.data('index', itemIndex);
@@ -716,10 +614,10 @@ $(document).ready(function () {
 
         if ($('.item-row').length > 0) {
             $('#grandTotal').closest('tr').show();
-            $('#summaryTotal').closest('.card').show();
+            $('#summaryColumn').show();
         } else {
             $('#grandTotal').closest('tr').hide();
-            $('#summaryTotal').closest('.card').hide();
+            $('#summaryColumn').hide();
         }
     }
 
@@ -748,11 +646,11 @@ $(document).ready(function () {
                 }
                 
                 stockDisplay
-                    .text('Total Stock: ' + qty)
+                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
                     .attr('title', titleText.trim())
                     .css('cursor', 'help')
-                    .removeClass('text-success text-danger')
-                    .addClass(qty > 0 ? 'text-success' : 'text-danger');
+                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger');
             });
     }
 
@@ -846,9 +744,9 @@ $(document).ready(function () {
                     <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
                         <div>
                             <h5 class="mb-0 text-primary fw-bold">${productName}</h5>
-                            <small class="text-muted">${sku.replace('SKU: ', 'SKU: ')} | Target Quantity: <span class="fw-bold">${qty}</span></small>
+                            <small class="text-muted">${sku.replace('SKU: ', 'SKU: ')} | Quantity: <span class="fw-bold">${qty}</span></small>
                         </div>
-                        <span class="badge bg-label-secondary alloc-remaining-wrapper-${idx}">
+                        <span class="badge bg-label-secondary alloc-remaining-wrapper-${idx}" style="display: none;">
                             Remaining: <strong class="alloc-remaining-${idx}">${qty}</strong>
                         </span>
                     </div>
@@ -887,7 +785,7 @@ $(document).ready(function () {
                 }
             } else {
                 // If block already exists (e.g. user changes quantity after adding)
-                block.find('.alloc-remaining-wrapper-' + idx).prev().find('small').html(`${sku} | Target Quantity: <span class="fw-bold">${qty}</span>`);
+                block.find('.alloc-remaining-wrapper-' + idx).prev().find('small').html(`${sku} | Quantity: <span class="fw-bold">${qty}</span>`);
                 autoDistribute(idx, qty);
             }
 
@@ -902,17 +800,15 @@ $(document).ready(function () {
                 });
                 
                 listItem.append(`
-                    <div class="d-flex flex-column min-w-0 me-2">
-                        <span class="fw-semibold text-heading text-truncate">${productName}</span>
-                        <small class="text-muted text-truncate">Target: ${qty}</small>
+                    <div class="d-flex flex-column min-w-0 me-2" style="width: 100%; overflow: hidden;">
+                        <span class="fw-semibold text-heading text-truncate" style="display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${productName}</span>
                     </div>
-                    <div class="badge-container"></div>
+                    <div class="badge-container d-none"></div>
                 `);
 
                 itemsList.append(listItem);
             } else {
                 listItem.find('span.text-heading').text(productName);
-                listItem.find('small').text('Target: ' + qty);
             }
 
             // Sync current list item badge status
@@ -959,12 +855,56 @@ $(document).ready(function () {
     }
 
     // -------------------------------------------------------
-    // Live remaining qty counter
+    // Live remaining qty counter with auto adjustment
     // -------------------------------------------------------
     $(document).on('input', '.alloc-qty', function () {
-        const idx     = $(this).data('item-idx');
+        const changedInput = $(this);
+        const idx = changedInput.data('item-idx');
         const itemRow = $('#itemsBody .item-row[data-index="' + idx + '"]');
-        const total   = parseInt(itemRow.find('.item-qty').val()) || 0;
+        const total = parseInt(itemRow.find('.item-qty').val()) || 0;
+
+        // Auto adjustment logic
+        let val = parseInt(changedInput.val()) || 0;
+        if (val < 0) {
+            val = 0;
+            changedInput.val(val);
+        }
+        if (val > total) {
+            val = total;
+            changedInput.val(val);
+        }
+
+        const allocInputs = $('.alloc-qty[data-item-idx="' + idx + '"]');
+        if (allocInputs.length > 1) {
+            const otherInputs = allocInputs.not(changedInput);
+            const remaining = total - val;
+            
+            let otherSum = 0;
+            otherInputs.each(function() {
+                otherSum += parseInt($(this).val()) || 0;
+            });
+
+            let allocatedToOthers = 0;
+            const otherCount = otherInputs.length;
+
+            otherInputs.each(function(i) {
+                let newVal = 0;
+                if (i === otherCount - 1) {
+                    newVal = remaining - allocatedToOthers;
+                } else {
+                    if (otherSum > 0) {
+                        const currentVal = parseInt($(this).val()) || 0;
+                        newVal = Math.round(currentVal * (remaining / otherSum));
+                    } else {
+                        newVal = Math.round(remaining / otherCount);
+                    }
+                    allocatedToOthers += newVal;
+                }
+                if (newVal < 0) newVal = 0;
+                $(this).val(newVal);
+            });
+        }
+
         updateRemainingQty(idx, total);
     });
 
@@ -1142,31 +1082,7 @@ $(document).ready(function () {
             const product = firstItem.product;
 
             if (product.type === 'variable') {
-                // 1. Parent Record: sum of quantities and allocations
-                let parentQty = 0;
-                productItems.forEach(item => parentQty += item.qty);
-
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${parentQty}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${product.purchase_price != null ? product.purchase_price : 0}">`);
-
-                // Sum allocations by location ID
-                const parentAllocations = {};
-                productItems.forEach(item => {
-                    item.allocations.forEach(alloc => {
-                        parentAllocations[alloc.location_id] = (parentAllocations[alloc.location_id] || 0) + alloc.quantity;
-                    });
-                });
-
-                let locIdx = 0;
-                Object.keys(parentAllocations).forEach(locId => {
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][location_id]" value="${locId}">`);
-                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][allocations][${locIdx}][quantity]" value="${parentAllocations[locId]}">`);
-                    locIdx++;
-                });
-                submitIdx++;
-
-                // 2. Variant Records (must be in the exact order of product.variants)
+                // Variant Records (must be in the exact order of product.variants)
                 product.variants.forEach(v => {
                     const matchedItems = productItems.filter(item => item.variantId == v.id);
                     let vQty = 0;
@@ -1184,6 +1100,7 @@ $(document).ready(function () {
                     }
 
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}" class="v-input" data-qty="${vQty}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${v.id}" class="v-input" data-qty="${vQty}">`);
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${vQty}" class="v-input" data-qty="${vQty}">`);
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${vPrice}" class="v-input" data-qty="${vQty}">`);
 
@@ -1199,6 +1116,7 @@ $(document).ready(function () {
             } else {
                 // Simple Product
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${firstItem.qty}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${firstItem.purchase_price}">`);
 

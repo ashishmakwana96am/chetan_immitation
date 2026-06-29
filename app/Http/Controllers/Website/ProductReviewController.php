@@ -31,6 +31,7 @@ class ProductReviewController extends Controller
 
         $order = Order::where('id', $request->order_id)
             ->where('customer_id', $customer->id)
+            ->where('source', 'ONLINE')
             ->where('status', Order::STATUS_DELIVERED)
             ->firstOrFail();
 

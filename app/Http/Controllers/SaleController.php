@@ -89,6 +89,9 @@ class SaleController extends Controller
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
+            if ($order->status == 6 && !empty($order->cancellation_reason)) {
+                $status .= ' <i class="fas fa-info-circle text-danger fs-5 ms-1 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top" title="' . e($order->cancellation_reason) . '"></i>';
+            }
             $paymentStatus = '<span class="badge ' . ($paymentColors[$order->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$order->payment_status] ?? ucfirst($order->payment_status)) . '</span>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
@@ -98,13 +101,35 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
             }
-            if ($canEdit && $order->status == 1 && ($order->source ?? 'POS') !== 'ONLINE') {
+            $isEditable = ($order->source ?? 'POS') === 'POS' ? ($order->status == 1) : true;
+            if ($canEdit && $isEditable) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditSalesStatus) {
+
+            $showStatusOption = true;
+            $showPaymentOption = true;
+            $sourceVal = $order->source ?? 'POS';
+
+            if ($sourceVal === 'POS') {
+                if ($order->status == 2) { // 2 = Approve
+                    $showStatusOption = false;
+                }
+                if ($order->payment_status == 2) { // 2 = Paid
+                    $showPaymentOption = false;
+                }
+            } elseif ($sourceVal === 'ONLINE') {
+                if (in_array($order->status, [5, 6])) { // 5 = Delivered, 6 = Decline
+                    $showStatusOption = false;
+                }
+                if ($order->payment_status == 2) { // 2 = Paid
+                    $showPaymentOption = false;
+                }
+            }
+
+            if ($canEditSalesStatus && $showStatusOption) {
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditSalesPaymentStatus) {
+            if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             if ($canDelete && $order->status == 6) {
@@ -144,7 +169,7 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
@@ -155,6 +180,7 @@ class SaleController extends Controller
                 'barcode' => $p->barcode,
                 'label'   => $p->name . ' (' . $p->sku . ')',
                 'type'    => $p->type,
+                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -183,17 +209,18 @@ class SaleController extends Controller
             'location_id'            => ['required', 'exists:locations,id'],
             'customer_id'            => ['nullable', 'exists:customers,id'],
             'payment_method'         => ['required', 'string'],
-            'items'                  => ['required', 'array', 'min:1'],
-            'items.*.product_id'     => ['required', 'exists:products,id'],
-            'items.*.quantity'       => ['required', 'integer', 'min:1'],
-            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
-            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
-            'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
-            'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'integer', 'in:1,2,6'],
-            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
-            'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
-            'coupon_id'              => ['nullable', 'exists:coupons,id'],
+            'items'                      => ['required', 'array', 'min:1'],
+            'items.*.product_id'         => ['required', 'exists:products,id'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.quantity'           => ['required', 'integer', 'min:1'],
+            'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
+            'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
+            'discount_value'             => ['nullable', 'numeric', 'min:0'],
+            'status'                     => ['nullable', 'integer', 'in:1,2,6'],
+            'payment_status'             => ['nullable', 'integer', 'in:1,2'],
+            'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id'                  => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
@@ -248,13 +275,14 @@ class SaleController extends Controller
                 $totalAmount += $itemTotal;
 
                 $itemsData[] = [
-                    'product_id'      => $itemData['product_id'],
-                    'quantity'        => $qty,
-                    'price'           => $price,
-                    'discount_type'   => $discType,
-                    'discount_value'  => $discVal,
-                    'discount_amount' => $discAmount,
-                    'total'           => $itemTotal,
+                    'product_id'         => $itemData['product_id'],
+                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'quantity'           => $qty,
+                    'price'              => $price,
+                    'discount_type'      => $discType,
+                    'discount_value'     => $discVal,
+                    'discount_amount'    => $discAmount,
+                    'total'              => $itemTotal,
                 ];
             }
 
@@ -275,14 +303,15 @@ class SaleController extends Controller
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
-                    'order_id'        => $order->id,
-                    'product_id'      => $item['product_id'],
-                    'quantity'        => $item['quantity'],
-                    'price'           => $item['price'],
-                    'discount_type'   => $item['discount_type'],
-                    'discount_value'  => $item['discount_value'],
-                    'discount_amount' => $item['discount_amount'],
-                    'total'           => $item['total'],
+                    'order_id'           => $order->id,
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'quantity'           => $item['quantity'],
+                    'price'              => $item['price'],
+                    'discount_type'      => $item['discount_type'],
+                    'discount_value'     => $item['discount_value'],
+                    'discount_amount'    => $item['discount_amount'],
+                    'total'              => $item['total'],
                 ]);
 
                 if ($isApprove) {
@@ -346,7 +375,7 @@ class SaleController extends Controller
 
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
         $locations   = Location::where('status', 1)->orderBy('name')->get();
-        $products    = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
 
         $allProducts = $products->map(function ($p) {
@@ -358,6 +387,7 @@ class SaleController extends Controller
                 'barcode' => $p->barcode,
                 'label'   => $p->name . ' (' . $p->sku . ')',
                 'type'    => $p->type,
+                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -378,11 +408,12 @@ class SaleController extends Controller
 
         $existingItems = $sale->items->map(function ($item) {
             return [
-                'product_id'     => $item->product_id,
-                'price'          => $item->price,
-                'quantity'       => $item->quantity,
-                'discount_type'  => $item->discount_type ?? 'flat',
-                'discount_value' => $item->discount_value ?? 0,
+                'product_id'         => $item->product_id,
+                'product_variant_id' => $item->product_variant_id,
+                'price'              => $item->price,
+                'quantity'           => $item->quantity,
+                'discount_type'      => $item->discount_type ?? 'flat',
+                'discount_value'     => $item->discount_value ?? 0,
             ];
         })->values();
 
@@ -402,20 +433,21 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'location_id'        => ['required', 'exists:locations,id'],
-            'customer_id'        => ['nullable', 'exists:customers,id'],
-            'payment_method'     => ['required', 'string'],
-            'items'              => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
-            'items.*.quantity'   => ['required', 'integer', 'min:1'],
-            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
-            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
-            'discount_type'          => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
-            'discount_value'         => ['nullable', 'numeric', 'min:0'],
-            'status'                 => ['nullable', 'integer', 'in:1,2,6'],
-            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
-            'source'                 => ['nullable', 'string', 'in:POS,ONLINE'],
-            'coupon_id'              => ['nullable', 'exists:coupons,id'],
+            'location_id'                => ['required', 'exists:locations,id'],
+            'customer_id'                => ['nullable', 'exists:customers,id'],
+            'payment_method'             => ['required', 'string'],
+            'items'                      => ['required', 'array', 'min:1'],
+            'items.*.product_id'         => ['required', 'exists:products,id'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.quantity'           => ['required', 'integer', 'min:1'],
+            'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
+            'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
+            'discount_value'             => ['nullable', 'numeric', 'min:0'],
+            'status'                     => ['nullable', 'integer', 'in:1,2,6'],
+            'payment_status'             => ['nullable', 'integer', 'in:1,2'],
+            'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id'                  => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
@@ -472,13 +504,14 @@ class SaleController extends Controller
                 $totalAmount += $itemTotal;
 
                 $itemsData[] = [
-                    'product_id'      => $itemData['product_id'],
-                    'quantity'        => $qty,
-                    'price'           => $price,
-                    'discount_type'   => $discType,
-                    'discount_value'  => $discVal,
-                    'discount_amount' => $discAmount,
-                    'total'           => $itemTotal,
+                    'product_id'         => $itemData['product_id'],
+                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'quantity'           => $qty,
+                    'price'              => $price,
+                    'discount_type'      => $discType,
+                    'discount_value'     => $discVal,
+                    'discount_amount'    => $discAmount,
+                    'total'              => $itemTotal,
                 ];
             }
 
@@ -496,14 +529,15 @@ class SaleController extends Controller
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
-                    'order_id'        => $sale->id,
-                    'product_id'      => $item['product_id'],
-                    'quantity'        => $item['quantity'],
-                    'price'           => $item['price'],
-                    'discount_type'   => $item['discount_type'],
-                    'discount_value'  => $item['discount_value'],
-                    'discount_amount' => $item['discount_amount'],
-                    'total'           => $item['total'],
+                    'order_id'           => $sale->id,
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'quantity'           => $item['quantity'],
+                    'price'              => $item['price'],
+                    'discount_type'      => $item['discount_type'],
+                    'discount_value'     => $item['discount_value'],
+                    'discount_amount'    => $item['discount_amount'],
+                    'total'              => $item['total'],
                 ]);
 
                 if ($isApprove) {

@@ -31,6 +31,7 @@ class ProfileController extends Controller
             ->get();
             
         $orders = Order::where('customer_id', $customer->id)
+            ->where('source', 'ONLINE')
             ->with(['items.product.primaryImage'])
             ->latest()
             ->get();
@@ -146,6 +147,7 @@ class ProfileController extends Controller
         $customer = $this->customer();
 
         $order = Order::where('customer_id', $customer->id)
+            ->where('source', 'ONLINE')
             ->where('id', $id)
             ->with(['items.product.variants.attributeValue.attribute', 'customer', 'location', 'coupon', 'customerAddress', 'user'])
             ->firstOrFail();
@@ -164,6 +166,7 @@ class ProfileController extends Controller
         $customer = $this->customer();
 
         $order = Order::where('customer_id', $customer->id)
+            ->where('source', 'ONLINE')
             ->where('id', $id)
             ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress', 'coupon'])
             ->firstOrFail();

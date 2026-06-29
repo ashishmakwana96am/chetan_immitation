@@ -66,9 +66,8 @@
         @method('PUT')
         <div class="row g-4">
 
-            <!-- Main -->
-            <div class="col-lg-8">
-
+            <!-- Sale Details (Full Width) -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Sale Details</h5></div>
                     <div class="card-body">
@@ -124,7 +123,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
+            <!-- Sale Items (Full Width) -->
+            <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header border-bottom pb-3" style="z-index: 10;">
                         <h5 class="mb-3">Sale Items</h5>
@@ -143,12 +145,12 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                            <th>Product</th>
-                                            <th>Qty</th>
-                                            <th>Price</th>
-                                            <th>Discount</th>
-                                            <th>Total</th>
-                                            <th></th>
+                                            <th style="width: 35%;">Product</th>
+                                            <th style="width: 15%;">Qty</th>
+                                            <th style="width: 15%;">Price</th>
+                                            <th style="width: 20%;">Discount</th>
+                                            <th style="width: 12%;">Total</th>
+                                            <th style="width: 3%;"></th>
                                         </tr>
                                     </thead>
                                 <tbody id="itemsBody"></tbody>
@@ -164,11 +166,13 @@
                         <div id="noItemsMsg" class="text-center text-muted py-4 d-none">No items added yet.</div>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Sidebar -->
-            <div class="col-lg-4">
+            <input type="hidden" id="overallDiscountType" name="discount_type" value="flat" />
+            <input type="hidden" id="overallDiscountValue" name="discount_value" value="0" />
+
+            <!-- Bottom widgets: Summary (col-md-4) -->
+            <div class="col-md-4" id="summaryColumn">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Sale Summary</h5></div>
                     <div class="card-body">
@@ -187,23 +191,24 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <input type="hidden" id="overallDiscountType" name="discount_type" value="flat" />
-                <input type="hidden" id="overallDiscountValue" name="discount_value" value="0" />
-
-                <!-- Sales Status -->
+            <!-- Sales Status (col-md-4) -->
+            <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
                     <div class="card-body">
                         <select name="status" class="form-select no-select2">
                             <option value="1" {{ $order->status == 1 ? 'selected' : '' }}>Pending</option>
                             <option value="2" {{ $order->status == 2 ? 'selected' : '' }}>Approve</option>
-                            <option value="3" {{ $order->status == 3 ? 'selected' : '' }}>Decline</option>
+                            <option value="6" {{ $order->status == 6 ? 'selected' : '' }}>Decline</option>
                         </select>
                     </div>
                 </div>
+            </div>
 
-                <!-- Payment Status -->
+            <!-- Payment Status (col-md-4) -->
+            <div class="col-md-4">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
                     <div class="card-body">
@@ -213,12 +218,19 @@
                         </select>
                     </div>
                 </div>
+            </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <i class="ti ti-device-floppy me-1"></i> Update Sale
-                    </button>
-                    <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">Cancel</a>
+            <!-- Save and Cancel Buttons (col-12, 50% / 50% width) -->
+            <div class="col-12 mt-3">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5 fw-semibold" id="submitBtn">
+                            <i class="ti ti-device-floppy me-1"></i> Update Sale
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 fw-semibold d-flex align-items-center justify-content-center">Cancel</a>
+                    </div>
                 </div>
             </div>
 
@@ -226,48 +238,49 @@
     </form>
 
     <!-- Item Row Template -->
-    <!-- Item Row Template -->
     <template id="itemRowTemplate">
         <tr class="item-row" data-index="__INDEX__">
-            <td>
-                <div class="d-flex flex-column mb-1">
-                    <span class="product-name-display fw-semibold text-heading"></span>
-                    <small class="product-sku-display text-muted"></small>
-                    <div class="variant-select-container"></div>
-                    <div><span class="badge stock-display mt-1"></span></div>
+            <td class="align-middle">
+                <div class="d-flex align-items-center">
+                    <div class="product-image-container me-3"></div>
+                    <div class="d-flex flex-column mb-1">
+                        <span class="product-name-display fw-semibold text-heading"></span>
+                        <small class="product-sku-display text-muted"></small>
+                        <div class="variant-select-container"></div>
+                        <div><span class="badge stock-display mt-1"></span></div>
+                    </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <div class="invalid-feedback"></div>
-                <small class="text-muted stock-info-display"></small>
             </td>
-            <td>
+            <td class="align-middle">
                 <input type="number" name="items[__INDEX__][quantity]"
-                    class="form-control form-control-sm item-qty"
+                    class="form-control item-qty"
                     placeholder="1" min="1" value="1" />
             </td>
-            <td>
-                <div class="input-group input-group-sm">
+            <td class="align-middle">
+                <div class="input-group">
                     <span class="input-group-text">{{ currency_symbol() }}</span>
                     <input type="number" name="items[__INDEX__][price]"
-                        class="form-control form-control-sm item-price"
+                        class="form-control item-price"
                         placeholder="0.00" step="0.01" min="0" value="0" />
                 </div>
             </td>
-            <td>
-                <div class="input-group input-group-sm flex-nowrap" style="min-width: 140px;">
-                    <select name="items[__INDEX__][discount_type]" class="form-select form-select-sm item-discount-type no-select2" style="width: 75px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+            <td class="align-middle">
+                <div class="input-group flex-nowrap" style="min-width: 170px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 120px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
                         <option value="flat">Flat</option>
-                        <option value="percentage">%</option>
+                        <option value="percentage">Percentage</option>
                     </select>
                     <input type="number" name="items[__INDEX__][discount_value]"
-                        class="form-control form-control-sm item-discount-value"
+                        class="form-control item-discount-value"
                         placeholder="0" min="0" step="0.01" value="0" />
                 </div>
             </td>
-            <td>
+            <td class="align-middle">
                 <span class="item-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
             </td>
-            <td>
+            <td class="align-middle">
                 <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn" title="Remove Item">
                     <i class="ti ti-trash"></i>
                 </button>
@@ -342,11 +355,18 @@ $(document).ready(function () {
             const priceBadge = isVar
                 ? '<span class="badge bg-label-warning">Variable</span>'
                 : '<span class="badge bg-label-primary">' + symbol + ' ' + formatPrice(p.price) + '</span>';
+            const imgHtml = p.image 
+                ? `<img src="${p.image}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;" alt="${p.name}" />`
+                : `<div class="rounded me-3 bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
+
             const item = $(`
                 <a href="javascript:void(0)" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center search-result-item bg-white" style="background-color: #ffffff;" data-id="${p.id}">
-                    <div>
-                        <div class="fw-semibold">${p.name}</div>
-                        <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                    <div class="d-flex align-items-center">
+                        ${imgHtml}
+                        <div>
+                            <div class="fw-semibold">${p.name}</div>
+                            <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                        </div>
                     </div>
                     ${priceBadge}
                 </a>
@@ -399,6 +419,11 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
+        
+        const rowImgHtml = product.image 
+            ? `<img src="${product.image}" class="rounded" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name}" />`
+            : `<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;"><i class="ti ti-photo text-secondary fs-4"></i></div>`;
+        row.find('.product-image-container').html(rowImgHtml);
         
         row.data('product', product);
         row.data('index', itemIndex);
@@ -487,12 +512,16 @@ $(document).ready(function () {
             const itemsForProduct = grouped[productId];
 
             if (product.type === 'variable') {
-                const variantItems = itemsForProduct.slice(1);
+                const variantItems = itemsForProduct.filter(item => item.product_variant_id != null);
                 
                 variantItems.forEach(item => {
                     if (parseInt(item.quantity) <= 0) return;
                     
-                    let matchedVariant = product.variants.find(v => parseFloat(v.sale_price) == parseFloat(item.price));
+                    let matchedVariant = product.variants.find(v => v.id == item.product_variant_id);
+                    
+                    if (!matchedVariant) {
+                        matchedVariant = product.variants.find(v => parseFloat(v.sale_price) == parseFloat(item.price));
+                    }
                     
                     if (!matchedVariant && product.variants.length > 0) {
                         matchedVariant = product.variants[0];
@@ -549,9 +578,9 @@ $(document).ready(function () {
     function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
-        const stockDisplay = row.find('.stock-info-display');
+        const stockDisplay = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
-        if (!productId || !locationId) { stockDisplay.text('').removeAttr('title').css('cursor', ''); return; }
+        if (!productId) { stockDisplay.text('').removeAttr('title').css('cursor', '').hide(); return; }
         $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 const qty = res.data?.quantity ?? 0;
@@ -566,11 +595,12 @@ $(document).ready(function () {
                     titleText += 'No stock in any branch';
                 }
                 
-                stockDisplay.text('Stock: ' + qty)
+                stockDisplay.text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
                     .attr('title', titleText.trim())
                     .css('cursor', 'help')
-                    .removeClass('text-success text-danger')
-                    .addClass(qty > 0 ? 'text-success' : 'text-danger');
+                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+                    .show();
             });
     }
 
@@ -650,10 +680,10 @@ $(document).ready(function () {
 
         if (count > 0) {
             $('#itemsTotal').closest('tr').show();
-            $('#summaryFinal').closest('.card').show();
+            $('#summaryColumn').show();
         } else {
             $('#itemsTotal').closest('tr').hide();
-            $('#summaryFinal').closest('.card').hide();
+            $('#summaryColumn').hide();
         }
     }
 
@@ -717,18 +747,7 @@ $(document).ready(function () {
             const product = firstItem.product;
 
             if (product.type === 'variable') {
-                // 1. Parent Record: sum of quantities
-                let parentQty = 0;
-                productItems.forEach(item => parentQty += item.qty);
-
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${parentQty}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${product.price != null ? product.price : 0}">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="flat">`);
-                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="0">`);
-                submitIdx++;
-
-                // 2. Variant Records (must be in the exact order of product.variants)
+                // Variant Records (must be in the exact order of product.variants)
                 product.variants.forEach(v => {
                     const matchedItems = productItems.filter(item => item.variantId == v.id);
                     let vQty = 0;
@@ -746,6 +765,7 @@ $(document).ready(function () {
                     }
 
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}" class="v-input" data-qty="${vQty}">`);
+                    hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${v.id}" class="v-input" data-qty="${vQty}">`);
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${vQty}" class="v-input" data-qty="${vQty}">`);
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${vPrice}" class="v-input" data-qty="${vQty}">`);
                     hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${vDiscType}" class="v-input" data-qty="${vQty}">`);
@@ -754,6 +774,7 @@ $(document).ready(function () {
                 });
             } else {
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${firstItem.qty}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${firstItem.price}">`);
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${firstItem.discount_type}">`);

@@ -1,11 +1,11 @@
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-  <div class="app-brand ecom" style="overflow: visible; display: flex; align-items: center; padding: 8px;">
+  <div class="app-brand ecom" style="display: flex; align-items: center; background-color: #000; height: 95px; position: relative; z-index: 10; padding-top: 5px; padding-bottom: 5px;">
     <a href="{{ route('admin.dashboard') }}" class="app-brand-link" style="flex: 1; overflow: visible; min-width: 0;">
       <span class="app-brand-logo ecom" style="display: flex; align-items: center; width: 100%; overflow: visible;">
-        <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 180px; max-height: 60px; height: auto; object-fit: contain; display: block;" />
+        <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 200px; max-height: 85px; height: auto; object-fit: contain; display: block;" />
       </span>
     </a>
-    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto" style="z-index: 11;">
       <i class="ti menu-toggle-icon d-none d-xl-block ti-sm align-middle"></i>
       <i class="ti ti-x d-block d-xl-none ti-sm align-middle"></i>
     </a>

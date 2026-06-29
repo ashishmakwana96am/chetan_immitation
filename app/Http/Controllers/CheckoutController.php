@@ -497,12 +497,13 @@ class CheckoutController extends Controller
 
                 foreach ($pendingPayment['cart_items'] as $item) {
                     OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $item['product_id'],
-                        'quantity' => $item['quantity'],
-                        'price' => $item['price'],
-                        'discount' => 0.0,
-                        'total' => $item['total'],
+                        'order_id'           => $order->id,
+                        'product_id'         => $item['product_id'],
+                        'product_variant_id' => $item['variant_id'] ?? null,
+                        'quantity'           => $item['quantity'],
+                        'price'              => $item['price'],
+                        'discount'           => 0.0,
+                        'total'              => $item['total'],
                     ]);
                 }
 
@@ -916,12 +917,13 @@ class CheckoutController extends Controller
                         : (float) $item->product->sale_price;
 
                     OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $item->product_id,
-                        'quantity' => $item->qty,
-                        'price' => $price,
-                        'discount' => 0.0,
-                        'total' => $price * $item->qty,
+                        'order_id'           => $order->id,
+                        'product_id'         => $item->product_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'quantity'           => $item->qty,
+                        'price'              => $price,
+                        'discount'           => 0.0,
+                        'total'              => $price * $item->qty,
                     ]);
                 }
 

@@ -9,6 +9,7 @@ class PurchaseItem extends Model
     protected $fillable = [
         'purchase_invoice_id',
         'product_id',
+        'product_variant_id',
         'purchase_price',
         'quantity',
         'total',
@@ -30,6 +31,11 @@ class PurchaseItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function variant()
+    {
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 
     public function allocations()

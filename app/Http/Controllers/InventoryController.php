@@ -11,6 +11,9 @@ class InventoryController extends Controller
         $productId = request('product_id');
         $locationId = request('location_id');
         $variantId = request('variant_id');
+        if ($variantId === 'undefined' || $variantId === 'null' || !$variantId) {
+            $variantId = null;
+        }
 
         $product = \App\Models\Product::find($productId);
         if (!$product) {

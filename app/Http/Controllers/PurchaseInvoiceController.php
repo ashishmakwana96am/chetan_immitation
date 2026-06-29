@@ -148,7 +148,7 @@ class PurchaseInvoiceController extends Controller
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $user      = auth()->user();
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
@@ -167,6 +167,7 @@ class PurchaseInvoiceController extends Controller
             'supplier_id'            => ['required', 'exists:suppliers,id'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
@@ -207,6 +208,7 @@ class PurchaseInvoiceController extends Controller
                 $item = PurchaseItem::create([
                     'purchase_invoice_id' => $invoice->id,
                     'product_id'          => $itemData['product_id'],
+                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
                     'quantity'            => $itemData['quantity'],
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
@@ -254,7 +256,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute')->where('status', 1)->orderBy('name')->get();
+        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         if ($user->location_id && $user->type !== 'super-admin') {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {
@@ -294,6 +296,7 @@ class PurchaseInvoiceController extends Controller
             'supplier_id'            => ['required', 'exists:suppliers,id'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
@@ -336,6 +339,7 @@ class PurchaseInvoiceController extends Controller
                 $item = PurchaseItem::create([
                     'purchase_invoice_id' => $purchase->id,
                     'product_id'          => $itemData['product_id'],
+                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
                     'quantity'            => $itemData['quantity'],
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
