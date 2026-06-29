@@ -140,6 +140,7 @@
                                     <p class="text-muted small mb-0">When enabled, all website pages show a "Coming Soon" screen. Admin panel remains accessible.</p>
                                 </div>
                                 <div class="form-check form-switch mb-0 ms-3">
+                                    <input type="hidden" name="coming_soon" value="0" />
                                     <input class="form-check-input" type="checkbox"
                                         id="coming_soon_toggle"
                                         name="coming_soon"
@@ -273,6 +274,9 @@ $(document).ready(function () {
                     var newMode = $('#razorpay_payment_mode').val();
                     $('#razorpay_payment_mode').data('original', newMode);
                     $('#payment-method-error').addClass('d-none');
+                    setTimeout(function () {
+                        window.location.reload();
+                    }, 600);
                 }
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Changes');
             },
