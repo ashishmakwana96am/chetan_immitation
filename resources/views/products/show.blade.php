@@ -425,14 +425,15 @@
             });
         };
 
-        $(document).ready(function () {
-
+        function initProductSwiper() {
             @if($product->images->count() > 1)
             const thumbSwiper = new Swiper('.product-thumb-swiper', {
                 spaceBetween        : 8,
                 slidesPerView       : 'auto',
                 freeMode            : true,
                 watchSlidesProgress : true,
+                observer            : true,
+                observeParents      : true,
             });
 
             new Swiper('.product-main-swiper', {
@@ -441,17 +442,49 @@
                     nextEl : '.swiper-button-next',
                     prevEl : '.swiper-button-prev',
                 },
-                thumbs : { swiper : thumbSwiper },
+                thumbs        : { swiper : thumbSwiper },
+                observer      : true,
+                observeParents: true,
             });
             @else
             new Swiper('.product-main-swiper', {
-                navigation : {
+                navigation   : {
                     nextEl : '.swiper-button-next',
                     prevEl : '.swiper-button-prev',
                 },
+                observer      : true,
+                observeParents: true,
             });
             @endif
+        }
 
+        // Initialize after document ready
+        $(document).ready(function () {
+            // Check if images are already loaded
+            var $mainImages = $('.product-main-swiper img');
+            var loadedCount = 0;
+            var totalImages = $mainImages.length;
+
+            if (totalImages === 0) {
+                initProductSwiper();
+            } else {
+                $mainImages.each(function () {
+                    if (this.complete) {
+                        loadedCount++;
+                    } else {
+                        $(this).on('load', function () {
+                            loadedCount++;
+                            if (loadedCount >= totalImages) {
+                                initProductSwiper();
+                            }
+                        });
+                    }
+                });
+                // If all images were already complete
+                if (loadedCount >= totalImages) {
+                    initProductSwiper();
+                }
+            }
         });
     </script>
 @endsection

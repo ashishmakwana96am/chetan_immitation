@@ -64,7 +64,7 @@ table.dataTable .form-switch .form-check-input {
 .product-main-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .product-thumb-slide {

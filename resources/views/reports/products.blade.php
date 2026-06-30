@@ -271,8 +271,6 @@
                                     <tr>
                                         <th style="width: 40px;">#</th>
                                         <th>Variant</th>
-                                        <th>SKU</th>
-                                        <th>Category</th>
                                         <th class="text-end">Purchase Price</th>
                                         <th class="text-end">Sale Price</th>
                                         <th class="text-end">Margin</th>
@@ -289,8 +287,6 @@
                                         <tr>
                                             <td>{{ $vIndex + 1 }}</td>
                                             <td class="ps-5">{{ $variant['variant_name'] }}</td>
-                                            <td><span class="text-muted">-</span></td>
-                                            <td><span class="text-muted">-</span></td>
                                             <td class="text-end">{{ format_price($variant['purchase_price']) }}</td>
                                             <td class="text-end">{{ format_price($variant['sale_price']) }}</td>
                                             <td class="text-end">
