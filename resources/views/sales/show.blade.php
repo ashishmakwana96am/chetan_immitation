@@ -360,10 +360,21 @@
                                 <tr>
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                     <td>
-                                        <span class="fw-semibold">{{ $displayName }}</span>
-                                        @if($item->product?->sku)
-                                            <br><small class="text-muted">{{ $item->product->sku }}</small>
-                                        @endif
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $displayName }}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @endif
+                                            <div>
+                                                <span class="fw-semibold">{{ $displayName }}</span>
+                                                @if($item->product?->sku)
+                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
                                     <td class="text-end text-nowrap small">{{ $item->quantity }}</td>

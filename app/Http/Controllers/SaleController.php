@@ -101,7 +101,7 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
             }
-            $isEditable = ($order->source ?? 'POS') === 'POS' ? ($order->status == 1) : true;
+            $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;
             if ($canEdit && $isEditable) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
