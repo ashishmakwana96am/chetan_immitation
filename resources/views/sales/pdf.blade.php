@@ -525,9 +525,10 @@
             @foreach($preparedItems as $index => $item)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td @if(!$item->is_parent) style="padding-left:28px;" @endif>
+                    <td @if(!$item->is_parent) style="padding-left:0;" @endif>
                         @if(!$item->is_parent)
-                            <span style="color:#B4771E; font-weight:bold; margin-right:4px;">&#8627;</span>
+                            <strong style="font-size:10.5px;">{{ $item->product->name ?? '-' }}</strong>
+                            <span style="color:#B4771E; font-weight:bold; margin:0 4px;">&#8627;</span>
                             <span style="font-size:10px; color:#666;">{{ $item->resolved_variant_name ?? '-' }}</span>
                         @else
                             <strong>{{ $item->product->name ?? '-' }}</strong>
