@@ -44,12 +44,18 @@
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userLocation">Location</label>
-            <select id="userLocation" name="location_id" class="form-select">
-                <option value="">-- Select Location --</option>
-                @foreach ($locations as $location)
-                    <option value="{{ $location->id }}">{{ $location->name }}</option>
-                @endforeach
-            </select>
+            @if($locationId)
+                {{-- Restricted user: auto-assign their location, hidden field --}}
+                <input type="hidden" name="location_id" value="{{ $locationId }}" />
+                <input type="text" class="form-control" value="{{ $locations->firstWhere('id', $locationId)?->name ?? '-' }}" readonly disabled />
+            @else
+                <select id="userLocation" name="location_id" class="form-select">
+                    <option value="">-- Select Location --</option>
+                    @foreach ($locations as $location)
+                        <option value="{{ $location->id }}">{{ $location->name }}</option>
+                    @endforeach
+                </select>
+            @endif
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">

@@ -11,14 +11,33 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    /**
+     * Check if logged-in user is restricted to a specific location.
+     * Returns location_id if restricted, null if not.
+     */
+    private function getRestrictedLocationId(): ?int
+    {
+        $user = auth()->user();
+        if ($user->type === 'super-admin') {
+            return null;
+        }
+        return $user->location_id ? (int) $user->location_id : null;
+    }
+
     public function index()
     {
         $this->authorize('view users');
+
+        $locationId = $this->getRestrictedLocationId();
+
         $users = User::with('roles')
             ->where('type', '!=', 'super-admin')
+            ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->orderBy('id', 'desc')
             ->get();
+
         $roles = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
+
         return view('users.index', compact('users', 'roles'));
     }
 
@@ -26,7 +45,12 @@ class UserController extends Controller
     {
         $this->authorize('view users');
 
-        $query = User::with('roles')->where('type', '!=', 'super-admin')->orderBy('id', 'desc');
+        $locationId = $this->getRestrictedLocationId();
+
+        $query = User::with('roles')
+            ->where('type', '!=', 'super-admin')
+            ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+            ->orderBy('id', 'desc');
 
         if ($request->filled('role_id')) {
             $query->whereHas('roles', function ($q) use ($request) {
@@ -90,14 +114,20 @@ class UserController extends Controller
     public function create()
     {
         $this->authorize('create users');
+
+        $locationId = $this->getRestrictedLocationId();
+
         $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
         $locations = Location::where('status', 1)->orderBy('name')->get();
-        return view('users.create', compact('roles', 'locations'));
+
+        return view('users.create', compact('roles', 'locations', 'locationId'));
     }
 
     public function store(Request $request)
     {
         $this->authorize('create users');
+
+        $locationId = $this->getRestrictedLocationId();
 
         $validator = Validator::make($request->all(), [
             'name'        => ['required', 'string', 'max:100'],
@@ -117,13 +147,16 @@ class UserController extends Controller
 
         $role = Role::findById($request->role);
 
+        // Restricted user can only create users in their own location
+        $assignedLocationId = $locationId ?? ($request->location_id ?: null);
+
         $user = User::create([
             'name'        => $request->name,
             'email'       => $request->email,
             'phone'       => $request->phone,
             'password'    => Hash::make($request->password),
             'type'        => $role->name,
-            'location_id' => $request->location_id ?: null,
+            'location_id' => $assignedLocationId,
             'status'      => $request->has('status') ? 1 : 2,
         ]);
 
@@ -138,15 +171,31 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $this->authorize('edit users');
+
+        $locationId = $this->getRestrictedLocationId();
+
+        // Restricted user cannot edit users from other locations
+        if ($locationId && $user->location_id !== $locationId) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
         $locations = Location::where('status', 1)->orderBy('name')->get();
         $userRole  = $user->roles->first()?->id;
-        return view('users.edit', compact('user', 'roles', 'locations', 'userRole'));
+
+        return view('users.edit', compact('user', 'roles', 'locations', 'userRole', 'locationId'));
     }
 
     public function update(Request $request, User $user)
     {
         $this->authorize('edit users');
+
+        $locationId = $this->getRestrictedLocationId();
+
+        // Restricted user cannot update users from other locations
+        if ($locationId && $user->location_id !== $locationId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'name'        => ['required', 'string', 'max:100'],
@@ -165,12 +214,15 @@ class UserController extends Controller
 
         $role = Role::findById($request->role);
 
+        // Restricted user keeps their own location; unrestricted can change it
+        $assignedLocationId = $locationId ?? ($request->location_id ?: null);
+
         $user->update([
             'name'        => $request->name,
             'email'       => $request->email,
             'phone'       => $request->phone,
             'type'        => $role->name,
-            'location_id' => $request->location_id ?: null,
+            'location_id' => $assignedLocationId,
             'status'      => $request->has('status') ? 1 : 2,
         ]);
 
@@ -186,6 +238,12 @@ class UserController extends Controller
     {
         $this->authorize('edit users');
 
+        $locationId = $this->getRestrictedLocationId();
+
+        if ($locationId && $user->location_id !== $locationId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
+
         $user->update([
             'status' => $user->status == 1 ? 2 : 1,
         ]);
@@ -200,6 +258,12 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $this->authorize('delete users');
+
+        $locationId = $this->getRestrictedLocationId();
+
+        if ($locationId && $user->location_id !== $locationId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         if ($user->id === auth()->id()) {
             return response()->json([
@@ -219,12 +283,25 @@ class UserController extends Controller
     public function showChangePasswordForm(User $user)
     {
         $this->authorize('change users password');
+
+        $locationId = $this->getRestrictedLocationId();
+
+        if ($locationId && $user->location_id !== $locationId) {
+            abort(403, 'Unauthorized action.');
+        }
+
         return view('users.change-password', compact('user'));
     }
 
     public function changePassword(Request $request, User $user)
     {
         $this->authorize('change users password');
+
+        $locationId = $this->getRestrictedLocationId();
+
+        if ($locationId && $user->location_id !== $locationId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'password' => ['required', 'string', 'min:8', 'confirmed'],
