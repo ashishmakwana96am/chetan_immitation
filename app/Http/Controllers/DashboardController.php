@@ -36,7 +36,7 @@ class DashboardController extends Controller
             'products'   => Product::count(),
             'customers'  => Customer::count(),
             'suppliers'  => Supplier::count(),
-            'users'      => User::where('type', '!=', 'super-admin')->count(),
+            'users'      => User::whereHas('role', fn($q) => $q->where('name', '!=', 'super-admin'))->count(),
         ];
 
         $salesStats = [

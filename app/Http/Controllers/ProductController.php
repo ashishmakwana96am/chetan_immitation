@@ -52,6 +52,11 @@ class ProductController extends Controller
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             }
         ])
+        ->when($locationId, function($q) use ($locationId) {
+            $q->whereHas('inventories', function($sub) use ($locationId) {
+                $sub->where('location_id', $locationId)->where('quantity', '>', 0);
+            });
+        })
         ->when($request->category_id, function($q) use ($request) {
             $q->where('category_id', $request->category_id);
         })

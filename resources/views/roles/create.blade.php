@@ -12,6 +12,21 @@
         <div class="invalid-feedback"></div>
     </div>
 
+    @if(auth()->user()->type === 'super-admin' || !auth()->user()->location_id)
+    <div class="mb-4">
+        <label class="form-label" for="roleLocation">Location <span class="text-danger">*</span></label>
+        <select id="roleLocation" name="location_id" class="form-select select2" required>
+            <option value="" disabled selected>Select Location</option>
+            @foreach($locations as $loc)
+                <option value="{{ $loc->id }}">
+                    {{ $loc->name }}
+                </option>
+            @endforeach
+        </select>
+        <div class="invalid-feedback"></div>
+    </div>
+    @endif
+
     <h5 class="mb-3">Role Permissions</h5>
     <div class="table-responsive mb-4">
         <table class="table table-flush-spacing">

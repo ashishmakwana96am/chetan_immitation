@@ -11,7 +11,7 @@
 
     <!-- Stats Cards -->
     <div class="row g-4 mb-4" id="userStatsCards">
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -24,7 +24,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -37,7 +37,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -46,19 +46,6 @@
                             <h4 class="mb-0 mt-1" id="statInactive">-</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-user-off ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Admins</span>
-                            <h4 class="mb-0 mt-1" id="statAdmins">-</h4>
-                        </div>
-                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-shield ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -148,11 +135,9 @@
                         const users    = res.data;
                         const active   = users.filter(u => u.raw_status == 1).length;
                         const inactive = users.filter(u => u.raw_status == 2).length;
-                        const admins   = users.filter(u => u.raw_type === 'admin').length;
                         $('#statTotal').text(users.length);
                         $('#statActive').text(active);
                         $('#statInactive').text(inactive);
-                        $('#statAdmins').text(admins);
                         return users;
                     }
                 },

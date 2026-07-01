@@ -113,10 +113,7 @@ class DummyDataSeeder extends Seeder
             ]);
         }
 
-        // Set default location to super admin user
-        if ($admin) {
-            $admin->update(['location_id' => $locations[0]->id]);
-        }
+
 
         // 3. Generate 15 Premium Categories
         $categoriesList = [

@@ -50,7 +50,7 @@
                         data-confirm-btn="Yes, Mark as Paid"
                         data-confirm-btn-class="btn-success"
                         data-confirm-data='{"payment_status":2}'>
-                        <i class="ti ti-currency-dollar me-1"></i> Mark as Paid
+                        <i class="ti ti-currency-rupee me-1"></i> Mark as Paid
                     </button>
                 @endif
             @endcan

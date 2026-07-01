@@ -96,9 +96,9 @@
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1">Date Range</label>
                         <div class="w-100">
-                            <input type="date" id="filter-start-date" class="form-control mb-2" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <input type="text" id="filter-start-date" class="form-control flatpickr-purchases mb-2" placeholder="Start Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
                             <div class="text-center text-muted small mb-2">to</div>
-                            <input type="date" id="filter-end-date" class="form-control" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <input type="text" id="filter-end-date" class="form-control flatpickr-purchases" placeholder="End Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
                         </div>
                     </div>
 
@@ -145,6 +145,51 @@
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
         $(document).ready(function () {
+            // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
+            let flatpickrOpen = false;
+
+            // Initialize Flatpickr for date filters
+            const startPicker = $('#filter-start-date').flatpickr({
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        endPicker.set('minDate', selectedDates[0]);
+                    }
+                }
+            });
+
+            const endPicker = $('#filter-end-date').flatpickr({
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        startPicker.set('maxDate', selectedDates[0]);
+                    }
+                }
+            });
+
+            // Block Bootstrap dropdown from closing while flatpickr calendar is open
+            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
+                if (flatpickrOpen) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Also stop mousedown propagation from flatpickr calendar (extra safety)
+            $(document).on('mousedown', '.flatpickr-calendar', function (e) {
+                e.stopPropagation();
+            });
+
             // Initialize Select2 for product search
             $('#filter-product').select2({
                 ajax: {
@@ -359,8 +404,10 @@
                 $('#filter-status').val('');
                 $('#filter-payment-status').val('');
                 $('#filter-product').val('').trigger('change');
-                $('#filter-start-date').val('');
-                $('#filter-end-date').val('');
+                startPicker.clear();
+                endPicker.clear();
+                startPicker.set('maxDate', null);
+                endPicker.set('minDate', null);
                 window.refreshTable();
                 
                 // Close the dropdown after clearing

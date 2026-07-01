@@ -7,18 +7,29 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Permission\Models\Role;
+use App\Models\Role;
 
 class UserController extends Controller
 {
     public function index()
     {
         $this->authorize('view users');
-        $users = User::with('roles')
-            ->where('type', '!=', 'super-admin')
+        $user = auth()->user();
+        $isRestricted = $user->role && $user->role->location_id;
+
+        $users = User::with('role')
+            ->whereHas('role', function ($q) {
+                $q->where('name', '!=', 'super-admin');
+            })
+            ->when($isRestricted, fn($q) => $q->whereHas('role', fn($sub) => $sub->where('location_id', $user->role->location_id)))
             ->orderBy('id', 'desc')
             ->get();
-        $roles = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
+
+        $roles = Role::where('name', '!=', 'super-admin')
+            ->when($isRestricted, fn($q) => $q->where('location_id', $user->role->location_id))
+            ->orderBy('name')
+            ->get();
+
         return view('users.index', compact('users', 'roles'));
     }
 
@@ -26,12 +37,18 @@ class UserController extends Controller
     {
         $this->authorize('view users');
 
-        $query = User::with('roles')->where('type', '!=', 'super-admin')->orderBy('id', 'desc');
+        $user = auth()->user();
+        $isRestricted = $user->role && $user->role->location_id;
+
+        $query = User::with('role')
+            ->whereHas('role', function ($q) {
+                $q->where('name', '!=', 'super-admin');
+            })
+            ->when($isRestricted, fn($q) => $q->whereHas('role', fn($sub) => $sub->where('location_id', $user->role->location_id)))
+            ->orderBy('id', 'desc');
 
         if ($request->filled('role_id')) {
-            $query->whereHas('roles', function ($q) use ($request) {
-                $q->where('id', $request->role_id);
-            });
+            $query->where('role_id', $request->role_id);
         }
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -43,8 +60,8 @@ class UserController extends Controller
         $canChangePassword = auth()->user()->can('change users password');
 
         $data = $users->map(function ($user, $index) use ($canEdit, $canDelete, $canChangePassword) {
-            $role = $user->roles->first()
-                ? '<span class="badge bg-label-primary text-capitalize">' . $user->roles->first()->name . '</span>'
+            $role = $user->role
+                ? '<span class="badge bg-label-primary text-capitalize">' . $user->role->name . '</span>'
                 : '<span class="badge bg-label-secondary">No Role</span>';
 
             $status = $canEdit
@@ -80,7 +97,7 @@ class UserController extends Controller
                 'status'     => $status,
                 'actions'    => $actions,
                 'raw_status' => $user->status,
-                'raw_type'   => $user->type,
+                'raw_type'   => $user->role?->name,
             ];
         });
 
@@ -90,22 +107,30 @@ class UserController extends Controller
     public function create()
     {
         $this->authorize('create users');
-        $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
-        $locations = Location::where('status', 1)->orderBy('name')->get();
-        return view('users.create', compact('roles', 'locations'));
+        $user = auth()->user();
+        $isRestricted = $user->role && $user->role->location_id;
+
+        $roles = Role::where('name', '!=', 'super-admin')
+            ->when($isRestricted, fn($q) => $q->where('location_id', $user->role->location_id))
+            ->orderBy('name')
+            ->get();
+
+        return view('users.create', compact('roles'));
     }
 
     public function store(Request $request)
     {
         $this->authorize('create users');
 
+        $user = auth()->user();
+        $isRestricted = $user->role && $user->role->location_id;
+
         $validator = Validator::make($request->all(), [
-            'name'        => ['required', 'string', 'max:100'],
-            'email'       => ['required', 'email', 'unique:users,email'],
-            'phone'       => ['nullable', 'string', 'max:20'],
-            'password'    => ['required', 'string', 'min:8'],
-            'role'        => ['required', 'exists:roles,id'],
-            'location_id' => ['nullable', 'exists:locations,id'],
+            'name'     => ['required', 'string', 'max:100'],
+            'email'    => ['required', 'email', 'unique:users,email'],
+            'phone'    => ['nullable', 'string', 'max:20'],
+            'password' => ['required', 'string', 'min:8'],
+            'role'     => ['required', 'exists:roles,id'],
         ]);
 
         if ($validator->fails()) {
@@ -117,17 +142,23 @@ class UserController extends Controller
 
         $role = Role::findById($request->role);
 
-        $user = User::create([
-            'name'        => $request->name,
-            'email'       => $request->email,
-            'phone'       => $request->phone,
-            'password'    => Hash::make($request->password),
-            'type'        => $role->name,
-            'location_id' => $request->location_id ?: null,
-            'status'      => $request->has('status') ? 1 : 2,
+        if ($isRestricted && $role->location_id !== $user->role->location_id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['role' => ['Unauthorized role assignment.']],
+            ], 403);
+        }
+
+        $userCreated = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'phone'    => $request->phone,
+            'password' => Hash::make($request->password),
+            'role_id'  => $role->id,
+            'status'   => $request->has('status') ? 1 : 2,
         ]);
 
-        $user->assignRole($role);
+        $userCreated->assignRole($role);
 
         return response()->json([
             'status'  => 'success',
@@ -138,22 +169,39 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $this->authorize('edit users');
-        $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
-        $locations = Location::where('status', 1)->orderBy('name')->get();
-        $userRole  = $user->roles->first()?->id;
-        return view('users.edit', compact('user', 'roles', 'locations', 'userRole'));
+
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $roles = Role::where('name', '!=', 'super-admin')
+            ->when($isRestricted, fn($q) => $q->where('location_id', $currentUser->role->location_id))
+            ->orderBy('name')
+            ->get();
+
+        $userRole  = $user->role_id;
+        return view('users.edit', compact('user', 'roles', 'userRole'));
     }
 
     public function update(Request $request, User $user)
     {
         $this->authorize('edit users');
 
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
-            'name'        => ['required', 'string', 'max:100'],
-            'email'       => ['required', 'email', 'unique:users,email,' . $user->id],
-            'phone'       => ['nullable', 'string', 'max:20'],
-            'role'        => ['required', 'exists:roles,id'],
-            'location_id' => ['nullable', 'exists:locations,id'],
+            'name'  => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'unique:users,email,' . $user->id],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'role'  => ['required', 'exists:roles,id'],
         ]);
 
         if ($validator->fails()) {
@@ -165,13 +213,19 @@ class UserController extends Controller
 
         $role = Role::findById($request->role);
 
+        if ($isRestricted && $role->location_id !== $currentUser->role->location_id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['role' => ['Unauthorized role assignment.']],
+            ], 403);
+        }
+
         $user->update([
-            'name'        => $request->name,
-            'email'       => $request->email,
-            'phone'       => $request->phone,
-            'type'        => $role->name,
-            'location_id' => $request->location_id ?: null,
-            'status'      => $request->has('status') ? 1 : 2,
+            'name'    => $request->name,
+            'email'   => $request->email,
+            'phone'   => $request->phone,
+            'role_id' => $role->id,
+            'status'  => $request->has('status') ? 1 : 2,
         ]);
 
         $user->syncRoles($role);
@@ -185,6 +239,13 @@ class UserController extends Controller
     public function toggleStatus(User $user)
     {
         $this->authorize('edit users');
+
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         $user->update([
             'status' => $user->status == 1 ? 2 : 1,
@@ -200,6 +261,13 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $this->authorize('delete users');
+
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         if ($user->id === auth()->id()) {
             return response()->json([
@@ -219,12 +287,27 @@ class UserController extends Controller
     public function showChangePasswordForm(User $user)
     {
         $this->authorize('change users password');
+
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            abort(403, 'Unauthorized action.');
+        }
+
         return view('users.change-password', compact('user'));
     }
 
     public function changePassword(Request $request, User $user)
     {
         $this->authorize('change users password');
+
+        $currentUser = auth()->user();
+        $isRestricted = $currentUser->role && $currentUser->role->location_id;
+
+        if ($isRestricted && (!$user->role || $user->role->location_id !== $currentUser->role->location_id)) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'password' => ['required', 'string', 'min:8', 'confirmed'],
