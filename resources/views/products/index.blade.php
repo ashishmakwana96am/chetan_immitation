@@ -38,6 +38,19 @@
                         </select>
                     </div>
 
+                    {{-- Location (Only for non-restricted users) --}}
+                    @if(!$isRestricted)
+                        <div class="mb-3 text-start">
+                            <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
+                            <select id="filter-location" class="form-select">
+                                <option value="">All Locations</option>
+                                @foreach($locations as $location)
+                                    <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
                     {{-- Status --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-status">Status</label>
@@ -153,6 +166,7 @@
                         d.category_id = $('#filter-category').val();
                         d.status = $('#filter-status').val();
                         d.stock_status = $('#filter-stock-status').val();
+                        d.location_id = $('#filter-location').val();
                     }
                 },
                 columns    : columns,
@@ -183,6 +197,7 @@
                 $('#filter-category').val('');
                 $('#filter-status').val('');
                 $('#filter-stock-status').val('');
+                $('#filter-location').val('');
                 window.refreshTable();
                 
                 // Close the dropdown after clearing

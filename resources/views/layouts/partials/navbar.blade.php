@@ -9,6 +9,13 @@
 
 
     <ul class="navbar-nav flex-row align-items-center ms-auto">
+      @can('create sales')
+      <li class="nav-item me-3">
+        <a href="{{ route('admin.sales.create') }}" class="btn btn-primary d-flex align-items-center">
+          <i class="ti ti-plus me-1"></i> Add new Bill
+        </a>
+      </li>
+      @endcan
       <!-- Style Switcher -->
       <li class="nav-item me-2 me-xl-0">
         <a class="nav-link style-switcher-toggle hide-arrow" href="javascript:void(0);">

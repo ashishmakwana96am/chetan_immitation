@@ -485,7 +485,7 @@ class CheckoutController extends Controller
                     'order_type' => 'sale',
                     'status' => Order::STATUS_PENDING,
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
-                    'payment_method' => 'razorpay',
+                    'payment_method' => 'online',
                     'final_amount' => $pendingPayment['total'],
                     'source' => 'ONLINE',
                     'discount_type' => $pendingPayment['discount_type'],

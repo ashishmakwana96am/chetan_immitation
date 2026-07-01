@@ -295,6 +295,19 @@
     let purchasesTrendChart = null;
     let supplierChart = null;
 
+    function formatCompactIndian(val) {
+        val = parseFloat(val);
+        if (isNaN(val)) return '{{ currency_symbol() }}0';
+        if (val >= 10000000) {
+            return '{{ currency_symbol() }}' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (val >= 100000) {
+            return '{{ currency_symbol() }}' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (val >= 1000) {
+            return '{{ currency_symbol() }}' + (val / 1000).toFixed(val % 1000 === 0 ? 0 : 2) + ' K';
+        }
+        return '{{ currency_symbol() }}' + val.toLocaleString('en-IN');
+    }
+
     function initReport() {
         // Initialize DataTables (destroy first if already exists)
         if ($.fn.DataTable.isDataTable('#purchasesReportTable')) {
@@ -357,6 +370,13 @@
                 yaxis: {
                     labels: {
                         formatter: function (val) {
+                            return formatCompactIndian(val);
+                        }
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
                             return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
@@ -367,9 +387,26 @@
             $('#purchasesTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
-        // Supplier Horizontal Bar Chart
-        const suppliers = Object.keys(supplierData);
-        const supplierValues = Object.values(supplierData);
+        const sortedEntries = Object.entries(supplierData).sort((a, b) => b[1] - a[1]);
+
+        let suppliers = [];
+        let supplierValues = [];
+
+        if (sortedEntries.length > 5) {
+            const top5 = sortedEntries.slice(0, 5);
+            const othersSum = sortedEntries.slice(5).reduce((sum, item) => sum + item[1], 0);
+            
+            suppliers = top5.map(item => item[0]);
+            supplierValues = top5.map(item => item[1]);
+            
+            if (othersSum > 0) {
+                suppliers.push('Others');
+                supplierValues.push(othersSum);
+            }
+        } else {
+            suppliers = sortedEntries.map(item => item[0]);
+            supplierValues = sortedEntries.map(item => item[1]);
+        }
 
         if (supplierChart) {
             supplierChart.destroy();
@@ -377,67 +414,29 @@
         }
         if (suppliers.length > 0) {
             supplierChart = new ApexCharts(document.getElementById('supplierChart'), {
-                chart: { type: 'bar', height: 320, toolbar: { show: false } },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        borderRadius: 4,
-                        barHeight: '55%',
-                        distributed: true
-                    }
-                },
+                chart: { type: 'donut', height: 320 },
+                series: supplierValues,
+                labels: suppliers,
                 colors: ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
-                series: [{
-                    name: 'Purchases',
-                    data: supplierValues
-                }],
-                xaxis: {
-                    categories: suppliers,
+                legend: {
+                    position: 'bottom',
                     labels: {
-                        style: {
-                            colors: '#5d596c',
-                            fontFamily: 'Public Sans'
-                        },
-                        formatter: function(val) {
-                            return '₹' + parseFloat(val).toLocaleString('en-IN');
-                        }
-                    }
-                },
-                yaxis: {
-                    labels: {
-                        style: {
-                            colors: '#5d596c',
-                            fontFamily: 'Public Sans',
-                            fontWeight: 500
-                        }
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
                     }
                 },
                 dataLabels: {
                     enabled: true,
-                    style: {
-                        fontSize: '11px',
-                        fontFamily: 'Public Sans',
-                        fontWeight: '600',
-                        colors: ['#fff']
-                    },
-                    formatter: function(val) {
-                        return '₹' + parseFloat(val).toLocaleString('en-IN');
-                    },
-                    offsetX: 0
+                    formatter: function(val, opts) {
+                        return val.toFixed(1) + '%';
+                    }
                 },
-                legend: { show: false },
                 tooltip: {
                     y: {
                         formatter: function(val) {
-                            return '₹' + parseFloat(val).toLocaleString('en-IN');
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
-                },
-                grid: {
-                    borderColor: '#e5e5e5',
-                    xaxis: { lines: { show: true } },
-                    yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
                 },
                 noData: { text: 'No data available' }
             });

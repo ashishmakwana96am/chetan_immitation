@@ -322,7 +322,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', 3)
+            ->where('status', '!=', Order::STATUS_DECLINE)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -411,7 +411,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 3)
+        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -799,7 +799,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', 3)
+            ->where('status', '!=', Order::STATUS_DECLINE)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -854,7 +854,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', 'decline')
+        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
             ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);

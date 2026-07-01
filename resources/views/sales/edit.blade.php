@@ -108,10 +108,11 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Customer</label>
+                                <label class="form-label">Customer <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <select name="customer_id" class="form-select" id="customerSelect">
-                                        <option value="">-- Walk-in Customer --</option>
+                                        <option value=""></option>
+                                        <option value="0" {{ is_null($order->customer_id) ? 'selected' : '' }}>Walk-in Customer</option>
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}>
                                                 {{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}
@@ -323,15 +324,20 @@ $(document).ready(function () {
     const existingItems = @json($existingItems);
     updateSummary();
 
-    window.refreshTable = function () {
-        $.get('{{ route('admin.customers.data') }}', function (res) {
+    window.refreshTable = function (resData) {
+        $.get('{{ route('admin.customers.data') }}?_t=' + new Date().getTime(), function (res) {
             const select  = $('#customerSelect');
-            const current = select.val();
-            select.find('option:not(:first)').remove();
+            let current = select.val();
+            if (resData && resData.status === 'success' && resData.data && resData.data.id) {
+                current = resData.data.id;
+            }
+            select.empty();
+            select.append('<option value=""></option>');
+            select.append('<option value="0">Walk-in Customer</option>');
             res.data.forEach(function (c) {
                 select.append($('<option>', { value: c.id, text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '') }));
             });
-            select.val(current);
+            select.val(current).trigger('change');
         });
     };
 

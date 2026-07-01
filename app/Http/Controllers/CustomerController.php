@@ -58,6 +58,7 @@ class CustomerController extends Controller
             }
 
             return [
+                'id'         => $customer->id,
                 'index'      => $index + 1,
                 'name'       => $customer->name,
                 'phone'      => $customer->phone ?? '-',
@@ -94,7 +95,7 @@ class CustomerController extends Controller
             ], 422);
         }
 
-        Customer::create([
+        $customer = Customer::create([
             'name'     => $request->name,
             'phone'    => $request->phone,
             'email'    => $request->email,
@@ -104,6 +105,7 @@ class CustomerController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer created successfully.',
+            'data'    => $customer,
         ]);
     }
 

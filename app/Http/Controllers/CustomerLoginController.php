@@ -41,16 +41,19 @@ class CustomerLoginController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (Auth::guard('customer')->attempt($credentials, $request->boolean('remember'))) {
-            $request->session()->regenerate();
-
+            $guestCart = session()->get('guest_cart', []);
             $intended = $request->query('intended')
                 ?? session()->pull('url.intended')
                 ?? route('home');
+            $pendingWishlist = $request->session()->pull('pending_wishlist')
+                ?? session()->pull('pending_wishlist')
+                ?? $request->input('pending_wishlist');
+
+            $request->session()->regenerate();
 
             $customer = Auth::guard('customer')->user();
 
             // Merge guest cart items into database
-            $guestCart = session()->get('guest_cart', []);
             if (!empty($guestCart)) {
                 foreach ($guestCart as $item) {
                     $productId = (int) ($item['product_id'] ?? 0);
@@ -80,10 +83,6 @@ class CustomerLoginController extends Controller
             }
 
             $wishlistCount = $customer->wishlists()->count();
-
-            $pendingWishlist = $request->session()->pull('pending_wishlist')
-                ?? session()->pull('pending_wishlist')
-                ?? $request->input('pending_wishlist');
             if ($pendingWishlist) {
                 $data = json_decode($pendingWishlist, true);
                 if ($data && isset($data['product_id'])) {

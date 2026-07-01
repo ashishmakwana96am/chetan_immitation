@@ -6,6 +6,7 @@ use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
+use App\Models\Location;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
@@ -20,7 +21,16 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
         $categories = Category::orderBy('name')->get();
-        return view('products.index', compact('categories'));
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && $user->type !== 'super-admin';
+        if ($isRestricted) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
+
+        return view('products.index', compact('categories', 'locations', 'isRestricted'));
     }
 
     public function data(Request $request)
@@ -30,11 +40,16 @@ class ProductController extends Controller
         $user        = auth()->user();
         $isRestricted = $user->location_id && $user->type !== 'super-admin';
 
+        $locationId = $request->location_id;
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+        }
+
         $query = Product::with([
             'category',
             'primaryImage',
-            'inventories' => function($q) use ($isRestricted, $user) {
-                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
+            'inventories' => function($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             }
         ])
         ->when($request->category_id, function($q) use ($request) {
@@ -46,14 +61,14 @@ class ProductController extends Controller
 
         // Apply stock_status filter at DB level for accuracy and performance
         if ($request->stock_status === 'in_stock') {
-            $query->whereHas('inventories', function($q) use ($isRestricted, $user) {
-                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
+            $query->whereHas('inventories', function($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                 $q->where('quantity', '>', 0);
             });
         } elseif ($request->stock_status === 'out_of_stock') {
             // Products that have no inventory row with quantity > 0 (for the given location scope)
-            $query->whereDoesntHave('inventories', function($q) use ($isRestricted, $user) {
-                $q->when($isRestricted, fn($sub) => $sub->where('location_id', $user->location_id));
+            $query->whereDoesntHave('inventories', function($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                 $q->where('quantity', '>', 0);
             });
         }

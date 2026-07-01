@@ -151,7 +151,7 @@ class SaleController extends Controller
                 'final_amount'   => format_price($order->final_amount),
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
-                'payment_method' => ucwords(str_replace('_', ' ', $order->payment_method)),
+                'payment_method' => $order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method)),
                 'date_group'     => $order->created_at->format('d M Y'),
                 'date_sort'      => $order->created_at->format('Ymd'),
                 'actions'        => $actions,
@@ -204,6 +204,10 @@ class SaleController extends Controller
     public function store(Request $request)
     {
         $this->authorize('create sales');
+
+        if ($request->customer_id === '0' || $request->customer_id === '') {
+            $request->merge(['customer_id' => null]);
+        }
 
         $validator = Validator::make($request->all(), [
             'location_id'            => ['required', 'exists:locations,id'],
@@ -424,6 +428,10 @@ class SaleController extends Controller
 
         if ($sale->status != 1) {
             return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
+        }
+
+        if ($request->customer_id === '0' || $request->customer_id === '') {
+            $request->merge(['customer_id' => null]);
         }
 
         $validator = Validator::make($request->all(), [

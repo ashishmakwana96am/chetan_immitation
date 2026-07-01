@@ -243,7 +243,7 @@ $(document).ready(function () {
                     $('#commonModal').offcanvas('hide');
                     toastr.success(res.message);
                     if (typeof window.refreshTable === 'function') {
-                        window.refreshTable();
+                        window.refreshTable(res);
                     } else {
                         setTimeout(() => location.reload(), 800);
                     }
