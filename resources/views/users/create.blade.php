@@ -42,7 +42,16 @@
             </select>
             <div class="invalid-feedback"></div>
         </div>
-
+        <div class="col-md-6">
+            <label class="form-label" for="userLocation">Location</label>
+            <select id="userLocation" name="location_id" class="form-select">
+                <option value="">-- Select Location --</option>
+                @foreach ($locations as $location)
+                    <option value="{{ $location->id }}">{{ $location->name }}</option>
+                @endforeach
+            </select>
+            <div class="invalid-feedback"></div>
+        </div>
         <div class="col-md-6">
             <label class="form-label" for="userStatus">Status</label>
             <div class="form-check form-switch mt-2">

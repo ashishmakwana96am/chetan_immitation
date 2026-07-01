@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Dashboard')
 
@@ -25,7 +25,7 @@
                             <span class="text-muted">Today's Sales</span>
                             <h4 class="mb-0 mt-1 text-primary">{{ format_price($salesStats['today']) }}</h4>
                         </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-dollar ti-sm"></i></span>
                     </div>
                 </div>
             </div>

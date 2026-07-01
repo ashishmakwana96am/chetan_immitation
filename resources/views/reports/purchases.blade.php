@@ -63,7 +63,7 @@
                             <span class="text-muted">Total Purchases</span>
                             <h4 class="mb-0 mt-1">{{ format_price($totalPurchases) }}</h4>
                         </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-dollar ti-sm"></i></span>
                     </div>
                 </div>
             </div>

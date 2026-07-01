@@ -20,7 +20,8 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'role_id',
+        'type',
+        'location_id',
         'status',
     ];
 
@@ -34,20 +35,5 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
         ];
-    }
-
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
-
-    public function getLocationIdAttribute()
-    {
-        return $this->role?->location_id;
-    }
-
-    public function getTypeAttribute()
-    {
-        return $this->role?->name;
     }
 }
