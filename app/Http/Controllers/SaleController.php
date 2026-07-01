@@ -632,7 +632,6 @@ class SaleController extends Controller
 
                         $updateData = ['status' => $newStatus];
                         if ($newStatus == Order::STATUS_DECLINE) {
-                            $updateData['payment_status'] = 1;
                             $updateData['cancellation_reason'] = $request->cancellation_reason;
                         }
 
