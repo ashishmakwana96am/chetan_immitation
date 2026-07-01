@@ -24,13 +24,7 @@
             <!-- LEFT -->
             <div class="space-y-5">
 
-                <!-- Product Card(s) -->
-                @foreach($order->items as $item)
                 @php
-                    $productImg = ($item->product && $item->product->primaryImage)
-                        ? $item->product->primaryImage->image_url
-                        : asset('website/assets/images/detailpage.png');
-
                     $status = $order->status;
                     $step1_done = true;
                     $step2_done = in_array($status, [2, 3, 4, 5]);
@@ -38,6 +32,156 @@
                     $step4_done = in_array($status, [4, 5]);
                     $step5_done = ($status == 5);
                     $is_cancelled = ($status == 6);
+                @endphp
+
+                <!-- Order Status / Tracking (Shown Once) -->
+                <div class="border border-[#D5D5D5] p-5 md:p-6 bg-white">
+                    <h3 class="text-[#131615] text-lg md:text-[22px] font-semibold mb-6">
+                        Order Status
+                    </h3>
+
+                    @if($is_cancelled)
+                    <div class="grid grid-cols-2 relative max-w-[400px]">
+                        <!-- Item 1 (Order Placed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] bg-red-500"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
+                                Order Placed
+                                <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Item 2 (Cancelled) -->
+                        <div class="relative text-center">
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-red-500 mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-red-600 font-semibold text-xs sm:text-sm md:text-base mt-3">
+                                Cancelled
+                                @if($order->updated_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+                    @if($order->cancellation_reason)
+                    <div class="mt-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                        <div>
+                            <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
+                        </div>
+                    </div>
+                    @endif
+
+                    @else
+                    <div class="grid grid-cols-5 relative">
+                        <!-- Item 1 (Order Placed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
+                                Order Placed
+                                <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Item 2 (Order Confirmed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step2_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step2_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Order Confirmed
+                                @if($step2_done && $order->confirmed_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->confirmed_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 3 (Shipped) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step3_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step3_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Shipped
+                                @if($step3_done && $order->shipped_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->shipped_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 4 (Out for delivery) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step4_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step4_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Out for delivery
+                                @if($step4_done && $order->out_for_delivery_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->out_for_delivery_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 5 (Delivered or Cancelled) -->
+                        <div class="relative text-center">
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $is_cancelled ? 'bg-red-500' : ($step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]') }} mx-auto flex items-center justify-center">
+                                @if($step5_done || $is_cancelled)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step5_done ? 'text-[#131615] font-semibold' : ($is_cancelled ? 'text-red-600 font-semibold' : 'text-[#757575]') }} text-xs sm:text-sm md:text-base mt-3">
+                                {{ $is_cancelled ? 'Cancelled' : 'Delivered' }}
+                                @if($step5_done && $order->delivered_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->delivered_at->format('M d, Y') }}</span>
+                                @elseif($is_cancelled)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Product Card(s) -->
+                @foreach($order->items as $item)
+                @php
+                    $productImg = ($item->product && $item->product->primaryImage)
+                        ? $item->product->primaryImage->image_url
+                        : asset('website/assets/images/detailpage.png');
                 @endphp
                 <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white group">
                     <div class="">
@@ -101,143 +245,7 @@
                         </div>
                     </div>
 
-                    <!-- Tracking -->
-                    <div class="border-t mt-6 pt-6">
-                        @if($is_cancelled)
-                        <div class="grid grid-cols-2 relative max-w-[400px]">
-                            <!-- Item 1 (Order Placed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] bg-red-500"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
-                                    Order Placed
-                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
-                                </p>
-                            </div>
 
-                            <!-- Item 2 (Cancelled) -->
-                            <div class="relative text-center">
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-red-500 mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-red-600 font-semibold text-xs sm:text-sm md:text-base mt-3">
-                                    Cancelled
-                                    @if($order->updated_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-                        </div>
-
-                        @if($order->cancellation_reason)
-                        <div class="mt-4 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                            </svg>
-                            <div>
-                                <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
-                                <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
-                            </div>
-                        </div>
-                        @endif
-
-                        @else
-                        <div class="grid grid-cols-5 relative">
-                            <!-- Item 1 (Order Placed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
-                                    Order Placed
-                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
-                                </p>
-                            </div>
-
-                            <!-- Item 2 (Order Confirmed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step2_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step2_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Order Confirmed
-                                    @if($step2_done && $order->confirmed_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->confirmed_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 3 (Shipped) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step3_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step3_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Shipped
-                                    @if($step3_done && $order->shipped_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->shipped_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 4 (Out for delivery) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step4_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step4_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Out for delivery
-                                    @if($step4_done && $order->out_for_delivery_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->out_for_delivery_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 5 (Delivered or Cancelled) -->
-                            <div class="relative text-center">
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $is_cancelled ? 'bg-red-500' : ($step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]') }} mx-auto flex items-center justify-center">
-                                    @if($step5_done || $is_cancelled)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step5_done ? 'text-[#131615] font-semibold' : ($is_cancelled ? 'text-red-600 font-semibold' : 'text-[#757575]') }} text-xs sm:text-sm md:text-base mt-3">
-                                    {{ $is_cancelled ? 'Cancelled' : 'Delivered' }}
-                                    @if($step5_done && $order->delivered_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->delivered_at->format('M d, Y') }}</span>
-                                    @elseif($is_cancelled)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-                        </div>
-                        @endif
-                    </div>
 
                     @if($order->status == \App\Models\Order::STATUS_DELIVERED && $item->product)
                     @php
