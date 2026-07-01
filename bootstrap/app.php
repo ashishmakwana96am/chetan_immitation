@@ -81,10 +81,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $statusCode = 500;
-            if ($e instanceof HttpExceptionInterface) {
-                $statusCode = $e->getStatusCode();
+            if (!$e instanceof HttpExceptionInterface) {
+                return null;
             }
+
+            $statusCode = $e->getStatusCode();
 
             if ($statusCode === 404) {
                 if ($request->expectsJson()) {
