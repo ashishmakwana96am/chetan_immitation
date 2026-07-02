@@ -467,8 +467,9 @@ class PurchaseInvoiceController extends Controller
 
     private function approveInvoice(PurchaseInvoice $purchase)
     {
-        $purchase->load('items.allocations');
+        $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
+            $isPair = $item->product && $item->product->pair_product;
             foreach ($item->allocations as $allocation) {
                 Inventory::updateOrCreate(
                     [
@@ -477,9 +478,10 @@ class PurchaseInvoiceController extends Controller
                     ],
                     ['created_by' => auth()->id()]
                 );
+                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
                 Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $allocation->location_id)
-                    ->increment('quantity', $allocation->quantity);
+                    ->increment('quantity', $qtyToAdd);
             }
         }
     }
