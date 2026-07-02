@@ -201,6 +201,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('sales', SaleController::class)->except('show');
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
+        Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
 
         // Categories

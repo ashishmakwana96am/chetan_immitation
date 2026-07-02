@@ -8,7 +8,7 @@
     @method('PUT')
     <div class="mb-4">
         <label class="form-label" for="roleName">Role Name <span class="text-danger">*</span></label>
-        <input type="text" id="roleName" name="name" class="form-control" placeholder="e.g. manager" value="{{ $role->name }}" autofocus />
+        <input type="text" id="roleName" name="name" class="form-control" placeholder="Enter Role Name" value="{{ $role->name }}" autofocus />
         <div class="invalid-feedback"></div>
     </div>
 

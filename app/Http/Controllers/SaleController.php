@@ -100,6 +100,9 @@ class SaleController extends Controller
             $actions .= '<a href="' . route('admin.sales.show', $order) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canDownloadSales) {
                 $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
+                if (($order->source ?? 'POS') === 'POS') {
+                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" target="_blank" onclick="window.open(this.href, \'ThermalPrint\', \'width=340,height=600\'); return false;"><i class="ti ti-printer me-2"></i>Thermal Print</a>';
+                }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;
             if ($canEdit && $isEditable) {
@@ -127,7 +130,7 @@ class SaleController extends Controller
             }
 
             if ($canEditSalesStatus && $showStatusOption) {
-                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
+                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
@@ -205,13 +208,16 @@ class SaleController extends Controller
     {
         $this->authorize('create sales');
 
-        if ($request->customer_id === '0' || $request->customer_id === '') {
-            $request->merge(['customer_id' => null]);
-        }
-
         $validator = Validator::make($request->all(), [
             'location_id'            => ['required', 'exists:locations,id'],
-            'customer_id'            => ['nullable', 'exists:customers,id'],
+            'customer_id'            => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if ($value !== '0' && !\DB::table('customers')->where('id', $value)->exists()) {
+                        $fail('The selected customer is invalid.');
+                    }
+                }
+            ],
             'payment_method'         => ['required', 'string'],
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
@@ -221,6 +227,8 @@ class SaleController extends Controller
             'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
             'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'             => ['nullable', 'numeric', 'min:0'],
+            'order_discount_type'        => ['nullable', 'string', 'in:flat,percentage'],
+            'order_discount_value'       => ['nullable', 'numeric', 'min:0'],
             'status'                     => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status'             => ['nullable', 'integer', 'in:1,2'],
             'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -232,6 +240,10 @@ class SaleController extends Controller
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
+        }
+
+        if ($request->customer_id === '0' || $request->customer_id === '') {
+            $request->merge(['customer_id' => null]);
         }
 
         $isApprove = ($request->status ?? 2) == 2;
@@ -284,19 +296,39 @@ class SaleController extends Controller
                 ];
             }
 
+            $discVal = (float)($request->order_discount_value ?? 0);
+            $discType = $request->order_discount_type ?? 'flat';
+
+            $orderDiscountAmount = 0.0;
+            if ($discVal > 0) {
+                if ($discType === 'flat') {
+                    $orderDiscountAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $orderDiscountAmount = $totalAmount * ($discVal / 100);
+                }
+            }
+
+            if ($orderDiscountAmount > $totalAmount) {
+                $orderDiscountAmount = $totalAmount;
+            }
+
+            $finalAmount = $totalAmount - $orderDiscountAmount;
+
             $order = Order::create([
-                'customer_id'     => $request->customer_id,
-                'location_id'     => $request->location_id,
-                'user_id'         => auth()->id(),
-                'order_no'        => generate_invoice_no('ORD', Order::class, 'order_no'),
-                'order_type'      => 'sale',
-                'status'          => $request->status ?? 2,
-                'payment_status'  => $request->payment_status ?? 1,
-                'payment_method'  => $request->payment_method,
-                'final_amount'    => $totalAmount,
-                'source'          => $request->input('source', 'POS'),
-                'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
-                'coupon_id'       => $request->input('coupon_id', null),
+                'customer_id'          => $request->customer_id,
+                'location_id'          => $request->location_id,
+                'user_id'              => auth()->id(),
+                'order_no'             => generate_invoice_no('ORD', Order::class, 'order_no'),
+                'order_type'           => 'sale',
+                'status'               => $request->status ?? 2,
+                'payment_status'       => $request->payment_status ?? 1,
+                'payment_method'       => $request->payment_method,
+                'final_amount'         => $finalAmount,
+                'source'               => $request->input('source', 'POS'),
+                'order_discount_type'  => $discType,
+                'order_discount_value' => $discVal,
+                'discount_type'        => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
+                'coupon_id'            => $request->input('coupon_id', null),
             ]);
 
             foreach ($itemsData as $item) {
@@ -350,6 +382,23 @@ class SaleController extends Controller
             ->setPaper('a4', 'portrait');
 
         return $pdf->download('sale-' . $sale->order_no . '.pdf');
+    }
+
+    public function thermal(Order $sale)
+    {
+        $this->authorize('view sales');
+
+        if (auth()->user()->location_id && auth()->user()->type !== 'super-admin' && $sale->location_id !== auth()->user()->location_id) {
+            abort(403);
+        }
+
+        if (($sale->source ?? 'POS') !== 'POS') {
+            abort(403, 'Thermal print is only available for POS orders.');
+        }
+
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute']);
+
+        return view('sales.thermal', ['order' => $sale]);
     }
 
     public function edit(Order $sale)
@@ -430,13 +479,16 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
         }
 
-        if ($request->customer_id === '0' || $request->customer_id === '') {
-            $request->merge(['customer_id' => null]);
-        }
-
         $validator = Validator::make($request->all(), [
             'location_id'                => ['required', 'exists:locations,id'],
-            'customer_id'                => ['nullable', 'exists:customers,id'],
+            'customer_id'                => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if ($value !== '0' && !\DB::table('customers')->where('id', $value)->exists()) {
+                        $fail('The selected customer is invalid.');
+                    }
+                }
+            ],
             'payment_method'             => ['required', 'string'],
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
@@ -446,6 +498,8 @@ class SaleController extends Controller
             'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
             'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
             'discount_value'             => ['nullable', 'numeric', 'min:0'],
+            'order_discount_type'        => ['nullable', 'string', 'in:flat,percentage'],
+            'order_discount_value'       => ['nullable', 'numeric', 'min:0'],
             'status'                     => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status'             => ['nullable', 'integer', 'in:1,2'],
             'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -454,6 +508,10 @@ class SaleController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        if ($request->customer_id === '0' || $request->customer_id === '') {
+            $request->merge(['customer_id' => null]);
         }
 
         $isApprove = ($request->status ?? 2) == 2;
@@ -509,16 +567,35 @@ class SaleController extends Controller
                 ];
             }
 
+            $discVal = (float)($request->order_discount_value ?? 0);
+            $discType = $request->order_discount_type ?? 'flat';
+
+            $orderDiscountAmount = 0.0;
+            if ($discVal > 0) {
+                if ($discType === 'flat') {
+                    $orderDiscountAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $orderDiscountAmount = $totalAmount * ($discVal / 100);
+                }
+            }
+
+            if ($orderDiscountAmount > $totalAmount) {
+                $orderDiscountAmount = $totalAmount;
+            }
+
+            $finalAmount = $totalAmount - $orderDiscountAmount;
+
             $sale->update([
-                'customer_id'     => $request->customer_id,
-                'location_id'     => $request->location_id,
-                'payment_method'  => $request->payment_method,
-                'status'          => $request->status ?? 2,
-                'payment_status'  => $request->payment_status ?? 1,
-                'final_amount'    => $totalAmount,
-                'source'          => $request->input('source', $sale->source ?? 'POS'),
-                'discount_type'   => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : ($sale->discount_type ?? 'MANUAL'),
-                'coupon_id'       => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
+                'customer_id'          => $request->customer_id,
+                'location_id'          => $request->location_id,
+                'payment_method'       => $request->payment_method,
+                'status'               => $request->status ?? 2,
+                'payment_status'       => $request->payment_status ?? 1,
+                'final_amount'         => $finalAmount,
+                'source'               => $request->input('source', $sale->source ?? 'POS'),
+                'order_discount_type'  => $discType,
+                'order_discount_value' => $discVal,
+                'coupon_id'            => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
             ]);
 
             foreach ($itemsData as $item) {
@@ -561,6 +638,8 @@ class SaleController extends Controller
             'status'               => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
             'payment_status'       => ['nullable', 'integer', 'in:1,2'],
             'cancellation_reason'  => ['nullable', 'string', 'max:500'],
+            'shipped_client_url'   => ['required_if:status,3', 'nullable', 'string', 'max:255'],
+            'tracking_id'          => ['required_if:status,3', 'nullable', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -592,6 +671,33 @@ class SaleController extends Controller
                             }
                             if ($oldStatus == Order::STATUS_OUT_FOR_DELIVERY && in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_SHIPPED])) {
                                 throw new \Exception('Cannot change status back once out for delivery.');
+                            }
+                        }
+
+                        // 3. Step-by-step transition validation
+                        if ($newStatus !== Order::STATUS_DECLINE) {
+                            // POS Order checks
+                            if (($sale->source ?? 'POS') !== 'ONLINE') {
+                                if (!in_array($newStatus, [Order::STATUS_PENDING, Order::STATUS_APPROVE])) {
+                                    throw new \Exception('POS orders can only be Pending or Approved.');
+                                }
+                                if ($oldStatus == Order::STATUS_PENDING && $newStatus != Order::STATUS_APPROVE) {
+                                    throw new \Exception('POS orders can only be updated from Pending to Approved.');
+                                }
+                            } else {
+                                // ONLINE Order sequential check (allowing only one-step forward progression)
+                                if ($oldStatus == Order::STATUS_PENDING && $newStatus != Order::STATUS_APPROVE) {
+                                    throw new \Exception('Pending orders can only be updated to Approved.');
+                                }
+                                if ($oldStatus == Order::STATUS_APPROVE && $newStatus != Order::STATUS_SHIPPED) {
+                                    throw new \Exception('Approved orders can only be updated to Shipped.');
+                                }
+                                if ($oldStatus == Order::STATUS_SHIPPED && $newStatus != Order::STATUS_OUT_FOR_DELIVERY) {
+                                    throw new \Exception('Shipped orders can only be updated to Out for delivery.');
+                                }
+                                if ($oldStatus == Order::STATUS_OUT_FOR_DELIVERY && $newStatus != Order::STATUS_DELIVERED) {
+                                    throw new \Exception('Out for delivery orders can only be updated to Delivered.');
+                                }
                             }
                         }
 
@@ -640,6 +746,8 @@ class SaleController extends Controller
                             $updateData['confirmed_at'] = now();
                         } elseif ($newStatus == Order::STATUS_SHIPPED) {
                             $updateData['shipped_at'] = now();
+                            $updateData['shipped_client_url'] = $request->shipped_client_url;
+                            $updateData['tracking_id'] = $request->tracking_id;
                         } elseif ($newStatus == Order::STATUS_OUT_FOR_DELIVERY) {
                             $updateData['out_for_delivery_at'] = now();
                         } elseif ($newStatus == Order::STATUS_DELIVERED) {
@@ -666,7 +774,12 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['status' => 'success', 'message' => 'Sale status updated successfully.']);
+        $pendingCount = \App\Models\Order::where('status', 1)->count();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Sale status updated successfully.',
+            'pending_count' => $pendingCount
+        ]);
     }
 
     private function getStockError(iterable $items, int $locationId): ?string

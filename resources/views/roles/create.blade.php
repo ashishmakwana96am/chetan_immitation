@@ -7,7 +7,7 @@
     @csrf
     <div class="mb-4">
         <label class="form-label" for="roleName">Role Name <span class="text-danger">*</span></label>
-        <input type="text" id="roleName" name="name" class="form-control" placeholder="e.g. manager"
+        <input type="text" id="roleName" name="name" class="form-control" placeholder="Enter Role Name"
             autofocus />
         <div class="invalid-feedback"></div>
     </div>

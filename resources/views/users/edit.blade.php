@@ -9,26 +9,26 @@
     <div class="row g-3">
         <div class="col-md-6">
             <label class="form-label" for="userName">Full Name <span class="text-danger">*</span></label>
-            <input type="text" id="userName" name="name" class="form-control" placeholder="e.g. John Doe"
+            <input type="text" id="userName" name="name" class="form-control" placeholder="Enter Full Name"
                 value="{{ $user->name }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userEmail">Email <span class="text-danger">*</span></label>
-            <input type="email" id="userEmail" name="email" class="form-control" placeholder="e.g. john@example.com"
+            <input type="email" id="userEmail" name="email" class="form-control" placeholder="Enter Email Address"
                 value="{{ $user->email }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userPhone">Phone</label>
-            <input type="text" id="userPhone" name="phone" class="form-control" placeholder="e.g. +1 234 567 8900"
+            <input type="text" id="userPhone" name="phone" class="form-control" placeholder="Enter Phone Number"
                 value="{{ $user->phone }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="userRole">Role <span class="text-danger">*</span></label>
             <select id="userRole" name="role" class="form-select">
-                <option value="">-- Select Role --</option>
+                <option value="">Select Role</option>
                 @foreach ($roles as $role)
                     <option value="{{ $role->id }}" {{ $userRole === $role->id ? 'selected' : '' }}>
                         {{ ucfirst($role->name) }}
@@ -45,7 +45,7 @@
                 <input type="text" class="form-control" value="{{ $locations->firstWhere('id', $locationId)?->name ?? '-' }}" readonly disabled />
             @else
                 <select id="userLocation" name="location_id" class="form-select">
-                    <option value="">-- Select Location --</option>
+                    <option value="">Select Location</option>
                     @foreach ($locations as $location)
                         <option value="{{ $location->id }}" {{ $user->location_id === $location->id ? 'selected' : '' }}>
                             {{ $location->name }}

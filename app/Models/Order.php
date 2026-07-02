@@ -41,18 +41,23 @@ class Order extends Model
         'razorpay_payment_id',
         'razorpay_signature',
         'discount_type',
+        'order_discount_type',
+        'order_discount_value',
         'coupon_id',
         'confirmed_at',
         'shipped_at',
         'out_for_delivery_at',
         'delivered_at',
         'cancellation_reason',
+        'shipped_client_url',
+        'tracking_id',
     ];
 
     protected function casts(): array
     {
         return [
             'final_amount' => 'decimal:2',
+            'order_discount_value' => 'decimal:2',
             'confirmed_at' => 'datetime',
             'shipped_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',

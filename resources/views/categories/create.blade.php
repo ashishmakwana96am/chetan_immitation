@@ -10,7 +10,7 @@
         <div class="col-12">
             <label class="form-label" for="categoryName">Name <span class="text-danger">*</span></label>
             <input type="text" id="categoryName" name="name"
-                class="form-control" placeholder="e.g. Electronics" autofocus />
+                class="form-control" placeholder="Enter Category Name" autofocus />
             <div class="invalid-feedback"></div>
         </div>
 

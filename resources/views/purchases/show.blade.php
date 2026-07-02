@@ -1,17 +1,60 @@
 @extends('layouts.app')
 
-@section('title', 'Invoice ' . $purchase->invoice_no)
+@section('title', 'Purchase ' . $purchase->invoice_no)
+
+@section('page-css')
+<style>
+    .sale-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        font-size: 0.875rem;
+    }
+    .sale-info-row:last-child { border-bottom: none; }
+    .sale-info-label { color: #8592a3; font-size: 0.8rem; flex-shrink: 0; padding-right: 8px; }
+    .sale-info-value { font-weight: 500; text-align: right; }
+    .card-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #B4771E;
+        margin-bottom: 4px;
+    }
+    .card { border: 1px solid rgba(75,70,92,0.1); border-radius: 0.5rem; }
+    .card-header {
+        background: #fff;
+        border-bottom: 1px solid rgba(75,70,92,0.08);
+        padding: 0.9rem 1.25rem;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    .card-header .card-title-icon {
+        width: 30px; height: 30px;
+        background: rgba(180,119,30,0.1);
+        border-radius: 8px;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
+    .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
+    .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
+</style>
+@endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    @php
+        $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+        $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
+    @endphp
+
+    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
         <div>
-            <h4 class="fw-semibold mb-0">Invoice <code>{{ $purchase->invoice_no }}</code></h4>
-            @php
-                $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
-                $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
-            @endphp
+            <h4 class="fw-semibold mb-0">Purchase <code>{{ $purchase->invoice_no }}</code></h4>
+            <small class="text-muted">{{ format_date($purchase->created_at) }}</small>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             <!-- <a href="{{ route('admin.purchases.pdf', $purchase) }}" class="btn btn-label-info" target="_blank">
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
             </a> -->
@@ -23,8 +66,8 @@
                     <button class="btn btn-success"
                         data-common-confirm="{{ route('admin.purchases.status', $purchase) }}"
                         data-confirm-method="PATCH"
-                        data-confirm-title="Approve Invoice"
-                        data-confirm-text="Are you sure you want to approve this invoice? Inventory will be updated."
+                        data-confirm-title="Approve Purchase"
+                        data-confirm-text="Are you sure you want to approve this purchase? Inventory will be updated."
                         data-confirm-btn="Yes, Approve"
                         data-confirm-btn-class="btn-success"
                         data-confirm-data='{"status":2}'>
@@ -33,8 +76,8 @@
                     <button class="btn btn-label-danger"
                         data-common-confirm="{{ route('admin.purchases.status', $purchase) }}"
                         data-confirm-method="PATCH"
-                        data-confirm-title="Decline Invoice"
-                        data-confirm-text="Are you sure you want to decline this invoice?"
+                        data-confirm-title="Decline Purchase"
+                        data-confirm-text="Are you sure you want to decline this purchase?"
                         data-confirm-btn="Yes, Decline"
                         data-confirm-btn-class="btn-danger"
                         data-confirm-data='{"status":3}'>
@@ -46,11 +89,11 @@
                         data-common-confirm="{{ route('admin.purchases.update-payment-status', $purchase) }}"
                         data-confirm-method="PATCH"
                         data-confirm-title="Mark as Paid"
-                        data-confirm-text="Are you sure you want to mark this invoice as paid?"
+                        data-confirm-text="Are you sure you want to mark this purchase as paid?"
                         data-confirm-btn="Yes, Mark as Paid"
                         data-confirm-btn-class="btn-success"
                         data-confirm-data='{"payment_status":2}'>
-                        <i class="ti ti-currency-dollar me-1"></i> Mark as Paid
+                        <i class="ti ti-currency-rupee me-1"></i> Mark as Paid
                     </button>
                 @endif
             @endcan
@@ -62,55 +105,93 @@
 
     <div class="row g-4">
 
-        <!-- Invoice Info -->
-        <div class="col-lg-4">
-            <div class="card mb-4">
-                <div class="card-header"><h5 class="mb-0">Invoice Info</h5></div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Invoice No</p>
-                        <p class="fw-semibold mb-0"><code>{{ $purchase->invoice_no }}</code></p>
+        {{-- ══════════════════ LEFT COLUMN ══════════════════ --}}
+        <div class="col-lg-4 d-flex flex-column gap-4">
+
+            {{-- Purchase Info --}}
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-receipt-2"></i></span>
+                    <h6 class="mb-0 fw-semibold">Purchase Info</h6>
+                </div>
+                <div class="card-body py-1 px-3">
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Purchase No</span>
+                        <code class="sale-info-value">{{ $purchase->invoice_no }}</code>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Status</p>
-                        <span class="badge {{ $statusColors[$purchase->status] ?? 'bg-label-secondary' }}">{{ $statusLabels[$purchase->status] ?? 'Pending' }}</span>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Status</span>
+                        <span class="badge {{ $statusColors[$purchase->status] ?? 'bg-label-secondary' }}">
+                            {{ $statusLabels[$purchase->status] ?? 'Pending' }}
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Payment Status</p>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Payment Status</span>
                         @php
                             $payColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
                             $payLabels = [1 => 'Pending', 2 => 'Paid'];
                         @endphp
-                        <span class="badge {{ $payColors[$purchase->payment_status ?? 1] ?? 'bg-label-secondary' }}">{{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</span>
+                        <span class="badge {{ $payColors[$purchase->payment_status ?? 1] ?? 'bg-label-secondary' }}">
+                            {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Supplier</p>
-                        <p class="fw-semibold mb-0">{{ $purchase->supplier->name ?? '-' }}</p>
-                        @if($purchase->supplier?->phone)
-                            <small class="text-muted">{{ $purchase->supplier->phone }}</small>
-                        @endif
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Total Amount</span>
+                        <span class="sale-info-value fw-bold text-primary">{{ format_price($purchase->total_amount) }}</span>
                     </div>
-                    <div class="mb-3">
-                        <p class="text-muted small mb-1">Total Amount</p>
-                        <p class="fw-bold text-primary mb-0">{{ format_price($purchase->total_amount) }}</p>
+
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Date</span>
+                        <span class="sale-info-value">{{ format_date($purchase->created_at) }}</span>
                     </div>
-                    <div>
-                        <p class="text-muted small mb-1">Date</p>
-                        <p class="mb-0">{{ format_date($purchase->created_at) }}</p>
-                    </div>
+
                 </div>
             </div>
+
+            {{-- Supplier --}}
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-user"></i></span>
+                    <h6 class="mb-0 fw-semibold">Supplier</h6>
+                </div>
+                <div class="card-body py-1 px-3">
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Name</span>
+                        <span class="sale-info-value">{{ $purchase->supplier->name ?? '-' }}</span>
+                    </div>
+                    @if($purchase->supplier?->phone)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Phone</span>
+                        <span class="sale-info-value">{{ $purchase->supplier->phone }}</span>
+                    </div>
+                    @endif
+                    @if($purchase->supplier?->address)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Address</span>
+                        <span class="sale-info-value" style="max-width:65%;">{{ $purchase->supplier->address }}</span>
+                    </div>
+                    @endif
+                </div>
+            </div>
+
         </div>
 
-        <!-- Items -->
+        {{-- ══════════════════ RIGHT COLUMN ══════════════════ --}}
         <div class="col-lg-8">
-            <div class="card">
-                <div class="card-header"><h5 class="mb-0">Purchase Items</h5></div>
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
+                    <h6 class="mb-0 fw-semibold">Purchase Items</h6>
+                </div>
                 <div class="table-responsive">
                     <table class="table mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>#</th>
+                                <th style="width:4%">#</th>
                                 <th>Product</th>
                                 <th class="text-end">Purchase Price</th>
                                 <th class="text-end">Qty</th>
@@ -130,15 +211,28 @@
                                     }
                                 @endphp
                                 <tr>
-                                    <td>{{ $index + 1 }}</td>
+                                    <td class="text-muted small">{{ $index + 1 }}</td>
                                     <td>
-                                        <p class="fw-semibold mb-0">{{ $displayName }}</p>
-                                        <small class="text-muted">{{ $item->product->sku ?? '' }}</small>
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @endif
+                                            <div>
+                                                <span class="fw-semibold">{{ $displayName }}</span>
+                                                @if($item->product?->sku)
+                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td class="text-end text-nowrap">{{ format_price($item->purchase_price) }}</td>
-                                    <td class="text-end text-nowrap">{{ $item->quantity }}</td>
-                                    <td class="text-end text-nowrap fw-semibold text-primary">{{ format_price($item->total) }}</td>
-                                    <td>
+                                    <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
+                                    <td class="text-end text-nowrap small">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($item->total) }}</td>
+                                    <td class="small">
                                         @foreach($item->allocations as $allocation)
                                             <span class="badge bg-label-info me-1 mb-1">
                                                 {{ $allocation->location->name ?? '-' }}: {{ $allocation->quantity }}
@@ -148,10 +242,10 @@
                                 </tr>
                             @endforeach
                         </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="4" class="text-end fw-semibold">Grand Total</td>
-                                <td class="text-end text-nowrap fw-bold text-primary">{{ format_price($purchase->total_amount) }}</td>
+                        <tfoot>
+                            <tr style="border-top:2px solid #B4771E;">
+                                <td colspan="4" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
+                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($purchase->total_amount) }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>

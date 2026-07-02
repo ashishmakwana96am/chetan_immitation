@@ -83,6 +83,17 @@
                                 if ($order->coupon_id && $order->coupon) {
                                     $couponDisc = max(0, round($itemsGross - $itemDiscount - (float)$order->final_amount, 2));
                                 }
+                                $orderDiscountAmount = 0.0;
+                                if ($order->order_discount_value > 0) {
+                                    $itemsTotal = $itemsGross - $itemDiscount;
+                                    if ($order->order_discount_type === 'flat') {
+                                        $orderDiscountAmount = (float)$order->order_discount_value;
+                                    } else if ($order->order_discount_type === 'percentage') {
+                                        $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+                                    }
+                                    $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
+                                }
+                                $totalDiscount = $itemDiscount + $orderDiscountAmount + $couponDisc;
                             @endphp
 
                             {{-- Subtotal --}}
@@ -90,20 +101,11 @@
                                 <td colspan="2" style="padding:8px 12px;text-align:right;font-size:12px;color:#555;border-top:1px solid #e8e0d2;">Subtotal</td>
                                 <td style="padding:8px 12px;text-align:right;font-size:12px;color:#555;border-top:1px solid #e8e0d2;">₹{{ number_format($itemsGross, 0) }}</td>
                             </tr>
-                            {{-- Item discount --}}
-                            @if($itemDiscount > 0)
+                            {{-- Discount --}}
+                            @if($totalDiscount > 0)
                             <tr>
-                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">Item Discount</td>
-                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">-₹{{ number_format($itemDiscount, 0) }}</td>
-                            </tr>
-                            @endif
-                            {{-- Coupon discount --}}
-                            @if($couponDisc > 0)
-                            <tr>
-                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#2e7d32;">
-                                    Coupon Discount ({{ $order->coupon->code }})
-                                </td>
-                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#2e7d32;">-₹{{ number_format($couponDisc, 0) }}</td>
+                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">Discount</td>
+                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">-₹{{ number_format($totalDiscount, 0) }}</td>
                             </tr>
                             @endif
                             {{-- Final --}}

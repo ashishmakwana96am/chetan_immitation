@@ -173,6 +173,32 @@
                             </p>
                         </div>
                     </div>
+                    @if($order->shipped_client_url || $order->tracking_id)
+                    <div class="mt-6 border-t border-[#EAEAEA] pt-5">
+                        <h4 class="text-[#131615] text-sm font-semibold mb-3">Shipping & Tracking Information</h4>
+                        <div class="grid sm:grid-cols-2 gap-4 bg-gray-50 border border-gray-100 rounded p-4">
+                            @if($order->shipped_client_url)
+                            <div>
+                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Shipping URL / Courier Partner</p>
+                                <p class="text-sm mt-1">
+                                    <a href="{{ $order->shipped_client_url }}" target="_blank" class="text-green-600 hover:text-green-700 font-medium underline break-all inline-flex items-center gap-1">
+                                        Track Order
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                        </svg>
+                                    </a>
+                                </p>
+                            </div>
+                            @endif
+                            @if($order->tracking_id)
+                            <div>
+                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Tracking ID</p>
+                                <p class="text-[#131615] font-semibold text-sm mt-1 select-all">{{ $order->tracking_id }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                     @endif
                 </div>
 

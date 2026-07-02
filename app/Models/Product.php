@@ -184,17 +184,6 @@ class Product extends Model
         return $this->type === 'variable';
     }
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($product) {
-            if (empty($product->barcode)) {
-                $product->barcode = self::generateUniqueBarcode($product->category_id);
-            }
-        });
-    }
-
     public static function generateUniqueBarcode($categoryId = null)
     {
         $prefix = 'PRD';

@@ -91,7 +91,7 @@
                                     <input type="text" class="form-control" value="{{ $locations->firstWhere('id', auth()->user()->location_id)?->name ?? '-' }}" disabled />
                                 @else
                                     <select name="location_id" class="form-select" id="locationSelect">
-                                        <option value="">-- Select Location --</option>
+                                        <option value="">Select Location</option>
                                         @foreach($locations as $location)
                                             <option value="{{ $location->id }}"
                                                 {{ auth()->user()->location_id == $location->id ? 'selected' : '' }}>
@@ -179,35 +179,55 @@
                 </div>
             </div>
 
-            <input type="hidden" id="overallDiscountType" name="discount_type" value="flat" />
-            <input type="hidden" id="overallDiscountValue" name="discount_value" value="0" />
+            <input type="hidden" id="overallDiscountType" name="order_discount_type" value="flat" />
+            <input type="hidden" id="overallDiscountValue" name="order_discount_value" value="0" />
                 </div>
             </div>
 
             <div class="col-lg-4">
                 <div class="row g-3">
 
-            <!-- Bottom widgets: Summary -->
-            <div class="col-12" id="summaryColumn">
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Sale Summary</h5></div>
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between mb-3">
-                            <span class="text-muted">Items Total</span>
-                            <span id="summaryItemsTotal" class="fw-semibold">{{ currency_symbol() }} 0.00</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-3 d-none">
-                            <span class="text-muted">Discount</span>
-                            <span id="summaryDiscountAmount" class="fw-semibold text-danger">{{ currency_symbol() }} 0.00</span>
-                        </div>
-                        <hr />
-                        <div class="d-flex justify-content-between">
-                            <span class="fw-semibold">Final Amount</span>
-                            <span id="summaryFinal" class="fw-bold text-primary fs-5">{{ currency_symbol() }} 0.00</span>
+                    <!-- Discount on order -->
+                    <div class="col-12" id="discountColumn" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header"><h5 class="mb-0">Discount on order</h5></div>
+                            <div class="card-body">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <select id="orderDiscountTypeSelect" class="form-select no-select2">
+                                            <option value="flat">Flat</option>
+                                            <option value="percentage">Percentage</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number" id="orderDiscountValueInput" class="form-control" value="0" min="0" step="0.01" placeholder="Enter Discount" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
+
+                    <!-- Bottom widgets: Summary -->
+                    <div class="col-12" id="summaryColumn" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header"><h5 class="mb-0">Sale Summary</h5></div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="text-muted">Items Total</span>
+                                    <span id="summaryItemsTotal" class="fw-semibold">{{ currency_symbol() }} 0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3 d-none">
+                                    <span class="text-muted">Discount</span>
+                                    <span id="summaryDiscountAmount" class="fw-semibold text-danger">{{ currency_symbol() }} 0.00</span>
+                                </div>
+                                <hr />
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-semibold">Final Amount</span>
+                                    <span id="summaryFinal" class="fw-bold text-primary fs-5">{{ currency_symbol() }} 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
             <!-- Sales Status -->
             <div class="col-12">
@@ -560,13 +580,19 @@ $(document).ready(function () {
     // -------------------------------------------------------
     // Price / Qty / Discount change
     // -------------------------------------------------------
-    $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type, #overallDiscountValue, #overallDiscountType', function () {
+    $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type', function () {
         const row = $(this).closest('.item-row');
         if (row.length > 0) {
             updateRowTotal(row);
         } else {
             updateSummary();
         }
+    });
+
+    $(document).on('input change', '#orderDiscountTypeSelect, #orderDiscountValueInput', function () {
+        $('#overallDiscountType').val($('#orderDiscountTypeSelect').val());
+        $('#overallDiscountValue').val(parseFloat($('#orderDiscountValueInput').val()) || 0);
+        updateSummary();
     });
 
     function updateRowTotal(row) {
@@ -621,14 +647,34 @@ $(document).ready(function () {
             count++;
         });
 
-        const finalAmount = subtotalSum - discountSum;
+        const itemsTotal = subtotalSum - discountSum;
 
-        $('#itemsTotal').text(symbol + ' ' + formatPrice(finalAmount));
+        // Order-level discount calculation
+        const orderDiscType = $('#overallDiscountType').val() || 'flat';
+        const orderDiscVal = parseFloat($('#overallDiscountValue').val()) || 0;
+        let orderDiscountAmount = 0;
+
+        if (orderDiscVal > 0) {
+            if (orderDiscType === 'flat') {
+                orderDiscountAmount = orderDiscVal;
+            } else if (orderDiscType === 'percentage') {
+                orderDiscountAmount = itemsTotal * (orderDiscVal / 100);
+            }
+        }
+
+        if (orderDiscountAmount > itemsTotal) {
+            orderDiscountAmount = itemsTotal;
+        }
+
+        const finalAmount = itemsTotal - orderDiscountAmount;
+        const totalDiscount = discountSum + orderDiscountAmount;
+
+        $('#itemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
-        $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(discountSum));
+        $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
         $('#summaryFinal').text(symbol + ' ' + formatPrice(finalAmount));
 
-        if (discountSum > 0) {
+        if (totalDiscount > 0) {
             $('#summaryDiscountAmount').closest('.d-flex').removeClass('d-none');
         } else {
             $('#summaryDiscountAmount').closest('.d-flex').addClass('d-none');
@@ -637,9 +683,11 @@ $(document).ready(function () {
         if (count > 0) {
             $('#itemsTotal').closest('tr').show();
             $('#summaryColumn').show();
+            $('#discountColumn').show();
         } else {
             $('#itemsTotal').closest('tr').hide();
             $('#summaryColumn').hide();
+            $('#discountColumn').hide();
         }
     }
 
@@ -663,7 +711,8 @@ $(document).ready(function () {
 
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
-        form.find('.invalid-feedback').text('');
+        form.find('.select2-container .select2-selection').css('border-color', '');
+        form.find('.invalid-feedback').text('').hide();
 
         // Remove any previously appended hidden mapping container
         $('#hiddenSubmitContainer').remove();
@@ -719,7 +768,21 @@ $(document).ready(function () {
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     $.each(errors, function (field, messages) {
-                        toastr.error(messages[0]);
+                        let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                        if (input.length > 0) {
+                            input.addClass('is-invalid');
+                            
+                            if (input.hasClass('select2-hidden-accessible')) {
+                                input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                            }
+                            
+                            let container = input.closest('.input-group');
+                            if (container.length > 0) {
+                                container.siblings('.invalid-feedback').text(messages[0]).show();
+                            } else {
+                                input.siblings('.invalid-feedback').text(messages[0]).show();
+                            }
+                        }
                     });
                 } else {
                     toastr.error('Something went wrong. Please try again.');

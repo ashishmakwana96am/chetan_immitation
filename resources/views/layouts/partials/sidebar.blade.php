@@ -55,6 +55,16 @@
                 <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
                   <i class="menu-icon tf-icons {{ $child->icon ?? 'ti ti-circle' }}"></i>
                   <div>{{ $child->name }}</div>
+                  @if($child->route === 'admin.sales.index')
+                    @php
+                      try {
+                          $pendingSalesCount = \App\Models\Order::where('status', 1)->count();
+                      } catch (\Exception $e) {
+                          $pendingSalesCount = 0;
+                      }
+                    @endphp
+                    <div class="badge rounded-pill bg-danger ms-auto pending-sales-counter-badge" style="display: {{ $pendingSalesCount > 0 ? 'inline-block' : 'none' }} !important;">{{ $pendingSalesCount }}</div>
+                  @endif
                 </a>
               </li>
             @endif

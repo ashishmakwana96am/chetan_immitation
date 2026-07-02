@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'New Purchase Invoice')
+@section('title', 'New Purchase')
 
 @section('page-css')
 <style>
@@ -57,7 +57,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">New Purchase Invoice</h4>
+        <h4 class="fw-semibold mb-0">New Purchase</h4>
         <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary">
             <i class="ti ti-arrow-left me-1"></i> Back
         </a>
@@ -69,21 +69,21 @@
             <div class="col-lg-8">
                 <div class="row g-3">
 
-            <!-- Invoice Details (Full Width) -->
+            <!-- Purchase Details (Full Width) -->
             <div class="col-12">
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Invoice Details</h5></div>
+                    <div class="card-header"><h5 class="mb-0">Purchase Details</h5></div>
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Invoice No</label>
+                                <label class="form-label">Purchase No</label>
                                 <input type="text" class="form-control" value="{{ $invoiceNo }}" disabled />
                                 <small class="text-muted">Auto-generated on save</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Supplier <span class="text-danger">*</span></label>
                                 <select name="supplier_id" class="form-select">
-                                    <option value="">-- Select Supplier --</option>
+                                    <option value="">Select Supplier</option>
                                     @foreach($suppliers as $supplier)
                                         <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                                     @endforeach
@@ -1043,7 +1043,8 @@ $(document).ready(function () {
 
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
-        form.find('.invalid-feedback').text('');
+        form.find('.select2-container .select2-selection').css('border-color', '');
+        form.find('.invalid-feedback').text('').hide();
 
         // Remove any previously appended hidden mapping container
         $('#hiddenSubmitContainer').remove();
@@ -1113,7 +1114,21 @@ $(document).ready(function () {
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     $.each(errors, function (field, messages) {
-                        toastr.error(messages[0]);
+                        let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                        if (input.length > 0) {
+                            input.addClass('is-invalid');
+                            
+                            if (input.hasClass('select2-hidden-accessible')) {
+                                input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                            }
+                            
+                            let container = input.closest('.input-group');
+                            if (container.length > 0) {
+                                container.siblings('.invalid-feedback').text(messages[0]).show();
+                            } else {
+                                input.siblings('.invalid-feedback').text(messages[0]).show();
+                            }
+                        }
                     });
                 } else {
                     toastr.error('Something went wrong. Please try again.');

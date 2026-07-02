@@ -9,13 +9,13 @@
         <div class="col-12">
             <label class="form-label" for="locationName">Name <span class="text-danger">*</span></label>
             <input type="text" id="locationName" name="name"
-                class="form-control" placeholder="e.g. Main Branch" autofocus />
+                class="form-control" placeholder="Enter Location Name" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
             <label class="form-label" for="locationAddress">Address</label>
             <input type="text" id="locationAddress" name="address"
-                class="form-control" placeholder="e.g. 123 Main Street, City" />
+                class="form-control" placeholder="Enter Location Address" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">

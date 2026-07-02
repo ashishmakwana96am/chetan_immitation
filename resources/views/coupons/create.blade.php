@@ -9,13 +9,13 @@
         <div class="col-md-6">
             <label class="form-label" for="couponName">Coupon Name <span class="text-danger">*</span></label>
             <input type="text" id="couponName" name="name"
-                class="form-control" placeholder="e.g. Festive Sale 2026" autofocus />
+                class="form-control" placeholder="Enter Coupon Name" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="couponCode">Coupon Code <span class="text-danger">*</span></label>
             <input type="text" id="couponCode" name="code"
-                class="form-control" placeholder="e.g. FESTIVE50" style="text-transform: uppercase;" />
+                class="form-control" placeholder="Enter Coupon Code" style="text-transform: uppercase;" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

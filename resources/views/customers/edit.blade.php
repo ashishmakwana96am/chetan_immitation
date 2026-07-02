@@ -10,19 +10,19 @@
         <div class="col-12">
             <label class="form-label">Name <span class="text-danger">*</span></label>
             <input type="text" name="name" class="form-control"
-                placeholder="e.g. John Doe" value="{{ $customer->name }}" />
+                placeholder="Enter Customer Name" value="{{ $customer->name }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Phone</label>
             <input type="text" name="phone" class="form-control"
-                placeholder="e.g. +1 234 567 8900" value="{{ $customer->phone }}" />
+                placeholder="Enter Phone Number" value="{{ $customer->phone }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Email</label>
             <input type="email" name="email" class="form-control"
-                placeholder="e.g. john@example.com" value="{{ $customer->email }}" />
+                placeholder="Enter Email Address" value="{{ $customer->email }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

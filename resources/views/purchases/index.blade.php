@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Purchase Invoices')
+@section('title', 'Purchases')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -42,7 +42,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Purchase Invoices</h4>
+        <h4 class="fw-semibold mb-0">Purchases</h4>
         <div class="d-flex gap-2 align-items-center">
             {{-- Filter Dropdown --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
@@ -65,7 +65,7 @@
 
                     {{-- Status --}}
                     <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-status">Invoice Status</label>
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-status">Purchase Status</label>
                         <select id="filter-status" class="form-select">
                             <option value="">All Statuses</option>
                             <option value="1">Pending</option>
@@ -125,7 +125,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Invoice No</th>
+                        <th>Purchase No</th>
                         <th>Supplier</th>
                         <th>Total Amount</th>
                         <th>Status</th>

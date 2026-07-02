@@ -8,17 +8,17 @@
     <div class="row g-3">
         <div class="col-12">
             <label class="form-label">Name <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control" placeholder="e.g. John Doe" />
+            <input type="text" name="name" class="form-control" placeholder="Enter Customer Name" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Phone</label>
-            <input type="text" name="phone" class="form-control" placeholder="e.g. +1 234 567 8900" />
+            <input type="text" name="phone" class="form-control" placeholder="Enter Phone Number" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" placeholder="e.g. john@example.com" />
+            <input type="email" name="email" class="form-control" placeholder="Enter Email Address" />
             <div class="invalid-feedback"></div>
         </div>
 

@@ -7,14 +7,14 @@
     @csrf
     <div class="mb-3">
         <label class="form-label" for="permissionName">Permission Name <span class="text-danger">*</span></label>
-        <input type="text" id="permissionName" name="name" class="form-control" placeholder="e.g. view users"
+        <input type="text" id="permissionName" name="name" class="form-control" placeholder="Enter Permission Name"
             autofocus />
         <div class="invalid-feedback"></div>
     </div>
     <div class="mb-3">
         <label class="form-label" for="permissionModule">Module Name <span class="text-danger">*</span></label>
         <select id="permissionModule" name="module" class="form-select">
-            <option value="">-- Select Module --</option>
+            <option value="">Select Module</option>
             @foreach($modules as $module)
                 <option value="{{ $module->name }}">{{ $module->name }}</option>
             @endforeach

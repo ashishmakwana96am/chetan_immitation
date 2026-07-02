@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Purchase Invoice {{ $purchase->invoice_no }}</title>
+    <title>Purchase {{ $purchase->invoice_no }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #333; }
@@ -72,7 +72,7 @@
                 </td>
                 <td class="header-right">
                     <div class="invoice-title">
-                        <h2>Purchase Invoice</h2>
+                        <h2>Purchase</h2>
                         <div class="invoice-no">{{ $purchase->invoice_no }}</div>
                         <div style="margin-top:6px;">
                             @php

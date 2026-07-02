@@ -11,7 +11,7 @@
         <div class="col-12">
             <label class="form-label" for="categoryName">Name <span class="text-danger">*</span></label>
             <input type="text" id="categoryName" name="name"
-                class="form-control" placeholder="e.g. Electronics"
+                class="form-control" placeholder="Enter Category Name"
                 value="{{ $category->name }}" autofocus />
             <div class="invalid-feedback"></div>
         </div>

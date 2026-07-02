@@ -29,20 +29,20 @@
                             <div class="col-12">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control"
-                                    placeholder="e.g. iPhone 15 Pro" value="{{ $product->name }}" />
+                                    placeholder="Enter Product Name" value="{{ $product->name }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">SKU <span class="text-danger">*</span></label>
                                 <input type="text" name="sku" class="form-control"
-                                    placeholder="e.g. IPH-15-PRO" value="{{ $product->sku }}" />
+                                    placeholder="Enter SKU" value="{{ $product->sku }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Barcode</label>
+                                <label class="form-label">Barcode <span class="text-danger">*</span></label>
                                 <div class="d-flex gap-2">
-                                    <input type="text" name="barcode" class="form-control bg-light" 
-                                        placeholder="Auto-generated" value="{{ $product->barcode ?? '' }}" readonly />
+                                    <input type="text" name="barcode" class="form-control" 
+                                        placeholder="Enter Barcode" value="{{ $product->barcode ?? '' }}" />
                                     @if($product->barcode)
                                     <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }})" class="btn btn-icon btn-label-secondary" title="View Barcode">
                                         <i class="ti ti-barcode"></i>
@@ -54,7 +54,7 @@
                              <div class="col-md-6">
                                  <label class="form-label">Category <span class="text-danger">*</span></label>
                                  <select name="category_id" id="productCategory" class="form-select">
-                                     <option value="">-- Select Category --</option>
+                                     <option value="">Select Category</option>
                                      @foreach($categories as $category)
                                          <option value="{{ $category->id }}" {{ $product->category_id === $category->id ? 'selected' : '' }}>
                                              {{ $category->name }}
@@ -66,7 +66,7 @@
                               <div class="col-md-6">
                                   <label class="form-label">Sub Category</label>
                                   <select name="sub_category_id" id="productSubCategory" class="form-select" {{ empty($subCategories) ? 'disabled' : '' }}>
-                                      <option value="">-- Select Sub Category --</option>
+                                      <option value="">Select Sub Category</option>
                                       @if(!empty($subCategories))
                                           @foreach($subCategories as $subCategory)
                                               <option value="{{ $subCategory->id }}" {{ $product->sub_category_id === $subCategory->id ? 'selected' : '' }}>
@@ -82,7 +82,7 @@
                                  <div class="input-group has-validation">
                                      <span class="input-group-text">{{ currency_symbol() }}</span>
                                      <input type="number" name="purchase_price" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->purchase_price }}" />
+                                         placeholder="Enter Purchase Price" step="0.01" min="0" value="{{ $product->purchase_price }}" />
                                      <div class="invalid-feedback"></div>
                                  </div>
                              </div>
@@ -91,7 +91,7 @@
                                  <div class="input-group has-validation">
                                      <span class="input-group-text">{{ currency_symbol() }}</span>
                                      <input type="number" name="sale_price" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->sale_price }}" />
+                                         placeholder="Enter Sale Price" step="0.01" min="0" value="{{ $product->sale_price }}" />
                                      <div class="invalid-feedback"></div>
                                  </div>
                              </div>
@@ -100,7 +100,7 @@
                                  <div class="input-group has-validation">
                                      <span class="input-group-text">{{ currency_symbol() }}</span>
                                      <input type="number" name="mrp" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->mrp }}" />
+                                         placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" />
                                      <div class="invalid-feedback"></div>
                                  </div>
                              </div>
@@ -360,7 +360,7 @@
                 const categoryId = $(this).val();
                 const subCategorySelect = $('#productSubCategory');
 
-                subCategorySelect.empty().append('<option value="">-- Select Sub Category --</option>');
+                subCategorySelect.empty().append('<option value="">Select Sub Category</option>');
 
                 if (!categoryId) {
                     subCategorySelect.prop('disabled', true);

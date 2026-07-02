@@ -286,6 +286,19 @@
         $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
     }
 
+    $orderDiscountAmount = 0.0;
+    if ($order->order_discount_value > 0) {
+        $itemsTotal = $subtotal - $totalItemDiscount;
+        if ($order->order_discount_type === 'flat') {
+            $orderDiscountAmount = (float)$order->order_discount_value;
+        } else if ($order->order_discount_type === 'percentage') {
+            $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+        }
+        $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
+    }
+
+    $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
+
     // Prepare items with variant resolution
     $preparedItems    = collect();
     $groupedByProduct = $order->items->groupBy('product_id');
@@ -556,18 +569,10 @@
                 <td colspan="5" class="text-right" style="font-weight:bold; color:#555;">Subtotal</td>
                 <td class="text-right" style="font-weight:bold;">{{ format_price($subtotal) }}</td>
             </tr>
-            @if($totalItemDiscount > 0)
+            @if($totalDiscount > 0)
             <tr class="discount-row">
-                <td colspan="5" class="text-right">Item Discount</td>
-                <td class="text-right">-{{ format_price($totalItemDiscount) }}</td>
-            </tr>
-            @endif
-            @if($couponDiscount > 0 && $couponCode)
-            <tr class="coupon-row">
-                <td colspan="5" class="text-right">
-                    Discount
-                </td>
-                <td class="text-right">-{{ format_price($couponDiscount) }}</td>
+                <td colspan="5" class="text-right">Discount</td>
+                <td class="text-right">-{{ format_price($totalDiscount) }}</td>
             </tr>
             @elseif($order->coupon_id && $order->coupon)
             <tr class="coupon-row">

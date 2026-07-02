@@ -291,14 +291,41 @@
                 e.preventDefault();
                 const url = $(this).data('url');
                 const currentStatus = parseInt($(this).data('current'));
-                const selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
+                const source = $(this).data('source') || 'POS';
+                const isOnline = source === 'ONLINE';
 
-                const opt1 = (currentStatus !== 1) ? 'disabled' : '';
-                const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
-                const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
-                const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
-                const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
-                const opt6 = ([5, 6].includes(currentStatus)) ? 'disabled' : '';
+                let selectDisabled = '';
+                let optionsHtml = '';
+
+                if (!isOnline) {
+                    // POS Order: only Pending and Approve
+                    selectDisabled = (currentStatus >= 2) ? 'disabled' : '';
+                    const opt1 = (currentStatus !== 1) ? 'disabled' : '';
+                    const opt2 = (currentStatus === 2) ? '' : ((currentStatus === 1) ? '' : 'disabled');
+                    
+                    optionsHtml = `
+                        <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
+                        <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
+                    `;
+                } else {
+                    // ONLINE Order: all options, sequential disabling
+                    selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
+                    const opt1 = (currentStatus !== 1) ? 'disabled' : '';
+                    const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
+                    const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
+                    const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
+                    const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
+                    const opt6 = ([5, 6].includes(currentStatus)) ? 'disabled' : '';
+                    
+                    optionsHtml = `
+                        <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
+                        <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
+                        <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
+                        <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
+                        <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
+                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                    `;
+                }
 
                 Swal.fire({
                     title: 'Update Sale Status',
@@ -306,17 +333,22 @@
                         <div class="mb-3 text-start">
                             <label for="swal-sale-status" class="form-label fw-semibold mb-2">Select Sale Status</label>
                             <select id="swal-sale-status" class="form-select form-select-lg" ${selectDisabled}>
-                                <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
-                                <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
-                                <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
-                                <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
-                                <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
-                                <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                                ${optionsHtml}
                             </select>
                         </div>
                         <div class="mb-3 text-start" id="swal-reason-wrap" style="display:none;">
                             <label for="swal-cancel-reason" class="form-label fw-semibold mb-2">Cancellation Reason <span class="text-danger">*</span></label>
                             <textarea id="swal-cancel-reason" class="form-control" rows="3" maxlength="500" placeholder="Enter the reason for cancellation..."></textarea>
+                        </div>
+                        <div class="mb-3 text-start" id="swal-shipping-wrap" style="display:none;">
+                            <div class="mb-3">
+                                <label for="swal-shipped-url" class="form-label fw-semibold mb-2">Shipping Client URL <span class="text-danger">*</span></label>
+                                <input id="swal-shipped-url" class="form-control" placeholder="https://tracking-url.com">
+                            </div>
+                            <div>
+                                <label for="swal-tracking-id" class="form-label fw-semibold mb-2">Tracking ID <span class="text-danger">*</span></label>
+                                <input id="swal-tracking-id" class="form-control" placeholder="Tracking ID / No.">
+                            </div>
                         </div>
                     `,
                     showCancelButton: true,
@@ -330,24 +362,42 @@
                     didOpen: () => {
                         document.getElementById('swal-sale-status').addEventListener('change', function () {
                             const reasonWrap = document.getElementById('swal-reason-wrap');
+                            const shippingWrap = document.getElementById('swal-shipping-wrap');
                             reasonWrap.style.display = (this.value == '6') ? 'block' : 'none';
+                            shippingWrap.style.display = (this.value == '3') ? 'block' : 'none';
                         });
                         if (currentStatus == 6) {
                             document.getElementById('swal-reason-wrap').style.display = 'block';
+                        }
+                        if (currentStatus == 3) {
+                            document.getElementById('swal-shipping-wrap').style.display = 'block';
                         }
                     },
                     preConfirm: () => {
                         const status = document.getElementById('swal-sale-status').value;
                         const reason = document.getElementById('swal-cancel-reason').value.trim();
+                        const shippedUrl = document.getElementById('swal-shipped-url') ? document.getElementById('swal-shipped-url').value.trim() : '';
+                        const trackingId = document.getElementById('swal-tracking-id') ? document.getElementById('swal-tracking-id').value.trim() : '';
+                        
                         if (status == '6' && !reason) {
                             Swal.showValidationMessage('Please enter a cancellation reason.');
                             return false;
                         }
-                        return { status: status, reason: reason };
+                        if (status == '3') {
+                            if (!shippedUrl) {
+                                Swal.showValidationMessage('Please enter Shipping Client URL');
+                                return false;
+                            }
+                            if (!trackingId) {
+                                Swal.showValidationMessage('Please enter Tracking ID');
+                                return false;
+                            }
+                        }
+                        return { status: status, reason: reason, shipped_client_url: shippedUrl, tracking_id: trackingId };
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
-                        const { status, reason } = result.value;
+                        const { status, reason, shipped_client_url, tracking_id } = result.value;
                         window.showAjaxLoader();
                         $.ajax({
                             url: url,
@@ -355,12 +405,25 @@
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
                                 status: status,
-                                cancellation_reason: reason
+                                cancellation_reason: reason,
+                                shipped_client_url: shipped_client_url,
+                                tracking_id: tracking_id
                             },
                             success: function (res) {
                                 window.hideAjaxLoader();
                                 if (res.status === 'success') {
                                     toastr.success(res.message);
+                                    if (res.pending_count !== undefined) {
+                                        const badge = $('.pending-sales-counter-badge');
+                                        if (badge.length > 0) {
+                                            badge.text(res.pending_count);
+                                            if (res.pending_count > 0) {
+                                                badge.attr('style', 'display: inline-block !important;');
+                                            } else {
+                                                badge.attr('style', 'display: none !important;');
+                                            }
+                                        }
+                                    }
                                     window.refreshTable();
                                 } else {
                                     toastr.error(res.message || 'Something went wrong.');
