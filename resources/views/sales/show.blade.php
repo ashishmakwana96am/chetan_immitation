@@ -100,14 +100,15 @@
         <div class="d-flex gap-2 align-items-center flex-wrap">
 
             @can('download sales')
-                <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
-                    <i class="ti ti-file-type-pdf me-1"></i> Invoice
-                </a>
-                {{-- @if(!$isOnline)
-                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" target="_blank" onclick="window.open(this.href, 'ThermalPrint', 'width=340,height=600'); return false;">
+                @if($isOnline)
+                    <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
+                        <i class="ti ti-file-type-pdf me-1"></i> Invoice
+                    </a>
+                @else
+                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" onclick="window.open(this.href, '_blank', 'width=900,height=800,resizable=yes,scrollbars=yes'); return false;">
                         <i class="ti ti-printer me-1"></i> Thermal Print
                     </a>
-                @endif --}}
+                @endif
             @endcan
 
             @can('edit sales')

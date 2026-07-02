@@ -2,106 +2,80 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=80mm, initial-scale=1.0">
     <title>Print Sale - {{ $order->order_no }}</title>
     <style>
+        /*
+         * @page controls the actual print paper size.
+         * size: 80mm auto  = 80mm wide, height matches content.
+         */
+        @page {
+            size: 80mm auto;
+            margin: 3mm;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Courier New', Courier, monospace; /* Classic receipt font */
+            font-family: 'Courier New', Courier, monospace;
         }
+
+        html {
+            width: 80mm;
+            height: auto;
+            overflow-y: auto;  /* allow scroll on screen */
+        }
+
         body {
             background: #fff;
             color: #000;
             font-size: 12px;
             line-height: 1.4;
-            width: 80mm; /* Standard receipt width */
-            padding: 4mm;
-            margin: 0 auto;
+            width: 74mm;
+            padding: 3mm;
+            margin: 0;
+            height: auto;
+            overflow: visible;  /* NO hidden — content must flow */
         }
+
         .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        
-        .header {
-            margin-bottom: 8px;
-        }
-        .store-name {
-            font-size: 16px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        .store-tagline {
-            font-size: 10px;
-            color: #333;
-            margin-bottom: 4px;
-        }
-        .store-info {
-            font-size: 11px;
-        }
-        
-        .divider {
-            border-top: 1px dashed #000;
-            margin: 6px 0;
-        }
-        
-        .details-table {
-            width: 100%;
-            font-size: 11px;
-            margin-bottom: 6px;
-        }
-        .details-table td {
-            padding: 1px 0;
-            vertical-align: top;
-        }
-        
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 6px 0;
-        }
-        .items-table th {
-            font-size: 11px;
-            font-weight: bold;
-            text-align: left;
-            padding-bottom: 4px;
-        }
-        .items-table td {
-            font-size: 11px;
-            padding: 3px 0;
-            vertical-align: top;
-        }
-        
-        .totals-table {
-            width: 100%;
-            margin-top: 4px;
-        }
-        .totals-table td {
-            padding: 2px 0;
-            font-size: 11px;
-        }
-        .grand-total {
-            font-size: 13px;
-            font-weight: bold;
-        }
-        
-        .footer {
-            margin-top: 15px;
-            font-size: 10px;
-        }
-        
+        .text-right  { text-align: right; }
+
+        .header       { margin-bottom: 8px; }
+        .store-name   { font-size: 16px; font-weight: bold; text-transform: uppercase; }
+        .store-tagline{ font-size: 10px; color: #333; margin-bottom: 4px; }
+        .store-info   { font-size: 11px; }
+
+        .divider      { border-top: 1px dashed #000; margin: 6px 0; }
+
+        .details-table     { width: 100%; font-size: 11px; margin-bottom: 6px; }
+        .details-table td  { padding: 1px 0; vertical-align: top; }
+
+        .items-table       { width: 100%; border-collapse: collapse; margin: 6px 0; }
+        .items-table th    { font-size: 11px; font-weight: bold; text-align: left; padding-bottom: 4px; }
+        .items-table td    { font-size: 11px; padding: 3px 0; vertical-align: top; }
+
+        .totals-table      { width: 100%; margin-top: 4px; }
+        .totals-table td   { padding: 2px 0; font-size: 11px; }
+        .grand-total       { font-size: 13px; font-weight: bold; }
+
+        .footer            { margin-top: 12px; font-size: 10px; }
+
         @media print {
-            body {
-                width: 80mm;
-                padding: 2mm;
-                margin: 0;
+            html, body {
+                width: 74mm !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 3mm !important;
+                overflow: visible !important;
             }
             .no-print {
-                display: none;
+                display: none !important;
             }
         }
-        
-        /* Float Button for Manual Trigger if browser blocks auto-print */
+
+        /* Manual print button (screen only) */
         .print-btn-container {
             position: fixed;
             bottom: 20px;
@@ -112,11 +86,11 @@
             background: #B4771E;
             color: #fff;
             border: none;
-            padding: 8px 16px;
-            font-size: 12px;
+            padding: 10px 18px;
+            font-size: 13px;
             border-radius: 4px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             font-family: sans-serif;
             font-weight: bold;
         }
@@ -251,11 +225,12 @@
 
     <script>
         window.onload = function() {
-            window.print();
-            // Automatically close window after print dialog is closed
+            // Keep window at 900px wide, fit height to content
+            var contentHeight = document.body.scrollHeight;
+            window.resizeTo(900, Math.min(contentHeight + 120, window.screen.availHeight));
             setTimeout(function() {
-                window.close();
-            }, 1000);
+                window.print();
+            }, 200);
         };
     </script>
 </body>

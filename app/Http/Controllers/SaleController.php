@@ -99,10 +99,11 @@ class SaleController extends Controller
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.sales.show', $order) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($canDownloadSales) {
-                $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
-                // if (($order->source ?? 'POS') === 'POS') {
-                //     $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" target="_blank" onclick="window.open(this.href, \'ThermalPrint\', \'width=340,height=600\'); return false;"><i class="ti ti-printer me-2"></i>Thermal Print</a>';
-                // }
+                if (($order->source ?? 'POS') === 'ONLINE') {
+                    $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
+                } else {
+                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" onclick="window.open(this.href, \'_blank\', \'width=900,height=800,resizable=yes,scrollbars=yes\'); return false;"><i class="ti ti-printer me-2"></i>Thermal Print</a>';
+                }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;
             if ($canEdit && $isEditable) {
