@@ -139,6 +139,15 @@ class LocationController extends Controller
                     $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
                 }
             }
+
+            if (!$request->boolean('is_default') && $location->is_default) {
+                $otherDefault = Location::where('is_default', true)
+                    ->where('id', '!=', $location->id)
+                    ->exists();
+                if (!$otherDefault) {
+                    $validator->errors()->add('is_default', 'At least one location must be set as default.');
+                }
+            }
         });
 
         if ($validator->fails()) {
