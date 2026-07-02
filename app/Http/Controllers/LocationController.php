@@ -131,21 +131,12 @@ class LocationController extends Controller
         ]);
 
         $validator->after(function ($validator) use ($request, $location) {
-            if ($request->boolean('is_default')) {
-                $exists = Location::where('is_default', true)
-                    ->where('id', '!=', $location->id)
-                    ->exists();
-                if ($exists) {
-                    $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
-                }
-            }
-
             if (!$request->boolean('is_default') && $location->is_default) {
                 $otherDefault = Location::where('is_default', true)
                     ->where('id', '!=', $location->id)
                     ->exists();
                 if (!$otherDefault) {
-                    $validator->errors()->add('is_default', 'At least one location must be set as default.');
+                    $validator->errors()->add('is_default', 'At least one location must be set as default. Please set another location as default first.');
                 }
             }
         });
@@ -155,6 +146,12 @@ class LocationController extends Controller
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
+        }
+
+        if ($request->boolean('is_default')) {
+            Location::where('is_default', true)
+                ->where('id', '!=', $location->id)
+                ->update(['is_default' => false]);
         }
 
         $location->update([
