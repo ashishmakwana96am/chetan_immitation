@@ -63,7 +63,7 @@
                           $pendingSalesCount = 0;
                       }
                     @endphp
-                    <div class="pending-sales-counter-badge" style="display: {{ $pendingSalesCount > 0 ? 'inline-flex' : 'none' }} !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #ff3e1d; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                    <div class="pending-sales-counter-badge" style="display: {{ $pendingSalesCount > 0 ? 'inline-flex' : 'none' }} !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
                   @endif
                 </a>
               </li>
