@@ -12,7 +12,9 @@ class RoleController extends Controller
     public function index()
     {
         $this->authorize('view roles');
+        $currentUserRoles = auth()->user()->roles->pluck('name')->toArray();
         $roles = Role::where('name', '!=', 'super-admin')
+            ->whereNotIn('name', $currentUserRoles)
             ->withCount('users')
             ->with('permissions')
             ->orderBy('id', 'desc')
@@ -24,7 +26,13 @@ class RoleController extends Controller
     {
         $this->authorize('view roles');
 
-        $roles     = Role::where('name', '!=', 'super-admin')->withCount('users')->with('permissions')->orderBy('id', 'desc')->get();
+        $currentUserRoles = auth()->user()->roles->pluck('name')->toArray();
+        $roles = Role::where('name', '!=', 'super-admin')
+            ->whereNotIn('name', $currentUserRoles)
+            ->withCount('users')
+            ->with('permissions')
+            ->orderBy('id', 'desc')
+            ->get();
         $canEdit   = auth()->user()->can('edit roles');
         $canDelete = auth()->user()->can('delete roles');
 
