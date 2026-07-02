@@ -103,11 +103,11 @@
                 <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
                     <i class="ti ti-file-type-pdf me-1"></i> Invoice
                 </a>
-                @if(!$isOnline)
+                {{-- @if(!$isOnline)
                     <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" target="_blank" onclick="window.open(this.href, 'ThermalPrint', 'width=340,height=600'); return false;">
                         <i class="ti ti-printer me-1"></i> Thermal Print
                     </a>
-                @endif
+                @endif --}}
             @endcan
 
             @can('edit sales')
