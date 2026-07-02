@@ -34,7 +34,7 @@
         </a>
         <ul class="dropdown-menu dropdown-menu-end">
           <li>
-            <a class="dropdown-item" href="#">
+            <div class="dropdown-item pe-none" style="cursor: default;">
               <div class="d-flex">
                 <div class="flex-shrink-0 me-3">
                   <div class="avatar avatar-online">
@@ -42,11 +42,11 @@
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <span class="fw-semibold d-block">Admin</span>
-                  <small class="text-muted">Administrator</small>
+                  <span class="fw-semibold d-block">{{ auth()->user()->name }}</span>
+                  <small class="text-muted">{{ auth()->user()->roles->first()?->name ?? 'User' }}</small>
                 </div>
               </div>
-            </a>
+            </div>
           </li>
           <li><div class="dropdown-divider"></div></li>
           <li>
