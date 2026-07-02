@@ -31,6 +31,7 @@ class UserController extends Controller
         $locationId = $this->getRestrictedLocationId();
 
         $users = User::with('roles')
+            ->where('id', '!=', auth()->id())
             ->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->orderBy('id', 'desc')
@@ -48,6 +49,7 @@ class UserController extends Controller
         $locationId = $this->getRestrictedLocationId();
 
         $query = User::with('roles')
+            ->where('id', '!=', auth()->id())
             ->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->orderBy('id', 'desc');
