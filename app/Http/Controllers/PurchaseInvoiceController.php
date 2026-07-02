@@ -29,7 +29,7 @@ class PurchaseInvoiceController extends Controller
 
         $user = auth()->user();
         $invoices = PurchaseInvoice::with(['supplier', 'createdBy'])
-            ->when($user->location_id && $user->type !== 'super-admin', function($q) use ($user) {
+            ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
                 });
@@ -131,7 +131,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -150,7 +150,7 @@ class PurchaseInvoiceController extends Controller
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $user      = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -241,7 +241,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('edit purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -257,7 +257,7 @@ class PurchaseInvoiceController extends Controller
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -436,7 +436,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();

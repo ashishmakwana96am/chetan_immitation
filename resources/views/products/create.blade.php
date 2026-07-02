@@ -66,10 +66,15 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Product Code <span class="text-danger">*</span></label>
+                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="purchase_price" class="form-control" placeholder="Enter Purchase Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_price : '' }}" />
+                                    <input type="number" name="purchase_price" id="purchasePriceInput" class="form-control" placeholder="Enter Purchase Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_price : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
@@ -77,7 +82,7 @@
                                 <label class="form-label">Sale Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="sale_price" class="form-control" placeholder="Enter Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_price : '' }}" />
+                                    <input type="number" name="sale_price" id="salePriceInput" class="form-control" placeholder="Enter Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_price : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
@@ -85,7 +90,7 @@
                                 <label class="form-label">MRP <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="mrp" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" />
+                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" readonly style="background-color: #f1f0f2;" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
@@ -777,6 +782,17 @@
                     }
                 }
                 generateVariants();
+            });
+
+            $('#productCodeInput').on('input change', function () {
+                const code = parseFloat($(this).val()) || 0;
+                const purchasePrice = (code * 2.5).toFixed(2);
+                const salePrice = (code * 4.125).toFixed(2);
+                const mrp = (salePrice * 1.10).toFixed(2);
+                
+                $('#purchasePriceInput').val(purchasePrice).trigger('change');
+                $('#salePriceInput').val(salePrice).trigger('change');
+                $('#mrpInput').val(mrp);
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

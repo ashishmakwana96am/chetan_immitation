@@ -2,18 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=80mm, initial-scale=1.0">
-    <title>Print Sale - {{ $order->order_no }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sale - {{ $order->order_no }}</title>
     <style>
-        /*
-         * @page controls the actual print paper size.
-         * size: 80mm auto  = 80mm wide, height matches content.
-         */
-        @page {
-            size: 80mm auto;
-            margin: 3mm;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -22,32 +13,33 @@
         }
 
         html {
-            width: 80mm;
-            height: auto;
-            overflow-y: auto;  /* allow scroll on screen */
+            background: #d0d0d0;
         }
 
         body {
+            background: #d0d0d0;
+            padding: 20px 0;
+        }
+
+        .receipt-container {
+            width: 80mm;
+            margin: 0 auto;
+            padding: 3mm;
             background: #fff;
             color: #000;
             font-size: 12px;
             line-height: 1.4;
-            width: 74mm;
-            padding: 3mm;
-            margin: 0;
-            height: auto;
-            overflow: visible;  /* NO hidden — content must flow */
         }
 
         .text-center { text-align: center; }
         .text-right  { text-align: right; }
 
-        .header       { margin-bottom: 8px; }
-        .store-name   { font-size: 16px; font-weight: bold; text-transform: uppercase; }
-        .store-tagline{ font-size: 10px; color: #333; margin-bottom: 4px; }
-        .store-info   { font-size: 11px; }
+        .header        { margin-bottom: 8px; }
+        .store-name    { font-size: 16px; font-weight: bold; text-transform: uppercase; }
+        .store-tagline { font-size: 10px; color: #333; margin-bottom: 4px; }
+        .store-info    { font-size: 11px; }
 
-        .divider      { border-top: 1px dashed #000; margin: 6px 0; }
+        .divider       { border-top: 1px dashed #000; margin: 6px 0; }
 
         .details-table     { width: 100%; font-size: 11px; margin-bottom: 6px; }
         .details-table td  { padding: 1px 0; vertical-align: top; }
@@ -62,20 +54,6 @@
 
         .footer            { margin-top: 12px; font-size: 10px; }
 
-        @media print {
-            html, body {
-                width: 74mm !important;
-                height: auto !important;
-                margin: 0 !important;
-                padding: 3mm !important;
-                overflow: visible !important;
-            }
-            .no-print {
-                display: none !important;
-            }
-        }
-
-        /* Manual print button (screen only) */
         .print-btn-container {
             position: fixed;
             bottom: 20px;
@@ -94,15 +72,71 @@
             font-family: sans-serif;
             font-weight: bold;
         }
+
+        @media print {
+            @page {
+                size: 80mm auto;
+                margin: 0;
+            }
+
+            html,
+            body {
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+
+            .receipt-container {
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 3mm !important;
+                background: #fff !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            *,
+            *::before,
+            *::after {
+                page-break-inside: avoid !important;
+                break-inside:      avoid !important;
+            }
+
+            .receipt-container,
+            .header,
+            .divider,
+            .details-table,
+            .items-table,
+            .totals-table,
+            .footer {
+                page-break-before: avoid !important;
+                page-break-after:  avoid !important;
+                page-break-inside: avoid !important;
+                break-before: avoid !important;
+                break-after:  avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .details-table tr,
+            .items-table   tr,
+            .totals-table  tr {
+                page-break-inside: avoid !important;
+                break-inside:      avoid !important;
+            }
+        }
+
     </style>
 </head>
 <body>
+
     @php
-        // Resolve totals
         $totalItemDiscount = $order->items->sum('discount_amount');
         $itemsGross        = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
         $subtotal          = $itemsGross;
-        
+
         $couponDiscount = 0;
         if ($order->coupon_id && $order->coupon) {
             $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
@@ -126,111 +160,111 @@
         <button class="print-btn" onclick="window.print();">Print Invoice</button>
     </div>
 
-    <div class="header text-center">
-        <div class="store-name">Chetan Imitation</div>
-        <div class="store-tagline">Jewellery Manufacturer</div>
-        <div class="store-info">
-            @if($order->location)
-                {{ $order->location->name }}<br>
-                @if($order->location->address)
-                    {{ $order->location->address }}<br>
-                @endif
-                @if($order->location->phone)
-                    Phone: {{ $order->location->phone }}
-                @endif
-            @else
-                Surat Retail Outlet
-            @endif
-        </div>
-    </div>
-    
-    <div class="divider"></div>
-    
-    <table class="details-table">
-        <tr>
-            <td style="width: 35%;">Order No:</td>
-            <td><strong>{{ $order->order_no }}</strong></td>
-        </tr>
-        <tr>
-            <td>Date:</td>
-            <td>{{ format_date($order->created_at) }}</td>
-        </tr>
-        <tr>
-            <td>Customer:</td>
-            <td>{{ $order->customer ? $order->customer->name : 'Walk-in Customer' }}</td>
-        </tr>
-        @if($order->customer && $order->customer->phone && $order->customer->phone !== '-')
-        <tr>
-            <td>Phone:</td>
-            <td>{{ $order->customer->phone }}</td>
-        </tr>
-        @endif
+    <div class="receipt-container">
 
-    </table>
-    
-    <div class="divider"></div>
-    
-    <table class="items-table">
-        <thead>
+        <div class="header text-center">
+            <div class="store-name">Chetan Imitation</div>
+            <div class="store-tagline">Jewellery Manufacturer</div>
+            <div class="store-info">
+                @if($order->location)
+                    {{ $order->location->name }}<br>
+                    @if($order->location->address)
+                        {{ $order->location->address }}<br>
+                    @endif
+                    @if($order->location->phone)
+                        Phone: {{ $order->location->phone }}
+                    @endif
+                @else
+                    Surat Retail Outlet
+                @endif
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <table class="details-table">
             <tr>
-                <th style="width: 50%;">Item</th>
-                <th style="width: 15%; text-align: right;">Qty</th>
-                <th style="width: 15%; text-align: right;">Price</th>
-                <th style="width: 20%; text-align: right;">Total</th>
+                <td style="width: 35%;">Order No:</td>
+                <td><strong>{{ $order->order_no }}</strong></td>
             </tr>
-        </thead>
-        <tbody>
-            @foreach($order->items as $item)
+            <tr>
+                <td>Date:</td>
+                <td>{{ format_date($order->created_at) }}</td>
+            </tr>
+            <tr>
+                <td>Customer:</td>
+                <td>{{ $order->customer ? $order->customer->name : 'Walk-in Customer' }}</td>
+            </tr>
+            @if($order->customer && $order->customer->phone && $order->customer->phone !== '-')
+            <tr>
+                <td>Phone:</td>
+                <td>{{ $order->customer->phone }}</td>
+            </tr>
+            @endif
+        </table>
+
+        <div class="divider"></div>
+
+        <table class="items-table">
+            <thead>
                 <tr>
-                    <td style="padding: 4px 0; font-weight: bold; vertical-align: top;">
-                        {{ $item->product->name ?? '-' }}
-                        @if($item->variant && $item->variant->attributeValue)
-                            <span style="font-size: 10px; font-weight: normal; color: #555; display: block; margin-top: 2px;">({{ $item->variant->attributeValue->attribute->name ?? '' }}: {{ $item->variant->attributeValue->value }})</span>
-                        @endif
-                    </td>
-                    <td class="text-right" style="padding: 4px 0; vertical-align: top;">{{ $item->quantity }}</td>
-                    <td class="text-right" style="padding: 4px 0; vertical-align: top;">₹{{ number_format($item->price, 0) }}</td>
-                    <td class="text-right" style="padding: 4px 0; vertical-align: top;"><strong>₹{{ number_format($item->total, 0) }}</strong></td>
+                    <th style="width: 50%;">Item</th>
+                    <th style="width: 15%; text-align: right;">Qty</th>
+                    <th style="width: 15%; text-align: right;">Price</th>
+                    <th style="width: 20%; text-align: right;">Total</th>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
-    
-    <div class="divider"></div>
-    
-    <table class="totals-table">
-        <tr>
-            <td>Subtotal:</td>
-            <td class="text-right">₹{{ number_format($subtotal, 2) }}</td>
-        </tr>
-        @if($totalDiscount > 0)
-        <tr>
-            <td style="color: #000;">Total Discount:</td>
-            <td class="text-right" style="color: #000;">-₹{{ number_format($totalDiscount, 2) }}</td>
-        </tr>
-        @endif
-        <tr class="grand-total">
-            <td style="padding-top: 4px;">Grand Total:</td>
-            <td class="text-right" style="padding-top: 4px;">₹{{ number_format($order->final_amount, 2) }}</td>
-        </tr>
-    </table>
-    
-    <div class="divider"></div>
-    
-    <div class="footer text-center">
-        <p style="font-weight: bold; margin-bottom: 4px;">Thank you for shopping with us!</p>
-        <p>Goods once sold will not be taken back or exchanged.</p>
-        <p style="margin-top: 6px; font-size: 9px;">Generated on {{ now()->timezone('Asia/Kolkata')->format('d-m-Y h:i A') }}</p>
-    </div>
+            </thead>
+            <tbody>
+                @foreach($order->items as $item)
+                    <tr>
+                        <td style="padding: 4px 0; font-weight: bold; vertical-align: top;">
+                            {{ $item->product->name ?? '-' }}
+                            @if($item->variant && $item->variant->attributeValue)
+                                <span style="font-size: 10px; font-weight: normal; color: #555; display: block; margin-top: 2px;">({{ $item->variant->attributeValue->attribute->name ?? '' }}: {{ $item->variant->attributeValue->value }})</span>
+                            @endif
+                        </td>
+                        <td class="text-right" style="padding: 4px 0; vertical-align: top;">{{ $item->quantity }}</td>
+                        <td class="text-right" style="padding: 4px 0; vertical-align: top;">₹{{ number_format($item->price, 0) }}</td>
+                        <td class="text-right" style="padding: 4px 0; vertical-align: top;"><strong>₹{{ number_format($item->total, 0) }}</strong></td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <table class="totals-table">
+            <tr>
+                <td>Subtotal:</td>
+                <td class="text-right">₹{{ number_format($subtotal, 2) }}</td>
+            </tr>
+            @if($totalDiscount > 0)
+            <tr>
+                <td style="color: #000;">Total Discount:</td>
+                <td class="text-right" style="color: #000;">-₹{{ number_format($totalDiscount, 2) }}</td>
+            </tr>
+            @endif
+            <tr class="grand-total">
+                <td style="padding-top: 4px;">Grand Total:</td>
+                <td class="text-right" style="padding-top: 4px;">₹{{ number_format($order->final_amount, 2) }}</td>
+            </tr>
+        </table>
+
+        <div class="divider"></div>
+
+        <div class="footer text-center">
+            <p style="font-weight: bold; margin-bottom: 4px;">Thank you for shopping with us!</p>
+            <p>Goods once sold will not be taken back or exchanged.</p>
+            <p style="margin-top: 6px; font-size: 9px;">Generated on {{ now()->timezone('Asia/Kolkata')->format('d-m-Y h:i A') }}</p>
+        </div>
+
+    </div>{{-- end .receipt-container --}}
 
     <script>
-        window.onload = function() {
-            // Keep window at 900px wide, fit height to content
-            var contentHeight = document.body.scrollHeight;
-            window.resizeTo(900, Math.min(contentHeight + 120, window.screen.availHeight));
-            setTimeout(function() {
+        window.onload = function () {
+            setTimeout(function () {
                 window.print();
-            }, 200);
+            }, 300);
         };
     </script>
 </body>

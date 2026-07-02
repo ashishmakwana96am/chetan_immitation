@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Cookie\Middleware\EncryptCookies::except('guest_cart');
 
         Gate::before(function ($user, $ability) {
-            if ($user->type === 'super-admin') {
+            if ($user->hasRole('super-admin')) {
                 return true;
             }
         });

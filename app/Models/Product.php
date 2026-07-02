@@ -20,6 +20,7 @@ class Product extends Model
         'sub_category_id',
         'sku',
         'barcode',
+        'product_code',
         'description',
         'additional_information',
         'product_highlights',
@@ -36,6 +37,7 @@ class Product extends Model
     protected function casts(): array
     {
         return [
+            'product_code' => 'decimal:2',
             'purchase_price' => 'decimal:2',
             'sale_price' => 'decimal:2',
             'mrp' => 'decimal:2',

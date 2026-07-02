@@ -42,7 +42,7 @@ class ReportController extends Controller
                 
                 // Parent row
                 $parentStock = 0;
-                if ($user->location_id && $user->type !== 'super-admin') {
+                if ($user->location_id && !$user->hasRole('super-admin')) {
                     $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
                 } else {
                     foreach ($variantStock as $locData) {
@@ -67,7 +67,7 @@ class ReportController extends Controller
                 // Variant rows
                 foreach ($product->variants as $v) {
                     $vStock = 0;
-                    if ($user->location_id && $user->type !== 'super-admin') {
+                    if ($user->location_id && !$user->hasRole('super-admin')) {
                         $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
                     } else {
                         foreach ($variantStock as $locData) {
@@ -94,7 +94,7 @@ class ReportController extends Controller
                 }
             } else {
                 $totalStock = $product->inventories
-                    ->when($user->location_id && $user->type !== 'super-admin', fn($col) => $col->where('location_id', $user->location_id))
+                    ->when($user->location_id && !$user->hasRole('super-admin'), fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
 
                 $productsList->push([
@@ -129,7 +129,7 @@ class ReportController extends Controller
         $this->authorize('view stock inventory reports');
 
         $user      = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -230,7 +230,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $query = PurchaseInvoice::with(['supplier', 'items.product'])
-            ->when($user->location_id && $user->type !== 'super-admin', function($q) use ($user) {
+            ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
                 });
@@ -306,7 +306,7 @@ class ReportController extends Controller
         $this->authorize('view sale reports');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
@@ -323,7 +323,7 @@ class ReportController extends Controller
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
             ->where('status', '!=', Order::STATUS_DECLINE)
-            ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
             $query->whereDate('created_at', '>=', $startDate);
@@ -400,7 +400,7 @@ class ReportController extends Controller
         $this->authorize('view profit loss reports');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
@@ -412,7 +412,7 @@ class ReportController extends Controller
         $endDate   = $request->query('end_date');
 
         $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
-            ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
         }
@@ -529,7 +529,7 @@ class ReportController extends Controller
                 
                 // Parent row
                 $parentStock = 0;
-                if ($user->location_id && $user->type !== 'super-admin') {
+                if ($user->location_id && !$user->hasRole('super-admin')) {
                     $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
                 } else {
                     foreach ($variantStock as $locData) {
@@ -554,7 +554,7 @@ class ReportController extends Controller
                 // Variant rows
                 foreach ($product->variants as $v) {
                     $vStock = 0;
-                    if ($user->location_id && $user->type !== 'super-admin') {
+                    if ($user->location_id && !$user->hasRole('super-admin')) {
                         $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
                     } else {
                         foreach ($variantStock as $locData) {
@@ -581,7 +581,7 @@ class ReportController extends Controller
                 }
             } else {
                 $totalStock = $product->inventories
-                    ->when($user->location_id && $user->type !== 'super-admin', fn($col) => $col->where('location_id', $user->location_id))
+                    ->when($user->location_id && !$user->hasRole('super-admin'), fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
 
                 $productsList->push([
@@ -629,7 +629,7 @@ class ReportController extends Controller
         $stockStatus = $request->query('stock');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -740,7 +740,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $query = PurchaseInvoice::with(['supplier', 'items.product'])
-            ->when($user->location_id && $user->type !== 'super-admin', function($q) use ($user) {
+            ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
                 });
@@ -786,7 +786,7 @@ class ReportController extends Controller
         $this->authorize('view sale reports');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locationId = $user->location_id;
         } else {
             $locationId = $request->query('location_id');
@@ -800,7 +800,7 @@ class ReportController extends Controller
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
             ->where('status', '!=', Order::STATUS_DECLINE)
-            ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
             $query->whereDate('created_at', '>=', $startDate);
@@ -845,7 +845,7 @@ class ReportController extends Controller
         $this->authorize('view profit loss reports');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $locationId = $user->location_id;
         } else {
             $locationId = $request->query('location_id');
@@ -855,7 +855,7 @@ class ReportController extends Controller
         $endDate   = $request->query('end_date');
 
         $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
-            ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id));
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
         }

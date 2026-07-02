@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -20,10 +22,20 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'type',
+        'role_id',
         'location_id',
         'status',
     ];
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    public function getTypeAttribute()
+    {
+        return $this->roles->first()?->name;
+    }
 
     protected $hidden = [
         'password',

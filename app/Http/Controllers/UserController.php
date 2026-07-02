@@ -18,7 +18,7 @@ class UserController extends Controller
     private function getRestrictedLocationId(): ?int
     {
         $user = auth()->user();
-        if ($user->type === 'super-admin') {
+        if ($user->hasRole('super-admin')) {
             return null;
         }
         return $user->location_id ? (int) $user->location_id : null;
@@ -31,7 +31,7 @@ class UserController extends Controller
         $locationId = $this->getRestrictedLocationId();
 
         $users = User::with('roles')
-            ->where('type', '!=', 'super-admin')
+            ->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->orderBy('id', 'desc')
             ->get();
@@ -48,7 +48,7 @@ class UserController extends Controller
         $locationId = $this->getRestrictedLocationId();
 
         $query = User::with('roles')
-            ->where('type', '!=', 'super-admin')
+            ->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->orderBy('id', 'desc');
 
@@ -103,8 +103,8 @@ class UserController extends Controller
                 'role'       => $role,
                 'status'     => $status,
                 'actions'    => $actions,
-                'raw_status' => $user->status,
-                'raw_type'   => $user->type,
+                'raw_status'  => $user->status,
+                'raw_role_id' => $user->role_id,
             ];
         });
 
@@ -155,7 +155,7 @@ class UserController extends Controller
             'email'       => $request->email,
             'phone'       => $request->phone,
             'password'    => Hash::make($request->password),
-            'type'        => $role->name,
+            'role_id'     => $role->id,
             'location_id' => $assignedLocationId,
             'status'      => $request->has('status') ? 1 : 2,
         ]);
@@ -221,7 +221,7 @@ class UserController extends Controller
             'name'        => $request->name,
             'email'       => $request->email,
             'phone'       => $request->phone,
-            'type'        => $role->name,
+            'role_id'     => $role->id,
             'location_id' => $assignedLocationId,
             'status'      => $request->has('status') ? 1 : 2,
         ]);

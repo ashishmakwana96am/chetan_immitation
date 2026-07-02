@@ -23,7 +23,7 @@ class ProductController extends Controller
         $categories = Category::orderBy('name')->get();
 
         $user = auth()->user();
-        $isRestricted = $user->location_id && $user->type !== 'super-admin';
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
@@ -38,7 +38,7 @@ class ProductController extends Controller
         $this->authorize('view products');
 
         $user        = auth()->user();
-        $isRestricted = $user->location_id && $user->type !== 'super-admin';
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $locationId = $request->location_id;
         if ($isRestricted) {
@@ -156,7 +156,7 @@ class ProductController extends Controller
             'createdBy', 
             'variants.attributeValue',
             'inventories' => function($q) use ($user) {
-                $q->when($user->location_id && $user->type !== 'super-admin', fn($sub) => $sub->where('location_id', $user->location_id));
+                $q->when($user->location_id && !$user->hasRole('super-admin'), fn($sub) => $sub->where('location_id', $user->location_id));
             },
             'inventories.location'
         ]);
@@ -205,6 +205,7 @@ class ProductController extends Controller
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
         ];
 
+        $rules['product_code'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -251,6 +252,7 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
+                'product_code'    => $request->product_code,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -261,9 +263,9 @@ class ProductController extends Controller
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
 
-            $productData['purchase_price'] = $request->purchase_price;
-            $productData['sale_price'] = $request->sale_price;
-            $productData['mrp'] = $request->mrp;
+            $productData['purchase_price'] = $request->product_code * 2.5;
+            $productData['sale_price'] = $request->product_code * 4.125;
+            $productData['mrp'] = ($request->product_code * 4.125) * 1.10;
 
             $product = Product::create($productData);
 
@@ -380,6 +382,7 @@ class ProductController extends Controller
             'additional_images_base64.*' => ['nullable', 'string'],
         ];
 
+        $rules['product_code'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -427,6 +430,7 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
+                'product_code'    => $request->product_code,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -435,9 +439,9 @@ class ProductController extends Controller
                 'sale'            => $request->has('sale') ? 1 : 0,
             ];
 
-            $productData['purchase_price'] = $request->purchase_price;
-            $productData['sale_price'] = $request->sale_price;
-            $productData['mrp'] = $request->mrp;
+            $productData['purchase_price'] = $request->product_code * 2.5;
+            $productData['sale_price'] = $request->product_code * 4.125;
+            $productData['mrp'] = ($request->product_code * 4.125) * 1.10;
 
             $product->update($productData);
 

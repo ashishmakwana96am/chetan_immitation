@@ -29,7 +29,7 @@ class SaleController extends Controller
         $user      = auth()->user();
         $orders    = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->when($user->location_id && $user->type !== 'super-admin', fn($q) => $q->where('location_id', $user->location_id))
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function($q) use ($request) {
                 $q->where('location_id', $request->location_id);
             })
@@ -361,7 +361,7 @@ class SaleController extends Controller
         $this->authorize('view sales');
 
         // Prevent location user from viewing other locations' sales
-        if (auth()->user()->location_id && auth()->user()->type !== 'super-admin' && $sale->location_id !== auth()->user()->location_id) {
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
             abort(403);
         }
 
@@ -373,7 +373,7 @@ class SaleController extends Controller
     {
         $this->authorize('view sales');
 
-        if (auth()->user()->location_id && auth()->user()->type !== 'super-admin' && $sale->location_id !== auth()->user()->location_id) {
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
             abort(403);
         }
 
@@ -389,7 +389,7 @@ class SaleController extends Controller
     {
         $this->authorize('view sales');
 
-        if (auth()->user()->location_id && auth()->user()->type !== 'super-admin' && $sale->location_id !== auth()->user()->location_id) {
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
             abort(403);
         }
 
@@ -407,7 +407,7 @@ class SaleController extends Controller
         $this->authorize('edit sales');
 
         // Prevent location user from editing other locations' sales
-        if (auth()->user()->location_id && auth()->user()->type !== 'super-admin' && $sale->location_id !== auth()->user()->location_id) {
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
             abort(403);
         }
 

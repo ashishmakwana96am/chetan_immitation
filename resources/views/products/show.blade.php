@@ -118,6 +118,10 @@
                             <p class="mb-0"><code>{{ $product->slug }}</code></p>
                         </div>
                         <div class="col-md-6">
+                            <p class="text-muted small mb-1">Product Code</p>
+                            <p class="fw-semibold mb-0">{{ number_format($product->product_code ?? 0, 2) }}</p>
+                        </div>
+                        <div class="col-md-6">
                             <p class="text-muted small mb-1">Purchase Price</p>
                             <p class="fw-semibold mb-0 text-info">{{ format_price($product->purchase_price) }}</p>
                         </div>

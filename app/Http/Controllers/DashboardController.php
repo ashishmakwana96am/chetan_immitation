@@ -19,7 +19,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->type === 'super-admin') {
+        if ($user->hasRole('super-admin')) {
             return $this->superAdminDashboard();
         }
 
@@ -36,7 +36,7 @@ class DashboardController extends Controller
             'products'   => Product::count(),
             'customers'  => Customer::count(),
             'suppliers'  => Supplier::count(),
-            'users'      => User::where('type', '!=', 'super-admin')->count(),
+            'users'      => User::whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))->count(),
         ];
 
         $salesStats = [

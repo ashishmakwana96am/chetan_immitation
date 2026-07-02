@@ -75,7 +75,7 @@ if (!function_exists('can_any')) {
     {
         $user = auth()->user();
         if (!$user) return false;
-        if ($user->type === 'super-admin') return true;
+        if ($user->hasRole('super-admin')) return true;
 
         foreach ($permissions as $permission) {
             if ($user->hasPermissionTo($permission)) {
