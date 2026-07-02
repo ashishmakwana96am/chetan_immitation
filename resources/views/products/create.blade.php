@@ -3,6 +3,14 @@
 @section('title', 'Add Product')
 
 @section('content')
+    @php
+        $defaultDescription = '<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>';
+        
+        $defaultInfo = '<ul><li>Premium Quality Brass</li><li>Silver Tone Finish</li><li>Studded with American Diamonds</li><li>Adjustable Chain</li><li>Lightweight Design</li><li>Comfortable for Daily Wear</li><li>Tarnish Resistant Finish</li><li>Elegant Party Wear Bracelet</li></ul>';
+        
+        $defaultHighlights = '<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>';
+    @endphp
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Add Product</h4>
         <a href="{{ route('admin.products.index') }}" class="btn btn-label-secondary">
@@ -134,20 +142,20 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Description <span class="text-danger">*</span></label>
-                                <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : old('description') !!}</div>
-                                <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : '' }}</textarea>
+                                <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) !!}</div>
+                                <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Additional Information</label>
-                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->additional_information : old('additional_information') !!}</div>
-                                <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : '' }}</textarea>
+                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->additional_information : (old('additional_information') ?: $defaultInfo) !!}</div>
+                                <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : (old('additional_information') ?: $defaultInfo) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Product Highlights</label>
-                                <div id="highlights-editor">{!! isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') !!}</div>
-                                <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') }}</textarea>
+                                <div id="highlights-editor">{!! isset($clonedProduct) ? $clonedProduct->product_highlights : (old('product_highlights') ?: $defaultHighlights) !!}</div>
+                                <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_highlights : (old('product_highlights') ?: $defaultHighlights) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
