@@ -50,6 +50,9 @@ class LocationController extends Controller
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.locations.edit', $location) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }
+                if ($canDelete && !$location->is_default) {
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.locations.destroy', $location) . '" data-row-id="location-row-' . $location->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+                }
                 $actions .= '</div></div>';
             }
 

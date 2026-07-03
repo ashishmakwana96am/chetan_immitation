@@ -436,8 +436,21 @@
                                 @php
                                     $product  = $item->product;
                                     $variant  = $item->productVariant;
-                                    $price    = $variant ? (float)$variant->sale_price : (float)$product->sale_price;
-                                    $mrp      = (float)$product->mrp;
+                                    $pairType = $item->pair_type ?? 'single';
+                                    
+                                    if ($variant) {
+                                        $price = (float) $variant->sale_price;
+                                        $mrp = (float) $product->mrp;
+                                    } else {
+                                        if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                                            $price = (float) $product->pair_sale_price;
+                                            $mrp = (float) ($product->pair_mrp ?: $product->mrp);
+                                        } else {
+                                            $price = (float) $product->sale_price;
+                                            $mrp = (float) $product->mrp;
+                                        }
+                                    }
+                                    
                                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
                                     $detailUrl = route('product.detail', $product->slug);
                                     if ($variant) {
@@ -495,11 +508,11 @@
                                                 </a>
                                                 <div class="flex items-center gap-2 mt-3">
                                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                                        ₹{{ number_format($price, 0) }}
+                                                        {{ website_price($price) }}
                                                     </span>
                                                     @if($mrp > $price)
                                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                                        ₹{{ number_format($mrp, 0) }}
+                                                        {{ website_price($mrp) }}
                                                     </span>
                                                     @endif
                                                 </div>
@@ -522,19 +535,30 @@
                                                             <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                                         </p>
                                                         @endif
+                                                        @if($product->pair_product)
+                                                        <p class="text-base flex flex-wrap">
+                                                            <span class="font-medium text-[#131615] w-[120px]">Type:</span>
+                                                            <span class="text-[#757575] ml-2">{{ $pairType === 'pair' ? 'Pairs' : 'Pcs' }}</span>
+                                                        </p>
+                                                        @endif
 
                                                         <p class="text-base flex flex-wrap">
                                                             <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
                                                             <span class="text-[#B4771E] font-semibold ml-2 item-total-display">
-                                                                ₹{{ number_format($price * $item->qty, 0) }}
+                                                                {{ website_price($price * $item->qty) }}
                                                             </span>
                                                         </p>
                                                     </div>
                                                     {{-- Qty display (static) --}}
-                                                    <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[15px] gap-[15px] w-max">
-                                                        <span class="text-[#757575] text-sm sm:text-base font-medium">Qty:</span>
-                                                        <span class="text-base md:text-[22px] font-semibold text-[#131615]">
-                                                            {{ $item->qty }}
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[15px] gap-[15px] w-max">
+                                                            <span class="text-[#757575] text-sm sm:text-base font-medium">Qty:</span>
+                                                            <span class="text-base md:text-[22px] font-semibold text-[#131615]">
+                                                                {{ $item->qty }}
+                                                            </span>
+                                                        </div>
+                                                        <span class="text-sm font-medium {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : 'text-[#757575]' }}">
+                                                            {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -637,11 +661,11 @@
                     <div class="border-t border-[#D5D5D5] mt-3 pt-3 space-y-3 md:space-y-4 text-[14px]">
                         <div class="flex justify-between text-base sm:text-lg ">
                             <span class="font-medium text-[#131615]">Subtotal</span>
-                            <span class="font-normal text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
+                            <span class="font-normal text-[#3D403F]">{{ website_price($subtotal) }}</span>
                         </div>
                         <div class="flex justify-between text-base sm:text-lg {{ $discount > 0 ? '' : 'hidden' }}" id="checkoutDiscountRow">
                             <span class="font-medium text-[#131615]">Discount</span>
-                            <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-₹{{ number_format($discount, 0) }}</span>
+                            <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-{{ website_price($discount) }}</span>
                         </div>
                         {{--
                         <div class="flex justify-between text-base sm:text-lg">
@@ -661,7 +685,7 @@
                             Total
                         </span>
                         <span id="checkoutTotalValue" class="font-bold text-[#B4771E] text-lg md:text-[22px] lg:text-[24px] md:leading-[22px] lg:leading-[24px]">
-                            ₹{{ number_format($total, 0) }}
+                            {{ website_price($total) }}
                         </span>
                     </div>
                     <button id="placeOrderBtn" onclick="startPaymentFlow()"
@@ -776,11 +800,11 @@
 
                         </div>
                         <span class="text-base md:text-lg font-semibold">
-Order Amount
+                            Order Amount
                         </span>
                     </div>
                     <span id="successOrderAmount" class="text-[#3D403F] text-base font-semibold text-end">
-                        ₹{{ number_format($total, 0) }}
+                        {{ website_price($total) }}
                     </span>
                 </div>
                 <!-- Row -->
@@ -975,6 +999,22 @@ const CHECKOUT_WISHLIST_TOGGLE_URL = '{{ route('wishlist.toggle') }}';
 const CHECKOUT_LOGIN_URL = '{{ route('login') }}?intended={{ urlencode(route('checkout')) }}';
 const CHECKOUT_CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 const CHECKOUT_SUBTOTAL = {{ $subtotal }};
+
+/* ── Price formatter — shows decimals only when needed ── */
+function fmtPrice(amount) {
+    amount = parseFloat(amount) || 0;
+    var hasDec = (amount % 1 !== 0);
+    var str = hasDec ? amount.toFixed(2).replace(/\.?0+$/, '') : Math.round(amount).toString();
+    var parts = str.split('.');
+    var intPart = parts[0];
+    var decPart = parts[1] ? '.' + parts[1] : '';
+    if (intPart.length > 3) {
+        var lastThree = intPart.slice(-3);
+        var rest = intPart.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+        intPart = rest + ',' + lastThree;
+    }
+    return '₹' + intPart + decPart;
+}
 
 const modal = document.getElementById("addressModal");
 let editingAddressId = null;
@@ -1789,12 +1829,12 @@ function handleCouponAction() {
                 }
                 const discountVal = document.getElementById('checkoutDiscountValue');
                 if (discountVal) {
-                    discountVal.textContent = '-₹' + Math.round(data.discount_amount);
+                    discountVal.textContent = '-' + fmtPrice(data.discount_amount);
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
                     const total = CHECKOUT_SUBTOTAL - data.discount_amount;
-                    totalVal.textContent = '₹' + Math.round(total);
+                    totalVal.textContent = fmtPrice(total);
                 }
             } else {
                 input.value = '';
@@ -1810,7 +1850,7 @@ function handleCouponAction() {
                 }
                 const totalVal = document.getElementById('checkoutTotalValue');
                 if (totalVal) {
-                    totalVal.textContent = '₹' + Math.round(CHECKOUT_SUBTOTAL);
+                    totalVal.textContent = fmtPrice(CHECKOUT_SUBTOTAL);
                 }
             }
         } else {
@@ -1861,7 +1901,7 @@ function startPaymentFlow() {
         .then(data => {
             if (data.status === 'success') {
                 document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
-                document.getElementById('successOrderAmount').textContent = '₹' + data.order.final_amount;
+                document.getElementById('successOrderAmount').textContent = fmtPrice(parseFloat(data.order.final_amount));
                 
                 openSuccessModal();
                 placeBtn.disabled = false;
@@ -2004,7 +2044,7 @@ function verifyPayment(rzpResponse, orderDetail) {
         if (data.status === 'success') {
             // Update order success modal values
             document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
-            document.getElementById('successOrderAmount').textContent = '₹' + data.order.final_amount;
+            document.getElementById('successOrderAmount').textContent = fmtPrice(parseFloat(data.order.final_amount));
             
             // Hide loader, open Success Modal
             hidePaymentLoader();

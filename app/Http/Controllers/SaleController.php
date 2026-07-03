@@ -18,8 +18,15 @@ class SaleController extends Controller
     public function index()
     {
         $this->authorize('view sales');
-        $locations = Location::orderBy('name')->get();
-        return view('sales.index', compact('locations'));
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $isSuperAdmin = $user->hasRole('super-admin');
+        if ($isRestricted) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::orderBy('name')->get();
+        }
+        return view('sales.index', compact('locations', 'isRestricted', 'isSuperAdmin'));
     }
 
     public function data(Request $request)
@@ -131,7 +138,7 @@ class SaleController extends Controller
             }
 
             if ($canEditSalesStatus && $showStatusOption) {
-                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
+                $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
@@ -171,20 +178,29 @@ class SaleController extends Controller
     public function create()
     {
         $this->authorize('create sales');
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
-        $locations   = Location::where('status', 1)->orderBy('name')->get();
+        if ($isRestricted) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
         $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'      => $p->id,
-                'name'    => $p->name,
-                'price'   => $p->sale_price,
-                'sku'     => $p->sku,
-                'barcode' => $p->barcode,
-                'label'   => $p->name . ' (' . $p->sku . ')',
-                'type'    => $p->type,
-                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'id'              => $p->id,
+                'name'            => $p->name,
+                'price'           => $p->sale_price,
+                'sku'             => $p->sku,
+                'barcode'         => $p->barcode,
+                'label'           => $p->name . ' (' . $p->sku . ')',
+                'type'            => $p->type,
+                'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product'    => (bool) $p->pair_product,
+                'single_price'    => $p->sale_price,
+                'pair_price'      => $p->pair_sale_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -202,12 +218,23 @@ class SaleController extends Controller
             }
             return $data;
         })->values();
-        return view('sales.create', compact('customers', 'locations', 'products', 'orderNo', 'allProducts'));
+        $defaultLocationId = $isRestricted ? $user->location_id : null;
+        return view('sales.create', compact('customers', 'locations', 'products', 'orderNo', 'allProducts', 'isRestricted', 'defaultLocationId'));
     }
 
     public function store(Request $request)
     {
         $this->authorize('create sales');
+
+        // Prevent location-restricted users from creating sales for other locations
+        $authUser = auth()->user();
+        $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
+        if ($isRestricted && (int)$request->location_id !== (int)$authUser->location_id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You can only create sales for your assigned location.',
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'location_id'            => ['required', 'exists:locations,id'],
@@ -223,7 +250,9 @@ class SaleController extends Controller
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
+            'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
             'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
@@ -288,6 +317,7 @@ class SaleController extends Controller
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'pair_type'          => $itemData['pair_type'] ?? 'single',
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -322,7 +352,7 @@ class SaleController extends Controller
                 'order_no'             => generate_invoice_no('ORD', Order::class, 'order_no'),
                 'order_type'           => 'sale',
                 'status'               => $request->status ?? 2,
-                'payment_status'       => $request->payment_status ?? 1,
+                'payment_status'       => $request->payment_status ?? 2,
                 'payment_method'       => $request->payment_method,
                 'final_amount'         => $finalAmount,
                 'source'               => $request->input('source', 'POS'),
@@ -337,6 +367,7 @@ class SaleController extends Controller
                     'order_id'           => $order->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'pair_type'          => $item['pair_type'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -346,9 +377,10 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
+                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
                     Inventory::where('product_id', $item['product_id'])
                         ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $item['quantity']);
+                        ->decrement('quantity', $stockDeduct);
                 }
             }
         });
@@ -365,7 +397,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -377,7 +409,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
@@ -397,7 +429,7 @@ class SaleController extends Controller
             abort(403, 'Thermal print is only available for POS orders.');
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
 
         return view('sales.thermal', ['order' => $sale]);
     }
@@ -406,8 +438,10 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales');
 
-        // Prevent location user from editing other locations' sales
-        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        if ($isRestricted && $sale->location_id !== $user->location_id) {
             abort(403);
         }
 
@@ -422,20 +456,28 @@ class SaleController extends Controller
         }
 
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
-        $locations   = Location::where('status', 1)->orderBy('name')->get();
+        if ($isRestricted) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
         $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
+        $defaultLocationId = $isRestricted ? $user->location_id : null;
 
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'      => $p->id,
-                'name'    => $p->name,
-                'price'   => $p->sale_price,
-                'sku'     => $p->sku,
-                'barcode' => $p->barcode,
-                'label'   => $p->name . ' (' . $p->sku . ')',
-                'type'    => $p->type,
-                'image'   => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'id'              => $p->id,
+                'name'            => $p->name,
+                'price'           => $p->sale_price,
+                'sku'             => $p->sku,
+                'barcode'         => $p->barcode,
+                'label'           => $p->name . ' (' . $p->sku . ')',
+                'type'            => $p->type,
+                'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product'    => (bool) $p->pair_product,
+                'single_price'    => $p->sale_price,
+                'pair_price'      => $p->pair_sale_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -458,6 +500,7 @@ class SaleController extends Controller
             return [
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
+                'pair_type'          => $item->pair_type ?? 'single',
                 'price'              => $item->price,
                 'quantity'           => $item->quantity,
                 'discount_type'      => $item->discount_type ?? 'flat',
@@ -465,12 +508,21 @@ class SaleController extends Controller
             ];
         })->values();
 
-        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'products' => $products, 'allProducts' => $allProducts, 'existingItems' => $existingItems]);
+        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'products' => $products, 'allProducts' => $allProducts, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
     }
 
     public function update(Request $request, Order $sale)
     {
         $this->authorize('edit sales');
+
+        $authUser = auth()->user();
+        $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
+        if ($isRestricted && (int)$request->location_id !== (int)$authUser->location_id) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You can only update sales for your assigned location.',
+            ], 403);
+        }
 
         if (($sale->source ?? 'POS') === 'ONLINE') {
             return response()->json(['status' => 'error', 'message' => 'Online orders cannot be edited from sales.'], 422);
@@ -494,7 +546,9 @@ class SaleController extends Controller
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
+            'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
             'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
@@ -559,6 +613,7 @@ class SaleController extends Controller
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'pair_type'          => $itemData['pair_type'] ?? 'single',
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -591,7 +646,7 @@ class SaleController extends Controller
                 'location_id'          => $request->location_id,
                 'payment_method'       => $request->payment_method,
                 'status'               => $request->status ?? 2,
-                'payment_status'       => $request->payment_status ?? 1,
+                'payment_status'       => $request->payment_status ?? $sale->payment_status ?? 1,
                 'final_amount'         => $finalAmount,
                 'source'               => $request->input('source', $sale->source ?? 'POS'),
                 'order_discount_type'  => $discType,
@@ -604,6 +659,7 @@ class SaleController extends Controller
                     'order_id'           => $sale->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'pair_type'          => $item['pair_type'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -613,9 +669,10 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
+                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
                     Inventory::where('product_id', $item['product_id'])
                         ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $item['quantity']);
+                        ->decrement('quantity', $stockDeduct);
                 }
             }
         });
@@ -722,18 +779,20 @@ class SaleController extends Controller
 
                             // Deduct stock
                             foreach ($sale->items as $item) {
+                                $stockDeduct = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
                                 Inventory::where('product_id', $item->product_id)
                                     ->where('location_id', $sale->location_id)
-                                    ->decrement('quantity', $item->quantity);
+                                    ->decrement('quantity', $stockDeduct);
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
                         elseif ($oldInDeducted && !$newInDeducted) {
                             // Restore stock
                             foreach ($sale->items as $item) {
+                                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
                                 Inventory::where('product_id', $item->product_id)
                                     ->where('location_id', $sale->location_id)
-                                    ->increment('quantity', $item->quantity);
+                                    ->increment('quantity', $stockRestore);
                             }
                         }
 
@@ -793,18 +852,23 @@ class SaleController extends Controller
                 ? ($item['product_variant_id'] ?? null)
                 : $item->product_variant_id;
             $variantId = $variantId ? (int) $variantId : null;
-            $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
+            $quantity  = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
+            $pairType  = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
+
+            // pair items consume 2× stock
+            $stockQty = ($pairType === 'pair') ? $quantity * 2 : $quantity;
+
             $key = $productId . ':' . ($variantId ?? 0);
 
             if (!isset($requested[$key])) {
                 $requested[$key] = [
                     'product_id' => $productId,
                     'variant_id' => $variantId,
-                    'quantity' => 0,
+                    'quantity'   => 0,
                 ];
             }
 
-            $requested[$key]['quantity'] += $quantity;
+            $requested[$key]['quantity'] += $stockQty;
         }
 
         foreach ($requested as $stockRequest) {

@@ -11,7 +11,7 @@
       <div class="auth-cover-bg auth-cover-bg-color d-flex justify-content-center align-items-center">
         <img src="{{ asset('assets/img/illustrations/auth-login-illustration-light-1.png') }}"
           alt="auth-login-cover" class="img-fluid my-5 auth-illustration"
-          data-app-light-img="illustrations/auth-login-illustration-light-1.png" style="width: 80%;"
+          data-app-light-img="illustrations/auth-login-illustration-light-1.png" style="width: 70%;"
           data-app-dark-img="illustrations/auth-login-illustration-dark.png" />
         <img src="{{ asset('assets/img/illustrations/bg-shape-image-light.png') }}"
           alt="auth-login-cover" class="platform-bg"
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
         loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
             
-            const submitBtn = this.querySelector('button[type="submit"]');
+            const submitBtn = this.querySelector('button[type="button"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<div class="d-flex align-items-center justify-content-center"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Signing in...</div>';

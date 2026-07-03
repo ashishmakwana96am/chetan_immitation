@@ -37,9 +37,6 @@ class Order extends Model
         'payment_method',
         'final_amount',
         'source',
-        'razorpay_order_id',
-        'razorpay_payment_id',
-        'razorpay_signature',
         'discount_type',
         'order_discount_type',
         'order_discount_value',
@@ -93,5 +90,15 @@ class Order extends Model
     public function coupon()
     {
         return $this->belongsTo(Coupon::class);
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(OrderPayment::class)->latestOfMany();
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(OrderPayment::class);
     }
 }

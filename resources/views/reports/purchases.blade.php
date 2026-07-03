@@ -41,7 +41,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Purchase Reports</h4>
+        <h4 class="fw-semibold mb-0">All Purchase</h4>
         <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
@@ -63,7 +63,7 @@
                             <span class="text-muted">Total Purchases</span>
                             <h4 class="mb-0 mt-1">{{ format_price($totalPurchases) }}</h4>
                         </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-dollar ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -73,7 +73,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Total Invoices</span>
+                            <span class="text-muted">Total Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $invoiceCount }}</h4>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-file-text ti-sm"></i></span>
@@ -86,7 +86,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Confirmed Invoices</span>
+                            <span class="text-muted">Confirmed Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $confirmedCount }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-circle-check ti-sm"></i></span>
@@ -99,7 +99,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Draft Invoices</span>
+                            <span class="text-muted">Draft Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $draftCount }}</h4>
                         </div>
                         <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-pencil ti-sm"></i></span>
@@ -162,7 +162,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Invoice Status</label>
+                    <label class="form-label">Purchase Status</label>
                     <select name="status" class="form-select no-select2">
                         <option value="">All Statuses</option>
                         <option value="1" {{ $status == 1 ? 'selected' : '' }}>Pending</option>
@@ -181,7 +181,7 @@
             <ul class="nav nav-tabs card-header-tabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-invoices" role="tab">
-                        <i class="ti ti-file-text me-1"></i> Invoices List
+                        <i class="ti ti-file-text me-1"></i> Purchase List
                     </button>
                 </li>
                 <li class="nav-item">
@@ -199,7 +199,7 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Invoice No</th>
+                                <th>Purchase No</th>
                                 <th>Supplier</th>
                                 <th>Status</th>
                                 <th class="text-end text-nowrap">Total Amount</th>
@@ -336,7 +336,7 @@
                 dataSrc: 6,
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
-                        .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' invoice' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                        .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase</span></div></td>');
                 }
             },
         });

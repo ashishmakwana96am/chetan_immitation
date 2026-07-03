@@ -107,8 +107,8 @@
                 </td>
                 <td>
                     <div class="info-box-right">
-                        <h4>Invoice Details</h4>
-                        <p><span class="label">Invoice No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
+                        <h4>Purchase Details</h4>
+                        <p><span class="label">Purchase No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
                         @php $payLabels = [1 => 'Pending', 2 => 'Paid']; @endphp
                         <p><span class="label">Payment Status:</span> {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</p>
@@ -242,7 +242,10 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_price($item->purchase_price) }}</td>
-                    <td class="text-right">{{ $item->quantity }}</td>
+                    <td class="text-right">
+                        {{ $item->quantity }}
+                        {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                    </td>
                     <td class="text-right"><strong>{{ format_price($item->total) }}</strong></td>
                     <td>
                         @foreach($item->allocations as $allocation)

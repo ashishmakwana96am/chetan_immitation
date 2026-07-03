@@ -87,11 +87,11 @@
     
                                 <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                        ₹{{ number_format($prod->sale_price, 0) }}
+                                        {{ website_price($prod->sale_price) }}
                                     </span>
                                     @if($prod->mrp && $prod->mrp > $prod->sale_price)
                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                        ₹{{ number_format($prod->mrp, 0) }}
+                                        {{ website_price($prod->mrp) }}
                                     </span>
                                     @endif
                                 </div>

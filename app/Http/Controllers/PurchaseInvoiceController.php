@@ -131,7 +131,10 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $locationId   = $isRestricted ? $user->location_id : null;
+
+        if ($isRestricted) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -141,7 +144,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location']);
-        return view('purchases.show', compact('purchase'));
+        return view('purchases.show', compact('purchase', 'locationId', 'isRestricted'));
     }
 
     public function create()
@@ -168,8 +171,8 @@ class PurchaseInvoiceController extends Controller
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
-            'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
+            'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
@@ -232,7 +235,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice created successfully.',
+            'message' => 'Purchase created successfully.',
         ]);
     }
 
@@ -289,7 +292,7 @@ class PurchaseInvoiceController extends Controller
         if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Only pending invoices can be edited.',
+                'message' => 'Only pending purchase can be edited.',
             ], 422);
         }
 
@@ -298,7 +301,7 @@ class PurchaseInvoiceController extends Controller
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
-            'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
+            'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
@@ -363,7 +366,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice updated successfully.',
+            'message' => 'Purchase updated successfully.',
         ]);
     }
 
@@ -387,14 +390,14 @@ class PurchaseInvoiceController extends Controller
         if ($purchase->status == $newStatus) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invoice is already updated.',
+                'message' => 'Purchase is already updated.',
             ], 422);
         }
  
         if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Only pending invoices can be updated.',
+                'message' => 'Only pending purchase can be updated.',
             ], 422);
         }
  
@@ -408,7 +411,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Invoice status updated to ' . $newStatus . '.',
+            'message' => 'Purchase status updated to ' . $newStatus . '.',
         ]);
     }
 
@@ -419,7 +422,7 @@ class PurchaseInvoiceController extends Controller
         if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Only pending invoices can be deleted.',
+                'message' => 'Only pending purchase can be deleted.',
             ], 422);
         }
 
@@ -427,7 +430,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice deleted successfully.',
+            'message' => 'Purchase deleted successfully.',
         ]);
     }
 
@@ -471,17 +474,20 @@ class PurchaseInvoiceController extends Controller
         foreach ($purchase->items as $item) {
             $isPair = $item->product && $item->product->pair_product;
             foreach ($item->allocations as $allocation) {
-                Inventory::updateOrCreate(
+                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
+
+                $inventory = Inventory::firstOrCreate(
                     [
                         'product_id'  => $item->product_id,
                         'location_id' => $allocation->location_id,
                     ],
-                    ['created_by' => auth()->id()]
+                    [
+                        'quantity'   => 0,
+                        'created_by' => auth()->id(),
+                    ]
                 );
-                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
-                Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $allocation->location_id)
-                    ->increment('quantity', $qtyToAdd);
+
+                $inventory->increment('quantity', $qtyToAdd);
             }
         }
     }

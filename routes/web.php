@@ -128,7 +128,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     // Authenticated routes
-    Route::middleware('auth:web')->group(function () {
+    Route::middleware(['auth:web', 'active.user'])->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -194,6 +194,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
+            Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('payments', [ReportController::class, 'payments'])->name('payments');
         });
 
         // Sales

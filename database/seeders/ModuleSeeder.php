@@ -134,6 +134,15 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view sales',
             'sort_order'     => 2,
         ]);
+        Module::create([
+            'parent_id'      => $salesCustomersCategory->id,
+            'name'           => 'Coupons',
+            'icon'           => 'ti ti-ticket',
+            'route'          => 'admin.coupons.index',
+            'active_pattern' => 'admin/coupons*',
+            'permission'     => 'view coupons',
+            'sort_order'     => 3,
+        ]);
 
         // 5. Location
         $locationCategory = Module::create([
@@ -208,6 +217,15 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view profit loss reports',
             'sort_order'     => 5,
         ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Payment Report',
+            'icon'           => 'ti ti-credit-card',
+            'route'          => 'admin.reports.payments',
+            'active_pattern' => 'admin/reports/payments',
+            'permission'     => 'view payment reports',
+            'sort_order'     => 6,
+        ]);
 
         // 7. User & Access
         $userAccessCategory = Module::create([
@@ -242,9 +260,18 @@ class ModuleSeeder extends Seeder
             'name'           => 'Website Content',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*',
+            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*,admin/coupons*',
             'permission'     => null,
             'sort_order'     => 8,
+        ]);
+        Module::create([
+            'parent_id'      => $websiteCategory->id,
+            'name'           => 'Manage Content',
+            'icon'           => 'ti ti-file-description',
+            'route'          => 'admin.website-content.index',
+            'active_pattern' => 'admin/website-content*',
+            'permission'     => 'view website content',
+            'sort_order'     => 1,
         ]);
         Module::create([
             'parent_id'      => $websiteCategory->id,
@@ -253,7 +280,7 @@ class ModuleSeeder extends Seeder
             'route'          => 'admin.contact-inquiries.index',
             'active_pattern' => 'admin/contact-inquiries*',
             'permission'     => 'view contact inquiries',
-            'sort_order'     => 1,
+            'sort_order'     => 2,
         ]);
     }
 }

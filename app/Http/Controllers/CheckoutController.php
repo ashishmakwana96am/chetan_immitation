@@ -45,6 +45,19 @@ class CheckoutController extends Controller
             ->latest()
             ->get();
 
+        $deletedItemIds = [];
+        foreach ($cartItems as $item) {
+            if (!$item->product) {
+                $deletedItemIds[] = $item->id;
+            }
+        }
+        if (!empty($deletedItemIds)) {
+            CartItem::whereIn('id', $deletedItemIds)->delete();
+            $cartItems = $cartItems->reject(function ($item) use ($deletedItemIds) {
+                return in_array($item->id, $deletedItemIds);
+            });
+        }
+
         if ($cartItems->isEmpty()) {
             return redirect()->route('shop-by-category')
                 ->with('error', 'Your cart is empty. Please add items before proceeding to checkout.');
@@ -68,9 +81,7 @@ class CheckoutController extends Controller
 
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $price = $item->getPrice();
             $subtotal += $price * $item->qty;
         }
         $discount = 0.0;
@@ -99,12 +110,11 @@ class CheckoutController extends Controller
             }
         }
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal - $discount);
+        $total = $subtotal - $discount;
 
         $paymentMethodCod = (bool) Setting::getValue('payment_method_cod', true);
         $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
 
-        // Ensure at least one method is on (safety fallback)
         if (! $paymentMethodCod && ! $paymentMethodRazorpay) {
             $paymentMethodCod = true;
         }
@@ -327,9 +337,7 @@ class CheckoutController extends Controller
 
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $price = $item->getPrice();
             $subtotal += $price * $item->qty;
         }
         $discount = 0.0;
@@ -358,7 +366,7 @@ class CheckoutController extends Controller
             }
         }
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal - $discount);
+        $total = round($subtotal - $discount, 2);
 
         $location = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
@@ -410,13 +418,12 @@ class CheckoutController extends Controller
                 'coupon_id' => $coupon ? $coupon->id : null,
                 'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
                 'cart_items' => $cartItems->map(function ($item) {
-                    $price = $item->productVariant
-                        ? (float) $item->productVariant->sale_price
-                        : (float) $item->product->sale_price;
+                    $price = $item->getPrice();
 
                     return [
                         'product_id' => $item->product_id,
                         'variant_id' => $item->product_variant_id,
+                        'pair_type'  => $item->pair_type ?? 'single',
                         'quantity' => $item->qty,
                         'price' => $price,
                         'total' => $price * $item->qty,
@@ -437,7 +444,7 @@ class CheckoutController extends Controller
                 ],
                 'order' => [
                     'order_no' => $orderNo,
-                    'final_amount' => number_format($total, 0),
+                    'final_amount' => number_format($total, 2, '.', ''),
                 ],
             ]);
 
@@ -490,9 +497,17 @@ class CheckoutController extends Controller
                     'source' => 'ONLINE',
                     'discount_type' => $pendingPayment['discount_type'],
                     'coupon_id' => $pendingPayment['coupon_id'],
-                    'razorpay_order_id' => $pendingPayment['razorpay_order_id'],
-                    'razorpay_payment_id' => $request->razorpay_payment_id,
-                    'razorpay_signature' => $request->razorpay_signature,
+                ]);
+
+                \App\Models\OrderPayment::create([
+                    'order_id'           => $order->id,
+                    'gateway'            => 'razorpay',
+                    'gateway_order_id'   => $pendingPayment['razorpay_order_id'],
+                    'gateway_payment_id' => $request->razorpay_payment_id,
+                    'gateway_signature'  => $request->razorpay_signature,
+                    'status'             => \App\Models\OrderPayment::STATUS_CAPTURED,
+                    'amount'             => $pendingPayment['total'],
+                    'currency'           => 'INR',
                 ]);
 
                 foreach ($pendingPayment['cart_items'] as $item) {
@@ -500,6 +515,7 @@ class CheckoutController extends Controller
                         'order_id'           => $order->id,
                         'product_id'         => $item['product_id'],
                         'product_variant_id' => $item['variant_id'] ?? null,
+                        'pair_type'          => $item['pair_type'] ?? 'single',
                         'quantity'           => $item['quantity'],
                         'price'              => $item['price'],
                         'discount'           => 0.0,
@@ -529,7 +545,7 @@ class CheckoutController extends Controller
                 'message' => 'Payment verified successfully.',
                 'order' => [
                     'order_no' => $order->order_no,
-                    'final_amount' => number_format($order->final_amount, 0),
+                    'final_amount' => number_format($order->final_amount, 2, '.', ''),
                 ],
             ]);
         } else {
@@ -571,6 +587,7 @@ class CheckoutController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'qty' => ['nullable', 'integer', 'min:1'],
+            'pair_type' => ['nullable', 'string', 'in:single,pair'],
         ]);
 
         // Guard: Razorpay must be enabled in settings
@@ -604,8 +621,14 @@ class CheckoutController extends Controller
         }
 
         $qty = max(1, (int) ($request->qty ?? 1));
+        $pairType = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
 
-        $price = $product->sale_price;
+        // If not a pair product, force single
+        if (!$product->pair_product) {
+            $pairType = 'single';
+        }
+
+        // Calculate price based on pair_type
         if ($request->filled('variant_id')) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('status', 1)
@@ -614,9 +637,16 @@ class CheckoutController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Variant not found.'], 422);
             }
             $price = $variant->sale_price;
+        } else {
+            // Regular product: check pair_type
+            if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                $price = $product->pair_sale_price;
+            } else {
+                $price = $product->sale_price;
+            }
         }
 
-        $total = round((float) $price * $qty);
+        $total = round((float) $price * $qty, 2);
 
         $location = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
@@ -666,6 +696,7 @@ class CheckoutController extends Controller
                 'cart_items' => [[
                     'product_id' => $product->id,
                     'variant_id' => $variantId,
+                    'pair_type' => $pairType,
                     'quantity' => $qty,
                     'price' => $price,
                     'total' => $price * $qty,
@@ -685,7 +716,7 @@ class CheckoutController extends Controller
                 ],
                 'order' => [
                     'order_no' => $orderNo,
-                    'final_amount' => number_format($total, 0),
+                    'final_amount' => number_format($total, 2, '.', ''),
                 ],
             ]);
 
@@ -737,9 +768,7 @@ class CheckoutController extends Controller
 
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $price = $item->getPrice();
             $subtotal += $price * $item->qty;
         }
 
@@ -761,7 +790,7 @@ class CheckoutController extends Controller
             $discountDesc = 'Discount (Flat ₹'.(int) $coupon->discount_value.' Off)';
         }
 
-        $total = round($subtotal - $discount);
+        $total = round($subtotal - $discount, 2);
 
         return response()->json([
             'status' => 'success',
@@ -779,20 +808,18 @@ class CheckoutController extends Controller
 
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $price = $item->getPrice();
             $subtotal += $price * $item->qty;
         }
 
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal);
+        $total = round($subtotal, 2);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Coupon removed successfully.',
             'total_amount' => $total,
-            'total_label' => '₹'.number_format($total, 0),
+            'total_label' => '₹'.number_format($total, 2, '.', ''),
         ]);
     }
 
@@ -842,9 +869,7 @@ class CheckoutController extends Controller
         // Calculate order amount
         $subtotal = 0.0;
         foreach ($cartItems as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $price = $item->getPrice();
             $subtotal += $price * $item->qty;
         }
 
@@ -875,7 +900,7 @@ class CheckoutController extends Controller
         }
 
         $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal - $discount);
+        $total = round($subtotal - $discount, 2);
 
         // Resolve default location
         $location = Location::where('is_default', true)->first()
@@ -912,14 +937,13 @@ class CheckoutController extends Controller
 
                 // Create Order Items (NO inventory deduction - will be done when admin approves)
                 foreach ($cartItems as $item) {
-                    $price = $item->productVariant
-                        ? (float) $item->productVariant->sale_price
-                        : (float) $item->product->sale_price;
+                    $price = $item->getPrice();
 
                     OrderItem::create([
                         'order_id'           => $order->id,
                         'product_id'         => $item->product_id,
                         'product_variant_id' => $item->product_variant_id,
+                        'pair_type'          => $item->pair_type ?? 'single',
                         'quantity'           => $item->qty,
                         'price'              => $price,
                         'discount'           => 0.0,
@@ -946,7 +970,7 @@ class CheckoutController extends Controller
                 'message' => 'Order placed successfully.',
                 'order' => [
                     'order_no' => $order->order_no,
-                    'final_amount' => number_format($order->final_amount, 0),
+                    'final_amount' => number_format($order->final_amount, 2, '.', ''),
                 ],
             ]);
 

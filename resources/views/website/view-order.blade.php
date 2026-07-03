@@ -227,11 +227,24 @@
 
                                 <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                        ₹{{ number_format($item->price, 0) }}
+                                        {{ website_price($item->price) }}
                                     </span>
-                                    @if($item->product && $item->product->mrp > $item->price)
+                                    @php
+                                        $pairType = $item->pair_type ?? 'single';
+                                        $product = $item->product;
+                                        if ($product) {
+                                            if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
+                                                $mrp = (float) $product->pair_mrp;
+                                            } else {
+                                                $mrp = (float) $product->mrp;
+                                            }
+                                        } else {
+                                            $mrp = $item->price; // Fallback if no product
+                                        }
+                                    @endphp
+                                    @if($mrp > $item->price)
                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                        ₹{{ number_format($item->product->mrp, 0) }}
+                                        {{ website_price($mrp) }}
                                     </span>
                                     @endif
                                 </div>
@@ -249,7 +262,10 @@
 
                                     <p class="text-base flex flex-wrap">
                                         <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
-                                        <span class="text-[#757575] ml-2">{{ $item->quantity }}</span>
+                                        <span class="text-[#757575] ml-2">
+                                            {{ $item->quantity }}
+                                            <span class="font-medium ml-1 {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : '' }}">{{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</span>
+                                        </span>
                                     </p>
 
                                     <p class="text-base flex flex-wrap">
@@ -378,14 +394,14 @@
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 space-y-4">
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span>Subtotal</span>
-                            <span class="text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
+                            <span class="text-[#3D403F]">{{ website_price($subtotal) }}</span>
                         </div>
                         @if($discount > 0)
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span class="text-[#131615]">
                                 Discount
                             </span>
-                            <span class="text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
+                            <span class="text-[#3D403F]">-{{ website_price($discount) }}</span>
                         </div>
                         @endif
                         {{--
@@ -404,7 +420,7 @@
                             Total
                         </span>
                         <span class="font-bold text-[#B4771E] text-lg md:text-xl">
-                            ₹{{ number_format($finalAmount, 0) }}
+                            {{ website_price($finalAmount) }}
                         </span>
                     </div>
                     <div class="mt-4 flex justify-between flex-wrap">

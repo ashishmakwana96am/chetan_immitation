@@ -51,6 +51,18 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
                     <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+                    
+                    @if($isSuperAdmin)
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
+                        <select id="filter-location" class="form-select">
+                            <option value="">All Locations</option>
+                            @foreach($locations as $location)
+                                <option value="{{ $location->id }}">{{ $location->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
 
                     {{-- Status --}}
                     <div class="mb-3 text-start">
@@ -115,7 +127,7 @@
 
             @can('create sales')
                 <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
-                    <i class="ti ti-plus me-1"></i> Add new Bill
+                    <i class="ti ti-plus me-1"></i> Add New Bill
                 </a>
             @endcan
         </div>
@@ -129,7 +141,9 @@
                         <th>#</th>
                         <th>Sale No</th>
                         <th>Customer</th>
-                        <!-- <th>Location</th> -->
+                        @if($isSuperAdmin)
+                        <th>Location</th>
+                        @endif
                         <th>Source</th>
                         <th>Amount</th>
                         <th>Status</th>
@@ -152,6 +166,7 @@
         $(document).ready(function () {
             // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
             let flatpickrOpen = false;
+            const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
             // Initialize Flatpickr for date filters
             const startPicker = $('#filter-start-date').flatpickr({
@@ -229,10 +244,12 @@
                 e.stopPropagation();
             });
 
+            const dateSortColIndex = isSuperAdmin ? 11 : 10;
+
             const table = $('#ordersTable').DataTable({
                 responsive : false,
-                order      : [[10, 'desc']],
-                orderFixed : { pre: [[10, 'desc']] },
+                order      : [[dateSortColIndex, 'desc']],
+                orderFixed : { pre: [[dateSortColIndex, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.sales.data') }}',
                     dataSrc: 'data',
@@ -244,6 +261,9 @@
                         d.product_id = $('#filter-product').val();
                         d.start_date = $('#filter-start-date').val();
                         d.end_date = $('#filter-end-date').val();
+                        if (isSuperAdmin) {
+                            d.location_id = $('#filter-location').val();
+                        }
                     }
                 },
                 columns    : [
@@ -258,7 +278,7 @@
                     },
                     { data: 'order_no' },
                     { data: 'customer' },
-                    // { data: 'location' },
+                    ...(isSuperAdmin ? [{ data: 'location' }] : []),
                     { data: 'source' },
                     { data: 'final_amount' },
                     { data: 'status',         orderable: false },
@@ -271,8 +291,9 @@
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
+                        const colCount = isSuperAdmin ? 11 : 10;
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="10"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="' + colCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
                 drawCallback: function () {
@@ -293,6 +314,9 @@
                 const currentStatus = parseInt($(this).data('current'));
                 const source = $(this).data('source') || 'POS';
                 const isOnline = source === 'ONLINE';
+                const existingShippedUrl = $(this).data('shipped-url') || '';
+                const existingTrackingId = $(this).data('tracking-id') || '';
+                const existingCancelReason = $(this).data('cancel-reason') || '';
 
                 let selectDisabled = '';
                 let optionsHtml = '';
@@ -364,26 +388,29 @@
                             const reasonWrap = document.getElementById('swal-reason-wrap');
                             const shippingWrap = document.getElementById('swal-shipping-wrap');
                             reasonWrap.style.display = (this.value == '6') ? 'block' : 'none';
-                            shippingWrap.style.display = (this.value == '3') ? 'block' : 'none';
+                            // Show shipping fields only when selecting Shipped from a different status
+                            shippingWrap.style.display = (this.value == '3' && currentStatus != 3) ? 'block' : 'none';
                         });
                         if (currentStatus == 6) {
                             document.getElementById('swal-reason-wrap').style.display = 'block';
+                            if (existingCancelReason) {
+                                document.getElementById('swal-cancel-reason').value = existingCancelReason;
+                            }
                         }
-                        if (currentStatus == 3) {
-                            document.getElementById('swal-shipping-wrap').style.display = 'block';
-                        }
+                        // Do NOT show shipping fields if already Shipped — fields not needed again
                     },
                     preConfirm: () => {
                         const status = document.getElementById('swal-sale-status').value;
                         const reason = document.getElementById('swal-cancel-reason').value.trim();
                         const shippedUrl = document.getElementById('swal-shipped-url') ? document.getElementById('swal-shipped-url').value.trim() : '';
                         const trackingId = document.getElementById('swal-tracking-id') ? document.getElementById('swal-tracking-id').value.trim() : '';
-                        
+
                         if (status == '6' && !reason) {
                             Swal.showValidationMessage('Please enter a cancellation reason.');
                             return false;
                         }
-                        if (status == '3') {
+                        // Only validate shipping fields when transitioning TO Shipped (not already shipped)
+                        if (status == '3' && currentStatus != 3) {
                             if (!shippedUrl) {
                                 Swal.showValidationMessage('Please enter Shipping Client URL');
                                 return false;
@@ -515,6 +542,9 @@
                 $('#filter-payment-status').val('');
                 $('#filter-source').val('');
                 $('#filter-product').val('').trigger('change');
+                if (isSuperAdmin) {
+                    $('#filter-location').val('');
+                }
                 startPicker.clear();
                 endPicker.clear();
                 startPicker.set('maxDate', null);

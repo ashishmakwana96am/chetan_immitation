@@ -223,7 +223,7 @@
                                 <span style="font-size: 10px; font-weight: normal; color: #555; display: block; margin-top: 2px;">({{ $item->variant->attributeValue->attribute->name ?? '' }}: {{ $item->variant->attributeValue->value }})</span>
                             @endif
                         </td>
-                        <td class="text-right" style="padding: 4px 0; vertical-align: top;">{{ $item->quantity }}</td>
+                        <td class="text-right" style="padding: 4px 0; vertical-align: top;">{{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</td>
                         <td class="text-right" style="padding: 4px 0; vertical-align: top;">₹{{ number_format($item->price, 0) }}</td>
                         <td class="text-right" style="padding: 4px 0; vertical-align: top;"><strong>₹{{ number_format($item->total, 0) }}</strong></td>
                     </tr>

@@ -209,6 +209,18 @@
                                             $displayName .= ' (' . ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '') . ')';
                                         }
                                     }
+
+                                    if ($isRestricted && $locationId) {
+                                        $myAllocation = $item->allocations->firstWhere('location_id', $locationId);
+                                        $displayQty   = $myAllocation ? $myAllocation->quantity : 0;
+
+                                        $displayTotal = $item->purchase_price * $displayQty;
+                                        $displayAllocations = $myAllocation ? collect([$myAllocation]) : collect();
+                                    } else {
+                                        $displayQty         = $item->quantity;
+                                        $displayTotal       = $item->total;
+                                        $displayAllocations = $item->allocations;
+                                    }
                                 @endphp
                                 <tr>
                                     <td class="text-muted small">{{ $index + 1 }}</td>
@@ -230,10 +242,17 @@
                                         </div>
                                     </td>
                                     <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
-                                    <td class="text-end text-nowrap small">{{ $item->quantity }}</td>
-                                    <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($item->total) }}</td>
+                                    <td class="text-end text-nowrap small">
+                                        {{ $displayQty }}
+                                        @if($item->product?->pair_product)
+                                            <small class="text-muted">Pairs</small>
+                                        @else
+                                            <small class="text-muted">Pcs</small>
+                                        @endif
+                                    </td>
+                                    <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($displayTotal) }}</td>
                                     <td class="small">
-                                        @foreach($item->allocations as $allocation)
+                                        @foreach($displayAllocations as $allocation)
                                             <span class="badge bg-label-info me-1 mb-1">
                                                 {{ $allocation->location->name ?? '-' }}: {{ $allocation->quantity }}
                                             </span>
@@ -245,7 +264,21 @@
                         <tfoot>
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="4" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
-                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($purchase->total_amount) }}</td>
+                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">
+                                    @if($isRestricted)
+                                        @php
+                                            // Sum only this location's allocated items
+                                            $locTotal = 0;
+                                            foreach($purchase->items as $item) {
+                                                $myAlloc = $item->allocations->firstWhere('location_id', $locationId);
+                                                $locTotal += $item->purchase_price * ($myAlloc ? $myAlloc->quantity : 0);
+                                            }
+                                        @endphp
+                                        {{ format_price($locTotal) }}
+                                    @else
+                                        {{ format_price($purchase->total_amount) }}
+                                    @endif
+                                </td>
                                 <td></td>
                             </tr>
                         </tfoot>

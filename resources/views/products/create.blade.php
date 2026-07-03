@@ -67,7 +67,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Product Code <span class="text-danger">*</span></label>
-                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
+                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
@@ -79,7 +79,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Sale Price <span class="text-danger">*</span></label>
+                                <label class="form-label" id="salePriceLabel">Sale Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
                                     <input type="number" name="sale_price" id="salePriceInput" class="form-control" placeholder="Enter Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_price : '' }}" />
@@ -87,11 +87,32 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">MRP <span class="text-danger">*</span></label>
+                                <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
                                     <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" readonly style="background-color: #f1f0f2;" />
                                     <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+
+                            <div id="pairPricingSection" class="{{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
+                                        <div class="input-group has-validation">
+                                            <span class="input-group-text">{{ currency_symbol() }}</span>
+                                            <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
+                                            <div class="invalid-feedback"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
+                                        <div class="input-group has-validation">
+                                            <span class="input-group-text">{{ currency_symbol() }}</span>
+                                            <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" readonly style="background-color: #f1f0f2;" />
+                                            <div class="invalid-feedback"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -179,9 +200,13 @@
                             <input class="form-check-input" type="checkbox" id="productStatus" name="status" value="1" {{ !isset($clonedProduct) || $clonedProduct->status == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productStatus">Active</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="productSale" name="sale" value="1" {{ isset($clonedProduct) && $clonedProduct->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="productPair" name="pair_product" value="1" {{ isset($clonedProduct) && $clonedProduct->pair_product == 1 ? 'checked' : '' }} />
+                            <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
                     </div>
                 </div>
@@ -787,12 +812,57 @@
             $('#productCodeInput').on('input change', function () {
                 const code = parseFloat($(this).val()) || 0;
                 const purchasePrice = (code * 2.5).toFixed(2);
-                const salePrice = (code * 4.125).toFixed(2);
-                const mrp = (salePrice * 1.10).toFixed(2);
-                
-                $('#purchasePriceInput').val(purchasePrice).trigger('change');
-                $('#salePriceInput').val(salePrice).trigger('change');
-                $('#mrpInput').val(mrp);
+                const isPair = $('#productPair').is(':checked');
+
+                if (isPair) {
+                    const pairSalePrice = (code * 4.125).toFixed(2);
+                    const pairMrp = (pairSalePrice * 1.10).toFixed(2);
+                    const singleSalePrice = (pairSalePrice / 2).toFixed(2);
+                    const singleMrp = (singleSalePrice * 1.10).toFixed(2);
+
+                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
+                    $('#salePriceInput').val(singleSalePrice).trigger('change');
+                    $('#mrpInput').val(singleMrp);
+                    $('#pairSalePriceInput').val(pairSalePrice);
+                    $('#pairMrpInput').val(pairMrp);
+                } else {
+                    const salePrice = (code * 4.125).toFixed(2);
+                    const mrp = (salePrice * 1.10).toFixed(2);
+
+                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
+                    $('#salePriceInput').val(salePrice).trigger('change');
+                    $('#mrpInput').val(mrp);
+                }
+            });
+
+            // Pair Product toggle
+            function updatePairPricingLabels(isPair) {
+                $('#salePriceLabel').html(isPair ? 'Sale Price (Piece) <span class="text-danger">*</span>' : 'Sale Price <span class="text-danger">*</span>');
+                $('#mrpLabel').html(isPair ? 'MRP (Piece) <span class="text-danger">*</span>' : 'MRP <span class="text-danger">*</span>');
+            }
+
+            $('#productPair').on('change', function () {
+                const isPair = $(this).is(':checked');
+                updatePairPricingLabels(isPair);
+                if (isPair) {
+                    $('#pairPricingSection').removeClass('d-none');
+                } else {
+                    $('#pairPricingSection').addClass('d-none');
+                    $('#pairSalePriceInput').val('');
+                    $('#pairMrpInput').val('');
+                }
+                // Recalculate prices based on current code
+                $('#productCodeInput').trigger('change');
+            });
+
+            updatePairPricingLabels($('#productPair').is(':checked'));
+
+            $('#salePriceInput').on('input', function () {
+                $('#mrpInput').val(((parseFloat($(this).val()) || 0) * 1.10).toFixed(2));
+            });
+
+            $('#pairSalePriceInput').on('input', function () {
+                $('#pairMrpInput').val(((parseFloat($(this).val()) || 0) * 1.10).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

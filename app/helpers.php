@@ -189,3 +189,35 @@ if (!function_exists('format_price')) {
         return currency_symbol() . "\u{A0}" . $negative . $integer . $decimal;
     }
 }
+
+if (!function_exists('website_price')) {
+    function website_price(float|int|string|null $amount): string
+    {
+        $amount = (float) ($amount ?? 0);
+        
+        $decimals = (fmod($amount, 1) != 0) ? 2 : 0;
+        
+        if ($decimals > 0) {
+            $formatted = rtrim(number_format($amount, 2, '.', ''), '0');
+            $formatted = rtrim($formatted, '.');
+        } else {
+            $formatted = number_format($amount, 0, '.', '');
+        }
+        
+        $parts = explode('.', $formatted);
+        $integer = $parts[0];
+        $decimal = isset($parts[1]) ? '.' . $parts[1] : '';
+        
+        $last_three = substr($integer, -3);
+        $remaining = substr($integer, 0, -3);
+        
+        if ($remaining !== '') {
+            $remaining = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $remaining);
+            $integer = $remaining . ',' . $last_three;
+        } else {
+            $integer = $last_three;
+        }
+        
+        return '₹' . $integer . $decimal;
+    }
+}

@@ -58,12 +58,20 @@
                   @if($child->route === 'admin.sales.index')
                     @php
                       try {
-                          $pendingSalesCount = \App\Models\Order::where('status', 1)->count();
+                          $authUser = auth()->user();
+                          $pendingSalesCount = \App\Models\Order::where('status', 1)
+                              ->when(
+                                  $authUser->location_id && !$authUser->hasRole('super-admin'),
+                                  fn($q) => $q->where('location_id', $authUser->location_id)
+                              )
+                              ->count();
                       } catch (\Exception $e) {
                           $pendingSalesCount = 0;
                       }
                     @endphp
-                    <div class="pending-sales-counter-badge" style="display: {{ $pendingSalesCount > 0 ? 'inline-flex' : 'none' }} !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                    @if($pendingSalesCount > 0)
+                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                    @endif
                   @endif
                 </a>
               </li>

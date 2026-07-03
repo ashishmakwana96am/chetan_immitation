@@ -464,10 +464,10 @@
                         <span class="info-value">{{ $order->coupon->code }}</span>
                     </div>
                     @endif
-                    @if($isOnline && $order->razorpay_payment_id)
+                    @if($isOnline && $order->payment?->gateway_payment_id)
                     <div class="info-row">
                         <span class="info-label">Razorpay ID: </span>
-                        <span class="info-value" style="font-size:9.5px;">{{ $order->razorpay_payment_id }}</span>
+                        <span class="info-value" style="font-size:9.5px;">{{ $order->payment->gateway_payment_id }}</span>
                     </div>
                     @endif
                     @if($order->status == 6 && $order->cancellation_reason)
@@ -548,7 +548,10 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
-                    <td class="text-right">{{ $item->quantity }}</td>
+                    <td class="text-right">
+                        {{ $item->quantity }}
+                        {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                    </td>
                     <td class="text-right">
                         @if($item->discount_amount > 0)
                             @if($item->discount_type === 'percentage')

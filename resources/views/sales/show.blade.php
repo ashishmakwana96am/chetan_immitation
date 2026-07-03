@@ -275,11 +275,11 @@
                         <span class="sale-info-value">{{ format_date($order->created_at) }}</span>
                     </div>
 
-                    @if($order->razorpay_order_id)
+                    @if($order->payment?->gateway_order_id)
                     <div class="sale-info-row">
                         <span class="sale-info-label">Razorpay Order ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
-                            <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->razorpay_order_id }}</code>
+                            <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->payment->gateway_order_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
                             onclick="copyToClipboard('razorpayOrderId')"
@@ -288,11 +288,11 @@
                     </div>
                     @endif
 
-                    @if($order->razorpay_payment_id)
+                    @if($order->payment?->gateway_payment_id)
                     <div class="sale-info-row">
                         <span class="sale-info-label">Razorpay Payment ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
-                            <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->razorpay_payment_id }}</code>
+                            <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->payment->gateway_payment_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
                             onclick="copyToClipboard('razorpayPaymentId')"
@@ -427,7 +427,14 @@
                                         </div>
                                     </td>
                                     <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
-                                    <td class="text-end text-nowrap small">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap small">
+                                        {{ $item->quantity }}
+                                        @if($item->pair_type === 'pair')
+                                            <small class="text-muted">Pairs</small>
+                                        @else
+                                            <small class="text-muted">Pcs</small>
+                                        @endif
+                                    </td>
                                     <td class="text-end text-nowrap small">
                                         @if($item->discount_amount > 0)
                                              @if($item->discount_type === 'percentage')

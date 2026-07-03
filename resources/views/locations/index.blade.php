@@ -42,7 +42,7 @@
                 </div>
             </div>
             @can('create locations')
-                {{-- <button class="btn btn-primary" data-common-modal="{{ route('admin.locations.create') }}"><i class="ti ti-plus me-1"></i> Add Location</button> --}}
+                <button class="btn btn-primary" data-common-modal="{{ route('admin.locations.create') }}"><i class="ti ti-plus me-1"></i> Add Location</button>
             @endcan
         </div>
     </div>

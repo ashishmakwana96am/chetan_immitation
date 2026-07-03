@@ -129,7 +129,10 @@ class ReportController extends Controller
         $this->authorize('view stock inventory reports');
 
         $user      = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $locationId   = $isRestricted ? $user->location_id : null;
+
+        if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -144,11 +147,11 @@ class ReportController extends Controller
         foreach ($products as $product) {
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
-                
-                // Parent Stock per location
+
                 $parentLocStock = [];
                 foreach ($locations as $location) {
-                    $parentLocStock[$location->id] = $variantStock[$location->id]['parent'] ?? 0;
+                    $inv = $product->inventories->firstWhere('location_id', $location->id);
+                    $parentLocStock[$location->id] = $inv ? $inv->quantity : 0;
                 }
                 $productsList->push([
                     'id'          => $product->id,
@@ -157,13 +160,12 @@ class ReportController extends Controller
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $parentLocStock,
-                    'total'       => array_sum($parentLocStock),
+                    'total'       => array_sum($parentLocStock),  // matches Dashboard
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
                 ]);
 
-                // Variants stock per location
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
                     foreach ($locations as $location) {
@@ -186,7 +188,6 @@ class ReportController extends Controller
                     ]);
                 }
             } else {
-                // Normal product
                 $stock = [];
                 foreach ($locations as $location) {
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
@@ -208,13 +209,32 @@ class ReportController extends Controller
         }
 
         $activeProductCount = Product::where('status', 1)->count();
-        $soldoutProductCount = Product::where('status', 1)
-            ->whereDoesntHave('inventories', function ($q) {
-                $q->where('quantity', '>', 0);
-            })
-            ->count();
 
-        return view('reports.stock-inventory', ['products' => $productsList, 'locations' => $locations, 'categories' => $categories, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
+        if ($locationId) {
+            $soldoutProductCount = Product::where('status', 1)
+                ->whereDoesntHave('inventories', function ($q) use ($locationId) {
+                    $q->where('location_id', $locationId)->where('quantity', '>', 0);
+                })
+                ->whereHas('inventories', function ($q) use ($locationId) {
+                    $q->where('location_id', $locationId);
+                })
+                ->count();
+        } else {
+            $soldoutProductCount = Product::where('status', 1)
+                ->whereDoesntHave('inventories', function ($q) {
+                    $q->where('quantity', '>', 0);
+                })
+                ->count();
+        }
+
+        return view('reports.stock-inventory', [
+            'products'           => $productsList,
+            'locations'          => $locations,
+            'categories'         => $categories,
+            'activeProductCount' => $activeProductCount,
+            'soldoutProductCount'=> $soldoutProductCount,
+            'isRestricted'       => $isRestricted,
+        ]);
     }
 
     public function purchases(Request $request)
@@ -322,7 +342,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', Order::STATUS_DECLINE)
+            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -411,7 +431,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
+        $salesQuery = Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -799,7 +819,7 @@ class ReportController extends Controller
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
-            ->where('status', '!=', Order::STATUS_DECLINE)
+            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
 
         if ($startDate) {
@@ -854,7 +874,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->where('status', '!=', Order::STATUS_DECLINE)
+        $salesQuery = Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -913,5 +933,131 @@ class ReportController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    // ───────────────────────────────────────────────────────
+    //  PAYMENT REPORT
+    // ───────────────────────────────────────────────────────
+    public function payments(Request $request)
+    {
+        $this->authorize('view payment reports');
+
+        $startDate     = $request->query('start_date');
+        $endDate       = $request->query('end_date');
+        $locationId    = $request->query('location_id');
+        $source        = $request->query('source');
+        $paymentMethod = $request->query('payment_method');
+
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        // Location scoping
+        if ($user->location_id && !$isSuperAdmin) {
+            $locations  = Location::where('id', $user->location_id)->get();
+            $locationId = $user->location_id;
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
+
+        $query = Order::with(['customer', 'payment'])
+            ->where('order_type', 'sale')
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED,
+            ]);
+
+        if ($user->location_id && !$isSuperAdmin) {
+            $query->where('location_id', $user->location_id);
+        } elseif ($locationId) {
+            $query->where('location_id', $locationId);
+        }
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+        if ($source) {
+            $query->where('source', $source);
+        }
+        if ($paymentMethod) {
+            if ($paymentMethod === 'online') {
+                $query->whereIn('payment_method', ['online', 'razorpay']);
+            } else {
+                $query->where('payment_method', $paymentMethod);
+            }
+        }
+
+        $orders = $query->latest()->get();
+
+        // ── Summary Stats ──────────────────────────────────
+        $totalAmount = (float) $orders->sum('final_amount');
+        $totalCount  = $orders->count();
+        $avgAmount   = $totalCount > 0 ? $totalAmount / $totalCount : 0.0;
+
+        $normalizePaymentMethod = function (?string $method): string {
+            return match ($method) {
+                'razorpay' => 'online',
+                'cod'      => 'cod',
+                'cash'     => 'cash',
+                'online'   => 'online',
+                default    => (string) $method,
+            };
+        };
+
+        $paymentMethodLabel = function (?string $method) use ($normalizePaymentMethod): string {
+            return match ($normalizePaymentMethod($method)) {
+                'cod'    => 'COD',
+                'online' => 'Online',
+                'cash'   => 'Cash',
+                default  => ucwords(str_replace('_', ' ', (string) $method)),
+            };
+        };
+
+        // ── Payments Over Time (monthly) ────────────────────
+        $paymentTrend = [];
+        $trendGroup = $orders
+            ->groupBy(fn ($order) => $order->created_at->format('Y-m'))
+            ->sortKeys();
+        foreach ($trendGroup as $month => $grp) {
+            $paymentTrend[$month] = (float) $grp->sum('final_amount');
+        }
+
+        // ── By Payment Method (donut) ─────────────────────
+        $paymentMethodData = [];
+        foreach ($orders->groupBy(fn ($order) => $normalizePaymentMethod($order->payment_method)) as $method => $grp) {
+            $paymentMethodData[$paymentMethodLabel($method)] = (float) $grp->sum('final_amount');
+        }
+
+        // ── By Source (donut) ─────────────────────────────
+        $sourceData = [];
+        foreach ($orders->groupBy(fn ($order) => $order->source ?? 'POS') as $src => $grp) {
+            $sourceData[strtoupper($src)] = (float) $grp->sum('final_amount');
+        }
+
+        $availableSources        = ['POS', 'ONLINE'];
+        $availablePaymentMethods = ['cash', 'online', 'cod'];
+
+        return view('reports.payments', compact(
+            'orders',
+            'locations',
+            'totalAmount',
+            'totalCount',
+            'avgAmount',
+            'paymentTrend',
+            'paymentMethodData',
+            'sourceData',
+            'availableSources',
+            'availablePaymentMethods',
+            'startDate',
+            'endDate',
+            'source',
+            'paymentMethod',
+            'locationId',
+            'isSuperAdmin'
+        ));
     }
 }

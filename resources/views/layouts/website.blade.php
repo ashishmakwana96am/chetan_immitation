@@ -977,15 +977,26 @@ window.addEventListener('resize', function () {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 btn.dataset.loading = '0';
-                if (data.status === 'added' || data.status === 'updated') {
-                    btn.dataset.inWishlist = '1';
-                    svg.classList.remove('fill-transparent', 'text-[#131615]');
-                    svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                var nowInWishlist = (data.status === 'added' || data.status === 'updated');
+                
+                // Sync ALL wishlist buttons on the page with the same product_id
+                document.querySelectorAll('.wishlist-btn[data-product-id="' + productId + '"]').forEach(function(b) {
+                    var icon = b.querySelector('svg, .wishlist-icon');
+                    if (!icon) return;
+                    if (nowInWishlist) {
+                        b.dataset.inWishlist = '1';
+                        icon.classList.remove('fill-transparent', 'text-[#131615]');
+                        icon.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                    } else {
+                        b.dataset.inWishlist = '0';
+                        icon.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
+                        icon.classList.add('fill-transparent', 'text-[#131615]');
+                    }
+                });
+                
+                if (nowInWishlist) {
                     window.showWishlistToast('Product added to your wishlist! ❤️');
                 } else {
-                    btn.dataset.inWishlist = '0';
-                    svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
-                    svg.classList.add('fill-transparent', 'text-[#131615]');
                     window.showWishlistToast('Product removed from your wishlist.');
                 }
                 window.updateWishlistBadge(data.count);
@@ -1004,7 +1015,7 @@ window.addEventListener('resize', function () {
         var csrfToken = '{{ csrf_token() }}';
 
         // ── Global Add to Cart function ──────────────────────────────────────────
-        window.addToCart = function (productId, variantId, qty, btn, loginUrl) {
+        window.addToCart = function (productId, variantId, qty, btn, loginUrl, pairType) {
             var cartAddUrl = '{{ route('cart.add') }}';
             var cartLoginUrl = loginUrl || ('{{ route('login') }}?intended={{ urlencode(route('cart')) }}');
             var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
@@ -1028,6 +1039,7 @@ window.addEventListener('resize', function () {
                     product_id: productId,
                     variant_id: variantId || null,
                     qty: qty || 1,
+                    pair_type: pairType || 'single',
                 }),
             })
             .then(function (r) { return r.json(); })

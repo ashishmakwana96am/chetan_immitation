@@ -130,11 +130,11 @@
                 @endphp
                 <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
                     <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
-                        ₹{{ number_format($salePriceDisplay, 0) }}
+                        {{ website_price($salePriceDisplay) }}
                     </span>
                     @if($mrpDisplay && $mrpDisplay > $salePriceDisplay)
                     <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
-                        ₹{{ number_format($mrpDisplay, 0) }}
+                        {{ website_price($mrpDisplay) }}
                     </span>
                     @endif
                 </div>
@@ -142,6 +142,37 @@
                 <p class="text-[#3D403F] mt-4 md:mt-5 text-base sm:text-xl">
                     Inclusive of all taxes
                 </p>
+
+                @if($product->pair_product)
+                @php
+                    $singlePrice = (float) $product->sale_price;
+                    $pairPrice   = (float) ($product->pair_sale_price ?? ($product->sale_price * 2));
+                    $singleMrp   = (float) $product->mrp;
+                    $pairMrp     = (float) ($product->pair_mrp ?? ($product->mrp * 2));
+                @endphp
+                <div class="flex items-center gap-4 mt-5">
+                    <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">Type:</span>
+                    <div id="pairTypeToggle" class="flex" style="border:1.5px solid #B4771E; border-radius:6px; overflow:hidden;">
+                        <button type="button" id="pairBtnSingle"
+                            data-value="single"
+                            data-price="{{ $singlePrice }}"
+                            data-mrp="{{ $singleMrp }}"
+                            class="pair-type-btn px-4 py-1 text-sm font-semibold"
+                            style="background:#B4771E; color:#fff; border:none; cursor:pointer;">
+                            Piece
+                        </button>
+                        <button type="button" id="pairBtnPair"
+                            data-value="pair"
+                            data-price="{{ $pairPrice }}"
+                            data-mrp="{{ $pairMrp }}"
+                            class="pair-type-btn px-4 py-1 text-sm font-semibold"
+                            style="background:#fff; color:#B4771E; border:none; cursor:pointer; border-left:1.5px solid #B4771E;">
+                            Pair
+                        </button>
+                    </div>
+                    <input type="hidden" id="selectedPairType" value="single">
+                </div>
+                @endif
 
                 <div class="flex items-center gap-4 mt-5 lg:mt-5">
                     <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">
@@ -337,6 +368,37 @@
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
 <script>
+/**
+ * Format a price for display — shows decimals only when needed.
+ * Mirrors PHP website_price() helper.
+ * e.g. 412.5 → "₹412.5", 413.0 → "₹413"
+ */
+function fmtPrice(amount) {
+    amount = parseFloat(amount) || 0;
+    // Determine if decimal is needed
+    var hasDec = (amount % 1 !== 0);
+    var str;
+    if (hasDec) {
+        // Format to 2 decimals, then trim trailing zeros
+        str = amount.toFixed(2).replace(/\.?0+$/, '');
+    } else {
+        str = Math.round(amount).toString();
+    }
+    // Apply Indian number format to integer part
+    var parts = str.split('.');
+    var intPart = parts[0];
+    var decPart = parts[1] ? '.' + parts[1] : '';
+    // Indian format: last 3 digits, then groups of 2
+    if (intPart.length > 3) {
+        var lastThree = intPart.slice(-3);
+        var rest = intPart.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+        intPart = rest + ',' + lastThree;
+    }
+    return '₹' + intPart + decPart;
+}
+</script>
+
+<script>
 
 const thumbSwiper = new Swiper(".thumbSwiper", {
     spaceBetween: 15,
@@ -497,8 +559,7 @@ if (minusBtn) {
             // Price update
             var priceSpan = document.getElementById('productSalePrice');
             if (priceSpan && btn.dataset.salePrice) {
-                priceSpan.textContent = '₹' + parseFloat(btn.dataset.salePrice)
-                    .toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                priceSpan.textContent = fmtPrice(parseFloat(btn.dataset.salePrice));
             }
 
             var variantId = btn.dataset.variantId || null;
@@ -567,6 +628,50 @@ if (minusBtn) {
 </script>
 
 <script>
+// ─── Detail page pair type toggle ────────────────────────────────────────────
+(function () {
+    var toggle = document.getElementById('pairTypeToggle');
+    if (!toggle) return;
+
+    toggle.addEventListener('click', function (e) {
+        var btn = e.target.closest('.pair-type-btn');
+        if (!btn) return;
+
+        var value    = btn.dataset.value;
+        var price    = parseFloat(btn.dataset.price) || 0;
+        var mrp      = parseFloat(btn.dataset.mrp) || 0;
+
+        // Update hidden input
+        document.getElementById('selectedPairType').value = value;
+
+        // Update button styles
+        toggle.querySelectorAll('.pair-type-btn').forEach(function (b) {
+            if (b.dataset.value === value) {
+                b.style.background = '#B4771E';
+                b.style.color      = '#fff';
+            } else {
+                b.style.background = '#fff';
+                b.style.color      = '#B4771E';
+            }
+        });
+
+        // Update displayed price
+        var priceEl = document.getElementById('productSalePrice');
+        var mrpEl   = document.getElementById('productMrp');
+        if (priceEl) priceEl.textContent = fmtPrice(price);
+        if (mrpEl) {
+            if (mrp && mrp > price) {
+                mrpEl.textContent = fmtPrice(mrp);
+                mrpEl.style.display = '';
+            } else {
+                mrpEl.style.display = 'none';
+            }
+        }
+    });
+}());
+</script>
+
+<script>
 // ─── Detail page Add to Cart ──────────────────────────────────────────────────
 (function () {
     var addBtn = document.getElementById('addToCartBtn');
@@ -589,8 +694,10 @@ if (minusBtn) {
         }
 
         var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+        var pairTypeInput = document.getElementById('selectedPairType');
+        var pairType = pairTypeInput ? pairTypeInput.value : 'single';
 
-        window.addToCart(productId, variantId, qty, addBtn, loginUrl);
+        window.addToCart(productId, variantId, qty, addBtn, loginUrl, pairType);
     });
 }());
 </script>
@@ -887,6 +994,7 @@ Order Amount
         var variantId = getActiveVariantId();
         var qty       = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
         var addressId = selectedAddr.value;
+        var pairType  = document.getElementById('selectedPairType')?.value || 'single';
 
         var proceedBtn = document.getElementById('buyNowProceedBtn');
         proceedBtn.disabled = true;
@@ -906,7 +1014,8 @@ Order Amount
                 address_id: addressId,
                 product_id: productId,
                 variant_id: variantId || null,
-                qty: qty
+                qty: qty,
+                pair_type: pairType
             })
         })
         .then(function (r) {

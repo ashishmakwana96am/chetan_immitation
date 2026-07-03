@@ -286,9 +286,9 @@ class ReportExportService
         
         // Sheet 1: Invoices List
         $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Invoices List');
+        $sheet1->setTitle('Purchase List');
 
-        $headers1 = ['S.No.', 'Invoice No', 'Supplier', 'Status', 'Date', 'Total Amount'];
+        $headers1 = ['S.No.', 'Purchase No', 'Supplier', 'Status', 'Date', 'Total Amount'];
         $sheet1->fromArray($headers1, null, 'A1');
         $sheet1->getRowDimension(1)->setRowHeight(28);
 

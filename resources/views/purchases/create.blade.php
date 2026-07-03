@@ -16,19 +16,19 @@
     
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
-        width: 45% !important;
+        width: 35% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
-        width: 16% !important;
-        min-width: 110px !important;
+        width: 18% !important;
+        min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
-        width: 25% !important;
-        min-width: 150px !important;
+        width: 27% !important;
+        min-width: 110px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 15% !important;
-        min-width: 140px !important;
+        width: 20% !important;
+        min-width: 70px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
         width: 44px !important;
@@ -115,10 +115,10 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                            <th style="width: 50%;">Product</th>
-                                            <th style="width: 16%;">Qty</th>
-                                            <th style="width: 15%;">Price</th>
-                                            <th style="width: 17%;">Total</th>
+                                        <th>Product</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
                                             <th style="width: 44px;"></th>
                                         </tr>
                                     </thead>
@@ -264,6 +264,7 @@
         <tr class="item-row" data-index="__INDEX__">
             <td class="align-middle">
                 <div class="d-flex align-items-center">
+                    <div class="product-image-container me-3 flex-shrink-0"></div>
                     <div class="d-flex flex-column mb-1">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <div class="d-flex align-items-center gap-2 flex-nowrap">
@@ -312,6 +313,13 @@ $(document).ready(function () {
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function setProductImage(container, product) {
+        if (product.image) {
+            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
+        } else {
+            container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
+        }
+    }
     @php
         $mappedLocations = $locations->map(function($l) {
             return ['id' => $l->id, 'name' => $l->name];
@@ -353,9 +361,49 @@ $(document).ready(function () {
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
 
+    function findExactProductMatch(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) return null;
+        const matches = allProducts.filter(p =>
+            p.name.toLowerCase() === q ||
+            (p.sku && String(p.sku).toLowerCase() === q) ||
+            (p.barcode && String(p.barcode).toLowerCase() === q)
+        );
+        return matches.length === 1 ? matches[0] : null;
+    }
+
+    function selectSearchProduct(product) {
+        let exists = false;
+        if (product.type !== 'variable') {
+            $('.product-id-input').each(function() {
+                const row = $(this).closest('.item-row');
+                const rowProduct = row.data('product');
+                if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
+                    exists = true;
+                }
+            });
+        }
+        if (exists) {
+            toastr.warning('Product is already in the list.');
+            searchInput.val('');
+            searchResults.hide().empty();
+            searchInput.focus();
+            return;
+        }
+        addItemRow(product);
+        searchInput.val('');
+        searchResults.hide().empty();
+        searchInput.focus();
+    }
+
     searchInput.on('keydown', function(e) {
         if (e.key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
+            const exactMatch = findExactProductMatch($(this).val());
+            if (exactMatch) {
+                selectSearchProduct(exactMatch);
+                return;
+            }
             const firstItem = searchResults.find('.search-result-item').first();
             if (firstItem.length > 0) {
                 firstItem.click();
@@ -369,6 +417,12 @@ $(document).ready(function () {
 
         if (query.length === 0) {
             searchResults.hide();
+            return;
+        }
+
+        const exactMatch = findExactProductMatch(query);
+        if (exactMatch) {
+            selectSearchProduct(exactMatch);
             return;
         }
 
@@ -421,32 +475,7 @@ $(document).ready(function () {
 
     // Handle product selection
     $(document).on('click', '.search-result-item', function() {
-        const product = $(this).data('product');
-        let exists = false;
-
-        if (product.type !== 'variable') {
-            $('.product-id-input').each(function() {
-                const row = $(this).closest('.item-row');
-                const rowProduct = row.data('product');
-                if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
-                    exists = true;
-                }
-            });
-        }
-
-        if (exists) {
-            toastr.warning('Product is already in the list.');
-            searchInput.val('');
-            searchResults.hide().empty();
-            searchInput.focus();
-            return;
-        }
-
-        addItemRow(product);
-
-        searchInput.val('');
-        searchResults.hide().empty();
-        searchInput.focus();
+        selectSearchProduct($(this).data('product'));
     });
 
     function addItemRow(product, selectedVariantId = null, qty = 1, price = null) {
@@ -459,6 +488,7 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
+        setProductImage(row.find('.product-image-container'), product);
 
         row.data('product', product);
         row.data('index', itemIndex);

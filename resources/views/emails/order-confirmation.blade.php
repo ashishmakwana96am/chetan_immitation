@@ -71,7 +71,7 @@
                             @foreach($order->items as $item)
                             <tr style="border-bottom:1px solid #f0ebe2;{{ $loop->even ? 'background:#fdf9f4;' : 'background:#fff;' }}">
                                 <td style="padding:10px 12px;font-size:13px;color:#2d2d2d;">{{ $item->product->name ?? 'Product' }}</td>
-                                <td style="padding:10px 12px;text-align:center;font-size:13px;color:#555;">{{ $item->quantity }}</td>
+                                <td style="padding:10px 12px;text-align:center;font-size:13px;color:#555;">{{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</td>
                                 <td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;color:#2d2d2d;">₹{{ number_format($item->total, 0) }}</td>
                             </tr>
                             @endforeach
@@ -133,9 +133,9 @@
                                         <span style="color:#888;font-size:11px;">Status: </span>
                                         {{ $order->payment_status == 2 ? 'Paid' : 'Pending' }}
                                     </p>
-                                    @if($order->razorpay_payment_id)
+                                    @if($order->payment?->gateway_payment_id)
                                     <p style="margin:4px 0 0;font-size:11px;color:#888;">
-                                        ID: {{ $order->razorpay_payment_id }}
+                                        ID: {{ $order->payment->gateway_payment_id }}
                                     </p>
                                     @endif
                                 </td>

@@ -16,23 +16,23 @@
     
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
-        width: 35% !important;
+        width: 26% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
-        width: 14% !important;
-        min-width: 110px !important;
+        width: 16% !important;
+        min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
-        width: 18% !important;
-        min-width: 140px !important;
+        width: 20% !important;
+        min-width: 110px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 22% !important;
-        min-width: 180px !important;
+        width: 20% !important;
+        min-width: 130px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
-        width: 12% !important;
-        min-width: 140px !important;
+        width: 10% !important;
+        min-width: 70px !important;
     }
     #itemsTable th:nth-child(6), #itemsTable td:nth-child(6) {
         width: 44px !important;
@@ -56,6 +56,14 @@
     .compact-entry-layout .card.mb-4 {
         margin-bottom: 0 !important;
     }
+    /* Pair type toggle */
+    .pair-type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .pair-type-toggle .pair-btn + .pair-btn { border-left: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -154,11 +162,11 @@
                             <table class="table mb-0" id="itemsTable">
                                 <thead>
                                     <tr class="table-light">
-                                        <th style="width: 35%;">Product</th>
-                                        <th style="width: 14%;">Qty</th>
-                                        <th style="width: 15%;">Price</th>
-                                        <th style="width: 20%;">Discount</th>
-                                        <th style="width: 12%;">Total</th>
+                                        <th>Product</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Discount</th>
+                                        <th>Total</th>
                                         <th style="width: 44px;"></th>
                                     </tr>
                                 </thead>
@@ -249,8 +257,8 @@
                     <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
                     <div class="card-body">
                         <select name="payment_status" class="form-select no-select2">
-                            <option value="1" selected>Pending</option>
-                            <option value="2">Paid</option>
+                            <option value="1">Pending</option>
+                            <option value="2" selected>Paid</option>
                         </select>
                     </div>
                 </div>
@@ -280,6 +288,7 @@
         <tr class="item-row" data-index="__INDEX__">
             <td class="align-middle">
                 <div class="d-flex align-items-center">
+                    <div class="product-image-container me-3 flex-shrink-0"></div>
                     <div class="d-flex flex-column mb-1">
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <div class="d-flex align-items-center gap-2 flex-nowrap">
@@ -287,9 +296,11 @@
                             <span class="badge stock-display text-nowrap"></span>
                         </div>
                         <div class="variant-select-container"></div>
+                        <div class="pair-type-container mt-1"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
+                <input type="hidden" name="items[__INDEX__][pair_type]" class="pair-type-input" value="single">
                 <div class="invalid-feedback"></div>
             </td>
             <td class="align-middle">
@@ -337,6 +348,13 @@ $(document).ready(function () {
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function setProductImage(container, product) {
+        if (product.image) {
+            container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
+        } else {
+            container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
+        }
+    }
     const allProducts = @json($allProducts);
     updateSummary();
 
@@ -363,9 +381,46 @@ $(document).ready(function () {
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
 
+    function findExactProductMatch(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) return null;
+        const matches = allProducts.filter(p =>
+            p.name.toLowerCase() === q ||
+            (p.sku && String(p.sku).toLowerCase() === q) ||
+            (p.barcode && String(p.barcode).toLowerCase() === q)
+        );
+        return matches.length === 1 ? matches[0] : null;
+    }
+
+    function selectSearchProduct(product) {
+        let exists = false;
+        if (product.type !== 'variable') {
+            $('.product-id-input').each(function() {
+                const row = $(this).closest('.item-row');
+                const rowProduct = row.data('product');
+                if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
+                    exists = true;
+                }
+            });
+        }
+        if (exists) {
+            toastr.warning('Product is already in the list.');
+        } else {
+            addItemRow(product);
+        }
+        searchInput.val('');
+        searchResults.hide().empty();
+        searchInput.focus();
+    }
+
     searchInput.on('keydown', function(e) {
         if (e.key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
+            const exactMatch = findExactProductMatch($(this).val());
+            if (exactMatch) {
+                selectSearchProduct(exactMatch);
+                return;
+            }
             const firstItem = searchResults.find('.search-result-item').first();
             if (firstItem.length > 0) {
                 firstItem.click();
@@ -382,7 +437,15 @@ $(document).ready(function () {
             return;
         }
 
+        const exactMatch = findExactProductMatch(query);
+        if (exactMatch) {
+            selectSearchProduct(exactMatch);
+            return;
+        }
+
         const matchedProducts = allProducts.filter(p => 
+            p.name.toLowerCase().includes(query) ||
+            (p.sku && p.sku.toLowerCase().includes(query)) ||
             p.label.toLowerCase().includes(query) ||
             (p.barcode && p.barcode.toLowerCase().includes(query))
         );
@@ -428,31 +491,10 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.search-result-item', function() {
-        const product = $(this).data('product');
-        let exists = false;
-
-        if (product.type !== 'variable') {
-            $('.product-id-input').each(function() {
-                const row = $(this).closest('.item-row');
-                const rowProduct = row.data('product');
-                if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
-                    exists = true;
-                }
-            });
-        }
-
-        if (exists) {
-            toastr.warning('Product is already in the list.');
-        } else {
-            addItemRow(product);
-        }
-
-        searchInput.val('');
-        searchResults.hide().empty();
-        searchInput.focus();
+        selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single') {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -462,6 +504,7 @@ $(document).ready(function () {
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
+        setProductImage(row.find('.product-image-container'), product);
 
         row.data('product', product);
         row.data('index', itemIndex);
@@ -491,6 +534,21 @@ $(document).ready(function () {
             row.find('.item-price').val(price != null ? price : (product.price != null ? product.price : 0));
         }
 
+        // Pair product selector
+        if (product.pair_product) {
+            const singlePrice = product.single_price != null ? product.single_price : 0;
+            const pairPrice   = product.pair_price != null ? product.pair_price : 0;
+            const pairHtml = `
+                <div class="pair-type-toggle mt-1" data-single-price="${singlePrice}" data-pair-price="${pairPrice}">
+                    <button type="button" class="pair-btn ${pairType !== 'pair' ? 'active' : ''}" data-value="single">Piece</button>
+                    <button type="button" class="pair-btn ${pairType === 'pair' ? 'active' : ''}" data-value="pair">Pair</button>
+                </div>`;
+            row.find('.pair-type-container').html(pairHtml);
+            row.find('.pair-type-input').val(pairType);
+            // Set correct price immediately
+            row.find('.item-price').val(pairType === 'pair' ? pairPrice : singlePrice);
+        }
+
         row.find('.item-qty').val(qty);
         row.find('.item-discount-type').val(discountType);
         row.find('.item-discount-value').val(discountValue);
@@ -512,6 +570,23 @@ $(document).ready(function () {
         row.data('variant-id', variantId);
         row.find('.item-price').val(price);
         
+        updateRowTotal(row);
+        updateStockInfo(row);
+        updateSummary();
+    });
+
+    // Pair type toggle (Single / Pair)
+    $(document).on('click', '.pair-btn', function () {
+        const toggle = $(this).closest('.pair-type-toggle');
+        const row = $(this).closest('.item-row');
+        const selected = $(this).data('value');
+        toggle.find('.pair-btn').removeClass('active');
+        $(this).addClass('active');
+        row.find('.pair-type-input').val(selected);
+        const price = selected === 'pair'
+            ? parseFloat(toggle.data('pair-price'))
+            : parseFloat(toggle.data('single-price'));
+        row.find('.item-price').val(price);
         updateRowTotal(row);
         updateStockInfo(row);
         updateSummary();
@@ -547,6 +622,8 @@ $(document).ready(function () {
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
+        const product = row.data('product');
+        const isPair = row.find('.pair-type-input').val() === 'pair';
 
         if (!productId) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').hide();
@@ -555,24 +632,31 @@ $(document).ready(function () {
 
         $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
-                const qty = res.data?.quantity ?? 0;
+                let rawQty = res.data?.quantity ?? 0;
+                // For pair products show available qty based on mode
+                const displayQty = (product && product.pair_product && isPair)
+                    ? Math.floor(rawQty / 2)
+                    : rawQty;
+
                 const breakdown = res.data?.breakdown || [];
-                
                 let titleText = 'Stock Breakdown:\n';
                 if (breakdown.length > 0) {
                     breakdown.forEach(item => {
-                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
+                        const bQty = (product && product.pair_product && isPair)
+                            ? Math.floor(item.quantity / 2)
+                            : item.quantity;
+                        titleText += `- ${item.location_name}: ${bQty}\n`;
                     });
                 } else {
                     titleText += 'No stock in any branch';
                 }
-                
+
                 stockDisplay
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+                    .text(displayQty === 0 ? 'Out of Stock' : 'Stock: ' + displayQty)
                     .attr('title', titleText.trim())
                     .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+                    .removeClass('bg-label-success bg-label-danger bg-label-warning')
+                    .addClass(displayQty > 0 ? (displayQty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
                     .show();
             });
     }
@@ -740,6 +824,7 @@ $(document).ready(function () {
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${price}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
@@ -767,15 +852,22 @@ $(document).ready(function () {
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Sale');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
+                    let shownToastr = false;
                     $.each(errors, function (field, messages) {
+                        // items array errors (e.g. stock errors) — show as toastr
+                        if (field === 'items' || field.startsWith('items.')) {
+                            if (!shownToastr) {
+                                toastr.error(Array.isArray(messages) ? messages[0] : messages);
+                                shownToastr = true;
+                            }
+                            return;
+                        }
                         let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
                         if (input.length > 0) {
                             input.addClass('is-invalid');
-                            
                             if (input.hasClass('select2-hidden-accessible')) {
                                 input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
                             }
-                            
                             let container = input.closest('.input-group');
                             if (container.length > 0) {
                                 container.siblings('.invalid-feedback').text(messages[0]).show();
@@ -784,6 +876,9 @@ $(document).ready(function () {
                             }
                         }
                     });
+                    if (!shownToastr && Object.keys(errors).length === 0) {
+                        toastr.error('Something went wrong. Please try again.');
+                    }
                 } else {
                     toastr.error('Something went wrong. Please try again.');
                 }
