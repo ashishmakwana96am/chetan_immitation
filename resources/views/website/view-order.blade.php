@@ -358,6 +358,10 @@
                 $shippingCost = $hasFreeShipping ? 0 : 99;
                 $discount = $subtotal - $finalAmount;
                 if ($discount < 0) $discount = 0;
+                $canCancelOrder = in_array((int) $order->status, [
+                    \App\Models\Order::STATUS_PENDING,
+                    \App\Models\Order::STATUS_APPROVE,
+                ], true);
             @endphp
             <div class="space-y-5">
                 <!-- Delivery Details -->
@@ -451,6 +455,11 @@
                             </svg>
                             Download Invoice
                         </a>
+                        @if($canCancelOrder)
+                        <button type="button" id="openCancelOrderModal" class="flex items-center justify-center w-full h-[52px] border mt-4 border-red-500 text-red-600 text-lg font-medium transition bg-transparent hover:text-white hover:bg-red-600 hover:border-red-600">
+                            Cancel Order
+                        </button>
+                        @endif
                         <a href="{{ route('customer.profile') }}" class="flex items-center justify-center w-full h-[52px] border mt-4 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] text-print-hide">
                             Back To Orders
                         </a>
@@ -460,6 +469,39 @@
         </div>
     </div>
 </section>
+
+@if($canCancelOrder)
+<div id="cancelOrderModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-[520px] bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-[#E5E5E5] p-5">
+            <div>
+                <h3 class="text-[#131615] text-xl font-semibold">Cancel Order</h3>
+                <p class="text-[#757575] text-sm mt-1">Please share a short remark so our team can process the cancellation.</p>
+            </div>
+            <button type="button" class="cancel-order-close text-[#757575] hover:text-[#131615] text-2xl leading-none" aria-label="Close cancel order dialog">&times;</button>
+        </div>
+        <form id="cancelOrderForm" action="{{ route('customer.profile.cancel-order', $order->id) }}" method="POST" class="p-5">
+            @csrf
+            <label for="cancelOrderRemark" class="block text-sm font-semibold text-[#131615] mb-2">
+                Cancellation Remark <span class="text-red-600">*</span>
+            </label>
+            <textarea id="cancelOrderRemark" name="cancellation_reason" rows="4" maxlength="500" class="w-full border border-[#D5D5D5] px-4 py-3 outline-none text-[#131615] placeholder:text-[#757575] resize-none focus:border-[#B4771E]" placeholder="Tell us why you want to cancel this order"></textarea>
+            <div class="mt-2 flex items-center justify-between gap-3">
+                <p id="cancelOrderError" class="hidden text-sm text-red-600"></p>
+                <p class="ml-auto text-xs text-[#757575]"><span id="cancelRemarkCount">0</span>/500</p>
+            </div>
+            <div class="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium hover:border-[#131615]">
+                    Keep Order
+                </button>
+                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                    Confirm Cancellation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
 
 <!-- Follow Our Jewellery Journey Section -->
 <section class="section-space-bottom">
@@ -503,6 +545,102 @@
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('cancelOrderModal');
+    const openBtn = document.getElementById('openCancelOrderModal');
+    const form = document.getElementById('cancelOrderForm');
+    const remark = document.getElementById('cancelOrderRemark');
+    const errorEl = document.getElementById('cancelOrderError');
+    const countEl = document.getElementById('cancelRemarkCount');
+    const submitBtn = document.getElementById('confirmCancelOrderBtn');
+
+    if (!modal || !openBtn || !form || !remark || !errorEl || !countEl || !submitBtn) return;
+
+    function showCancelError(message) {
+        errorEl.textContent = message || '';
+        errorEl.classList.toggle('hidden', !message);
+    }
+
+    function openCancelModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        remark.focus();
+    }
+
+    function closeCancelModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        form.reset();
+        countEl.textContent = '0';
+        showCancelError('');
+    }
+
+    openBtn.addEventListener('click', openCancelModal);
+
+    modal.querySelectorAll('.cancel-order-close').forEach(btn => {
+        btn.addEventListener('click', closeCancelModal);
+    });
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeCancelModal();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeCancelModal();
+    });
+
+    remark.addEventListener('input', function () {
+        countEl.textContent = remark.value.length;
+        if (remark.value.trim().length >= 5) showCancelError('');
+    });
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const reason = remark.value.trim();
+        if (reason.length < 5) {
+            showCancelError('Please enter a cancellation remark of at least 5 characters.');
+            remark.focus();
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Cancelling...';
+        showCancelError('');
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ cancellation_reason: reason })
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Unable to cancel this order.');
+            }
+            return data;
+        })
+        .then(data => {
+            if (window.showWishlistToast) {
+                window.showWishlistToast(data.message || 'Order cancelled successfully.', true);
+            }
+            setTimeout(() => window.location.reload(), 900);
+        })
+        .catch(error => {
+            showCancelError(error.message || 'Something went wrong. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm Cancellation';
+        });
+    });
+});
 
 function paintReviewStars(container, rating) {
     const value = parseFloat(rating) || 0;

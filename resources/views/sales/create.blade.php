@@ -47,6 +47,10 @@
     #itemsTable .item-qty {
         border-radius: 0.375rem !important;
     }
+    #itemsTable .item-price[readonly] {
+        background-color: #f8f9fa;
+        cursor: default;
+    }
     #itemsTable .input-group {
         flex-wrap: nowrap !important;
     }
@@ -313,7 +317,7 @@
                     <span class="input-group-text">{{ currency_symbol() }}</span>
                     <input type="number" name="items[__INDEX__][price]"
                         class="form-control item-price"
-                        placeholder="0.00" step="0.01" min="0" value="0" />
+                        placeholder="0.00" step="0.01" min="0" value="0" readonly />
                 </div>
             </td>
             <td class="align-middle">

@@ -106,11 +106,11 @@
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Avg Transaction</span>
-                                <h4 class="mb-0 mt-1 text-info">{{ format_price($avgAmount) }}</h4>
-                                <small class="text-muted">per transaction</small>
+                                <span class="text-muted">Pending Amount</span>
+                                <h4 class="mb-0 mt-1 text-warning">{{ format_price($pendingAmount) }}</h4>
+                                <small class="text-muted">{{ $pendingCount }} pending payment{{ $pendingCount != 1 ? 's' : '' }}</small>
                             </div>
-                            <span class="badge bg-label-info rounded p-2"><i class="ti ti-calculator ti-sm"></i></span>
+                            <span class="badge bg-label-warning rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
@@ -194,6 +194,14 @@
                             @endforeach
                         </select>
                     </div>
+                    <div class="col-md-2 col-sm-6">
+                        <label class="form-label">Payment Status</label>
+                        <select name="payment_status" class="form-select no-select2">
+                            <option value="">All Statuses</option>
+                            <option value="{{ \App\Models\Order::PAYMENT_STATUS_PENDING }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PENDING ? 'selected' : '' }}>Pending</option>
+                            <option value="{{ \App\Models\Order::PAYMENT_STATUS_PAID }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PAID ? 'selected' : '' }}>Paid</option>
+                        </select>
+                    </div>
                 </form>
             </div>
         </div>
@@ -234,8 +242,8 @@
                                     default  => ucwords(str_replace('_', ' ', $normalizedMethod ?? '')),
                                 };
                                 if ($payment) {
-                                    $statusLabel = ucfirst($payment->status);
-                                    $statusClass = 'status-' . $payment->status;
+                                    $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
+                                    $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
                                 } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                                     $statusLabel = 'Paid';
                                     $statusClass = 'status-paid';
@@ -281,6 +289,13 @@
     let paymentMethodChart = null;
     let sourceChart = null;
 
+    function formatChartAmount(value) {
+        return parseFloat(value || 0).toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
     function renderDonutChart(elementId, chartRef, data, colors) {
         if (chartRef) { chartRef.destroy(); chartRef = null; }
         const keys = Object.keys(data);
@@ -293,6 +308,11 @@
                 legend: { position: 'bottom' },
                 dataLabels: { enabled: true },
                 colors: colors,
+                tooltip: {
+                    y: {
+                        formatter: value => formatChartAmount(value)
+                    }
+                },
             });
             chartRef.render();
         } else {
@@ -324,7 +344,7 @@
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
-                        formatter: val => '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        formatter: val => '{{ currency_symbol() }}' + formatChartAmount(val)
                     }
                 }
             });

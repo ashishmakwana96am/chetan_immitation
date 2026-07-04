@@ -947,6 +947,7 @@ class ReportController extends Controller
         $locationId    = $request->query('location_id');
         $source        = $request->query('source');
         $paymentMethod = $request->query('payment_method');
+        $paymentStatus = $request->query('payment_status');
 
         $user = auth()->user();
         $isSuperAdmin = $user->hasRole('super-admin');
@@ -990,6 +991,9 @@ class ReportController extends Controller
                 $query->where('payment_method', $paymentMethod);
             }
         }
+        if ($paymentStatus) {
+            $query->where('payment_status', $paymentStatus);
+        }
 
         $orders = $query->latest()->get();
 
@@ -997,6 +1001,9 @@ class ReportController extends Controller
         $totalAmount = (float) $orders->sum('final_amount');
         $totalCount  = $orders->count();
         $avgAmount   = $totalCount > 0 ? $totalAmount / $totalCount : 0.0;
+        $pendingOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING);
+        $pendingAmount = (float) $pendingOrders->sum('final_amount');
+        $pendingCount  = $pendingOrders->count();
 
         $normalizePaymentMethod = function (?string $method): string {
             return match ($method) {
@@ -1047,6 +1054,8 @@ class ReportController extends Controller
             'totalAmount',
             'totalCount',
             'avgAmount',
+            'pendingAmount',
+            'pendingCount',
             'paymentTrend',
             'paymentMethodData',
             'sourceData',
@@ -1056,6 +1065,7 @@ class ReportController extends Controller
             'endDate',
             'source',
             'paymentMethod',
+            'paymentStatus',
             'locationId',
             'isSuperAdmin'
         ));
