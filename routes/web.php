@@ -141,6 +141,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'destroy'])->name('contact-inquiries.destroy');
 
         // Products
+        Route::get('products/import/sample', [ProductController::class, 'downloadSampleCsv'])->name('products.import.sample');
+        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::get('products/search', [ProductController::class, 'search'])->name('products.search');

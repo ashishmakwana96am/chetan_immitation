@@ -19,7 +19,7 @@ class SuperAdminSeeder extends Seeder
                 'name'     => 'Super Admin',
                 'phone'    => null,
                 'password' => Hash::make('Test@123'),
-                'type'     => 'super-admin',
+                'role_id'  => $role->id,
                 'status'   => 1,
             ]
         );

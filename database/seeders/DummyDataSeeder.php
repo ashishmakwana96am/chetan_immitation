@@ -87,7 +87,6 @@ class DummyDataSeeder extends Seeder
                 AttributeValue::create([
                     'attribute_id' => $attribute->id,
                     'value'        => $value,
-                    'status'       => 1,
                 ]);
             }
         }

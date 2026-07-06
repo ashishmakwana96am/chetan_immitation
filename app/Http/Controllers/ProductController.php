@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Location;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\AttributeValue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -690,6 +691,319 @@ class ProductController extends Controller
         $barcode = $generator->getBarcode($product->barcode, $generator::TYPE_CODE_128);
 
         return response($barcode, 200)->header('Content-Type', 'image/svg+xml');
+    }
+
+
+    public function downloadSampleCsv()
+    {
+        $this->authorize('create products');
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="sample_products_import.csv"',
+        ];
+
+        $callback = function () {
+            $file = fopen('php://output', 'w');
+            // Write headers
+            fputcsv($file, [
+                'Name',
+                'SKU',
+                'Barcode',
+                'Product Code',
+                'Category',
+                'Sub Category',
+                'Description',
+                'Type',
+                'Attribute Name',
+                'Attribute Values'
+            ]);
+
+            // Sample rows:
+            // 1. Normal Product
+            fputcsv($file, [
+                'Gold Plated Ring',
+                'GPR-001',
+                'BAR-8901201',
+                '120.00',
+                'Rings',
+                'Gold Rings',
+                'Beautiful gold plated brass ring',
+                'normal',
+                '',
+                ''
+            ]);
+
+            // 2. Variable Product
+            fputcsv($file, [
+                'Bridal Choker Set',
+                'BCS-002',
+                'BAR-8901202',
+                '250.00',
+                'Necklace Sets',
+                'Bridal Sets',
+                'Premium imitation bridal choker set',
+                'variable',
+                'Color',
+                'Gold, Silver, Rose Gold'
+            ]);
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function import(Request $request)
+    {
+        $this->authorize('create products');
+
+        $request->validate([
+            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'], // Max 5MB
+        ]);
+
+        $file = $request->file('csv_file');
+        $path = $file->getRealPath();
+
+        // Parse CSV
+        $rows = [];
+        if (($handle = fopen($path, 'r')) !== false) {
+            $header = null;
+            while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                if (!$header) {
+                    $rawHeader = array_map('trim', $row);
+                    // Normalize header columns (remove spaces, underscores, lowercase)
+                    $normalizedHeader = [];
+                    foreach ($rawHeader as $col) {
+                        $norm = str_replace([' ', '_'], '', strtolower($col));
+                        if ($norm === 'subcategory') {
+                            $normalizedHeader[] = 'sub_category';
+                        } elseif ($norm === 'productcode') {
+                            $normalizedHeader[] = 'product_code';
+                        } elseif ($norm === 'attributename') {
+                            $normalizedHeader[] = 'attribute_name';
+                        } elseif ($norm === 'attributevalues') {
+                            $normalizedHeader[] = 'attribute_values';
+                        } else {
+                            $normalizedHeader[] = $norm;
+                        }
+                    }
+                    $header = $normalizedHeader;
+                } else {
+                    if (count($header) == count($row)) {
+                        $rows[] = array_combine($header, array_map('trim', $row));
+                    }
+                }
+            }
+            fclose($handle);
+        }
+
+        if (empty($rows)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => ['The uploaded CSV file is empty or invalid.']
+            ], 422);
+        }
+
+        // Helper rounding function
+        $roundToNearest5 = function ($val) {
+            return ceil(floatval($val) / 5) * 5;
+        };
+
+        $importedCount = 0;
+        $errors = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $index => $row) {
+                $rowNum = $index + 2; // 1-based, +1 for header
+
+                // Validate required fields
+                $name = $row['name'] ?? null;
+                $sku = $row['sku'] ?? null;
+                $barcode = $row['barcode'] ?? null;
+                $productCode = $row['product_code'] ?? null;
+                $categoryName = $row['category'] ?? null;
+                $type = strtolower($row['type'] ?? 'normal');
+
+                if (empty($name) || empty($sku) || empty($barcode) || empty($productCode) || empty($categoryName)) {
+                    $errors[] = "Row {$rowNum}: Missing required product details (name, sku, barcode, product_code, and category are required).";
+                    continue;
+                }
+
+                if (!is_numeric($productCode) || $productCode <= 0) {
+                    $errors[] = "Row {$rowNum}: Product code must be a valid positive number.";
+                    continue;
+                }
+
+                if (!in_array($type, ['normal', 'variable'], true)) {
+                    $errors[] = "Row {$rowNum}: Type must be either 'normal' or 'variable'.";
+                    continue;
+                }
+
+                // Check uniqueness in database
+                if (Product::where('sku', $sku)->exists()) {
+                    $errors[] = "Row {$rowNum}: Product SKU '{$sku}' already exists in the system.";
+                    continue;
+                }
+                if (Product::where('barcode', $barcode)->exists()) {
+                    $errors[] = "Row {$rowNum}: Product Barcode '{$barcode}' already exists in the system.";
+                    continue;
+                }
+
+                // Find or create category
+                $category = Category::firstOrCreate(
+                    [
+                        'name' => $categoryName
+                    ],
+                    [
+                        'slug' => generate_slug(Category::class, $categoryName),
+                        'status' => 1,
+                        'created_by' => auth()->id()
+                    ]
+                );
+
+                // Find or create subcategory if provided
+                $subCategoryId = null;
+                $subCategoryName = $row['sub_category'] ?? null;
+                if (!empty($subCategoryName)) {
+                    $subCategory = SubCategory::firstOrCreate(
+                        [
+                            'category_id' => $category->id,
+                            'name' => $subCategoryName
+                        ],
+                        [
+                            'slug' => generate_slug(SubCategory::class, $subCategoryName),
+                            'status' => 1,
+                            'created_by' => auth()->id()
+                        ]
+                    );
+                    $subCategoryId = $subCategory->id;
+                }
+
+                // Calculate prices
+                $purchasePrice = floatval($productCode) * 2.5;
+                $salePrice = $roundToNearest5(floatval($productCode) * 4.125);
+                $mrp = $roundToNearest5($salePrice * 0.9);
+
+                // Create Product
+                $product = Product::create([
+                    'name' => $name,
+                    'slug' => generate_slug(Product::class, $name),
+                    'category_id' => $category->id,
+                    'sub_category_id' => $subCategoryId,
+                    'sku' => $sku,
+                    'barcode' => $barcode,
+                    'product_code' => $productCode,
+                    'description' => $row['description'] ?? $name,
+                    'purchase_price' => $purchasePrice,
+                    'sale_price' => $salePrice,
+                    'mrp' => $mrp,
+                    'type' => $type,
+                    'status' => Product::STATUS_ACTIVE, // 1 = Active
+                    'created_by' => auth()->id(),
+                    'sort_order' => ((int) Product::max('sort_order')) + 1,
+                ]);
+
+                // Create default image
+                $destDefaultPath = public_path('uploads/products/default.png');
+                if (!file_exists($destDefaultPath)) {
+                    $srcPath = public_path('website/assets/images/Royal_Bridal.png');
+                    if (file_exists($srcPath)) {
+                        if (!file_exists(dirname($destDefaultPath))) {
+                            mkdir(dirname($destDefaultPath), 0755, true);
+                        }
+                        copy($srcPath, $destDefaultPath);
+                    }
+                }
+
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => 'products/default.png',
+                    'is_primary' => true,
+                    'created_by' => auth()->id(),
+                ]);
+
+                // Create variants for variable product
+                if ($type === 'variable') {
+                    $attributeName = $row['attribute_name'] ?? null;
+                    $attributeValuesStr = $row['attribute_values'] ?? null;
+
+                    if (empty($attributeName) || empty($attributeValuesStr)) {
+                        $errors[] = "Row {$rowNum}: Variable product '{$name}' must have attribute_name and attribute_values.";
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => ["Row {$rowNum}: Variable product '{$name}' must have attribute_name and attribute_values."]
+                        ], 422);
+                    }
+
+                    // Find or create Attribute
+                    $attribute = Attribute::firstOrCreate(
+                        [
+                            'name' => $attributeName
+                        ],
+                        [
+                            'slug' => generate_slug(Attribute::class, $attributeName),
+                            'status' => Attribute::STATUS_ACTIVE,
+                            'created_by' => auth()->id(),
+                            'sort_order' => ((int) Attribute::max('sort_order')) + 1
+                        ]
+                    );
+
+                    // Split values
+                    $attrValues = array_filter(array_map('trim', explode(',', $attributeValuesStr)));
+                    if (empty($attrValues)) {
+                        $errors[] = "Row {$rowNum}: No valid attribute values found in '{$attributeValuesStr}'.";
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => ["Row {$rowNum}: No valid attribute values found in '{$attributeValuesStr}'."]
+                        ], 422);
+                    }
+
+                    foreach ($attrValues as $val) {
+                        // Find or create AttributeValue
+                        $attributeValue = AttributeValue::firstOrCreate([
+                            'attribute_id' => $attribute->id,
+                            'value' => $val
+                        ]);
+
+                        // Create variant
+                        ProductVariant::create([
+                            'product_id' => $product->id,
+                            'attribute_value_id' => $attributeValue->id,
+                            'purchase_price' => $purchasePrice,
+                            'sale_price' => $salePrice,
+                            'status' => ProductVariant::STATUS_ACTIVE
+                        ]);
+                    }
+                }
+
+                $importedCount++;
+            }
+
+            if (!empty($errors)) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $errors
+                ], 422);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => ['An unexpected error occurred: ' . $e->getMessage()]
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Successfully imported {$importedCount} products."
+        ]);
     }
 
 }

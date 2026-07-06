@@ -17,6 +17,9 @@ class VariableProductSeeder extends Seeder
         $category = Category::where('name', 'Bangles & Kada')->first() ?? Category::first();
         $subCategory = SubCategory::where('name', 'Designer Kada')->first() ?? SubCategory::first();
 
+        $admin = \App\Models\User::first();
+        $adminId = $admin ? $admin->id : 1;
+
         $earringsCategory = Category::where('name', 'Earrings & Jhumkas')->first() ?? Category::first();
         $earringsSub = SubCategory::where('name', 'Traditional Jhumkas')->first() ?? SubCategory::first();
 
@@ -42,7 +45,7 @@ class VariableProductSeeder extends Seeder
                 'sale_price'      => 900,
                 'type'            => 'variable',
                 'status'          => 1,
-                'created_by'      => 1,
+                'created_by'      => $adminId,
             ]);
 
             ProductVariant::create([
@@ -85,7 +88,7 @@ class VariableProductSeeder extends Seeder
                 'sale_price'      => 450,
                 'type'            => 'variable',
                 'status'          => 1,
-                'created_by'      => 1,
+                'created_by'      => $adminId,
             ]);
 
             ProductVariant::create([

@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Setting extends Model
 {
     use SoftDeletes;
+
+    public static function bootSoftDeletes()
+    {
+        if (!app()->runningInConsole() || (\Illuminate\Support\Facades\Schema::hasTable('settings') && \Illuminate\Support\Facades\Schema::hasColumn('settings', 'deleted_at'))) {
+            static::addGlobalScope(new \Illuminate\Database\Eloquent\SoftDeletingScope);
+        }
+    }
+
     protected $fillable = ['key', 'value'];
 
     public static function getValue(string $key, mixed $default = null): mixed

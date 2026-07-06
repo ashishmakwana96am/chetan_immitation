@@ -611,7 +611,7 @@
 
     @if(!request()->routeIs(['login', 'register', 'forgot-password', 'otp-verification', 'customer.reset-password', 'password.reset']))
     <!-- Newsletter -->
-    <section class="relative">
+    <!-- <section class="relative">
         <div class="relative py-[80px] overflow-hidden">
             <img src="{{ asset('website/assets/images/Newsletter.png') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
             <div class="absolute inset-0 bg-[#131615]/70"></div>
@@ -636,7 +636,7 @@
                 </div>
             </div>
         </div>
-    </section>
+    </section> -->
     @endif
 
     <!-- Footer -->
