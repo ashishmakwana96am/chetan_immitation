@@ -17,7 +17,7 @@ class ProductReviewController extends Controller
     {
         $this->authorize('view product reviews');
 
-        $query = ProductReview::with(['product', 'customer', 'images'])->orderBy('id', 'desc');
+        $query = ProductReview::with(['product.primaryImage', 'customer', 'images'])->orderBy('id', 'desc');
 
         if ($request->filled('rating')) {
             $query->where('rating', $request->rating);
@@ -53,14 +53,20 @@ class ProductReviewController extends Controller
             $photoHtml = '<span class="text-muted">-</span>';
             if ($review->images->isNotEmpty()) {
                 $photoHtml = '<div class="d-flex gap-1">' . $review->images->map(function ($img) {
-                    return '<a href="' . $img->image_url . '" target="_blank"><img src="' . $img->image_url . '" class="rounded" style="width:40px;height:40px;object-fit:cover;" alt="Review photo"></a>';
+                    return '<img src="' . $img->image_url . '" class="rounded product-thumbnail" style="width:40px;height:40px;object-fit:cover;" alt="Review photo">';
                 })->implode('') . '</div>';
             }
 
+            $productImageHtml = $review->product?->primaryImage
+                ? '<img src="' . e($review->product->primaryImage->image_url) . '" alt="' . e($review->product->name ?? '') . '" class="rounded me-2 product-thumbnail" style="width: 36px; height: 36px; object-fit: cover;">'
+                : '<div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;"><i class="ti ti-photo text-muted"></i></div>';
+
             return [
                 'index'      => $index + 1,
-                'product'    => '<span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
-                              . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : ''),
+                'product'    => '<div class="d-flex align-items-center">' . $productImageHtml
+                              . '<div><span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
+                              . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : '')
+                              . '</div></div>',
                 'customer'   => e($review->customer->name ?? '-'),
                 'rating'     => $starsHtml,
                 'comment'    => $commentHtml,

@@ -63,15 +63,18 @@ class CategoryController extends Controller
             }
 
             return [
-                'id'          => $category->id,
-                'index'       => $index + 1,
-                'image'       => $image,
-                'name'        => $category->name,
-                'slug'        => '<code>' . $category->slug . '</code>',
-                'is_featured' => $featured,
-                'status'      => $status,
-                'created_at'  => format_date($category->created_at),
-                'actions'     => $actions,
+                'id'                   => $category->id,
+                'index'                => $index + 1,
+                'image'                => $image,
+                'name'                 => $category->name,
+                'slug'                 => '<code>' . $category->slug . '</code>',
+                'is_featured'          => $featured,
+                'status'               => $status,
+                'low_stock_threshold'  => $category->low_stock_threshold !== null
+                    ? (string) $category->low_stock_threshold
+                    : '<span class="text-muted">Default (' . Category::DEFAULT_LOW_STOCK_THRESHOLD . ')</span>',
+                'created_at'           => format_date($category->created_at),
+                'actions'              => $actions,
             ];
         });
 
@@ -89,8 +92,9 @@ class CategoryController extends Controller
         $this->authorize('create categories');
 
         $validator = Validator::make($request->all(), [
-            'name'         => ['required', 'string', 'max:100', 'unique:categories,name'],
-            'image_base64' => ['required', 'string'],
+            'name'                 => ['required', 'string', 'max:100', 'unique:categories,name'],
+            'image_base64'         => ['required', 'string'],
+            'low_stock_threshold'  => ['required', 'integer', 'min:0'],
         ], [
             'image_base64.required' => 'The category image field is required.',
         ]);
@@ -143,13 +147,14 @@ class CategoryController extends Controller
         }
 
         Category::create([
-            'name'        => $request->name,
-            'slug'        => generate_slug(Category::class, $request->name),
-            'image'       => $imagePath,
-            'status'      => $request->has('status') ? 1 : 2,
-            'is_featured' => $request->has('is_featured') ? true : false,
-            'created_by'  => auth()->id(),
-            'sort_order'  => ((int) Category::max('sort_order')) + 1,
+            'name'                => $request->name,
+            'slug'                => generate_slug(Category::class, $request->name),
+            'image'               => $imagePath,
+            'status'              => $request->has('status') ? 1 : 2,
+            'is_featured'         => $request->has('is_featured') ? true : false,
+            'created_by'          => auth()->id(),
+            'sort_order'          => ((int) Category::max('sort_order')) + 1,
+            'low_stock_threshold' => (int) $request->low_stock_threshold,
         ]);
 
         return response()->json([
@@ -169,8 +174,9 @@ class CategoryController extends Controller
         $this->authorize('edit categories');
 
         $validator = Validator::make($request->all(), [
-            'name'         => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
-            'image_base64' => ['nullable', 'string'],
+            'name'                => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
+            'image_base64'        => ['nullable', 'string'],
+            'low_stock_threshold' => ['required', 'integer', 'min:0'],
         ]);
 
         $validator->after(function ($validator) use ($request, $category) {
@@ -251,11 +257,12 @@ class CategoryController extends Controller
         }
 
         $category->update([
-            'name'        => $request->name,
-            'slug'        => generate_slug(Category::class, $request->name, $category->id),
-            'image'       => $imagePath,
-            'status'      => $request->has('status') ? 1 : 2,
-            'is_featured' => $request->has('is_featured') ? true : false,
+            'name'                => $request->name,
+            'slug'                => generate_slug(Category::class, $request->name, $category->id),
+            'image'               => $imagePath,
+            'status'              => $request->has('status') ? 1 : 2,
+            'is_featured'         => $request->has('is_featured') ? true : false,
+            'low_stock_threshold' => (int) $request->low_stock_threshold,
         ]);
 
         return response()->json([

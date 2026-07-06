@@ -60,14 +60,12 @@ class ProductController extends Controller
             $q->where('status', $request->status);
         });
 
-        // Apply stock_status filter at DB level for accuracy and performance
         if ($request->stock_status === 'in_stock') {
             $query->whereHas('inventories', function($q) use ($locationId) {
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                 $q->where('quantity', '>', 0);
             });
         } elseif ($request->stock_status === 'out_of_stock') {
-            // Products that have no inventory row with quantity > 0 (for the given location scope)
             $query->whereDoesntHave('inventories', function($q) use ($locationId) {
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                 $q->where('quantity', '>', 0);
@@ -88,7 +86,7 @@ class ProductController extends Controller
             }
 
             $image = $product->primaryImage
-                ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover">'
+                ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover product-thumbnail" alt="' . e($product->name) . '">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
 
             $status = $product->status == 1

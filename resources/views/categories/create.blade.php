@@ -38,6 +38,14 @@
             </div>
         </div>
 
+        <!-- Low Stock Threshold -->
+        <div class="col-12">
+            <label class="form-label" for="lowStockThreshold">Low Stock Threshold <span class="text-danger">*</span></label>
+            <input type="number" id="lowStockThreshold" name="low_stock_threshold"
+                class="form-control" min="0" value="{{ \App\Models\Category::DEFAULT_LOW_STOCK_THRESHOLD }}" />
+            <div class="invalid-feedback"></div>
+        </div>
+
         <!-- Featured & Status (One line show) -->
         <div class="col-12 mt-2">
             <div class="d-flex align-items-center gap-5">

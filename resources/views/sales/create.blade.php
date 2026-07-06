@@ -23,11 +23,11 @@
         min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
-        width: 20% !important;
-        min-width: 110px !important;
+        width: 12% !important;
+        min-width: 90px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 20% !important;
+        width: 28% !important;
         min-width: 130px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
@@ -46,10 +46,6 @@
     /* Make inputs look consistent and prevent clipping */
     #itemsTable .item-qty {
         border-radius: 0.375rem !important;
-    }
-    #itemsTable .item-price[readonly] {
-        background-color: #f8f9fa;
-        cursor: default;
     }
     #itemsTable .input-group {
         flex-wrap: nowrap !important;
@@ -303,12 +299,8 @@
                     placeholder="1" min="1" value="1" />
             </td>
             <td class="align-middle">
-                <div class="input-group">
-                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                    <input type="number" name="items[__INDEX__][price]"
-                        class="form-control item-price"
-                        placeholder="0.00" step="0.01" min="0" value="0" readonly />
-                </div>
+                <span class="item-price-display fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
+                <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
             <td class="align-middle">
                 <div class="input-group">
@@ -341,6 +333,16 @@ $(document).ready(function () {
     const symbol      = '{{ currency_symbol() }}';
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function setItemPrice(row, price) {
+        const val = parseFloat(price) || 0;
+        row.find('.item-price').val(val);
+        row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
+    }
+    function getMinAllowedTotal(row) {
+        const qty = parseInt(row.find('.item-qty').val()) || 0;
+        const purchasePrice = parseFloat(row.data('purchase-price')) || 0;
+        return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
     }
     function setProductImage(container, product) {
         if (product.image) {
@@ -508,24 +510,27 @@ $(document).ready(function () {
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
             product.variants.forEach(v => {
                 const optPrice = v.sale_price != null ? v.sale_price : 0;
+                const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = (selectedVariantId && selectedVariantId == v.id) || (!selectedVariantId && product.variants[0].id == v.id) ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
-            
+
             // Set initial variant
             const selectedOpt = row.find('.variant-select option:selected');
             const initialVariantId = selectedOpt.val();
             const initialPrice = price != null ? price : selectedOpt.data('price');
-            
+
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
-            row.find('.item-price').val(initialPrice);
+            row.data('purchase-price', selectedOpt.data('purchase-price'));
+            setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('SKU: ' + product.sku);
         } else {
             row.find('.product-sku-display').text('SKU: ' + product.sku);
-            row.find('.item-price').val(price != null ? price : (product.price != null ? product.price : 0));
+            row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
+            setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
         row.find('.item-qty').val(qty);
@@ -547,8 +552,9 @@ $(document).ready(function () {
         
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
-        row.find('.item-price').val(price);
-        
+        row.data('purchase-price', selectedOpt.data('purchase-price'));
+        setItemPrice(row, price);
+
         updateRowTotal(row);
         updateStockInfo(row);
         updateSummary();
@@ -651,6 +657,25 @@ $(document).ready(function () {
 
         if (discount > subtotal) discount = subtotal;
 
+        const minTotal = getMinAllowedTotal(row);
+        if (minTotal > 0) {
+            const maxAllowedDiscount = subtotal - minTotal;
+            if (discount > maxAllowedDiscount) {
+                discount = Math.max(0, maxAllowedDiscount);
+
+                const clampedDiscVal = (discType === 'percentage' && subtotal > 0)
+                    ? (discount / subtotal) * 100
+                    : discount;
+                row.find('.item-discount-value').val(parseFloat(clampedDiscVal.toFixed(2)));
+
+                if (!row.data('min-price-warned')) {
+                    toastr.warning('Discount is not applicable to this order.');
+                    row.data('min-price-warned', true);
+                    setTimeout(() => row.data('min-price-warned', false), 3000);
+                }
+            }
+        }
+
         const total    = subtotal - discount;
         if (row.hasClass('parent-row')) {
             row.find('.parent-total').text(symbol + ' ' + formatPrice(total));
@@ -663,6 +688,7 @@ $(document).ready(function () {
     function updateSummary() {
         let subtotalSum = 0;
         let discountSum = 0;
+        let minFloorTotal = 0;
         let count       = 0;
         $('#itemsBody .item-row').each(function () {
             const qty      = parseInt($(this).find('.item-qty').val()) || 0;
@@ -681,6 +707,15 @@ $(document).ready(function () {
             }
 
             if (discount > subtotal) discount = subtotal;
+
+            const minTotal = getMinAllowedTotal($(this));
+            if (minTotal > 0) {
+                const maxAllowedDiscount = subtotal - minTotal;
+                if (discount > maxAllowedDiscount) {
+                    discount = Math.max(0, maxAllowedDiscount);
+                }
+                minFloorTotal += minTotal;
+            }
 
             subtotalSum += subtotal;
             discountSum += discount;
@@ -704,6 +739,27 @@ $(document).ready(function () {
 
         if (orderDiscountAmount > itemsTotal) {
             orderDiscountAmount = itemsTotal;
+        }
+
+        // The order-level discount must not push the overall total below the
+        // combined purchase price + 10% floor of all items.
+        if (minFloorTotal > 0) {
+            const maxAllowedOrderDiscount = itemsTotal - minFloorTotal;
+            if (orderDiscountAmount > maxAllowedOrderDiscount) {
+                orderDiscountAmount = Math.max(0, maxAllowedOrderDiscount);
+
+                const clampedOrderDiscVal = (orderDiscType === 'percentage' && itemsTotal > 0)
+                    ? (orderDiscountAmount / itemsTotal) * 100
+                    : orderDiscountAmount;
+                $('#orderDiscountValueInput').val(parseFloat(clampedOrderDiscVal.toFixed(2)));
+                $('#overallDiscountValue').val(parseFloat(clampedOrderDiscVal.toFixed(2)));
+
+                if (!window.__orderMinPriceWarned) {
+                    toastr.warning('Discount is not applicable.');
+                    window.__orderMinPriceWarned = true;
+                    setTimeout(() => window.__orderMinPriceWarned = false, 3000);
+                }
+            }
         }
 
         const finalAmount = itemsTotal - orderDiscountAmount;

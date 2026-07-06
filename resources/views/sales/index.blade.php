@@ -37,6 +37,76 @@
             align-items: center;
             margin-top: 2px;
         }
+
+        .stock-warning-tooltip .tooltip-inner {
+            max-width: 340px;
+            width: 340px;
+            padding: 14px 16px;
+            text-align: left;
+            background-color: #2b2c40;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        .stock-warning-tooltip .tooltip-arrow::before {
+            border-top-color: #2b2c40 !important;
+        }
+        .stock-warning-tooltip .sw-item + .sw-item {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .stock-warning-tooltip .sw-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .stock-warning-tooltip .sw-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #ff8a8a;
+            background: rgba(255, 90, 90, 0.15);
+            border-radius: 20px;
+            padding: 2px 10px;
+            margin-bottom: 8px;
+        }
+        .stock-warning-tooltip .sw-subtitle {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #b6b7cf;
+            margin-bottom: 4px;
+        }
+        .stock-warning-tooltip .sw-empty {
+            font-size: 0.78rem;
+            color: #b6b7cf;
+            font-style: italic;
+        }
+        .stock-warning-tooltip .sw-branch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 0.82rem;
+            color: #e6e6f0;
+            padding: 3px 0;
+        }
+        .stock-warning-tooltip .sw-qty {
+            background: #3fb950;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: 20px;
+            padding: 1px 10px;
+            line-height: 1.4;
+        }
     </style>
 @endsection
 
@@ -266,7 +336,8 @@
                         orderable: false,
                         searchable: false,
                         render: function (data, type, row, meta) {
-                            return meta.row + meta.settings._iDisplayStart + 1;
+                            const rowNumber = meta.row + meta.settings._iDisplayStart + 1;
+                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + '</span>';
                         }
                     },
                     { data: 'order_no' },
@@ -287,6 +358,11 @@
                         const colCount = isSuperAdmin ? 11 : 10;
                         return $('<tr class="group-header"/>')
                             .append('<td colspan="' + colCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
+                createdRow: function (row, data) {
+                    if (data.stock_warning) {
+                        $(row).addClass('table-warning');
                     }
                 },
                 drawCallback: function () {

@@ -73,6 +73,39 @@
                       <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
                     @endif
                   @endif
+                  @if($child->route === 'admin.contact-inquiries.index')
+                    @php
+                      try {
+                          $todayInquiriesCount = \App\Models\ContactInquiry::whereDate('created_at', today())->count();
+                      } catch (\Exception $e) {
+                          $todayInquiriesCount = 0;
+                      }
+                    @endphp
+                    @if($todayInquiriesCount > 0)
+                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $todayInquiriesCount }}</div>
+                    @endif
+                  @endif
+                  @if($child->route === 'admin.stock-transfers.index')
+                    @php
+                      try {
+                          $authUser = auth()->user();
+                          $isTransferRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
+                          $pendingTransfersCount = \App\Models\StockTransfer::where('status', \App\Models\StockTransfer::STATUS_PENDING)
+                              ->when($isTransferRestricted, function ($q) use ($authUser) {
+                                  $q->where(function ($sub) use ($authUser) {
+                                      $sub->where('from_location_id', $authUser->location_id)
+                                          ->orWhere('to_location_id', $authUser->location_id);
+                                  });
+                              })
+                              ->count();
+                      } catch (\Exception $e) {
+                          $pendingTransfersCount = 0;
+                      }
+                    @endphp
+                    @if($pendingTransfersCount > 0)
+                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
+                    @endif
+                  @endif
                 </a>
               </li>
             @endif

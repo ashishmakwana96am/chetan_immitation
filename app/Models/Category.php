@@ -13,6 +13,8 @@ class Category extends Model
 
     const STATUS_INACTIVE = 2;
 
+    const DEFAULT_LOW_STOCK_THRESHOLD = 10;
+
     protected $fillable = [
         'name',
         'slug',
@@ -21,10 +23,12 @@ class Category extends Model
         'is_featured',
         'created_by',
         'sort_order',
+        'low_stock_threshold',
     ];
 
     protected $casts = [
         'is_featured' => 'boolean',
+        'low_stock_threshold' => 'integer',
     ];
 
     public function getImageUrlAttribute()

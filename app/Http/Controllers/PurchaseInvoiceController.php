@@ -92,7 +92,7 @@ class PurchaseInvoiceController extends Controller
             // if ($canDownloadPurchases) {
             //     $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             // }
-            if ($canEdit && $invoice->status == 1) {
+            if ($canEdit) {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canEditPurchasesStatus && $invoice->status == 1) {
@@ -238,11 +238,6 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        if ($purchase->status !== 1) {
-            return redirect()->route('admin.purchases.show', $purchase)
-                ->with('error', 'Only pending purchases can be edited.');
-        }
-
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $purchase->load('items.product');
@@ -262,13 +257,6 @@ class PurchaseInvoiceController extends Controller
     public function update(Request $request, PurchaseInvoice $purchase)
     {
         $this->authorize('edit purchases');
-
-        if ($purchase->status != 1) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Only pending purchase can be edited.',
-            ], 422);
-        }
 
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
@@ -299,7 +287,11 @@ class PurchaseInvoiceController extends Controller
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
-  
+            
+            if ($oldStatus == PurchaseInvoice::STATUS_APPROVE) {
+                $this->reverseInvoiceStock($purchase);
+            }
+
             $purchase->update([
                 'supplier_id'    => $request->supplier_id,
                 'total_amount'   => $totalAmount,
@@ -326,7 +318,7 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
-            if ($newStatus == 2 && $oldStatus != 2) {
+            if ($newStatus == PurchaseInvoice::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
             }
         });
@@ -454,6 +446,22 @@ class PurchaseInvoiceController extends Controller
                 );
 
                 $inventory->increment('quantity', $qtyToAdd);
+            }
+        }
+    }
+
+    private function reverseInvoiceStock(PurchaseInvoice $purchase): void
+    {
+        $purchase->load('items.allocations');
+        foreach ($purchase->items as $item) {
+            foreach ($item->allocations as $allocation) {
+                $inventory = Inventory::where('product_id', $item->product_id)
+                    ->where('location_id', $allocation->location_id)
+                    ->first();
+
+                if ($inventory) {
+                    $inventory->update(['quantity' => max(0, $inventory->quantity - $allocation->quantity)]);
+                }
             }
         }
     }

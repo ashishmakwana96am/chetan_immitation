@@ -62,6 +62,7 @@ class ReportController extends Controller
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
+                    'image_url'      => $product->primaryImage->image_url ?? null,
                 ]);
 
                 // Variant rows
@@ -90,6 +91,7 @@ class ReportController extends Controller
                         'status'         => $v->status,
                         'is_parent'      => false,
                         'variant_name'   => "{$attrName}: {$valName}",
+                        'image_url'      => $product->primaryImage->image_url ?? null,
                     ]);
                 }
             } else {
@@ -109,6 +111,7 @@ class ReportController extends Controller
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
+                    'image_url'      => $product->primaryImage->image_url ?? null,
                 ]);
             }
         }
@@ -139,7 +142,7 @@ class ReportController extends Controller
         }
         $categories = Category::where('status', 1)->orderBy('name')->get();
 
-        $products = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute'])
+        $products = Product::with(['category', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute'])
             ->orderBy('name')
             ->get();
 
@@ -164,6 +167,7 @@ class ReportController extends Controller
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
+                    'image_url'   => $product->primaryImage->image_url ?? null,
                 ]);
 
                 foreach ($product->variants as $v) {
@@ -173,7 +177,7 @@ class ReportController extends Controller
                     }
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
-                    
+
                     $productsList->push([
                         'id'          => $product->id,
                         'name'        => $product->name,
@@ -185,6 +189,7 @@ class ReportController extends Controller
                         'status'      => $v->status,
                         'is_parent'   => false,
                         'variant_name'=> "{$attrName}: {$valName}",
+                        'image_url'   => $product->primaryImage->image_url ?? null,
                     ]);
                 }
             } else {
@@ -204,6 +209,7 @@ class ReportController extends Controller
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
+                    'image_url'   => $product->primaryImage->image_url ?? null,
                 ]);
             }
         }
@@ -296,7 +302,7 @@ class ReportController extends Controller
 
         // Top Purchased Products
         $invoiceIds = $invoices->pluck('id');
-        $productPurchases = PurchaseItem::with('product')
+        $productPurchases = PurchaseItem::with('product.primaryImage')
             ->whereIn('purchase_invoice_id', $invoiceIds)
             ->selectRaw('product_id, SUM(quantity) as qty_purchased, SUM(total) as total_cost')
             ->groupBy('product_id')
@@ -387,7 +393,7 @@ class ReportController extends Controller
 
         // Top Selling Products
         $orderIds = $orders->pluck('id');
-        $productSales = OrderItem::with('product')
+        $productSales = OrderItem::with('product.primaryImage')
             ->whereIn('order_id', $orderIds)
             ->selectRaw('product_id, SUM(quantity) as qty_sold, SUM(total) as total_revenue')
             ->groupBy('product_id')
@@ -448,7 +454,7 @@ class ReportController extends Controller
 
         // COGS query
         $saleIds = $sales->pluck('id');
-        $orderItems = OrderItem::with('product')
+        $orderItems = OrderItem::with('product.primaryImage')
             ->whereIn('order_id', $saleIds)
             ->get();
 
@@ -468,6 +474,7 @@ class ReportController extends Controller
                     'qty_sold'      => 0,
                     'total_revenue' => 0.0,
                     'total_cost'    => 0.0,
+                    'image_url'     => $item->product->primaryImage->image_url ?? null,
                 ];
             }
             $productProfitability[$productId]['qty_sold']      += $item->quantity;

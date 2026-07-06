@@ -158,37 +158,83 @@
     <!-- Bottom Row -->
     <div class="row g-4">
 
-        <!-- Recent Sales -->
+        <!-- Recent Sales + Recent Contact Inquiries -->
         <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Recent Sales</h5>
-                    <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+            <div class="row g-4">
+
+                <!-- Recent Sales -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Recent Sales</h5>
+                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Sale No</th>
+                                        <th>Customer</th>
+                                        <th>Location</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($recentSales as $sale)
+                                        <tr>
+                                            <td><a href="{{ route('admin.sales.show', $sale) }}"><code>{{ $sale->order_no }}</code></a></td>
+                                            <td>{{ $sale->customer->name ?? 'Walk-in' }}</td>
+                                            <td>{{ $sale->location->name ?? '-' }}</td>
+                                            <td class="text-end fw-semibold text-primary">{{ format_price($sale->final_amount) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="4" class="text-center text-muted py-3">No sales yet</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Sale No</th>
-                                <th>Customer</th>
-                                <th>Location</th>
-                                <th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($recentSales as $sale)
-                                <tr>
-                                    <td><a href="{{ route('admin.sales.show', $sale) }}"><code>{{ $sale->order_no }}</code></a></td>
-                                    <td>{{ $sale->customer->name ?? 'Walk-in' }}</td>
-                                    <td>{{ $sale->location->name ?? '-' }}</td>
-                                    <td class="text-end fw-semibold text-primary">{{ format_price($sale->final_amount) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="text-center text-muted py-3">No sales yet</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+
+                @can('view contact inquiries')
+                <!-- Recent Contact Inquiries -->
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                Recent Contact Inquiries
+                                @if($todayInquiriesCount > 0)
+                                    <span class="badge bg-label-warning ms-1">{{ $todayInquiriesCount }} today</span>
+                                @endif
+                            </h5>
+                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Subject</th>
+                                        <th>Received</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($recentInquiries as $inquiry)
+                                        <tr>
+                                            <td><a href="{{ route('admin.contact-inquiries.show', $inquiry) }}">{{ $inquiry->full_name }}</a></td>
+                                            <td>{{ $inquiry->subject }}</td>
+                                            <td>{{ $inquiry->created_at->diffForHumans() }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="3" class="text-center text-muted py-3">No inquiries yet</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
+                @endcan
+
             </div>
         </div>
 
@@ -212,7 +258,18 @@
                                 <tbody>
                                     @forelse($topProducts as $item)
                                         <tr>
-                                            <td>{{ $item->product->name ?? '-' }}</td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    @if($item->product?->primaryImage)
+                                                        <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $item->product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    @else
+                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                                        </div>
+                                                    @endif
+                                                    {{ $item->product->name ?? '-' }}
+                                                </div>
+                                            </td>
                                             <td class="text-end">{{ $item->total_qty }}</td>
                                             <td class="text-end text-primary fw-semibold">{{ format_price($item->total_revenue) }}</td>
                                         </tr>
@@ -243,7 +300,18 @@
                                 <tbody>
                                     @forelse($lowStock as $product)
                                         <tr>
-                                            <td><a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a></td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    @if($product->primaryImage)
+                                                        <img src="{{ $product->primaryImage->image_url }}" alt="{{ $product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    @else
+                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                                        </div>
+                                                    @endif
+                                                    <a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a>
+                                                </div>
+                                            </td>
                                             <td>{{ $product->category->name ?? '-' }}</td>
                                             <td class="text-end"><span class="badge {{ $product->inventories->sum('quantity') == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $product->inventories->sum('quantity') }}</span></td>
                                         </tr>

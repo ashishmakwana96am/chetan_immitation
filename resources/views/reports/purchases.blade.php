@@ -270,9 +270,18 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>
-                                        <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
-                                            {{ $item->product->name ?? 'Unknown' }}
-                                        </a>
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $item->product->name }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @endif
+                                            <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
+                                                {{ $item->product->name ?? 'Unknown' }}
+                                            </a>
+                                        </div>
                                     </td>
                                     <td><code>{{ $item->product->sku ?? '-' }}</code></td>
                                     <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_purchased }}</td>

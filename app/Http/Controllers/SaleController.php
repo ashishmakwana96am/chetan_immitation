@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -34,7 +35,7 @@ class SaleController extends Controller
         $this->authorize('view sales');
 
         $user      = auth()->user();
-        $orders    = Order::with(['customer', 'location', 'user'])
+        $orders    = Order::with(['customer', 'location', 'user', 'items.product'])
             ->where('order_type', 'sale')
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function($q) use ($request) {
@@ -68,6 +69,13 @@ class SaleController extends Controller
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales          = auth()->user()->can('download sales');
 
+        $onlineOrders = $orders->where('source', 'ONLINE');
+        $productIds   = $onlineOrders->flatMap(fn ($o) => $o->items->pluck('product_id'))->unique()->values();
+        $inventoryByProduct = Inventory::whereIn('product_id', $productIds)
+            ->with('location')
+            ->get()
+            ->groupBy('product_id');
+
         $statusColors = [
             1 => 'bg-label-secondary',
             2 => 'bg-label-success',
@@ -94,7 +102,40 @@ class SaleController extends Controller
             2 => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+            $stockWarningHtml = '';
+            if (($order->source ?? 'POS') === 'ONLINE' && $order->location_id) {
+                $issueBlocks = [];
+                foreach ($order->items as $item) {
+                    $invRows = $inventoryByProduct->get($item->product_id, collect());
+                    $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+
+                    if ($qtyAtLocation < $item->quantity) {
+                        $otherRows = $invRows->where('location_id', '!=', $order->location_id)
+                            ->filter(fn ($inv) => $inv->quantity > 0)
+                            ->map(function ($inv) {
+                                return "<div class='sw-branch'><span>" . e($inv->location->name ?? 'Unknown') . "</span><span class='sw-qty'>" . (int) $inv->quantity . "</span></div>";
+                            })
+                            ->implode('');
+
+                        $availabilitySection = $otherRows !== ''
+                            ? "<div class='sw-subtitle'>Available in other branches</div>" . $otherRows
+                            : "<div class='sw-empty'>Not available in any other branch</div>";
+
+                        $issueBlocks[] = "<div class='sw-item'>"
+                            . "<div class='sw-title'><i class='ti ti-box'></i>" . e($item->product->name ?? 'Product') . "</div>"
+                            . "<div class='sw-status'><i class='ti ti-alert-circle'></i>Not available at this location</div>"
+                            . $availabilitySection
+                            . "</div>";
+                    }
+                }
+
+                if (!empty($issueBlocks)) {
+                    $tooltipHtml = implode('', $issueBlocks);
+                    $stockWarningHtml = ' <i class="ti ti-alert-triangle text-warning fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" data-bs-custom-class="stock-warning-tooltip" title="' . $tooltipHtml . '"></i>';
+                }
+            }
+
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             if ($order->status == 6 && !empty($order->cancellation_reason)) {
                 $status .= ' <i class="fas fa-info-circle text-danger fs-5 ms-1 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top" title="' . e($order->cancellation_reason) . '"></i>';
@@ -155,6 +196,7 @@ class SaleController extends Controller
 
             return [
                 'index'          => $index + 1,
+                'stock_warning'  => $stockWarningHtml,
                 'order_no'       => '<code>' . $order->order_no . '</code>',
                 'customer'       => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
                 'location'       => $order->location->name ?? '-',
@@ -199,6 +241,7 @@ class SaleController extends Controller
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'single_price'    => $p->sale_price,
+                'purchase_price'  => $p->purchase_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -224,7 +267,6 @@ class SaleController extends Controller
     {
         $this->authorize('create sales');
 
-        // Prevent location-restricted users from creating sales for other locations
         $authUser = auth()->user();
         $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
         if ($isRestricted && (int)$request->location_id !== (int)$authUser->location_id) {
@@ -274,6 +316,18 @@ class SaleController extends Controller
         }
 
         $isApprove = ($request->status ?? 2) == 2;
+
+        $minPriceError = $this->getMinPriceError(
+            $request->items,
+            $request->order_discount_type ?? 'flat',
+            (float) ($request->order_discount_value ?? 0)
+        );
+        if ($minPriceError) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['items' => [$minPriceError]],
+            ], 422);
+        }
 
         if ($isApprove) {
             $stockError = $this->getStockError($request->items, (int) $request->location_id);
@@ -471,6 +525,7 @@ class SaleController extends Controller
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'single_price'    => $p->sale_price,
+                'purchase_price'  => $p->purchase_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -561,6 +616,18 @@ class SaleController extends Controller
         }
 
         $isApprove = ($request->status ?? 2) == 2;
+
+        $minPriceError = $this->getMinPriceError(
+            $request->items,
+            $request->order_discount_type ?? 'flat',
+            (float) ($request->order_discount_value ?? 0)
+        );
+        if ($minPriceError) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['items' => [$minPriceError]],
+            ], 422);
+        }
 
         if ($isApprove) {
             $stockError = $this->getStockError($request->items, (int) $request->location_id);
@@ -890,6 +957,78 @@ class SaleController extends Controller
                 return 'Product "' . $label . '" only has ' . $available
                     . ' units in stock; ' . $stockRequest['quantity'] . ' requested.';
             }
+        }
+
+        return null;
+    }
+
+    private function getMinPriceError(iterable $items, string $orderDiscountType = 'flat', float $orderDiscountValue = 0): ?string
+    {
+        $itemsTotal    = 0.0;
+        $minFloorTotal = 0.0;
+
+        foreach ($items as $itemData) {
+            $productId = is_array($itemData) ? $itemData['product_id'] : $itemData->product_id;
+            $variantId = is_array($itemData) ? ($itemData['product_variant_id'] ?? null) : $itemData->product_variant_id;
+            $qty       = (int) (is_array($itemData) ? $itemData['quantity'] : $itemData->quantity);
+            $price     = (float) (is_array($itemData) ? $itemData['price'] : $itemData->price);
+            $discVal   = (float) (is_array($itemData) ? ($itemData['discount_value'] ?? 0) : ($itemData->discount_value ?? 0));
+            $discType  = is_array($itemData) ? ($itemData['discount_type'] ?? 'flat') : ($itemData->discount_type ?? 'flat');
+
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $subtotal = $qty * $price;
+            $discAmount = $discType === 'percentage' ? $subtotal * ($discVal / 100) : $discVal;
+            if ($discAmount > $subtotal) {
+                $discAmount = $subtotal;
+            }
+            $itemTotal = $subtotal - $discAmount;
+            $itemsTotal += $itemTotal;
+
+            if ($variantId) {
+                $variant = ProductVariant::with('attributeValue.attribute')->find($variantId);
+                $purchasePrice = $variant->purchase_price ?? null;
+                $product = $variant->product ?? Product::find($productId);
+                $label = ($product->name ?? 'Product');
+                if ($variant && $variant->attributeValue) {
+                    $label .= ' (' . ($variant->attributeValue->attribute->name ?? 'Variant') . ': ' . $variant->attributeValue->value . ')';
+                }
+            } else {
+                $product = Product::find($productId);
+                $purchasePrice = $product->purchase_price ?? null;
+                $label = $product->name ?? 'Product';
+            }
+
+            if ($purchasePrice === null) {
+                continue;
+            }
+
+            $minTotal = $qty * $purchasePrice * 1.10;
+            $minFloorTotal += $minTotal;
+
+            if ($itemTotal < $minTotal - 0.01) {
+                return 'Final price for "' . $label . '" cannot be less than purchase price + 10% (minimum '
+                    . format_price($minTotal) . ' for the selected quantity).';
+            }
+        }
+
+        $orderDiscountAmount = 0.0;
+        if ($orderDiscountValue > 0) {
+            $orderDiscountAmount = $orderDiscountType === 'percentage'
+                ? $itemsTotal * ($orderDiscountValue / 100)
+                : $orderDiscountValue;
+        }
+        if ($orderDiscountAmount > $itemsTotal) {
+            $orderDiscountAmount = $itemsTotal;
+        }
+
+        $finalAmount = $itemsTotal - $orderDiscountAmount;
+
+        if ($minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
+            return 'Order total cannot be less than ' . format_price($minFloorTotal)
+                . ' (combined purchase price + 10% of all items).';
         }
 
         return null;
