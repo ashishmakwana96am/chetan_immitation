@@ -116,14 +116,12 @@ class CartController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'qty'        => ['nullable', 'integer', 'min:1'],
-            'pair_type'  => ['nullable', 'string', 'in:single,pair'],
         ]);
 
         $customer  = $this->customer();
         $productId = (int) $request->product_id;
         $variantId = $request->filled('variant_id') ? (int) $request->variant_id : null;
         $qty       = max(1, (int) ($request->qty ?? 1));
-        $pairType  = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
 
         // Verify product is active
         $product = Product::where('status', Product::STATUS_ACTIVE)
@@ -131,11 +129,6 @@ class CartController extends Controller
             ->find($productId);
         if (!$product) {
             return response()->json(['status' => 'error', 'message' => 'Product not found.'], 404);
-        }
-
-        // If not a pair product, force single
-        if (!$product->pair_product) {
-            $pairType = 'single';
         }
 
         // Verify stock
@@ -155,7 +148,6 @@ class CartController extends Controller
             $existing = CartItem::where('customer_id', $customer->id)
                 ->where('product_id', $productId)
                 ->where('product_variant_id', $variantId)
-                ->where('pair_type', $pairType)
                 ->first();
 
             if ($existing) {
@@ -165,7 +157,6 @@ class CartController extends Controller
                     'customer_id'        => $customer->id,
                     'product_id'         => $productId,
                     'product_variant_id' => $variantId,
-                    'pair_type'          => $pairType,
                     'qty'                => $qty,
                 ]);
             }
@@ -183,7 +174,7 @@ class CartController extends Controller
 
             $found = false;
             foreach ($guestCart as &$item) {
-                if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
+                if ($item['product_id'] === $productId && $item['variant_id'] === $variantId) {
                     $item['qty'] += $qty;
                     $found = true;
                     break;
@@ -194,7 +185,6 @@ class CartController extends Controller
                 $guestCart[] = [
                     'product_id' => $productId,
                     'variant_id' => $variantId,
-                    'pair_type'  => $pairType,
                     'qty'        => $qty,
                 ];
             }
@@ -236,20 +226,9 @@ class CartController extends Controller
 
             $count  = CartItem::where('customer_id', $customer->id)->sum('qty');
             $totals = $this->calculateTotals($customer->id);
-
             $product = $item->product;
             $variant = $item->productVariant;
-            $pairType = $item->pair_type ?? 'single';
-
-            if ($variant) {
-                $price = (float) $variant->sale_price;
-            } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
-                } else {
-                    $price = (float) $product->sale_price;
-                }
-            }
+            $price = $variant ? (float) $variant->sale_price : (float) $product->sale_price;
 
             return response()->json([
                 'status'     => 'success',
@@ -275,17 +254,7 @@ class CartController extends Controller
             $itemData = $guestCart[$cartItemId];
             $product = Product::find($itemData['product_id']);
             $variant = isset($itemData['variant_id']) && $itemData['variant_id'] !== '' ? ProductVariant::find($itemData['variant_id']) : null;
-            $pairType = $itemData['pair_type'] ?? 'single';
-
-            if ($variant) {
-                $price = (float) $variant->sale_price;
-            } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
-                } else {
-                    $price = (float) $product->sale_price;
-                }
-            }
+            $price = $variant ? (float) $variant->sale_price : (float) $product->sale_price;
 
             return response()->json([
                 'status'     => 'success',
@@ -368,16 +337,10 @@ class CartController extends Controller
         foreach ($items as $item) {
             $product = $item->product;
             $variant = $item->productVariant;
-            $pairType = $item->pair_type ?? 'single';
-
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
-                } else {
-                    $price = (float) $product->sale_price;
-                }
+                $price = (float) $product->sale_price;
             }
 
             $subtotal += $price * $item->qty;
@@ -404,18 +367,13 @@ class CartController extends Controller
             $productId = (int) ($item['product_id'] ?? 0);
             $variantId = isset($item['variant_id']) && $item['variant_id'] !== '' ? (int) $item['variant_id'] : null;
             $qty       = (int) ($item['qty'] ?? 1);
-            $pairType  = $item['pair_type'] ?? 'single';
 
             $product = Product::find($productId);
             if ($product) {
                 if ($variantId) {
                     $price = (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price;
                 } else {
-                    if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                        $price = (float) $product->pair_sale_price;
-                    } else {
-                        $price = (float) $product->sale_price;
-                    }
+                    $price = (float) $product->sale_price;
                 }
 
                 if (!$price) {

@@ -549,18 +549,10 @@ const orders = [
     @php
       $totalMrp = $o->items->sum(function($item) {
           $product = $item->product;
-          $pairType = $item->pair_type ?? 'single';
-          
           if (!$product) {
               return (float)$item->price * $item->quantity;
           }
-          
-          // Check pair_type to get correct MRP
-          if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
-              $mrp = (float)$product->pair_mrp;
-          } else {
-              $mrp = (float)$product->mrp;
-          }
+          $mrp = (float)$product->mrp;
           
           if ($mrp <= 0) {
               $mrp = (float)$item->price;

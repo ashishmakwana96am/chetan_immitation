@@ -124,9 +124,6 @@
                 @if($product->is_variable)
                     <span class="badge bg-label-info ms-1">Variable</span>
                 @endif
-                @if($product->pair_product)
-                    <span class="badge bg-label-warning ms-1">Pair Product</span>
-                @endif
             </small>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
@@ -254,47 +251,16 @@
                         <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
                     </div>
 
-                    @if($product->pair_product)
-                        {{-- Piece prices --}}
-                        <div>
-                            <p class="card-section-title mb-2">Piece</p>
-                            <div class="d-flex gap-2">
-                                <div class="price-chip">
-                                    <span class="p-lbl">Sale Price</span>
-                                    <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
-                                </div>
-                                <div class="price-chip">
-                                    <span class="p-lbl">MRP</span>
-                                    <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
-                                </div>
-                            </div>
+                    <div class="d-flex gap-2">
+                        <div class="price-chip">
+                            <span class="p-lbl">Sale Price</span>
+                            <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
                         </div>
-                        {{-- Pair prices --}}
-                        <div>
-                            <p class="card-section-title mb-2">Pair</p>
-                            <div class="d-flex gap-2">
-                                <div class="price-chip">
-                                    <span class="p-lbl">Sale Price</span>
-                                    <span class="p-val text-success">{{ format_price($product->pair_sale_price) }}</span>
-                                </div>
-                                <div class="price-chip">
-                                    <span class="p-lbl">MRP</span>
-                                    <span class="p-val text-danger">{{ format_price($product->pair_mrp) }}</span>
-                                </div>
-                            </div>
+                        <div class="price-chip">
+                            <span class="p-lbl">MRP</span>
+                            <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
                         </div>
-                    @else
-                        <div class="d-flex gap-2">
-                            <div class="price-chip">
-                                <span class="p-lbl">Sale Price</span>
-                                <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
-                            </div>
-                            <div class="price-chip">
-                                <span class="p-lbl">MRP</span>
-                                <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
-                            </div>
-                        </div>
-                    @endif
+                    </div>
 
                     {{-- Profit --}}
                     <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">

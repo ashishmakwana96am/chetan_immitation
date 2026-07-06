@@ -84,7 +84,7 @@
 
             @foreach($order->items as $item)
                 <div class="order-item">
-                    <span>{{ $item->product->name }} x {{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</span>
+                    <span>{{ $item->product->name }} x {{ $item->quantity }} Pcs</span>
                     <span>₹{{ number_format($item->total, 0) }}</span>
                 </div>
             @endforeach

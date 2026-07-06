@@ -244,7 +244,7 @@
                     <td class="text-right">{{ format_price($item->purchase_price) }}</td>
                     <td class="text-right">
                         {{ $item->quantity }}
-                        {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                        Pcs
                     </td>
                     <td class="text-right"><strong>{{ format_price($item->total) }}</strong></td>
                     <td>
