@@ -371,12 +371,13 @@
                 </div>
                 <div>
                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
-                        State / County <span class="text-red-600">*</span>
+                        State <span class="text-red-600">*</span>
                     </label>
                     <select id="addr_state" name="state" class="addr-input w-full h-[48px] text-[#757575] text-base  border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E]">
                         <option value="">Select an Option...</option>
-                        <option value="Gujarat">Gujarat</option>
-                        <option value="Maharashtra">Maharashtra</option>
+                        @foreach($states as $stateOption)
+                            <option value="{{ $stateOption->name }}">{{ $stateOption->name }}</option>
+                        @endforeach
                     </select>
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="state"></p>
                 </div>

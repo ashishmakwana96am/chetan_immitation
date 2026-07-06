@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerPhone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
@@ -84,9 +86,12 @@ class CustomerController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name'     => ['required', 'string', 'max:100'],
-            'phone'    => ['nullable', 'string', 'max:20'],
-            'email'    => ['nullable', 'email', 'unique:customers,email'],
+            'phones'   => ['nullable', 'array'],
+            'phones.*' => ['nullable', 'digits:10'],
+            'email'    => ['nullable', 'email', Rule::unique('customers', 'email')->whereNull('deleted_at')],
         ]);
+
+        $this->validateUniquePhones($validator, $request);
 
         if ($validator->fails()) {
             return response()->json([
@@ -97,10 +102,17 @@ class CustomerController extends Controller
 
         $customer = Customer::create([
             'name'     => $request->name,
-            'phone'    => $request->phone,
             'email'    => $request->email,
             'status'   => $request->has('status') ? 1 : 2,
         ]);
+
+        $phones = array_filter($request->input('phones', []));
+        foreach ($phones as $phone) {
+            CustomerPhone::create([
+                'customer_id' => $customer->id,
+                'phone'       => $phone,
+            ]);
+        }
 
         return response()->json([
             'status'  => 'success',
@@ -112,6 +124,7 @@ class CustomerController extends Controller
     public function edit(Customer $customer)
     {
         $this->authorize('edit customers');
+        $customer->load('phones');
         return view('customers.edit', compact('customer'));
     }
 
@@ -120,10 +133,14 @@ class CustomerController extends Controller
         $this->authorize('edit customers');
 
         $validator = Validator::make($request->all(), [
-            'name'  => ['required', 'string', 'max:100'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'unique:customers,email,' . $customer->id],
+            'name'      => ['required', 'string', 'max:100'],
+            'phones'    => ['nullable', 'array'],
+            'phones.*'  => ['nullable', 'digits:10'],
+            'phone_ids' => ['nullable', 'array'],
+            'email'     => ['nullable', 'email', Rule::unique('customers', 'email')->ignore($customer->id)->whereNull('deleted_at')],
         ]);
+
+        $this->validateUniquePhones($validator, $request);
 
         if ($validator->fails()) {
             return response()->json([
@@ -134,15 +151,49 @@ class CustomerController extends Controller
 
         $customer->update([
             'name'   => $request->name,
-            'phone'  => $request->phone,
             'email'  => $request->email,
             'status' => $request->has('status') ? 1 : 2,
         ]);
+
+        $submittedPhones = $request->input('phones', []);
+        $submittedIds    = $request->input('phone_ids', []);
+        $keptIds         = [];
+
+        foreach ($submittedPhones as $index => $phone) {
+            $phone = trim((string) $phone);
+            if ($phone === '') {
+                continue;
+            }
+
+            $id = $submittedIds[$index] ?? null;
+            $existing = $id ? $customer->phones()->find($id) : null;
+
+            if ($existing) {
+                $existing->update(['phone' => $phone]);
+                $keptIds[] = $existing->id;
+            } else {
+                $created = $customer->phones()->create(['phone' => $phone]);
+                $keptIds[] = $created->id;
+            }
+        }
+
+        $customer->phones()->whereNotIn('id', $keptIds)->delete();
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer updated successfully.',
         ]);
+    }
+
+    private function validateUniquePhones($validator, Request $request): void
+    {
+        $validator->after(function ($validator) use ($request) {
+            $allPhones = array_filter($request->input('phones', []));
+
+            if (count($allPhones) !== count(array_unique($allPhones))) {
+                $validator->errors()->add('phones', 'The same phone number cannot be added more than once.');
+            }
+        });
     }
 
     public function toggleStatus(Customer $customer)

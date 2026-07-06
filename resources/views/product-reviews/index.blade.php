@@ -22,6 +22,7 @@
                         <th>User Name</th>
                         <th>Rating</th>
                         <th>Review</th>
+                        <th>Photo</th>
                         <th>Date</th>
                     </tr>
                 </thead>
@@ -52,6 +53,7 @@
                     { data: 'customer' },
                     { data: 'rating',     orderable: false },
                     { data: 'comment',    orderable: false },
+                    { data: 'photo',      orderable: false },
                     { data: 'created_at' }
                 ],
             });

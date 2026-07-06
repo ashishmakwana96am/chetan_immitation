@@ -295,6 +295,13 @@
                 @if($review->comment)
                 <p class="mt-[14px] md:mt-[17px] text-[#3D403F] text-base md:text-lg">{{ $review->comment }}</p>
                 @endif
+                @if($review->images->isNotEmpty())
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @foreach($review->images as $reviewImage)
+                        <img src="{{ $reviewImage->image_url }}" alt="Review photo" class="w-[100px] h-[100px] object-cover rounded-sm border border-[#D5D5D5]">
+                    @endforeach
+                </div>
+                @endif
                 <div class="border-t border-[#e3e3e3] mt-4 md:mt-5 pt-4">
                     <div class="flex items-center gap-4">
                         <img src="{{ $authorAvatar }}" alt="{{ $authorName }}" class="w-[60px] h-[60px] rounded-full object-cover">

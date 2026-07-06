@@ -44,7 +44,7 @@ class CouponController extends Controller
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.coupons.edit', $coupon) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }
-                if ($canDelete) {
+                if ($canDelete && !$coupon->is_protected) {
                     if ($canEdit) {
                         $actions .= '<div class="dropdown-divider"></div>';
                     }
@@ -66,9 +66,14 @@ class CouponController extends Controller
                 $validity = 'Until ' . $coupon->end_date->format('d M Y');
             }
 
+            $name = htmlspecialchars($coupon->name);
+            if ($coupon->is_protected) {
+                $name .= ' <span class="badge bg-label-info">System</span>';
+            }
+
             return [
                 'index'          => $index + 1,
-                'name'           => $coupon->name,
+                'name'           => $name,
                 'code'           => '<code class="fw-bold text-primary">' . htmlspecialchars($coupon->code) . '</code>',
                 'discount'       => $discount,
                 'usage_limit'    => $coupon->usage_limit ? $coupon->usage_limit : 'Unlimited',
@@ -193,6 +198,13 @@ class CouponController extends Controller
     public function destroy(Coupon $coupon)
     {
         $this->authorize('delete coupons');
+
+        if ($coupon->is_protected) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'This coupon is protected by the system and cannot be deleted.',
+            ], 422);
+        }
 
         $coupon->delete();
 

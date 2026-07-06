@@ -81,7 +81,7 @@
             </div>
 
             @can('create products')
-                <button type="button" class="btn btn-outline-primary" data-bs-toggle="offcanvas" data-bs-target="#importProductsOffcanvas" aria-controls="importProductsOffcanvas">
+                <button type="button" class="btn btn-outline-primary" data-common-modal="{{ route('admin.products.import.form') }}">
                     <i class="ti ti-upload me-1"></i> Import Products
                 </button>
                 <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
@@ -469,105 +469,6 @@
                 // Hide bulk modal
                 bootstrap.Modal.getInstance(document.getElementById('bulkBarcodeModal')).hide();
             });
-
-            // Handle Import Form Submit
-            $('#importProductsForm').on('submit', function (e) {
-                e.preventDefault();
-                
-                const form = $(this);
-                const formData = new FormData(this);
-                const submitBtn = $('#btnSubmitImport');
-                const fileInput = $('#csv_file');
-                const fileError = $('#csv_file_error');
-
-                fileInput.removeClass('is-invalid');
-                fileError.text('').hide();
-                submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Importing...');
-
-                $.ajax({
-                    url: form.attr('action'),
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function (res) {
-                        submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
-                        if (res.status === 'success') {
-                            toastr.success(res.message || 'Products imported successfully!');
-                            bootstrap.Offcanvas.getInstance(document.getElementById('importProductsOffcanvas')).hide();
-                            form[0].reset();
-                            // Reload Datatable
-                            if (typeof table !== 'undefined') {
-                                table.ajax.reload();
-                            } else {
-                                window.location.reload();
-                            }
-                        }
-                    },
-                    error: function (xhr) {
-                        submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
-                        
-                        let errorsHtml = '';
-                        if (xhr.status === 422) {
-                            const response = xhr.responseJSON;
-                            if (response.message) {
-                                if (Array.isArray(response.message)) {
-                                    errorsHtml = '<ul class="mb-0 text-start ps-3">';
-                                    response.message.forEach(err => {
-                                        errorsHtml += '<li>' + err + '</li>';
-                                    });
-                                    errorsHtml += '</ul>';
-                                } else if (typeof response.message === 'object') {
-                                    errorsHtml = '<ul class="mb-0 text-start ps-3">';
-                                    Object.values(response.message).forEach(errArr => {
-                                        errArr.forEach(err => {
-                                            errorsHtml += '<li>' + err + '</li>';
-                                        });
-                                    });
-                                    errorsHtml += '</ul>';
-                                } else {
-                                    errorsHtml = response.message;
-                                }
-                            }
-                        } else {
-                            errorsHtml = 'An unexpected error occurred during import.';
-                        }
-
-                        fileInput.addClass('is-invalid');
-                        toastr.error(errorsHtml || 'Failed to import products.', 'Validation Errors', {
-                            timeOut: 12000,
-                            closeButton: true
-                        });
-                    }
-                });
-            });
         });
     </script>
-
-    <!-- Import Products Side Panel (Offcanvas) -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="importProductsOffcanvas" aria-labelledby="importProductsOffcanvasLabel" style="width: 420px;">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="importProductsOffcanvasLabel">Import Products</h5>
-            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <form id="importProductsForm" action="{{ route('admin.products.import') }}" method="POST" enctype="multipart/form-data">
-            @csrf
-            <div class="offcanvas-body">
-                <div class="alert alert-info py-2 small mb-4" role="alert">
-                    <i class="ti ti-info-circle me-1"></i> You can download the <a href="{{ route('admin.products.import.sample') }}" class="fw-bold text-decoration-underline text-info">Sample CSV file</a> to format your data correctly. All imported products will be set as <strong>Active</strong>.
-                </div>
-                <div class="mb-4">
-                    <label for="csv_file" class="form-label fw-medium text-dark">Choose CSV File <span class="text-danger">*</span></label>
-                    <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv" required />
-                    <div class="invalid-feedback" id="csv_file_error"></div>
-                </div>
-                <div class="d-grid gap-2 pt-3">
-                    <button type="submit" class="btn btn-primary" id="btnSubmitImport">
-                        <i class="ti ti-upload me-1"></i> Import
-                    </button>
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="offcanvas">Cancel</button>
-                </div>
-            </div>
-        </form>
-    </div>
 @endsection

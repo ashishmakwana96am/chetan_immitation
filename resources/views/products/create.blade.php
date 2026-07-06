@@ -144,6 +144,7 @@
                                         </table>
                                     </div>
                                     <input type="hidden" name="variants_json" id="variantsJson" value="" />
+                                    <div class="invalid-feedback d-block text-danger mt-1"></div>
                                 </div>
                             </div>
                             <div class="col-12">
@@ -642,9 +643,17 @@
                                     $('#additionalImagesError').text(messages[0]);
                                     $('#additionalDropZone').css('border-color', '#ea5455');
                                 } else {
-                                    form.find('[name="' + field + '"], [name="' + field + '[]"]')
-                                        .addClass('is-invalid')
-                                        .siblings('.invalid-feedback').text(messages[0]);
+                                    const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                                    let feedback = input.siblings('.invalid-feedback');
+                                    if (feedback.length === 0 && input.parent('.input-group').length) {
+                                        feedback = input.parent('.input-group').siblings('.invalid-feedback');
+                                    }
+                                    if (input.length && feedback.length) {
+                                        input.addClass('is-invalid');
+                                        feedback.text(messages[0]);
+                                    } else {
+                                        toastr.error(messages[0]);
+                                    }
                                 }
                             });
                         } else {
@@ -793,15 +802,11 @@
                 const code = parseFloat($(this).val()) || 0;
                 const purchasePrice = (code * 2.5).toFixed(2);
                 const salePrice = roundToNearest5(code * 4.125).toFixed(2);
-                const mrp = roundToNearest5(salePrice * 0.90).toFixed(2);
+                const mrp = (code * 4.575).toFixed(2);
 
                 $('#purchasePriceInput').val(purchasePrice).trigger('change');
                 $('#salePriceInput').val(salePrice).trigger('change');
                 $('#mrpInput').val(mrp);
-            });
-
-            $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * 0.90).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

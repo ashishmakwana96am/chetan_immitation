@@ -37,4 +37,9 @@ class ProductReview extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    public function images()
+    {
+        return $this->hasMany(ReviewImage::class);
+    }
 }

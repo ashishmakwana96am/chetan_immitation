@@ -283,7 +283,7 @@
     $couponCode     = null;
     if ($order->coupon_id && $order->coupon) {
         $couponCode     = $order->coupon->code;
-        $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
+        $couponDiscount = max(0, round($subtotal - $totalItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
     }
 
     $orderDiscountAmount = 0.0;
@@ -585,6 +585,10 @@
                 <td class="text-right">-</td>
             </tr>
             @endif
+            <tr class="shipping-row">
+                <td colspan="5" class="text-right">Shipping</td>
+                <td class="text-right">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
+            </tr>
             <tr class="total-row">
                 <td colspan="5" class="text-right">Final Amount</td>
                 <td class="text-right">{{ format_price($order->final_amount) }}</td>

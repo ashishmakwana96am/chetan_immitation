@@ -93,24 +93,28 @@ class Product extends Model
     {
         $variants = $this->variants()->with('attributeValue.attribute')->get();
 
-        // Find all locations
         $locations = Location::when($locationId, function ($q) use ($locationId) {
             $q->where('id', $locationId);
         })->get();
 
         $purchasedQty = [];
         $soldQty = [];
+        $transferredInQty = [];
+        $transferredOutQty = [];
 
         foreach ($locations as $loc) {
             $purchasedQty[$loc->id] = ['parent' => 0];
             $soldQty[$loc->id] = ['parent' => 0];
+            $transferredInQty[$loc->id] = ['parent' => 0];
+            $transferredOutQty[$loc->id] = ['parent' => 0];
             foreach ($variants as $v) {
                 $purchasedQty[$loc->id][$v->id] = 0;
                 $soldQty[$loc->id][$v->id] = 0;
+                $transferredInQty[$loc->id][$v->id] = 0;
+                $transferredOutQty[$loc->id][$v->id] = 0;
             }
         }
 
-        // 1. Get all approved purchase allocations for this product
         $purchaseAllocations = PurchaseAllocation::whereHas('purchaseItem', function ($q) {
                 $q->where('product_id', $this->id)
                   ->whereHas('invoice', function ($sub) {
@@ -133,7 +137,6 @@ class Product extends Model
             }
         }
 
-        // 2. Get approved sales for this product
         $orderItems = OrderItem::where('product_id', $this->id)
             ->whereHas('order', function ($q) {
                 $q->where('status', Order::STATUS_APPROVE);
@@ -154,12 +157,45 @@ class Product extends Model
             }
         }
 
+        $transferItems = StockTransferItem::where('product_id', $this->id)
+            ->whereHas('transfer', function ($q) {
+                $q->where('status', StockTransfer::STATUS_ACCEPTED);
+            })
+            ->with('transfer')
+            ->get();
+
+        foreach ($transferItems as $item) {
+            $vId = $item->product_variant_id;
+            $fromLocId = $item->transfer->from_location_id;
+            $toLocId = $item->transfer->to_location_id;
+
+            if (isset($transferredOutQty[$fromLocId])) {
+                if ($vId && isset($transferredOutQty[$fromLocId][$vId])) {
+                    $transferredOutQty[$fromLocId][$vId] += $item->quantity;
+                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
+                } else if (!$vId) {
+                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
+                }
+            }
+
+            if (isset($transferredInQty[$toLocId])) {
+                if ($vId && isset($transferredInQty[$toLocId][$vId])) {
+                    $transferredInQty[$toLocId][$vId] += $item->quantity;
+                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
+                } else if (!$vId) {
+                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
+                }
+            }
+        }
+
         $result = [];
         foreach ($locations as $loc) {
-            $parentStock = $purchasedQty[$loc->id]['parent'] - $soldQty[$loc->id]['parent'];
+            $parentStock = $purchasedQty[$loc->id]['parent']
+                - $soldQty[$loc->id]['parent']
+                + $transferredInQty[$loc->id]['parent']
+                - $transferredOutQty[$loc->id]['parent'];
 
-            // Fallback for parent stock to physical inventory table if no history exists
-            if ($purchasedQty[$loc->id]['parent'] === 0 && $soldQty[$loc->id]['parent'] === 0) {
+            if ($purchasedQty[$loc->id]['parent'] === 0 && $soldQty[$loc->id]['parent'] === 0 && $transferredInQty[$loc->id]['parent'] === 0 && $transferredOutQty[$loc->id]['parent'] === 0) {
                 $parentStock = (int) Inventory::where('product_id', $this->id)
                     ->where('location_id', $loc->id)
                     ->value('quantity');
@@ -172,7 +208,10 @@ class Product extends Model
                 'variants' => [],
             ];
             foreach ($variants as $v) {
-                $vStock = $purchasedQty[$loc->id][$v->id] - $soldQty[$loc->id][$v->id];
+                $vStock = $purchasedQty[$loc->id][$v->id]
+                    - $soldQty[$loc->id][$v->id]
+                    + $transferredInQty[$loc->id][$v->id]
+                    - $transferredOutQty[$loc->id][$v->id];
                 $locData['variants'][$v->id] = $vStock;
             }
             $result[$loc->id] = $locData;

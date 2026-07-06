@@ -129,7 +129,7 @@ class HomeController extends Controller
             ->firstOrFail();
 
         $topReviews = $product->reviews()
-            ->with('customer')
+            ->with('customer', 'images')
             ->latest()
             ->limit(2)
             ->get();

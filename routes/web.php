@@ -14,6 +14,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerLoginController;
 use App\Http\Controllers\CustomerPasswordResetController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LocationController;
@@ -28,6 +29,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopCategoryController;
+use App\Http\Controllers\StateController;
+use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -81,6 +84,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/payment/failed', [CheckoutController::class, 'failedPayment'])->name('checkout.payment.failed');
     Route::post('/checkout/coupon/apply', [CheckoutController::class, 'applyCoupon'])->name('checkout.coupon.apply');
     Route::post('/checkout/coupon/remove', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
+    Route::post('/checkout/shipping/recalculate', [CheckoutController::class, 'recalculateShipping'])->name('checkout.shipping.recalculate');
     Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
     Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
 });
@@ -142,6 +146,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Products
         Route::get('products/import/sample', [ProductController::class, 'downloadSampleCsv'])->name('products.import.sample');
+        Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
         Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
@@ -162,10 +167,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
         Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
+        // Stock Transfers
+        Route::get('stock-transfers/data', [StockTransferController::class, 'data'])->name('stock-transfers.data');
+        Route::patch('stock-transfers/{stockTransfer}/accept', [StockTransferController::class, 'accept'])->name('stock-transfers.accept');
+        Route::patch('stock-transfers/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('stock-transfers.reject');
+        Route::resource('stock-transfers', StockTransferController::class)
+            ->parameters(['stock-transfers' => 'stockTransfer'])
+            ->only(['index', 'create', 'store', 'show']);
+
         // Suppliers
         Route::get('suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');
         Route::resource('suppliers', SupplierController::class)->except('show');
         Route::patch('suppliers/{supplier}/toggle-status', [SupplierController::class, 'toggleStatus'])->name('suppliers.toggle-status');
+
+        // Expenses
+        Route::get('expenses/data', [ExpenseController::class, 'data'])->name('expenses.data');
+        Route::resource('expenses', ExpenseController::class)->except('show');
 
         // Customers
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
@@ -224,6 +241,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('locations/data', [LocationController::class, 'data'])->name('locations.data');
         Route::resource('locations', LocationController::class)->except('show');
         Route::patch('locations/{location}/toggle-status', [LocationController::class, 'toggleStatus'])->name('locations.toggle-status');
+
+        // States
+        Route::get('states/data', [StateController::class, 'data'])->name('states.data');
+        Route::resource('states', StateController::class)->except('show');
+        Route::patch('states/{state}/toggle-status', [StateController::class, 'toggleStatus'])->name('states.toggle-status');
 
         // Permissions
         Route::get('permissions/data', [PermissionController::class, 'data'])->name('permissions.data');

@@ -81,7 +81,7 @@
                                 $itemDiscount = $order->items->sum('discount_amount');
                                 $couponDisc   = 0;
                                 if ($order->coupon_id && $order->coupon) {
-                                    $couponDisc = max(0, round($itemsGross - $itemDiscount - (float)$order->final_amount, 2));
+                                    $couponDisc = max(0, round($itemsGross - $itemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
                                 }
                                 $orderDiscountAmount = 0.0;
                                 if ($order->order_discount_value > 0) {
@@ -108,6 +108,11 @@
                                 <td style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">-₹{{ number_format($totalDiscount, 0) }}</td>
                             </tr>
                             @endif
+                            {{-- Shipping --}}
+                            <tr>
+                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#555;">Shipping</td>
+                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#555;">{{ $order->shipping_charge > 0 ? '₹' . number_format($order->shipping_charge, 0) : 'Free' }}</td>
+                            </tr>
                             {{-- Final --}}
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="2" style="padding:12px 12px;text-align:right;font-size:15px;font-weight:700;color:#B4771E;">Total Amount</td>

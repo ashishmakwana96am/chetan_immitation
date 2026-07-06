@@ -74,7 +74,7 @@
         $couponCode     = null;
         if ($order->coupon_id && $order->coupon) {
             $couponCode     = $order->coupon->code;
-            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
+            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
         }
 
         $orderDiscountAmount = 0.0;
@@ -101,12 +101,12 @@
 
             @can('download sales')
                 @if($isOnline)
-                    <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
-                        <i class="ti ti-file-type-pdf me-1"></i> Invoice
+                    <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-primary" target="_blank">
+                        <i class="ti ti-printer me-1"></i> Invoice
                     </a>
                 @else
                     <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" onclick="window.open(this.href, '_blank', 'width=900,height=800,resizable=yes,scrollbars=yes'); return false;">
-                        <i class="ti ti-printer me-1"></i> Thermal Print
+                        <i class="ti ti-printer me-1"></i> Invoice
                     </a>
                 @endif
             @endcan
@@ -464,6 +464,10 @@
                                 <td class="text-end tfoot-amount" style="color:#2e7d32;">-</td>
                             </tr>
                             @endif
+                            <tr>
+                                <td colspan="5" class="text-end tfoot-label">Shipping</td>
+                                <td class="text-end tfoot-amount">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
+                            </tr>
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
                                 <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($order->final_amount) }}</td>

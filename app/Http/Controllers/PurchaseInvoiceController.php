@@ -152,14 +152,8 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        $user      = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
-        } else {
-            $locations = Location::where('status', 1)->orderBy('name')->get();
-        }
         $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
-        return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
+        return view('purchases.create', compact('suppliers', 'products', 'invoiceNo'));
     }
 
     public function store(Request $request)
@@ -184,18 +178,13 @@ class PurchaseInvoiceController extends Controller
             ], 422);
         }
 
-        // Validate allocation totals match item quantities
-        foreach ($request->items as $index => $item) {
-            $allocatedQty = collect($item['allocations'] ?? [])->sum(fn($a) => (int) $a['quantity']);
-            if ($allocatedQty !== (int) $item['quantity']) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => ['Item #' . ($index + 1) . ': Allocated (' . $allocatedQty . ') must equal item quantity (' . $item['quantity'] . ')']],
-                ], 422);
-            }
+        try {
+            $defaultLocation = $this->defaultPurchaseLocation();
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($request, $defaultLocation) {
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $invoice = PurchaseInvoice::create([
@@ -217,15 +206,11 @@ class PurchaseInvoiceController extends Controller
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
                 ]);
 
-                // Only save allocations with qty > 0
-                foreach ($itemData['allocations'] ?? [] as $allocationData) {
-                    if ((int) $allocationData['quantity'] <= 0) continue;
-                    PurchaseAllocation::create([
-                        'purchase_item_id' => $item->id,
-                        'location_id'      => $allocationData['location_id'],
-                        'quantity'         => $allocationData['quantity'],
-                    ]);
-                }
+                PurchaseAllocation::create([
+                    'purchase_item_id' => $item->id,
+                    'location_id'      => $defaultLocation->id,
+                    'quantity'         => $itemData['quantity'],
+                ]);
             }
 
             if ($invoice->status == 2) {
@@ -260,12 +245,7 @@ class PurchaseInvoiceController extends Controller
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
-        } else {
-            $locations = Location::where('status', 1)->orderBy('name')->get();
-        }
-        $purchase->load(['items.product', 'items.allocations']);
+        $purchase->load('items.product');
 
         $existingItems = $purchase->items->map(function ($item) {
             return [
@@ -273,16 +253,10 @@ class PurchaseInvoiceController extends Controller
                 'product_variant_id' => $item->product_variant_id,
                 'purchase_price'     => $item->purchase_price,
                 'quantity'           => $item->quantity,
-                'allocations'        => $item->allocations->map(function ($a) {
-                    return [
-                        'location_id' => $a->location_id,
-                        'quantity'    => $a->quantity,
-                    ];
-                })->values(),
             ];
         })->values();
 
-        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'locations', 'existingItems'));
+        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'existingItems'));
     }
 
     public function update(Request $request, PurchaseInvoice $purchase)
@@ -314,17 +288,13 @@ class PurchaseInvoiceController extends Controller
             ], 422);
         }
 
-        foreach ($request->items as $index => $item) {
-            $allocatedQty = collect($item['allocations'] ?? [])->sum(fn($a) => (int) $a['quantity']);
-            if ($allocatedQty !== (int) $item['quantity']) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => ['Item #' . ($index + 1) . ': Allocated (' . $allocatedQty . ') must equal item quantity (' . $item['quantity'] . ')']],
-                ], 422);
-            }
+        try {
+            $defaultLocation = $this->defaultPurchaseLocation();
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request, $purchase) {
+        DB::transaction(function () use ($request, $purchase, $defaultLocation) {
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $oldStatus = $purchase->status;
@@ -349,14 +319,11 @@ class PurchaseInvoiceController extends Controller
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
                 ]);
 
-                foreach ($itemData['allocations'] ?? [] as $allocationData) {
-                    if ((int) $allocationData['quantity'] <= 0) continue;
-                    PurchaseAllocation::create([
-                        'purchase_item_id' => $item->id,
-                        'location_id'      => $allocationData['location_id'],
-                        'quantity'         => $allocationData['quantity'],
-                    ]);
-                }
+                PurchaseAllocation::create([
+                    'purchase_item_id' => $item->id,
+                    'location_id'      => $defaultLocation->id,
+                    'quantity'         => $itemData['quantity'],
+                ]);
             }
 
             if ($newStatus == 2 && $oldStatus != 2) {
@@ -489,6 +456,17 @@ class PurchaseInvoiceController extends Controller
                 $inventory->increment('quantity', $qtyToAdd);
             }
         }
+    }
+
+    private function defaultPurchaseLocation(): Location
+    {
+        $location = Location::where('is_default', true)->first() ?? Location::first();
+
+        if (!$location) {
+            throw new \RuntimeException('Please create a default location before creating purchases.');
+        }
+
+        return $location;
     }
 
     public function updatePaymentStatus(Request $request, PurchaseInvoice $purchase)

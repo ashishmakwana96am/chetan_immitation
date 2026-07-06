@@ -97,7 +97,7 @@
 
                 <div class="text-center mt-4">
                     <span class="text-[#131615] text-lg">Already have an account?</span>
-                    <a href="{{ route('login') }}" class="text-[#B4771E] ml-1 text-lg font-medium">Login</a>
+                    <a href="{{ route('login') }}" id="loginInsteadLink" class="text-[#B4771E] ml-1 text-lg font-medium">Login</a>
                 </div>
             </div>
 
@@ -119,6 +119,13 @@
 @section('page-js')
 <script>
 $(function () {
+
+    var intendedParam = new URLSearchParams(window.location.search).get('intended');
+    if (intendedParam) {
+        var loginUrl = new URL($('#loginInsteadLink').attr('href'), window.location.origin);
+        loginUrl.searchParams.set('intended', intendedParam);
+        $('#loginInsteadLink').attr('href', loginUrl.pathname + loginUrl.search);
+    }
 
     var strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_#^()\-+=])[A-Za-z\d@$!%*?&_#^()\-+=]{8,}$/;
 
@@ -236,6 +243,8 @@ $(function () {
         $('#registerBtnText').text('Creating Account...');
         $('#registerSpinner').removeClass('hidden');
 
+        var pendingWishlist = sessionStorage.getItem('pendingWishlist');
+
         $.ajax({
             url: '{{ route('register.store') }}',
             method: 'POST',
@@ -246,9 +255,15 @@ $(function () {
                 email: $('#email').val(),
                 password: $('#password').val(),
                 password_confirmation: $('#password_confirmation').val(),
+                intended: new URLSearchParams(window.location.search).get('intended') || '',
+                pending_wishlist: pendingWishlist || '',
             },
             success: function (res) {
                 if (res.status === 'success' && res.redirect_url) {
+                    if (pendingWishlist) {
+                        sessionStorage.setItem('wishlistToastPending', 'Product added to your wishlist! ❤️');
+                        sessionStorage.removeItem('pendingWishlist');
+                    }
                     window.location.href = res.redirect_url;
                 } else { resetBtn(); }
             },

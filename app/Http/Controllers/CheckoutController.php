@@ -14,6 +14,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Setting;
+use App\Models\State;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,54 @@ use Illuminate\Support\Facades\Mail;
 
 class CheckoutController extends Controller
 {
+    const FREE_SHIPPING_THRESHOLD = 1999;
+
     private function customer()
     {
         return Auth::guard('customer')->user();
+    }
+
+    /**
+     * Order Amount >= 1999 => free shipping.
+     * Otherwise, use the shipping charge configured for the selected
+     * address's state, unless the Free Shipping coupon is applied.
+     */
+    private function calculateShipping(float $subtotal, ?CustomerAddress $address, ?Coupon $coupon = null): float
+    {
+        if ($subtotal <= 0) {
+            return 0.0;
+        }
+
+        if ($subtotal >= self::FREE_SHIPPING_THRESHOLD) {
+            return 0.0;
+        }
+
+        if ($coupon && $coupon->code === Coupon::FREE_SHIPPING_CODE) {
+            return 0.0;
+        }
+
+        if ($address && $address->state) {
+            $state = State::where('name', $address->state)
+                ->where('status', State::STATUS_ACTIVE)
+                ->first();
+
+            if ($state) {
+                return (float) $state->shipping_charge;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private function resolveDeliveryDays(?CustomerAddress $address): ?int
+    {
+        if (!$address || !$address->state) {
+            return null;
+        }
+
+        return State::where('name', $address->state)
+            ->where('status', State::STATUS_ACTIVE)
+            ->value('delivery_days');
     }
 
     public function index()
@@ -109,8 +155,11 @@ class CheckoutController extends Controller
                 session()->forget('applied_coupon_code');
             }
         }
-        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = $subtotal - $discount;
+        $defaultAddress = $addresses->first();
+        $shipping = $this->calculateShipping($subtotal, $defaultAddress, $coupon);
+        $total = round($subtotal - $discount + $shipping, 2);
+
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
 
         $paymentMethodCod = (bool) Setting::getValue('payment_method_cod', true);
         $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
@@ -119,7 +168,7 @@ class CheckoutController extends Controller
             $paymentMethodCod = true;
         }
 
-        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'paymentMethodCod', 'paymentMethodRazorpay'));
+        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'states', 'paymentMethodCod', 'paymentMethodRazorpay'));
     }
 
     public function saveAddress(Request $request)
@@ -131,7 +180,7 @@ class CheckoutController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['required', 'string'],
             'city' => ['required', 'string', 'max:100'],
-            'state' => ['required', 'string', 'max:100'],
+            'state' => ['required', 'string', 'max:100', \Illuminate\Validation\Rule::exists('states', 'name')->where('status', State::STATUS_ACTIVE)],
             'pincode' => ['required', 'string', 'max:10'],
             'type' => ['required', 'string', 'in:home,work'],
             'is_default' => ['nullable', 'boolean'],
@@ -177,7 +226,7 @@ class CheckoutController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['required', 'string'],
             'city' => ['required', 'string', 'max:100'],
-            'state' => ['required', 'string', 'max:100'],
+            'state' => ['required', 'string', 'max:100', \Illuminate\Validation\Rule::exists('states', 'name')->where('status', State::STATUS_ACTIVE)],
             'pincode' => ['required', 'string', 'max:10'],
             'type' => ['required', 'string', 'in:home,work'],
             'is_default' => ['nullable', 'boolean'],
@@ -365,8 +414,8 @@ class CheckoutController extends Controller
                 session()->forget('applied_coupon_code');
             }
         }
-        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal - $discount, 2);
+        $shipping = $this->calculateShipping($subtotal, $address, $coupon);
+        $total = round($subtotal - $discount + $shipping, 2);
 
         $location = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
@@ -415,6 +464,7 @@ class CheckoutController extends Controller
                 'address_id' => $address->id,
                 'location_id' => $location->id,
                 'total' => $total,
+                'shipping_charge' => $shipping,
                 'coupon_id' => $coupon ? $coupon->id : null,
                 'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
                 'cart_items' => $cartItems->map(function ($item) {
@@ -489,10 +539,12 @@ class CheckoutController extends Controller
                     'location_id' => $pendingPayment['location_id'],
                     'order_no' => $pendingPayment['order_no'],
                     'order_type' => 'sale',
-                    'status' => Order::STATUS_PENDING,
+                    'status' => Order::STATUS_APPROVE,
+                    'confirmed_at' => now(),
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'payment_method' => 'online',
                     'final_amount' => $pendingPayment['total'],
+                    'shipping_charge' => $pendingPayment['shipping_charge'] ?? 0,
                     'source' => 'ONLINE',
                     'discount_type' => $pendingPayment['discount_type'],
                     'coupon_id' => $pendingPayment['coupon_id'],
@@ -519,6 +571,10 @@ class CheckoutController extends Controller
                         'discount'           => 0.0,
                         'total'              => $item['total'],
                     ]);
+
+                    Inventory::where('product_id', $item['product_id'])
+                        ->where('location_id', $order->location_id)
+                        ->decrement('quantity', $item['quantity']);
                 }
 
                 if ($pendingPayment['type'] === 'checkout') {
@@ -538,12 +594,15 @@ class CheckoutController extends Controller
 
             session()->forget('pending_payment');
 
+            $order->loadMissing('customerAddress');
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Payment verified successfully.',
                 'order' => [
                     'order_no' => $order->order_no,
                     'final_amount' => number_format($order->final_amount, 2, '.', ''),
+                    'delivery_days' => $this->resolveDeliveryDays($order->customerAddress),
                 ],
             ]);
         } else {
@@ -574,10 +633,6 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /**
-     * POST /buy-now/payment/initialize
-     * Direct Buy Now — single product, bypasses cart.
-     */
     public function buyNowInitialize(Request $request)
     {
         $request->validate([
@@ -587,7 +642,6 @@ class CheckoutController extends Controller
             'qty' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        // Guard: Razorpay must be enabled in settings
         if (! (bool) Setting::getValue('payment_method_razorpay', true)) {
             return response()->json([
                 'status' => 'error',
@@ -619,7 +673,6 @@ class CheckoutController extends Controller
 
         $qty = max(1, (int) ($request->qty ?? 1));
 
-        // Calculate price
         if ($request->filled('variant_id')) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('status', 1)
@@ -632,7 +685,9 @@ class CheckoutController extends Controller
             $price = $product->sale_price;
         }
 
-        $total = round((float) $price * $qty, 2);
+        $subtotal = round((float) $price * $qty, 2);
+        $shipping = $this->calculateShipping($subtotal, $address, null);
+        $total = round($subtotal + $shipping, 2);
 
         $location = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
@@ -677,6 +732,7 @@ class CheckoutController extends Controller
                 'address_id' => $address->id,
                 'location_id' => $location->id,
                 'total' => $total,
+                'shipping_charge' => $shipping,
                 'coupon_id' => null,
                 'discount_type' => 'MANUAL',
                 'cart_items' => [[
@@ -708,6 +764,62 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function resolveAddressForShipping(Request $request): ?CustomerAddress
+    {
+        $customer = $this->customer();
+
+        if ($request->filled('address_id')) {
+            $address = CustomerAddress::where('customer_id', $customer->id)
+                ->where('id', $request->address_id)
+                ->first();
+            if ($address) {
+                return $address;
+            }
+        }
+
+        return CustomerAddress::where('customer_id', $customer->id)
+            ->orderBy('is_default', 'desc')
+            ->latest()
+            ->first();
+    }
+
+    public function recalculateShipping(Request $request)
+    {
+        $customer = $this->customer();
+        $cartItems = CartItem::where('customer_id', $customer->id)->get();
+
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            $subtotal += $item->getPrice() * $item->qty;
+        }
+
+        $discount = 0.0;
+        $coupon = null;
+        if (session()->has('applied_coupon_code')) {
+            $coupon = Coupon::where('code', session('applied_coupon_code'))
+                ->where('status', Coupon::STATUS_ACTIVE)
+                ->first();
+            if ($coupon) {
+                $discount = $coupon->discount_type === 'percentage'
+                    ? $subtotal * ((float) $coupon->discount_value / 100)
+                    : (float) $coupon->discount_value;
+                if ($discount > $subtotal) {
+                    $discount = $subtotal;
+                }
+            }
+        }
+
+        $address = $this->resolveAddressForShipping($request);
+        $shipping = $this->calculateShipping($subtotal, $address, $coupon);
+        $total = round($subtotal - $discount + $shipping, 2);
+
+        return response()->json([
+            'status' => 'success',
+            'shipping_amount' => $shipping,
+            'total_amount' => $total,
+        ]);
     }
 
     public function applyCoupon(Request $request)
@@ -775,16 +887,20 @@ class CheckoutController extends Controller
             $discountDesc = 'Discount (Flat ₹'.(int) $coupon->discount_value.' Off)';
         }
 
-        $total = round($subtotal - $discount, 2);
+        $address = $this->resolveAddressForShipping($request);
+        $shipping = $this->calculateShipping($subtotal, $address, $coupon);
+        $total = round($subtotal - $discount + $shipping, 2);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Coupon applied successfully.',
             'discount_amount' => $discount,
+            'shipping_amount' => $shipping,
+            'total_amount' => $total,
         ]);
     }
 
-    public function removeCoupon()
+    public function removeCoupon(Request $request)
     {
         session()->forget('applied_coupon_code');
 
@@ -797,12 +913,14 @@ class CheckoutController extends Controller
             $subtotal += $price * $item->qty;
         }
 
-        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal, 2);
+        $address = $this->resolveAddressForShipping($request);
+        $shipping = $this->calculateShipping($subtotal, $address, null);
+        $total = round($subtotal + $shipping, 2);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Coupon removed successfully.',
+            'shipping_amount' => $shipping,
             'total_amount' => $total,
             'total_label' => '₹'.number_format($total, 2, '.', ''),
         ]);
@@ -884,10 +1002,9 @@ class CheckoutController extends Controller
             }
         }
 
-        $shipping = $subtotal > 1999 || $subtotal === 0.0 ? 0.0 : 99.0;
-        $total = round($subtotal - $discount, 2);
+        $shipping = $this->calculateShipping($subtotal, $address, $coupon);
+        $total = round($subtotal - $discount + $shipping, 2);
 
-        // Resolve default location
         $location = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
             ?? Location::first();
@@ -900,11 +1017,9 @@ class CheckoutController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($customer, $location, $total, $cartItems, $coupon, $address) {
-                // Generate Invoice No
+            $order = DB::transaction(function () use ($customer, $location, $total, $shipping, $cartItems, $coupon, $address) {
                 $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
 
-                // Create Order
                 $order = Order::create([
                     'customer_id' => $customer->id,
                     'customer_address_id' => $address->id,
@@ -915,12 +1030,12 @@ class CheckoutController extends Controller
                     'payment_status' => Order::PAYMENT_STATUS_PENDING,
                     'payment_method' => 'cod',
                     'final_amount' => $total,
+                    'shipping_charge' => $shipping,
                     'source' => 'ONLINE',
                     'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
                     'coupon_id' => $coupon ? $coupon->id : null,
                 ]);
 
-                // Create Order Items (NO inventory deduction - will be done when admin approves)
                 foreach ($cartItems as $item) {
                     $price = $item->getPrice();
 
@@ -935,11 +1050,9 @@ class CheckoutController extends Controller
                     ]);
                 }
 
-                // Clear customer cart and clear coupon session
                 CartItem::where('customer_id', $customer->id)->delete();
                 session()->forget('applied_coupon_code');
 
-                // Send order confirmation email
                 try {
                     Mail::to($customer->email)->send(new OrderConfirmationMail($order));
                 } catch (\Exception $e) {
@@ -955,6 +1068,7 @@ class CheckoutController extends Controller
                 'order' => [
                     'order_no' => $order->order_no,
                     'final_amount' => number_format($order->final_amount, 2, '.', ''),
+                    'delivery_days' => $this->resolveDeliveryDays($address),
                 ],
             ]);
 

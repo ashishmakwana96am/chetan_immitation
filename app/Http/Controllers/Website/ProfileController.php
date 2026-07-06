@@ -14,6 +14,7 @@ use App\Models\CustomerAddress;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\ProductReview;
+use App\Models\State;
 use App\Mail\OrderStatusMail;
 
 class ProfileController extends Controller
@@ -41,7 +42,9 @@ class ProfileController extends Controller
             ->latest()
             ->get();
 
-        return view('website.profile', compact('addresses', 'orders'));
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+
+        return view('website.profile', compact('addresses', 'orders', 'states'));
     }
 
     /**
@@ -88,15 +91,16 @@ class ProfileController extends Controller
         $customer = $this->customer();
         $request->validate([
             'name'         => ['required', 'string', 'max:255'],
-            'phone'        => ['required', 'string', 'max:20'],
+            'phone'        => ['required', 'digits:10'],
         ]);
 
         $name        = trim($request->name);
 
         $customer->update([
             'name'         => $name,
-            'phone'        => $request->phone,
         ]);
+
+        $customer->syncPrimaryPhone($request->phone);
 
         $customer->refresh();
 
@@ -178,6 +182,7 @@ class ProfileController extends Controller
 
         $reviewsByProduct = ProductReview::where('customer_id', $customer->id)
             ->where('order_id', $order->id)
+            ->with('images')
             ->get()
             ->keyBy('product_id');
 

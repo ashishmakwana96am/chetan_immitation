@@ -40,6 +40,12 @@ class PermissionSeeder extends Seeder
             'edit locations' => 'Locations',
             'delete locations' => 'Locations',
 
+            // States
+            'view states' => 'States',
+            'create states' => 'States',
+            'edit states' => 'States',
+            'delete states' => 'States',
+
             // Categories
             'view categories' => 'Categories',
             'create categories' => 'Categories',
@@ -79,6 +85,18 @@ class PermissionSeeder extends Seeder
             'delete purchases' => 'Purchases',
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
+
+            // Stock Transfers
+            'view stock transfers' => 'Stock Transfers',
+            'create stock transfers' => 'Stock Transfers',
+            'accept stock transfers' => 'Stock Transfers',
+            'reject stock transfers' => 'Stock Transfers',
+
+            // Expenses
+            'view expenses' => 'Expenses',
+            'create expenses' => 'Expenses',
+            'edit expenses' => 'Expenses',
+            'delete expenses' => 'Expenses',
 
             // Customers
             'view customers' => 'Customers',

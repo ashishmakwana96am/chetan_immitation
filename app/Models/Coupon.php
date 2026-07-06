@@ -12,6 +12,8 @@ class Coupon extends Model
 
     const STATUS_INACTIVE = 2;
 
+    const FREE_SHIPPING_CODE = 'FREESHIP';
+
     protected $fillable = [
         'name',
         'code',
@@ -22,6 +24,7 @@ class Coupon extends Model
         'start_date',
         'end_date',
         'status',
+        'is_protected',
         'created_by',
     ];
 

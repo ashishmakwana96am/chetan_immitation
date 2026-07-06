@@ -302,6 +302,13 @@
                                 @if($existingReview->comment)
                                 <p class="mt-3 text-[#3D403F] text-base">{{ $existingReview->comment }}</p>
                                 @endif
+                                @if($existingReview->images->isNotEmpty())
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    @foreach($existingReview->images as $reviewImage)
+                                        <img src="{{ $reviewImage->image_url }}" alt="Review photo" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]">
+                                    @endforeach
+                                </div>
+                                @endif
                                 <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
                                     <img src="{{ $reviewAuthorAvatar }}" alt="{{ $reviewAuthorName }}" class="w-[50px] h-[50px] rounded-full object-cover">
                                     <div>
@@ -331,6 +338,19 @@
                             </div>
                             <input type="hidden" class="review-rating-input" value="0">
                             <textarea placeholder="Write Your Review" class="review-comment-input w-full h-[120px] border border-[#D5D5D5] px-5 py-4 outline-none resize-none text-[#131615] placeholder:text-[#757575] placeholder:text-sm leading-6 mt-5"></textarea>
+
+                            <div class="mt-4">
+                                <label class="review-image-picker-btn inline-flex items-center gap-2 border border-[#D5D5D5] px-4 py-2 text-sm text-[#3D403F] cursor-pointer hover:border-[#B4771E] transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 4.5h18v15H3v-15z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 6.75a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                    </svg>
+                                    <span class="review-image-picker-label">Choose Pictures</span>
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" class="review-image-input hidden" multiple>
+                                </label>
+                                <div class="review-image-preview-grid mt-3 flex flex-wrap gap-2"></div>
+                            </div>
+
                             <p class="review-error text-sm text-red-600 mt-2 hidden"></p>
                             <button type="button" class="review-submit-btn common-btn lg:h-[50px] mt-5" onclick="submitProductReview(this)">
                                 Submit
@@ -349,9 +369,8 @@
                     return (float)$item->total;
                 });
                 $finalAmount = (float)$order->final_amount;
-                $hasFreeShipping = ($subtotal > 1999 || $subtotal == 0);
-                $shippingCost = $hasFreeShipping ? 0 : 99;
-                $discount = $subtotal - $finalAmount;
+                $shippingCost = (float)$order->shipping_charge;
+                $discount = $subtotal - ($finalAmount - $shippingCost);
                 if ($discount < 0) $discount = 0;
                 $canCancelOrder = in_array((int) $order->status, [
                     \App\Models\Order::STATUS_PENDING,
@@ -403,16 +422,10 @@
                             <span class="text-[#3D403F]">-{{ website_price($discount) }}</span>
                         </div>
                         @endif
-                        {{--
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span class="text-[#131615]">Shipping</span>
-                            <span class="text-[#3D403F]">{{ $hasFreeShipping ? 'Free' : '₹99' }}</span>
+                            <span class="text-[#3D403F]">{{ $shippingCost > 0 ? website_price($shippingCost) : 'Free' }}</span>
                         </div>
-                        <div class="flex justify-between text-base md:text-lg font-medium">
-                            <span class="text-[#131615]">Estimated Tax</span>
-                            <span class="text-[#3D403F]">₹0</span>
-                        </div>
-                        --}}
                     </div>
                     <div class="border-t mt-4 pt-4 flex justify-between">
                         <span class="font-semibold text-lg md:text-xl">
@@ -690,12 +703,17 @@ function renderSubmittedReviewHtml(review) {
         ? `<p class="mt-3 text-[#3D403F] text-base">${review.comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
         : '';
 
+    const imageHtml = (review.images && review.images.length)
+        ? `<div class="mt-3 flex flex-wrap gap-2">${review.images.map(url => `<img src="${url}" alt="Review photo" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]">`).join('')}</div>`
+        : '';
+
     return `
         <div class="review-submitted">
             <h3 class="text-xl text-[#131615] font-semibold">Your Review</h3>
             <div class="mt-4 border border-[#D5D5D5] p-4">
                 <h4 class="text-[#131615] text-lg font-medium">${review.created_at}</h4>
                 ${commentHtml}
+                ${imageHtml}
                 <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
                     <img src="${review.author_avatar}" alt="${review.author_name}" class="w-[50px] h-[50px] rounded-full object-cover">
                     <div>
@@ -708,12 +726,76 @@ function renderSubmittedReviewHtml(review) {
     `;
 }
 
+const REVIEW_MAX_IMAGES = 5;
+
+function setReviewImageFiles(wrap, files) {
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    wrap.querySelector('.review-image-input').files = dt.files;
+    renderReviewImagePreviews(wrap, files);
+}
+
+function renderReviewImagePreviews(wrap, files) {
+    const grid = wrap.querySelector('.review-image-preview-grid');
+    grid.innerHTML = '';
+    files.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            const item = document.createElement('div');
+            item.className = 'relative inline-block';
+            item.innerHTML = `
+                <img src="${ev.target.result}" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]" alt="Preview">
+                <button type="button" class="review-image-remove-btn absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-[#D5D5D5] text-[#3D403F] flex items-center justify-center text-sm leading-none" data-index="${idx}">&times;</button>
+            `;
+            grid.appendChild(item);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+document.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('review-image-input')) return;
+
+    const wrap = e.target.closest('.review-form-wrap');
+    const errorEl = wrap.querySelector('.review-error');
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+
+    let files = Array.from(e.target.files);
+
+    if (files.length > REVIEW_MAX_IMAGES) {
+        errorEl.textContent = 'You can upload a maximum of ' + REVIEW_MAX_IMAGES + ' pictures.';
+        errorEl.classList.remove('hidden');
+        files = files.slice(0, REVIEW_MAX_IMAGES);
+    }
+
+    const oversized = files.some(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+        errorEl.textContent = 'Each image must be less than 5 MB.';
+        errorEl.classList.remove('hidden');
+        files = files.filter(f => f.size <= 5 * 1024 * 1024);
+    }
+
+    setReviewImageFiles(wrap, files);
+});
+
+document.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('review-image-remove-btn')) return;
+
+    const wrap = e.target.closest('.review-form-wrap');
+    const input = wrap.querySelector('.review-image-input');
+    const idx = parseInt(e.target.dataset.index, 10);
+    const files = Array.from(input.files).filter((_, i) => i !== idx);
+    setReviewImageFiles(wrap, files);
+});
+
 function submitProductReview(btn) {
     const wrap = btn.closest('.review-form-wrap');
     const productId = wrap.dataset.productId;
     const orderId = wrap.dataset.orderId;
     const rating = parseFloat(wrap.querySelector('.review-rating-input').value);
     const comment = wrap.querySelector('.review-comment-input').value.trim();
+    const imageInput = wrap.querySelector('.review-image-input');
     const errorEl = wrap.querySelector('.review-error');
 
     errorEl.classList.add('hidden');
@@ -728,20 +810,23 @@ function submitProductReview(btn) {
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
+    const formData = new FormData();
+    formData.append('order_id', orderId);
+    formData.append('product_id', productId);
+    formData.append('rating', rating);
+    formData.append('comment', comment);
+    Array.from(imageInput.files).forEach(file => {
+        formData.append('images[]', file);
+    });
+
     fetch('{{ route('customer.reviews.store') }}', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': getCsrfToken(),
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         },
-        body: JSON.stringify({
-            order_id: orderId,
-            product_id: productId,
-            rating: rating,
-            comment: comment
-        })
+        body: formData
     })
     .then(r => r.json())
     .then(data => {

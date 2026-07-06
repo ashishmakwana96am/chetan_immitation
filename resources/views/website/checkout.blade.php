@@ -168,7 +168,7 @@
                 </div>
                 <div>
                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
-                        State / County <span class="text-red-600">*</span>
+                        State <span class="text-red-600">*</span>
                     </label>
                     <select
                         id="addr_state"
@@ -177,12 +177,11 @@
                         <option value="">
                             Select an Option...
                         </option>
-                        <option value="Gujarat">
-                            Gujarat
-                        </option>
-                        <option value="Maharashtra">
-                            Maharashtra
-                        </option>
+                        @foreach($states as $stateOption)
+                            <option value="{{ $stateOption->name }}">
+                                {{ $stateOption->name }}
+                            </option>
+                        @endforeach
                     </select>
                     <p class="addr-error mt-2 text-sm text-red-600" data-error-for="state"></p>
                 </div>
@@ -654,12 +653,10 @@
                             <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-{{ website_price($discount) }}</span>
                         </div>
-                        {{--
                         <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Shipping</span>
-                            <span class="font-normal text-[#3D403F]">{{ $shipping > 0 ? '₹' . number_format($shipping, 0) : 'Free' }}</span>
+                            <span class="font-normal text-[#3D403F]" id="checkoutShippingValue">{{ $shipping > 0 ? website_price($shipping) : 'Free' }}</span>
                         </div>
-                        --}}
                         {{--
                         <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Estimated Tax</span>
@@ -810,8 +807,8 @@
                          Estimated Delivery
                         </span>
                     </div>
-                    <span class="text-[#3D403F] text-base text-end">
-                        4–7 Business Days
+                    <span id="successDeliveryEstimate" class="text-[#3D403F] text-base text-end">
+                        -
                     </span>
                 </div>
             </div>
@@ -986,6 +983,8 @@ const CHECKOUT_WISHLIST_TOGGLE_URL = '{{ route('wishlist.toggle') }}';
 const CHECKOUT_LOGIN_URL = '{{ route('login') }}?intended={{ urlencode(route('checkout')) }}';
 const CHECKOUT_CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 const CHECKOUT_SUBTOTAL = {{ $subtotal }};
+const CHECKOUT_SHIPPING_RECALC_URL = '{{ route('checkout.shipping.recalculate') }}';
+let currentShippingAmount = {{ $shipping }};
 
 /* ── Price formatter — shows decimals only when needed ── */
 function fmtPrice(amount) {
@@ -1340,6 +1339,40 @@ function refreshAddressSelection(selectedId) {
     });
 }
 
+function updateShippingAndTotalDisplay(shippingAmount, totalAmount) {
+    currentShippingAmount = parseFloat(shippingAmount) || 0;
+
+    const shippingVal = document.getElementById('checkoutShippingValue');
+    if (shippingVal) {
+        shippingVal.textContent = currentShippingAmount > 0 ? fmtPrice(currentShippingAmount) : 'Free';
+    }
+
+    const totalVal = document.getElementById('checkoutTotalValue');
+    if (totalVal) {
+        totalVal.textContent = fmtPrice(totalAmount);
+    }
+}
+
+function recalculateShippingForAddress(addressId) {
+    fetch(CHECKOUT_SHIPPING_RECALC_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CHECKOUT_CSRF,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ address_id: addressId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            updateShippingAndTotalDisplay(data.shipping_amount, data.total_amount);
+        }
+    })
+    .catch(err => console.error('Shipping recalculation error:', err));
+}
+
 document.addEventListener('click', function(e) {
     document.querySelectorAll('.address-dropdown').forEach(dropdown => {
         const btn = dropdown.previousElementSibling;
@@ -1363,6 +1396,7 @@ document.addEventListener('click', function(e) {
     if (card && !e.target.closest('.address-menu-container')) {
         const addrId = card.dataset.addressId;
         refreshAddressSelection(addrId);
+        recalculateShippingForAddress(addrId);
     }
 });
 
@@ -1479,10 +1513,12 @@ function doDeleteAddress(addressId, csrfToken) {
                 if (setDefaultBtn) setDefaultBtn.remove();
 
                 refreshAddressSelection(latestId);
+                recalculateShippingForAddress(latestId);
             } else if (wasActive) {
                 const defaultCard = document.querySelector('.default-address-card');
                 if (defaultCard) {
                     refreshAddressSelection(defaultCard.dataset.addressId);
+                    recalculateShippingForAddress(defaultCard.dataset.addressId);
                 }
             }
         } else {
@@ -1616,6 +1652,7 @@ function saveCustomerAddress(e) {
             }
 
             refreshAddressSelection(data.address.id);
+            recalculateShippingForAddress(data.address.id);
 
             closeModal();
             resetAddressForm();
@@ -1779,7 +1816,11 @@ function handleCouponAction() {
 
     const isApply = btn.textContent.trim() === 'Apply Coupon';
     const url = isApply ? '{{ route('checkout.coupon.apply') }}' : '{{ route('checkout.coupon.remove') }}';
-    const bodyData = isApply ? JSON.stringify({ code: code }) : JSON.stringify({});
+    const activeCard = document.querySelector('.address-card.active-address');
+    const activeAddressId = activeCard ? activeCard.dataset.addressId : null;
+    const bodyData = isApply
+        ? JSON.stringify({ code: code, address_id: activeAddressId })
+        : JSON.stringify({ address_id: activeAddressId });
 
     btn.disabled = true;
     btn.textContent = isApply ? 'Applying...' : 'Removing...';
@@ -1818,11 +1859,7 @@ function handleCouponAction() {
                 if (discountVal) {
                     discountVal.textContent = '-' + fmtPrice(data.discount_amount);
                 }
-                const totalVal = document.getElementById('checkoutTotalValue');
-                if (totalVal) {
-                    const total = CHECKOUT_SUBTOTAL - data.discount_amount;
-                    totalVal.textContent = fmtPrice(total);
-                }
+                updateShippingAndTotalDisplay(data.shipping_amount, data.total_amount);
             } else {
                 input.value = '';
                 input.disabled = false;
@@ -1835,10 +1872,7 @@ function handleCouponAction() {
                 if (discountRow) {
                     discountRow.classList.add('hidden');
                 }
-                const totalVal = document.getElementById('checkoutTotalValue');
-                if (totalVal) {
-                    totalVal.textContent = fmtPrice(CHECKOUT_SUBTOTAL);
-                }
+                updateShippingAndTotalDisplay(data.shipping_amount, data.total_amount);
             }
         } else {
             throw new Error(data.message || 'Coupon action failed.');
@@ -1889,7 +1923,10 @@ function startPaymentFlow() {
             if (data.status === 'success') {
                 document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
                 document.getElementById('successOrderAmount').textContent = fmtPrice(parseFloat(data.order.final_amount));
-                
+                document.getElementById('successDeliveryEstimate').textContent = data.order.delivery_days
+                    ? data.order.delivery_days + ' Business Day' + (data.order.delivery_days == 1 ? '' : 's')
+                    : 'Business Days';
+
                 openSuccessModal();
                 placeBtn.disabled = false;
                 placeBtn.innerHTML = originalText;
@@ -2032,7 +2069,10 @@ function verifyPayment(rzpResponse, orderDetail) {
             // Update order success modal values
             document.getElementById('successOrderId').textContent = '#' + data.order.order_no;
             document.getElementById('successOrderAmount').textContent = fmtPrice(parseFloat(data.order.final_amount));
-            
+            document.getElementById('successDeliveryEstimate').textContent = data.order.delivery_days
+                ? data.order.delivery_days + ' Business Day' + (data.order.delivery_days == 1 ? '' : 's')
+                : 'Business Days';
+
             // Hide loader, open Success Modal
             hidePaymentLoader();
             openSuccessModal();

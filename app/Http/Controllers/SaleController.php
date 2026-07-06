@@ -109,7 +109,7 @@ class SaleController extends Controller
                 if (($order->source ?? 'POS') === 'ONLINE') {
                     $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                 } else {
-                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" onclick="window.open(this.href, \'_blank\', \'width=900,height=800,resizable=yes,scrollbars=yes\'); return false;"><i class="ti ti-printer me-2"></i>Thermal Print</a>';
+                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" onclick="window.open(this.href, \'_blank\', \'width=900,height=800,resizable=yes,scrollbars=yes\'); return false;"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                 }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;

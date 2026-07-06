@@ -17,7 +17,7 @@ class ProductReviewController extends Controller
     {
         $this->authorize('view product reviews');
 
-        $query = ProductReview::with(['product', 'customer'])->orderBy('id', 'desc');
+        $query = ProductReview::with(['product', 'customer', 'images'])->orderBy('id', 'desc');
 
         if ($request->filled('rating')) {
             $query->where('rating', $request->rating);
@@ -50,6 +50,13 @@ class ProductReviewController extends Controller
                 }
             }
 
+            $photoHtml = '<span class="text-muted">-</span>';
+            if ($review->images->isNotEmpty()) {
+                $photoHtml = '<div class="d-flex gap-1">' . $review->images->map(function ($img) {
+                    return '<a href="' . $img->image_url . '" target="_blank"><img src="' . $img->image_url . '" class="rounded" style="width:40px;height:40px;object-fit:cover;" alt="Review photo"></a>';
+                })->implode('') . '</div>';
+            }
+
             return [
                 'index'      => $index + 1,
                 'product'    => '<span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
@@ -57,6 +64,7 @@ class ProductReviewController extends Controller
                 'customer'   => e($review->customer->name ?? '-'),
                 'rating'     => $starsHtml,
                 'comment'    => $commentHtml,
+                'photo'      => $photoHtml,
                 'created_at' => format_date($review->created_at),
             ];
         });

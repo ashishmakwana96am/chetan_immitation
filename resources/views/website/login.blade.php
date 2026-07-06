@@ -98,7 +98,7 @@
 
                 <div class="text-center mt-[30px] text-lg font-semibold">
                     <span class="text-[#131615]">Don't have an account?</span>
-                    <a href="{{ route('register') }}" class="text-[#B4771E] ml-1">Create account</a>
+                    <a href="{{ route('register') }}" id="createAccountLink" class="text-[#B4771E] ml-1">Create account</a>
                 </div>
             </div>
 
@@ -120,6 +120,13 @@
 @section('page-js')
 <script>
 $(function () {
+
+    var intendedParam = new URLSearchParams(window.location.search).get('intended');
+    if (intendedParam) {
+        var registerUrl = new URL($('#createAccountLink').attr('href'), window.location.origin);
+        registerUrl.searchParams.set('intended', intendedParam);
+        $('#createAccountLink').attr('href', registerUrl.pathname + registerUrl.search);
+    }
 
     var rememberedEmail = localStorage.getItem('remembered_customer_email');
     var rememberedPassword = localStorage.getItem('remembered_customer_password');

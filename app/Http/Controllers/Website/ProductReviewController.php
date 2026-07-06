@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Website;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ProductReview;
+use App\Models\ReviewImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ProductReviewController extends Controller
 {
+    const MAX_IMAGES = 5;
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -17,6 +20,8 @@ class ProductReviewController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'rating'     => ['required', 'numeric', 'min:0.5', 'max:5'],
             'comment'    => ['nullable', 'string', 'max:1000'],
+            'images'     => ['nullable', 'array', 'max:'.self::MAX_IMAGES],
+            'images.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
         $rating = round((float) $validated['rating'], 1);
@@ -63,7 +68,22 @@ class ProductReviewController extends Controller
             'comment'     => trim((string) $request->comment) ?: null,
         ]);
 
-        $review->load('customer');
+        $dir = public_path('uploads/reviews');
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        foreach ($request->file('images', []) as $file) {
+            $filename = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+            $file->move($dir, $filename);
+
+            ReviewImage::create([
+                'product_review_id' => $review->id,
+                'image_path'        => 'reviews/'.$filename,
+            ]);
+        }
+
+        $review->load('customer', 'images');
 
         return response()->json([
             'status'  => 'success',
@@ -76,6 +96,7 @@ class ProductReviewController extends Controller
                 'author_avatar'=> $review->customer->avatar
                     ? asset($review->customer->avatar)
                     : 'https://ui-avatars.com/api/?name=' . urlencode($review->customer->name) . '&background=B4771E&color=fff&size=120&bold=true',
+                'images'       => $review->images->map(fn ($img) => $img->image_url)->all(),
             ],
         ]);
     }
