@@ -101,6 +101,16 @@
                 table.ajax.reload(null, false);
             };
 
+            // Constrain date range
+            $('#filter-start-date').on('change', function () {
+                const val = $(this).val();
+                $('#filter-end-date').attr('min', val);
+            });
+            $('#filter-end-date').on('change', function () {
+                const val = $(this).val();
+                $('#filter-start-date').attr('max', val);
+            });
+
             // Apply Filter
             $(document).on('click', '#btnApplyFilter', function (e) {
                 e.preventDefault();
@@ -113,8 +123,8 @@
             $(document).on('click', '#btnClearFilter', function (e) {
                 e.preventDefault();
                 $('#filter-emailed').val('');
-                $('#filter-start-date').val('');
-                $('#filter-end-date').val('');
+                $('#filter-start-date').val('').removeAttr('max');
+                $('#filter-end-date').val('').removeAttr('min');
                 window.refreshTable();
                 const btn = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
                 if (btn) { (bootstrap.Dropdown.getInstance(btn) || new bootstrap.Dropdown(btn)).hide(); }

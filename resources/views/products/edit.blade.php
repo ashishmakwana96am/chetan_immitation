@@ -883,16 +883,20 @@
                 generateVariants();
             });
 
+            function roundToNearest5(val) {
+                return Math.ceil(parseFloat(val) / 5) * 5;
+            }
+
             $('#productCodeInput').on('input change', function () {
                 const code = parseFloat($(this).val()) || 0;
                 const purchasePrice = (code * 2.5).toFixed(2);
                 const isPair = $('#productPair').is(':checked');
 
                 if (isPair) {
-                    const pairSalePrice = (code * 4.125).toFixed(2);
-                    const pairMrp = (pairSalePrice * 1.10).toFixed(2);
-                    const singleSalePrice = (pairSalePrice / 2).toFixed(2);
-                    const singleMrp = (singleSalePrice * 1.10).toFixed(2);
+                    const pairSalePrice = roundToNearest5(code * 4.125).toFixed(2);
+                    const pairMrp = roundToNearest5(pairSalePrice * 0.90).toFixed(2);
+                    const singleSalePrice = roundToNearest5(pairSalePrice / 2).toFixed(2);
+                    const singleMrp = roundToNearest5(singleSalePrice * 0.90).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(singleSalePrice).trigger('change');
@@ -900,8 +904,8 @@
                     $('#pairSalePriceInput').val(pairSalePrice);
                     $('#pairMrpInput').val(pairMrp);
                 } else {
-                    const salePrice = (code * 4.125).toFixed(2);
-                    const mrp = (salePrice * 1.10).toFixed(2);
+                    const salePrice = roundToNearest5(code * 4.125).toFixed(2);
+                    const mrp = roundToNearest5(salePrice * 0.90).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(salePrice).trigger('change');
@@ -932,11 +936,11 @@
             updatePairPricingLabels($('#productPair').is(':checked'));
 
             $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(((parseFloat($(this).val()) || 0) * 1.10).toFixed(2));
+                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * 0.90).toFixed(2));
             });
 
             $('#pairSalePriceInput').on('input', function () {
-                $('#pairMrpInput').val(((parseFloat($(this).val()) || 0) * 1.10).toFixed(2));
+                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * 0.90).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

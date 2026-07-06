@@ -447,22 +447,52 @@
     }
 
     function initDatePickers() {
-        $('.flatpickr').each(function() {
-            if (this._flatpickr) {
-                this._flatpickr.destroy();
-            }
-        });
-
         if (typeof $.fn.flatpickr !== 'undefined') {
-            $('.flatpickr').flatpickr({
-                altInput: true,
-                altFormat: 'd-m-Y',
-                dateFormat: 'Y-m-d',
-                allowInput: false,
-                onChange: function (selectedDates, dateStr, instance) {
-                    $(instance.element).closest('form').trigger('change');
+            const startEl = $('input[name="start_date"]')[0];
+            const endEl = $('input[name="end_date"]')[0];
+            if (startEl && endEl) {
+                if (startEl._flatpickr) startEl._flatpickr.destroy();
+                if (endEl._flatpickr) endEl._flatpickr.destroy();
+
+                const startPicker = $(startEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            endPicker.set('minDate', selectedDates[0]);
+                        } else {
+                            endPicker.set('minDate', null);
+                        }
+                    }
+                });
+
+                const endPicker = $(endEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            startPicker.set('maxDate', selectedDates[0]);
+                        } else {
+                            startPicker.set('maxDate', null);
+                        }
+                    }
+                });
+
+                if (startPicker.selectedDates.length) {
+                    endPicker.set('minDate', startPicker.selectedDates[0]);
                 }
-            });
+                if (endPicker.selectedDates.length) {
+                    startPicker.set('maxDate', endPicker.selectedDates[0]);
+                }
+            } else {
+                $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
+                $('.flatpickr').flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                    }
+                });
+            }
         }
     }
 
@@ -502,6 +532,8 @@
             form.find('.flatpickr').each(function () {
                 if (this._flatpickr) {
                     this._flatpickr.clear();
+                    this._flatpickr.set('minDate', null);
+                    this._flatpickr.set('maxDate', null);
                 }
             });
             form.find('input').val('');

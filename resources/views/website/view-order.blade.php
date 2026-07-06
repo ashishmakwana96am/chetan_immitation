@@ -456,7 +456,7 @@
                             Download Invoice
                         </a>
                         @if($canCancelOrder)
-                        <button type="button" id="openCancelOrderModal" class="flex items-center justify-center w-full h-[52px] border mt-4 border-red-500 text-red-600 text-lg font-medium transition bg-transparent hover:text-white hover:bg-red-600 hover:border-red-600">
+                        <button type="button" id="openCancelOrderModal" class="flex items-center justify-center w-full h-[52px] border mt-4 border-red-500 text-red-600 text-lg font-medium transition bg-transparent hover:text-white hover:bg-red-600 hover:border-red-600 rounded-md">
                             Cancel Order
                         </button>
                         @endif
@@ -472,7 +472,7 @@
 
 @if($canCancelOrder)
 <div id="cancelOrderModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 px-4">
-    <div class="w-full max-w-[520px] bg-white shadow-2xl">
+    <div class="w-full max-w-[520px] bg-white shadow-2xl rounded-md">
         <div class="flex items-start justify-between gap-4 border-b border-[#E5E5E5] p-5">
             <div>
                 <h3 class="text-[#131615] text-xl font-semibold">Cancel Order</h3>
@@ -485,16 +485,16 @@
             <label for="cancelOrderRemark" class="block text-sm font-semibold text-[#131615] mb-2">
                 Cancellation Remark <span class="text-red-600">*</span>
             </label>
-            <textarea id="cancelOrderRemark" name="cancellation_reason" rows="4" maxlength="500" class="w-full border border-[#D5D5D5] px-4 py-3 outline-none text-[#131615] placeholder:text-[#757575] resize-none focus:border-[#B4771E]" placeholder="Tell us why you want to cancel this order"></textarea>
+            <textarea id="cancelOrderRemark" name="cancellation_reason" rows="4" maxlength="500" class="w-full border border-[#D5D5D5] px-4 py-3 outline-none text-[#131615] placeholder:text-[#757575] resize-none focus:border-[#B4771E] rounded-md" placeholder="Tell us why you want to cancel this order"></textarea>
             <div class="mt-2 flex items-center justify-between gap-3">
                 <p id="cancelOrderError" class="hidden text-sm text-red-600"></p>
                 <p class="ml-auto text-xs text-[#757575]"><span id="cancelRemarkCount">0</span>/500</p>
             </div>
             <div class="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium hover:border-[#131615]">
+                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium hover:border-[#131615] rounded-md">
                     Keep Order
                 </button>
-                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-md">
                     Confirm Cancellation
                 </button>
             </div>

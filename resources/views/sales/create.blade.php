@@ -854,8 +854,11 @@ $(document).ready(function () {
                 visibleInputs.prop('disabled', false);
                 hiddenContainer.remove();
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Sale');
-                if (xhr.status === 422) {
-                    const errors = xhr.responseJSON?.message || {};
+                
+                const responseJSON = xhr.responseJSON;
+                const errors = responseJSON?.errors || responseJSON?.message;
+
+                if (xhr.status === 422 && errors && typeof errors === 'object') {
                     let shownToastr = false;
                     $.each(errors, function (field, messages) {
                         // items array errors (e.g. stock errors) — show as toastr
@@ -884,7 +887,10 @@ $(document).ready(function () {
                         toastr.error('Something went wrong. Please try again.');
                     }
                 } else {
-                    toastr.error('Something went wrong. Please try again.');
+                    const errorMsg = typeof errors === 'string' 
+                        ? errors 
+                        : (typeof responseJSON?.message === 'string' ? responseJSON.message : 'Something went wrong. Please try again.');
+                    toastr.error(errorMsg);
                 }
             }
         });

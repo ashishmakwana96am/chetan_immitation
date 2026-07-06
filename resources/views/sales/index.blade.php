@@ -164,11 +164,9 @@
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
         $(document).ready(function () {
-            // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
             let flatpickrOpen = false;
             const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
-            // Initialize Flatpickr for date filters
             const startPicker = $('#filter-start-date').flatpickr({
                 altInput   : true,
                 altFormat  : 'd-m-Y',
@@ -197,7 +195,6 @@
                 }
             });
 
-            // Block Bootstrap dropdown from closing while flatpickr calendar is open
             $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
                 if (flatpickrOpen) {
                     e.preventDefault();
@@ -205,7 +202,6 @@
                 }
             });
 
-            // Also stop mousedown propagation from flatpickr calendar (extra safety)
             $(document).on('mousedown', '.flatpickr-calendar', function (e) {
                 e.stopPropagation();
             });
@@ -233,13 +229,10 @@
                 dropdownParent: $('#filterDropdownContainer')
             });
 
-            // Prevent Bootstrap dropdown from closing when clicking on Select2
             $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
                 e.stopPropagation();
             });
 
-            // Prevent Bootstrap dropdown from closing when interacting with Flatpickr calendar
-            // Flatpickr appends calendar to body, so we catch clicks there
             $(document).on('mousedown', '.flatpickr-calendar', function (e) {
                 e.stopPropagation();
             });
@@ -361,7 +354,10 @@
                             </select>
                         </div>
                         <div class="mb-3 text-start" id="swal-reason-wrap" style="display:none;">
-                            <label for="swal-cancel-reason" class="form-label fw-semibold mb-2">Cancellation Reason <span class="text-danger">*</span></label>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="swal-cancel-reason" class="form-label fw-semibold mb-0">Cancellation Reason <span class="text-danger">*</span></label>
+                                <small class="text-muted" id="swal-char-counter">0/500</small>
+                            </div>
                             <textarea id="swal-cancel-reason" class="form-control" rows="3" maxlength="500" placeholder="Enter the reason for cancellation..."></textarea>
                         </div>
                         <div class="mb-3 text-start" id="swal-shipping-wrap" style="display:none;">
@@ -384,6 +380,15 @@
                     },
                     buttonsStyling: false,
                     didOpen: () => {
+                        const reasonInput = document.getElementById('swal-cancel-reason');
+                        const charCounter = document.getElementById('swal-char-counter');
+                        
+                        const updateCount = () => {
+                            charCounter.textContent = `${reasonInput.value.length}/500`;
+                        };
+                        
+                        reasonInput.addEventListener('input', updateCount);
+
                         document.getElementById('swal-sale-status').addEventListener('change', function () {
                             const reasonWrap = document.getElementById('swal-reason-wrap');
                             const shippingWrap = document.getElementById('swal-shipping-wrap');
@@ -391,10 +396,12 @@
                             // Show shipping fields only when selecting Shipped from a different status
                             shippingWrap.style.display = (this.value == '3' && currentStatus != 3) ? 'block' : 'none';
                         });
+                        
                         if (currentStatus == 6) {
                             document.getElementById('swal-reason-wrap').style.display = 'block';
                             if (existingCancelReason) {
-                                document.getElementById('swal-cancel-reason').value = existingCancelReason;
+                                reasonInput.value = existingCancelReason;
+                                updateCount();
                             }
                         }
                         // Do NOT show shipping fields if already Shipped — fields not needed again
