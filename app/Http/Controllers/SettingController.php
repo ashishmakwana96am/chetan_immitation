@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Setting;
+use App\Services\ActivityLogger;
 
 class SettingController extends Controller
 {
@@ -68,15 +69,33 @@ class SettingController extends Controller
             ], 422);
         }
 
-        Setting::setValue('razorpay_payment_mode',   $request->razorpay_payment_mode ?? 'test');
-        Setting::setValue('razorpay_test_key_id',     $request->razorpay_test_key_id ?? '');
-        Setting::setValue('razorpay_test_key_secret', $request->razorpay_test_key_secret ?? '');
-        Setting::setValue('razorpay_live_key_id',     $request->razorpay_live_key_id ?? '');
-        Setting::setValue('razorpay_live_key_secret', $request->razorpay_live_key_secret ?? '');
-        Setting::setValue('announcement_text',        $request->announcement_text ?? '');
-        Setting::setValue('payment_method_cod',       $codEnabled ? '1' : '0');
-        Setting::setValue('payment_method_razorpay',  $razorpayEnabled ? '1' : '0');
-        Setting::setValue('coming_soon',              $request->boolean('coming_soon') ? '1' : '0');
+        $sensitiveKeys = ['razorpay_test_key_id', 'razorpay_test_key_secret', 'razorpay_live_key_id', 'razorpay_live_key_secret'];
+        $newValues = [
+            'razorpay_payment_mode'   => $request->razorpay_payment_mode ?? 'test',
+            'razorpay_test_key_id'    => $request->razorpay_test_key_id ?? '',
+            'razorpay_test_key_secret' => $request->razorpay_test_key_secret ?? '',
+            'razorpay_live_key_id'    => $request->razorpay_live_key_id ?? '',
+            'razorpay_live_key_secret' => $request->razorpay_live_key_secret ?? '',
+            'announcement_text'       => $request->announcement_text ?? '',
+            'payment_method_cod'      => $codEnabled ? '1' : '0',
+            'payment_method_razorpay' => $razorpayEnabled ? '1' : '0',
+            'coming_soon'             => $request->boolean('coming_soon') ? '1' : '0',
+        ];
+
+        $old = [];
+        $new = [];
+        foreach ($newValues as $key => $value) {
+            $previous = (string) Setting::getValue($key, '');
+            if ($previous !== (string) $value) {
+                $old[$key] = in_array($key, $sensitiveKeys, true) ? '••••••••' : $previous;
+                $new[$key] = in_array($key, $sensitiveKeys, true) ? '••••••••' : $value;
+            }
+            Setting::setValue($key, $value);
+        }
+
+        if (!empty($new)) {
+            ActivityLogger::log('Settings', 'update', null, $old, $new, 'Payment/site settings updated');
+        }
 
         return response()->json([
             'status'  => 'success',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
@@ -89,10 +90,12 @@ class PermissionController extends Controller
             ], 422);
         }
 
-        Permission::create([
+        $permission = Permission::create([
             'name'   => $request->name,
             'module' => $request->module,
         ]);
+
+        ActivityLogger::log('Permission Management', 'create', $permission, null, ['name' => $permission->name, 'module' => $permission->module], 'Permission "' . $permission->name . '" created');
 
         return response()->json([
             'status'  => 'success',
@@ -123,10 +126,14 @@ class PermissionController extends Controller
             ], 422);
         }
 
+        $old = ['name' => $permission->name, 'module' => $permission->module];
+
         $permission->update([
             'name'   => $request->name,
             'module' => $request->module,
         ]);
+
+        ActivityLogger::log('Permission Management', 'update', $permission, $old, ['name' => $permission->name, 'module' => $permission->module], 'Permission "' . $permission->name . '" updated');
 
         return response()->json([
             'status'  => 'success',
@@ -138,7 +145,10 @@ class PermissionController extends Controller
     {
         $this->authorize('delete permissions');
 
+        $name = $permission->name;
         $permission->delete();
+
+        ActivityLogger::log('Permission Management', 'delete', null, ['name' => $name], null, 'Permission "' . $name . '" deleted');
 
         return response()->json([
             'status'  => 'success',

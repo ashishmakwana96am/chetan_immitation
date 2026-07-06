@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
@@ -117,9 +118,14 @@ class RoleController extends Controller
         }
 
         $role = Role::create(['name' => $request->name]);
+        $permissionNames = [];
         if ($request->permissions) {
-            $role->syncPermissions(Permission::whereIn('id', $request->permissions)->get());
+            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $role->syncPermissions($permissions);
+            $permissionNames = $permissions->pluck('name')->all();
         }
+
+        ActivityLogger::log('Role Management', 'create', $role, null, ['name' => $role->name, 'permissions' => $permissionNames], 'Role "' . $role->name . '" created');
 
         return response()->json([
             'status'  => 'success',
@@ -173,9 +179,21 @@ class RoleController extends Controller
             ], 422);
         }
 
+        $oldName = $role->name;
+        $oldPermissionNames = $role->permissions->pluck('name')->all();
+
         $role->update(['name' => $request->name]);
-        $role->syncPermissions(
-            $request->permissions ? Permission::whereIn('id', $request->permissions)->get() : []
+        $newPermissions = $request->permissions ? Permission::whereIn('id', $request->permissions)->get() : collect();
+        $role->syncPermissions($newPermissions);
+        $newPermissionNames = $newPermissions->pluck('name')->all();
+
+        ActivityLogger::log(
+            'Role Management',
+            'update',
+            $role,
+            ['name' => $oldName, 'permissions' => $oldPermissionNames],
+            ['name' => $role->name, 'permissions' => $newPermissionNames],
+            'Role "' . $role->name . '" updated'
         );
 
         return response()->json([
@@ -195,7 +213,10 @@ class RoleController extends Controller
             ], 422);
         }
 
+        $roleName = $role->name;
         $role->delete();
+
+        ActivityLogger::log('Role Management', 'delete', null, ['name' => $roleName], null, 'Role "' . $roleName . '" deleted');
 
         return response()->json([
             'status'  => 'success',

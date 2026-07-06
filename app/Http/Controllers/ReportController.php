@@ -13,6 +13,7 @@ use App\Models\PurchaseItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Http\Request;
+use App\Services\ActivityLogger;
 use App\Services\ReportExportService;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -639,6 +640,8 @@ class ReportController extends Controller
 
         $spreadsheet = $this->exportService->exportProducts($productsList);
 
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Products report exported to Excel');
+
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
@@ -747,6 +750,8 @@ class ReportController extends Controller
 
         $spreadsheet = $this->exportService->exportStockInventory($productsList, $locations);
 
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Stock inventory report exported to Excel');
+
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
@@ -798,6 +803,8 @@ class ReportController extends Controller
             ->values();
 
         $spreadsheet = $this->exportService->exportPurchases($invoices, $productPurchases);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Purchases report exported to Excel');
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
@@ -857,6 +864,8 @@ class ReportController extends Controller
             ->values();
 
         $spreadsheet = $this->exportService->exportSales($orders, $productSales);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Sales report exported to Excel');
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
@@ -932,6 +941,8 @@ class ReportController extends Controller
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
         $spreadsheet = $this->exportService->exportProfitLoss($totalRevenue, $totalCogs, $netProfit, $profitMargin, $productProfitability);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & loss report exported to Excel');
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);

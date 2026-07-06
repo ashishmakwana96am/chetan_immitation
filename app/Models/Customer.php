@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Customer extends Authenticatable
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
+
+    protected static array $activityHidden = ['otp'];
 
     const STATUS_ACTIVE = 1;
 

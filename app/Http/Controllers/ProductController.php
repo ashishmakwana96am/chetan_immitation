@@ -10,6 +10,7 @@ use App\Models\Location;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\AttributeValue;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -1004,6 +1005,15 @@ class ProductController extends Controller
                 'message' => ['An unexpected error occurred: ' . $e->getMessage()]
             ], 500);
         }
+
+        ActivityLogger::log(
+            'Product',
+            'import',
+            null,
+            null,
+            ['imported_count' => $importedCount, 'file_name' => $file->getClientOriginalName()],
+            "Imported {$importedCount} products from CSV"
+        );
 
         return response()->json([
             'status' => 'success',

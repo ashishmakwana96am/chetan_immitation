@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -216,6 +217,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+
+            // Utility Report (Activity Log)
+            Route::get('utility/data', [ActivityLogController::class, 'data'])->name('utility.data');
+            Route::get('utility/{activityLog}', [ActivityLogController::class, 'show'])->name('utility.show');
+            Route::get('utility', [ActivityLogController::class, 'index'])->name('utility');
         });
 
         // Sales

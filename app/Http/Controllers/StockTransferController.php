@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -195,9 +196,15 @@ class StockTransferController extends Controller
 
         DB::transaction(function () use ($stockTransfer) {
             foreach ($stockTransfer->items as $item) {
-                Inventory::where('product_id', $item->product_id)
+                $source = Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $stockTransfer->from_location_id)
-                    ->decrement('quantity', $item->quantity);
+                    ->first();
+
+                if ($source) {
+                    $oldQty = $source->quantity;
+                    $source->decrement('quantity', $item->quantity);
+                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $item->quantity], 'Stock transferred out for transfer #' . $stockTransfer->transfer_no);
+                }
 
                 $destination = Inventory::firstOrCreate(
                     [
@@ -209,7 +216,9 @@ class StockTransferController extends Controller
                         'created_by' => auth()->id(),
                     ]
                 );
+                $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $item->quantity);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $item->quantity], 'Stock transferred in for transfer #' . $stockTransfer->transfer_no);
             }
 
             $stockTransfer->update([

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class State extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     const STATUS_ACTIVE = 1;
 

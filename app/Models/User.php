@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -13,7 +14,12 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     use SoftDeletes;
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasRoles, Notifiable, LogsActivity;
+
+    public function activityModule(): string
+    {
+        return 'User Management';
+    }
 
     const STATUS_ACTIVE = 1;
 

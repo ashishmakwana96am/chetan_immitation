@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Coupon extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
+
     const STATUS_ACTIVE = 1;
 
     const STATUS_INACTIVE = 2;

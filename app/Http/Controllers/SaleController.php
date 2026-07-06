@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -426,10 +427,7 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $stockDeduct = $item['quantity'];
-                    Inventory::where('product_id', $item['product_id'])
-                        ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $stockDeduct);
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for new sale');
                 }
             }
         });
@@ -463,6 +461,8 @@ class SaleController extends Controller
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
 
+        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Invoice PDF exported for sale #' . $sale->order_no);
+
         return $pdf->download('sale-' . $sale->order_no . '.pdf');
     }
 
@@ -479,6 +479,8 @@ class SaleController extends Controller
         }
 
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
+
+        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Thermal receipt printed for sale #' . $sale->order_no);
 
         return view('sales.thermal', ['order' => $sale]);
     }
@@ -640,7 +642,15 @@ class SaleController extends Controller
         }
 
         DB::transaction(function () use ($request, $isApprove, $sale) {
-            // The sale is pending here, so its existing items have not reduced stock.
+            $oldItemsSnapshot = $sale->items->map(function ($item) {
+                return [
+                    'product_id'         => $item->product_id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'quantity'           => $item->quantity,
+                    'price'              => (float) $item->price,
+                ];
+            })->values()->all();
+
             $sale->items()->delete();
 
             $totalAmount = 0.0;
@@ -725,12 +735,27 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $stockDeduct = $item['quantity'];
-                    Inventory::where('product_id', $item['product_id'])
-                        ->where('location_id', $request->location_id)
-                        ->decrement('quantity', $stockDeduct);
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for updated sale');
                 }
             }
+
+            $newItemsSnapshot = collect($itemsData)->map(function ($item) {
+                return [
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'quantity'           => $item['quantity'],
+                    'price'              => (float) $item['price'],
+                ];
+            })->values()->all();
+
+            ActivityLogger::log(
+                'Sales',
+                'update',
+                $sale,
+                ['items' => $oldItemsSnapshot],
+                ['items' => $newItemsSnapshot],
+                'Order #' . $sale->order_no . ' items modified'
+            );
         });
 
         return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.']);
@@ -835,20 +860,14 @@ class SaleController extends Controller
 
                             // Deduct stock
                             foreach ($sale->items as $item) {
-                                $stockDeduct = $item->quantity;
-                                Inventory::where('product_id', $item->product_id)
-                                    ->where('location_id', $sale->location_id)
-                                    ->decrement('quantity', $stockDeduct);
+                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$item->quantity, 'Stock deducted for sale #' . $sale->order_no . ' status change');
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
                         elseif ($oldInDeducted && !$newInDeducted) {
                             // Restore stock
                             foreach ($sale->items as $item) {
-                                $stockRestore = $item->quantity;
-                                Inventory::where('product_id', $item->product_id)
-                                    ->where('location_id', $sale->location_id)
-                                    ->increment('quantity', $stockRestore);
+                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $item->quantity, 'Stock restored for sale #' . $sale->order_no . ' status change');
                             }
                         }
 
@@ -896,6 +915,23 @@ class SaleController extends Controller
             'message' => 'Sale status updated successfully.',
             'pending_count' => $pendingCount
         ]);
+    }
+
+    private function logInventoryChange(int $productId, int $locationId, int $delta, string $description): void
+    {
+        $inventory = Inventory::where('product_id', $productId)
+            ->where('location_id', $locationId)
+            ->first();
+
+        if (!$inventory) {
+            return;
+        }
+
+        $oldQty = $inventory->quantity;
+        $inventory->increment('quantity', $delta);
+        $newQty = $oldQty + $delta;
+
+        ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $description);
     }
 
     private function getStockError(iterable $items, int $locationId): ?string

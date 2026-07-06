@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class Expense extends Model
 {
+    use LogsActivity;
+
     const CATEGORIES = [
         'Rent',
         'Salary',

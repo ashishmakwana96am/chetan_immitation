@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Setting;
+use App\Services\ActivityLogger;
 
 class WebsiteContentController extends Controller
 {
@@ -51,6 +52,9 @@ class WebsiteContentController extends Controller
         ];
 
         $clearedFields = [];
+        $old = [];
+        $new = [];
+        $truncate = fn ($v) => strlen($v) > 200 ? substr($v, 0, 200) . '…' : $v;
 
         foreach ($fields as $field) {
             $newValue = $request->$field ?? '';
@@ -60,7 +64,16 @@ class WebsiteContentController extends Controller
                 $clearedFields[] = $field;
             }
 
+            if ($existingValue !== $newValue) {
+                $old[$field] = $truncate($existingValue);
+                $new[$field] = $truncate($newValue);
+            }
+
             Setting::setValue($field, $newValue);
+        }
+
+        if (!empty($new)) {
+            ActivityLogger::log('Website Content', 'update', null, $old, $new, 'Website content pages updated');
         }
 
         $message = 'Website content updated successfully.';

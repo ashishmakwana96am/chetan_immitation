@@ -10,6 +10,7 @@ use App\Models\PurchaseAllocation;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -412,6 +413,8 @@ class PurchaseInvoiceController extends Controller
         $pdf = Pdf::loadView('purchases.pdf', compact('purchase'))
             ->setPaper('a4', 'portrait');
 
+        ActivityLogger::log('Purchase', 'export', $purchase, null, null, 'Invoice PDF exported for purchase #' . $purchase->invoice_no);
+
         return $pdf->download('purchase-' . $purchase->invoice_no . '.pdf');
     }
 
@@ -445,7 +448,10 @@ class PurchaseInvoiceController extends Controller
                     ]
                 );
 
+                $oldQty = $inventory->quantity;
                 $inventory->increment('quantity', $qtyToAdd);
+
+                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $oldQty + $qtyToAdd], 'Stock added for purchase #' . $purchase->invoice_no);
             }
         }
     }
@@ -460,7 +466,11 @@ class PurchaseInvoiceController extends Controller
                     ->first();
 
                 if ($inventory) {
-                    $inventory->update(['quantity' => max(0, $inventory->quantity - $allocation->quantity)]);
+                    $oldQty = $inventory->quantity;
+                    $newQty = max(0, $inventory->quantity - $allocation->quantity);
+                    $inventory->update(['quantity' => $newQty]);
+
+                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' edit');
                 }
             }
         }
