@@ -311,6 +311,15 @@
         $('#profitabilityTable').DataTable({
             responsive : false,
             order      : [[6, 'desc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         const chartDataEl = $('#chart-data');

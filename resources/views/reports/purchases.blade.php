@@ -353,6 +353,15 @@
         $('#purchasedProductsTable').DataTable({
             responsive : false,
             order      : [[3, 'desc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache

@@ -228,6 +228,15 @@
         const table = $('#stockTable').DataTable({
             responsive : false,
             order      : [[1, 'asc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         function applyFilters() {

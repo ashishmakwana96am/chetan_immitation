@@ -370,6 +370,9 @@
                     targets: 0,
                     orderable: false,
                     searchable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
                 },
                 { targets: [7, 8], visible: false }
             ],

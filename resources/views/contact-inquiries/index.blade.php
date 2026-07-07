@@ -79,7 +79,7 @@
                     }
                 },
                 columns: [
-                    { data: 'index', width: '5%' },
+                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'full_name' },
                     { data: 'email' },
                     { data: 'phone' },

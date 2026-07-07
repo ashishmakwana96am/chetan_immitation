@@ -331,7 +331,16 @@
         const table = $('#productsReportTable').DataTable({
             responsive : false,
             order      : [[1, 'asc']],
-            pageLength : 25
+            pageLength : 25,
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         $('#productsReportTable tbody').on('click', '.variant-toggle', function(e) {
