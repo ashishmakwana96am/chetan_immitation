@@ -342,40 +342,174 @@ button.toast-close-button {
   font-weight: 300;
 }
 .light-style #toast-container > div {
-  box-shadow: 0 0.25rem 1rem rgba(165, 163, 174, 0.45);
+  box-shadow: 0 0.5rem 2rem rgba(15, 20, 34, 0.25) !important;
   border-radius: 0.375rem;
+  opacity: 0.98 !important;
 }
-.light-style #toast-container > .toast-success,
-.light-style #toast-container .toast-error,
-.light-style #toast-container .toast-info,
-.light-style #toast-container .toast-warning {
-  color: #5d596c;
-  background-color: #fff;
+
+/* Light Style Success */
+.light-style #toast-container > .toast-success {
+  color: #1e7e34 !important;
+  background-color: #e8faf0 !important;
+  border: 1px solid rgba(40, 199, 111, 0.4) !important;
+  border-left: 6px solid #28c76f !important;
 }
+.light-style #toast-container > .toast-success .toast-title,
+.light-style #toast-container > .toast-success .toast-message {
+  color: #1e7e34 !important;
+}
+.light-style #toast-container > .toast-success .toast-close-button {
+  color: #28c76f !important;
+  opacity: 0.8;
+}
+.light-style #toast-container > .toast-success .toast-progress {
+  background-color: #28c76f !important;
+}
+
+/* Light Style Error */
+.light-style #toast-container > .toast-error {
+  color: #bd2130 !important;
+  background-color: #fdf5f5 !important;
+  border: 1px solid rgba(234, 84, 85, 0.4) !important;
+  border-left: 6px solid #ea5455 !important;
+}
+.light-style #toast-container > .toast-error .toast-title,
+.light-style #toast-container > .toast-error .toast-message {
+  color: #bd2130 !important;
+}
+.light-style #toast-container > .toast-error .toast-close-button {
+  color: #ea5455 !important;
+  opacity: 0.8;
+}
+.light-style #toast-container > .toast-error .toast-progress {
+  background-color: #ea5455 !important;
+}
+
+/* Light Style Warning */
+.light-style #toast-container > .toast-warning {
+  color: #d35400 !important;
+  background-color: #fffaf4 !important;
+  border: 1px solid rgba(255, 159, 67, 0.4) !important;
+  border-left: 6px solid #ff9f43 !important;
+}
+.light-style #toast-container > .toast-warning .toast-title,
+.light-style #toast-container > .toast-warning .toast-message {
+  color: #d35400 !important;
+}
+.light-style #toast-container > .toast-warning .toast-close-button {
+  color: #ff9f43 !important;
+  opacity: 0.8;
+}
+.light-style #toast-container > .toast-warning .toast-progress {
+  background-color: #ff9f43 !important;
+}
+
+/* Light Style Info */
+.light-style #toast-container > .toast-info {
+  color: #008f8a !important;
+  background-color: #f0fdfd !important;
+  border: 1px solid rgba(0, 207, 200, 0.4) !important;
+  border-left: 6px solid #00cfc8 !important;
+}
+.light-style #toast-container > .toast-info .toast-title,
+.light-style #toast-container > .toast-info .toast-message {
+  color: #008f8a !important;
+}
+.light-style #toast-container > .toast-info .toast-close-button {
+  color: #00cfc8 !important;
+  opacity: 0.8;
+}
+.light-style #toast-container > .toast-info .toast-progress {
+  background-color: #00cfc8 !important;
+}
+
 
 .dark-style #toast-container {
   z-index: 999999;
 }
 .dark-style #toast-container .toast-close-button {
   font-weight: 300;
-  color: #7983bb !important;
+  opacity: 0.8;
 }
 .dark-style #toast-container .toast-title {
   color: #cfd3ec;
 }
 .dark-style #toast-container > div {
-  box-shadow: 0 0.25rem 1rem rgba(15, 20, 34, 0.55);
+  box-shadow: 0 0.5rem 2rem rgba(15, 20, 34, 0.65) !important;
   border-radius: 0.375rem;
+  opacity: 0.98 !important;
 }
-.dark-style #toast-container .toast-progress {
-  background-color: #fff;
+
+/* Dark Style Success */
+.dark-style #toast-container > .toast-success {
+  color: #28c76f !important;
+  background-color: rgba(40, 199, 111, 0.16) !important;
+  border: 1px solid rgba(40, 199, 111, 0.4) !important;
+  border-left: 6px solid #28c76f !important;
 }
-.dark-style #toast-container > .toast-success,
-.dark-style #toast-container .toast-error,
-.dark-style #toast-container .toast-info,
-.dark-style #toast-container .toast-warning {
-  color: #cfd3ec;
-  background-color: #2f3349;
+.dark-style #toast-container > .toast-success .toast-title,
+.dark-style #toast-container > .toast-success .toast-message {
+  color: #28c76f !important;
+}
+.dark-style #toast-container > .toast-success .toast-close-button {
+  color: #28c76f !important;
+}
+.dark-style #toast-container > .toast-success .toast-progress {
+  background-color: #28c76f !important;
+}
+
+/* Dark Style Error */
+.dark-style #toast-container > .toast-error {
+  color: #ea5455 !important;
+  background-color: rgba(234, 84, 85, 0.16) !important;
+  border: 1px solid rgba(234, 84, 85, 0.4) !important;
+  border-left: 6px solid #ea5455 !important;
+}
+.dark-style #toast-container > .toast-error .toast-title,
+.dark-style #toast-container > .toast-error .toast-message {
+  color: #ea5455 !important;
+}
+.dark-style #toast-container > .toast-error .toast-close-button {
+  color: #ea5455 !important;
+}
+.dark-style #toast-container > .toast-error .toast-progress {
+  background-color: #ea5455 !important;
+}
+
+/* Dark Style Warning */
+.dark-style #toast-container > .toast-warning {
+  color: #ff9f43 !important;
+  background-color: rgba(255, 159, 67, 0.16) !important;
+  border: 1px solid rgba(255, 159, 67, 0.4) !important;
+  border-left: 6px solid #ff9f43 !important;
+}
+.dark-style #toast-container > .toast-warning .toast-title,
+.dark-style #toast-container > .toast-warning .toast-message {
+  color: #ff9f43 !important;
+}
+.dark-style #toast-container > .toast-warning .toast-close-button {
+  color: #ff9f43 !important;
+}
+.dark-style #toast-container > .toast-warning .toast-progress {
+  background-color: #ff9f43 !important;
+}
+
+/* Dark Style Info */
+.dark-style #toast-container > .toast-info {
+  color: #00cfc8 !important;
+  background-color: rgba(0, 207, 200, 0.16) !important;
+  border: 1px solid rgba(0, 207, 200, 0.4) !important;
+  border-left: 6px solid #00cfc8 !important;
+}
+.dark-style #toast-container > .toast-info .toast-title,
+.dark-style #toast-container > .toast-info .toast-message {
+  color: #00cfc8 !important;
+}
+.dark-style #toast-container > .toast-info .toast-close-button {
+  color: #00cfc8 !important;
+}
+.dark-style #toast-container > .toast-info .toast-progress {
+  background-color: #00cfc8 !important;
 }
 
 @media (min-width: 241px) and (max-width: 480px) {
