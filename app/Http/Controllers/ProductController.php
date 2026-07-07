@@ -817,11 +817,17 @@ class ProductController extends Controller
             $spreadsheet = IOFactory::load($path);
             $sheetData = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
             $header = null;
+            $lastCategory = null;
             foreach ($sheetData as $row) {
                 if (!$header) {
                     $header = $normalizeHeader($row);
                 } else {
                     if (array_filter($row, fn ($v) => trim((string) $v) !== '') && count($header) == count($row)) {
+                        if (trim((string) $row[0]) !== '') {
+                            $lastCategory = trim((string) $row[0]);
+                        } else {
+                            $row[0] = $lastCategory;
+                        }
                         $rows[] = array_combine($header, array_map(fn ($v) => trim((string) $v), $row));
                     }
                 }
