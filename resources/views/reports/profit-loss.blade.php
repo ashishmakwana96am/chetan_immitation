@@ -61,7 +61,8 @@
     <div id="report-results">
         <div id="chart-data" 
              data-monthly-revenue='@json($monthlyRevenue)' 
-             data-monthly-cogs='@json($monthlyCogs)'>
+             data-monthly-cogs='@json($monthlyCogs)'
+             data-monthly-expenses='@json($monthlyExpenses)'>
         </div>
 
         <!-- Stats Cards -->
@@ -88,6 +89,19 @@
                             <h4 class="mb-0 mt-1 text-danger">{{ format_price($totalCogs) }}</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-arrow-down-left ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Expenses</span>
+                            <h4 class="mb-0 mt-1 text-warning">{{ format_price($totalExpenses) }}</h4>
+                        </div>
+                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-receipt ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -154,6 +168,17 @@
                     <div class="ledger-line total-line">
                         <span>Total Cost of Sales</span>
                         <span>{{ format_price($totalCogs) }}</span>
+                    </div>
+
+                    <!-- Operating Expenses -->
+                    <div class="ledger-header">Operating Expenses</div>
+                    <div class="ledger-line">
+                        <span>Total Expenses</span>
+                        <span class="text-danger">-{{ format_price($totalExpenses) }}</span>
+                    </div>
+                    <div class="ledger-line total-line">
+                        <span>Total Operating Expenses</span>
+                        <span class="text-danger">{{ format_price($totalExpenses) }}</span>
                     </div>
 
                     <!-- Net Income -->
@@ -279,24 +304,24 @@
     let revenueCogsChart = null;
 
     function initReport() {
-        // Initialize DataTables (destroy first if already exists)
         if ($.fn.DataTable.isDataTable('#profitabilityTable')) {
             $('#profitabilityTable').DataTable().destroy();
         }
 
         $('#profitabilityTable').DataTable({
             responsive : false,
-            order      : [[6, 'desc']], // Order by Net Profit by default
+            order      : [[6, 'desc']],
         });
 
-        // Fetch Chart Data from DOM attributes to bypass jQuery cache
         const chartDataEl = $('#chart-data');
         const monthlyRevenue = JSON.parse(chartDataEl.attr('data-monthly-revenue') || '{}');
         const monthlyCogs = JSON.parse(chartDataEl.attr('data-monthly-cogs') || '{}');
+        const monthlyExpenses = JSON.parse(chartDataEl.attr('data-monthly-expenses') || '{}');
 
         const months = Object.keys(monthlyRevenue);
         const revenueValues = Object.values(monthlyRevenue);
         const cogsValues = Object.values(monthlyCogs);
+        const expensesValues = Object.values(monthlyExpenses);
 
         if (revenueCogsChart) {
             revenueCogsChart.destroy();
@@ -307,10 +332,11 @@
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [
                     { name: 'Revenue', data: revenueValues },
-                    { name: 'COGS (Cost)', data: cogsValues }
+                    { name: 'COGS (Cost)', data: cogsValues },
+                    { name: 'Expenses', data: expensesValues }
                 ],
                 xaxis: { categories: months },
-                colors: ['#28c76f', '#ea5455'],
+                colors: ['#28c76f', '#ea5455', '#ff9f43'],
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
@@ -378,7 +404,6 @@
     }
 
     $(document).ready(function () {
-        // Initial load
         initReport();
         initDatePickers();
 
@@ -398,7 +423,6 @@
             });
         }
 
-        // AJAX Filtering on form field changes
         $(document).on('change', '#filterForm', function () {
             const form = $(this);
             const url = form.attr('action') + '?' + form.serialize();

@@ -230,6 +230,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
+        Route::get('sales/{sale}/label', [SaleController::class, 'label'])->name('sales.label');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
 
         // Categories

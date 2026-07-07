@@ -12,6 +12,7 @@ use App\Models\PurchaseInvoice;
 use App\Models\PurchaseItem;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Expense;
 use Illuminate\Http\Request;
 use App\Services\ActivityLogger;
 use App\Services\ReportExportService;
@@ -488,41 +489,76 @@ class ReportController extends Controller
             return $b['qty_sold'] <=> $a['qty_sold'];
         });
 
-        $netProfit = $totalRevenue - $totalCogs;
+        // Query Expenses
+        $expensesQuery = Expense::when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+        if ($startDate) {
+            $expensesQuery->whereDate('expense_date', '>=', $startDate);
+        }
+        if ($endDate) {
+            $expensesQuery->whereDate('expense_date', '<=', $endDate);
+        }
+        if ($locationId) {
+            $expensesQuery->where('location_id', $locationId);
+        }
+        $expenses = $expensesQuery->get();
+        $totalExpenses = (float)$expenses->sum('amount');
+
+        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        // Group Monthly Revenue vs COGS
-        $monthlyRevenue = [];
-        $monthlyCogs = [];
-
+        // Group Monthly Revenue, COGS, and Expenses
         $salesGroup = $sales->groupBy(function($item) {
             return $item->created_at->format('Y-m');
         })->sortKeys();
 
-        foreach ($salesGroup as $month => $grp) {
-            $monthlyRevenue[$month] = (float)$grp->sum('final_amount');
-            
-            $grpSaleIds = $grp->pluck('id');
-            $grpItems = OrderItem::with('product')
-                ->whereIn('order_id', $grpSaleIds)
-                ->get();
-            
+        $expensesGroup = $expenses->groupBy(function($item) {
+            return $item->expense_date->format('Y-m');
+        })->sortKeys();
+
+        // Get all unique months from both sales and expenses
+        $allMonths = collect(array_merge(
+            $salesGroup->keys()->toArray(),
+            $expensesGroup->keys()->toArray()
+        ))->unique()->sort()->values();
+
+        $monthlyRevenue = [];
+        $monthlyCogs = [];
+        $monthlyExpenses = [];
+
+        foreach ($allMonths as $month) {
+            // Revenue
+            $grp = $salesGroup->get($month);
+            $monthlyRevenue[$month] = $grp ? (float)$grp->sum('final_amount') : 0.0;
+
+            // COGS
             $grpCogs = 0.0;
-            foreach ($grpItems as $item) {
-                $grpCogs += $item->quantity * ($item->product->purchase_price ?? 0.0);
+            if ($grp) {
+                $grpSaleIds = $grp->pluck('id');
+                $grpItems = OrderItem::with('product')
+                    ->whereIn('order_id', $grpSaleIds)
+                    ->get();
+                foreach ($grpItems as $item) {
+                    $grpCogs += $item->quantity * ($item->product->purchase_price ?? 0.0);
+                }
             }
             $monthlyCogs[$month] = (float)$grpCogs;
+
+            // Expenses
+            $grpExp = $expensesGroup->get($month);
+            $monthlyExpenses[$month] = $grpExp ? (float)$grpExp->sum('amount') : 0.0;
         }
 
         return view('reports.profit-loss', compact(
             'locations',
             'totalRevenue',
             'totalCogs',
+            'totalExpenses',
             'netProfit',
             'profitMargin',
             'productProfitability',
             'monthlyRevenue',
             'monthlyCogs',
+            'monthlyExpenses',
             'startDate',
             'endDate',
             'locationId'

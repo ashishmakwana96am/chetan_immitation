@@ -36,7 +36,7 @@
 
         <div class="col-12">
             <label class="form-label" for="expenseDate">Expense Date <span class="text-danger">*</span></label>
-            <input type="date" id="expenseDate" name="expense_date" class="form-control flatpickr" value="{{ date('Y-m-d') }}" />
+            <input type="date" id="expenseDate" name="expense_date" class="form-control flatpickr" value="{{ date('Y-m-d') }}" data-max-date="today" />
             <div class="invalid-feedback"></div>
         </div>
 

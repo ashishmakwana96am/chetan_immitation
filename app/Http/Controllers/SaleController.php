@@ -150,6 +150,7 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 if (($order->source ?? 'POS') === 'ONLINE') {
                     $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
+                    $actions .= '<a href="' . route('admin.sales.label', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
                 } else {
                     $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" onclick="window.open(this.href, \'_blank\', \'width=900,height=800,resizable=yes,scrollbars=yes\'); return false;"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                 }
@@ -483,6 +484,28 @@ class SaleController extends Controller
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Thermal receipt printed for sale #' . $sale->order_no);
 
         return view('sales.thermal', ['order' => $sale]);
+    }
+
+    public function label(Order $sale)
+    {
+        $this->authorize('view sales');
+
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
+            abort(403);
+        }
+
+        if (($sale->source ?? 'POS') !== 'ONLINE') {
+            abort(403, 'Shipping label print is only available for online orders.');
+        }
+
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
+
+        $pdf = Pdf::loadView('sales.label', ['order' => $sale])
+            ->setPaper([0, 0, 288, 432], 'portrait');
+
+        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Shipping label printed for sale #' . $sale->order_no);
+
+        return $pdf->stream('shipping-label-' . $sale->order_no . '.pdf');
     }
 
     public function edit(Order $sale)
