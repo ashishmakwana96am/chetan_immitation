@@ -533,11 +533,11 @@
                 if ($modal.length === 0) {
                     $('body').append(`
                         <div class="modal fade" id="globalImageModal" tabindex="-1" aria-hidden="true" style="z-index: 10000000;">
-                            <div class="modal-dialog modal-dialog-centered modal-md">
-                                <div class="modal-content bg-transparent border-0 shadow-none">
-                                    <div class="modal-body text-center p-0 position-relative">
-                                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Close" style="filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.5));"></button>
-                                        <img id="globalModalImage" src="" alt="Image Preview" class="img-fluid rounded" style="max-height: 85vh; max-width: 100%; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                            <div class="modal-dialog modal-dialog-centered" style="max-width: fit-content; width: auto;">
+                                <div class="modal-content bg-transparent border-0 shadow-none" style="width: fit-content;">
+                                    <div class="modal-body d-inline-block p-0 position-relative">
+                                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2" data-bs-dismiss="modal" aria-label="Close" style="filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.5));"></button>
+                                        <img id="globalModalImage" src="" alt="Image Preview" class="rounded d-block" style="max-height: 85vh; max-width: 85vw; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
                                     </div>
                                 </div>
                             </div>

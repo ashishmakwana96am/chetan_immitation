@@ -729,6 +729,7 @@ function renderSubmittedReviewHtml(review) {
 const REVIEW_MAX_IMAGES = 5;
 
 function setReviewImageFiles(wrap, files) {
+    wrap.reviewFiles = files;
     const dt = new DataTransfer();
     files.forEach(f => dt.items.add(f));
     wrap.querySelector('.review-image-input').files = dt.files;
@@ -761,7 +762,7 @@ document.addEventListener('change', function (e) {
     errorEl.classList.add('hidden');
     errorEl.textContent = '';
 
-    let files = Array.from(e.target.files);
+    let files = (wrap.reviewFiles || []).concat(Array.from(e.target.files));
 
     if (files.length > REVIEW_MAX_IMAGES) {
         errorEl.textContent = 'You can upload a maximum of ' + REVIEW_MAX_IMAGES + ' pictures.';
@@ -783,9 +784,8 @@ document.addEventListener('click', function (e) {
     if (!e.target.classList.contains('review-image-remove-btn')) return;
 
     const wrap = e.target.closest('.review-form-wrap');
-    const input = wrap.querySelector('.review-image-input');
     const idx = parseInt(e.target.dataset.index, 10);
-    const files = Array.from(input.files).filter((_, i) => i !== idx);
+    const files = (wrap.reviewFiles || []).filter((_, i) => i !== idx);
     setReviewImageFiles(wrap, files);
 });
 

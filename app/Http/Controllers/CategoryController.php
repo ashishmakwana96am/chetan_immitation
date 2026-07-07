@@ -34,7 +34,7 @@ class CategoryController extends Controller
 
         $data = $categories->map(function ($category, $index) use ($canEdit, $canDelete) {
             $image = $category->image
-                ? '<img src="' . $category->image_url . '" width="40" height="40" class="rounded object-fit-cover">'
+                ? '<img src="' . $category->image_url . '" width="40" height="40" class="rounded object-fit-cover product-thumbnail" style="cursor:pointer;" alt="' . e($category->name) . '">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
 
             $featured = $canEdit
