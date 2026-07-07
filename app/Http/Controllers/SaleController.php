@@ -379,7 +379,7 @@ class SaleController extends Controller
             }
 
             $discVal = (float)($request->order_discount_value ?? 0);
-            $discType = $request->order_discount_type ?? 'flat';
+            $discType = $discVal > 0 ? ($request->order_discount_type ?? 'flat') : null;
 
             $orderDiscountAmount = 0.0;
             if ($discVal > 0) {
@@ -427,7 +427,7 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for new sale');
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for new sale #' . $order->order_no);
                 }
             }
         });
@@ -691,7 +691,7 @@ class SaleController extends Controller
             }
 
             $discVal = (float)($request->order_discount_value ?? 0);
-            $discType = $request->order_discount_type ?? 'flat';
+            $discType = $discVal > 0 ? ($request->order_discount_type ?? 'flat') : null;
 
             $orderDiscountAmount = 0.0;
             if ($discVal > 0) {
@@ -735,7 +735,7 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for updated sale');
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for updated sale #' . $sale->order_no);
                 }
             }
 

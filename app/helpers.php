@@ -128,6 +128,37 @@ if (!function_exists('status_badge')) {
     }
 }
 
+if (!function_exists('parse_user_agent')) {
+    /**
+     * Parse a raw user agent string into a clean browser name.
+     */
+    function parse_user_agent(?string $userAgent): string
+    {
+        if (!$userAgent) {
+            return '-';
+        }
+
+        $browser = 'Unknown';
+
+        // Detect Browser
+        if (preg_match('/edg/i', $userAgent)) {
+            $browser = 'Edge';
+        } elseif (preg_match('/opr/i', $userAgent) || preg_match('/opera/i', $userAgent)) {
+            $browser = 'Opera';
+        } elseif (preg_match('/chrome|crios/i', $userAgent)) {
+            $browser = 'Chrome';
+        } elseif (preg_match('/firefox|fxios/i', $userAgent)) {
+            $browser = 'Firefox';
+        } elseif (preg_match('/safari/i', $userAgent)) {
+            $browser = 'Safari';
+        } elseif (preg_match('/msie|trident/i', $userAgent)) {
+            $browser = 'Internet Explorer';
+        }
+
+        return $browser;
+    }
+}
+
 if (!function_exists('generate_invoice_no')) {
     /**
      * Generate a unique invoice number.

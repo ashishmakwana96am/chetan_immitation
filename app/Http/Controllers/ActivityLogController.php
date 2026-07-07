@@ -46,9 +46,16 @@ class ActivityLogController extends Controller
             }
             $userHtml .= '</div>';
 
+            $actions = '<div class="dropdown table-action-dropdown">';
+            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+            $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
+            $actions .= '<button type="button" class="dropdown-item" data-common-modal="' . route('admin.reports.utility.show', $log) . '"><i class="ti ti-eye me-2"></i>View</button>';
+            $actions .= '</div></div>';
+
             return [
                 'index'       => $index + 1,
-                'created_at'  => format_date($log->created_at, 'd M Y H:i:s'),
+                'created_at'  => format_date($log->created_at, 'h:i A'),
+                'date_group'  => $log->created_at ? format_date($log->created_at, 'd M Y') : '-',
                 'date_sort'   => $log->created_at?->format('YmdHis'),
                 'user'        => $userHtml,
                 'location'    => e($log->location_name ?? '-'),
@@ -56,7 +63,7 @@ class ActivityLogController extends Controller
                 'action'      => $actionBadge,
                 'description' => e($log->description ?? '-'),
                 'ip_address'  => e($log->ip_address ?? '-'),
-                'actions'     => '<button type="button" class="btn btn-sm btn-label-primary" data-common-modal="' . route('admin.reports.utility.show', $log) . '"><i class="ti ti-eye me-1"></i>View</button>',
+                'actions'     => $actions,
             ];
         });
 

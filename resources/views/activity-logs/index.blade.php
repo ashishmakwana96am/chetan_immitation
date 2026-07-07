@@ -5,7 +5,39 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
+    <style>
+        #activityLogTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #activityLogTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #activityLogTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #activityLogTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -87,13 +119,12 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Date &amp; Time</th>
+                        <th>Time</th>
                         <th>User</th>
                         <th>Location</th>
                         <th>Module</th>
                         <th>Action</th>
                         <th>Description</th>
-                        <th>IP Address</th>
                         <th>Details</th>
                         <th class="d-none">Date Sort</th>
                     </tr>
@@ -186,10 +217,17 @@
                     { data: 'module' },
                     { data: 'action' },
                     { data: 'description' },
-                    { data: 'ip_address' },
                     { data: 'actions', orderable: false, searchable: false },
+                    { data: 'date_group', visible: false },
                     { data: 'date_sort', visible: false },
                 ],
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' log' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
             });
 
             window.refreshTable = function () {
