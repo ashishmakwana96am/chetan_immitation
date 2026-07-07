@@ -330,7 +330,7 @@ class ModuleSeeder extends Seeder
 
         // 9. Settings
         $settingsCategory = Module::create([
-            'name'           => 'Settings',
+            'name'           => 'System Settings',
             'icon'           => null,
             'route'          => null,
             'active_pattern' => 'admin/settings*',
@@ -339,7 +339,7 @@ class ModuleSeeder extends Seeder
         ]);
         Module::create([
             'parent_id'      => $settingsCategory->id,
-            'name'           => 'General Settings',
+            'name'           => 'Settings',
             'icon'           => 'ti ti-settings',
             'route'          => 'admin.settings.index',
             'active_pattern' => 'admin/settings*',
