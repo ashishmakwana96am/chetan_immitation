@@ -130,6 +130,11 @@ class SaleController extends Controller
                             . "<div class='sw-status'><i class='ti ti-alert-circle'></i>Not available at this location</div>"
                             . $availabilitySection
                             . "</div>";
+                    } else {
+                        $issueBlocks[] = "<div class='sw-item'>"
+                            . "<div class='sw-title'><i class='ti ti-box'></i>" . e($item->product->name ?? 'Product') . "</div>"
+                            . "<div class='sw-status'><i class='ti ti-check'></i>Available at this location</div>"
+                            . "</div>";
                     }
                 }
 
