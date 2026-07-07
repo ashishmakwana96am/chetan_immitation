@@ -145,7 +145,7 @@ class ModuleSeeder extends Seeder
         ]);
         Module::create([
             'parent_id'      => $salesCustomersCategory->id,
-            'name'           => 'Sales',
+            'name'           => 'Sales & Orders',
             'icon'           => 'ti ti-receipt',
             'route'          => 'admin.sales.index',
             'active_pattern' => 'admin/sales*',
