@@ -40,7 +40,7 @@
             <small class="text-muted">{{ format_date($transfer->created_at) }}</small>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            @if($transfer->status == \App\Models\StockTransfer::STATUS_PENDING && $canActOnTransfer)
+            @if($transfer->status == \App\Models\StockTransfer::STATUS_PENDING)
                 @can('accept stock transfers')
                     <button class="btn btn-success stock-transfer-action"
                         data-url="{{ route('admin.stock-transfers.accept', $transfer) }}"
