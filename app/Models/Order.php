@@ -35,6 +35,7 @@ class Order extends Model
         'customer_id',
         'customer_address_id',
         'location_id',
+        'is_default',
         'user_id',
         'order_no',
         'order_type',
@@ -60,6 +61,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'is_default' => 'boolean',
             'final_amount' => 'decimal:2',
             'shipping_charge' => 'decimal:2',
             'order_discount_value' => 'decimal:2',

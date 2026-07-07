@@ -51,15 +51,18 @@ class StockTransferController extends Controller
 
         $canAccept = auth()->user()->can('accept stock transfers');
         $canReject = auth()->user()->can('reject stock transfers');
+        $isLocationRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject) {
+        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $isLocationRestricted, $user) {
             $statusBadge = $this->statusBadge($transfer->status);
+
+            $canActOnTransfer = !$isLocationRestricted || (int) $transfer->to_location_id === (int) $user->location_id;
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.stock-transfers.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
-            if ($transfer->status == StockTransfer::STATUS_PENDING) {
+            if ($transfer->status == StockTransfer::STATUS_PENDING && $canActOnTransfer) {
                 if ($canAccept) {
                     $actions .= '<button class="dropdown-item text-success stock-transfer-action" data-url="' . route('admin.stock-transfers.accept', $transfer) . '" data-method="PATCH" data-title="Accept Stock Transfer" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
                 }
@@ -176,7 +179,12 @@ class StockTransferController extends Controller
             'items.variant.attributeValue.attribute',
         ]);
 
-        return view('stock-transfers.show', ['transfer' => $stockTransfer]);
+        // Accept/Reject can only be performed by the destination location (see guardLocationAccess()).
+        $user = auth()->user();
+        $isLocationRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $canActOnTransfer = !$isLocationRestricted || (int) $stockTransfer->to_location_id === (int) $user->location_id;
+
+        return view('stock-transfers.show', ['transfer' => $stockTransfer, 'canActOnTransfer' => $canActOnTransfer]);
     }
 
     public function accept(StockTransfer $stockTransfer)

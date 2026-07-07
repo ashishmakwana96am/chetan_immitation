@@ -1,6 +1,6 @@
 <div class="text-center mb-4">
     <h3 class="mb-2">Import Products</h3>
-    <p class="text-muted">Upload a CSV file to bulk create products</p>
+    <p class="text-muted">Upload a CSV or Excel file to bulk create products</p>
 </div>
 
 <form id="commonModalForm" action="{{ route('admin.products.import') }}" method="POST" enctype="multipart/form-data" class="d-flex flex-column flex-grow-1">
@@ -8,13 +8,13 @@
     <div class="row g-3">
         <div class="col-12">
             <div class="alert alert-info py-2 small mb-0" role="alert">
-                <i class="ti ti-info-circle me-1"></i> You can download the <a href="{{ route('admin.products.import.sample') }}" class="fw-bold text-decoration-underline text-info">Sample CSV file</a> to format your data correctly. All imported products will be set as <strong>Active</strong>.
+                <i class="ti ti-info-circle me-1"></i> You can download the <a href="{{ route('admin.products.import.sample') }}" class="fw-bold text-decoration-underline text-info">Sample Excel file</a> to format your data correctly. All imported products will be set as <strong>Active</strong>.
             </div>
         </div>
 
         <div class="col-12">
-            <label class="form-label" for="csv_file">Choose CSV File <span class="text-danger">*</span></label>
-            <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv" autofocus />
+            <label class="form-label" for="csv_file">Choose CSV or Excel File <span class="text-danger">*</span></label>
+            <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv,.txt,.xlsx,.xls" autofocus />
             <div class="invalid-feedback"></div>
         </div>
     </div>

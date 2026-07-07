@@ -70,8 +70,6 @@ class SaleController extends Controller
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales          = auth()->user()->can('download sales');
 
-        $defaultLocationId = Location::where('is_default', true)->value('id');
-
         $onlineOrders = $orders->where('source', 'ONLINE');
         $productIds   = $onlineOrders->flatMap(fn ($o) => $o->items->pluck('product_id'))->unique()->values();
         $inventoryByProduct = Inventory::whereIn('product_id', $productIds)
@@ -105,12 +103,9 @@ class SaleController extends Controller
             2 => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $defaultLocationId) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
             $stockWarningHtml = '';
-            $isFallbackOrder = ($order->source ?? 'POS') === 'ONLINE'
-                && $order->location_id
-                && $defaultLocationId
-                && (int) $order->location_id !== (int) $defaultLocationId;
+            $isFallbackOrder = !$order->is_default;
 
             if ($isFallbackOrder) {
                 $issueBlocks = [];
@@ -205,6 +200,7 @@ class SaleController extends Controller
 
             return [
                 'index'          => $index + 1,
+                'is_default'     => (bool) $order->is_default,
                 'stock_warning'  => $stockWarningHtml,
                 'order_no'       => '<code>' . $order->order_no . '</code>',
                 'customer'       => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',

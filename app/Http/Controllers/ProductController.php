@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Picqer\Barcode\BarcodeGeneratorSVG;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class ProductController extends Controller
 {
@@ -704,57 +708,47 @@ class ProductController extends Controller
     {
         $this->authorize('create products');
 
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="sample_products_import.csv"',
+        $columns = [
+            'Category', 'Sub Category', 'Name', 'No.', 'SKU', 'Barcode',
+            'Product Code', 'Discreptions', 'Product Type', 'Size', 'Colour',
         ];
 
-        $callback = function () {
-            $file = fopen('php://output', 'w');
-            // Write headers
-            fputcsv($file, [
-                'Name',
-                'SKU',
-                'Barcode',
-                'Product Code',
-                'Category',
-                'Sub Category',
-                'Description',
-                'Type',
-                'Attribute Name',
-                'Attribute Values'
-            ]);
+        // 2 categories x 5 products, using SKU/Barcode left blank so they auto-generate from "No."
+        $rows = [
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '', '100.00', 'Traditional short necklace - regular finish', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '', '110.00', 'Traditional short necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '', '150.00', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '', '160.00', 'Elegant long necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '', '200.00', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '', '90.00', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '', '95.00', 'Classic bangal - antique finish', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '', '130.00', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '', '140.00', 'CNC cut kadali design', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '', '160.00', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
+        ];
 
-            // Sample rows:
-            // 1. Normal Product
-            fputcsv($file, [
-                'Gold Plated Ring',
-                'GPR-001',
-                'BAR-8901201',
-                '120.00',
-                'Rings',
-                'Gold Rings',
-                'Beautiful gold plated brass ring',
-                'normal',
-                '',
-                ''
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Products');
 
-            // 2. Variable Product
-            fputcsv($file, [
-                'Bridal Choker Set',
-                'BCS-002',
-                'BAR-8901202',
-                '250.00',
-                'Necklace Sets',
-                'Bridal Sets',
-                'Premium imitation bridal choker set',
-                'variable',
-                'Color',
-                'Gold, Silver, Rose Gold'
-            ]);
+        $sheet->fromArray($columns, null, 'A1');
+        $sheet->fromArray($rows, null, 'A2');
 
-            fclose($file);
+        $lastColumn = chr(ord('A') + count($columns) - 1);
+        $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:' . $lastColumn . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        foreach (range('A', $lastColumn) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $headers = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="sample_products_import.xlsx"',
+        ];
+
+        $callback = function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
         };
 
         return response()->stream($callback, 200, $headers);
@@ -765,36 +759,56 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $request->validate([
-            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'], // Max 5MB
+            'csv_file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'], // Max 5MB
         ]);
 
         $file = $request->file('csv_file');
         $path = $file->getRealPath();
+        $extension = strtolower($file->getClientOriginalExtension());
 
-        // Parse CSV
+        $normalizeHeader = function ($rawHeader) {
+            $normalizedHeader = [];
+            foreach ($rawHeader as $col) {
+                $norm = preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $col)));
+                if ($norm === 'subcategory') {
+                    $normalizedHeader[] = 'sub_category';
+                } elseif ($norm === 'productcode') {
+                    $normalizedHeader[] = 'product_code';
+                } elseif ($norm === 'no') {
+                    $normalizedHeader[] = 'no';
+                } elseif (in_array($norm, ['discreptions', 'discreption', 'descriptions', 'description'])) {
+                    $normalizedHeader[] = 'description';
+                } elseif ($norm === 'producttype') {
+                    $normalizedHeader[] = 'product_type';
+                } elseif (in_array($norm, ['colour', 'color'])) {
+                    $normalizedHeader[] = 'colour';
+                } else {
+                    $normalizedHeader[] = $norm;
+                }
+            }
+            return $normalizedHeader;
+        };
+
+        // Parse CSV / Excel
         $rows = [];
-        if (($handle = fopen($path, 'r')) !== false) {
+        if (in_array($extension, ['xlsx', 'xls'])) {
+            $spreadsheet = IOFactory::load($path);
+            $sheetData = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+            $header = null;
+            foreach ($sheetData as $row) {
+                if (!$header) {
+                    $header = $normalizeHeader($row);
+                } else {
+                    if (array_filter($row, fn ($v) => trim((string) $v) !== '') && count($header) == count($row)) {
+                        $rows[] = array_combine($header, array_map(fn ($v) => trim((string) $v), $row));
+                    }
+                }
+            }
+        } elseif (($handle = fopen($path, 'r')) !== false) {
             $header = null;
             while (($row = fgetcsv($handle, 1000, ',')) !== false) {
                 if (!$header) {
-                    $rawHeader = array_map('trim', $row);
-                    // Normalize header columns (remove spaces, underscores, lowercase)
-                    $normalizedHeader = [];
-                    foreach ($rawHeader as $col) {
-                        $norm = str_replace([' ', '_'], '', strtolower($col));
-                        if ($norm === 'subcategory') {
-                            $normalizedHeader[] = 'sub_category';
-                        } elseif ($norm === 'productcode') {
-                            $normalizedHeader[] = 'product_code';
-                        } elseif ($norm === 'attributename') {
-                            $normalizedHeader[] = 'attribute_name';
-                        } elseif ($norm === 'attributevalues') {
-                            $normalizedHeader[] = 'attribute_values';
-                        } else {
-                            $normalizedHeader[] = $norm;
-                        }
-                    }
-                    $header = $normalizedHeader;
+                    $header = $normalizeHeader(array_map('trim', $row));
                 } else {
                     if (count($header) == count($row)) {
                         $rows[] = array_combine($header, array_map('trim', $row));
@@ -826,14 +840,13 @@ class ProductController extends Controller
 
                 // Validate required fields
                 $name = $row['name'] ?? null;
-                $sku = $row['sku'] ?? null;
-                $barcode = $row['barcode'] ?? null;
+                $no = $row['no'] ?? null;
                 $productCode = $row['product_code'] ?? null;
                 $categoryName = $row['category'] ?? null;
-                $type = strtolower($row['type'] ?? 'normal');
+                $type = strtolower($row['product_type'] ?? 'normal');
 
-                if (empty($name) || empty($sku) || empty($barcode) || empty($productCode) || empty($categoryName)) {
-                    $errors[] = "Row {$rowNum}: Missing required product details (name, sku, barcode, product_code, and category are required).";
+                if (empty($name) || empty($no) || empty($productCode) || empty($categoryName)) {
+                    $errors[] = "Row {$rowNum}: Missing required product details (Name, No., Product Code, and Category are required).";
                     continue;
                 }
 
@@ -843,18 +856,46 @@ class ProductController extends Controller
                 }
 
                 if (!in_array($type, ['normal', 'variable'], true)) {
-                    $errors[] = "Row {$rowNum}: Type must be either 'normal' or 'variable'.";
+                    $errors[] = "Row {$rowNum}: Product Type must be either 'normal' or 'variable'.";
                     continue;
                 }
 
-                // Check uniqueness in database
-                if (Product::where('sku', $sku)->exists()) {
-                    $errors[] = "Row {$rowNum}: Product SKU '{$sku}' already exists in the system.";
-                    continue;
+                // Use the SKU given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
+                $skuInput = trim($row['sku'] ?? '');
+                if (!empty($skuInput)) {
+                    if (Product::where('sku', $skuInput)->exists()) {
+                        $errors[] = "Row {$rowNum}: Product SKU '{$skuInput}' already exists in the system.";
+                        continue;
+                    }
+                    $sku = $skuInput;
+                } else {
+                    $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $no));
+                    if (empty($prefix)) {
+                        $errors[] = "Row {$rowNum}: No. must contain at least one letter or number.";
+                        continue;
+                    }
+
+                    $seq = Product::where('sku', 'like', $prefix . '-%')->count() + 1;
+                    do {
+                        $sku = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                        $seq++;
+                    } while (Product::where('sku', $sku)->exists() || Product::where('barcode', $sku)->exists());
                 }
-                if (Product::where('barcode', $barcode)->exists()) {
-                    $errors[] = "Row {$rowNum}: Product Barcode '{$barcode}' already exists in the system.";
-                    continue;
+
+                // Use the Barcode given in the sheet, or default to the SKU
+                $barcodeInput = trim($row['barcode'] ?? '');
+                if (!empty($barcodeInput)) {
+                    if (Product::where('barcode', $barcodeInput)->exists()) {
+                        $errors[] = "Row {$rowNum}: Product Barcode '{$barcodeInput}' already exists in the system.";
+                        continue;
+                    }
+                    $barcode = $barcodeInput;
+                } else {
+                    if (Product::where('barcode', $sku)->exists()) {
+                        $errors[] = "Row {$rowNum}: Generated Barcode '{$sku}' already exists in the system.";
+                        continue;
+                    }
+                    $barcode = $sku;
                 }
 
                 // Find or create category
@@ -930,18 +971,34 @@ class ProductController extends Controller
                     'created_by' => auth()->id(),
                 ]);
 
-                // Create variants for variable product
+                // Create variants for variable product (from Size / Colour columns)
                 if ($type === 'variable') {
-                    $attributeName = $row['attribute_name'] ?? null;
-                    $attributeValuesStr = $row['attribute_values'] ?? null;
+                    $sizeValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['size'] ?? '')))));
+                    $colourValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['colour'] ?? '')))));
 
-                    if (empty($attributeName) || empty($attributeValuesStr)) {
-                        $errors[] = "Row {$rowNum}: Variable product '{$name}' must have attribute_name and attribute_values.";
+                    if (empty($sizeValues) && empty($colourValues)) {
+                        $errors[] = "Row {$rowNum}: Variable product '{$name}' must have Size and/or Colour values.";
                         DB::rollBack();
                         return response()->json([
                             'status' => 'error',
-                            'message' => ["Row {$rowNum}: Variable product '{$name}' must have attribute_name and attribute_values."]
+                            'message' => ["Row {$rowNum}: Variable product '{$name}' must have Size and/or Colour values."]
                         ], 422);
+                    }
+
+                    if (!empty($sizeValues) && !empty($colourValues)) {
+                        $attributeName = 'Size / Colour';
+                        $attrValues = [];
+                        foreach ($sizeValues as $s) {
+                            foreach ($colourValues as $c) {
+                                $attrValues[] = $s . ' - ' . $c;
+                            }
+                        }
+                    } elseif (!empty($sizeValues)) {
+                        $attributeName = 'Size';
+                        $attrValues = $sizeValues;
+                    } else {
+                        $attributeName = 'Colour';
+                        $attrValues = $colourValues;
                     }
 
                     // Find or create Attribute
@@ -956,17 +1013,6 @@ class ProductController extends Controller
                             'sort_order' => ((int) Attribute::max('sort_order')) + 1
                         ]
                     );
-
-                    // Split values
-                    $attrValues = array_filter(array_map('trim', explode(',', $attributeValuesStr)));
-                    if (empty($attrValues)) {
-                        $errors[] = "Row {$rowNum}: No valid attribute values found in '{$attributeValuesStr}'.";
-                        DB::rollBack();
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => ["Row {$rowNum}: No valid attribute values found in '{$attributeValuesStr}'."]
-                        ], 422);
-                    }
 
                     foreach ($attrValues as $val) {
                         // Find or create AttributeValue
