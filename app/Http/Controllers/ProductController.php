@@ -139,6 +139,7 @@ class ProductController extends Controller
                 'sku'            => '<code>' . $product->sku . '</code>',
                 'barcode'        => $barcode,
                 'raw_barcode'    => $product->barcode,
+                'product_code'   => $product->product_code,
                 'category'       => $product->category->name ?? '-',
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),

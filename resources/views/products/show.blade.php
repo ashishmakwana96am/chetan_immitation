@@ -201,7 +201,7 @@
                         <div class="info-value d-flex gap-2 align-items-center">
                             <code>{{ $product->barcode ?? '-' }}</code>
                             @if($product->barcode)
-                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }})" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
+                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->sku) }}', '{{ addslashes($product->product_code) }}', '{{ addslashes($product->name) }}', '{{ addslashes(format_price($product->mrp)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
                                     <i class="ti ti-printer"></i>
                                 </button>
                             @endif
@@ -608,7 +608,51 @@
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/swiper/swiper.js') }}"></script>
     <script>
-        window.viewBarcode = function(barcode, productId) {
+        window.buildBarcodeLabelsHtml = function(items) {
+            const esc = function(str) {
+                return String(str ?? '').replace(/[&<>"']/g, function(c) {
+                    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+                });
+            };
+            let body = '';
+            items.forEach(function(item) {
+                const qty = item.qty || 1;
+                for (let i = 0; i < qty; i++) {
+                    body += '<div class="label">';
+                    body +=   '<div class="zone-front">';
+                    body +=     '<div class="mrp-line">MRP : ' + esc(item.mrp) + '</div>';
+                    body +=     '<div class="sku-line">' + esc(item.sku) + '</div>';
+                    body +=   '</div>';
+                    body +=   '<div class="zone-back">';
+                    body +=     '<div class="code-line">' + esc(item.productCode) + '</div>';
+                    body +=     '<img class="barcode-img" src="' + item.barcodeUrl + '" />';
+                    body +=     '<div class="name-line">' + esc(item.name) + '</div>';
+                    body +=   '</div>';
+                    body +=   '<div class="zone-tab"></div>';
+                    body += '</div>';
+                }
+            });
+
+            return '<!DOCTYPE html><html><head><title>Print Labels</title><style>' +
+                '@page{size:82mm 12mm;margin:0;}' +
+                '*{box-sizing:border-box;}' +
+                'html,body{margin:0;padding:0;}' +
+                '.label{width:82mm;height:12mm;overflow:hidden;page-break-after:always;page-break-inside:avoid;display:flex;flex-direction:row;align-items:center;font-family:"Courier New",Courier,monospace;color:#000;}' +
+                '.label:last-child{page-break-after:auto;}' +
+                '.zone-front{width:37mm;height:12mm;display:flex;flex-direction:column;justify-content:center;padding-left:1.5mm;overflow:hidden;}' +
+                '.zone-back{width:29mm;height:12mm;display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;}' +
+                '.zone-tab{width:16mm;height:12mm;}' +
+                '.mrp-line{font-size:13pt;font-weight:700;line-height:1.05;white-space:nowrap;overflow:hidden;}' +
+                '.sku-line{font-size:9pt;font-weight:700;line-height:1.05;margin-top:0.3mm;white-space:nowrap;overflow:hidden;}' +
+                '.code-line{font-size:8pt;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;}' +
+                '.barcode-img{width:27mm;height:5mm;object-fit:fill;margin:0.3mm 0;display:block;}' +
+                '.name-line{font-size:8pt;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:27mm;}' +
+                '</style></head><body>' + body +
+                '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>' +
+                '</body></html>';
+        };
+
+        window.viewBarcode = function(barcode, productId, sku, productCode, name, mrp) {
             const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
             const modal = `
                 <div class="modal fade" id="barcodeModal" tabindex="-1">
@@ -665,22 +709,7 @@
             $printBtn.on('click', function() {
                 const qty = parseInt($printQty.val()) || 1;
                 const printWindow = window.open('', '_blank');
-                let html = '<!DOCTYPE html><html><head><title>Print Barcodes</title>';
-                html += '<style>';
-                html += 'body{font-family:Arial,sans-serif;margin:0;padding:10px;display:flex;flex-wrap:wrap;gap:15px;justify-content:center;}';
-                html += '.barcode-label{border:1px dashed #999;padding:15px;text-align:center;width:220px;page-break-inside:avoid;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;}';
-                html += '.barcode-value{font-size:14px;margin-bottom:8px;font-family:monospace;font-weight:bold;}';
-                html += '.barcode-image{max-width:100%;height:auto;}';
-                html += '@media print{body{padding:0;}.barcode-label{border:1px solid #000;page-break-inside:avoid;}}';
-                html += '</style></head><body>';
-                for (let i = 0; i < qty; i++) {
-                    html += '<div class="barcode-label">';
-                    html += '<div class="barcode-value">' + barcode + '</div>';
-                    html += '<img src="' + barcodeUrl + '" class="barcode-image" />';
-                    html += '</div>';
-                }
-                html += '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>';
-                html += '</body></html>';
+                const html = window.buildBarcodeLabelsHtml([{ barcodeUrl, sku, productCode, name, mrp, qty }]);
                 printWindow.document.write(html);
                 printWindow.document.close();
             });
