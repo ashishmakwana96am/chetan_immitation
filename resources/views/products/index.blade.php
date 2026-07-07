@@ -160,8 +160,8 @@
 
             const table = $('#productsTable').DataTable({
                 responsive : false,
-                order: [[1, 'asc']],
-                ajax       : { 
+                order: [],
+                ajax       : {
                     url: '{{ route('admin.products.data') }}', 
                     dataSrc: 'data',
                     cache: false,

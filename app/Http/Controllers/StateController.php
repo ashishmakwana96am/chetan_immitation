@@ -18,7 +18,7 @@ class StateController extends Controller
     {
         $this->authorize('view states');
 
-        $query = State::with('createdBy')->orderBy('name');
+        $query = State::with('createdBy')->orderBy('id', 'desc');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);

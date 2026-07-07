@@ -161,6 +161,15 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view coupons',
             'sort_order'     => 3,
         ]);
+        Module::create([
+            'parent_id'      => $salesCustomersCategory->id,
+            'name'           => 'Product Reviews',
+            'icon'           => 'ti ti-star',
+            'route'          => 'admin.product-reviews.index',
+            'active_pattern' => 'admin/product-reviews*',
+            'permission'     => 'view product reviews',
+            'sort_order'     => 4,
+        ]);
 
         // 5. Location
         $locationCategory = Module::create([
@@ -253,6 +262,15 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view payment reports',
             'sort_order'     => 6,
         ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Utility Report',
+            'icon'           => 'ti ti-history',
+            'route'          => 'admin.reports.utility',
+            'active_pattern' => 'admin/reports/utility*',
+            'permission'     => 'view activity logs',
+            'sort_order'     => 7,
+        ]);
 
         // 7. User & Access
         $userAccessCategory = Module::create([
@@ -308,6 +326,25 @@ class ModuleSeeder extends Seeder
             'active_pattern' => 'admin/contact-inquiries*',
             'permission'     => 'view contact inquiries',
             'sort_order'     => 2,
+        ]);
+
+        // 9. Settings
+        $settingsCategory = Module::create([
+            'name'           => 'Settings',
+            'icon'           => null,
+            'route'          => null,
+            'active_pattern' => 'admin/settings*',
+            'permission'     => null,
+            'sort_order'     => 9,
+        ]);
+        Module::create([
+            'parent_id'      => $settingsCategory->id,
+            'name'           => 'General Settings',
+            'icon'           => 'ti ti-settings',
+            'route'          => 'admin.settings.index',
+            'active_pattern' => 'admin/settings*',
+            'permission'     => 'view settings',
+            'sort_order'     => 1,
         ]);
     }
 }

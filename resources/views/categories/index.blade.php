@@ -102,6 +102,7 @@
 
             const table = $('#categoriesTable').DataTable({
                 responsive : false,
+                order      : [],
                 ajax       : {
                     url: '{{ route('admin.categories.data') }}',
                     dataSrc: 'data',

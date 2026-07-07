@@ -87,7 +87,7 @@
                     { data: 'created_at' },
                     { data: 'actions', orderable: false },
                 ],
-                order: [[5, 'desc']],
+                order: [],
                 pageLength: 10,
                 lengthMenu: [10, 25, 50, 100],
                 language: {

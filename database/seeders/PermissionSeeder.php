@@ -121,7 +121,32 @@ class PermissionSeeder extends Seeder
             // Contact Inquiries
             'view contact inquiries' => 'Contact Inquiries',
             'delete contact inquiries' => 'Contact Inquiries',
+
+            // Coupons
+            'view coupons' => 'Coupons',
+            'create coupons' => 'Coupons',
+            'edit coupons' => 'Coupons',
+            'delete coupons' => 'Coupons',
+
+            // Product Reviews
+            'view product reviews' => 'Product Reviews',
+            'delete product reviews' => 'Product Reviews',
+
+            // Website Content
+            'view website content' => 'Website Content',
+            'edit website content' => 'Website Content',
+
+            // Settings
+            'view settings' => 'Settings',
+            'edit settings' => 'Settings',
+
+            // Activity Logs
+            'view activity logs' => 'Activity Logs',
         ];
+
+        $permissions['view payment reports'] = 'Reports';
+        $permissions['download sales'] = 'Sales';
+        $permissions['download purchases'] = 'Purchases';
 
         foreach ($permissions as $name => $module) {
             $permission = Permission::firstOrCreate(['name' => $name]);

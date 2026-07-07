@@ -310,7 +310,7 @@
 
         $('#profitabilityTable').DataTable({
             responsive : false,
-            order      : [[6, 'desc']],
+            order      : [],
             columnDefs : [
                 {
                     targets: 0,

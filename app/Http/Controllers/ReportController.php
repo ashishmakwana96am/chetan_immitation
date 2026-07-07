@@ -484,10 +484,8 @@ class ReportController extends Controller
             $productProfitability[$productId]['total_cost']    += (float)$itemCost;
         }
 
-        // Sort by quantity sold descending so highest sells are first
-        uasort($productProfitability, function($a, $b) {
-            return $b['qty_sold'] <=> $a['qty_sold'];
-        });
+        // Latest product first (by product id)
+        krsort($productProfitability);
 
         // Query Expenses
         $expensesQuery = Expense::when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
@@ -969,9 +967,7 @@ class ReportController extends Controller
             $productProfitability[$productId]['total_cost']    += (float)$itemCost;
         }
 
-        uasort($productProfitability, function($a, $b) {
-            return $b['qty_sold'] <=> $a['qty_sold'];
-        });
+        krsort($productProfitability);
 
         $netProfit = $totalRevenue - $totalCogs;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;

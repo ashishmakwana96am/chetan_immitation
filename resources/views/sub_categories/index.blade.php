@@ -90,6 +90,7 @@
 
             const table = $('#subCategoriesTable').DataTable({
                 responsive : false,
+                order      : [],
                 ajax       : {
                     url: '{{ route('admin.sub-categories.data') }}',
                     dataSrc: 'data',
