@@ -61,6 +61,7 @@ class LocationController extends Controller
                 'name'       => $location->name,
                 'slug'       => '<code>' . $location->slug . '</code>',
                 'address'    => $location->address ?? '-',
+                'phone'      => $location->phone ?? '-',
                 'is_default' => $location->is_default
                     ? '<span class="badge bg-label-success">Default</span>'
                     : '<span class="badge bg-label-secondary">No</span>',
@@ -85,6 +86,7 @@ class LocationController extends Controller
         $validator = Validator::make($request->all(), [
             'name'    => ['required', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
+            'phone'   => ['required', 'string', 'max:20'],
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -107,6 +109,7 @@ class LocationController extends Controller
             'name'       => $request->name,
             'slug'       => generate_slug(Location::class, $request->name),
             'address'    => $request->address,
+            'phone'      => $request->phone,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
@@ -131,6 +134,7 @@ class LocationController extends Controller
         $validator = Validator::make($request->all(), [
             'name'    => ['required', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
+            'phone'   => ['required', 'string', 'max:20'],
         ]);
 
         $validator->after(function ($validator) use ($request, $location) {
@@ -161,6 +165,7 @@ class LocationController extends Controller
             'name'       => $request->name,
             'slug'       => generate_slug(Location::class, $request->name, $location->id),
             'address'    => $request->address,
+            'phone'      => $request->phone,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
         ]);

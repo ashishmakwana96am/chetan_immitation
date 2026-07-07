@@ -108,7 +108,7 @@
                         <i class="ti ti-printer me-1"></i> Print Label
                     </a>
                 @else
-                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" onclick="window.open(this.href, '_blank', 'width=900,height=800,resizable=yes,scrollbars=yes'); return false;">
+                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" target="_blank">
                         <i class="ti ti-printer me-1"></i> Invoice
                     </a>
                 @endif

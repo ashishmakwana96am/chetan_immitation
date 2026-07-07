@@ -18,6 +18,12 @@
                 class="form-control" placeholder="Enter Location Address" />
             <div class="invalid-feedback"></div>
         </div>
+        <div class="col-12">
+            <label class="form-label" for="locationPhone">Phone Number <span class="text-danger">*</span></label>
+            <input type="text" id="locationPhone" name="phone"
+                class="form-control" placeholder="Enter Location Phone Number" />
+            <div class="invalid-feedback"></div>
+        </div>
         <div class="col-md-6">
             <label class="form-label" for="locationStatus">Status</label>
             <div class="form-check form-switch mt-2">

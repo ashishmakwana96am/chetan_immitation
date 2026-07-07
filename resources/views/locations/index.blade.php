@@ -56,6 +56,7 @@
                         <th>Name</th>
                         <th>Slug</th>
                         <th>Address</th>
+                        <th>Phone</th>
                         <th>Default</th>
                         <th>Status</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
@@ -90,6 +91,7 @@
                     { data: 'name' },
                     { data: 'slug' },
                     { data: 'address' },
+                    { data: 'phone' },
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))

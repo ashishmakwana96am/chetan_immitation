@@ -152,7 +152,7 @@ class SaleController extends Controller
                     $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                     $actions .= '<a href="' . route('admin.sales.label', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
                 } else {
-                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" onclick="window.open(this.href, \'_blank\', \'width=900,height=800,resizable=yes,scrollbars=yes\'); return false;"><i class="ti ti-file-text me-2"></i>Invoice</a>';
+                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                 }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;
@@ -479,11 +479,45 @@ class SaleController extends Controller
             abort(403, 'Thermal print is only available for POS orders.');
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
+        $sale->load(['customer', 'location', 'customerAddress', 'items.product']);
 
-        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Thermal receipt printed for sale #' . $sale->order_no);
+        $height = $this->measureThermalHeight($sale);
 
-        return view('sales.thermal', ['order' => $sale]);
+        $pdf = Pdf::loadView('sales.thermal', ['order' => $sale, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
+
+        return $pdf->stream('thermal-receipt-' . $sale->order_no . '.pdf');
+    }
+
+    private function measureThermalHeight(Order $sale): int
+    {
+        $itemCount = $sale->items->count();
+        $low = 150;
+        $high = 400 + ($itemCount * 40);
+
+        while ($this->thermalPageCount($sale, $high) > 1) {
+            $high += 200;
+        }
+
+        while ($high - $low > 1) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->thermalPageCount($sale, $mid) > 1) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $high + 4;
+    }
+
+    private function thermalPageCount(Order $sale, int $height): int
+    {
+        $pdf = Pdf::loadView('sales.thermal', ['order' => $sale, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
+        $pdf->render();
+
+        return $pdf->getDomPDF()->getCanvas()->get_page_count();
     }
 
     public function label(Order $sale)

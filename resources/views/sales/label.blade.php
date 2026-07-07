@@ -106,7 +106,7 @@
                     @endif
                 </div>
                 <div style="font-size: 9.5px; color: #444; line-height: 1.3;">
-                    Phone: +91 77259 78871<br>
+                    Phone: {{ $order->location?->phone ?? '+91 77259 78871' }}<br>
                     Email: support@chetanimitation.com
                 </div>
             </td>

@@ -18,6 +18,7 @@ class Location extends Model
         'name',
         'slug',
         'address',
+        'phone',
         'is_default',
         'status',
         'created_by',
