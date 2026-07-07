@@ -55,6 +55,7 @@ class ProductController extends Controller
         $query = Product::with([
             'category',
             'primaryImage',
+            'variants.attributeValue',
             'inventories' => function($q) use ($locationId) {
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             }
@@ -86,6 +87,10 @@ class ProductController extends Controller
 
         $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone) {
             $nameHtml = $product->name;
+            $variationsStr = $product->variants->map(function ($variant) {
+                return $variant->attributeValue->value ?? '';
+            })->filter()->unique()->implode(', ');
+
 
             if ($product->is_variable) {
                 $nameHtml .= ' <span class="badge bg-label-info ms-1" style="font-size:10px">Variable</span>';
@@ -104,10 +109,11 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
 
-            $barcode = $product->barcode
+            $barcodeVal = $product->barcode ?: $product->sku;
+            $barcode = $barcodeVal
                 ? '<div class="d-flex align-items-center gap-2">
-                    <code>' . $product->barcode . '</code>
-                    <button onclick="viewBarcode(\'' . $product->barcode . '\', ' . $product->id . ')" class="btn btn-sm btn-icon btn-label-secondary" title="View Barcode">
+                    <code>' . $barcodeVal . '</code>
+                    <button onclick="viewBarcode(\'' . $barcodeVal . '\', ' . $product->id . ')" class="btn btn-sm btn-icon btn-label-secondary" title="View Barcode">
                         <i class="ti ti-barcode"></i>
                     </button>
                    </div>'
@@ -138,9 +144,10 @@ class ProductController extends Controller
                 'name'           => $nameHtml,
                 'sku'            => '<code>' . $product->sku . '</code>',
                 'barcode'        => $barcode,
-                'raw_barcode'    => $product->barcode,
+                'raw_barcode'    => $product->barcode ?: $product->sku,
                 'product_code'   => $product->product_code,
                 'category'       => $product->category->name ?? '-',
+                'variations'     => $variationsStr,
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
                 'sale_price'     => format_price($product->sale_price),
@@ -151,6 +158,53 @@ class ProductController extends Controller
         });
 
         return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    public function printBarcodes(\Illuminate\Http\Request $request)
+    {
+        $itemsInput = $request->input('items', []);
+        
+        $printItems = [];
+        $totalQty = 0;
+        
+        $generator = new BarcodeGeneratorSVG();
+        
+        foreach ($itemsInput as $item) {
+            $product = Product::with(['category', 'variants.attributeValue'])->find($item['id'] ?? null);
+            if ($product) {
+                $barcodeVal = $product->barcode ?: $product->sku;
+                $category = $product->category->name ?? '';
+                $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
+                $salePrice = str_replace('₹', '<span class="rupee-symbol">&#8377;</span>', format_price($product->sale_price));
+                $qty = (int)($item['qty'] ?? 1);
+                $totalQty += $qty;
+                
+                // Generate inline base64 SVG to prevent loopback deadlocks in single-threaded dev server
+                $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128);
+                $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
+                
+                $printItems[] = [
+                    'barcodeBase64' => $barcodeBase64,
+                    'barcodeText' => $barcodeVal,
+                    'category' => $category,
+                    'variations' => $variations,
+                    'salePrice' => $salePrice,
+                    'qty' => $qty
+                ];
+            }
+        }
+
+        if ($totalQty === 0) {
+            abort(404, 'No products to print.');
+        }
+
+        // 35pt per label + 30pt base safety margin to prevent DomPDF page break overflow
+        $pdfHeight = ($totalQty * 35) + 30;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems', 'pdfHeight'))
+            ->setPaper([0, 0, 232.44, $pdfHeight], 'portrait');
+
+        return $pdf->stream('barcodes.pdf');
     }
 
     public function show(Product $product)
@@ -688,12 +742,13 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
-        if (empty($product->barcode)) {
-            return response()->json(['status' => 'error', 'message' => 'No barcode found for this product'], 404);
+        $barcodeText = $product->barcode ?: $product->sku;
+        if (empty($barcodeText)) {
+            return response()->json(['status' => 'error', 'message' => 'No barcode or SKU found for this product'], 404);
         }
 
         $generator = new BarcodeGeneratorSVG();
-        $barcode = $generator->getBarcode($product->barcode, $generator::TYPE_CODE_128);
+        $barcode = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128);
 
         return response($barcode, 200)->header('Content-Type', 'image/svg+xml');
     }

@@ -131,23 +131,15 @@
                     searchable: false,
                     width: '3%',
                     render: function (data, type, row) {
-                        if (row.raw_barcode) {
-                            const tempDiv = document.createElement("div");
-                            tempDiv.innerHTML = row.name;
-                            const plainName = tempDiv.textContent || tempDiv.innerText || "";
-
-                            tempDiv.innerHTML = row.sku;
-                            const plainSku = tempDiv.textContent || tempDiv.innerText || "";
-
-                            return `<input type="checkbox" class="form-check-input product-select-checkbox"
-                                value="${row.id}"
-                                data-barcode="${row.raw_barcode}"
-                                data-name="${plainName.replace(/"/g, '&quot;')}"
-                                data-sku="${plainSku.replace(/"/g, '&quot;')}"
-                                data-code="${row.product_code ?? ''}"
-                                data-mrp="${(row.mrp ?? '').replace(/"/g, '&quot;')}">`;
-                        }
-                        return '';
+                        const variationsEscaped = (row.variations ?? '').replace(/"/g, '&quot;');
+                        const categoryEscaped = (row.category ?? '').replace(/"/g, '&quot;');
+                        const salePriceEscaped = (row.sale_price ?? '').replace(/"/g, '&quot;');
+                        return `<input type="checkbox" class="form-check-input product-select-checkbox"
+                            value="${row.id}"
+                            data-barcode="${row.raw_barcode}"
+                            data-category="${categoryEscaped}"
+                            data-variations="${variationsEscaped}"
+                            data-sale-price="${salePriceEscaped}">`;
                     }
                 },
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
@@ -229,13 +221,13 @@
                     for (let i = 0; i < qty; i++) {
                         body += '<div class="label">';
                         body +=   '<div class="zone-front">';
-                        body +=     '<div class="mrp-line">MRP : ' + esc(item.mrp) + '</div>';
-                        body +=     '<div class="sku-line">' + esc(item.sku) + '</div>';
+                        body +=     '<div class="mrp-line">MRP : ' + esc(item.salePrice) + '</div>';
+                        body +=     '<div class="code-line">' + esc(item.barcodeText) + '</div>';
                         body +=   '</div>';
                         body +=   '<div class="zone-back">';
-                        body +=     '<div class="code-line">' + esc(item.productCode) + '</div>';
+                        body +=     '<div class="variations-line">' + esc(item.variations || '&nbsp;') + '</div>';
                         body +=     '<img class="barcode-img" src="' + item.barcodeUrl + '" />';
-                        body +=     '<div class="name-line">' + esc(item.name) + '</div>';
+                        body +=     '<div class="category-line">' + esc(item.category) + '</div>';
                         body +=   '</div>';
                         body +=   '<div class="zone-tab"></div>';
                         body += '</div>';
@@ -243,22 +235,21 @@
                 });
 
                 return '<!DOCTYPE html><html><head><title>Print Labels</title><style>' +
-                    '@page{size:82mm 12mm;margin:0;}' +
+                    '@page{size:82mm;margin:0 !important;}' +
                     '*{box-sizing:border-box;}' +
-                    'html,body{margin:0;padding:0;}' +
-                    '.label{width:82mm;height:12mm;overflow:hidden;page-break-after:always;page-break-inside:avoid;display:flex;flex-direction:row;align-items:center;font-family:"Courier New",Courier,monospace;color:#000;}' +
-                    '.label:last-child{page-break-after:auto;}' +
-                    '.zone-front{width:37mm;height:12mm;display:flex;flex-direction:column;justify-content:center;padding-left:1.5mm;overflow:hidden;}' +
-                    '.zone-back{width:29mm;height:12mm;display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;}' +
-                    '.zone-tab{width:16mm;height:12mm;}' +
-                    '.mrp-line{font-size:13pt;font-weight:700;line-height:1.05;white-space:nowrap;overflow:hidden;}' +
-                    '.sku-line{font-size:9pt;font-weight:700;line-height:1.05;margin-top:0.3mm;white-space:nowrap;overflow:hidden;}' +
-                    '.code-line{font-size:8pt;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;}' +
-                    '.barcode-img{width:27mm;height:5mm;object-fit:fill;margin:0.3mm 0;display:block;}' +
-                    '.name-line{font-size:8pt;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:27mm;}' +
-                    '</style></head><body>' + body +
+                    'html,body{margin:0 !important;padding:0 !important;width:82mm !important;max-width:82mm !important;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:Arial,Helvetica,sans-serif !important;overflow:hidden !important;}' +
+                    '.label{width:82mm !important;height:12mm !important;max-height:12mm !important;overflow:hidden !important;display:flex !important;flex-direction:row !important;align-items:center !important;page-break-inside:avoid !important;break-inside:avoid !important;margin:0 !important;padding:0 !important;font-family:Arial,Helvetica,sans-serif !important;color:#000;}' +
+                    '.zone-front{width:37mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;padding:0.8mm 1.5mm !important;overflow:hidden !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
+                    '.zone-back{width:29mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;align-items:center !important;overflow:hidden !important;padding:0.8mm 1px !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
+                    '.zone-tab{width:16mm !important;height:100% !important;}' +
+                    '.mrp-line{font-size:8.5pt !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.category-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.variations-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.code-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.barcode-img{width:22mm !important;height:3.5mm !important;object-fit:fill !important;margin:0 !important;display:block;}' +
+                    '</style>' +
                     '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>' +
-                    '</body></html>';
+                    '</head><body>' + body + '</body></html>';
             };
 
             window.viewBarcode = function(barcode, productId) {
@@ -267,13 +258,10 @@
                 // The action button HTML comes from the server with only barcode + id,
                 // so pull the rest (sku/mrp/product_code/name) from the already-loaded row data.
                 const rowData = table.rows().data().toArray().find(r => String(r.id) === String(productId)) || {};
-                const tmp = document.createElement('div');
-                tmp.innerHTML = rowData.name || '';
-                const rowName = tmp.textContent || tmp.innerText || '';
-                tmp.innerHTML = rowData.sku || '';
-                const rowSku = tmp.textContent || tmp.innerText || '';
-                const rowCode = rowData.product_code ?? '';
-                const rowMrp = rowData.mrp ?? '';
+                const rowCategory = rowData.category ?? '';
+                const rowVariations = rowData.variations ?? '';
+                const rowSalePrice = rowData.sale_price ?? '';
+                const rowRawBarcode = rowData.raw_barcode ?? '';
 
                 const modal = `
                     <div class="modal fade" id="barcodeModal" tabindex="-1">
@@ -337,17 +325,8 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    const printWindow = window.open('', '_blank');
-                    const html = window.buildBarcodeLabelsHtml([{
-                        barcodeUrl,
-                        sku: rowSku,
-                        productCode: rowCode,
-                        name: rowName,
-                        mrp: rowMrp,
-                        qty
-                    }]);
-                    printWindow.document.write(html);
-                    printWindow.document.close();
+                    const url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    window.open(url, '_blank');
                 });
                 
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {
@@ -396,12 +375,12 @@
                     const id = $(this).val();
                     const barcode = $(this).data('barcode');
                     const name = $(this).data('name');
-                    const sku = $(this).data('sku');
-                    const code = $(this).data('code');
-                    const mrp = $(this).data('mrp');
+                    const category = $(this).data('category');
+                    const variations = $(this).data('variations');
+                    const salePrice = $(this).data('sale-price');
 
                     listHtml += `
-                        <tr class="bulk-item-row" data-id="${id}" data-barcode="${barcode}" data-name="${name}" data-sku="${sku}" data-code="${code}" data-mrp="${mrp}">
+                        <tr class="bulk-item-row" data-id="${id}" data-barcode="${barcode}" data-category="${category}" data-variations="${variations}" data-sale-price="${salePrice}">
                             <td>
                                 <div class="fw-semibold text-dark">${name}</div>
                             </td>
@@ -466,27 +445,19 @@
 
             // Start bulk printing
             $(document).on('click', '#startBulkPrintBtn', function() {
-                const printItems = [];
+                let url = '{{ route("admin.products.print-barcodes") }}?';
+                let idx = 0;
                 $('.bulk-item-row').each(function() {
                     const id = $(this).data('id');
                     const qty = parseInt($(this).find('.bulk-item-qty').val()) || 1;
-                    const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', id);
-                    printItems.push({
-                        barcodeUrl,
-                        sku: $(this).data('sku'),
-                        productCode: $(this).data('code'),
-                        name: $(this).data('name'),
-                        mrp: $(this).data('mrp'),
-                        qty
-                    });
+                    url += `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}&`;
+                    idx++;
                 });
 
-                if (printItems.length === 0) return;
+                if (idx === 0) return;
 
-                const printWindow = window.open('', '_blank');
-                const html = window.buildBarcodeLabelsHtml(printItems);
-                printWindow.document.write(html);
-                printWindow.document.close();
+                url = url.replace(/&$/, '');
+                window.open(url, '_blank');
 
                 // Hide bulk modal
                 bootstrap.Modal.getInstance(document.getElementById('bulkBarcodeModal')).hide();

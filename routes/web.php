@@ -152,6 +152,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::get('products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('products/print-barcodes', [ProductController::class, 'printBarcodes'])->name('products.print-barcodes');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::get('products/{product}/barcode', [ProductController::class, 'generateBarcodeImage'])->name('products.barcode');
