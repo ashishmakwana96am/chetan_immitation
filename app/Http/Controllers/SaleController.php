@@ -130,28 +130,13 @@ class SaleController extends Controller
                             . "<div class='sw-status'><i class='ti ti-alert-circle'></i>Not available at this location</div>"
                             . $availabilitySection
                             . "</div>";
-                    } else {
-                        $otherRows = $invRows->where('location_id', '!=', $order->location_id)
-                            ->filter(fn ($inv) => $inv->quantity > 0)
-                            ->map(function ($inv) {
-                                return "<div class='sw-branch'><span>" . e($inv->location->name ?? 'Unknown') . "</span><span class='sw-qty'>" . (int) $inv->quantity . "</span></div>";
-                            })
-                            ->implode('');
-
-                        $availabilitySection = $otherRows !== ''
-                            ? "<div class='sw-subtitle'>Available in other branches</div>" . $otherRows
-                            : "<div class='sw-empty'>Not available in any other branch</div>";
-
-                        $issueBlocks[] = "<div class='sw-item'>"
-                            . "<div class='sw-title'><i class='ti ti-box'></i>" . e($item->product->name ?? 'Product') . "</div>"
-                            . "<div class='sw-status'><i class='ti ti-alert-circle'></i>Not available at this location</div>"
-                            . $availabilitySection
-                            . "</div>";
                     }
                 }
 
-                $tooltipHtml = implode('', $issueBlocks);
-                $stockWarningHtml = ' <i class="ti ti-alert-triangle text-warning fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" data-bs-custom-class="stock-warning-tooltip" title="' . $tooltipHtml . '"></i>';
+                if (!empty($issueBlocks)) {
+                    $tooltipHtml = implode('', $issueBlocks);
+                    $stockWarningHtml = ' <i class="ti ti-alert-triangle text-warning fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" data-bs-custom-class="stock-warning-tooltip" title="' . e($tooltipHtml) . '"></i>';
+                }
             }
 
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
