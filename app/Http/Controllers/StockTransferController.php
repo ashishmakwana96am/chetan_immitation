@@ -29,6 +29,24 @@ class StockTransferController extends Controller
         return view('stock-transfers.index', compact('locations', 'isRestricted'));
     }
 
+    public function pendingCount()
+    {
+        $this->authorize('view stock transfers');
+
+        $user = auth()->user();
+
+        $count = StockTransfer::where('status', StockTransfer::STATUS_PENDING)
+            ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('from_location_id', $user->location_id)
+                        ->orWhere('to_location_id', $user->location_id);
+                });
+            })
+            ->count();
+
+        return response()->json(['status' => 'success', 'count' => $count]);
+    }
+
     public function data(Request $request)
     {
         $this->authorize('view stock transfers');

@@ -172,6 +172,9 @@
                             window.hideAjaxLoader();
                             toastr.success(res.message);
                             window.refreshTable();
+                            if (typeof window.refreshStockTransferBadge === 'function') {
+                                window.refreshStockTransferBadge();
+                            }
                         },
                         error: function (xhr) {
                             window.hideAjaxLoader();

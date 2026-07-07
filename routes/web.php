@@ -170,6 +170,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Stock Transfers
         Route::get('stock-transfers/data', [StockTransferController::class, 'data'])->name('stock-transfers.data');
+        Route::get('stock-transfers/pending-count', [StockTransferController::class, 'pendingCount'])->name('stock-transfers.pending-count');
         Route::patch('stock-transfers/{stockTransfer}/accept', [StockTransferController::class, 'accept'])->name('stock-transfers.accept');
         Route::patch('stock-transfers/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('stock-transfers.reject');
         Route::resource('stock-transfers', StockTransferController::class)
