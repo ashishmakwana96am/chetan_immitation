@@ -233,7 +233,7 @@
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>
                                         <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                                                 <span>Actions</span>
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">

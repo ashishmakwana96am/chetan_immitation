@@ -469,13 +469,6 @@
                 setTimeout(initGlobalSelect2, 50);
             });
 
-            $(document).on('show.bs.dropdown', '.table-responsive', function () {
-                $(this).css('overflow', 'visible');
-            });
-
-            $(document).on('hide.bs.dropdown', '.table-responsive', function () {
-                $(this).css('overflow', '');
-            });
 
             // Double click row to view details
             $(document).on('dblclick', 'table tbody tr', function(e) {
@@ -550,6 +543,14 @@
                 const modalEl = new bootstrap.Modal($modal[0]);
                 modalEl.show();
             });
+        });
+    </script>
+
+    <script>
+        $(document).on('pointerdown focus', '.table-responsive [data-bs-toggle="dropdown"], .table-action-dropdown [data-bs-toggle="dropdown"], table [data-bs-toggle="dropdown"]', function () {
+            if (!this.hasAttribute('data-bs-popper-config')) {
+                this.setAttribute('data-bs-popper-config', '{"strategy":"fixed"}');
+            }
         });
     </script>
 

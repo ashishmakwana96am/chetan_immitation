@@ -74,7 +74,7 @@ class StockTransferController extends Controller
             $statusBadge = $this->statusBadge($transfer->status);
 
             $actions = '<div class="dropdown table-action-dropdown">';
-            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.stock-transfers.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($transfer->status == StockTransfer::STATUS_PENDING) {

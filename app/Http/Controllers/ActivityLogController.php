@@ -47,7 +47,7 @@ class ActivityLogController extends Controller
             $userHtml .= '</div>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
-            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<button type="button" class="dropdown-item" data-common-modal="' . route('admin.reports.utility.show', $log) . '"><i class="ti ti-eye me-2"></i>View</button>';
             $actions .= '</div></div>';
