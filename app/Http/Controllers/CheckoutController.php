@@ -417,9 +417,11 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = Location::where('is_default', true)->first()
-            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
-            ?? Location::first();
+        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+            'product_id' => $item->product_id,
+            'variant_id' => $item->product_variant_id,
+            'quantity'   => $item->qty,
+        ])->all());
 
         if (! $location) {
             return response()->json([
@@ -689,9 +691,11 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, null);
         $total = round($subtotal + $shipping, 2);
 
-        $location = Location::where('is_default', true)->first()
-            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
-            ?? Location::first();
+        $location = $this->resolveFulfillmentLocation([[
+            'product_id' => $product->id,
+            'variant_id' => $request->filled('variant_id') ? (int) $request->variant_id : null,
+            'quantity'   => $qty,
+        ]]);
 
         if (! $location) {
             return response()->json(['status' => 'error', 'message' => 'No fulfillment location is active.'], 422);
@@ -764,6 +768,63 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function resolveFulfillmentLocation(array $items): ?Location
+    {
+        $defaultLocation = Location::where('is_default', true)->first()
+            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
+            ?? Location::first();
+
+        if (! $defaultLocation) {
+            return null;
+        }
+
+        if ($this->locationHasStockForItems($defaultLocation->id, $items)) {
+            return $defaultLocation;
+        }
+
+        $otherLocations = Location::where('status', Location::STATUS_ACTIVE)
+            ->where('id', '!=', $defaultLocation->id)
+            ->get();
+
+        foreach ($otherLocations as $location) {
+            if ($this->locationHasStockForItems($location->id, $items)) {
+                return $location;
+            }
+        }
+
+        return $defaultLocation;
+    }
+
+    private function locationHasStockForItems(int $locationId, array $items): bool
+    {
+        $products = Product::with('variants')
+            ->whereIn('id', collect($items)->pluck('product_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($items as $item) {
+            $product = $products->get($item['product_id']);
+            if (! $product) {
+                return false;
+            }
+
+            if ($item['variant_id']) {
+                $stockData = $product->getVariantStock($locationId);
+                $available = (int) ($stockData['variants'][$item['variant_id']] ?? 0);
+            } else {
+                $available = (int) (Inventory::where('product_id', $product->id)
+                    ->where('location_id', $locationId)
+                    ->value('quantity') ?? 0);
+            }
+
+            if ($available < (int) $item['quantity']) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function resolveAddressForShipping(Request $request): ?CustomerAddress
@@ -1005,9 +1066,11 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = Location::where('is_default', true)->first()
-            ?? Location::where('status', Location::STATUS_ACTIVE)->first()
-            ?? Location::first();
+        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+            'product_id' => $item->product_id,
+            'variant_id' => $item->product_variant_id,
+            'quantity'   => $item->qty,
+        ])->all());
 
         if (! $location) {
             return response()->json([

@@ -658,23 +658,8 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const minTotal = getMinAllowedTotal(row);
-        if (minTotal > 0) {
-            const maxAllowedDiscount = subtotal - minTotal;
-            if (discount > maxAllowedDiscount) {
-                discount = Math.max(0, maxAllowedDiscount);
-
-                const clampedDiscVal = (discType === 'percentage' && subtotal > 0)
-                    ? (discount / subtotal) * 100
-                    : discount;
-                row.find('.item-discount-value').val(parseFloat(clampedDiscVal.toFixed(2)));
-
-                if (!row.data('min-price-warned')) {
-                    toastr.warning('Discount is not applicable to this order.');
-                    row.data('min-price-warned', true);
-                    setTimeout(() => row.data('min-price-warned', false), 3000);
-                }
-            }
-        }
+        const violatesFloor = minTotal > 0 && (subtotal - discount) < minTotal - 0.01;
+        row.find('.item-discount-value').toggleClass('is-invalid', violatesFloor);
 
         const total    = subtotal - discount;
         if (row.hasClass('parent-row')) {
@@ -710,10 +695,6 @@ $(document).ready(function () {
 
             const minTotal = getMinAllowedTotal($(this));
             if (minTotal > 0) {
-                const maxAllowedDiscount = subtotal - minTotal;
-                if (discount > maxAllowedDiscount) {
-                    discount = Math.max(0, maxAllowedDiscount);
-                }
                 minFloorTotal += minTotal;
             }
 
@@ -724,7 +705,6 @@ $(document).ready(function () {
 
         const itemsTotal = subtotalSum - discountSum;
 
-        // Order-level discount calculation
         const orderDiscType = $('#overallDiscountType').val() || 'flat';
         const orderDiscVal = parseFloat($('#overallDiscountValue').val()) || 0;
         let orderDiscountAmount = 0;
@@ -741,26 +721,8 @@ $(document).ready(function () {
             orderDiscountAmount = itemsTotal;
         }
 
-        // The order-level discount must not push the overall total below the
-        // combined purchase price + 10% floor of all items.
-        if (minFloorTotal > 0) {
-            const maxAllowedOrderDiscount = itemsTotal - minFloorTotal;
-            if (orderDiscountAmount > maxAllowedOrderDiscount) {
-                orderDiscountAmount = Math.max(0, maxAllowedOrderDiscount);
-
-                const clampedOrderDiscVal = (orderDiscType === 'percentage' && itemsTotal > 0)
-                    ? (orderDiscountAmount / itemsTotal) * 100
-                    : orderDiscountAmount;
-                $('#orderDiscountValueInput').val(parseFloat(clampedOrderDiscVal.toFixed(2)));
-                $('#overallDiscountValue').val(parseFloat(clampedOrderDiscVal.toFixed(2)));
-
-                if (!window.__orderMinPriceWarned) {
-                    toastr.warning('Discount is not applicable.');
-                    window.__orderMinPriceWarned = true;
-                    setTimeout(() => window.__orderMinPriceWarned = false, 3000);
-                }
-            }
-        }
+        const orderViolatesFloor = minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01;
+        $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
 
         const finalAmount = itemsTotal - orderDiscountAmount;
         const totalDiscount = discountSum + orderDiscountAmount;
@@ -787,6 +749,57 @@ $(document).ready(function () {
         }
     }
 
+    function validateDiscounts() {
+        let itemsTotal = 0;
+        let minFloorTotal = 0;
+        let errorMsg = null;
+
+        $('#itemsBody .item-row').each(function () {
+            if (errorMsg) return;
+
+            const qty = parseInt($(this).find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+
+            const price    = parseFloat($(this).find('.item-price').val()) || 0;
+            const discVal  = parseFloat($(this).find('.item-discount-value').val()) || 0;
+            const discType = $(this).find('.item-discount-type').val() || 'flat';
+
+            const subtotal = price * qty;
+            let discount = discType === 'percentage' ? subtotal * (discVal / 100) : discVal;
+            if (discount > subtotal) discount = subtotal;
+
+            const itemTotal = subtotal - discount;
+            itemsTotal += itemTotal;
+
+            const minTotal = getMinAllowedTotal($(this));
+            if (minTotal > 0) {
+                minFloorTotal += minTotal;
+                if (itemTotal < minTotal - 0.01) {
+                    const product = $(this).data('product');
+                    const name = (product && product.name) ? product.name : 'item';
+                    $(this).find('.item-discount-value').addClass('is-invalid');
+                    errorMsg = 'Final price for "' + name + '" cannot be less than purchase price + 10% (minimum '
+                        + symbol + ' ' + formatPrice(minTotal) + ').';
+                }
+            }
+        });
+
+        if (errorMsg) return errorMsg;
+
+        const orderDiscType = $('#overallDiscountType').val() || 'flat';
+        const orderDiscVal = parseFloat($('#overallDiscountValue').val()) || 0;
+        let orderDiscountAmount = orderDiscType === 'percentage' ? itemsTotal * (orderDiscVal / 100) : orderDiscVal;
+        if (orderDiscountAmount > itemsTotal) orderDiscountAmount = itemsTotal;
+
+        if (minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01) {
+            $('#orderDiscountValueInput').addClass('is-invalid');
+            return 'Order total cannot be less than ' + symbol + ' ' + formatPrice(minFloorTotal)
+                + ' (combined purchase price + 10% of all items).';
+        }
+
+        return null;
+    }
+
     // -------------------------------------------------------
     // Submit
     // -------------------------------------------------------
@@ -802,6 +815,12 @@ $(document).ready(function () {
 
         if (activeCount === 0) {
             toastr.error('Please add at least one item with quantity greater than 0.');
+            return;
+        }
+
+        const discountError = validateDiscounts();
+        if (discountError) {
+            toastr.error(discountError);
             return;
         }
 
