@@ -133,10 +133,10 @@ class SaleController extends Controller
                     }
                 }
 
-                if (!empty($issueBlocks)) {
-                    $tooltipHtml = implode('', $issueBlocks);
-                    $stockWarningHtml = ' <i class="ti ti-alert-triangle text-warning fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" data-bs-custom-class="stock-warning-tooltip" title="' . $tooltipHtml . '"></i>';
-                }
+                $tooltipHtml = !empty($issueBlocks)
+                    ? implode('', $issueBlocks)
+                    : "<div class='sw-item'><div class='sw-status'><i class='ti ti-alert-circle'></i>This order was fulfilled from a different location than originally requested.</div></div>";
+                $stockWarningHtml = ' <i class="ti ti-alert-triangle text-warning fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" data-bs-custom-class="stock-warning-tooltip" title="' . $tooltipHtml . '"></i>';
             }
 
             $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
