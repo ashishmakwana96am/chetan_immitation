@@ -103,7 +103,6 @@
                       }
                     @endphp
                     <div id="stock-transfer-pending-badge" class="pending-sales-counter-badge" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
-                    @endif
                   @endif
                 </a>
               </li>

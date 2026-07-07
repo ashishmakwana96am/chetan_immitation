@@ -20,6 +20,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class ProductController extends Controller
 {
@@ -735,11 +736,32 @@ class ProductController extends Controller
         $sheet->fromArray($rows, null, 'A2');
 
         $lastColumn = chr(ord('A') + count($columns) - 1);
+        $dataStartRow = 2;
+        $dataEndRow = $dataStartRow + count($rows) - 1;
+
         $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);
         $sheet->getStyle('A1:' . $lastColumn . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         foreach (range('A', $lastColumn) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
+
+        $mergeStart = $dataStartRow;
+        foreach ($rows as $i => $row) {
+            $rowNum = $dataStartRow + $i;
+            $isLastRow = $i === count($rows) - 1;
+            $sameAsNext = !$isLastRow && $row[0] === $rows[$i + 1][0];
+
+            if (!$sameAsNext) {
+                if ($rowNum > $mergeStart) {
+                    $sheet->mergeCells('A' . $mergeStart . ':A' . $rowNum);
+                }
+                $sheet->getStyle('A' . $mergeStart . ':A' . $rowNum)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $mergeStart = $rowNum + 1;
+            }
+        }
+
+        $sheet->getStyle('A1:' . $lastColumn . $dataEndRow)
+            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         $headers = [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
