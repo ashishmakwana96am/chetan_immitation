@@ -41,7 +41,7 @@
         .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
         .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
         .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
-        .product-main-image { width: 100%; height: 260px; object-fit: cover; border-radius: 0.375rem; }
+        .product-main-image { width: 100%; height: 260px; object-fit: contain; border-radius: 0.375rem; }
         .product-thumb-image { width: 60px; height: 60px; object-fit: cover; border-radius: 0.375rem; }
         .product-thumb-slide { width: auto !important; opacity: 0.6; transition: opacity 0.2s; }
         .product-thumb-slide.swiper-slide-thumb-active { opacity: 1; border: 2px solid #B4771E; border-radius: 0.5rem; }
