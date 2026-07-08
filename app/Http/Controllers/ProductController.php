@@ -947,7 +947,7 @@ class ProductController extends Controller
                 // Use the SKU given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
                 $skuInput = trim($row['sku'] ?? '');
                 if (!empty($skuInput)) {
-                    if (Product::where('sku', $skuInput)->exists()) {
+                    if (Product::withTrashed()->where('sku', $skuInput)->exists()) {
                         $errors[] = "Row {$rowNum}: Product SKU '{$skuInput}' already exists in the system.";
                         continue;
                     }
@@ -959,23 +959,23 @@ class ProductController extends Controller
                         continue;
                     }
 
-                    $seq = Product::where('sku', 'like', $prefix . '-%')->count() + 1;
+                    $seq = Product::withTrashed()->where('sku', 'like', $prefix . '-%')->count() + 1;
                     do {
                         $sku = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
                         $seq++;
-                    } while (Product::where('sku', $sku)->exists() || Product::where('barcode', $sku)->exists());
+                    } while (Product::withTrashed()->where('sku', $sku)->exists() || Product::withTrashed()->where('barcode', $sku)->exists());
                 }
 
                 // Use the Barcode given in the sheet, or default to the SKU
                 $barcodeInput = trim($row['barcode'] ?? '');
                 if (!empty($barcodeInput)) {
-                    if (Product::where('barcode', $barcodeInput)->exists()) {
+                    if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
                         $errors[] = "Row {$rowNum}: Product Barcode '{$barcodeInput}' already exists in the system.";
                         continue;
                     }
                     $barcode = $barcodeInput;
                 } else {
-                    if (Product::where('barcode', $sku)->exists()) {
+                    if (Product::withTrashed()->where('barcode', $sku)->exists()) {
                         $errors[] = "Row {$rowNum}: Generated Barcode '{$sku}' already exists in the system.";
                         continue;
                     }
@@ -983,7 +983,7 @@ class ProductController extends Controller
                 }
 
                 // Find or create category
-                $category = Category::firstOrCreate(
+                $category = Category::withTrashed()->firstOrCreate(
                     [
                         'name' => $categoryName
                     ],
@@ -994,11 +994,15 @@ class ProductController extends Controller
                     ]
                 );
 
+                if ($category->trashed()) {
+                    $category->restore();
+                }
+
                 // Find or create subcategory if provided
                 $subCategoryId = null;
                 $subCategoryName = $row['sub_category'] ?? null;
                 if (!empty($subCategoryName)) {
-                    $subCategory = SubCategory::firstOrCreate(
+                    $subCategory = SubCategory::withTrashed()->firstOrCreate(
                         [
                             'category_id' => $category->id,
                             'name' => $subCategoryName
@@ -1009,6 +1013,10 @@ class ProductController extends Controller
                             'created_by' => auth()->id()
                         ]
                     );
+
+                    if ($subCategory->trashed()) {
+                        $subCategory->restore();
+                    }
                     $subCategoryId = $subCategory->id;
                 }
 
@@ -1086,7 +1094,7 @@ class ProductController extends Controller
                     }
 
                     // Find or create Attribute
-                    $attribute = Attribute::firstOrCreate(
+                    $attribute = Attribute::withTrashed()->firstOrCreate(
                         [
                             'name' => $attributeName
                         ],
@@ -1098,12 +1106,20 @@ class ProductController extends Controller
                         ]
                     );
 
+                    if ($attribute->trashed()) {
+                        $attribute->restore();
+                    }
+
                     foreach ($attrValues as $val) {
                         // Find or create AttributeValue
-                        $attributeValue = AttributeValue::firstOrCreate([
+                        $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
                             'attribute_id' => $attribute->id,
                             'value' => $val
                         ]);
+
+                        if ($attributeValue->trashed()) {
+                            $attributeValue->restore();
+                        }
 
                         // Create variant
                         ProductVariant::create([

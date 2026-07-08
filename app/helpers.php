@@ -15,8 +15,12 @@ if (!function_exists('generate_slug')) {
         $original = $slug;
         $count    = 1;
 
+        $query = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model))
+            ? $model::withTrashed()
+            : $model::query();
+
         while (
-            $model::where('slug', $slug)
+            (clone $query)->where('slug', $slug)
                 ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
                 ->exists()
         ) {
