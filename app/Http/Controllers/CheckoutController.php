@@ -417,11 +417,14 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+        $fulfillment = $this->isDefaultLocationWithStock($cartItems->map(fn ($item) => [
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
         ])->all());
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json([
@@ -465,7 +468,7 @@ class CheckoutController extends Controller
                 'customer_id' => $customer->id,
                 'address_id' => $address->id,
                 'location_id' => $location->id,
-                'is_default' => (bool) $location->is_default,
+                'is_default' => $hasStock,
                 'total' => $total,
                 'shipping_charge' => $shipping,
                 'coupon_id' => $coupon ? $coupon->id : null,
@@ -536,15 +539,18 @@ class CheckoutController extends Controller
 
         if (hash_equals($expectedSignature, $request->razorpay_signature)) {
             $order = DB::transaction(function () use ($pendingPayment, $request) {
+                $isDefault = (bool) ($pendingPayment['is_default'] ?? true);
+                $status = $isDefault ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
+
                 $order = Order::create([
                     'customer_id' => $pendingPayment['customer_id'],
                     'customer_address_id' => $pendingPayment['address_id'],
                     'location_id' => $pendingPayment['location_id'],
-                    'is_default' => $pendingPayment['is_default'] ?? true,
+                    'is_default' => $isDefault,
                     'order_no' => $pendingPayment['order_no'],
                     'order_type' => 'sale',
-                    'status' => Order::STATUS_APPROVE,
-                    'confirmed_at' => now(),
+                    'status' => $status,
+                    'confirmed_at' => $isDefault ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'payment_method' => 'online',
                     'final_amount' => $pendingPayment['total'],
@@ -576,9 +582,11 @@ class CheckoutController extends Controller
                         'total'              => $item['total'],
                     ]);
 
-                    Inventory::where('product_id', $item['product_id'])
-                        ->where('location_id', $order->location_id)
-                        ->decrement('quantity', $item['quantity']);
+                    if ($isDefault) {
+                        Inventory::where('product_id', $item['product_id'])
+                            ->where('location_id', $order->location_id)
+                            ->decrement('quantity', $item['quantity']);
+                    }
                 }
 
                 if ($pendingPayment['type'] === 'checkout') {
@@ -693,11 +701,14 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, null);
         $total = round($subtotal + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation([[
+        $fulfillment = $this->isDefaultLocationWithStock([[
             'product_id' => $product->id,
             'variant_id' => $request->filled('variant_id') ? (int) $request->variant_id : null,
             'quantity'   => $qty,
         ]]);
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json(['status' => 'error', 'message' => 'No fulfillment location is active.'], 422);
@@ -737,7 +748,7 @@ class CheckoutController extends Controller
                 'customer_id' => $customer->id,
                 'address_id' => $address->id,
                 'location_id' => $location->id,
-                'is_default' => (bool) $location->is_default,
+                'is_default' => $hasStock,
                 'total' => $total,
                 'shipping_charge' => $shipping,
                 'coupon_id' => null,
@@ -773,31 +784,25 @@ class CheckoutController extends Controller
         }
     }
 
-    private function resolveFulfillmentLocation(array $items): ?Location
+    private function isDefaultLocationWithStock(array $items): array
     {
         $defaultLocation = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
             ?? Location::first();
 
         if (! $defaultLocation) {
-            return null;
+            return [
+                'location' => null,
+                'has_stock' => false,
+            ];
         }
 
-        if ($this->locationHasStockForItems($defaultLocation->id, $items)) {
-            return $defaultLocation;
-        }
+        $hasStock = $this->locationHasStockForItems($defaultLocation->id, $items);
 
-        $otherLocations = Location::where('status', Location::STATUS_ACTIVE)
-            ->where('id', '!=', $defaultLocation->id)
-            ->get();
-
-        foreach ($otherLocations as $location) {
-            if ($this->locationHasStockForItems($location->id, $items)) {
-                return $location;
-            }
-        }
-
-        return $defaultLocation;
+        return [
+            'location' => $defaultLocation,
+            'has_stock' => $hasStock,
+        ];
     }
 
     private function locationHasStockForItems(int $locationId, array $items): bool
@@ -1069,11 +1074,14 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+        $fulfillment = $this->isDefaultLocationWithStock($cartItems->map(fn ($item) => [
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
         ])->all());
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json([
@@ -1083,17 +1091,20 @@ class CheckoutController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($customer, $location, $total, $shipping, $cartItems, $coupon, $address) {
+            $order = DB::transaction(function () use ($customer, $location, $hasStock, $total, $shipping, $cartItems, $coupon, $address) {
                 $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+
+                $status = $hasStock ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
 
                 $order = Order::create([
                     'customer_id' => $customer->id,
                     'customer_address_id' => $address->id,
                     'location_id' => $location->id,
-                    'is_default' => (bool) $location->is_default,
+                    'is_default' => $hasStock,
                     'order_no' => $orderNo,
                     'order_type' => 'sale',
-                    'status' => Order::STATUS_PENDING,
+                    'status' => $status,
+                    'confirmed_at' => $hasStock ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PENDING,
                     'payment_method' => 'cod',
                     'final_amount' => $total,
@@ -1115,6 +1126,12 @@ class CheckoutController extends Controller
                         'discount'           => 0.0,
                         'total'              => $price * $item->qty,
                     ]);
+
+                    if ($hasStock) {
+                        Inventory::where('product_id', $item->product_id)
+                            ->where('location_id', $order->location_id)
+                            ->decrement('quantity', $item->qty);
+                    }
                 }
 
                 CartItem::where('customer_id', $customer->id)->delete();
