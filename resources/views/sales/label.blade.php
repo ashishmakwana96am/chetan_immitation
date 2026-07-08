@@ -123,12 +123,14 @@
             padding: 0 2px 3px;
             border-bottom: 1px dashed #000;
             font-weight: bold;
-            text-align: left;
+            text-align: center;
         }
 
         .product-table td {
             padding: 2.5px 2px;
             font-family: Arial, sans-serif;
+            text-align: center;
+            vertical-align: middle;
         }
 
         .fold-here {
@@ -223,6 +225,10 @@
             font-family: Arial, sans-serif;
         }
 
+        .invoice-info-table td:last-child {
+            padding-left: 6px;
+        }
+
         .invoice-items-table {
             width: 100%;
             border-collapse: collapse;
@@ -302,7 +308,7 @@
                 </td>
                 <td>
                     <div class="section-title">FROM</div>
-                    <div class="person-name">{{ $order->location?->name ?? 'Chetan Imitation' }}</div>
+                    <div class="person-name">CHETAN IMITATION{{ $order->location?->name ? ' - ' . $order->location->name : '' }}</div>
                     <div class="address-text">
                         @if($order->location?->address)
                             {{ $order->location->address }}
@@ -323,9 +329,9 @@
                     <tr>
                         <th style="width: 35%;">SKU</th>
                         <th style="width: 16%;">Size</th>
-                        <th style="width: 10%;" class="text-center">Qty</th>
+                        <th style="width: 10%;">Qty</th>
                         <th style="width: 15%;">Color</th>
-                        <th style="width: 24%;" class="text-right">Order No.</th>
+                        <th style="width: 24%;">Order No.</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -352,9 +358,9 @@
                         <tr>
                             <td>{{ $item->product->sku ?? '-' }}</td>
                             <td>{{ $size }}</td>
-                            <td class="text-center">{{ $item->quantity }}</td>
+                            <td>{{ $item->quantity }}</td>
                             <td>{{ $color }}</td>
-                            <td class="text-right">{{ $order->order_no }}{{ count($order->items) > 1 ? '_' . ($idx + 1) : '' }}</td>
+                            <td>{{ $order->order_no }}{{ count($order->items) > 1 ? '_' . ($idx + 1) : '' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -411,25 +417,23 @@
                 {{-- Sold by and invoice info --}}
                 <td style="width: 36%;">
                     <div>
-                        <strong>Sold by :</strong> {{ $order->location?->name ?? 'SHIV SHARMA' }}, {{ $order->location?->address ?? 'surat, Gujarat, 395006' }}<br>
+                        <strong>Sold by :</strong> CHETAN IMITATION{{ $order->location?->name ? ' - ' . $order->location->name : '' }}, {{ $order->location?->address ?? 'surat, Gujarat, 395006' }}<br>
                         <strong>GSTIN -</strong> 24FDGPS3370P1ZW
                     </div>
                     <table class="invoice-info-table">
                         <tr>
                             <td class="fw-bold" style="width: 50%;">Purchase Order No.</td>
-                            <td class="fw-bold" style="width: 50%;">Invoice No.</td>
+                            <td class="fw-bold" style="width: 50%;">Order Date</td>
                         </tr>
                         <tr>
                             <td>{{ $order->order_no }}</td>
-                            <td>gemt{{ $order->id + 9242800 }}</td>
+                            <td>{{ format_date($order->created_at, 'd.m.Y') }}</td>
                         </tr>
                         <tr>
-                            <td class="fw-bold">Order Date</td>
-                            <td class="fw-bold">Invoice Date</td>
+                            <td class="fw-bold" colspan="2">Invoice Date</td>
                         </tr>
                         <tr>
-                            <td>{{ format_date($order->created_at, 'd.m.Y') }}</td>
-                            <td>{{ format_date($order->created_at, 'd.m.Y') }}</td>
+                            <td colspan="2">{{ format_date($order->created_at, 'd.m.Y') }}</td>
                         </tr>
                     </table>
                 </td>
@@ -440,8 +444,7 @@
         <table class="invoice-items-table">
             <thead>
                 <tr>
-                    <th style="width: 31%; text-align: left;">Description</th>
-                    <th style="width: 7%;" class="text-center">HSN</th>
+                    <th style="width: 38%; text-align: left;">Description</th>
                     <th style="width: 5%;" class="text-center">Qty</th>
                     <th style="width: 12%;" class="text-right">Gross Amount</th>
                     <th style="width: 9%;" class="text-right">Discount</th>
@@ -487,7 +490,6 @@
                     @endphp
                     <tr>
                         <td style="text-align: left;">{{ $item->product->name }}{{ $size }}</td>
-                        <td class="text-center">6211</td>
                         <td class="text-center">{{ $item->quantity }}</td>
                         <td class="text-right">Rs.{{ number_format($itemGross, 2) }}</td>
                         <td class="text-right">Rs.{{ number_format($itemDiscount, 2) }}</td>
@@ -512,8 +514,7 @@
                         $totalFinal += $shipGross;
                     @endphp
                     <tr>
-                        <td style="text-align: left;">Other Charges</td>
-                        <td class="text-center">6211</td>
+                        <td style="text-align: left;">Shipping Charge</td>
                         <td class="text-center">NA</td>
                         <td class="text-right">Rs.{{ number_format($shipGross, 2) }}</td>
                         <td class="text-right">Rs.0.00</td>
@@ -527,7 +528,7 @@
 
                 {{-- Total row --}}
                 <tr class="total-row">
-                    <td colspan="3" style="text-align: left;">Total</td>
+                    <td colspan="2" style="text-align: left;">Total</td>
                     <td class="text-right">Rs.{{ number_format($totalGross, 2) }}</td>
                     <td class="text-right">Rs.{{ number_format($totalDiscount, 2) }}</td>
                     <td class="text-right">Rs.{{ number_format($totalTaxable, 2) }}</td>
