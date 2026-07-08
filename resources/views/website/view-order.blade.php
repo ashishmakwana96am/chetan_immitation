@@ -230,9 +230,14 @@
                                         {{ website_price($item->price) }}
                                     </span>
                                     @php
+                                        $pairType = $item->pair_type ?? 'single';
                                         $product = $item->product;
                                         if ($product) {
-                                            $mrp = (float) $product->mrp;
+                                            if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
+                                                $mrp = (float) $product->pair_mrp;
+                                            } else {
+                                                $mrp = (float) $product->mrp;
+                                            }
                                         } else {
                                             $mrp = $item->price; // Fallback if no product
                                         }
@@ -259,7 +264,7 @@
                                         <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
                                         <span class="text-[#757575] ml-2">
                                             {{ $item->quantity }}
-                                            <span class="font-medium ml-1">Pcs</span>
+                                            <span class="font-medium ml-1 {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : '' }}">{{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</span>
                                         </span>
                                     </p>
 

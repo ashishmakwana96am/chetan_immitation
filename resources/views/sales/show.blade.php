@@ -432,7 +432,11 @@
                                     <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
                                     <td class="text-end text-nowrap small">
                                         {{ $item->quantity }}
-                                        <small class="text-muted">Pcs</small>
+                                        @if($item->pair_type === 'pair')
+                                            <small class="text-muted">Pairs</small>
+                                        @else
+                                            <small class="text-muted">Pcs</small>
+                                        @endif
                                     </td>
                                     <td class="text-end text-nowrap small">
                                         @if($item->discount_amount > 0)

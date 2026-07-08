@@ -33,6 +33,9 @@ class Product extends Model
         'created_by',
         'sort_order',
         'sale',
+        'pair_product',
+        'pair_sale_price',
+        'pair_mrp',
     ];
 
     protected function casts(): array
@@ -42,6 +45,9 @@ class Product extends Model
             'purchase_price'  => 'decimal:2',
             'sale_price'      => 'decimal:2',
             'mrp'             => 'decimal:2',
+            'pair_sale_price' => 'decimal:2',
+            'pair_mrp'        => 'decimal:2',
+            'pair_product'    => 'boolean',
         ];
     }
 

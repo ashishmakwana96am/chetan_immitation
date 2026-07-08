@@ -479,6 +479,7 @@ class CheckoutController extends Controller
                     return [
                         'product_id' => $item->product_id,
                         'variant_id' => $item->product_variant_id,
+                        'pair_type'  => $item->pair_type ?? 'single',
                         'quantity' => $item->qty,
                         'price' => $price,
                         'total' => $price * $item->qty,
@@ -576,6 +577,7 @@ class CheckoutController extends Controller
                         'order_id'           => $order->id,
                         'product_id'         => $item['product_id'],
                         'product_variant_id' => $item['variant_id'] ?? null,
+                        'pair_type'          => $item['pair_type'] ?? 'single',
                         'quantity'           => $item['quantity'],
                         'price'              => $item['price'],
                         'discount'           => 0.0,
@@ -652,6 +654,7 @@ class CheckoutController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'qty' => ['nullable', 'integer', 'min:1'],
+            'pair_type' => ['nullable', 'string', 'in:single,pair'],
         ]);
 
         if (! (bool) Setting::getValue('payment_method_razorpay', true)) {
@@ -684,7 +687,14 @@ class CheckoutController extends Controller
         }
 
         $qty = max(1, (int) ($request->qty ?? 1));
+        $pairType = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
 
+        // If not a pair product, force single
+        if (!$product->pair_product) {
+            $pairType = 'single';
+        }
+
+        // Calculate price based on pair_type
         if ($request->filled('variant_id')) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('status', 1)
@@ -694,7 +704,12 @@ class CheckoutController extends Controller
             }
             $price = $variant->sale_price;
         } else {
-            $price = $product->sale_price;
+            // Regular product: check pair_type
+            if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                $price = $product->pair_sale_price;
+            } else {
+                $price = $product->sale_price;
+            }
         }
 
         $subtotal = round((float) $price * $qty, 2);
@@ -756,6 +771,7 @@ class CheckoutController extends Controller
                 'cart_items' => [[
                     'product_id' => $product->id,
                     'variant_id' => $variantId,
+                    'pair_type' => $pairType,
                     'quantity' => $qty,
                     'price' => $price,
                     'total' => $price * $qty,
@@ -1121,6 +1137,7 @@ class CheckoutController extends Controller
                         'order_id'           => $order->id,
                         'product_id'         => $item->product_id,
                         'product_variant_id' => $item->product_variant_id,
+                        'pair_type'          => $item->pair_type ?? 'single',
                         'quantity'           => $item->qty,
                         'price'              => $price,
                         'discount'           => 0.0,

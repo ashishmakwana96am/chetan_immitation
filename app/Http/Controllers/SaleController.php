@@ -245,8 +245,10 @@ class SaleController extends Controller
                 'label'           => $p->name . ' (' . $p->sku . ')',
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product'    => (bool) $p->pair_product,
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
+                'pair_price'      => $p->pair_sale_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -295,6 +297,7 @@ class SaleController extends Controller
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
             'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
@@ -373,6 +376,7 @@ class SaleController extends Controller
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'pair_type'          => $itemData['pair_type'] ?? 'single',
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -422,6 +426,7 @@ class SaleController extends Controller
                     'order_id'           => $order->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'pair_type'          => $item['pair_type'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -431,7 +436,8 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for new sale #' . $order->order_no);
+                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
                 }
             }
         });
@@ -586,8 +592,10 @@ class SaleController extends Controller
                 'label'           => $p->name . ' (' . $p->sku . ')',
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product'    => (bool) $p->pair_product,
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
+                'pair_price'      => $p->pair_sale_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -610,6 +618,7 @@ class SaleController extends Controller
             return [
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
+                'pair_type'          => $item->pair_type ?? 'single',
                 'price'              => $item->price,
                 'quantity'           => $item->quantity,
                 'discount_type'      => $item->discount_type ?? 'flat',
@@ -655,6 +664,7 @@ class SaleController extends Controller
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
             'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
@@ -741,6 +751,7 @@ class SaleController extends Controller
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'pair_type'          => $itemData['pair_type'] ?? 'single',
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -786,6 +797,7 @@ class SaleController extends Controller
                     'order_id'           => $sale->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'pair_type'          => $item['pair_type'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -795,7 +807,8 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$item['quantity'], 'Stock deducted for updated sale #' . $sale->order_no);
+                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
                 }
             }
 
@@ -920,14 +933,16 @@ class SaleController extends Controller
 
                             // Deduct stock
                             foreach ($sale->items as $item) {
-                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$item->quantity, 'Stock deducted for sale #' . $sale->order_no . ' status change');
+                                $stockDeduct = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
                         elseif ($oldInDeducted && !$newInDeducted) {
                             // Restore stock
                             foreach ($sale->items as $item) {
-                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $item->quantity, 'Stock restored for sale #' . $sale->order_no . ' status change');
+                                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                                $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
                             }
                         }
 
@@ -1005,8 +1020,10 @@ class SaleController extends Controller
                 : $item->product_variant_id;
             $variantId = $variantId ? (int) $variantId : null;
             $quantity  = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
+            $pairType  = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
 
-            $stockQty = $quantity;
+            // pair items consume 2× stock
+            $stockQty = ($pairType === 'pair') ? $quantity * 2 : $quantity;
 
             $key = $productId . ':' . ($variantId ?? 0);
 

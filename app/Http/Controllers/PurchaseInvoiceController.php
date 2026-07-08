@@ -434,8 +434,9 @@ class PurchaseInvoiceController extends Controller
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
+            $isPair = $item->product && $item->product->pair_product;
             foreach ($item->allocations as $allocation) {
-                $qtyToAdd = $allocation->quantity;
+                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
 
                 $inventory = Inventory::firstOrCreate(
                     [

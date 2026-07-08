@@ -244,7 +244,11 @@
                                     <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
                                     <td class="text-end text-nowrap small">
                                         {{ $displayQty }}
-                                        <small class="text-muted">Pcs</small>
+                                        @if($item->product?->pair_product)
+                                            <small class="text-muted">Pairs</small>
+                                        @else
+                                            <small class="text-muted">Pcs</small>
+                                        @endif
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($displayTotal) }}</td>
                                     <td class="small">
