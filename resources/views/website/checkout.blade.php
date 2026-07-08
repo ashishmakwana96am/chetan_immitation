@@ -634,7 +634,7 @@
                 </div>
                 <!-- RIGHT SIDEBAR -->
 
-                <div class="space-y-4">
+                <div class="min-w-0 space-y-4">
                     <!-- Coupon -->
                     <div class="mb-6">
                         <h3 class="text-lg md:text-xl font-medium mb-3">
@@ -646,7 +646,7 @@
                                 {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
                                 class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-base placeholder:md:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
                             <button id="couponActionBtn" onclick="handleCouponAction()"
-                                class="bg-[#B4771E] text-white px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm">
+                                class="bg-[#B4771E] text-white px-4 xl:px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm">
                                 {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
                             </button>
                         </div>
