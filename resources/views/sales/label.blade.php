@@ -418,7 +418,9 @@
                 <td style="width: 36%;">
                     <div>
                         <strong>Sold by :</strong> CHETAN IMITATION{{ $order->location?->name ? ' - ' . $order->location->name : '' }}, {{ $order->location?->address ?? 'surat, Gujarat, 395006' }}<br>
-                        <strong>GSTIN -</strong> 24FDGPS3370P1ZW
+                        @if($order->location?->gst_number)
+                            <strong>GSTIN -</strong> {{ $order->location->gst_number }}
+                        @endif
                     </div>
                     <table class="invoice-info-table">
                         <tr>

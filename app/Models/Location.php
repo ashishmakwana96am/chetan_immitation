@@ -19,6 +19,7 @@ class Location extends Model
         'slug',
         'address',
         'phone',
+        'gst_number',
         'is_default',
         'status',
         'created_by',

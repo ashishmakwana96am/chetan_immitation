@@ -57,6 +57,7 @@
                         <th>Slug</th>
                         <th>Address</th>
                         <th>Phone</th>
+                        <th>GST Number</th>
                         <th>Default</th>
                         <th>Status</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
@@ -92,6 +93,7 @@
                     { data: 'slug' },
                     { data: 'address' },
                     { data: 'phone' },
+                    { data: 'gst_number' },
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))

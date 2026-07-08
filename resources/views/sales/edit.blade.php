@@ -14,7 +14,7 @@
         -moz-appearance: textfield;
     }
     #itemsTable {
-        min-width: 850px !important;
+        min-width: 920px !important;
     }
     
     /* Column Width Alignments */
@@ -31,7 +31,7 @@
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
         width: 28% !important;
-        min-width: 130px !important;
+        min-width: 210px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
         width: 10% !important;
@@ -58,6 +58,47 @@
     }
     .compact-entry-layout .card.mb-4 {
         margin-bottom: 0 !important;
+    }
+
+    /* Fixed, industry-standard widths for Qty / Price / Discount inputs on every screen size */
+    #itemsTable .item-qty {
+        width: 70px !important;
+        min-width: 70px !important;
+        max-width: 70px !important;
+        text-align: center;
+        margin: 0 auto;
+    }
+    #itemsTable .item-price-display {
+        display: inline-block;
+        min-width: 90px;
+        text-align: right;
+    }
+    #itemsTable .item-discount-type {
+        width: 110px !important;
+        flex: 0 0 110px !important;
+    }
+    #itemsTable .item-discount-value {
+        width: 80px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+        flex: 0 0 80px !important;
+    }
+
+    /* Prevent large amounts from ever breaking the sidebar layout, on any screen size */
+    #summaryColumn .d-flex.justify-content-between,
+    #discountColumn .d-flex.justify-content-between {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    #summaryColumn .d-flex.justify-content-between > span,
+    #discountColumn .d-flex.justify-content-between > span {
+        min-width: 0;
+    }
+    #summaryColumn .d-flex.justify-content-between > span:last-child {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        text-align: right;
+        flex: 1 1 auto;
     }
     /* Pair type toggle */
     .pair-type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
@@ -319,8 +360,8 @@
                 <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
             <td class="align-middle">
-                <div class="input-group flex-nowrap" style="min-width: 170px;">
-                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 120px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                <div class="input-group flex-nowrap" style="min-width: 190px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 110px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
                         <option value="flat">Flat</option>
                         <option value="percentage">Percentage</option>
                     </select>
@@ -357,7 +398,13 @@ $(document).ready(function () {
     }
     function getMinAllowedTotal(row) {
         const qty = parseInt(row.find('.item-qty').val()) || 0;
-        const purchasePrice = parseFloat(row.data('purchase-price')) || 0;
+        let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
+        const product = row.data('product');
+        const isPair = row.find('.pair-type-input').val() === 'pair';
+        
+        if (product && product.pair_product && !isPair) {
+            purchasePrice = purchasePrice / 2;
+        }
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
     }
     function setProductImage(container, product) {

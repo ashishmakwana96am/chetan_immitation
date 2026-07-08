@@ -134,7 +134,9 @@
         {{-- Header Section --}}
         <div class="text-center">
             <div class="store-title">Chetan Imitation</div>
-            <div class="gstin-label">GSTIN: 24SCOPS0159A1ZB</div>
+            @if($order->location?->gst_number)
+                <div class="gstin-label">GSTIN: {{ $order->location->gst_number }}</div>
+            @endif
         </div>
 
         <div class="divider-dotted" style="margin-top: 3px; margin-bottom: 3px;"></div>

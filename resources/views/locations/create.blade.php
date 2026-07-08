@@ -24,6 +24,12 @@
                 class="form-control" placeholder="Enter Location Phone Number" />
             <div class="invalid-feedback"></div>
         </div>
+        <div class="col-12">
+            <label class="form-label" for="locationGstNumber">GST Number <span class="text-danger">*</span></label>
+            <input type="text" id="locationGstNumber" name="gst_number"
+                class="form-control text-uppercase" placeholder="e.g. 24AAAAA0000A1Z5" maxlength="15" style="text-transform: uppercase;" />
+            <div class="invalid-feedback"></div>
+        </div>
         <div class="col-md-6">
             <label class="form-label" for="locationStatus">Status</label>
             <div class="form-check form-switch mt-2">

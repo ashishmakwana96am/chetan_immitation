@@ -14,9 +14,9 @@
         -moz-appearance: textfield;
     }
     #itemsTable {
-        min-width: 750px !important;
+        min-width: 780px !important;
     }
-    
+
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
         width: 35% !important;
@@ -27,7 +27,7 @@
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
         width: 27% !important;
-        min-width: 110px !important;
+        min-width: 150px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
         width: 20% !important;
@@ -54,6 +54,36 @@
     }
     .compact-entry-layout .card.mb-4 {
         margin-bottom: 0 !important;
+    }
+
+    /* Fixed, industry-standard widths for Qty / Price inputs on every screen size */
+    #itemsTable .item-qty {
+        width: 70px !important;
+        min-width: 70px !important;
+        max-width: 70px !important;
+        text-align: center;
+        margin: 0 auto;
+    }
+    #itemsTable .purchase-price {
+        width: 110px !important;
+        min-width: 110px !important;
+        max-width: 110px !important;
+        flex: 0 0 110px !important;
+    }
+
+    /* Prevent large amounts from ever breaking the sidebar layout, on any screen size */
+    #summaryColumn .d-flex.justify-content-between {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    #summaryColumn .d-flex.justify-content-between > span {
+        min-width: 0;
+    }
+    #summaryColumn .d-flex.justify-content-between > span:last-child {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        text-align: right;
+        flex: 1 1 auto;
     }
 </style>
 @endsection

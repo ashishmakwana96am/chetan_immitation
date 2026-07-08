@@ -62,6 +62,7 @@ class LocationController extends Controller
                 'slug'       => '<code>' . $location->slug . '</code>',
                 'address'    => $location->address ?? '-',
                 'phone'      => $location->phone ?? '-',
+                'gst_number' => $location->gst_number ?? '-',
                 'is_default' => $location->is_default
                     ? '<span class="badge bg-label-success">Default</span>'
                     : '<span class="badge bg-label-secondary">No</span>',
@@ -84,9 +85,10 @@ class LocationController extends Controller
         $this->authorize('create locations');
 
         $validator = Validator::make($request->all(), [
-            'name'    => ['required', 'string', 'max:100'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'phone'   => ['required', 'string', 'max:20'],
+            'name'       => ['required', 'string', 'max:100'],
+            'address'    => ['nullable', 'string', 'max:255'],
+            'phone'      => ['required', 'string', 'max:20'],
+            'gst_number' => ['required', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -110,6 +112,7 @@ class LocationController extends Controller
             'slug'       => generate_slug(Location::class, $request->name),
             'address'    => $request->address,
             'phone'      => $request->phone,
+            'gst_number' => $request->gst_number ? strtoupper($request->gst_number) : null,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
@@ -132,9 +135,10 @@ class LocationController extends Controller
         $this->authorize('edit locations');
 
         $validator = Validator::make($request->all(), [
-            'name'    => ['required', 'string', 'max:100'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'phone'   => ['required', 'string', 'max:20'],
+            'name'       => ['required', 'string', 'max:100'],
+            'address'    => ['nullable', 'string', 'max:255'],
+            'phone'      => ['required', 'string', 'max:20'],
+            'gst_number' => ['required', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
         ]);
 
         $validator->after(function ($validator) use ($request, $location) {
@@ -166,6 +170,7 @@ class LocationController extends Controller
             'slug'       => generate_slug(Location::class, $request->name, $location->id),
             'address'    => $request->address,
             'phone'      => $request->phone,
+            'gst_number' => $request->gst_number ? strtoupper($request->gst_number) : null,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
         ]);

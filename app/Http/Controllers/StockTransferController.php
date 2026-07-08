@@ -111,19 +111,26 @@ class StockTransferController extends Controller
     {
         $this->authorize('create stock transfers');
 
+        $user = auth()->user();
+        $canChooseSource = $user->hasRole('super-admin');
+
         try {
-            $defaultLocation = $this->defaultSourceLocation();
+            $defaultLocation = $this->resolveSourceLocation();
         } catch (\RuntimeException $e) {
             return redirect()->route('admin.stock-transfers.index')->with('error', $e->getMessage());
         }
-        $destinationLocations = Location::where('status', 1)->where('id', '!=', $defaultLocation->id)->orderBy('name')->get();
+
+        $sourceLocations = $canChooseSource
+            ? Location::where('status', 1)->orderBy('name')->get()
+            : collect([$defaultLocation]);
+        $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
         $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])
             ->where('status', 1)
             ->orderBy('name')
             ->get();
         $transferNo = generate_invoice_no('STF', StockTransfer::class, 'transfer_no');
 
-        return view('stock-transfers.create', compact('defaultLocation', 'destinationLocations', 'products', 'transferNo'));
+        return view('stock-transfers.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'transferNo'));
     }
 
     public function store(Request $request)
@@ -131,7 +138,7 @@ class StockTransferController extends Controller
         $this->authorize('create stock transfers');
 
         try {
-            $defaultLocation = $this->defaultSourceLocation();
+            $defaultLocation = $this->resolveSourceLocation($request->input('from_location_id'));
         } catch (\RuntimeException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
@@ -359,6 +366,37 @@ class StockTransferController extends Controller
         }
 
         return $location;
+    }
+
+    private function resolveSourceLocation($requestedId = null): Location
+    {
+        $user = auth()->user();
+
+        // Dropdown (choosable source) is super-admin only. Every other user
+        // is always pinned to their own branch, falling back to the system
+        // default only if they have no location assigned - never to a choice.
+        if (!$user->hasRole('super-admin')) {
+            if ($user->location_id) {
+                $location = Location::where('id', $user->location_id)->where('status', 1)->first();
+
+                if (!$location) {
+                    throw new \RuntimeException('Your assigned location is unavailable. Please contact an administrator.');
+                }
+
+                return $location;
+            }
+
+            return $this->defaultSourceLocation();
+        }
+
+        if ($requestedId) {
+            $location = Location::where('id', $requestedId)->where('status', 1)->first();
+            if ($location) {
+                return $location;
+            }
+        }
+
+        return $this->defaultSourceLocation();
     }
 
     private function statusBadge(int $status): string

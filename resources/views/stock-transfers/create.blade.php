@@ -15,7 +15,31 @@
     #itemsTable {
         min-width: 600px !important;
     }
-    
+
+    /* Fixed, industry-standard width for Qty input on every screen size */
+    #itemsTable .item-qty {
+        width: 70px !important;
+        min-width: 70px !important;
+        max-width: 70px !important;
+        text-align: center;
+        margin: 0 auto;
+    }
+
+    /* Prevent large amounts from ever breaking the sidebar layout, on any screen size */
+    #summaryColumn .d-flex.justify-content-between {
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+    #summaryColumn .d-flex.justify-content-between > span {
+        min-width: 0;
+    }
+    #summaryColumn .d-flex.justify-content-between > span:last-child {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        text-align: right;
+        flex: 1 1 auto;
+    }
+
     /* Pair type toggle */
     .pair-type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
     .pair-type-toggle .pair-btn {
@@ -50,8 +74,16 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Source Location <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" value="{{ $defaultLocation->name }}" disabled>
-                                <input type="hidden" name="from_location_id" id="fromLocation" value="{{ $defaultLocation->id }}">
+                                @if($canChooseSource)
+                                    <select name="from_location_id" id="fromLocation" class="form-select">
+                                        @foreach($sourceLocations as $location)
+                                            <option value="{{ $location->id }}" {{ $location->id === $defaultLocation->id ? 'selected' : '' }}>{{ $location->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <input type="text" class="form-control" value="{{ $defaultLocation->name }}" disabled>
+                                    <input type="hidden" name="from_location_id" id="fromLocation" value="{{ $defaultLocation->id }}">
+                                @endif
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-4">
@@ -59,7 +91,7 @@
                                 <select name="to_location_id" id="toLocation" class="form-select">
                                     <option value="">Select Destination</option>
                                     @foreach($destinationLocations as $location)
-                                        <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                        <option value="{{ $location->id }}" {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
                                     @endforeach
                                 </select>
                                 <div class="invalid-feedback"></div>
@@ -107,7 +139,7 @@
             </div>
 
             <div class="col-lg-4">
-                <div class="card mb-3">
+                <div class="card mb-3" id="summaryColumn">
                     <div class="card-header"><h5 class="mb-0">Summary</h5></div>
                     <div class="card-body">
                         <div class="d-flex justify-content-between mb-2">
@@ -585,6 +617,28 @@ $(document).ready(function () {
                     toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
                 }
             }
+        });
+    });
+
+    // -------------------------------------------------------
+    // Source Location change (super-admin only, since #fromLocation
+    // is a fixed hidden input for branch-restricted users)
+    // -------------------------------------------------------
+    function syncDestinationOptions() {
+        const sourceVal = $('#fromLocation').val();
+        $('#toLocation option').each(function () {
+            $(this).prop('disabled', $(this).val() !== '' && $(this).val() === sourceVal);
+        });
+        if (sourceVal && $('#toLocation').val() === sourceVal) {
+            $('#toLocation').val('');
+        }
+    }
+    syncDestinationOptions();
+
+    $(document).on('change', 'select#fromLocation', function () {
+        syncDestinationOptions();
+        $('#itemsBody .item-row').each(function () {
+            refreshRowStock($(this));
         });
     });
 
