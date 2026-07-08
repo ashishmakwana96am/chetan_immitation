@@ -150,7 +150,7 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-semibold mb-0">Activity Log Details</h4>
-    <a href="{{ route('admin.reports.utility.index') }}" class="btn btn-label-secondary">
+    <a href="{{ route('admin.reports.utility') }}" class="btn btn-label-secondary">
         <i class="ti ti-arrow-left me-1"></i> Back to Logs
     </a>
 </div>
