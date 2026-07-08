@@ -13,6 +13,9 @@
     #itemsTable input[type=number] {
         -moz-appearance: textfield;
     }
+    #itemsTable {
+        min-width: 850px !important;
+    }
     
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
@@ -164,7 +167,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="itemsTable">
+                            <table class="table mb-0 {{ $order->items->isEmpty() ? 'd-none' : '' }}" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
                                             <th style="min-width: 250px;">Product</th>
@@ -185,7 +188,7 @@
                                 </tfoot>
                             </table>
                         </div>
-                        <div id="noItemsMsg" class="text-center text-muted py-4 d-none">No items added yet.</div>
+                        <div id="noItemsMsg" class="text-center text-muted py-4">No items added yet.</div>
                     </div>
                 </div>
             </div>
@@ -510,6 +513,7 @@ $(document).ready(function () {
 
         $('#itemsBody').append(template);
         $('#noItemsMsg').addClass('d-none');
+        $('#itemsTable').removeClass('d-none');
 
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
@@ -857,10 +861,14 @@ $(document).ready(function () {
             $('#itemsTotal').closest('tr').show();
             $('#summaryColumn').show();
             $('#discountColumn').show();
+            $('#noItemsMsg').addClass('d-none');
+            $('#itemsTable').removeClass('d-none');
         } else {
             $('#itemsTotal').closest('tr').hide();
             $('#summaryColumn').hide();
             $('#discountColumn').hide();
+            $('#noItemsMsg').removeClass('d-none');
+            $('#itemsTable').addClass('d-none');
         }
     }
 

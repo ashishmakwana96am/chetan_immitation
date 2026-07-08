@@ -13,6 +13,9 @@
     #itemsTable input[type=number] {
         -moz-appearance: textfield;
     }
+    #itemsTable {
+        min-width: 750px !important;
+    }
     
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
@@ -119,7 +122,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="itemsTable">
+                            <table class="table mb-0 {{ $purchase->items->isEmpty() ? 'd-none' : '' }}" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
                                             <th style="min-width: 250px;">Product</th>
@@ -435,6 +438,7 @@ $(document).ready(function () {
 
         $('#itemsBody').append(template);
         $('#noItemsMsg').addClass('d-none');
+        $('#itemsTable').removeClass('d-none');
 
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
@@ -509,6 +513,7 @@ $(document).ready(function () {
 
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
+            $('#itemsTable').addClass('d-none');
         }
         updateGrandTotal();
     });

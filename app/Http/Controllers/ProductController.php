@@ -280,6 +280,7 @@ class ProductController extends Controller
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
         $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -339,7 +340,7 @@ class ProductController extends Controller
 
             if ($request->has('pair_product')) {
                 $productData['pair_sale_price'] = $request->pair_sale_price;
-                $productData['pair_mrp']        = $request->pair_sale_price * 1.10;
+                $productData['pair_mrp']        = $request->pair_mrp;
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             } else {
@@ -470,6 +471,7 @@ class ProductController extends Controller
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
         $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -528,7 +530,7 @@ class ProductController extends Controller
 
             if ($request->has('pair_product')) {
                 $productData['pair_sale_price'] = $request->pair_sale_price;
-                $productData['pair_mrp']        = $request->pair_sale_price * 1.10;
+                $productData['pair_mrp']        = $request->pair_mrp;
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             } else {

@@ -12,6 +12,9 @@
     #itemsTable input[type=number] {
         -moz-appearance: textfield;
     }
+    #itemsTable {
+        min-width: 600px !important;
+    }
 </style>
 @endsection
 
@@ -74,7 +77,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="itemsTable">
+                            <table class="table mb-0" id="itemsTable" style="display: none;">
                                 <thead>
                                     <tr class="table-light">
                                         <th style="min-width: 250px;">Product</th>
@@ -327,6 +330,7 @@ $(document).ready(function () {
         $('#summaryItems').text(items);
         $('#summaryQty').text(qty);
         $('#noItemsMsg').toggle(items === 0);
+        $('#itemsTable').toggle(items > 0);
     }
 
     function selectSearchProduct(product) {
