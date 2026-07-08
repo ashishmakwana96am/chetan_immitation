@@ -15,7 +15,7 @@
                     Complete your order securely and receive your jewellery at your doorstep.
                 </p>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start ">
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px] gap-6 items-start">
                 <!-- LEFT SIDE -->
 
                 <div class="min-w-0 space-y-6">
