@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     const STATUS_ACTIVE = 1;
 
@@ -20,6 +21,7 @@ class Product extends Model
         'sub_category_id',
         'sku',
         'barcode',
+        'product_code',
         'description',
         'additional_information',
         'product_highlights',
@@ -36,9 +38,10 @@ class Product extends Model
     protected function casts(): array
     {
         return [
-            'purchase_price' => 'decimal:2',
-            'sale_price' => 'decimal:2',
-            'mrp' => 'decimal:2',
+            'product_code'    => 'decimal:2',
+            'purchase_price'  => 'decimal:2',
+            'sale_price'      => 'decimal:2',
+            'mrp'             => 'decimal:2',
         ];
     }
 
@@ -91,179 +94,109 @@ class Product extends Model
     {
         $variants = $this->variants()->with('attributeValue.attribute')->get();
 
-        // Find all locations
         $locations = Location::when($locationId, function ($q) use ($locationId) {
             $q->where('id', $locationId);
         })->get();
 
-        // 1. Get all approved purchases containing this product
-        $purchases = PurchaseInvoice::where('status', 2)
-            ->whereHas('items', function ($q) {
-                $q->where('product_id', $this->id);
-            })
-            ->with(['items' => function ($q) {
-                $q->where('product_id', $this->id)->with('allocations');
-            }])
-            ->get();
-
-        // 2. Get all approved sales containing this product
-        $sales = Order::where('status', 2)
-            ->whereHas('items', function ($q) {
-                $q->where('product_id', $this->id);
-            })
-            ->with(['items' => function ($q) {
-                $q->where('product_id', $this->id);
-            }])
-            ->get();
-
         $purchasedQty = [];
         $soldQty = [];
+        $transferredInQty = [];
+        $transferredOutQty = [];
 
         foreach ($locations as $loc) {
             $purchasedQty[$loc->id] = ['parent' => 0];
             $soldQty[$loc->id] = ['parent' => 0];
+            $transferredInQty[$loc->id] = ['parent' => 0];
+            $transferredOutQty[$loc->id] = ['parent' => 0];
             foreach ($variants as $v) {
                 $purchasedQty[$loc->id][$v->id] = 0;
                 $soldQty[$loc->id][$v->id] = 0;
+                $transferredInQty[$loc->id][$v->id] = 0;
+                $transferredOutQty[$loc->id][$v->id] = 0;
             }
         }
 
-        foreach ($purchases as $pur) {
-            $siblings = $pur->items->sortBy('id')->values();
-            if ($siblings->isEmpty()) {
-                continue;
-            }
+        $purchaseAllocations = PurchaseAllocation::whereHas('purchaseItem', function ($q) {
+                $q->where('product_id', $this->id)
+                  ->whereHas('invoice', function ($sub) {
+                      $sub->where('status', 2);
+                  });
+            })
+            ->with('purchaseItem')
+            ->get();
 
-            $firstItem = $siblings->first();
-
-            foreach ($firstItem->allocations as $alloc) {
-                $locId = $alloc->location_id;
-                if (isset($purchasedQty[$locId])) {
+        foreach ($purchaseAllocations as $alloc) {
+            $locId = $alloc->location_id;
+            $vId = $alloc->purchaseItem->product_variant_id;
+            if (isset($purchasedQty[$locId])) {
+                if ($vId && isset($purchasedQty[$locId][$vId])) {
+                    $purchasedQty[$locId][$vId] += $alloc->quantity;
+                    $purchasedQty[$locId]['parent'] += $alloc->quantity;
+                } else if (!$vId) {
                     $purchasedQty[$locId]['parent'] += $alloc->quantity;
                 }
             }
+        }
 
-            $variantItems = $siblings->slice(1)->values();
-            $matchedMap = [];
-            $unmatchedSiblings = $variantItems->all();
+        $orderItems = OrderItem::where('product_id', $this->id)
+            ->whereHas('order', function ($q) {
+                $q->where('status', Order::STATUS_APPROVE);
+            })
+            ->with('order')
+            ->get();
 
-            foreach ($variants as $v) {
-                $matchedIdx = -1;
-                foreach ($unmatchedSiblings as $idx => $sibling) {
-                    if (isset($sibling) && (float) $sibling->purchase_price === (float) $v->purchase_price) {
-                        $matchedIdx = $idx;
-                        break;
-                    }
-                }
-                if ($matchedIdx !== -1) {
-                    $matchedSibling = $unmatchedSiblings[$matchedIdx];
-                    $matchedMap[$matchedSibling->id] = $v->id;
-                    unset($unmatchedSiblings[$matchedIdx]);
-                }
-            }
-
-            $unmatchedSiblings = array_values($unmatchedSiblings);
-            $unmatchedVariants = [];
-            foreach ($variants as $v) {
-                $alreadyMatched = false;
-                foreach ($matchedMap as $vid) {
-                    if ($vid === $v->id) {
-                        $alreadyMatched = true;
-                        break;
-                    }
-                }
-                if (! $alreadyMatched) {
-                    $unmatchedVariants[] = $v;
-                }
-            }
-
-            foreach ($unmatchedSiblings as $idx => $sibling) {
-                if (isset($unmatchedVariants[$idx])) {
-                    $v = $unmatchedVariants[$idx];
-                    $matchedMap[$sibling->id] = $v->id;
-                }
-            }
-
-            foreach ($variantItems as $vItem) {
-                $vId = $matchedMap[$vItem->id] ?? null;
-                if ($vId) {
-                    foreach ($vItem->allocations as $alloc) {
-                        $locId = $alloc->location_id;
-                        if (isset($purchasedQty[$locId])) {
-                            $purchasedQty[$locId][$vId] += $alloc->quantity;
-                        }
-                    }
+        foreach ($orderItems as $item) {
+            $locId = $item->order->location_id;
+            $vId = $item->product_variant_id;
+            if (isset($soldQty[$locId])) {
+                if ($vId && isset($soldQty[$locId][$vId])) {
+                    $soldQty[$locId][$vId] += $item->quantity;
+                    $soldQty[$locId]['parent'] += $item->quantity;
+                } else if (!$vId) {
+                    $soldQty[$locId]['parent'] += $item->quantity;
                 }
             }
         }
 
-        foreach ($sales as $sale) {
-            $siblings = $sale->items->sortBy('id')->values();
-            if ($siblings->isEmpty()) {
-                continue;
-            }
+        $transferItems = StockTransferItem::where('product_id', $this->id)
+            ->whereHas('transfer', function ($q) {
+                $q->where('status', StockTransfer::STATUS_ACCEPTED);
+            })
+            ->with('transfer')
+            ->get();
 
-            $firstItem = $siblings->first();
-            $locId = $sale->location_id;
+        foreach ($transferItems as $item) {
+            $vId = $item->product_variant_id;
+            $fromLocId = $item->transfer->from_location_id;
+            $toLocId = $item->transfer->to_location_id;
 
-            if (isset($soldQty[$locId])) {
-                $soldQty[$locId]['parent'] += $firstItem->quantity;
-            }
-
-            $variantItems = $siblings->slice(1)->values();
-            $matchedMap = [];
-            $unmatchedSiblings = $variantItems->all();
-
-            foreach ($variants as $v) {
-                $matchedIdx = -1;
-                foreach ($unmatchedSiblings as $idx => $sibling) {
-                    if (isset($sibling) && (float) $sibling->price === (float) $v->sale_price) {
-                        $matchedIdx = $idx;
-                        break;
-                    }
-                }
-                if ($matchedIdx !== -1) {
-                    $matchedSibling = $unmatchedSiblings[$matchedIdx];
-                    $matchedMap[$matchedSibling->id] = $v->id;
-                    unset($unmatchedSiblings[$matchedIdx]);
+            if (isset($transferredOutQty[$fromLocId])) {
+                if ($vId && isset($transferredOutQty[$fromLocId][$vId])) {
+                    $transferredOutQty[$fromLocId][$vId] += $item->quantity;
+                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
+                } else if (!$vId) {
+                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
                 }
             }
 
-            $unmatchedSiblings = array_values($unmatchedSiblings);
-            $unmatchedVariants = [];
-            foreach ($variants as $v) {
-                $alreadyMatched = false;
-                foreach ($matchedMap as $vid) {
-                    if ($vid === $v->id) {
-                        $alreadyMatched = true;
-                        break;
-                    }
-                }
-                if (! $alreadyMatched) {
-                    $unmatchedVariants[] = $v;
-                }
-            }
-
-            foreach ($unmatchedSiblings as $idx => $sibling) {
-                if (isset($unmatchedVariants[$idx])) {
-                    $v = $unmatchedVariants[$idx];
-                    $matchedMap[$sibling->id] = $v->id;
-                }
-            }
-
-            foreach ($variantItems as $vItem) {
-                $vId = $matchedMap[$vItem->id] ?? null;
-                if ($vId && isset($soldQty[$locId])) {
-                    $soldQty[$locId][$vId] += $vItem->quantity;
+            if (isset($transferredInQty[$toLocId])) {
+                if ($vId && isset($transferredInQty[$toLocId][$vId])) {
+                    $transferredInQty[$toLocId][$vId] += $item->quantity;
+                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
+                } else if (!$vId) {
+                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
                 }
             }
         }
 
         $result = [];
         foreach ($locations as $loc) {
-            $parentStock = ($purchasedQty[$loc->id]['parent'] ?? 0) - ($soldQty[$loc->id]['parent'] ?? 0);
+            $parentStock = $purchasedQty[$loc->id]['parent']
+                - $soldQty[$loc->id]['parent']
+                + $transferredInQty[$loc->id]['parent']
+                - $transferredOutQty[$loc->id]['parent'];
 
-            if (($purchasedQty[$loc->id]['parent'] ?? 0) === 0 && ($soldQty[$loc->id]['parent'] ?? 0) === 0) {
+            if ($purchasedQty[$loc->id]['parent'] === 0 && $soldQty[$loc->id]['parent'] === 0 && $transferredInQty[$loc->id]['parent'] === 0 && $transferredOutQty[$loc->id]['parent'] === 0) {
                 $parentStock = (int) Inventory::where('product_id', $this->id)
                     ->where('location_id', $loc->id)
                     ->value('quantity');
@@ -276,7 +209,10 @@ class Product extends Model
                 'variants' => [],
             ];
             foreach ($variants as $v) {
-                $vStock = ($purchasedQty[$loc->id][$v->id] ?? 0) - ($soldQty[$loc->id][$v->id] ?? 0);
+                $vStock = $purchasedQty[$loc->id][$v->id]
+                    - $soldQty[$loc->id][$v->id]
+                    + $transferredInQty[$loc->id][$v->id]
+                    - $transferredOutQty[$loc->id][$v->id];
                 $locData['variants'][$v->id] = $vStock;
             }
             $result[$loc->id] = $locData;
@@ -288,17 +224,6 @@ class Product extends Model
     public function getIsVariableAttribute()
     {
         return $this->type === 'variable';
-    }
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($product) {
-            if (empty($product->barcode)) {
-                $product->barcode = self::generateUniqueBarcode($product->category_id);
-            }
-        });
     }
 
     public static function generateUniqueBarcode($categoryId = null)

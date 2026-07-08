@@ -146,6 +146,7 @@ class WishlistController extends Controller
 
         return response()->json([
             'status'       => $status,
+            'in_wishlist'  => in_array($status, ['added', 'updated']),
             'count'        => $count,
             'variant_id'   => $variantId,
             'product_data' => $productData,

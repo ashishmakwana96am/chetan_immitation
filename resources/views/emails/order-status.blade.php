@@ -53,14 +53,53 @@
                     <span style="color: orange; font-weight: bold;">{{ $statusName }}</span>
                 @endif
             </p>
+
+            @if($order->shipped_client_url || $order->tracking_id)
+                <div style="background: #fdf6ed; border-left: 4px solid #B4771E; padding: 12px; margin: 15px 0; border-radius: 4px; font-size: 0.95em;">
+                    <h4 style="margin: 0 0 8px 0; color: #B4771E;">Shipping & Tracking Information</h4>
+                    @if($order->shipped_client_url)
+                        <p style="margin: 4px 0;"><strong>Track Order Link:</strong> <a href="{{ $order->shipped_client_url }}" target="_blank" style="color: #B4771E; font-weight: bold; text-decoration: underline;">Click Here to Track</a></p>
+                    @endif
+                    @if($order->tracking_id)
+                        <p style="margin: 4px 0;"><strong>Tracking ID:</strong> <span style="font-weight: bold; font-family: monospace; background: #eaeaea; padding: 2px 6px; border-radius: 3px;">{{ $order->tracking_id }}</span></p>
+                    @endif
+                </div>
+            @endif
             
-            <h4>Items Summary</h4>
+            @php
+                $itemsGross   = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
+                $itemDiscount = $order->items->sum('discount_amount');
+                $orderDiscountAmount = 0.0;
+                if ($order->order_discount_value > 0) {
+                    $itemsTotal = $itemsGross - $itemDiscount;
+                    if ($order->order_discount_type === 'flat') {
+                        $orderDiscountAmount = (float)$order->order_discount_value;
+                    } else if ($order->order_discount_type === 'percentage') {
+                        $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+                    }
+                    $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
+                }
+                $totalDiscount = $itemDiscount + $orderDiscountAmount;
+            @endphp
+
             @foreach($order->items as $item)
                 <div class="order-item">
-                    <span>{{ $item->product->name }} x {{ $item->quantity }}</span>
+                    <span>{{ $item->product->name }} x {{ $item->quantity }} Pcs</span>
                     <span>₹{{ number_format($item->total, 0) }}</span>
                 </div>
             @endforeach
+
+            <div class="order-item" style="border-top:1px solid #eee; padding-top: 10px;">
+                <span>Subtotal</span>
+                <span>₹{{ number_format($itemsGross, 0) }}</span>
+            </div>
+
+            @if($totalDiscount > 0)
+                <div class="order-item" style="color: #c62828;">
+                    <span>Discount</span>
+                    <span>-₹{{ number_format($totalDiscount, 0) }}</span>
+                </div>
+            @endif
             
             <div class="order-item total-row">
                 <span>Total Amount</span>

@@ -10,7 +10,7 @@
         <div class="col-12">
             <label class="form-label" for="categoryName">Name <span class="text-danger">*</span></label>
             <input type="text" id="categoryName" name="name"
-                class="form-control" placeholder="e.g. Electronics" autofocus />
+                class="form-control" placeholder="Enter Category Name" autofocus />
             <div class="invalid-feedback"></div>
         </div>
 
@@ -36,6 +36,14 @@
                     </button>
                 </div>
             </div>
+        </div>
+
+        <!-- Low Stock Threshold -->
+        <div class="col-12">
+            <label class="form-label" for="lowStockThreshold">Low Stock Threshold <span class="text-danger">*</span></label>
+            <input type="number" id="lowStockThreshold" name="low_stock_threshold"
+                class="form-control" min="0" value="{{ \App\Models\Category::DEFAULT_LOW_STOCK_THRESHOLD }}" />
+            <div class="invalid-feedback"></div>
         </div>
 
         <!-- Featured & Status (One line show) -->

@@ -75,7 +75,7 @@ if (!function_exists('can_any')) {
     {
         $user = auth()->user();
         if (!$user) return false;
-        if ($user->type === 'super-admin') return true;
+        if ($user->hasRole('super-admin')) return true;
 
         foreach ($permissions as $permission) {
             if ($user->hasPermissionTo($permission)) {
@@ -128,6 +128,37 @@ if (!function_exists('status_badge')) {
     }
 }
 
+if (!function_exists('parse_user_agent')) {
+    /**
+     * Parse a raw user agent string into a clean browser name.
+     */
+    function parse_user_agent(?string $userAgent): string
+    {
+        if (!$userAgent) {
+            return '-';
+        }
+
+        $browser = 'Unknown';
+
+        // Detect Browser
+        if (preg_match('/edg/i', $userAgent)) {
+            $browser = 'Edge';
+        } elseif (preg_match('/opr/i', $userAgent) || preg_match('/opera/i', $userAgent)) {
+            $browser = 'Opera';
+        } elseif (preg_match('/chrome|crios/i', $userAgent)) {
+            $browser = 'Chrome';
+        } elseif (preg_match('/firefox|fxios/i', $userAgent)) {
+            $browser = 'Firefox';
+        } elseif (preg_match('/safari/i', $userAgent)) {
+            $browser = 'Safari';
+        } elseif (preg_match('/msie|trident/i', $userAgent)) {
+            $browser = 'Internet Explorer';
+        }
+
+        return $browser;
+    }
+}
+
 if (!function_exists('generate_invoice_no')) {
     /**
      * Generate a unique invoice number.
@@ -158,7 +189,7 @@ if (!function_exists('currency_symbol')) {
      */
     function currency_symbol(): string
     {
-        return config('app.currency_symbol', '$');
+        return config('app.currency_symbol', '₹');
     }
 }
 
@@ -166,9 +197,9 @@ if (!function_exists('format_price')) {
     /**
      * Return a formatted price with currency symbol in Indian numbering format.
      */
-    function format_price(float|int|string $amount, int $decimals = 2): string
+    function format_price(float|int|string|null $amount, int $decimals = 2): string
     {
-        $amount = (float) $amount;
+        $amount = (float) ($amount ?? 0);
         $negative = $amount < 0 ? '-' : '';
         $amount = abs($amount);
         
@@ -187,5 +218,37 @@ if (!function_exists('format_price')) {
         }
         
         return currency_symbol() . "\u{A0}" . $negative . $integer . $decimal;
+    }
+}
+
+if (!function_exists('website_price')) {
+    function website_price(float|int|string|null $amount): string
+    {
+        $amount = (float) ($amount ?? 0);
+        
+        $decimals = (fmod($amount, 1) != 0) ? 2 : 0;
+        
+        if ($decimals > 0) {
+            $formatted = rtrim(number_format($amount, 2, '.', ''), '0');
+            $formatted = rtrim($formatted, '.');
+        } else {
+            $formatted = number_format($amount, 0, '.', '');
+        }
+        
+        $parts = explode('.', $formatted);
+        $integer = $parts[0];
+        $decimal = isset($parts[1]) ? '.' . $parts[1] : '';
+        
+        $last_three = substr($integer, -3);
+        $remaining = substr($integer, 0, -3);
+        
+        if ($remaining !== '') {
+            $remaining = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $remaining);
+            $integer = $remaining . ',' . $last_three;
+        } else {
+            $integer = $last_three;
+        }
+        
+        return '₹' . $integer . $decimal;
     }
 }

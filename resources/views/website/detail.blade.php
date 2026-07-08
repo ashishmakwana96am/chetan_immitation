@@ -130,11 +130,11 @@
                 @endphp
                 <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
                     <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
-                        ₹{{ number_format($salePriceDisplay, 0) }}
+                        {{ website_price($salePriceDisplay) }}
                     </span>
                     @if($mrpDisplay && $mrpDisplay > $salePriceDisplay)
                     <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
-                        ₹{{ number_format($mrpDisplay, 0) }}
+                        {{ website_price($mrpDisplay) }}
                     </span>
                     @endif
                 </div>
@@ -295,6 +295,13 @@
                 @if($review->comment)
                 <p class="mt-[14px] md:mt-[17px] text-[#3D403F] text-base md:text-lg">{{ $review->comment }}</p>
                 @endif
+                @if($review->images->isNotEmpty())
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @foreach($review->images as $reviewImage)
+                        <img src="{{ $reviewImage->image_url }}" alt="Review photo" class="w-[100px] h-[100px] object-cover rounded-sm border border-[#D5D5D5]">
+                    @endforeach
+                </div>
+                @endif
                 <div class="border-t border-[#e3e3e3] mt-4 md:mt-5 pt-4">
                     <div class="flex items-center gap-4">
                         <img src="{{ $authorAvatar }}" alt="{{ $authorName }}" class="w-[60px] h-[60px] rounded-full object-cover">
@@ -335,6 +342,37 @@
 @section('page-js')
 
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+<script>
+/**
+ * Format a price for display — shows decimals only when needed.
+ * Mirrors PHP website_price() helper.
+ * e.g. 412.5 → "₹412.5", 413.0 → "₹413"
+ */
+function fmtPrice(amount) {
+    amount = parseFloat(amount) || 0;
+    // Determine if decimal is needed
+    var hasDec = (amount % 1 !== 0);
+    var str;
+    if (hasDec) {
+        // Format to 2 decimals, then trim trailing zeros
+        str = amount.toFixed(2).replace(/\.?0+$/, '');
+    } else {
+        str = Math.round(amount).toString();
+    }
+    // Apply Indian number format to integer part
+    var parts = str.split('.');
+    var intPart = parts[0];
+    var decPart = parts[1] ? '.' + parts[1] : '';
+    // Indian format: last 3 digits, then groups of 2
+    if (intPart.length > 3) {
+        var lastThree = intPart.slice(-3);
+        var rest = intPart.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+        intPart = rest + ',' + lastThree;
+    }
+    return '₹' + intPart + decPart;
+}
+</script>
 
 <script>
 
@@ -497,8 +535,7 @@ if (minusBtn) {
             // Price update
             var priceSpan = document.getElementById('productSalePrice');
             if (priceSpan && btn.dataset.salePrice) {
-                priceSpan.textContent = '₹' + parseFloat(btn.dataset.salePrice)
-                    .toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                priceSpan.textContent = fmtPrice(parseFloat(btn.dataset.salePrice));
             }
 
             var variantId = btn.dataset.variantId || null;
@@ -565,6 +602,8 @@ if (minusBtn) {
     });
 }());
 </script>
+
+
 
 <script>
 // ─── Detail page Add to Cart ──────────────────────────────────────────────────
@@ -887,7 +926,6 @@ Order Amount
         var variantId = getActiveVariantId();
         var qty       = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
         var addressId = selectedAddr.value;
-
         var proceedBtn = document.getElementById('buyNowProceedBtn');
         proceedBtn.disabled = true;
         proceedBtn.textContent = 'Processing...';

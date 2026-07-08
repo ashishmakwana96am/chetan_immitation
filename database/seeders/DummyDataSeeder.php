@@ -300,12 +300,23 @@ class DummyDataSeeder extends Seeder
 
         $customers = [];
         foreach ($customersData as $cust) {
-            $customers[] = Customer::create([
+            $customer = Customer::create([
                 'name'       => $cust['name'],
-                'phone'      => $cust['phone'],
                 'email'      => $cust['email'],
                 'status'     => 1,
             ]);
+
+            $digits = preg_replace('/\D/', '', $cust['phone']);
+            if (strlen($digits) === 12 && str_starts_with($digits, '91')) {
+                $digits = substr($digits, 2);
+            } elseif (strlen($digits) > 10) {
+                $digits = substr($digits, -10);
+            }
+            if (strlen($digits) === 10) {
+                $customer->phones()->create(['phone' => $digits]);
+            }
+
+            $customers[] = $customer;
         }
 
         // 8. Generate 15 Purchase Invoices (Confirmed) & Allocations to populate Inventory!

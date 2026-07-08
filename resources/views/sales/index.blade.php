@@ -37,6 +37,76 @@
             align-items: center;
             margin-top: 2px;
         }
+
+        .stock-warning-tooltip .tooltip-inner {
+            max-width: 340px;
+            width: 340px;
+            padding: 14px 16px;
+            text-align: left;
+            background-color: #2b2c40;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        .stock-warning-tooltip .tooltip-arrow::before {
+            border-top-color: #2b2c40 !important;
+        }
+        .stock-warning-tooltip .sw-item + .sw-item {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .stock-warning-tooltip .sw-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .stock-warning-tooltip .sw-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #ff8a8a;
+            background: rgba(255, 90, 90, 0.15);
+            border-radius: 20px;
+            padding: 2px 10px;
+            margin-bottom: 8px;
+        }
+        .stock-warning-tooltip .sw-subtitle {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #b6b7cf;
+            margin-bottom: 4px;
+        }
+        .stock-warning-tooltip .sw-empty {
+            font-size: 0.78rem;
+            color: #b6b7cf;
+            font-style: italic;
+        }
+        .stock-warning-tooltip .sw-branch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 0.82rem;
+            color: #e6e6f0;
+            padding: 3px 0;
+        }
+        .stock-warning-tooltip .sw-qty {
+            background: #3fb950;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: 20px;
+            padding: 1px 10px;
+            line-height: 1.4;
+        }
     </style>
 @endsection
 
@@ -51,6 +121,18 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
                     <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+                    
+                    @if($isSuperAdmin)
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
+                        <select id="filter-location" class="form-select">
+                            <option value="">All Locations</option>
+                            @foreach($locations as $location)
+                                <option value="{{ $location->id }}">{{ $location->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
 
                     {{-- Status --}}
                     <div class="mb-3 text-start">
@@ -98,9 +180,9 @@
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1">Date Range</label>
                         <div class="w-100">
-                            <input type="date" id="filter-start-date" class="form-control mb-2" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <input type="text" id="filter-start-date" class="form-control flatpickr-sales mb-2" placeholder="Start Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
                             <div class="text-center text-muted small mb-2">to</div>
-                            <input type="date" id="filter-end-date" class="form-control" style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <input type="text" id="filter-end-date" class="form-control flatpickr-sales" placeholder="End Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
                         </div>
                     </div>
 
@@ -115,7 +197,7 @@
 
             @can('create sales')
                 <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
-                    <i class="ti ti-plus me-1"></i> New Sale
+                    <i class="ti ti-plus me-1"></i> Add New Bill
                 </a>
             @endcan
         </div>
@@ -129,7 +211,9 @@
                         <th>#</th>
                         <th>Sale No</th>
                         <th>Customer</th>
-                        <!-- <th>Location</th> -->
+                        @if($isSuperAdmin)
+                        <th>Location</th>
+                        @endif
                         <th>Source</th>
                         <th>Amount</th>
                         <th>Status</th>
@@ -150,7 +234,47 @@
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
         $(document).ready(function () {
-            // Initialize Select2 for product search
+            let flatpickrOpen = false;
+            const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
+
+            const startPicker = $('#filter-start-date').flatpickr({
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        endPicker.set('minDate', selectedDates[0]);
+                    }
+                }
+            });
+
+            const endPicker = $('#filter-end-date').flatpickr({
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        startPicker.set('maxDate', selectedDates[0]);
+                    }
+                }
+            });
+
+            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
+                if (flatpickrOpen) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            $(document).on('mousedown', '.flatpickr-calendar', function (e) {
+                e.stopPropagation();
+            });
             $('#filter-product').select2({
                 ajax: {
                     url: '{{ route('admin.products.search') }}',
@@ -175,15 +299,20 @@
                 dropdownParent: $('#filterDropdownContainer')
             });
 
-            // Prevent Bootstrap dropdown from closing when clicking on Select2
             $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
                 e.stopPropagation();
             });
 
+            $(document).on('mousedown', '.flatpickr-calendar', function (e) {
+                e.stopPropagation();
+            });
+
+            const dateSortColIndex = isSuperAdmin ? 11 : 10;
+
             const table = $('#ordersTable').DataTable({
                 responsive : false,
-                order      : [[10, 'desc']],
-                orderFixed : { pre: [[10, 'desc']] },
+                order      : [[dateSortColIndex, 'desc']],
+                orderFixed : { pre: [[dateSortColIndex, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.sales.data') }}',
                     dataSrc: 'data',
@@ -195,6 +324,9 @@
                         d.product_id = $('#filter-product').val();
                         d.start_date = $('#filter-start-date').val();
                         d.end_date = $('#filter-end-date').val();
+                        if (isSuperAdmin) {
+                            d.location_id = $('#filter-location').val();
+                        }
                     }
                 },
                 columns    : [
@@ -204,12 +336,13 @@
                         orderable: false,
                         searchable: false,
                         render: function (data, type, row, meta) {
-                            return meta.row + meta.settings._iDisplayStart + 1;
+                            const rowNumber = meta.row + meta.settings._iDisplayStart + 1;
+                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + '</span>';
                         }
                     },
                     { data: 'order_no' },
                     { data: 'customer' },
-                    // { data: 'location' },
+                    ...(isSuperAdmin ? [{ data: 'location' }] : []),
                     { data: 'source' },
                     { data: 'final_amount' },
                     { data: 'status',         orderable: false },
@@ -222,10 +355,22 @@
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
+                        const colCount = isSuperAdmin ? 11 : 10;
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="10"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="' + colCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
+                createdRow: function (row, data) {
+                    if (data.stock_warning) {
+                        $(row).addClass('table-warning');
+                    }
+                },
+                drawCallback: function () {
+                    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                }
             });
 
             window.refreshTable = function () {
@@ -236,14 +381,44 @@
                 e.preventDefault();
                 const url = $(this).data('url');
                 const currentStatus = parseInt($(this).data('current'));
-                const selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
+                const source = $(this).data('source') || 'POS';
+                const isOnline = source === 'ONLINE';
+                const existingShippedUrl = $(this).data('shipped-url') || '';
+                const existingTrackingId = $(this).data('tracking-id') || '';
+                const existingCancelReason = $(this).data('cancel-reason') || '';
 
-                const opt1 = (currentStatus !== 1) ? 'disabled' : '';
-                const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
-                const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
-                const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
-                const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
-                const opt6 = ([5, 6].includes(currentStatus)) ? 'disabled' : '';
+                let selectDisabled = '';
+                let optionsHtml = '';
+
+                if (!isOnline) {
+                    // POS Order: only Pending and Approve
+                    selectDisabled = (currentStatus >= 2) ? 'disabled' : '';
+                    const opt1 = (currentStatus !== 1) ? 'disabled' : '';
+                    const opt2 = (currentStatus === 2) ? '' : ((currentStatus === 1) ? '' : 'disabled');
+                    
+                    optionsHtml = `
+                        <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
+                        <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
+                    `;
+                } else {
+                    // ONLINE Order: all options, sequential disabling
+                    selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
+                    const opt1 = (currentStatus !== 1) ? 'disabled' : '';
+                    const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
+                    const opt3 = (![2, 3].includes(currentStatus)) ? 'disabled' : '';
+                    const opt4 = (![3, 4].includes(currentStatus)) ? 'disabled' : '';
+                    const opt5 = (![4, 5].includes(currentStatus)) ? 'disabled' : '';
+                    const opt6 = ([5, 6].includes(currentStatus)) ? 'disabled' : '';
+                    
+                    optionsHtml = `
+                        <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
+                        <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
+                        <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
+                        <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
+                        <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
+                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                    `;
+                }
 
                 Swal.fire({
                     title: 'Update Sale Status',
@@ -251,17 +426,25 @@
                         <div class="mb-3 text-start">
                             <label for="swal-sale-status" class="form-label fw-semibold mb-2">Select Sale Status</label>
                             <select id="swal-sale-status" class="form-select form-select-lg" ${selectDisabled}>
-                                <option value="1" ${currentStatus == 1 ? 'selected' : ''} ${opt1}>Pending</option>
-                                <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
-                                <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
-                                <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
-                                <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
-                                <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                                ${optionsHtml}
                             </select>
                         </div>
                         <div class="mb-3 text-start" id="swal-reason-wrap" style="display:none;">
-                            <label for="swal-cancel-reason" class="form-label fw-semibold mb-2">Cancellation Reason <span class="text-danger">*</span></label>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="swal-cancel-reason" class="form-label fw-semibold mb-0">Cancellation Reason <span class="text-danger">*</span></label>
+                                <small class="text-muted" id="swal-char-counter">0/500</small>
+                            </div>
                             <textarea id="swal-cancel-reason" class="form-control" rows="3" maxlength="500" placeholder="Enter the reason for cancellation..."></textarea>
+                        </div>
+                        <div class="mb-3 text-start" id="swal-shipping-wrap" style="display:none;">
+                            <div class="mb-3">
+                                <label for="swal-shipped-url" class="form-label fw-semibold mb-2">Shipping Client URL <span class="text-danger">*</span></label>
+                                <input id="swal-shipped-url" class="form-control" placeholder="https://tracking-url.com">
+                            </div>
+                            <div>
+                                <label for="swal-tracking-id" class="form-label fw-semibold mb-2">Tracking ID <span class="text-danger">*</span></label>
+                                <input id="swal-tracking-id" class="form-control" placeholder="Tracking ID / No.">
+                            </div>
                         </div>
                     `,
                     showCancelButton: true,
@@ -273,26 +456,58 @@
                     },
                     buttonsStyling: false,
                     didOpen: () => {
+                        const reasonInput = document.getElementById('swal-cancel-reason');
+                        const charCounter = document.getElementById('swal-char-counter');
+                        
+                        const updateCount = () => {
+                            charCounter.textContent = `${reasonInput.value.length}/500`;
+                        };
+                        
+                        reasonInput.addEventListener('input', updateCount);
+
                         document.getElementById('swal-sale-status').addEventListener('change', function () {
                             const reasonWrap = document.getElementById('swal-reason-wrap');
+                            const shippingWrap = document.getElementById('swal-shipping-wrap');
                             reasonWrap.style.display = (this.value == '6') ? 'block' : 'none';
+                            // Show shipping fields only when selecting Shipped from a different status
+                            shippingWrap.style.display = (this.value == '3' && currentStatus != 3) ? 'block' : 'none';
                         });
+                        
                         if (currentStatus == 6) {
                             document.getElementById('swal-reason-wrap').style.display = 'block';
+                            if (existingCancelReason) {
+                                reasonInput.value = existingCancelReason;
+                                updateCount();
+                            }
                         }
+                        // Do NOT show shipping fields if already Shipped — fields not needed again
                     },
                     preConfirm: () => {
                         const status = document.getElementById('swal-sale-status').value;
                         const reason = document.getElementById('swal-cancel-reason').value.trim();
+                        const shippedUrl = document.getElementById('swal-shipped-url') ? document.getElementById('swal-shipped-url').value.trim() : '';
+                        const trackingId = document.getElementById('swal-tracking-id') ? document.getElementById('swal-tracking-id').value.trim() : '';
+
                         if (status == '6' && !reason) {
                             Swal.showValidationMessage('Please enter a cancellation reason.');
                             return false;
                         }
-                        return { status: status, reason: reason };
+                        // Only validate shipping fields when transitioning TO Shipped (not already shipped)
+                        if (status == '3' && currentStatus != 3) {
+                            if (!shippedUrl) {
+                                Swal.showValidationMessage('Please enter Shipping Client URL');
+                                return false;
+                            }
+                            if (!trackingId) {
+                                Swal.showValidationMessage('Please enter Tracking ID');
+                                return false;
+                            }
+                        }
+                        return { status: status, reason: reason, shipped_client_url: shippedUrl, tracking_id: trackingId };
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
-                        const { status, reason } = result.value;
+                        const { status, reason, shipped_client_url, tracking_id } = result.value;
                         window.showAjaxLoader();
                         $.ajax({
                             url: url,
@@ -300,12 +515,25 @@
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
                                 status: status,
-                                cancellation_reason: reason
+                                cancellation_reason: reason,
+                                shipped_client_url: shipped_client_url,
+                                tracking_id: tracking_id
                             },
                             success: function (res) {
                                 window.hideAjaxLoader();
                                 if (res.status === 'success') {
                                     toastr.success(res.message);
+                                    if (res.pending_count !== undefined) {
+                                        const badge = $('.pending-sales-counter-badge');
+                                        if (badge.length > 0) {
+                                            badge.text(res.pending_count);
+                                            if (res.pending_count > 0) {
+                                                badge.attr('style', 'display: inline-block !important;');
+                                            } else {
+                                                badge.attr('style', 'display: none !important;');
+                                            }
+                                        }
+                                    }
                                     window.refreshTable();
                                 } else {
                                     toastr.error(res.message || 'Something went wrong.');
@@ -397,8 +625,13 @@
                 $('#filter-payment-status').val('');
                 $('#filter-source').val('');
                 $('#filter-product').val('').trigger('change');
-                $('#filter-start-date').val('');
-                $('#filter-end-date').val('');
+                if (isSuperAdmin) {
+                    $('#filter-location').val('');
+                }
+                startPicker.clear();
+                endPicker.clear();
+                startPicker.set('maxDate', null);
+                endPicker.set('minDate', null);
                 window.refreshTable();
                 
                 // Close the dropdown after clearing

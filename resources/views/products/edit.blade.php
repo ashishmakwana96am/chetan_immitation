@@ -29,22 +29,22 @@
                             <div class="col-12">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control"
-                                    placeholder="e.g. iPhone 15 Pro" value="{{ $product->name }}" />
+                                    placeholder="Enter Product Name" value="{{ $product->name }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">SKU <span class="text-danger">*</span></label>
                                 <input type="text" name="sku" class="form-control"
-                                    placeholder="e.g. IPH-15-PRO" value="{{ $product->sku }}" />
+                                    placeholder="Enter SKU" value="{{ $product->sku }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Barcode</label>
+                                <label class="form-label">Barcode <span class="text-danger">*</span></label>
                                 <div class="d-flex gap-2">
-                                    <input type="text" name="barcode" class="form-control bg-light" 
-                                        placeholder="Auto-generated" value="{{ $product->barcode ?? '' }}" readonly />
-                                    @if($product->barcode)
-                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }})" class="btn btn-icon btn-label-secondary" title="View Barcode">
+                                    <input type="text" name="barcode" class="form-control" 
+                                        placeholder="Enter Barcode" value="{{ $product->barcode ?? '' }}" />
+                                     @if($product->barcode || $product->sku)
+                                    <button type="button" onclick="viewBarcode('{{ $product->barcode ?: $product->sku }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
                                         <i class="ti ti-barcode"></i>
                                     </button>
                                     @endif
@@ -54,7 +54,7 @@
                              <div class="col-md-6">
                                  <label class="form-label">Category <span class="text-danger">*</span></label>
                                  <select name="category_id" id="productCategory" class="form-select">
-                                     <option value="">-- Select Category --</option>
+                                     <option value="">Select Category</option>
                                      @foreach($categories as $category)
                                          <option value="{{ $category->id }}" {{ $product->category_id === $category->id ? 'selected' : '' }}>
                                              {{ $category->name }}
@@ -66,7 +66,7 @@
                               <div class="col-md-6">
                                   <label class="form-label">Sub Category</label>
                                   <select name="sub_category_id" id="productSubCategory" class="form-select" {{ empty($subCategories) ? 'disabled' : '' }}>
-                                      <option value="">-- Select Sub Category --</option>
+                                      <option value="">Select Sub Category</option>
                                       @if(!empty($subCategories))
                                           @foreach($subCategories as $subCategory)
                                               <option value="{{ $subCategory->id }}" {{ $product->sub_category_id === $subCategory->id ? 'selected' : '' }}>
@@ -77,33 +77,40 @@
                                   </select>
                                   <div class="invalid-feedback"></div>
                               </div>
-                             <div class="col-md-6">
-                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
-                                 <div class="input-group has-validation">
-                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                     <input type="number" name="purchase_price" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->purchase_price }}" />
-                                     <div class="invalid-feedback"></div>
-                                 </div>
-                             </div>
-                             <div class="col-md-6">
-                                 <label class="form-label">Sale Price <span class="text-danger">*</span></label>
-                                 <div class="input-group has-validation">
-                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                     <input type="number" name="sale_price" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->sale_price }}" />
-                                     <div class="invalid-feedback"></div>
-                                 </div>
-                             </div>
-                             <div class="col-md-6">
-                                 <label class="form-label">MRP <span class="text-danger">*</span></label>
-                                 <div class="input-group has-validation">
-                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                     <input type="number" name="mrp" class="form-control"
-                                         placeholder="0.00" step="0.01" min="0" value="{{ $product->mrp }}" />
-                                     <div class="invalid-feedback"></div>
-                                 </div>
-                             </div>
+                              <div class="col-md-6">
+                                  <label class="form-label">Product Code <span class="text-danger">*</span></label>
+                                  <input type="number" name="product_code" id="productCodeInput" class="form-control"
+                                      placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ $product->product_code }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-6">
+                                  <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
+                                  <div class="input-group has-validation">
+                                      <span class="input-group-text">{{ currency_symbol() }}</span>
+                                      <input type="number" name="purchase_price" id="purchasePriceInput" class="form-control"
+                                          placeholder="Enter Purchase Price" step="0.01" min="0" value="{{ $product->purchase_price }}" />
+                                      <div class="invalid-feedback"></div>
+                                  </div>
+                              </div>
+                              <div class="col-md-6">
+                                  <label class="form-label" id="salePriceLabel">Sale Price <span class="text-danger">*</span></label>
+                                  <div class="input-group has-validation">
+                                      <span class="input-group-text">{{ currency_symbol() }}</span>
+                                      <input type="number" name="sale_price" id="salePriceInput" class="form-control"
+                                          placeholder="Enter Sale Price" step="0.01" min="0" value="{{ $product->sale_price }}" />
+                                      <div class="invalid-feedback"></div>
+                                  </div>
+                              </div>
+                              <div class="col-md-6">
+                                  <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
+                                  <div class="input-group has-validation">
+                                      <span class="input-group-text">{{ currency_symbol() }}</span>
+                                      <input type="number" name="mrp" id="mrpInput" class="form-control"
+                                          placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" readonly style="background-color: #f1f0f2;" />
+                                      <div class="invalid-feedback"></div>
+                                  </div>
+                              </div>
+
                              <div class="col-md-6">
                                  <label class="form-label">Product Type <span class="text-danger">*</span></label>
                                  <select name="type" id="productType" class="form-select no-select2">
@@ -156,6 +163,7 @@
                                         </table>
                                     </div>
                                     <input type="hidden" name="variants_json" id="variantsJson" value="" />
+                                    <div class="invalid-feedback d-block text-danger mt-1"></div>
                                 </div>
                             </div>
                             <div class="col-12">
@@ -193,7 +201,7 @@
                                 {{ $product->status == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productStatus">Active</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="productSale" name="sale" value="1"
                                 {{ $product->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
@@ -360,7 +368,7 @@
                 const categoryId = $(this).val();
                 const subCategorySelect = $('#productSubCategory');
 
-                subCategorySelect.empty().append('<option value="">-- Select Sub Category --</option>');
+                subCategorySelect.empty().append('<option value="">Select Sub Category</option>');
 
                 if (!categoryId) {
                     subCategorySelect.prop('disabled', true);
@@ -681,9 +689,17 @@
                                     $('#additionalImagesError').text(messages[0]);
                                     $('#additionalDropZone').css('border-color', '#ea5455');
                                 } else {
-                                    form.find('[name="' + field + '"], [name="' + field + '[]"]')
-                                        .addClass('is-invalid')
-                                        .siblings('.invalid-feedback').text(messages[0]);
+                                    const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                                    let feedback = input.siblings('.invalid-feedback');
+                                    if (feedback.length === 0 && input.parent('.input-group').length) {
+                                        feedback = input.parent('.input-group').siblings('.invalid-feedback');
+                                    }
+                                    if (input.length && feedback.length) {
+                                        input.addClass('is-invalid');
+                                        feedback.text(messages[0]);
+                                    } else {
+                                        toastr.error(messages[0]);
+                                    }
                                 }
                             });
                         } else {
@@ -848,6 +864,25 @@
                 generateVariants();
             });
 
+            function roundToNearest5(val) {
+                return Math.ceil(parseFloat(val) / 5) * 5;
+            }
+
+            $('#productCodeInput').on('input change', function () {
+                const code = parseFloat($(this).val()) || 0;
+                const purchasePrice = (code * 2.5).toFixed(2);
+                const salePrice = roundToNearest5(code * 4.125).toFixed(2);
+                const mrp = roundToNearest5(salePrice * 4.575).toFixed(2);
+
+                $('#purchasePriceInput').val(purchasePrice).trigger('change');
+                $('#salePriceInput').val(salePrice).trigger('change');
+                $('#mrpInput').val(mrp);
+            });
+
+            $('#salePriceInput').on('input', function () {
+                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * 4.575).toFixed(2));
+            });
+
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {
                 if ($('#variableSection').is(':visible') && variantsData.length > 0) {
                     const defaultPurchase = parseFloat($('input[name="purchase_price"]').val()) || 0;
@@ -881,7 +916,50 @@
                 }
             });
 
-            window.viewBarcode = function(barcode, productId) {
+            window.buildBarcodeLabelsHtml = function(items) {
+                const esc = function(str) {
+                    return String(str ?? '').replace(/[&<>"']/g, function(c) {
+                        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+                    });
+                };
+                let body = '';
+                items.forEach(function(item) {
+                    const qty = item.qty || 1;
+                    for (let i = 0; i < qty; i++) {
+                        body += '<div class="label">';
+                        body +=   '<div class="zone-front">';
+                        body +=     '<div class="mrp-line">MRP : ' + esc(item.salePrice) + '</div>';
+                        body +=     '<div class="code-line">' + esc(item.barcodeText) + '</div>';
+                        body +=   '</div>';
+                        body +=   '<div class="zone-back">';
+                        body +=     '<div class="variations-line">' + esc(item.variations || '&nbsp;') + '</div>';
+                        body +=     '<img class="barcode-img" src="' + item.barcodeUrl + '" />';
+                        body +=     '<div class="category-line">' + esc(item.category) + '</div>';
+                        body +=   '</div>';
+                        body +=   '<div class="zone-tab"></div>';
+                        body += '</div>';
+                    }
+                });
+
+                return '<!DOCTYPE html><html><head><title>Print Labels</title><style>' +
+                    '@page{size:82mm;margin:0 !important;}' +
+                    '*{box-sizing:border-box;}' +
+                    'html,body{margin:0 !important;padding:0 !important;width:82mm !important;max-width:82mm !important;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:Arial,Helvetica,sans-serif !important;overflow:hidden !important;}' +
+                    '.label{width:82mm !important;height:12mm !important;max-height:12mm !important;overflow:hidden !important;display:flex !important;flex-direction:row !important;align-items:center !important;page-break-inside:avoid !important;break-inside:avoid !important;margin:0 !important;padding:0 !important;font-family:Arial,Helvetica,sans-serif !important;color:#000;}' +
+                    '.zone-front{width:37mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;padding:0.8mm 1.5mm !important;overflow:hidden !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
+                    '.zone-back{width:29mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;align-items:center !important;overflow:hidden !important;padding:0.8mm 1px !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
+                    '.zone-tab{width:16mm !important;height:100% !important;}' +
+                    '.mrp-line{font-size:8.5pt !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.category-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.variations-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.code-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                    '.barcode-img{width:22mm !important;height:3.5mm !important;object-fit:fill !important;margin:0 !important;display:block;}' +
+                    '</style>' +
+                    '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>' +
+                    '</head><body>' + body + '</body></html>';
+            };
+
+            window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
                 const modal = `
                     <div class="modal fade" id="barcodeModal" tabindex="-1">
@@ -906,7 +984,7 @@
                                             <div class="mb-2">
                                                 <img id="barcodeImage" src="${barcodeUrl}" alt="Barcode" class="img-fluid" style="max-height: 80px;">
                                             </div>
-                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
+                                            <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcodeText}</p>
                                         </div>
                                         
                                         <div class="form-group mb-3 text-start">
@@ -945,37 +1023,8 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    const printWindow = window.open('', '_blank');
-                    let html = '<!DOCTYPE html><html><head><title>Print Barcodes</title>';
-                    html += '<style>';
-                    html += 'body { font-family: Arial, sans-serif; margin: 0; padding: 10px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }';
-                    html += '.barcode-label { border: 1px dashed #999; padding: 15px; text-align: center; width: 220px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; }';
-                    html += '.barcode-value { font-size: 14px; margin-bottom: 8px; font-family: monospace; font-weight: bold; }';
-                    html += '.barcode-image { max-width: 100%; height: auto; }';
-                    html += '@media print { body { padding: 0; } .barcode-label { border: 1px solid #000; page-break-inside: avoid; } }';
-                    html += '</style>';
-                    html += '</head><body>';
-                    
-                    for (let i = 0; i < qty; i++) {
-                        html += '<div class="barcode-label">';
-                        html += '<div class="barcode-value">' + barcode + '</div>';
-                        html += '<img src="' + barcodeUrl + '" class="barcode-image" />';
-                        html += '</div>';
-                    }
-                    
-                    html += '<script>';
-                    html += 'window.onload = function() {';
-                    html += '    setTimeout(function() {';
-                    html += '        window.print();';
-                    html += '        window.onafterprint = function() { window.close(); };';
-                    html += '        setTimeout(function() { window.close(); }, 500);';
-                    html += '    }, 500);';
-                    html += '};';
-                    html += '<\/script>';
-                    html += '</body></html>';
-                    
-                    printWindow.document.write(html);
-                    printWindow.document.close();
+                    const url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    window.open(url, '_blank');
                 });
                 
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {

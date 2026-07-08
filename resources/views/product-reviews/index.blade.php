@@ -22,6 +22,7 @@
                         <th>User Name</th>
                         <th>Rating</th>
                         <th>Review</th>
+                        <th>Photo</th>
                         <th>Date</th>
                     </tr>
                 </thead>
@@ -29,42 +30,6 @@
         </div>
     </div>
 
-    <!-- View Review Modal -->
-    <div class="modal fade" id="viewReviewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-semibold">Review Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3 text-start">
-                        <label class="fw-semibold text-muted d-block small mb-1">Product</label>
-                        <span id="modal-review-product" class="fw-bold text-heading" style="font-size: 1.05rem;"></span>
-                    </div>
-                    <div class="mb-3 text-start">
-                        <label class="fw-semibold text-muted d-block small mb-1">User Name</label>
-                        <span id="modal-review-customer" class="text-body fw-medium"></span>
-                    </div>
-                    <div class="mb-3 text-start">
-                        <label class="fw-semibold text-muted d-block small mb-1">Rating</label>
-                        <div id="modal-review-rating" class="d-flex align-items-center gap-1"></div>
-                    </div>
-                    <div class="mb-3 text-start">
-                        <label class="fw-semibold text-muted d-block small mb-1">Review</label>
-                        <div id="modal-review-comment" class="bg-light p-3 rounded text-body" style="white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #ebedf2;"></div>
-                    </div>
-                    <div class="mb-0 text-start">
-                        <label class="fw-semibold text-muted d-block small mb-1">Date</label>
-                        <span id="modal-review-date" class="text-body"></span>
-                    </div>
-                </div>
-                <div class="modal-footer border-top-0 pt-0 justify-content-center">
-                    <button type="button" class="btn text-white px-4" data-bs-dismiss="modal" style="background-color: #B4771E; border-color: #B4771E;">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
 @endsection
 
 @section('page-js')
@@ -80,12 +45,13 @@
                     cache: false
                 },
                 columns    : [
-                    { data: 'index',      width: '5%' },
+                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'product' },
                     { data: 'customer' },
                     { data: 'rating',     orderable: false },
                     { data: 'comment',    orderable: false },
-                    { data: 'created_at' },
+                    { data: 'photo',      orderable: false },
+                    { data: 'created_at' }
                 ],
             });
 
@@ -93,25 +59,20 @@
                 table.ajax.reload(null, false);
             };
 
-            // Show more / less for comment column
-            $(document).on('click', '.review-toggle', function (e) {
+            // Toggle show more/show less review comments
+            $(document).on('click', '.toggle-review', function (e) {
                 e.preventDefault();
-                const $this = $(this);
-                const fullText = $this.data('full');
-                const isExpanded = $this.data('expanded');
+                const link = $(this);
+                const moreSpan = link.siblings('.more-text');
                 
-                if (isExpanded) {
-                    $this.html(truncate(fullText, 100) + ' <span class="text-primary review-toggle" data-full="' + fullText + '" data-expanded="false">Show more</span>');
+                if (moreSpan.hasClass('d-none')) {
+                    moreSpan.removeClass('d-none');
+                    link.text('Show Less');
                 } else {
-                    $this.html(fullText + ' <span class="text-primary review-toggle" data-full="' + fullText + '" data-expanded="true">Show less</span>');
+                    moreSpan.addClass('d-none');
+                    link.text('Show More');
                 }
-                $this.data('expanded', !isExpanded);
             });
-
-            function truncate(text, length) {
-                if (text.length <= length) return text;
-                return text.substring(0, length) + '...';
-            }
         });
     </script>
 @endsection

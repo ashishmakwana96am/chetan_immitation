@@ -37,7 +37,10 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Total Stock Units</span>
-                            <h4 class="mb-0 mt-1">{{ $products->sum('total') }}</h4>
+                            @php
+                                $totalStockUnits = $products->where('is_parent', true)->sum('total');
+                            @endphp
+                            <h4 class="mb-0 mt-1">{{ number_format($totalStockUnits) }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                     </div>
@@ -162,9 +165,18 @@
                             <td>{{ $index + 1 }}</td>
                             <td data-order="{{ $product['name'] }} {{ $product['is_parent'] ? '000_parent' : $product['variant_name'] }}">
                                 @if($product['is_parent'])
-                                    <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
-                                        {{ $product['name'] }}
-                                    </a>
+                                    <div class="d-flex align-items-center">
+                                        @if($product['image_url'])
+                                            <img src="{{ $product['image_url'] }}" alt="{{ $product['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                        @else
+                                            <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                            </div>
+                                        @endif
+                                        <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
+                                            {{ $product['name'] }}
+                                        </a>
+                                    </div>
                                 @else
                                     <span class="text-muted ps-4">↳ {{ $product['variant_name'] }}</span>
                                 @endif
@@ -216,6 +228,15 @@
         const table = $('#stockTable').DataTable({
             responsive : false,
             order      : [[1, 'asc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         function applyFilters() {
@@ -258,12 +279,15 @@
         // -------------------------------------------------------
         // Stock per Location Bar Chart
         // -------------------------------------------------------
-        const locations = @json($locations->pluck('name'));
+        const locations   = @json($locations->pluck('name'));
         const locationIds = @json($locations->pluck('id'));
-        const products  = @json($products->values());
+        const products    = @json($products->values());
+
+        // Only use parent rows for charts — variant rows must NOT be double-counted
+        const parentProducts = products.filter(p => p.is_parent);
 
         const locationTotals = locationIds.map(function (locId) {
-            return products.reduce(function (sum, p) {
+            return parentProducts.reduce(function (sum, p) {
                 return sum + (p.stock[locId] || 0);
             }, 0);
         });
@@ -330,10 +354,8 @@
             }
         }).render();
 
-        // -------------------------------------------------------
-        // Top 10 Products Horizontal Stacked Bar by Location
-        // -------------------------------------------------------
-        const top10 = products.slice().sort((a, b) => b.total - a.total).slice(0, 10);
+        // Top 10 Products — only parent rows, sorted by total stock descending
+        const top10 = parentProducts.slice().sort((a, b) => b.total - a.total).slice(0, 10);
 
         const stackedSeries = locationIds.map(function (locId, i) {
             return {

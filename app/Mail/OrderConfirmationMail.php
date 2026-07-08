@@ -27,6 +27,7 @@ class OrderConfirmationMail extends Mailable
             'customerAddress',
             'user',
             'items.product.variants.attributeValue.attribute',
+            'payment',
         ]);
         $this->order = $order;
     }

@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\MergesGuestCustomerState;
 use App\Mail\WelcomeMemberMail;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class MemberRegisterController extends Controller
 {
+    use MergesGuestCustomerState;
+
+
     public function store(Request $request)
     {
         $request->merge([
@@ -20,8 +26,8 @@ class MemberRegisterController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name'                  => ['required', 'string', 'max:100'],
-            'phone'                 => ['required', 'string', 'regex:/^[0-9]{10}$/', 'unique:customers,phone'],
-            'email'                 => ['required', 'email', 'max:255', 'unique:customers,email'],
+            'phone'                 => ['required', 'string', 'regex:/^[0-9]{10}$/', Rule::unique('customer_phones', 'phone')->whereNull('deleted_at')],
+            'email'                 => ['required', 'email', 'max:255', Rule::unique('customers', 'email')->whereNull('deleted_at')],
             'password'              => [
                 'required',
                 'string',
@@ -55,12 +61,13 @@ class MemberRegisterController extends Controller
 
         $customer = Customer::create([
             'name'       => $request->name,
-            'phone'      => $request->phone,
             'email'      => $request->email,
             'password'   => $request->password,
             'is_website' => true,
             'status'     => Customer::STATUS_ACTIVE,
         ]);
+
+        $customer->phones()->create(['phone' => $request->phone]);
 
         try {
             Mail::to($customer->email)->send(new WelcomeMemberMail($customer));
@@ -68,9 +75,17 @@ class MemberRegisterController extends Controller
             logger()->error('Welcome email failed: ' . $e->getMessage());
         }
 
+        $intended = $this->resolveIntendedUrl($request);
+
+        Auth::guard('customer')->login($customer);
+        $request->session()->regenerate();
+
+        $wishlistCount = $this->mergeGuestCartAndWishlist($request, $customer);
+
         return response()->json([
-            'status'       => 'success',
-            'redirect_url' => route('login') . '?registered=1',
+            'status'         => 'success',
+            'redirect_url'   => $intended,
+            'wishlist_count' => $wishlistCount,
         ]);
     }
 }

@@ -300,7 +300,12 @@
 
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script>
-        $.ajaxSetup({ cache: false });
+        $.ajaxSetup({
+            cache: false,
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
     </script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
@@ -360,11 +365,20 @@
                 }
             }, 200);
 
-            $('.flatpickr').flatpickr({
-                altInput: true,
-                altFormat: 'd-m-Y',
-                dateFormat: 'Y-m-d',
-                allowInput: false
+            $('.flatpickr').each(function() {
+                let config = {
+                    altInput: true,
+                    altFormat: 'd-m-Y',
+                    dateFormat: 'Y-m-d',
+                    allowInput: false
+                };
+                if ($(this).attr('data-max-date')) {
+                    config.maxDate = $(this).attr('data-max-date');
+                }
+                if ($(this).attr('data-min-date')) {
+                    config.minDate = $(this).attr('data-min-date');
+                }
+                $(this).flatpickr(config);
             });
 
             window.addEventListener('scroll', function () {
@@ -455,13 +469,6 @@
                 setTimeout(initGlobalSelect2, 50);
             });
 
-            $(document).on('show.bs.dropdown', '.table-responsive', function () {
-                $(this).css('overflow', 'visible');
-            });
-
-            $(document).on('hide.bs.dropdown', '.table-responsive', function () {
-                $(this).css('overflow', '');
-            });
 
             // Double click row to view details
             $(document).on('dblclick', 'table tbody tr', function(e) {
@@ -509,6 +516,41 @@
                     // Ignore invalid URLs
                 }
             });
+
+            // Product thumbnail image popup modal
+            $(document).on('click', '.product-thumbnail', function() {
+                const src = $(this).attr('src') || $(this).data('src');
+                if (!src) return;
+                
+                let $modal = $('#globalImageModal');
+                if ($modal.length === 0) {
+                    $('body').append(`
+                        <div class="modal fade" id="globalImageModal" tabindex="-1" aria-hidden="true" style="z-index: 10000000;">
+                            <div class="modal-dialog modal-dialog-centered" style="max-width: fit-content; width: auto;">
+                                <div class="modal-content bg-transparent border-0 shadow-none" style="width: fit-content;">
+                                    <div class="modal-body d-inline-block p-0 position-relative">
+                                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2" data-bs-dismiss="modal" aria-label="Close" style="filter: drop-shadow(0px 1px 3px rgba(0,0,0,0.5));"></button>
+                                        <img id="globalModalImage" src="" alt="Image Preview" class="rounded d-block" style="max-height: 85vh; max-width: 85vw; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    $modal = $('#globalImageModal');
+                }
+                
+                $modal.find('#globalModalImage').attr('src', src);
+                const modalEl = new bootstrap.Modal($modal[0]);
+                modalEl.show();
+            });
+        });
+    </script>
+
+    <script>
+        $(document).on('pointerdown focus', '.table-responsive [data-bs-toggle="dropdown"], .table-action-dropdown [data-bs-toggle="dropdown"], table [data-bs-toggle="dropdown"]', function () {
+            if (!this.hasAttribute('data-bs-popper-config')) {
+                this.setAttribute('data-bs-popper-config', '{"strategy":"fixed"}');
+            }
         });
     </script>
 

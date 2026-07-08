@@ -11,7 +11,7 @@
       <div class="auth-cover-bg auth-cover-bg-color d-flex justify-content-center align-items-center">
         <img src="{{ asset('assets/img/illustrations/auth-login-illustration-light-1.png') }}"
           alt="auth-login-cover" class="img-fluid my-5 auth-illustration"
-          data-app-light-img="illustrations/auth-login-illustration-light-1.png" style="width: 80%;"
+          data-app-light-img="illustrations/auth-login-illustration-light-1.png" style="width: 70%;"
           data-app-dark-img="illustrations/auth-login-illustration-dark.png" />
         <img src="{{ asset('assets/img/illustrations/bg-shape-image-light.png') }}"
           alt="auth-login-cover" class="platform-bg"

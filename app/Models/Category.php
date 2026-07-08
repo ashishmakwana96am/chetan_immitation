@@ -2,16 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     const STATUS_ACTIVE = 1;
 
     const STATUS_INACTIVE = 2;
+
+    const DEFAULT_LOW_STOCK_THRESHOLD = 10;
 
     protected $fillable = [
         'name',
@@ -21,10 +24,12 @@ class Category extends Model
         'is_featured',
         'created_by',
         'sort_order',
+        'low_stock_threshold',
     ];
 
     protected $casts = [
         'is_featured' => 'boolean',
+        'low_stock_threshold' => 'integer',
     ];
 
     public function getImageUrlAttribute()

@@ -155,7 +155,7 @@ class ReportExportService
             $sheet->setCellValue('G' . $row, (float) $margin);
             $sheet->setCellValue('H' . $row, (float) $marginPct);
             $sheet->setCellValue('I' . $row, (int) $product['total_stock']);
-            $sheet->setCellValue('J' . $row, ucfirst($product['status']));
+            $sheet->setCellValue('J' . $row, $product['status'] == 1 ? 'Active' : 'Inactive');
 
             $row++;
         }
@@ -286,9 +286,9 @@ class ReportExportService
         
         // Sheet 1: Invoices List
         $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Invoices List');
+        $sheet1->setTitle('Purchase List');
 
-        $headers1 = ['S.No.', 'Invoice No', 'Supplier', 'Status', 'Date', 'Total Amount'];
+        $headers1 = ['S.No.', 'Purchase No', 'Supplier', 'Status', 'Date', 'Total Amount'];
         $sheet1->fromArray($headers1, null, 'A1');
         $sheet1->getRowDimension(1)->setRowHeight(28);
 
@@ -297,7 +297,13 @@ class ReportExportService
             $sheet1->setCellValue('A' . $row, $index + 1);
             $sheet1->setCellValue('B' . $row, $invoice->invoice_no);
             $sheet1->setCellValue('C' . $row, $invoice->supplier->name ?? 'Unknown');
-            $sheet1->setCellValue('D' . $row, ucfirst($invoice->status));
+            $purchaseStatuses = [
+                1 => 'Draft',
+                2 => 'Confirmed',
+                3 => 'Cancelled',
+            ];
+            $statusLabel = $purchaseStatuses[$invoice->status] ?? 'Unknown';
+            $sheet1->setCellValue('D' . $row, $statusLabel);
             $sheet1->setCellValue('E' . $row, $invoice->created_at->format('d M Y'));
             $sheet1->setCellValue('F' . $row, (float) $invoice->total_amount);
             $row++;
@@ -381,7 +387,12 @@ class ReportExportService
             $sheet1->setCellValue('B' . $row, $order->order_no);
             $sheet1->setCellValue('C' . $row, $order->customer->name ?? 'Walk-in');
             $sheet1->setCellValue('D' . $row, $order->location->name ?? '-');
-            $sheet1->setCellValue('E' . $row, ucfirst($order->payment_status));
+            $paymentStatuses = [
+                1 => 'Pending',
+                2 => 'Paid',
+            ];
+            $paymentStatusLabel = $paymentStatuses[$order->payment_status] ?? 'Pending';
+            $sheet1->setCellValue('E' . $row, $paymentStatusLabel);
             $sheet1->setCellValue('F' . $row, strtoupper(str_replace('_', ' ', $order->payment_method)));
             $sheet1->setCellValue('G' . $row, $order->created_at->format('d M Y'));
             $sheet1->setCellValue('H' . $row, (float) $order->final_amount);
@@ -543,4 +554,5 @@ class ReportExportService
 
         return $spreadsheet;
     }
+
 }

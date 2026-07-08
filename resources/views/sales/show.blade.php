@@ -74,8 +74,21 @@
         $couponCode     = null;
         if ($order->coupon_id && $order->coupon) {
             $couponCode     = $order->coupon->code;
-            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - (float)$order->final_amount, 2));
+            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
         }
+
+        $orderDiscountAmount = 0.0;
+        if ($order->order_discount_value > 0) {
+            $itemsTotal = $subtotal - $totalItemDiscount;
+            if ($order->order_discount_type === 'flat') {
+                $orderDiscountAmount = (float)$order->order_discount_value;
+            } else if ($order->order_discount_type === 'percentage') {
+                $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+            }
+            $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
+        }
+
+        $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
     @endphp
 
     {{-- ── Page header ────────────────────────────────────────── --}}
@@ -87,9 +100,18 @@
         <div class="d-flex gap-2 align-items-center flex-wrap">
 
             @can('download sales')
-                <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-secondary" target="_blank">
-                    <i class="ti ti-file-type-pdf me-1"></i> Invoice
-                </a>
+                @if($isOnline)
+                    <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-primary" target="_blank">
+                        <i class="ti ti-printer me-1"></i> Invoice
+                    </a>
+                    <a href="{{ route('admin.sales.label', $order) }}" class="btn btn-label-success" target="_blank">
+                        <i class="ti ti-printer me-1"></i> Print Label
+                    </a>
+                @else
+                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" target="_blank">
+                        <i class="ti ti-printer me-1"></i> Invoice
+                    </a>
+                @endif
             @endcan
 
             @can('edit sales')
@@ -106,11 +128,11 @@
                         data-common-confirm="{{ route('admin.sales.status', $order) }}"
                         data-confirm-method="PATCH"
                         data-confirm-title="Mark as Paid"
-                        data-confirm-text="Mark this sale as paid?"
-                        data-confirm-btn="Yes, Mark Paid"
+                        data-confirm-text="Are you sure you want to mark this sale as paid?"
+                        data-confirm-btn="Yes, Mark as Paid"
                         data-confirm-btn-class="btn-success"
                         data-confirm-data='{"payment_status":2}'>
-                        <i class="ti ti-credit-card me-1"></i> Mark Paid
+                        <i class="ti ti-currency-rupee me-1"></i> Mark as Paid
                     </button>
                 @endif
             @endcan
@@ -118,21 +140,36 @@
             @can('edit sales status')
                 @php
                     $cs  = (int)$order->status;
-                    $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
-                    $o1  = ($cs === 1) ? '' : 'disabled';
-                    $o2  = ($cs === 2) ? '' : ((!in_array($cs, [1, 2])) ? 'disabled' : '');
-                    $o3  = ($cs === 3) ? '' : ((!in_array($cs, [2, 3])) ? 'disabled' : '');
-                    $o4  = ($cs === 4) ? '' : ((!in_array($cs, [3, 4])) ? 'disabled' : '');
-                    $o5  = ($cs === 5) ? '' : ((!in_array($cs, [4, 5])) ? 'disabled' : '');
-                    $o6  = ($cs === 6) ? '' : ((in_array($cs, [5, 6]))  ? 'disabled' : '');
+                    $isOnline = ($order->source ?? 'POS') === 'ONLINE';
+                    
+                    if (!$isOnline) {
+                        // POS: Only Pending and Approve are possible, and if status is already Approve (2), disable dropdown
+                        $dis = ($cs >= 2) ? 'disabled' : '';
+                        $o1  = ($cs === 1) ? '' : 'disabled';
+                        $o2  = ($cs === 2) ? '' : (($cs === 1) ? '' : 'disabled');
+                    } else {
+                        // Online: Standard sequential flow
+                        $dis = in_array($cs, [5, 6]) ? 'disabled' : '';
+                        $o1  = ($cs === 1) ? '' : 'disabled';
+                        $o2  = ($cs === 2) ? '' : ((!in_array($cs, [1, 2])) ? 'disabled' : '');
+                        $o3  = ($cs === 3) ? '' : ((!in_array($cs, [2, 3])) ? 'disabled' : '');
+                        $o4  = ($cs === 4) ? '' : ((!in_array($cs, [3, 4])) ? 'disabled' : '');
+                        $o5  = ($cs === 5) ? '' : ((!in_array($cs, [4, 5])) ? 'disabled' : '');
+                        $o6  = ($cs === 6) ? '' : ((in_array($cs, [5, 6]))  ? 'disabled' : '');
+                    }
                 @endphp
                 <select id="change-sale-status" class="form-select no-select2" data-current="{{ $order->status }}" {{ $dis }} autocomplete="off" style="min-width:160px;width:auto;">
-                    <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
-                    <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
-                    <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
-                    <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
-                    <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
-                    <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Decline</option>
+                    @if(!$isOnline)
+                        <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
+                        <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
+                    @else
+                        <option value="1" {{ $order->status==1?'selected':'' }} {{ $o1 }}>Pending</option>
+                        <option value="2" {{ $order->status==2?'selected':'' }} {{ $o2 }}>Approve</option>
+                        <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
+                        <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
+                        <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
+                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Decline</option>
+                    @endif
                 </select>
             @endcan
 
@@ -196,6 +233,22 @@
                     </div>
                     @endif
 
+                    @if($order->shipped_client_url)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Shipping URL</span>
+                        <span class="sale-info-value text-truncate" style="max-width:65%;">
+                            <a href="{{ $order->shipped_client_url }}" target="_blank" class="text-primary">{{ $order->shipped_client_url }}</a>
+                        </span>
+                    </div>
+                    @endif
+
+                    @if($order->tracking_id)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Tracking ID</span>
+                        <span class="sale-info-value">{{ $order->tracking_id }}</span>
+                    </div>
+                    @endif
+
                     <div class="sale-info-row">
                         <span class="sale-info-label">Payment</span>
                         <span class="badge {{ $paymentColors[$order->payment_status ?? 1] ?? 'bg-label-secondary' }}">
@@ -225,11 +278,11 @@
                         <span class="sale-info-value">{{ format_date($order->created_at) }}</span>
                     </div>
 
-                    @if($order->razorpay_order_id)
+                    @if($order->payment?->gateway_order_id)
                     <div class="sale-info-row">
                         <span class="sale-info-label">Razorpay Order ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
-                            <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->razorpay_order_id }}</code>
+                            <code id="razorpayOrderId" style="cursor: pointer;">{{ $order->payment->gateway_order_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
                             onclick="copyToClipboard('razorpayOrderId')"
@@ -238,11 +291,11 @@
                     </div>
                     @endif
 
-                    @if($order->razorpay_payment_id)
+                    @if($order->payment?->gateway_payment_id)
                     <div class="sale-info-row">
                         <span class="sale-info-label">Razorpay Payment ID</span>
                         <div class="sale-info-value d-flex gap-2 align-items-center">
-                            <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->razorpay_payment_id }}</code>
+                            <code id="razorpayPaymentId" style="cursor: pointer;">{{ $order->payment->gateway_payment_id }}</code>
                             <i class="ti ti-copy text-primary"
                             style="cursor: pointer;"
                             onclick="copyToClipboard('razorpayPaymentId')"
@@ -347,88 +400,47 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @php
-                                $preparedItems    = collect();
-                                $groupedByProduct = $order->items->groupBy('product_id');
-                                foreach ($groupedByProduct as $productId => $siblings) {
-                                    $siblings  = $siblings->sortBy('id')->values();
-                                    $firstItem = $siblings->first();
-                                    $product   = $firstItem->product ?? null;
-
-                                    if ($product && $product->type === 'variable') {
-                                        $parentItem = $firstItem;
-                                        $parentItem->is_parent = true;
-                                        $parentItem->resolved_variant_name = null;
-
-                                        $variantItems      = $siblings->slice(1)->values();
-                                        $variants          = $product->variants ?? collect();
-                                        $matchedMap        = [];
-                                        $unmatchedSiblings = $variantItems->all();
-
-                                        foreach ($variants as $v) {
-                                            $matchedIdx = -1;
-                                            foreach ($unmatchedSiblings as $idx => $sibling) {
-                                                if (isset($sibling) && (float)$sibling->price === (float)$v->sale_price) { $matchedIdx = $idx; break; }
-                                            }
-                                            if ($matchedIdx !== -1) {
-                                                $ms    = $unmatchedSiblings[$matchedIdx];
-                                                $vName = $v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null;
-                                                $ms->resolved_variant_name = $vName;
-                                                $ms->is_parent = false;
-                                                $matchedMap[$ms->id] = $ms;
-                                                unset($unmatchedSiblings[$matchedIdx]);
-                                            }
-                                        }
-                                        $unmatchedSiblings = array_values($unmatchedSiblings);
-                                        $unmatchedVariants = [];
-                                        foreach ($variants as $v) {
-                                            $vName   = $v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null;
-                                            $already = false;
-                                            foreach ($matchedMap as $ms) { if ($ms->resolved_variant_name === $vName) { $already = true; break; } }
-                                            if (!$already) $unmatchedVariants[] = $v;
-                                        }
-                                        foreach ($unmatchedSiblings as $idx => $sibling) {
-                                            $v = $unmatchedVariants[$idx] ?? null;
-                                            $sibling->resolved_variant_name = $v ? ($v->attributeValue ? (($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '')) : null) : null;
-                                            $sibling->is_parent = false;
-                                            $matchedMap[$sibling->id] = $sibling;
-                                        }
-                                        $preparedItems->push($parentItem);
-                                        foreach ($variantItems as $vItem) { $preparedItems->push($matchedMap[$vItem->id] ?? $vItem); }
-                                    } else {
-                                        foreach ($siblings as $sibling) {
-                                            $sibling->is_parent = true;
-                                            $sibling->resolved_variant_name = null;
-                                            $preparedItems->push($sibling);
+                            @foreach($order->items as $index => $item)
+                                @php
+                                    $displayName = $item->product->name ?? '-';
+                                    if ($item->variant) {
+                                        $v = $item->variant;
+                                        if ($v->attributeValue) {
+                                            $displayName .= ' (' . ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '') . ')';
                                         }
                                     }
-                                }
-                            @endphp
-
-                            @foreach($preparedItems as $index => $item)
+                                @endphp
                                 <tr>
                                     <td class="text-muted small">{{ $index + 1 }}</td>
-                                    <td @if(!$item->is_parent) style="padding-left:3rem;" @endif>
-                                        @if(!$item->is_parent)
-                                            <span class="text-muted fw-bold me-1" style="font-size:1rem;">&#8627;</span>
-                                            <span class="text-muted small">{{ $item->resolved_variant_name }}</span>
-                                        @else
-                                            <span class="fw-semibold">{{ $item->product->name ?? '-' }}</span>
-                                            @if($item->product?->sku)
-                                                <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
                                             @endif
-                                        @endif
+                                            <div>
+                                                <span class="fw-semibold">{{ $displayName }}</span>
+                                                @if($item->product?->sku)
+                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
-                                    <td class="text-end text-nowrap small">{{ $item->quantity }}</td>
+                                    <td class="text-end text-nowrap small">
+                                        {{ $item->quantity }}
+                                        <small class="text-muted">Pcs</small>
+                                    </td>
                                     <td class="text-end text-nowrap small">
                                         @if($item->discount_amount > 0)
-                                            @if($item->discount_type === 'percentage')
-                                                {{ number_format($item->discount_value, 2) }}%
-                                                <small class="text-muted d-block">(-{{ format_price($item->discount_amount) }})</small>
-                                            @else
-                                                -{{ format_price($item->discount_amount) }}
-                                            @endif
+                                             @if($item->discount_type === 'percentage')
+                                                 {{ number_format($item->discount_value, 2) }}%
+                                             @else
+                                                 -{{ format_price($item->discount_amount) }}
+                                             @endif
                                         @else
                                             <span class="text-muted">-</span>
                                         @endif
@@ -442,18 +454,10 @@
                                 <td colspan="5" class="text-end tfoot-label">Subtotal</td>
                                 <td class="text-end tfoot-amount">{{ format_price($subtotal) }}</td>
                             </tr>
-                            @if($totalItemDiscount > 0)
+                            @if($totalDiscount > 0)
                             <tr>
-                                <td colspan="5" class="text-end tfoot-label text-danger">Item Discount</td>
-                                <td class="text-end tfoot-amount text-danger">-{{ format_price($totalItemDiscount) }}</td>
-                            </tr>
-                            @endif
-                            @if($couponDiscount > 0 && $couponCode)
-                            <tr>
-                                <td colspan="5" class="text-end tfoot-label" style="color:#2e7d32;">
-                                    Discount
-                                </td>
-                                <td class="text-end tfoot-amount" style="color:#2e7d32;">-{{ format_price($couponDiscount) }}</td>
+                                <td colspan="5" class="text-end tfoot-label text-danger">Discount</td>
+                                <td class="text-end tfoot-amount text-danger">-{{ format_price($totalDiscount) }}</td>
                             </tr>
                             @elseif($order->coupon_id && $order->coupon)
                             <tr>
@@ -463,6 +467,10 @@
                                 <td class="text-end tfoot-amount" style="color:#2e7d32;">-</td>
                             </tr>
                             @endif
+                            <tr>
+                                <td colspan="5" class="text-end tfoot-label">Shipping</td>
+                                <td class="text-end tfoot-amount">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
+                            </tr>
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
                                 <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($order->final_amount) }}</td>
@@ -525,6 +533,73 @@ $(document).ready(function () {
         }
         $('#cancel-reason-wrap').hide();
 
+        if (status == '3') {
+            Swal.fire({
+                title: 'Enter Shipping Details',
+                html:
+                    '<div class="mb-3 text-start"><label class="form-label small fw-semibold">Shipping Client URL</label><input id="swal-shipped-url" class="form-control" placeholder="https://tracking-url.com"></div>' +
+                    '<div class="mb-3 text-start"><label class="form-label small fw-semibold">Tracking ID</label><input id="swal-tracking-id" class="form-control" placeholder="Tracking ID / No."></div>',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Submit & Ship',
+                customClass: { confirmButton: 'btn btn-primary me-3', cancelButton: 'btn btn-label-secondary' },
+                buttonsStyling: false,
+                preConfirm: () => {
+                    const urlVal = document.getElementById('swal-shipped-url').value.trim();
+                    const trackingVal = document.getElementById('swal-tracking-id').value.trim();
+                    if (!urlVal) {
+                        Swal.showValidationMessage('Please enter Shipping Client URL');
+                        return false;
+                    }
+                    if (!trackingVal) {
+                        Swal.showValidationMessage('Please enter Tracking ID');
+                        return false;
+                    }
+                    return { shipped_client_url: urlVal, tracking_id: trackingVal };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.showAjaxLoader();
+                    $.ajax({
+                        url: url, type: 'PATCH',
+                        data: { 
+                            _token: '{{ csrf_token() }}', 
+                            status: status, 
+                            shipped_client_url: result.value.shipped_client_url, 
+                            tracking_id: result.value.tracking_id 
+                        },
+                        success: function (res) {
+                            window.hideAjaxLoader();
+                            if (res.status === 'success') {
+                                toastr.success(res.message);
+                                if (res.pending_count !== undefined) {
+                                    const badge = $('.pending-sales-counter-badge');
+                                    if (badge.length > 0) {
+                                        badge.text(res.pending_count);
+                                        if (res.pending_count > 0) {
+                                            badge.attr('style', 'display: inline-block !important;');
+                                        } else {
+                                            badge.attr('style', 'display: none !important;');
+                                        }
+                                    }
+                                }
+                                setTimeout(() => location.reload(), 800);
+                            }
+                        },
+                        error: function (xhr) {
+                            window.hideAjaxLoader();
+                            const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                            toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                            $('#change-sale-status').val(current);
+                        }
+                    });
+                } else {
+                    $('#change-sale-status').val(current);
+                }
+            });
+            return;
+        }
+
         Swal.fire({
             title: 'Update Sale Status',
             text: 'Are you sure you want to update the status of this sale?',
@@ -543,6 +618,17 @@ $(document).ready(function () {
                         window.hideAjaxLoader();
                         if (res.status === 'success') {
                             toastr.success(res.message);
+                            if (res.pending_count !== undefined) {
+                                const badge = $('.pending-sales-counter-badge');
+                                if (badge.length > 0) {
+                                    badge.text(res.pending_count);
+                                    if (res.pending_count > 0) {
+                                        badge.attr('style', 'display: inline-block !important;');
+                                    } else {
+                                        badge.attr('style', 'display: none !important;');
+                                    }
+                                }
+                            }
                             setTimeout(() => location.reload(), 800);
                         }
                     },
@@ -583,6 +669,17 @@ $(document).ready(function () {
                         window.hideAjaxLoader();
                         if (res.status === 'success') {
                             toastr.success(res.message);
+                            if (res.pending_count !== undefined) {
+                                const badge = $('.pending-sales-counter-badge');
+                                if (badge.length > 0) {
+                                    badge.text(res.pending_count);
+                                    if (res.pending_count > 0) {
+                                        badge.attr('style', 'display: inline-block !important;');
+                                    } else {
+                                        badge.attr('style', 'display: none !important;');
+                                    }
+                                }
+                            }
                             setTimeout(() => location.reload(), 800);
                         }
                     },

@@ -10,13 +10,13 @@
         <div class="col-md-6">
             <label class="form-label" for="couponName">Coupon Name <span class="text-danger">*</span></label>
             <input type="text" id="couponName" name="name"
-                class="form-control" placeholder="e.g. Festive Sale 2026" value="{{ $coupon->name }}" autofocus />
+                class="form-control" placeholder="Enter Coupon Name" value="{{ $coupon->name }}" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label" for="couponCode">Coupon Code <span class="text-danger">*</span></label>
             <input type="text" id="couponCode" name="code"
-                class="form-control" placeholder="e.g. FESTIVE50" style="text-transform: uppercase;" value="{{ $coupon->code }}" />
+                class="form-control" placeholder="Enter Coupon Code" style="text-transform: uppercase;" value="{{ $coupon->code }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

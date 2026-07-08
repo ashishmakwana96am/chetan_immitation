@@ -17,13 +17,11 @@ class ProductReviewController extends Controller
     {
         $this->authorize('view product reviews');
 
-        $query = ProductReview::with(['product', 'customer'])->orderBy('id', 'desc');
+        $query = ProductReview::with(['product.primaryImage', 'customer', 'images'])->orderBy('id', 'desc');
 
         $reviews = $query->get();
-        $canDelete = auth()->user()->can('delete product reviews');
 
-        $data = $reviews->map(function ($review, $index) use ($canDelete) {
-
+        $data = $reviews->map(function ($review, $index) {
             // Stars HTML (filled ★ + empty ☆)
             $rating = (float) $review->rating;
             $full    = (int) floor($rating);
@@ -34,20 +32,41 @@ class ProductReviewController extends Controller
                      . str_repeat('<i class="fa-regular fa-star text-warning" style="font-size:0.85rem;"></i>', $empty);
             $starsHtml = '<span class="d-flex align-items-center gap-1">' . $stars . ' <small class="text-muted ms-1">(' . number_format($rating, 1) . ')</small></span>';
 
-            // Comment with show more/less toggle
-            $comment = $review->comment ?? '';
-            $truncated = strlen($comment) > 100 ? substr($comment, 0, 100) . '...' : $comment;
-            $commentHtml = $comment
-                ? '<span class="review-toggle" data-full="' . e($comment) . '" data-expanded="false" style="cursor: pointer;">' . e($truncated) . ($comment !== $truncated ? ' <span class="text-primary">Show more</span>' : '') . '</span>'
-                : '<span class="text-muted">-</span>';
+            $commentHtml = '<span class="text-muted">-</span>';
+            if ($review->comment) {
+                $commentText = e($review->comment);
+                if (mb_strlen($commentText) > 80) {
+                    $short = mb_substr($commentText, 0, 80);
+                    $long = mb_substr($commentText, 80);
+                    $commentHtml = '<span>' . $short . '</span>'
+                        . '<span class="more-text d-none">' . $long . '</span>'
+                        . '<a href="javascript:void(0)" class="toggle-review text-primary ms-1 fw-semibold" style="font-size: 0.8rem;">Show More</a>';
+                } else {
+                    $commentHtml = '<span>' . $commentText . '</span>';
+                }
+            }
+
+            $photoHtml = '<span class="text-muted">-</span>';
+            if ($review->images->isNotEmpty()) {
+                $photoHtml = '<div class="d-flex gap-1">' . $review->images->map(function ($img) {
+                    return '<img src="' . $img->image_url . '" class="rounded product-thumbnail" style="width:40px;height:40px;object-fit:cover;" alt="Review photo">';
+                })->implode('') . '</div>';
+            }
+
+            $productImageHtml = $review->product?->primaryImage
+                ? '<img src="' . e($review->product->primaryImage->image_url) . '" alt="' . e($review->product->name ?? '') . '" class="rounded me-2 product-thumbnail" style="width: 36px; height: 36px; object-fit: cover;">'
+                : '<div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;"><i class="ti ti-photo text-muted"></i></div>';
 
             return [
                 'index'      => $index + 1,
-                'product'    => '<span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
-                              . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : ''),
+                'product'    => '<div class="d-flex align-items-center">' . $productImageHtml
+                              . '<div><span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
+                              . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : '')
+                              . '</div></div>',
                 'customer'   => e($review->customer->name ?? '-'),
                 'rating'     => $starsHtml,
                 'comment'    => $commentHtml,
+                'photo'      => $photoHtml,
                 'created_at' => format_date($review->created_at),
             ];
         });

@@ -2,14 +2,24 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, Notifiable;
+    use SoftDeletes;
+    use HasFactory, HasRoles, Notifiable, LogsActivity;
+
+    public function activityModule(): string
+    {
+        return 'User Management';
+    }
 
     const STATUS_ACTIVE = 1;
 
@@ -20,10 +30,20 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'type',
+        'role_id',
         'location_id',
         'status',
     ];
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    public function getTypeAttribute()
+    {
+        return $this->roles->first()?->name;
+    }
 
     protected $hidden = [
         'password',

@@ -40,6 +40,21 @@ class CartController extends Controller
                 ])
                 ->latest()
                 ->get();
+            
+            // Remove cart items with deleted products
+            $deletedItemIds = [];
+            foreach ($cartItems as $item) {
+                if (!$item->product) {
+                    $deletedItemIds[] = $item->id;
+                }
+            }
+            if (!empty($deletedItemIds)) {
+                CartItem::whereIn('id', $deletedItemIds)->delete();
+                $cartItems = $cartItems->reject(function ($item) use ($deletedItemIds) {
+                    return in_array($item->id, $deletedItemIds);
+                });
+            }
+            
             $customer->load('wishlists');
         } else {
             // Guest User
@@ -211,11 +226,9 @@ class CartController extends Controller
 
             $count  = CartItem::where('customer_id', $customer->id)->sum('qty');
             $totals = $this->calculateTotals($customer->id);
-
-            // Price for this item
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $product = $item->product;
+            $variant = $item->productVariant;
+            $price = $variant ? (float) $variant->sale_price : (float) $product->sale_price;
 
             return response()->json([
                 'status'     => 'success',
@@ -238,7 +251,6 @@ class CartController extends Controller
             $totals = $this->calculateGuestTotals($guestCart);
             $count = array_sum(array_column($guestCart, 'qty'));
 
-            // Price for this item
             $itemData = $guestCart[$cartItemId];
             $product = Product::find($itemData['product_id']);
             $variant = isset($itemData['variant_id']) && $itemData['variant_id'] !== '' ? ProductVariant::find($itemData['variant_id']) : null;
@@ -323,9 +335,13 @@ class CartController extends Controller
         $subtotal = 0.0;
 
         foreach ($items as $item) {
-            $price = $item->productVariant
-                ? (float) $item->productVariant->sale_price
-                : (float) $item->product->sale_price;
+            $product = $item->product;
+            $variant = $item->productVariant;
+            if ($variant) {
+                $price = (float) $variant->sale_price;
+            } else {
+                $price = (float) $product->sale_price;
+            }
 
             $subtotal += $price * $item->qty;
         }
@@ -354,9 +370,11 @@ class CartController extends Controller
 
             $product = Product::find($productId);
             if ($product) {
-                $price = $variantId
-                    ? (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price
-                    : (float) $product->sale_price;
+                if ($variantId) {
+                    $price = (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price;
+                } else {
+                    $price = (float) $product->sale_price;
+                }
 
                 if (!$price) {
                     $price = (float) $product->sale_price;

@@ -611,7 +611,7 @@
 
     @if(!request()->routeIs(['login', 'register', 'forgot-password', 'otp-verification', 'customer.reset-password', 'password.reset']))
     <!-- Newsletter -->
-    <section class="relative">
+    <!-- <section class="relative">
         <div class="relative py-[80px] overflow-hidden">
             <img src="{{ asset('website/assets/images/Newsletter.png') }}" alt="" class="absolute inset-0 w-full h-full object-cover">
             <div class="absolute inset-0 bg-[#131615]/70"></div>
@@ -636,7 +636,7 @@
                 </div>
             </div>
         </div>
-    </section>
+    </section> -->
     @endif
 
     <!-- Footer -->
@@ -977,15 +977,26 @@ window.addEventListener('resize', function () {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 btn.dataset.loading = '0';
-                if (data.status === 'added' || data.status === 'updated') {
-                    btn.dataset.inWishlist = '1';
-                    svg.classList.remove('fill-transparent', 'text-[#131615]');
-                    svg.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                var nowInWishlist = (data.status === 'added' || data.status === 'updated');
+                
+                // Sync ALL wishlist buttons on the page with the same product_id
+                document.querySelectorAll('.wishlist-btn[data-product-id="' + productId + '"]').forEach(function(b) {
+                    var icon = b.querySelector('svg, .wishlist-icon');
+                    if (!icon) return;
+                    if (nowInWishlist) {
+                        b.dataset.inWishlist = '1';
+                        icon.classList.remove('fill-transparent', 'text-[#131615]');
+                        icon.classList.add('fill-[#E01B1B]', 'text-[#E01B1B]');
+                    } else {
+                        b.dataset.inWishlist = '0';
+                        icon.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
+                        icon.classList.add('fill-transparent', 'text-[#131615]');
+                    }
+                });
+                
+                if (nowInWishlist) {
                     window.showWishlistToast('Product added to your wishlist! ❤️');
                 } else {
-                    btn.dataset.inWishlist = '0';
-                    svg.classList.remove('fill-[#E01B1B]', 'text-[#E01B1B]');
-                    svg.classList.add('fill-transparent', 'text-[#131615]');
                     window.showWishlistToast('Product removed from your wishlist.');
                 }
                 window.updateWishlistBadge(data.count);

@@ -10,7 +10,7 @@
         <div class="col-12">
             <label class="form-label" for="parentCategory">Category <span class="text-danger">*</span></label>
             <select id="parentCategory" name="category_id" class="form-select">
-                <option value="">-- Select Category --</option>
+                <option value="">Select Category</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}" {{ $subCategory->category_id == $category->id ? 'selected' : '' }}>
                         {{ $category->name }}
@@ -22,7 +22,7 @@
         <div class="col-12">
             <label class="form-label" for="subCategoryName">Name <span class="text-danger">*</span></label>
             <input type="text" id="subCategoryName" name="name"
-                class="form-control" placeholder="e.g. Smart Watches"
+                class="form-control" placeholder="Enter Sub Category Name"
                 value="{{ $subCategory->name }}" autofocus />
             <div class="invalid-feedback"></div>
         </div>

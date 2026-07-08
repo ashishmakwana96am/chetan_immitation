@@ -10,15 +10,22 @@
         <div class="col-12">
             <label class="form-label" for="locationName">Name <span class="text-danger">*</span></label>
             <input type="text" id="locationName" name="name"
-                class="form-control" placeholder="e.g. Main Branch"
+                class="form-control" placeholder="Enter Location Name"
                 value="{{ $location->name }}" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
             <label class="form-label" for="locationAddress">Address</label>
             <input type="text" id="locationAddress" name="address"
-                class="form-control" placeholder="e.g. 123 Main Street, City"
+                class="form-control" placeholder="Enter Location Address"
                 value="{{ $location->address }}" />
+            <div class="invalid-feedback"></div>
+        </div>
+        <div class="col-12">
+            <label class="form-label" for="locationPhone">Phone Number <span class="text-danger">*</span></label>
+            <input type="text" id="locationPhone" name="phone"
+                class="form-control" placeholder="Enter Location Phone Number"
+                value="{{ $location->phone }}" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-md-6">

@@ -10,6 +10,7 @@ use App\Models\PurchaseAllocation;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -29,7 +30,7 @@ class PurchaseInvoiceController extends Controller
 
         $user = auth()->user();
         $invoices = PurchaseInvoice::with(['supplier', 'createdBy'])
-            ->when($user->location_id && $user->type !== 'super-admin', function($q) use ($user) {
+            ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
                 });
@@ -86,13 +87,13 @@ class PurchaseInvoiceController extends Controller
             $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$invoice->payment_status] ?? 'Pending') . '</span>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
-            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+            $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             // if ($canDownloadPurchases) {
             //     $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             // }
-            if ($canEdit && $invoice->status == 1) {
+            if ($canEdit) {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
             if ($canEditPurchasesStatus && $invoice->status == 1) {
@@ -131,7 +132,10 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $locationId   = $isRestricted ? $user->location_id : null;
+
+        if ($isRestricted) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -141,22 +145,16 @@ class PurchaseInvoiceController extends Controller
         }
 
         $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location']);
-        return view('purchases.show', compact('purchase'));
+        return view('purchases.show', compact('purchase', 'locationId', 'isRestricted'));
     }
 
     public function create()
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
-        $user      = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
-            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
-        } else {
-            $locations = Location::where('status', 1)->orderBy('name')->get();
-        }
+        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
-        return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
+        return view('purchases.create', compact('suppliers', 'products', 'invoiceNo'));
     }
 
     public function store(Request $request)
@@ -167,8 +165,9 @@ class PurchaseInvoiceController extends Controller
             'supplier_id'            => ['required', 'exists:suppliers,id'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
-            'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
+            'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
@@ -180,18 +179,13 @@ class PurchaseInvoiceController extends Controller
             ], 422);
         }
 
-        // Validate allocation totals match item quantities
-        foreach ($request->items as $index => $item) {
-            $allocatedQty = collect($item['allocations'] ?? [])->sum(fn($a) => (int) $a['quantity']);
-            if ($allocatedQty !== (int) $item['quantity']) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => ['Item #' . ($index + 1) . ': Allocated (' . $allocatedQty . ') must equal item quantity (' . $item['quantity'] . ')']],
-                ], 422);
-            }
+        try {
+            $defaultLocation = $this->defaultPurchaseLocation();
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($request, $defaultLocation) {
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $invoice = PurchaseInvoice::create([
@@ -207,20 +201,17 @@ class PurchaseInvoiceController extends Controller
                 $item = PurchaseItem::create([
                     'purchase_invoice_id' => $invoice->id,
                     'product_id'          => $itemData['product_id'],
+                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
                     'quantity'            => $itemData['quantity'],
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
                 ]);
 
-                // Only save allocations with qty > 0
-                foreach ($itemData['allocations'] ?? [] as $allocationData) {
-                    if ((int) $allocationData['quantity'] <= 0) continue;
-                    PurchaseAllocation::create([
-                        'purchase_item_id' => $item->id,
-                        'location_id'      => $allocationData['location_id'],
-                        'quantity'         => $allocationData['quantity'],
-                    ]);
-                }
+                PurchaseAllocation::create([
+                    'purchase_item_id' => $item->id,
+                    'location_id'      => $defaultLocation->id,
+                    'quantity'         => $itemData['quantity'],
+                ]);
             }
 
             if ($invoice->status == 2) {
@@ -230,7 +221,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice created successfully.',
+            'message' => 'Purchase created successfully.',
         ]);
     }
 
@@ -239,7 +230,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('edit purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -248,53 +239,32 @@ class PurchaseInvoiceController extends Controller
             }
         }
 
-        if ($purchase->status !== 1) {
-            return redirect()->route('admin.purchases.show', $purchase)
-                ->with('error', 'Only pending purchases can be edited.');
-        }
-
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with('variants.attributeValue.attribute', 'primaryImage')->where('status', 1)->orderBy('name')->get();
-        if ($user->location_id && $user->type !== 'super-admin') {
-            $locations = Location::where('id', $user->location_id)->where('status', 1)->get();
-        } else {
-            $locations = Location::where('status', 1)->orderBy('name')->get();
-        }
-        $purchase->load(['items.product', 'items.allocations']);
+        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $purchase->load('items.product');
 
         $existingItems = $purchase->items->map(function ($item) {
             return [
-                'product_id'     => $item->product_id,
-                'purchase_price' => $item->purchase_price,
-                'quantity'       => $item->quantity,
-                'allocations'    => $item->allocations->map(function ($a) {
-                    return [
-                        'location_id' => $a->location_id,
-                        'quantity'    => $a->quantity,
-                    ];
-                })->values(),
+                'product_id'         => $item->product_id,
+                'product_variant_id' => $item->product_variant_id,
+                'purchase_price'     => $item->purchase_price,
+                'quantity'           => $item->quantity,
             ];
         })->values();
 
-        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'locations', 'existingItems'));
+        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'existingItems'));
     }
 
     public function update(Request $request, PurchaseInvoice $purchase)
     {
         $this->authorize('edit purchases');
 
-        if ($purchase->status != 1) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Only pending invoices can be edited.',
-            ], 422);
-        }
-
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.product_id'     => ['required', 'exists:products,id'],
-            'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
@@ -307,22 +277,22 @@ class PurchaseInvoiceController extends Controller
             ], 422);
         }
 
-        foreach ($request->items as $index => $item) {
-            $allocatedQty = collect($item['allocations'] ?? [])->sum(fn($a) => (int) $a['quantity']);
-            if ($allocatedQty !== (int) $item['quantity']) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => ['Item #' . ($index + 1) . ': Allocated (' . $allocatedQty . ') must equal item quantity (' . $item['quantity'] . ')']],
-                ], 422);
-            }
+        try {
+            $defaultLocation = $this->defaultPurchaseLocation();
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request, $purchase) {
+        DB::transaction(function () use ($request, $purchase, $defaultLocation) {
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
-  
+            
+            if ($oldStatus == PurchaseInvoice::STATUS_APPROVE) {
+                $this->reverseInvoiceStock($purchase);
+            }
+
             $purchase->update([
                 'supplier_id'    => $request->supplier_id,
                 'total_amount'   => $totalAmount,
@@ -336,29 +306,27 @@ class PurchaseInvoiceController extends Controller
                 $item = PurchaseItem::create([
                     'purchase_invoice_id' => $purchase->id,
                     'product_id'          => $itemData['product_id'],
+                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
                     'quantity'            => $itemData['quantity'],
                     'total'               => $itemData['purchase_price'] * $itemData['quantity'],
                 ]);
 
-                foreach ($itemData['allocations'] ?? [] as $allocationData) {
-                    if ((int) $allocationData['quantity'] <= 0) continue;
-                    PurchaseAllocation::create([
-                        'purchase_item_id' => $item->id,
-                        'location_id'      => $allocationData['location_id'],
-                        'quantity'         => $allocationData['quantity'],
-                    ]);
-                }
+                PurchaseAllocation::create([
+                    'purchase_item_id' => $item->id,
+                    'location_id'      => $defaultLocation->id,
+                    'quantity'         => $itemData['quantity'],
+                ]);
             }
 
-            if ($newStatus == 2 && $oldStatus != 2) {
+            if ($newStatus == PurchaseInvoice::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
             }
         });
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice updated successfully.',
+            'message' => 'Purchase updated successfully.',
         ]);
     }
 
@@ -382,14 +350,14 @@ class PurchaseInvoiceController extends Controller
         if ($purchase->status == $newStatus) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Invoice is already updated.',
+                'message' => 'Purchase is already updated.',
             ], 422);
         }
  
         if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Only pending invoices can be updated.',
+                'message' => 'Only pending purchase can be updated.',
             ], 422);
         }
  
@@ -403,7 +371,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Invoice status updated to ' . $newStatus . '.',
+            'message' => 'Purchase status updated to ' . $newStatus . '.',
         ]);
     }
 
@@ -414,7 +382,7 @@ class PurchaseInvoiceController extends Controller
         if ($purchase->status != 1) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Only pending invoices can be deleted.',
+                'message' => 'Only pending purchase can be deleted.',
             ], 422);
         }
 
@@ -422,7 +390,7 @@ class PurchaseInvoiceController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase invoice deleted successfully.',
+            'message' => 'Purchase deleted successfully.',
         ]);
     }
 
@@ -431,7 +399,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        if ($user->location_id && $user->type !== 'super-admin') {
+        if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
                 $q->where('location_id', $user->location_id);
             })->exists();
@@ -444,6 +412,8 @@ class PurchaseInvoiceController extends Controller
 
         $pdf = Pdf::loadView('purchases.pdf', compact('purchase'))
             ->setPaper('a4', 'portrait');
+
+        ActivityLogger::log('Purchase', 'export', $purchase, null, null, 'Invoice PDF exported for purchase #' . $purchase->invoice_no);
 
         return $pdf->download('purchase-' . $purchase->invoice_no . '.pdf');
     }
@@ -462,21 +432,59 @@ class PurchaseInvoiceController extends Controller
 
     private function approveInvoice(PurchaseInvoice $purchase)
     {
-        $purchase->load('items.allocations');
+        $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
             foreach ($item->allocations as $allocation) {
-                Inventory::updateOrCreate(
+                $qtyToAdd = $allocation->quantity;
+
+                $inventory = Inventory::firstOrCreate(
                     [
                         'product_id'  => $item->product_id,
                         'location_id' => $allocation->location_id,
                     ],
-                    ['created_by' => auth()->id()]
+                    [
+                        'quantity'   => 0,
+                        'created_by' => auth()->id(),
+                    ]
                 );
-                Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $allocation->location_id)
-                    ->increment('quantity', $allocation->quantity);
+
+                $oldQty = $inventory->quantity;
+                $inventory->increment('quantity', $qtyToAdd);
+
+                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $oldQty + $qtyToAdd], 'Stock added for purchase #' . $purchase->invoice_no);
             }
         }
+    }
+
+    private function reverseInvoiceStock(PurchaseInvoice $purchase): void
+    {
+        $purchase->load('items.allocations');
+        foreach ($purchase->items as $item) {
+            foreach ($item->allocations as $allocation) {
+                $inventory = Inventory::where('product_id', $item->product_id)
+                    ->where('location_id', $allocation->location_id)
+                    ->first();
+
+                if ($inventory) {
+                    $oldQty = $inventory->quantity;
+                    $newQty = max(0, $inventory->quantity - $allocation->quantity);
+                    $inventory->update(['quantity' => $newQty]);
+
+                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' edit');
+                }
+            }
+        }
+    }
+
+    private function defaultPurchaseLocation(): Location
+    {
+        $location = Location::where('is_default', true)->first() ?? Location::first();
+
+        if (!$location) {
+            throw new \RuntimeException('Please create a default location before creating purchases.');
+        }
+
+        return $location;
     }
 
     public function updatePaymentStatus(Request $request, PurchaseInvoice $purchase)

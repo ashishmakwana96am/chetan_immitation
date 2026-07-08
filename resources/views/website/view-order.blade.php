@@ -24,13 +24,7 @@
             <!-- LEFT -->
             <div class="space-y-5">
 
-                <!-- Product Card(s) -->
-                @foreach($order->items as $item)
                 @php
-                    $productImg = ($item->product && $item->product->primaryImage)
-                        ? $item->product->primaryImage->image_url
-                        : asset('website/assets/images/detailpage.png');
-
                     $status = $order->status;
                     $step1_done = true;
                     $step2_done = in_array($status, [2, 3, 4, 5]);
@@ -38,6 +32,182 @@
                     $step4_done = in_array($status, [4, 5]);
                     $step5_done = ($status == 5);
                     $is_cancelled = ($status == 6);
+                @endphp
+
+                <!-- Order Status / Tracking (Shown Once) -->
+                <div class="border border-[#D5D5D5] p-5 md:p-6 bg-white">
+                    <h3 class="text-[#131615] text-lg md:text-[22px] font-semibold mb-6">
+                        Order Status
+                    </h3>
+
+                    @if($is_cancelled)
+                    <div class="grid grid-cols-2 relative max-w-[400px]">
+                        <!-- Item 1 (Order Placed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] bg-red-500"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
+                                Order Placed
+                                <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Item 2 (Cancelled) -->
+                        <div class="relative text-center">
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-red-500 mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-red-600 font-semibold text-xs sm:text-sm md:text-base mt-3">
+                                Cancelled
+                                @if($order->updated_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+                    @if($order->cancellation_reason)
+                    <div class="mt-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                        <div>
+                            <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
+                        </div>
+                    </div>
+                    @endif
+
+                    @else
+                    <div class="grid grid-cols-5 relative">
+                        <!-- Item 1 (Order Placed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            </div>
+                            <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
+                                Order Placed
+                                <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Item 2 (Order Confirmed) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step2_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step2_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Order Confirmed
+                                @if($step2_done && $order->confirmed_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->confirmed_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 3 (Shipped) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step3_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step3_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Shipped
+                                @if($step3_done && $order->shipped_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->shipped_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 4 (Out for delivery) -->
+                        <div class="relative text-center">
+                            <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
+                                @if($step4_done)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step4_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
+                                Out for delivery
+                                @if($step4_done && $order->out_for_delivery_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->out_for_delivery_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+
+                        <!-- Item 5 (Delivered or Cancelled) -->
+                        <div class="relative text-center">
+                            <div class="relative z-10 w-5 h-5 rounded-full {{ $is_cancelled ? 'bg-red-500' : ($step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]') }} mx-auto flex items-center justify-center">
+                                @if($step5_done || $is_cancelled)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                                @endif
+                            </div>
+                            <p class="{{ $step5_done ? 'text-[#131615] font-semibold' : ($is_cancelled ? 'text-red-600 font-semibold' : 'text-[#757575]') }} text-xs sm:text-sm md:text-base mt-3">
+                                {{ $is_cancelled ? 'Cancelled' : 'Delivered' }}
+                                @if($step5_done && $order->delivered_at)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->delivered_at->format('M d, Y') }}</span>
+                                @elseif($is_cancelled)
+                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                    @if($order->shipped_client_url || $order->tracking_id)
+                    <div class="mt-6 border-t border-[#EAEAEA] pt-5">
+                        <h4 class="text-[#131615] text-sm font-semibold mb-3">Shipping & Tracking Information</h4>
+                        <div class="grid sm:grid-cols-2 gap-4 bg-gray-50 border border-gray-100 rounded p-4">
+                            @if($order->shipped_client_url)
+                            <div>
+                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Shipping URL / Courier Partner</p>
+                                <p class="text-sm mt-1">
+                                    <a href="{{ $order->shipped_client_url }}" target="_blank" class="text-green-600 hover:text-green-700 font-medium underline break-all inline-flex items-center gap-1">
+                                        Track Order
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                        </svg>
+                                    </a>
+                                </p>
+                            </div>
+                            @endif
+                            @if($order->tracking_id)
+                            <div>
+                                <p class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Tracking ID</p>
+                                <p class="text-[#131615] font-semibold text-sm mt-1 select-all">{{ $order->tracking_id }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                    @endif
+                </div>
+
+                <!-- Product Card(s) -->
+                @foreach($order->items as $item)
+                @php
+                    $productImg = ($item->product && $item->product->primaryImage)
+                        ? $item->product->primaryImage->image_url
+                        : asset('website/assets/images/detailpage.png');
                 @endphp
                 <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white group">
                     <div class="">
@@ -57,11 +227,19 @@
 
                                 <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                        ₹{{ number_format($item->price, 0) }}
+                                        {{ website_price($item->price) }}
                                     </span>
-                                    @if($item->product && $item->product->mrp > $item->price)
+                                    @php
+                                        $product = $item->product;
+                                        if ($product) {
+                                            $mrp = (float) $product->mrp;
+                                        } else {
+                                            $mrp = $item->price; // Fallback if no product
+                                        }
+                                    @endphp
+                                    @if($mrp > $item->price)
                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                        ₹{{ number_format($item->product->mrp, 0) }}
+                                        {{ website_price($mrp) }}
                                     </span>
                                     @endif
                                 </div>
@@ -79,7 +257,10 @@
 
                                     <p class="text-base flex flex-wrap">
                                         <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
-                                        <span class="text-[#757575] ml-2">{{ $item->quantity }}</span>
+                                        <span class="text-[#757575] ml-2">
+                                            {{ $item->quantity }}
+                                            <span class="font-medium ml-1">Pcs</span>
+                                        </span>
                                     </p>
 
                                     <p class="text-base flex flex-wrap">
@@ -101,143 +282,7 @@
                         </div>
                     </div>
 
-                    <!-- Tracking -->
-                    <div class="border-t mt-6 pt-6">
-                        @if($is_cancelled)
-                        <div class="grid grid-cols-2 relative max-w-[400px]">
-                            <!-- Item 1 (Order Placed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] bg-red-500"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
-                                    Order Placed
-                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
-                                </p>
-                            </div>
 
-                            <!-- Item 2 (Cancelled) -->
-                            <div class="relative text-center">
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-red-500 mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-red-600 font-semibold text-xs sm:text-sm md:text-base mt-3">
-                                    Cancelled
-                                    @if($order->updated_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-                        </div>
-
-                        @if($order->cancellation_reason)
-                        <div class="mt-4 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                            </svg>
-                            <div>
-                                <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
-                                <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
-                            </div>
-                        </div>
-                        @endif
-
-                        @else
-                        <div class="grid grid-cols-5 relative">
-                            <!-- Item 1 (Order Placed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full bg-[#1FAF38] mx-auto flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </div>
-                                <p class="text-[#131615] text-xs sm:text-sm md:text-base mt-3 font-semibold">
-                                    Order Placed
-                                    <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->created_at->format('M d, Y') }}</span>
-                                </p>
-                            </div>
-
-                            <!-- Item 2 (Order Confirmed) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step2_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step2_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step2_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Order Confirmed
-                                    @if($step2_done && $order->confirmed_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->confirmed_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 3 (Shipped) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step3_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step3_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step3_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Shipped
-                                    @if($step3_done && $order->shipped_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->shipped_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 4 (Out for delivery) -->
-                            <div class="relative text-center">
-                                <div class="absolute top-[10px] left-1/2 w-full h-[2px] {{ $step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }}"></div>
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $step4_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]' }} mx-auto flex items-center justify-center">
-                                    @if($step4_done)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step4_done ? 'text-[#131615] font-semibold' : 'text-[#757575]' }} text-xs sm:text-sm md:text-base mt-3">
-                                    Out for delivery
-                                    @if($step4_done && $order->out_for_delivery_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->out_for_delivery_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-
-                            <!-- Item 5 (Delivered or Cancelled) -->
-                            <div class="relative text-center">
-                                <div class="relative z-10 w-5 h-5 rounded-full {{ $is_cancelled ? 'bg-red-500' : ($step5_done ? 'bg-[#1FAF38]' : 'bg-[#D5D5D5]') }} mx-auto flex items-center justify-center">
-                                    @if($step5_done || $is_cancelled)
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="white" class="w-3 h-3">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                    @endif
-                                </div>
-                                <p class="{{ $step5_done ? 'text-[#131615] font-semibold' : ($is_cancelled ? 'text-red-600 font-semibold' : 'text-[#757575]') }} text-xs sm:text-sm md:text-base mt-3">
-                                    {{ $is_cancelled ? 'Cancelled' : 'Delivered' }}
-                                    @if($step5_done && $order->delivered_at)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->delivered_at->format('M d, Y') }}</span>
-                                    @elseif($is_cancelled)
-                                        <span class="text-muted d-block small font-normal" style="margin-top: 4px;">{{ $order->updated_at->format('M d, Y') }}</span>
-                                    @endif
-                                </p>
-                            </div>
-                        </div>
-                        @endif
-                    </div>
 
                     @if($order->status == \App\Models\Order::STATUS_DELIVERED && $item->product)
                     @php
@@ -256,6 +301,13 @@
                                 <h4 class="text-[#131615] text-lg font-medium">{{ $existingReview->created_at->format('l, F j, Y') }}</h4>
                                 @if($existingReview->comment)
                                 <p class="mt-3 text-[#3D403F] text-base">{{ $existingReview->comment }}</p>
+                                @endif
+                                @if($existingReview->images->isNotEmpty())
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    @foreach($existingReview->images as $reviewImage)
+                                        <img src="{{ $reviewImage->image_url }}" alt="Review photo" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]">
+                                    @endforeach
+                                </div>
                                 @endif
                                 <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
                                     <img src="{{ $reviewAuthorAvatar }}" alt="{{ $reviewAuthorName }}" class="w-[50px] h-[50px] rounded-full object-cover">
@@ -286,6 +338,19 @@
                             </div>
                             <input type="hidden" class="review-rating-input" value="0">
                             <textarea placeholder="Write Your Review" class="review-comment-input w-full h-[120px] border border-[#D5D5D5] px-5 py-4 outline-none resize-none text-[#131615] placeholder:text-[#757575] placeholder:text-sm leading-6 mt-5"></textarea>
+
+                            <div class="mt-4">
+                                <label class="review-image-picker-btn inline-flex items-center gap-2 border border-[#D5D5D5] px-4 py-2 text-sm text-[#3D403F] cursor-pointer hover:border-[#B4771E] transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 4.5h18v15H3v-15z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 6.75a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                    </svg>
+                                    <span class="review-image-picker-label">Choose Pictures</span>
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" class="review-image-input hidden" multiple>
+                                </label>
+                                <div class="review-image-preview-grid mt-3 flex flex-wrap gap-2"></div>
+                            </div>
+
                             <p class="review-error text-sm text-red-600 mt-2 hidden"></p>
                             <button type="button" class="review-submit-btn common-btn lg:h-[50px] mt-5" onclick="submitProductReview(this)">
                                 Submit
@@ -304,10 +369,13 @@
                     return (float)$item->total;
                 });
                 $finalAmount = (float)$order->final_amount;
-                $hasFreeShipping = ($subtotal > 1999 || $subtotal == 0);
-                $shippingCost = $hasFreeShipping ? 0 : 99;
-                $discount = $subtotal - $finalAmount;
+                $shippingCost = (float)$order->shipping_charge;
+                $discount = $subtotal - ($finalAmount - $shippingCost);
                 if ($discount < 0) $discount = 0;
+                $canCancelOrder = in_array((int) $order->status, [
+                    \App\Models\Order::STATUS_PENDING,
+                    \App\Models\Order::STATUS_APPROVE,
+                ], true);
             @endphp
             <div class="space-y-5">
                 <!-- Delivery Details -->
@@ -344,33 +412,27 @@
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 space-y-4">
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span>Subtotal</span>
-                            <span class="text-[#3D403F]">₹{{ number_format($subtotal, 0) }}</span>
+                            <span class="text-[#3D403F]">{{ website_price($subtotal) }}</span>
                         </div>
                         @if($discount > 0)
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span class="text-[#131615]">
                                 Discount
                             </span>
-                            <span class="text-[#3D403F]">-₹{{ number_format($discount, 0) }}</span>
+                            <span class="text-[#3D403F]">-{{ website_price($discount) }}</span>
                         </div>
                         @endif
-                        {{--
                         <div class="flex justify-between text-base md:text-lg font-medium">
                             <span class="text-[#131615]">Shipping</span>
-                            <span class="text-[#3D403F]">{{ $hasFreeShipping ? 'Free' : '₹99' }}</span>
+                            <span class="text-[#3D403F]">{{ $shippingCost > 0 ? website_price($shippingCost) : 'Free' }}</span>
                         </div>
-                        <div class="flex justify-between text-base md:text-lg font-medium">
-                            <span class="text-[#131615]">Estimated Tax</span>
-                            <span class="text-[#3D403F]">₹0</span>
-                        </div>
-                        --}}
                     </div>
                     <div class="border-t mt-4 pt-4 flex justify-between">
                         <span class="font-semibold text-lg md:text-xl">
                             Total
                         </span>
                         <span class="font-bold text-[#B4771E] text-lg md:text-xl">
-                            ₹{{ number_format($finalAmount, 0) }}
+                            {{ website_price($finalAmount) }}
                         </span>
                     </div>
                     <div class="mt-4 flex justify-between flex-wrap">
@@ -401,6 +463,11 @@
                             </svg>
                             Download Invoice
                         </a>
+                        @if($canCancelOrder)
+                        <button type="button" id="openCancelOrderModal" class="flex items-center justify-center w-full h-[52px] border mt-4 border-red-500 text-red-600 text-lg font-medium transition bg-transparent hover:text-white hover:bg-red-600 hover:border-red-600 rounded-md">
+                            Cancel Order
+                        </button>
+                        @endif
                         <a href="{{ route('customer.profile') }}" class="flex items-center justify-center w-full h-[52px] border mt-4 border-[#131615] text-[#131615] text-lg font-medium transition common-btn bg-transparent hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E] text-print-hide">
                             Back To Orders
                         </a>
@@ -410,6 +477,39 @@
         </div>
     </div>
 </section>
+
+@if($canCancelOrder)
+<div id="cancelOrderModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 px-4">
+    <div class="w-full max-w-[520px] bg-white shadow-2xl rounded-md">
+        <div class="flex items-start justify-between gap-4 border-b border-[#E5E5E5] p-5">
+            <div>
+                <h3 class="text-[#131615] text-xl font-semibold">Cancel Order</h3>
+                <p class="text-[#757575] text-sm mt-1">Please share a short remark so our team can process the cancellation.</p>
+            </div>
+            <button type="button" class="cancel-order-close text-[#757575] hover:text-[#131615] text-2xl leading-none" aria-label="Close cancel order dialog">&times;</button>
+        </div>
+        <form id="cancelOrderForm" action="{{ route('customer.profile.cancel-order', $order->id) }}" method="POST" class="p-5">
+            @csrf
+            <label for="cancelOrderRemark" class="block text-sm font-semibold text-[#131615] mb-2">
+                Cancellation Remark <span class="text-red-600">*</span>
+            </label>
+            <textarea id="cancelOrderRemark" name="cancellation_reason" rows="4" maxlength="500" class="w-full border border-[#D5D5D5] px-4 py-3 outline-none text-[#131615] placeholder:text-[#757575] resize-none focus:border-[#B4771E] rounded-md" placeholder="Tell us why you want to cancel this order"></textarea>
+            <div class="mt-2 flex items-center justify-between gap-3">
+                <p id="cancelOrderError" class="hidden text-sm text-red-600"></p>
+                <p class="ml-auto text-xs text-[#757575]"><span id="cancelRemarkCount">0</span>/500</p>
+            </div>
+            <div class="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium hover:border-[#131615] rounded-md">
+                    Keep Order
+                </button>
+                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-md">
+                    Confirm Cancellation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
 
 <!-- Follow Our Jewellery Journey Section -->
 <section class="section-space-bottom">
@@ -453,6 +553,102 @@
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('cancelOrderModal');
+    const openBtn = document.getElementById('openCancelOrderModal');
+    const form = document.getElementById('cancelOrderForm');
+    const remark = document.getElementById('cancelOrderRemark');
+    const errorEl = document.getElementById('cancelOrderError');
+    const countEl = document.getElementById('cancelRemarkCount');
+    const submitBtn = document.getElementById('confirmCancelOrderBtn');
+
+    if (!modal || !openBtn || !form || !remark || !errorEl || !countEl || !submitBtn) return;
+
+    function showCancelError(message) {
+        errorEl.textContent = message || '';
+        errorEl.classList.toggle('hidden', !message);
+    }
+
+    function openCancelModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        remark.focus();
+    }
+
+    function closeCancelModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        form.reset();
+        countEl.textContent = '0';
+        showCancelError('');
+    }
+
+    openBtn.addEventListener('click', openCancelModal);
+
+    modal.querySelectorAll('.cancel-order-close').forEach(btn => {
+        btn.addEventListener('click', closeCancelModal);
+    });
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeCancelModal();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeCancelModal();
+    });
+
+    remark.addEventListener('input', function () {
+        countEl.textContent = remark.value.length;
+        if (remark.value.trim().length >= 5) showCancelError('');
+    });
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const reason = remark.value.trim();
+        if (reason.length < 5) {
+            showCancelError('Please enter a cancellation remark of at least 5 characters.');
+            remark.focus();
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Cancelling...';
+        showCancelError('');
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ cancellation_reason: reason })
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Unable to cancel this order.');
+            }
+            return data;
+        })
+        .then(data => {
+            if (window.showWishlistToast) {
+                window.showWishlistToast(data.message || 'Order cancelled successfully.', true);
+            }
+            setTimeout(() => window.location.reload(), 900);
+        })
+        .catch(error => {
+            showCancelError(error.message || 'Something went wrong. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirm Cancellation';
+        });
+    });
+});
 
 function paintReviewStars(container, rating) {
     const value = parseFloat(rating) || 0;
@@ -507,12 +703,17 @@ function renderSubmittedReviewHtml(review) {
         ? `<p class="mt-3 text-[#3D403F] text-base">${review.comment.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
         : '';
 
+    const imageHtml = (review.images && review.images.length)
+        ? `<div class="mt-3 flex flex-wrap gap-2">${review.images.map(url => `<img src="${url}" alt="Review photo" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]">`).join('')}</div>`
+        : '';
+
     return `
         <div class="review-submitted">
             <h3 class="text-xl text-[#131615] font-semibold">Your Review</h3>
             <div class="mt-4 border border-[#D5D5D5] p-4">
                 <h4 class="text-[#131615] text-lg font-medium">${review.created_at}</h4>
                 ${commentHtml}
+                ${imageHtml}
                 <div class="border-t border-[#e3e3e3] mt-4 pt-4 flex items-center gap-4">
                     <img src="${review.author_avatar}" alt="${review.author_name}" class="w-[50px] h-[50px] rounded-full object-cover">
                     <div>
@@ -525,12 +726,76 @@ function renderSubmittedReviewHtml(review) {
     `;
 }
 
+const REVIEW_MAX_IMAGES = 5;
+
+function setReviewImageFiles(wrap, files) {
+    wrap.reviewFiles = files;
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    wrap.querySelector('.review-image-input').files = dt.files;
+    renderReviewImagePreviews(wrap, files);
+}
+
+function renderReviewImagePreviews(wrap, files) {
+    const grid = wrap.querySelector('.review-image-preview-grid');
+    grid.innerHTML = '';
+    files.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            const item = document.createElement('div');
+            item.className = 'relative inline-block';
+            item.innerHTML = `
+                <img src="${ev.target.result}" class="w-[90px] h-[90px] object-cover rounded-sm border border-[#D5D5D5]" alt="Preview">
+                <button type="button" class="review-image-remove-btn absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-[#D5D5D5] text-[#3D403F] flex items-center justify-center text-sm leading-none" data-index="${idx}">&times;</button>
+            `;
+            grid.appendChild(item);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+document.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('review-image-input')) return;
+
+    const wrap = e.target.closest('.review-form-wrap');
+    const errorEl = wrap.querySelector('.review-error');
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+
+    let files = (wrap.reviewFiles || []).concat(Array.from(e.target.files));
+
+    if (files.length > REVIEW_MAX_IMAGES) {
+        errorEl.textContent = 'You can upload a maximum of ' + REVIEW_MAX_IMAGES + ' pictures.';
+        errorEl.classList.remove('hidden');
+        files = files.slice(0, REVIEW_MAX_IMAGES);
+    }
+
+    const oversized = files.some(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+        errorEl.textContent = 'Each image must be less than 5 MB.';
+        errorEl.classList.remove('hidden');
+        files = files.filter(f => f.size <= 5 * 1024 * 1024);
+    }
+
+    setReviewImageFiles(wrap, files);
+});
+
+document.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('review-image-remove-btn')) return;
+
+    const wrap = e.target.closest('.review-form-wrap');
+    const idx = parseInt(e.target.dataset.index, 10);
+    const files = (wrap.reviewFiles || []).filter((_, i) => i !== idx);
+    setReviewImageFiles(wrap, files);
+});
+
 function submitProductReview(btn) {
     const wrap = btn.closest('.review-form-wrap');
     const productId = wrap.dataset.productId;
     const orderId = wrap.dataset.orderId;
     const rating = parseFloat(wrap.querySelector('.review-rating-input').value);
     const comment = wrap.querySelector('.review-comment-input').value.trim();
+    const imageInput = wrap.querySelector('.review-image-input');
     const errorEl = wrap.querySelector('.review-error');
 
     errorEl.classList.add('hidden');
@@ -545,20 +810,23 @@ function submitProductReview(btn) {
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
+    const formData = new FormData();
+    formData.append('order_id', orderId);
+    formData.append('product_id', productId);
+    formData.append('rating', rating);
+    formData.append('comment', comment);
+    Array.from(imageInput.files).forEach(file => {
+        formData.append('images[]', file);
+    });
+
     fetch('{{ route('customer.reviews.store') }}', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRF-TOKEN': getCsrfToken(),
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         },
-        body: JSON.stringify({
-            order_id: orderId,
-            product_id: productId,
-            rating: rating,
-            comment: comment
-        })
+        body: formData
     })
     .then(r => r.json())
     .then(data => {

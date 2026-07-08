@@ -11,6 +11,9 @@ class InventoryController extends Controller
         $productId = request('product_id');
         $locationId = request('location_id');
         $variantId = request('variant_id');
+        if ($variantId === 'undefined' || $variantId === 'null' || !$variantId) {
+            $variantId = null;
+        }
 
         $product = \App\Models\Product::find($productId);
         if (!$product) {
@@ -53,6 +56,10 @@ class InventoryController extends Controller
 
             $breakdown = [];
             foreach ($variantStock as $locId => $locData) {
+                // If filtering by location, only show that location's breakdown
+                if ($locationId && (int)$locId !== (int)$locationId) {
+                    continue;
+                }
                 if ($variantId === 'parent') {
                     $qty = $locData['parent'];
                 } elseif ($variantId) {
@@ -81,16 +88,21 @@ class InventoryController extends Controller
                 $locationQuantity = $totalQuantity;
             }
 
-            $breakdown = Inventory::where('product_id', $productId)
+            $inventoryQuery = Inventory::where('product_id', $productId)
                 ->where('quantity', '>', 0)
-                ->with('location')
-                ->get()
-                ->map(function ($inv) {
-                    return [
-                        'location_name' => $inv->location->name ?? 'Unknown',
-                        'quantity'      => $inv->quantity,
-                    ];
-                });
+                ->with('location');
+
+            // If filtering by location, only show that location's breakdown
+            if ($locationId) {
+                $inventoryQuery->where('location_id', $locationId);
+            }
+
+            $breakdown = $inventoryQuery->get()->map(function ($inv) {
+                return [
+                    'location_name' => $inv->location->name ?? 'Unknown',
+                    'quantity'      => $inv->quantity,
+                ];
+            });
         }
 
         return response()->json([

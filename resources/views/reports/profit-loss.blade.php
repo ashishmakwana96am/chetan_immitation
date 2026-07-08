@@ -61,7 +61,8 @@
     <div id="report-results">
         <div id="chart-data" 
              data-monthly-revenue='@json($monthlyRevenue)' 
-             data-monthly-cogs='@json($monthlyCogs)'>
+             data-monthly-cogs='@json($monthlyCogs)'
+             data-monthly-expenses='@json($monthlyExpenses)'>
         </div>
 
         <!-- Stats Cards -->
@@ -88,6 +89,19 @@
                             <h4 class="mb-0 mt-1 text-danger">{{ format_price($totalCogs) }}</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-arrow-down-left ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Expenses</span>
+                            <h4 class="mb-0 mt-1 text-warning">{{ format_price($totalExpenses) }}</h4>
+                        </div>
+                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-receipt ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -154,6 +168,17 @@
                     <div class="ledger-line total-line">
                         <span>Total Cost of Sales</span>
                         <span>{{ format_price($totalCogs) }}</span>
+                    </div>
+
+                    <!-- Operating Expenses -->
+                    <div class="ledger-header">Operating Expenses</div>
+                    <div class="ledger-line">
+                        <span>Total Expenses</span>
+                        <span class="text-danger">-{{ format_price($totalExpenses) }}</span>
+                    </div>
+                    <div class="ledger-line total-line">
+                        <span>Total Operating Expenses</span>
+                        <span class="text-danger">{{ format_price($totalExpenses) }}</span>
                     </div>
 
                     <!-- Net Income -->
@@ -238,9 +263,18 @@
                         <tr>
                             <td>{{ $counter++ }}</td>
                             <td>
-                                <a href="{{ route('admin.products.show', $prodId) }}" class="fw-semibold">
-                                    {{ $data['name'] }}
-                                </a>
+                                <div class="d-flex align-items-center">
+                                    @if($data['image_url'])
+                                        <img src="{{ $data['image_url'] }}" alt="{{ $data['name'] }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                    @else
+                                        <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                        </div>
+                                    @endif
+                                    <a href="{{ route('admin.products.show', $prodId) }}" class="fw-semibold">
+                                        {{ $data['name'] }}
+                                    </a>
+                                </div>
                             </td>
                             <td><code>{{ $data['sku'] }}</code></td>
                             <td class="text-end fw-semibold">{{ $data['qty_sold'] }}</td>
@@ -270,24 +304,33 @@
     let revenueCogsChart = null;
 
     function initReport() {
-        // Initialize DataTables (destroy first if already exists)
         if ($.fn.DataTable.isDataTable('#profitabilityTable')) {
             $('#profitabilityTable').DataTable().destroy();
         }
 
         $('#profitabilityTable').DataTable({
             responsive : false,
-            order      : [[6, 'desc']], // Order by Net Profit by default
+            order      : [],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
-        // Fetch Chart Data from DOM attributes to bypass jQuery cache
         const chartDataEl = $('#chart-data');
         const monthlyRevenue = JSON.parse(chartDataEl.attr('data-monthly-revenue') || '{}');
         const monthlyCogs = JSON.parse(chartDataEl.attr('data-monthly-cogs') || '{}');
+        const monthlyExpenses = JSON.parse(chartDataEl.attr('data-monthly-expenses') || '{}');
 
         const months = Object.keys(monthlyRevenue);
         const revenueValues = Object.values(monthlyRevenue);
         const cogsValues = Object.values(monthlyCogs);
+        const expensesValues = Object.values(monthlyExpenses);
 
         if (revenueCogsChart) {
             revenueCogsChart.destroy();
@@ -298,10 +341,11 @@
                 chart: { type: 'bar', height: 320, toolbar: { show: false } },
                 series: [
                     { name: 'Revenue', data: revenueValues },
-                    { name: 'COGS (Cost)', data: cogsValues }
+                    { name: 'COGS (Cost)', data: cogsValues },
+                    { name: 'Expenses', data: expensesValues }
                 ],
                 xaxis: { categories: months },
-                colors: ['#28c76f', '#ea5455'],
+                colors: ['#28c76f', '#ea5455', '#ff9f43'],
                 plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
@@ -319,27 +363,56 @@
     }
 
     function initDatePickers() {
-        $('.flatpickr').each(function() {
-            if (this._flatpickr) {
-                this._flatpickr.destroy();
-            }
-        });
-
         if (typeof $.fn.flatpickr !== 'undefined') {
-            $('.flatpickr').flatpickr({
-                altInput: true,
-                altFormat: 'd-m-Y',
-                dateFormat: 'Y-m-d',
-                allowInput: false,
-                onChange: function (selectedDates, dateStr, instance) {
-                    $(instance.element).closest('form').trigger('change');
+            const startEl = $('input[name="start_date"]')[0];
+            const endEl = $('input[name="end_date"]')[0];
+            if (startEl && endEl) {
+                if (startEl._flatpickr) startEl._flatpickr.destroy();
+                if (endEl._flatpickr) endEl._flatpickr.destroy();
+
+                const startPicker = $(startEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            endPicker.set('minDate', selectedDates[0]);
+                        } else {
+                            endPicker.set('minDate', null);
+                        }
+                    }
+                });
+
+                const endPicker = $(endEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            startPicker.set('maxDate', selectedDates[0]);
+                        } else {
+                            startPicker.set('maxDate', null);
+                        }
+                    }
+                });
+
+                if (startPicker.selectedDates.length) {
+                    endPicker.set('minDate', startPicker.selectedDates[0]);
                 }
-            });
+                if (endPicker.selectedDates.length) {
+                    startPicker.set('maxDate', endPicker.selectedDates[0]);
+                }
+            } else {
+                $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
+                $('.flatpickr').flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                    }
+                });
+            }
         }
     }
 
     $(document).ready(function () {
-        // Initial load
         initReport();
         initDatePickers();
 
@@ -359,7 +432,6 @@
             });
         }
 
-        // AJAX Filtering on form field changes
         $(document).on('change', '#filterForm', function () {
             const form = $(this);
             const url = form.attr('action') + '?' + form.serialize();
@@ -374,6 +446,8 @@
             form.find('.flatpickr').each(function () {
                 if (this._flatpickr) {
                     this._flatpickr.clear();
+                    this._flatpickr.set('minDate', null);
+                    this._flatpickr.set('maxDate', null);
                 }
             });
             form.find('input').val('');

@@ -40,6 +40,12 @@ class PermissionSeeder extends Seeder
             'edit locations' => 'Locations',
             'delete locations' => 'Locations',
 
+            // States
+            'view states' => 'States',
+            'create states' => 'States',
+            'edit states' => 'States',
+            'delete states' => 'States',
+
             // Categories
             'view categories' => 'Categories',
             'create categories' => 'Categories',
@@ -80,6 +86,18 @@ class PermissionSeeder extends Seeder
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
 
+            // Stock Transfers
+            'view stock transfers' => 'Stock Transfers',
+            'create stock transfers' => 'Stock Transfers',
+            'accept stock transfers' => 'Stock Transfers',
+            'reject stock transfers' => 'Stock Transfers',
+
+            // Expenses
+            'view expenses' => 'Expenses',
+            'create expenses' => 'Expenses',
+            'edit expenses' => 'Expenses',
+            'delete expenses' => 'Expenses',
+
             // Customers
             'view customers' => 'Customers',
             'create customers' => 'Customers',
@@ -103,7 +121,32 @@ class PermissionSeeder extends Seeder
             // Contact Inquiries
             'view contact inquiries' => 'Contact Inquiries',
             'delete contact inquiries' => 'Contact Inquiries',
+
+            // Coupons
+            'view coupons' => 'Coupons',
+            'create coupons' => 'Coupons',
+            'edit coupons' => 'Coupons',
+            'delete coupons' => 'Coupons',
+
+            // Product Reviews
+            'view product reviews' => 'Product Reviews',
+            'delete product reviews' => 'Product Reviews',
+
+            // Website Content
+            'view website content' => 'Website Content',
+            'edit website content' => 'Website Content',
+
+            // Settings
+            'view settings' => 'Settings',
+            'edit settings' => 'Settings',
+
+            // Activity Logs
+            'view activity logs' => 'Activity Logs',
         ];
+
+        $permissions['view payment reports'] = 'Reports';
+        $permissions['download sales'] = 'Sales';
+        $permissions['download purchases'] = 'Purchases';
 
         foreach ($permissions as $name => $module) {
             $permission = Permission::firstOrCreate(['name' => $name]);

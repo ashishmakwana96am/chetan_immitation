@@ -144,11 +144,20 @@ $(document).ready(function () {
                 let body = $('#commonModalBody');
 
                 if (typeof $.fn.flatpickr !== 'undefined') {
-                    body.find('.flatpickr').flatpickr({
-                        altInput: true,
-                        altFormat: 'd-m-Y',
-                        dateFormat: 'Y-m-d',
-                        allowInput: false
+                    body.find('.flatpickr').each(function() {
+                        let config = {
+                            altInput: true,
+                            altFormat: 'd-m-Y',
+                            dateFormat: 'Y-m-d',
+                            allowInput: false
+                        };
+                        if ($(this).attr('data-max-date')) {
+                            config.maxDate = $(this).attr('data-max-date');
+                        }
+                        if ($(this).attr('data-min-date')) {
+                            config.minDate = $(this).attr('data-min-date');
+                        }
+                        $(this).flatpickr(config);
                     });
                 }
 
@@ -243,7 +252,7 @@ $(document).ready(function () {
                     $('#commonModal').offcanvas('hide');
                     toastr.success(res.message);
                     if (typeof window.refreshTable === 'function') {
-                        window.refreshTable();
+                        window.refreshTable(res);
                     } else {
                         setTimeout(() => location.reload(), 800);
                     }

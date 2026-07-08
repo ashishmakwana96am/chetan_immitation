@@ -30,9 +30,17 @@
                 @foreach($cartItems as $item)
                 @php
                     $product  = $item->product;
+                    if (!$product) continue;
+                    
                     $variant  = $item->productVariant;
-                    $price    = $variant ? (float)$variant->sale_price : (float)$product->sale_price;
-                    $mrp      = (float)$product->mrp;
+                    if ($variant) {
+                        $price = (float) $variant->sale_price;
+                        $mrp = (float) $product->mrp;
+                    } else {
+                        $price = (float) $product->sale_price;
+                        $mrp = (float) $product->mrp;
+                    }
+                    
                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
                     $attrLabel = null;
                     if ($variant && $variant->attributeValue) {
@@ -90,11 +98,11 @@
     
                                 <div class="flex items-center gap-2 mt-3">
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                        ₹{{ number_format($price, 0) }}
+                                        {{ website_price($price) }}
                                     </span>
                                     @if($mrp > $price)
                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                        ₹{{ number_format($mrp, 0) }}
+                                        {{ website_price($mrp) }}
                                     </span>
                                     @endif
                                 </div>
@@ -118,6 +126,7 @@
                                             <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                         </p>
                                         @endif
+
                                         <!-- @if($stockQty > 0)
                                         <p class="text-base flex flex-wrap">
                                             <span class="font-medium text-[#131615] w-[120px]">Availability:</span>
@@ -127,25 +136,30 @@
                                         <p class="text-base flex flex-wrap">
                                             <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
                                             <span class="text-[#B4771E] font-semibold ml-2 item-total-display">
-                                                ₹{{ number_format($price * $item->qty, 0) }}
+                                                {{ website_price($price * $item->qty) }}
                                             </span>
                                         </p>
                                     </div>
     
                                     {{-- Qty stepper --}}
-                                    <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[8px] sm:px-[10px] md:px-[15px] gap-[15px] w-max">
-                                        <button type="button" onclick="changeQty({{ $item->id }}, -1)"
-                                            class="text-[#757575] text-base font-bold hover:text-[#131615] transition">
-                                            <i class="fa-solid fa-minus"></i>
-                                        </button>
-                                        <span class="text-base md:text-[22px] text-center text-[#131615] w-6 qty-display">
-                                            {{ $item->qty }}
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex items-center border border-[#D5D5D5] py-[8px] sm:py-[10px] px-[8px] sm:px-[10px] md:px-[15px] gap-[15px] w-max">
+                                            <button type="button" onclick="changeQty({{ $item->id }}, -1)"
+                                                class="text-[#757575] text-base font-bold hover:text-[#131615] transition">
+                                                <i class="fa-solid fa-minus"></i>
+                                            </button>
+                                            <span class="text-base md:text-[22px] text-center text-[#131615] w-6 qty-display">
+                                                {{ $item->qty }}
+                                            </span>
+                                            <button type="button" onclick="changeQty({{ $item->id }}, 1)"
+                                                class="text-[#757575] text-base hover:text-[#131615] transition">
+                                                <i class="fa-solid fa-plus"></i>
+                                            </button>
+                                        </div>
+                                        <span class="text-sm font-medium text-[#757575]">
+                                            Pcs
                                         </span>
-                                        <button type="button" onclick="changeQty({{ $item->id }}, 1)"
-                                            class="text-[#757575] text-base hover:text-[#131615] transition">
-                                            <i class="fa-solid fa-plus"></i>
-                                        </button>
-                                    </div>
+                                    </div>                                
                                 </div>
                             </div>
 
@@ -177,8 +191,18 @@
             @php
                 $subtotal = 0; $mrpTotal = 0;
                 foreach($cartItems as $item) {
-                    $p = $item->productVariant ? (float)$item->productVariant->sale_price : (float)$item->product->sale_price;
-                    $m = (float)($item->product->mrp ?: $p);
+                    $product = $item->product;
+                    if (!$product) continue;
+                    
+                    $variant = $item->productVariant;
+                    if ($variant) {
+                        $p = (float) $variant->sale_price;
+                        $m = (float) $product->mrp;
+                    } else {
+                        $p = (float) $product->sale_price;
+                        $m = (float) $product->mrp;
+                    }
+                    
                     $subtotal += $p * $item->qty;
                     $mrpTotal += $m * $item->qty;
                 }
@@ -194,7 +218,7 @@
                     <div class="border-t border-[#D5D5D5] mt-[20px] pt-[20px] space-y-5">
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px]">
                             <span class="font-medium text-[#131615]">Subtotal</span>
-                            <span class="font-normal text-[#3D403F]" id="summarySubtotal">₹{{ number_format($subtotal, 0) }}</span>
+                            <span class="font-normal text-[#3D403F]" id="summarySubtotal">{{ website_price($subtotal) }}</span>
                         </div>
                         {{--
                         <div class="flex justify-between text-base sm:text-xl sm:leading-[20px]" id="summaryDiscountRow">
@@ -225,7 +249,7 @@
                     <div class="border-t border-[#D5D5D5] mt-4 pt-4 flex justify-between">
                         <span class="font-medium text-lg md:text-[22px]">Total</span>
                         <span class="font-bold text-[#B4771E] text-lg md:text-[22px]" id="summaryTotal">
-                            ₹{{ number_format($total, 0) }}
+                            {{ website_price($total) }}
                         </span>
                     </div>
                     <div class="flex mt-5 sm:mt-6 gap-2 flex-col sm:flex-row lg:flex-col">
@@ -295,10 +319,23 @@
     const LOGIN_URL       = '{{ route('login') }}?intended={{ urlencode(route('cart')) }}';
     const CSRF            = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    /* ── Helpers ── */
-    function formatPrice(val) {
-        return '₹' + Math.round(parseFloat(val)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    /* ── Price formatter — shows decimals only when needed ── */
+    function fmtPrice(amount) {
+        amount = parseFloat(amount) || 0;
+        var hasDec = (amount % 1 !== 0);
+        var str = hasDec ? amount.toFixed(2).replace(/\.?0+$/, '') : Math.round(amount).toString();
+        var parts = str.split('.');
+        var intPart = parts[0];
+        var decPart = parts[1] ? '.' + parts[1] : '';
+        if (intPart.length > 3) {
+            var lastThree = intPart.slice(-3);
+            var rest = intPart.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+            intPart = rest + ',' + lastThree;
+        }
+        return '₹' + intPart + decPart;
     }
+    // Keep old name as alias for backward compat
+    function formatPrice(val) { return fmtPrice(val); }
 
 
 

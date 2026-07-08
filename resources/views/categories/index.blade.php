@@ -67,6 +67,7 @@
                         <th>Slug</th>
                         <th>Featured</th>
                         <th>Status</th>
+                        <th>Low Stock Threshold</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
                             <th>Actions</th>
@@ -86,12 +87,13 @@
         $(document).ready(function () {
             const columns = [];
             columns.push(
-                { data: 'index',      width: '5%' },
+                { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image',      orderable: false },
                 { data: 'name' },
                 { data: 'slug' },
                 { data: 'is_featured', orderable: false },
                 { data: 'status',     orderable: false },
+                { data: 'low_stock_threshold', orderable: false },
                 { data: 'created_at' },
                 @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
                 { data: 'actions', orderable: false },
@@ -100,6 +102,7 @@
 
             const table = $('#categoriesTable').DataTable({
                 responsive : false,
+                order      : [],
                 ajax       : {
                     url: '{{ route('admin.categories.data') }}',
                     dataSrc: 'data',

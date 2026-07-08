@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Coupon extends Model
 {
+    use SoftDeletes, LogsActivity;
+
     const STATUS_ACTIVE = 1;
 
     const STATUS_INACTIVE = 2;
+
+    const FREE_SHIPPING_CODE = 'FREESHIP';
 
     protected $fillable = [
         'name',
@@ -20,6 +26,7 @@ class Coupon extends Model
         'start_date',
         'end_date',
         'status',
+        'is_protected',
         'created_by',
     ];
 

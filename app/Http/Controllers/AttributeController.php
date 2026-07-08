@@ -40,7 +40,7 @@ class AttributeController extends Controller
             $actions = '';
             if ($canEdit || $canDelete) {
                 $actions = '<div class="dropdown table-action-dropdown">';
-                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.attributes.edit', $attribute) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';

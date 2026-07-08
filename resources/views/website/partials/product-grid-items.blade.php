@@ -75,8 +75,8 @@
                 <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
                 <div class="flex justify-between flex-wrap gap-2">
                         <div class="mt-1 flex items-center gap-1">
-                            <span class="text-lg xl:text-[24px] text-[#131615]">₹{{ number_format($product->sale_price, 0) }}</span>
-                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">₹{{ number_format($product->mrp, 0) }}</span>@endif
+                            <span class="text-lg xl:text-[24px] text-[#131615]">{{ website_price($product->sale_price) }}</span>
+                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">{{ website_price($product->mrp) }}</span>@endif
                         </div>
                         @php
                             $variantValues = $product->relationLoaded('variants')

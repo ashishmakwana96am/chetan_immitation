@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AttributeController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerLoginController;
 use App\Http\Controllers\CustomerPasswordResetController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LocationController;
@@ -28,6 +30,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopCategoryController;
+use App\Http\Controllers\StateController;
+use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -63,6 +67,7 @@ Route::post('/register', [MemberRegisterController::class, 'store'])->name('regi
 Route::middleware('auth:customer')->group(function () {
     Route::get('/my-account', [WebsiteProfileController::class, 'index'])->name('customer.profile');
     Route::get('/my-account/order/{id}', [WebsiteProfileController::class, 'viewOrder'])->name('customer.profile.view-order');
+    Route::post('/my-account/order/{id}/cancel', [WebsiteProfileController::class, 'cancelOrder'])->name('customer.profile.cancel-order');
     Route::get('/my-account/order/{id}/invoice', [WebsiteProfileController::class, 'downloadInvoice'])->name('customer.profile.order-invoice');
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
@@ -80,6 +85,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/payment/failed', [CheckoutController::class, 'failedPayment'])->name('checkout.payment.failed');
     Route::post('/checkout/coupon/apply', [CheckoutController::class, 'applyCoupon'])->name('checkout.coupon.apply');
     Route::post('/checkout/coupon/remove', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
+    Route::post('/checkout/shipping/recalculate', [CheckoutController::class, 'recalculateShipping'])->name('checkout.shipping.recalculate');
     Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
     Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
 });
@@ -128,7 +134,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     // Authenticated routes
-    Route::middleware('auth:web')->group(function () {
+    Route::middleware(['auth:web', 'active.user'])->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -140,9 +146,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'destroy'])->name('contact-inquiries.destroy');
 
         // Products
+        Route::get('products/import/sample', [ProductController::class, 'downloadSampleCsv'])->name('products.import.sample');
+        Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
+        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::get('products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('products/print-barcodes', [ProductController::class, 'printBarcodes'])->name('products.print-barcodes');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::get('products/{product}/barcode', [ProductController::class, 'generateBarcodeImage'])->name('products.barcode');
@@ -159,10 +169,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
         Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
+        // Stock Transfers
+        Route::get('stock-transfers/data', [StockTransferController::class, 'data'])->name('stock-transfers.data');
+        Route::get('stock-transfers/pending-count', [StockTransferController::class, 'pendingCount'])->name('stock-transfers.pending-count');
+        Route::patch('stock-transfers/{stockTransfer}/accept', [StockTransferController::class, 'accept'])->name('stock-transfers.accept');
+        Route::patch('stock-transfers/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('stock-transfers.reject');
+        Route::resource('stock-transfers', StockTransferController::class)
+            ->parameters(['stock-transfers' => 'stockTransfer'])
+            ->only(['index', 'create', 'store', 'show']);
+
         // Suppliers
         Route::get('suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');
         Route::resource('suppliers', SupplierController::class)->except('show');
         Route::patch('suppliers/{supplier}/toggle-status', [SupplierController::class, 'toggleStatus'])->name('suppliers.toggle-status');
+
+        // Expenses
+        Route::get('expenses/data', [ExpenseController::class, 'data'])->name('expenses.data');
+        Route::resource('expenses', ExpenseController::class)->except('show');
 
         // Customers
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
@@ -194,6 +217,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
+            Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+
+            // Utility Report (Activity Log)
+            Route::get('utility/data', [ActivityLogController::class, 'data'])->name('utility.data');
+            Route::get('utility/{activityLog}', [ActivityLogController::class, 'show'])->name('utility.show');
+            Route::get('utility', [ActivityLogController::class, 'index'])->name('utility');
         });
 
         // Sales
@@ -201,6 +231,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('sales', SaleController::class)->except('show');
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
+        Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
+        Route::get('sales/{sale}/label', [SaleController::class, 'label'])->name('sales.label');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
 
         // Categories
@@ -218,6 +250,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('locations/data', [LocationController::class, 'data'])->name('locations.data');
         Route::resource('locations', LocationController::class)->except('show');
         Route::patch('locations/{location}/toggle-status', [LocationController::class, 'toggleStatus'])->name('locations.toggle-status');
+
+        // States
+        Route::get('states/data', [StateController::class, 'data'])->name('states.data');
+        Route::resource('states', StateController::class)->except('show');
+        Route::patch('states/{state}/toggle-status', [StateController::class, 'toggleStatus'])->name('states.toggle-status');
 
         // Permissions
         Route::get('permissions/data', [PermissionController::class, 'data'])->name('permissions.data');

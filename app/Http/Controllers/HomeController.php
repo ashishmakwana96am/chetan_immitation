@@ -16,6 +16,9 @@ class HomeController extends Controller
             ->get();
 
         $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->whereHas('inventories', function($q) {
+                $q->where('quantity', '>', 0);
+            })
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
@@ -25,6 +28,9 @@ class HomeController extends Controller
             ->get();
 
         $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->whereHas('inventories', function($q) {
+                $q->where('quantity', '>', 0);
+            })
             ->with('primaryImage', 'variants.attributeValue')
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
@@ -125,7 +131,7 @@ class HomeController extends Controller
             ->firstOrFail();
 
         $topReviews = $product->reviews()
-            ->with('customer')
+            ->with('customer', 'images')
             ->latest()
             ->limit(2)
             ->get();

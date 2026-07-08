@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
@@ -39,7 +40,7 @@ class PermissionController extends Controller
             $actions = '';
             if ($canEdit || $canDelete) {
                 $actions = '<div class="dropdown table-action-dropdown">';
-                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.permissions.edit', $permission) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
@@ -89,10 +90,12 @@ class PermissionController extends Controller
             ], 422);
         }
 
-        Permission::create([
+        $permission = Permission::create([
             'name'   => $request->name,
             'module' => $request->module,
         ]);
+
+        ActivityLogger::log('Permission Management', 'create', $permission, null, ['name' => $permission->name, 'module' => $permission->module], 'Permission "' . $permission->name . '" created');
 
         return response()->json([
             'status'  => 'success',
@@ -123,10 +126,14 @@ class PermissionController extends Controller
             ], 422);
         }
 
+        $old = ['name' => $permission->name, 'module' => $permission->module];
+
         $permission->update([
             'name'   => $request->name,
             'module' => $request->module,
         ]);
+
+        ActivityLogger::log('Permission Management', 'update', $permission, $old, ['name' => $permission->name, 'module' => $permission->module], 'Permission "' . $permission->name . '" updated');
 
         return response()->json([
             'status'  => 'success',
@@ -138,7 +145,10 @@ class PermissionController extends Controller
     {
         $this->authorize('delete permissions');
 
+        $name = $permission->name;
         $permission->delete();
+
+        ActivityLogger::log('Permission Management', 'delete', null, ['name' => $name], null, 'Permission "' . $name . '" deleted');
 
         return response()->json([
             'status'  => 'success',

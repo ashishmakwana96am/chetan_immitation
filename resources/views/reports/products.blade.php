@@ -6,6 +6,51 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    <style>
+        .variant-toggle {
+            width: 1.75rem;
+            height: 1.75rem;
+            padding: 0;
+            line-height: 1;
+        }
+        .variant-toggle i {
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+        .variant-toggle.is-open i {
+            transform: rotate(90deg);
+        }
+        #productsReportTable tr.child td.child {
+            padding: 0 !important;
+            background-color: #fbfbfc;
+        }
+        .variant-table {
+            margin-bottom: 0;
+        }
+        .variant-table th,
+        .variant-table td {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.8125rem;
+        }
+        .variant-table thead th {
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+        }
+        .variant-table tbody tr {
+            border-bottom: 1px solid #e9ecef;
+        }
+        .variant-table tbody tr:last-child {
+            border-bottom: none;
+        }
+        .parent-row:hover {
+            background-color: #f8f9fa;
+        }
+        @media (max-width: 767.98px) {
+            .variant-table {
+                min-width: 600px;
+            }
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -155,55 +200,121 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($products as $index => $product)
+                    @php
+                        $parentProducts = $products->where('is_parent', true)->values();
+                        $variantProducts = $products->where('is_parent', false)->groupBy('id');
+                        $groupedProducts = $parentProducts->map(fn ($product) => [
+                            'parent' => $product,
+                            'variants' => $variantProducts->get($product['id'], collect())->values(),
+                        ]);
+                    @endphp
+
+                    @foreach($groupedProducts as $index => $group)
                         @php
-                            $margin    = $product['sale_price'] - $product['purchase_price'];
-                            $marginPct = $product['purchase_price'] > 0 ? round(($margin / $product['purchase_price']) * 100, 1) : 0;
+                            $parent = $group['parent'];
+                            $variants = $group['variants'];
+                            $hasVariants = $variants->count() > 0;
+                            $margin    = $parent['sale_price'] - $parent['purchase_price'];
+                            $marginPct = $parent['purchase_price'] > 0 ? round(($margin / $parent['purchase_price']) * 100, 1) : 0;
                         @endphp
-                        <tr data-category-id="{{ $product['category_id'] }}"
-                            data-status="{{ $product['status'] }}"
-                            data-stock="{{ $product['total_stock'] }}">
+                        <!-- Parent Row -->
+                        <tr class="parent-row" data-product-id="{{ $parent['id'] }}"
+                            data-category-id="{{ $parent['category_id'] }}"
+                            data-status="{{ $parent['status'] }}"
+                            data-stock="{{ $parent['total_stock'] }}"
+                            data-has-variants="{{ $hasVariants ? '1' : '0' }}">
                             <td>{{ $index + 1 }}</td>
-                            <td data-order="{{ $product['name'] }} {{ $product['is_parent'] ? '000_parent' : $product['variant_name'] }}">
-                                @if($product['is_parent'])
-                                    <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
-                                        {{ $product['name'] }}
+                            <td data-order="{{ $parent['name'] }} 000_parent">
+                                <div class="d-flex align-items-center">
+                                    @if($hasVariants)
+                                        <button type="button" class="btn btn-icon btn-sm variant-toggle me-2" data-product-id="{{ $parent['id'] }}" aria-expanded="false">
+                                            <i class="ti ti-chevron-right"></i>
+                                        </button>
+                                    @else
+                                        <span class="me-2" style="width: 24px;"></span>
+                                    @endif
+                                    @if($parent['image_url'])
+                                        <img src="{{ $parent['image_url'] }}" alt="{{ $parent['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                    @else
+                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                        </div>
+                                    @endif
+                                    <a href="{{ route('admin.products.show', $parent['id']) }}" class="fw-semibold mb-0">
+                                        {{ $parent['name'] }}
                                     </a>
-                                @else
-                                    <span class="text-muted ps-4">↳ {{ $product['variant_name'] }}</span>
-                                @endif
+                                </div>
                             </td>
-                            <td>
-                                @if($product['is_parent'])
-                                    <code>{{ $product['sku'] }}</code>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if($product['is_parent'])
-                                    <span class="badge bg-label-primary">{{ $product['category'] }}</span>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            <td class="text-end">{{ format_price($product['purchase_price']) }}</td>
-                            <td class="text-end">{{ format_price($product['sale_price']) }}</td>
+                            <td><code>{{ $parent['sku'] }}</code></td>
+                            <td><span class="badge bg-label-primary">{{ $parent['category'] }}</span></td>
+                            <td class="text-end">{{ format_price($parent['purchase_price']) }}</td>
+                            <td class="text-end">{{ format_price($parent['sale_price']) }}</td>
                             <td class="text-end">
                                 <span class="badge {{ $margin >= 0 ? 'bg-label-success' : 'bg-label-danger' }}">
                                     {{ format_price($margin) }} ({{ $marginPct }}%)
                                 </span>
                             </td>
                             <td class="text-end">
-                                <span class="badge {{ $product['total_stock'] > 0 ? 'bg-label-success' : 'bg-label-danger' }}">
-                                    {{ $product['total_stock'] }}
+                                <span class="badge {{ $parent['total_stock'] > 0 ? 'bg-label-success' : 'bg-label-danger' }}">
+                                    {{ $parent['total_stock'] }}
                                 </span>
                             </td>
-                            <td>{!! status_badge($product['status']) !!}</td>
+                            <td>{!! status_badge($parent['status']) !!}</td>
                         </tr>
+
                     @endforeach
                 </tbody>
             </table>
+            @foreach($groupedProducts as $group)
+                @php
+                    $parent = $group['parent'];
+                    $variants = $group['variants'];
+                @endphp
+                @if($variants->count())
+                    <template id="variants-template-{{ $parent['id'] }}">
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm mb-0 variant-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>Variant</th>
+                                        <th class="text-end">Purchase Price</th>
+                                        <th class="text-end">Sale Price</th>
+                                        <th class="text-end">Margin</th>
+                                        <th class="text-end">Stock</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($variants as $vIndex => $variant)
+                                        @php
+                                            $vMargin    = $variant['sale_price'] - $variant['purchase_price'];
+                                            $vMarginPct = $variant['purchase_price'] > 0 ? round(($vMargin / $variant['purchase_price']) * 100, 1) : 0;
+                                        @endphp
+                                        <tr>
+                                            <td>{{ $vIndex + 1 }}</td>
+                                            <td class="ps-5">{{ $variant['variant_name'] }}</td>
+                                            <td class="text-end">{{ format_price($variant['purchase_price']) }}</td>
+                                            <td class="text-end">{{ format_price($variant['sale_price']) }}</td>
+                                            <td class="text-end">
+                                                <span class="badge {{ $vMargin >= 0 ? 'bg-label-success' : 'bg-label-danger' }}">
+                                                    {{ format_price($vMargin) }} ({{ $vMarginPct }}%)
+                                                </span>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="badge {{ $variant['total_stock'] > 0 ? 'bg-label-success' : 'bg-label-danger' }}">
+                                                    {{ $variant['total_stock'] }}
+                                                </span>
+                                            </td>
+                                            <td>{!! status_badge($variant['status']) !!}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                @endif
+            @endforeach
         </div>
     </div>
 @endsection
@@ -220,6 +331,40 @@
         const table = $('#productsReportTable').DataTable({
             responsive : false,
             order      : [[1, 'asc']],
+            pageLength : 25,
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
+        });
+
+        $('#productsReportTable tbody').on('click', '.variant-toggle', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const $btn = $(this);
+            const productId = $btn.data('product-id');
+            const template = document.getElementById('variants-template-' + productId);
+            const row = table.row($btn.closest('tr'));
+
+            if (!template) {
+                return;
+            }
+
+            if (row.child.isShown()) {
+                row.child.hide();
+                $btn.removeClass('is-open').attr('aria-expanded', 'false');
+            } else {
+                row.child(template.innerHTML).show();
+                $btn.addClass('is-open').attr('aria-expanded', 'true');
+            }
+
+            table.columns.adjust();
         });
 
         function applyFilters() {
@@ -230,9 +375,10 @@
             $.fn.dataTable.ext.search = [];
             $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
                 const row   = $(table.row(dataIndex).node());
-                const total = parseInt(row.data('total') || row.data('stock'));
+
+                const total = parseInt(row.data('stock') || 0);
                 if (cat    && row.data('category-id') != cat)    return false;
-                if (status && row.data('status') !== status)      return false;
+                if (status && String(row.data('status')) !== status) return false;
                 if (stock === 'in'  && total <= 0)                return false;
                 if (stock === 'out' && total > 0)                 return false;
                 return true;

@@ -9,19 +9,19 @@
         <div class="col-12">
             <label class="form-label" for="supplierName">Name <span class="text-danger">*</span></label>
             <input type="text" id="supplierName" name="name"
-                class="form-control" placeholder="e.g. ABC Suppliers Ltd." autofocus />
+                class="form-control" placeholder="Enter Supplier Name" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
             <label class="form-label" for="supplierPhone">Phone</label>
             <input type="text" id="supplierPhone" name="phone"
-                class="form-control" placeholder="e.g. +1 234 567 8900" />
+                class="form-control" placeholder="Enter Supplier Phone" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
             <label class="form-label" for="supplierAddress">Address</label>
             <input type="text" id="supplierAddress" name="address"
-                class="form-control" placeholder="e.g. 123 Main Street, City" />
+                class="form-control" placeholder="Enter Supplier Address" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

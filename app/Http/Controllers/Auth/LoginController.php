@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -43,6 +44,9 @@ class LoginController extends Controller
 
         if (Auth::guard('web')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            ActivityLogger::log('Auth', 'login', Auth::guard('web')->user(), null, null, Auth::guard('web')->user()->name . ' logged in');
+
             if ($request->ajax()) {
                 return response()->json([
                     'status'       => 'success',
@@ -51,6 +55,8 @@ class LoginController extends Controller
             }
             return redirect()->intended(route('admin.dashboard'));
         }
+
+        ActivityLogger::log('Auth', 'login_failed', null, null, null, 'Failed login attempt for ' . $request->email);
 
         if ($request->ajax()) {
             return response()->json([
@@ -68,6 +74,11 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        $user = Auth::guard('web')->user();
+        if ($user) {
+            ActivityLogger::log('Auth', 'logout', $user, null, null, $user->name . ' logged out');
+        }
+
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

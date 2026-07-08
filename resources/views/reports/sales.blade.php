@@ -245,7 +245,7 @@
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>
                                     <td>
                                         <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                                                 <span>Actions</span>
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
@@ -282,9 +282,18 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>
-                                        <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
-                                            {{ $item->product->name ?? 'Unknown' }}
-                                        </a>
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $item->product->name }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @endif
+                                            <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
+                                                {{ $item->product->name ?? 'Unknown' }}
+                                            </a>
+                                        </div>
                                     </td>
                                     <td><code>{{ $item->product->sku ?? '-' }}</code></td>
                                     <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_sold }}</td>
@@ -343,6 +352,15 @@
         $('#productsReportTable').DataTable({
             responsive : false,
             order      : [[3, 'desc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache
@@ -411,22 +429,52 @@
     }
 
     function initDatePickers() {
-        $('.flatpickr').each(function() {
-            if (this._flatpickr) {
-                this._flatpickr.destroy();
-            }
-        });
-
         if (typeof $.fn.flatpickr !== 'undefined') {
-            $('.flatpickr').flatpickr({
-                altInput: true,
-                altFormat: 'd-m-Y',
-                dateFormat: 'Y-m-d',
-                allowInput: false,
-                onChange: function (selectedDates, dateStr, instance) {
-                    $(instance.element).closest('form').trigger('change');
+            const startEl = $('input[name="start_date"]')[0];
+            const endEl = $('input[name="end_date"]')[0];
+            if (startEl && endEl) {
+                if (startEl._flatpickr) startEl._flatpickr.destroy();
+                if (endEl._flatpickr) endEl._flatpickr.destroy();
+
+                const startPicker = $(startEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            endPicker.set('minDate', selectedDates[0]);
+                        } else {
+                            endPicker.set('minDate', null);
+                        }
+                    }
+                });
+
+                const endPicker = $(endEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            startPicker.set('maxDate', selectedDates[0]);
+                        } else {
+                            startPicker.set('maxDate', null);
+                        }
+                    }
+                });
+
+                if (startPicker.selectedDates.length) {
+                    endPicker.set('minDate', startPicker.selectedDates[0]);
                 }
-            });
+                if (endPicker.selectedDates.length) {
+                    startPicker.set('maxDate', endPicker.selectedDates[0]);
+                }
+            } else {
+                $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
+                $('.flatpickr').flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                    }
+                });
+            }
         }
     }
 
@@ -466,6 +514,8 @@
             form.find('.flatpickr').each(function () {
                 if (this._flatpickr) {
                     this._flatpickr.clear();
+                    this._flatpickr.set('minDate', null);
+                    this._flatpickr.set('maxDate', null);
                 }
             });
             form.find('input').val('');

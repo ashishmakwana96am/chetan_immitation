@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductReview extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'customer_id',
         'product_id',
@@ -34,5 +36,10 @@ class ProductReview extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(ReviewImage::class);
     }
 }

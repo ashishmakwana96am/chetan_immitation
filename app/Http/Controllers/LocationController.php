@@ -45,10 +45,13 @@ class LocationController extends Controller
             $actions = '';
             if ($canEdit || $canDelete) {
                 $actions = '<div class="dropdown table-action-dropdown">';
-                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.locations.edit', $location) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
+                }
+                if ($canDelete && !$location->is_default) {
+                    $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.locations.destroy', $location) . '" data-row-id="location-row-' . $location->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
                 }
                 $actions .= '</div></div>';
             }
@@ -58,6 +61,7 @@ class LocationController extends Controller
                 'name'       => $location->name,
                 'slug'       => '<code>' . $location->slug . '</code>',
                 'address'    => $location->address ?? '-',
+                'phone'      => $location->phone ?? '-',
                 'is_default' => $location->is_default
                     ? '<span class="badge bg-label-success">Default</span>'
                     : '<span class="badge bg-label-secondary">No</span>',
@@ -82,6 +86,7 @@ class LocationController extends Controller
         $validator = Validator::make($request->all(), [
             'name'    => ['required', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
+            'phone'   => ['required', 'string', 'max:20'],
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -104,6 +109,7 @@ class LocationController extends Controller
             'name'       => $request->name,
             'slug'       => generate_slug(Location::class, $request->name),
             'address'    => $request->address,
+            'phone'      => $request->phone,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
@@ -128,15 +134,16 @@ class LocationController extends Controller
         $validator = Validator::make($request->all(), [
             'name'    => ['required', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
+            'phone'   => ['required', 'string', 'max:20'],
         ]);
 
         $validator->after(function ($validator) use ($request, $location) {
-            if ($request->boolean('is_default')) {
-                $exists = Location::where('is_default', true)
+            if (!$request->boolean('is_default') && $location->is_default) {
+                $otherDefault = Location::where('is_default', true)
                     ->where('id', '!=', $location->id)
                     ->exists();
-                if ($exists) {
-                    $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
+                if (!$otherDefault) {
+                    $validator->errors()->add('is_default', 'At least one location must be set as default. Please set another location as default first.');
                 }
             }
         });
@@ -148,10 +155,17 @@ class LocationController extends Controller
             ], 422);
         }
 
+        if ($request->boolean('is_default')) {
+            Location::where('is_default', true)
+                ->where('id', '!=', $location->id)
+                ->update(['is_default' => false]);
+        }
+
         $location->update([
             'name'       => $request->name,
             'slug'       => generate_slug(Location::class, $request->name, $location->id),
             'address'    => $request->address,
+            'phone'      => $request->phone,
             'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
         ]);

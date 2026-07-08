@@ -2,12 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
+
+    public function activityModule(): string
+    {
+        return 'Sales';
+    }
 
     const STATUS_PENDING = 1;
 
@@ -29,6 +35,7 @@ class Order extends Model
         'customer_id',
         'customer_address_id',
         'location_id',
+        'is_default',
         'user_id',
         'order_no',
         'order_type',
@@ -36,23 +43,28 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'final_amount',
+        'shipping_charge',
         'source',
-        'razorpay_order_id',
-        'razorpay_payment_id',
-        'razorpay_signature',
         'discount_type',
+        'order_discount_type',
+        'order_discount_value',
         'coupon_id',
         'confirmed_at',
         'shipped_at',
         'out_for_delivery_at',
         'delivered_at',
         'cancellation_reason',
+        'shipped_client_url',
+        'tracking_id',
     ];
 
     protected function casts(): array
     {
         return [
+            'is_default' => 'boolean',
             'final_amount' => 'decimal:2',
+            'shipping_charge' => 'decimal:2',
+            'order_discount_value' => 'decimal:2',
             'confirmed_at' => 'datetime',
             'shipped_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
@@ -88,5 +100,15 @@ class Order extends Model
     public function coupon()
     {
         return $this->belongsTo(Coupon::class);
+    }
+
+    public function payment()
+    {
+        return $this->hasOne(OrderPayment::class)->latestOfMany();
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(OrderPayment::class);
     }
 }

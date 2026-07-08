@@ -42,7 +42,7 @@
                 </div>
             </div>
             @can('create locations')
-                {{-- <button class="btn btn-primary" data-common-modal="{{ route('admin.locations.create') }}"><i class="ti ti-plus me-1"></i> Add Location</button> --}}
+                <button class="btn btn-primary" data-common-modal="{{ route('admin.locations.create') }}"><i class="ti ti-plus me-1"></i> Add Location</button>
             @endcan
         </div>
     </div>
@@ -56,6 +56,7 @@
                         <th>Name</th>
                         <th>Slug</th>
                         <th>Address</th>
+                        <th>Phone</th>
                         <th>Default</th>
                         <th>Status</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
@@ -86,10 +87,11 @@
                     }
                 },
                 columns     : [
-                    { data: 'index',      width: '5%' },
+                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'name' },
                     { data: 'slug' },
                     { data: 'address' },
+                    { data: 'phone' },
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))

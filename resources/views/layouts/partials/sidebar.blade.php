@@ -1,11 +1,11 @@
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-  <div class="app-brand ecom" style="overflow: visible; display: flex; align-items: center; padding: 8px;">
+  <div class="app-brand ecom" style="display: flex; align-items: center; background-color: #000; position: relative; z-index: 10; padding-top: 5px; padding-bottom: 5px;">
     <a href="{{ route('admin.dashboard') }}" class="app-brand-link" style="flex: 1; overflow: visible; min-width: 0;">
       <span class="app-brand-logo ecom" style="display: flex; align-items: center; width: 100%; overflow: visible;">
-        <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 180px; max-height: 60px; height: auto; object-fit: contain; display: block;" />
+        <img src="{{ asset('assets/img/logo.png') }}" alt="Chetan Imitation" style="width: 100%; max-width: 200px; max-height: 85px; height: auto; object-fit: contain; display: block;" />
       </span>
     </a>
-    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto" style="z-index: 11;">
       <i class="ti menu-toggle-icon d-none d-xl-block ti-sm align-middle"></i>
       <i class="ti ti-x d-block d-xl-none ti-sm align-middle"></i>
     </a>
@@ -55,6 +55,55 @@
                 <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
                   <i class="menu-icon tf-icons {{ $child->icon ?? 'ti ti-circle' }}"></i>
                   <div>{{ $child->name }}</div>
+                  @if($child->route === 'admin.sales.index')
+                    @php
+                      try {
+                          $authUser = auth()->user();
+                          $pendingSalesCount = \App\Models\Order::where('status', 1)
+                              ->when(
+                                  $authUser->location_id && !$authUser->hasRole('super-admin'),
+                                  fn($q) => $q->where('location_id', $authUser->location_id)
+                              )
+                              ->count();
+                      } catch (\Exception $e) {
+                          $pendingSalesCount = 0;
+                      }
+                    @endphp
+                    @if($pendingSalesCount > 0)
+                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                    @endif
+                  @endif
+                  @if($child->route === 'admin.contact-inquiries.index')
+                    @php
+                      try {
+                          $todayInquiriesCount = \App\Models\ContactInquiry::whereDate('created_at', today())->count();
+                      } catch (\Exception $e) {
+                          $todayInquiriesCount = 0;
+                      }
+                    @endphp
+                    @if($todayInquiriesCount > 0)
+                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $todayInquiriesCount }}</div>
+                    @endif
+                  @endif
+                  @if($child->route === 'admin.stock-transfers.index')
+                    @php
+                      try {
+                          $authUser = auth()->user();
+                          $isTransferRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
+                          $pendingTransfersCount = \App\Models\StockTransfer::where('status', \App\Models\StockTransfer::STATUS_PENDING)
+                              ->when($isTransferRestricted, function ($q) use ($authUser) {
+                                  $q->where(function ($sub) use ($authUser) {
+                                      $sub->where('from_location_id', $authUser->location_id)
+                                          ->orWhere('to_location_id', $authUser->location_id);
+                                  });
+                              })
+                              ->count();
+                      } catch (\Exception $e) {
+                          $pendingTransfersCount = 0;
+                      }
+                    @endphp
+                    <div id="stock-transfer-pending-badge" class="pending-sales-counter-badge" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
+                  @endif
                 </a>
               </li>
             @endif
@@ -73,3 +122,22 @@
 
   </ul>
 </aside>
+
+@if(Route::has('admin.stock-transfers.pending-count'))
+<script>
+    window.refreshStockTransferBadge = function () {
+        const badge = document.getElementById('stock-transfer-pending-badge');
+        if (!badge) return;
+        fetch('{{ route('admin.stock-transfers.pending-count') }}', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.status !== 'success') return;
+                badge.textContent = res.count;
+                badge.style.display = res.count > 0 ? 'inline-flex' : 'none';
+            })
+            .catch(() => {});
+    };
+</script>
+@endif

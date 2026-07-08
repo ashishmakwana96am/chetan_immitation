@@ -71,7 +71,7 @@
                             @foreach($order->items as $item)
                             <tr style="border-bottom:1px solid #f0ebe2;{{ $loop->even ? 'background:#fdf9f4;' : 'background:#fff;' }}">
                                 <td style="padding:10px 12px;font-size:13px;color:#2d2d2d;">{{ $item->product->name ?? 'Product' }}</td>
-                                <td style="padding:10px 12px;text-align:center;font-size:13px;color:#555;">{{ $item->quantity }}</td>
+                                <td style="padding:10px 12px;text-align:center;font-size:13px;color:#555;">{{ $item->quantity }} Pcs</td>
                                 <td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:600;color:#2d2d2d;">₹{{ number_format($item->total, 0) }}</td>
                             </tr>
                             @endforeach
@@ -81,8 +81,19 @@
                                 $itemDiscount = $order->items->sum('discount_amount');
                                 $couponDisc   = 0;
                                 if ($order->coupon_id && $order->coupon) {
-                                    $couponDisc = max(0, round($itemsGross - $itemDiscount - (float)$order->final_amount, 2));
+                                    $couponDisc = max(0, round($itemsGross - $itemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
                                 }
+                                $orderDiscountAmount = 0.0;
+                                if ($order->order_discount_value > 0) {
+                                    $itemsTotal = $itemsGross - $itemDiscount;
+                                    if ($order->order_discount_type === 'flat') {
+                                        $orderDiscountAmount = (float)$order->order_discount_value;
+                                    } else if ($order->order_discount_type === 'percentage') {
+                                        $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+                                    }
+                                    $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
+                                }
+                                $totalDiscount = $itemDiscount + $orderDiscountAmount + $couponDisc;
                             @endphp
 
                             {{-- Subtotal --}}
@@ -90,22 +101,18 @@
                                 <td colspan="2" style="padding:8px 12px;text-align:right;font-size:12px;color:#555;border-top:1px solid #e8e0d2;">Subtotal</td>
                                 <td style="padding:8px 12px;text-align:right;font-size:12px;color:#555;border-top:1px solid #e8e0d2;">₹{{ number_format($itemsGross, 0) }}</td>
                             </tr>
-                            {{-- Item discount --}}
-                            @if($itemDiscount > 0)
+                            {{-- Discount --}}
+                            @if($totalDiscount > 0)
                             <tr>
-                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">Item Discount</td>
-                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">-₹{{ number_format($itemDiscount, 0) }}</td>
+                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">Discount</td>
+                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#c62828;">-₹{{ number_format($totalDiscount, 0) }}</td>
                             </tr>
                             @endif
-                            {{-- Coupon discount --}}
-                            @if($couponDisc > 0)
+                            {{-- Shipping --}}
                             <tr>
-                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#2e7d32;">
-                                    Coupon Discount ({{ $order->coupon->code }})
-                                </td>
-                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#2e7d32;">-₹{{ number_format($couponDisc, 0) }}</td>
+                                <td colspan="2" style="padding:4px 12px;text-align:right;font-size:12px;color:#555;">Shipping</td>
+                                <td style="padding:4px 12px;text-align:right;font-size:12px;color:#555;">{{ $order->shipping_charge > 0 ? '₹' . number_format($order->shipping_charge, 0) : 'Free' }}</td>
                             </tr>
-                            @endif
                             {{-- Final --}}
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="2" style="padding:12px 12px;text-align:right;font-size:15px;font-weight:700;color:#B4771E;">Total Amount</td>
@@ -131,9 +138,9 @@
                                         <span style="color:#888;font-size:11px;">Status: </span>
                                         {{ $order->payment_status == 2 ? 'Paid' : 'Pending' }}
                                     </p>
-                                    @if($order->razorpay_payment_id)
+                                    @if($order->payment?->gateway_payment_id)
                                     <p style="margin:4px 0 0;font-size:11px;color:#888;">
-                                        ID: {{ $order->razorpay_payment_id }}
+                                        ID: {{ $order->payment->gateway_payment_id }}
                                     </p>
                                     @endif
                                 </td>

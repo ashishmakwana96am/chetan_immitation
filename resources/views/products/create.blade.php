@@ -3,6 +3,14 @@
 @section('title', 'Add Product')
 
 @section('content')
+    @php
+        $defaultDescription = '<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>';
+        
+        $defaultInfo = '<ul><li>Premium Quality Brass</li><li>Silver Tone Finish</li><li>Studded with American Diamonds</li><li>Adjustable Chain</li><li>Lightweight Design</li><li>Comfortable for Daily Wear</li><li>Tarnish Resistant Finish</li><li>Elegant Party Wear Bracelet</li></ul>';
+        
+        $defaultHighlights = '<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>';
+    @endphp
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-semibold mb-0">Add Product</h4>
         <a href="{{ route('admin.products.index') }}" class="btn btn-label-secondary">
@@ -22,23 +30,23 @@
                         <div class="row g-3">
                             <div class="col-12">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" class="form-control" placeholder="e.g. iPhone 15 Pro" value="{{ isset($clonedProduct) ? $clonedProduct->name . ' - Copy' : '' }}" />
+                                <input type="text" name="name" class="form-control" placeholder="Enter Product Name" value="{{ isset($clonedProduct) ? $clonedProduct->name . ' - Copy' : '' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" name="sku" class="form-control" placeholder="e.g. IPH-15-PRO" value="{{ isset($clonedProduct) ? $clonedProduct->sku . '-copy' : '' }}" />
+                                <input type="text" name="sku" class="form-control" placeholder="Enter SKU" value="{{ isset($clonedProduct) ? $clonedProduct->sku . '-copy' : '' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Barcode <small class="text-muted">(Auto-generated)</small></label>
-                                <input type="text" id="barcodePreview" class="form-control bg-light" placeholder="Will be generated on save" readonly />
+                                <label class="form-label">Barcode <span class="text-danger">*</span></label>
+                                <input type="text" name="barcode" class="form-control" placeholder="Enter Barcode" value="{{ isset($clonedProduct) ? $clonedProduct->barcode . '-copy' : '' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Category <span class="text-danger">*</span></label>
                                 <select name="category_id" id="productCategory" class="form-select">
-                                    <option value="">-- Select Category --</option>
+                                    <option value="">Select Category</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}" {{ isset($clonedProduct) && $clonedProduct->category_id == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
                                     @endforeach
@@ -48,7 +56,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Sub Category</label>
                                 <select name="sub_category_id" id="productSubCategory" class="form-select" {{ isset($clonedProduct) && $subCategories->count() > 0 ? '' : 'disabled' }}>
-                                    <option value="">-- Select Sub Category --</option>
+                                    <option value="">Select Sub Category</option>
                                     @if(isset($clonedProduct) && $subCategories->count() > 0)
                                         @foreach($subCategories as $subCategory)
                                             <option value="{{ $subCategory->id }}" {{ $clonedProduct->sub_category_id == $subCategory->id ? 'selected' : '' }}>{{ $subCategory->name }}</option>
@@ -58,29 +66,35 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Product Code <span class="text-danger">*</span></label>
+                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="purchase_price" class="form-control" placeholder="0.00" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_price : '' }}" />
+                                    <input type="number" name="purchase_price" id="purchasePriceInput" class="form-control" placeholder="Enter Purchase Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_price : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Sale Price <span class="text-danger">*</span></label>
+                                <label class="form-label" id="salePriceLabel">Sale Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="sale_price" class="form-control" placeholder="0.00" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_price : '' }}" />
+                                    <input type="number" name="sale_price" id="salePriceInput" class="form-control" placeholder="Enter Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_price : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">MRP <span class="text-danger">*</span></label>
+                                <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="mrp" class="form-control" placeholder="0.00" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" />
+                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" readonly style="background-color: #f1f0f2;" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
+
                             <div class="col-md-6">
                                 <label class="form-label">Product Type <span class="text-danger">*</span></label>
                                 <select name="type" id="productType" class="form-select no-select2">
@@ -130,24 +144,25 @@
                                         </table>
                                     </div>
                                     <input type="hidden" name="variants_json" id="variantsJson" value="" />
+                                    <div class="invalid-feedback d-block text-danger mt-1"></div>
                                 </div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Description <span class="text-danger">*</span></label>
-                                <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : old('description') !!}</div>
-                                <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : '' }}</textarea>
+                                <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) !!}</div>
+                                <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Additional Information</label>
-                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->additional_information : old('additional_information') !!}</div>
-                                <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : '' }}</textarea>
+                                <div id="information-editor">{!! isset($clonedProduct) ? $clonedProduct->additional_information : (old('additional_information') ?: $defaultInfo) !!}</div>
+                                <textarea name="additional_information" id="information-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->additional_information : (old('additional_information') ?: $defaultInfo) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Product Highlights</label>
-                                <div id="highlights-editor">{!! isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') !!}</div>
-                                <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_highlights : old('product_highlights') }}</textarea>
+                                <div id="highlights-editor">{!! isset($clonedProduct) ? $clonedProduct->product_highlights : (old('product_highlights') ?: $defaultHighlights) !!}</div>
+                                <textarea name="product_highlights" id="highlights-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->product_highlights : (old('product_highlights') ?: $defaultHighlights) }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
@@ -166,7 +181,7 @@
                             <input class="form-check-input" type="checkbox" id="productStatus" name="status" value="1" {{ !isset($clonedProduct) || $clonedProduct->status == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productStatus">Active</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="productSale" name="sale" value="1" {{ isset($clonedProduct) && $clonedProduct->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
                         </div>
@@ -321,7 +336,7 @@
                 const categoryId = $(this).val();
                 const subCategorySelect = $('#productSubCategory');
 
-                subCategorySelect.empty().append('<option value="">-- Select Sub Category --</option>');
+                subCategorySelect.empty().append('<option value="">Select Sub Category</option>');
 
                 if (!categoryId) {
                     subCategorySelect.prop('disabled', true);
@@ -628,9 +643,17 @@
                                     $('#additionalImagesError').text(messages[0]);
                                     $('#additionalDropZone').css('border-color', '#ea5455');
                                 } else {
-                                    form.find('[name="' + field + '"], [name="' + field + '[]"]')
-                                        .addClass('is-invalid')
-                                        .siblings('.invalid-feedback').text(messages[0]);
+                                    const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                                    let feedback = input.siblings('.invalid-feedback');
+                                    if (feedback.length === 0 && input.parent('.input-group').length) {
+                                        feedback = input.parent('.input-group').siblings('.invalid-feedback');
+                                    }
+                                    if (input.length && feedback.length) {
+                                        input.addClass('is-invalid');
+                                        feedback.text(messages[0]);
+                                    } else {
+                                        toastr.error(messages[0]);
+                                    }
                                 }
                             });
                         } else {
@@ -769,6 +792,21 @@
                     }
                 }
                 generateVariants();
+            });
+
+            function roundToNearest5(val) {
+                return Math.ceil(parseFloat(val) / 5) * 5;
+            }
+
+            $('#productCodeInput').on('input change', function () {
+                const code = parseFloat($(this).val()) || 0;
+                const purchasePrice = (code * 2.5).toFixed(2);
+                const salePrice = roundToNearest5(code * 4.125).toFixed(2);
+                const mrp = (code * 4.575).toFixed(2);
+
+                $('#purchasePriceInput').val(purchasePrice).trigger('change');
+                $('#salePriceInput').val(salePrice).trigger('change');
+                $('#mrpInput').val(mrp);
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

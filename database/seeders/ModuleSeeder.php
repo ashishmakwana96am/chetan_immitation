@@ -84,7 +84,7 @@ class ModuleSeeder extends Seeder
             'name'           => 'Inventory & Procurement',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/suppliers*,admin/purchases*',
+            'active_pattern' => 'admin/suppliers*,admin/purchases*,admin/stock-transfers*,admin/expenses*',
             'permission'     => null,
             'sort_order'     => 3,
         ]);
@@ -105,6 +105,24 @@ class ModuleSeeder extends Seeder
             'active_pattern' => 'admin/purchases*',
             'permission'     => 'view purchases',
             'sort_order'     => 2,
+        ]);
+        Module::create([
+            'parent_id'      => $inventoryCategory->id,
+            'name'           => 'Stock Transfers',
+            'icon'           => 'ti ti-transfer-out',
+            'route'          => 'admin.stock-transfers.index',
+            'active_pattern' => 'admin/stock-transfers*',
+            'permission'     => 'view stock transfers',
+            'sort_order'     => 3,
+        ]);
+        Module::create([
+            'parent_id'      => $inventoryCategory->id,
+            'name'           => 'Expenses',
+            'icon'           => 'ti ti-wallet',
+            'route'          => 'admin.expenses.index',
+            'active_pattern' => 'admin/expenses*',
+            'permission'     => 'view expenses',
+            'sort_order'     => 4,
         ]);
 
         // 4. Sales & Customers
@@ -127,12 +145,30 @@ class ModuleSeeder extends Seeder
         ]);
         Module::create([
             'parent_id'      => $salesCustomersCategory->id,
-            'name'           => 'Sales',
+            'name'           => 'Sales & Orders',
             'icon'           => 'ti ti-receipt',
             'route'          => 'admin.sales.index',
             'active_pattern' => 'admin/sales*',
             'permission'     => 'view sales',
             'sort_order'     => 2,
+        ]);
+        Module::create([
+            'parent_id'      => $salesCustomersCategory->id,
+            'name'           => 'Coupons',
+            'icon'           => 'ti ti-ticket',
+            'route'          => 'admin.coupons.index',
+            'active_pattern' => 'admin/coupons*',
+            'permission'     => 'view coupons',
+            'sort_order'     => 3,
+        ]);
+        Module::create([
+            'parent_id'      => $salesCustomersCategory->id,
+            'name'           => 'Product Reviews',
+            'icon'           => 'ti ti-star',
+            'route'          => 'admin.product-reviews.index',
+            'active_pattern' => 'admin/product-reviews*',
+            'permission'     => 'view product reviews',
+            'sort_order'     => 4,
         ]);
 
         // 5. Location
@@ -140,7 +176,7 @@ class ModuleSeeder extends Seeder
             'name'           => 'Location',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/locations*',
+            'active_pattern' => 'admin/locations*,admin/states*',
             'permission'     => null,
             'sort_order'     => 5,
         ]);
@@ -152,6 +188,15 @@ class ModuleSeeder extends Seeder
             'active_pattern' => 'admin/locations*',
             'permission'     => 'view locations',
             'sort_order'     => 1,
+        ]);
+        Module::create([
+            'parent_id'      => $locationCategory->id,
+            'name'           => 'States',
+            'icon'           => 'ti ti-map-2',
+            'route'          => 'admin.states.index',
+            'active_pattern' => 'admin/states*',
+            'permission'     => 'view states',
+            'sort_order'     => 2,
         ]);
 
         // 6. Reports & Analytics
@@ -208,6 +253,24 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view profit loss reports',
             'sort_order'     => 5,
         ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Payment Report',
+            'icon'           => 'ti ti-credit-card',
+            'route'          => 'admin.reports.payments',
+            'active_pattern' => 'admin/reports/payments',
+            'permission'     => 'view payment reports',
+            'sort_order'     => 6,
+        ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Utility Report',
+            'icon'           => 'ti ti-history',
+            'route'          => 'admin.reports.utility',
+            'active_pattern' => 'admin/reports/utility*',
+            'permission'     => 'view activity logs',
+            'sort_order'     => 7,
+        ]);
 
         // 7. User & Access
         $userAccessCategory = Module::create([
@@ -242,9 +305,18 @@ class ModuleSeeder extends Seeder
             'name'           => 'Website Content',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*',
+            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*,admin/coupons*',
             'permission'     => null,
             'sort_order'     => 8,
+        ]);
+        Module::create([
+            'parent_id'      => $websiteCategory->id,
+            'name'           => 'Manage Content',
+            'icon'           => 'ti ti-file-description',
+            'route'          => 'admin.website-content.index',
+            'active_pattern' => 'admin/website-content*',
+            'permission'     => 'view website content',
+            'sort_order'     => 1,
         ]);
         Module::create([
             'parent_id'      => $websiteCategory->id,
@@ -253,6 +325,25 @@ class ModuleSeeder extends Seeder
             'route'          => 'admin.contact-inquiries.index',
             'active_pattern' => 'admin/contact-inquiries*',
             'permission'     => 'view contact inquiries',
+            'sort_order'     => 2,
+        ]);
+
+        // 9. Settings
+        $settingsCategory = Module::create([
+            'name'           => 'System Settings',
+            'icon'           => null,
+            'route'          => null,
+            'active_pattern' => 'admin/settings*',
+            'permission'     => null,
+            'sort_order'     => 9,
+        ]);
+        Module::create([
+            'parent_id'      => $settingsCategory->id,
+            'name'           => 'Settings',
+            'icon'           => 'ti ti-settings',
+            'route'          => 'admin.settings.index',
+            'active_pattern' => 'admin/settings*',
+            'permission'     => 'view settings',
             'sort_order'     => 1,
         ]);
     }

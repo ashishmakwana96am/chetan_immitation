@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ComingSoon;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\PreventResponseCaching;
 use App\Http\Middleware\RedirectIfAdminAuthenticated;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.guest' => RedirectIfAdminAuthenticated::class,
+            'active.user' => EnsureUserIsActive::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -81,10 +83,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $statusCode = 500;
-            if ($e instanceof HttpExceptionInterface) {
-                $statusCode = $e->getStatusCode();
+            if (!$e instanceof HttpExceptionInterface) {
+                return null;
             }
+
+            $statusCode = $e->getStatusCode();
 
             if ($statusCode === 404) {
                 if ($request->expectsJson()) {

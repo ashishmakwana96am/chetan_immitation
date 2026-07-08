@@ -10,14 +10,14 @@
         <div class="col-12">
             <label class="form-label" for="attributeName">Name <span class="text-danger">*</span></label>
             <input type="text" id="attributeName" name="name"
-                class="form-control" placeholder="e.g. Color, Size, Material"
-                value="{{ $attribute->name }}" />
+                class="form-control" placeholder="Enter Attribute Name"
+                value="{{ $attribute->name }}" autofocus />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
             <label class="form-label">Values <span class="text-danger">*</span></label>
             <div class="d-flex gap-2">
-                <input type="text" id="valueInput" class="form-control" placeholder="e.g. Red" />
+                <input type="text" id="valueInput" class="form-control" placeholder="Enter Attribute Value" />
                 <button type="button" id="addValueBtn" class="btn btn-outline-primary text-nowrap">Add</button>
             </div>
             <div class="mt-2">

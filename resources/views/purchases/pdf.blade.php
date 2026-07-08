@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Purchase Invoice {{ $purchase->invoice_no }}</title>
+    <title>Purchase {{ $purchase->invoice_no }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #333; }
@@ -72,7 +72,7 @@
                 </td>
                 <td class="header-right">
                     <div class="invoice-title">
-                        <h2>Purchase Invoice</h2>
+                        <h2>Purchase</h2>
                         <div class="invoice-no">{{ $purchase->invoice_no }}</div>
                         <div style="margin-top:6px;">
                             @php
@@ -107,8 +107,8 @@
                 </td>
                 <td>
                     <div class="info-box-right">
-                        <h4>Invoice Details</h4>
-                        <p><span class="label">Invoice No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
+                        <h4>Purchase Details</h4>
+                        <p><span class="label">Purchase No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
                         @php $payLabels = [1 => 'Pending', 2 => 'Paid']; @endphp
                         <p><span class="label">Payment Status:</span> {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</p>
@@ -242,7 +242,10 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_price($item->purchase_price) }}</td>
-                    <td class="text-right">{{ $item->quantity }}</td>
+                    <td class="text-right">
+                        {{ $item->quantity }}
+                        Pcs
+                    </td>
                     <td class="text-right"><strong>{{ format_price($item->total) }}</strong></td>
                     <td>
                         @foreach($item->allocations as $allocation)

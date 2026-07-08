@@ -41,7 +41,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Purchase Reports</h4>
+        <h4 class="fw-semibold mb-0">All Purchase</h4>
         <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
@@ -63,7 +63,7 @@
                             <span class="text-muted">Total Purchases</span>
                             <h4 class="mb-0 mt-1">{{ format_price($totalPurchases) }}</h4>
                         </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-dollar ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -73,7 +73,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Total Invoices</span>
+                            <span class="text-muted">Total Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $invoiceCount }}</h4>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-file-text ti-sm"></i></span>
@@ -86,7 +86,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Confirmed Invoices</span>
+                            <span class="text-muted">Confirmed Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $confirmedCount }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-circle-check ti-sm"></i></span>
@@ -99,7 +99,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Draft Invoices</span>
+                            <span class="text-muted">Draft Purchase</span>
                             <h4 class="mb-0 mt-1">{{ $draftCount }}</h4>
                         </div>
                         <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-pencil ti-sm"></i></span>
@@ -162,7 +162,7 @@
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Invoice Status</label>
+                    <label class="form-label">Purchase Status</label>
                     <select name="status" class="form-select no-select2">
                         <option value="">All Statuses</option>
                         <option value="1" {{ $status == 1 ? 'selected' : '' }}>Pending</option>
@@ -181,7 +181,7 @@
             <ul class="nav nav-tabs card-header-tabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-invoices" role="tab">
-                        <i class="ti ti-file-text me-1"></i> Invoices List
+                        <i class="ti ti-file-text me-1"></i> Purchase List
                     </button>
                 </li>
                 <li class="nav-item">
@@ -199,7 +199,7 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Invoice No</th>
+                                <th>Purchase No</th>
                                 <th>Supplier</th>
                                 <th>Status</th>
                                 <th class="text-end text-nowrap">Total Amount</th>
@@ -233,7 +233,7 @@
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
                                     <td>
                                         <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                                                 <span>Actions</span>
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
@@ -270,9 +270,18 @@
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>
-                                        <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
-                                            {{ $item->product->name ?? 'Unknown' }}
-                                        </a>
+                                        <div class="d-flex align-items-center">
+                                            @if($item->product?->primaryImage)
+                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $item->product->name }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            @else
+                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @endif
+                                            <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
+                                                {{ $item->product->name ?? 'Unknown' }}
+                                            </a>
+                                        </div>
                                     </td>
                                     <td><code>{{ $item->product->sku ?? '-' }}</code></td>
                                     <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_purchased }}</td>
@@ -294,6 +303,19 @@
     <script>
     let purchasesTrendChart = null;
     let supplierChart = null;
+
+    function formatCompactIndian(val) {
+        val = parseFloat(val);
+        if (isNaN(val)) return '{{ currency_symbol() }}0';
+        if (val >= 10000000) {
+            return '{{ currency_symbol() }}' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (val >= 100000) {
+            return '{{ currency_symbol() }}' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (val >= 1000) {
+            return '{{ currency_symbol() }}' + (val / 1000).toFixed(val % 1000 === 0 ? 0 : 2) + ' K';
+        }
+        return '{{ currency_symbol() }}' + val.toLocaleString('en-IN');
+    }
 
     function initReport() {
         // Initialize DataTables (destroy first if already exists)
@@ -323,7 +345,7 @@
                 dataSrc: 6,
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
-                        .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' invoice' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                        .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase</span></div></td>');
                 }
             },
         });
@@ -331,6 +353,15 @@
         $('#purchasedProductsTable').DataTable({
             responsive : false,
             order      : [[3, 'desc']],
+            columnDefs : [
+                {
+                    targets: 0,
+                    orderable: false,
+                    render: function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                }
+            ],
         });
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache
@@ -357,6 +388,13 @@
                 yaxis: {
                     labels: {
                         formatter: function (val) {
+                            return formatCompactIndian(val);
+                        }
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
                             return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
@@ -367,9 +405,26 @@
             $('#purchasesTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
-        // Supplier Horizontal Bar Chart
-        const suppliers = Object.keys(supplierData);
-        const supplierValues = Object.values(supplierData);
+        const sortedEntries = Object.entries(supplierData).sort((a, b) => b[1] - a[1]);
+
+        let suppliers = [];
+        let supplierValues = [];
+
+        if (sortedEntries.length > 5) {
+            const top5 = sortedEntries.slice(0, 5);
+            const othersSum = sortedEntries.slice(5).reduce((sum, item) => sum + item[1], 0);
+            
+            suppliers = top5.map(item => item[0]);
+            supplierValues = top5.map(item => item[1]);
+            
+            if (othersSum > 0) {
+                suppliers.push('Others');
+                supplierValues.push(othersSum);
+            }
+        } else {
+            suppliers = sortedEntries.map(item => item[0]);
+            supplierValues = sortedEntries.map(item => item[1]);
+        }
 
         if (supplierChart) {
             supplierChart.destroy();
@@ -377,67 +432,29 @@
         }
         if (suppliers.length > 0) {
             supplierChart = new ApexCharts(document.getElementById('supplierChart'), {
-                chart: { type: 'bar', height: 320, toolbar: { show: false } },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        borderRadius: 4,
-                        barHeight: '55%',
-                        distributed: true
-                    }
-                },
+                chart: { type: 'donut', height: 320 },
+                series: supplierValues,
+                labels: suppliers,
                 colors: ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
-                series: [{
-                    name: 'Purchases',
-                    data: supplierValues
-                }],
-                xaxis: {
-                    categories: suppliers,
+                legend: {
+                    position: 'bottom',
                     labels: {
-                        style: {
-                            colors: '#5d596c',
-                            fontFamily: 'Public Sans'
-                        },
-                        formatter: function(val) {
-                            return '₹' + parseFloat(val).toLocaleString('en-IN');
-                        }
-                    }
-                },
-                yaxis: {
-                    labels: {
-                        style: {
-                            colors: '#5d596c',
-                            fontFamily: 'Public Sans',
-                            fontWeight: 500
-                        }
+                        colors: '#5d596c',
+                        fontFamily: 'Public Sans'
                     }
                 },
                 dataLabels: {
                     enabled: true,
-                    style: {
-                        fontSize: '11px',
-                        fontFamily: 'Public Sans',
-                        fontWeight: '600',
-                        colors: ['#fff']
-                    },
-                    formatter: function(val) {
-                        return '₹' + parseFloat(val).toLocaleString('en-IN');
-                    },
-                    offsetX: 0
+                    formatter: function(val, opts) {
+                        return val.toFixed(1) + '%';
+                    }
                 },
-                legend: { show: false },
                 tooltip: {
                     y: {
                         formatter: function(val) {
-                            return '₹' + parseFloat(val).toLocaleString('en-IN');
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         }
                     }
-                },
-                grid: {
-                    borderColor: '#e5e5e5',
-                    xaxis: { lines: { show: true } },
-                    yaxis: { lines: { show: false } },
-                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
                 },
                 noData: { text: 'No data available' }
             });
@@ -448,22 +465,52 @@
     }
 
     function initDatePickers() {
-        $('.flatpickr').each(function() {
-            if (this._flatpickr) {
-                this._flatpickr.destroy();
-            }
-        });
-
         if (typeof $.fn.flatpickr !== 'undefined') {
-            $('.flatpickr').flatpickr({
-                altInput: true,
-                altFormat: 'd-m-Y',
-                dateFormat: 'Y-m-d',
-                allowInput: false,
-                onChange: function (selectedDates, dateStr, instance) {
-                    $(instance.element).closest('form').trigger('change');
+            const startEl = $('input[name="start_date"]')[0];
+            const endEl = $('input[name="end_date"]')[0];
+            if (startEl && endEl) {
+                if (startEl._flatpickr) startEl._flatpickr.destroy();
+                if (endEl._flatpickr) endEl._flatpickr.destroy();
+
+                const startPicker = $(startEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            endPicker.set('minDate', selectedDates[0]);
+                        } else {
+                            endPicker.set('minDate', null);
+                        }
+                    }
+                });
+
+                const endPicker = $(endEl).flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                        if (selectedDates.length) {
+                            startPicker.set('maxDate', selectedDates[0]);
+                        } else {
+                            startPicker.set('maxDate', null);
+                        }
+                    }
+                });
+
+                if (startPicker.selectedDates.length) {
+                    endPicker.set('minDate', startPicker.selectedDates[0]);
                 }
-            });
+                if (endPicker.selectedDates.length) {
+                    startPicker.set('maxDate', endPicker.selectedDates[0]);
+                }
+            } else {
+                $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
+                $('.flatpickr').flatpickr({
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    onChange: function (selectedDates, dateStr, instance) {
+                        $(instance.element).closest('form').trigger('change');
+                    }
+                });
+            }
         }
     }
 
@@ -503,6 +550,8 @@
             form.find('.flatpickr').each(function () {
                 if (this._flatpickr) {
                     this._flatpickr.clear();
+                    this._flatpickr.set('minDate', null);
+                    this._flatpickr.set('maxDate', null);
                 }
             });
             form.find('input').val('');

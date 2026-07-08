@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Location extends Model
 {
+    use SoftDeletes, LogsActivity;
+
     const STATUS_ACTIVE = 1;
 
     const STATUS_INACTIVE = 2;
@@ -14,6 +18,7 @@ class Location extends Model
         'name',
         'slug',
         'address',
+        'phone',
         'is_default',
         'status',
         'created_by',

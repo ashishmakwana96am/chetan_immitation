@@ -18805,7 +18805,7 @@ html:not([dir=rtl]) .app-brand-text {
 }
 
 .menu-vertical .app-brand {
-  margin: 0 0.875rem 0 1rem;
+  /* margin: 0 0.875rem 0 1rem; */
   padding-right: 0.5rem;
   padding-left: 0.5rem;
 }

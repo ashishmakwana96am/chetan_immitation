@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
@@ -12,7 +13,9 @@ class RoleController extends Controller
     public function index()
     {
         $this->authorize('view roles');
+        $currentUserRoles = auth()->user()->roles->pluck('name')->toArray();
         $roles = Role::where('name', '!=', 'super-admin')
+            ->whereNotIn('name', $currentUserRoles)
             ->withCount('users')
             ->with('permissions')
             ->orderBy('id', 'desc')
@@ -24,7 +27,13 @@ class RoleController extends Controller
     {
         $this->authorize('view roles');
 
-        $roles     = Role::where('name', '!=', 'super-admin')->withCount('users')->with('permissions')->orderBy('id', 'desc')->get();
+        $currentUserRoles = auth()->user()->roles->pluck('name')->toArray();
+        $roles = Role::where('name', '!=', 'super-admin')
+            ->whereNotIn('name', $currentUserRoles)
+            ->withCount('users')
+            ->with('permissions')
+            ->orderBy('id', 'desc')
+            ->get();
         $canEdit   = auth()->user()->can('edit roles');
         $canDelete = auth()->user()->can('delete roles');
 
@@ -36,7 +45,7 @@ class RoleController extends Controller
             $actions = '';
             if ($canEdit || $canDelete) {
                 $actions = '<div class="dropdown table-action-dropdown">';
-                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><span>Actions</span></button>';
+                $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.roles.edit', $role) . '" data-size="modal-xl"><i class="ti ti-pencil me-2"></i>Edit</button>';
@@ -109,9 +118,14 @@ class RoleController extends Controller
         }
 
         $role = Role::create(['name' => $request->name]);
+        $permissionNames = [];
         if ($request->permissions) {
-            $role->syncPermissions(Permission::whereIn('id', $request->permissions)->get());
+            $permissions = Permission::whereIn('id', $request->permissions)->get();
+            $role->syncPermissions($permissions);
+            $permissionNames = $permissions->pluck('name')->all();
         }
+
+        ActivityLogger::log('Role Management', 'create', $role, null, ['name' => $role->name, 'permissions' => $permissionNames], 'Role "' . $role->name . '" created');
 
         return response()->json([
             'status'  => 'success',
@@ -165,9 +179,21 @@ class RoleController extends Controller
             ], 422);
         }
 
+        $oldName = $role->name;
+        $oldPermissionNames = $role->permissions->pluck('name')->all();
+
         $role->update(['name' => $request->name]);
-        $role->syncPermissions(
-            $request->permissions ? Permission::whereIn('id', $request->permissions)->get() : []
+        $newPermissions = $request->permissions ? Permission::whereIn('id', $request->permissions)->get() : collect();
+        $role->syncPermissions($newPermissions);
+        $newPermissionNames = $newPermissions->pluck('name')->all();
+
+        ActivityLogger::log(
+            'Role Management',
+            'update',
+            $role,
+            ['name' => $oldName, 'permissions' => $oldPermissionNames],
+            ['name' => $role->name, 'permissions' => $newPermissionNames],
+            'Role "' . $role->name . '" updated'
         );
 
         return response()->json([
@@ -187,7 +213,10 @@ class RoleController extends Controller
             ], 422);
         }
 
+        $roleName = $role->name;
         $role->delete();
+
+        ActivityLogger::log('Role Management', 'delete', null, ['name' => $roleName], null, 'Role "' . $roleName . '" deleted');
 
         return response()->json([
             'status'  => 'success',

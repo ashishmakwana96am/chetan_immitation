@@ -3,12 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class OrderItem extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'order_id',
         'product_id',
+        'product_variant_id',
+        'pair_type',
         'quantity',
         'price',
         'discount_type',
@@ -35,5 +39,10 @@ class OrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function variant()
+    {
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 }
