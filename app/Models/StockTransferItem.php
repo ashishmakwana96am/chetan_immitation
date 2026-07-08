@@ -10,6 +10,7 @@ class StockTransferItem extends Model
         'stock_transfer_id',
         'product_id',
         'product_variant_id',
+        'pair_type',
         'quantity',
     ];
 

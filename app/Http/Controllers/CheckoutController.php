@@ -421,6 +421,7 @@ class CheckoutController extends Controller
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
+            'pair_type'  => $item->pair_type ?? 'single',
         ])->all());
 
         $location = $fulfillment['location'];
@@ -585,9 +586,10 @@ class CheckoutController extends Controller
                     ]);
 
                     if ($isDefault) {
+                        $deductQty = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
                         Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
-                            ->decrement('quantity', $item['quantity']);
+                            ->decrement('quantity', $deductQty);
                     }
                 }
 
@@ -720,6 +722,7 @@ class CheckoutController extends Controller
             'product_id' => $product->id,
             'variant_id' => $request->filled('variant_id') ? (int) $request->variant_id : null,
             'quantity'   => $qty,
+            'pair_type'  => $pairType,
         ]]);
 
         $location = $fulfillment['location'];
@@ -834,6 +837,9 @@ class CheckoutController extends Controller
                 return false;
             }
 
+            $pairType = $item['pair_type'] ?? 'single';
+            $neededQty = ($pairType === 'pair') ? ((int) $item['quantity']) * 2 : (int) $item['quantity'];
+
             if ($item['variant_id']) {
                 $stockData = $product->getVariantStock($locationId);
                 $available = (int) ($stockData['variants'][$item['variant_id']] ?? 0);
@@ -843,7 +849,7 @@ class CheckoutController extends Controller
                     ->value('quantity') ?? 0);
             }
 
-            if ($available < (int) $item['quantity']) {
+            if ($available < $neededQty) {
                 return false;
             }
         }
@@ -1094,6 +1100,7 @@ class CheckoutController extends Controller
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
+            'pair_type'  => $item->pair_type ?? 'single',
         ])->all());
 
         $location = $fulfillment['location'];
@@ -1145,9 +1152,10 @@ class CheckoutController extends Controller
                     ]);
 
                     if ($hasStock) {
+                        $deductQty = ($item->pair_type === 'pair') ? $item->qty * 2 : $item->qty;
                         Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
-                            ->decrement('quantity', $item->qty);
+                            ->decrement('quantity', $deductQty);
                     }
                 }
 

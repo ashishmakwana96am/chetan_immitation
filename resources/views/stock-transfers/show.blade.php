@@ -159,7 +159,10 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="text-end fw-semibold">{{ $item->quantity }} <small class="text-muted">Pcs</small></td>
+                                    <td class="text-end fw-semibold">
+                                        {{ $item->quantity }} 
+                                        <small class="text-muted">{{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</small>
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>

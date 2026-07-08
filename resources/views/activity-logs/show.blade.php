@@ -28,9 +28,14 @@
             'customer_id' => 'Customer',
             'user_id' => 'User',
             'created_by' => 'Created By',
+            'accepted_by' => 'Accepted By',
             'location_id' => 'Location',
+            'from_location_id' => 'From Location',
+            'to_location_id' => 'To Location',
             'coupon_id' => 'Coupon',
             'customer_address_id' => 'Customer Address',
+            'category_id' => 'Category',
+            'sub_category_id' => 'Sub Category',
         ];
         return $map[$key] ?? ucwords(str_replace('_', ' ', $key));
     };
@@ -44,19 +49,33 @@
             return '-';
         }
 
+        // Handle User Relations
+        if (in_array($key, ['created_by', 'accepted_by', 'updated_by', 'user_id'])) {
+            return \App\Models\User::withTrashed()->find($val)?->name ?? "User #$val";
+        }
+
+        // Handle Location Relations
+        if (in_array($key, ['location_id', 'from_location_id', 'to_location_id'])) {
+            return \App\Models\Location::find($val)?->name ?? "Location #$val";
+        }
+
+        // Handle Category Relations
+        if ($key === 'category_id') {
+            return \App\Models\Category::withTrashed()->find($val)?->name ?? "Category #$val";
+        }
+
+        // Handle SubCategory Relations
+        if ($key === 'sub_category_id') {
+            return \App\Models\SubCategory::withTrashed()->find($val)?->name ?? "SubCategory #$val";
+        }
+
         // Handle Foreign Keys
-        if (str_ends_with($key, '_id') || $key === 'created_by') {
+        if (str_ends_with($key, '_id')) {
             if ($key === 'supplier_id') {
                 return \App\Models\Supplier::withTrashed()->find($val)?->name ?? "Supplier #$val";
             }
             if ($key === 'customer_id') {
                 return \App\Models\Customer::withTrashed()->find($val)?->name ?? "Customer #$val";
-            }
-            if ($key === 'user_id' || $key === 'created_by') {
-                return \App\Models\User::withTrashed()->find($val)?->name ?? "User #$val";
-            }
-            if ($key === 'location_id') {
-                return \App\Models\Location::find($val)?->name ?? "Location #$val";
             }
             if ($key === 'coupon_id') {
                 return \App\Models\Coupon::withTrashed()->find($val)?->name ?? "Coupon #$val";
@@ -88,6 +107,20 @@
                 ];
                 return $statusMap[$val] ?? "Status #$val";
             }
+            if ($log->module === 'Stock Transfer') {
+                $statusMap = [
+                    1 => 'Pending',
+                    2 => 'Accepted',
+                    3 => 'Rejected',
+                ];
+                return $statusMap[$val] ?? "Status #$val";
+            }
+            // Master Tables Status (Active/Inactive)
+            $statusMap = [
+                1 => 'Active',
+                2 => 'Inactive',
+            ];
+            return $statusMap[$val] ?? "Status #$val";
         }
 
         // Handle Payment Status
