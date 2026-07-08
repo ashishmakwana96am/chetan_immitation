@@ -26,7 +26,8 @@
             </div>
 
             <div class="relative flex justify-center lg:justify-end lg:col-span-5">
-                <img src="{{ asset('website/assets/images/shopby.png') }}" alt="">
+                <img  src="{{ asset('website/assets/images/shop-media.png') }}" alt="" class="lg:hidden w-full">
+                <img  src="{{ asset('website/assets/images/shopby.png') }}" alt="" class="hidden lg:block">
             </div>
 
         </div>
