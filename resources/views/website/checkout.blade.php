@@ -640,7 +640,7 @@
                         <h3 class="text-lg md:text-xl font-medium mb-3">
                             Have a Coupon?
                         </h3>
-                        <div class="flex gap-2 flex-wrap md:flex-nowrap">
+                        <div class="flex gap-2 flex-wrap xl:flex-nowrap">
                             <input type="text" id="couponCodeInput" placeholder="Enter Coupon Code"
                                 value="{{ session('applied_coupon_code') }}"
                                 {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
