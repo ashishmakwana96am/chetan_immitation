@@ -634,7 +634,7 @@
                 </div>
                 <!-- RIGHT SIDEBAR -->
 
-                <div class="space-y-4">
+                <div class="space-y-4 min-w-0 w-full">
                     <!-- Coupon -->
                     <div class="mb-6">
                         <h3 class="text-lg md:text-xl font-medium mb-3">
