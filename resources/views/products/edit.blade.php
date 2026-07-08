@@ -872,15 +872,19 @@
                 const code = parseFloat($(this).val()) || 0;
                 const purchasePrice = (code * 2.5).toFixed(2);
                 const salePrice = roundToNearest5(code * 4.125).toFixed(2);
-                const mrp = roundToNearest5(salePrice * 4.575).toFixed(2);
+                const mrp = roundToNearest5(code * 4.575).toFixed(2);
 
                 $('#purchasePriceInput').val(purchasePrice).trigger('change');
                 $('#salePriceInput').val(salePrice).trigger('change');
                 $('#mrpInput').val(mrp);
             });
 
-            $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * 4.575).toFixed(2));
+            $('#salePriceInput').on('change', function () {
+                const val = parseFloat($(this).val()) || 0;
+                if (val > 0) {
+                    const rounded = roundToNearest5(val).toFixed(2);
+                    $(this).val(rounded);
+                }
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

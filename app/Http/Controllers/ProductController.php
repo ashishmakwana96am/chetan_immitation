@@ -1015,7 +1015,7 @@ class ProductController extends Controller
                 // Calculate prices
                 $purchasePrice = floatval($productCode) * 2.5;
                 $salePrice = $roundToNearest5(floatval($productCode) * 4.125);
-                $mrp = $roundToNearest5($salePrice * 4.575);
+                $mrp = $roundToNearest5(floatval($productCode) * 4.575);
 
                 // Create Product
                 $product = Product::create([
