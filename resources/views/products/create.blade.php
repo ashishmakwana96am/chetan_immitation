@@ -829,9 +829,9 @@
 
                 if (isPair) {
                     const pairSalePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const pairMrp = roundToNearest5(pairSalePrice * (4.575 / 4.125)).toFixed(2);
-                    const singleSalePrice = roundToNearest5(pairSalePrice / 2).toFixed(2);
-                    const singleMrp = roundToNearest5(code * (4.575 / 4.125)).toFixed(2);
+                    const pairMrp = roundToNearest5(code * 4.575).toFixed(2);
+                    const singleSalePrice = roundToNearest5((code / 2) * 4.125).toFixed(2);
+                    const singleMrp = roundToNearest5((code / 2) * 4.575).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(singleSalePrice).trigger('change');
