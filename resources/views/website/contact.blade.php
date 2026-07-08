@@ -58,7 +58,7 @@
 
                 <div class="flex gap-4 pb-6 mb-6 border-b border-[#e5e5e5]">
 
-                    <div class="w-[50px] md:w-[62px] h-[50px] md:h-[62px] bg-[#B4771E] flex items-center justify-center shrink-0">
+                    <div class="w-[54px] h-[54px] bg-[#B4771E] flex items-center justify-center shrink-0">
                       <svg xmlns="http://www.w3.org/2000/svg"
                             fill="none"
                             viewBox="0 0 24 24"
@@ -82,7 +82,7 @@
 
                 <div class="flex gap-4 pb-6 mb-6 border-b border-[#e5e5e5]">
 
-                    <div class="w-[50px] md:w-[62px] h-[50px] md:h-[62px] bg-[#B4771E] flex items-center justify-center shrink-0">
+                    <div class="w-[54px] h-[54px] bg-[#B4771E] flex items-center justify-center shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg"
                                 fill="none"
                                 viewBox="0 0 24 24"
@@ -108,7 +108,7 @@
 
                 <div class="flex gap-4 pb-6 mb-6 border-b border-[#e5e5e5]">
 
-                    <div class="w-[50px] md:w-[62px] h-[50px] md:h-[62px] bg-[#B4771E] flex items-center justify-center shrink-0">
+                    <div class="w-[54px] h-[54px] bg-[#B4771E] flex items-center justify-center shrink-0">
                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-9 h-9 text-white">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
