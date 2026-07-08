@@ -136,10 +136,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {
@@ -395,10 +395,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {
@@ -1067,10 +1067,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {

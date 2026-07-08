@@ -115,10 +115,10 @@
                             <table class="table mb-0" id="itemsTable">
                                     <thead>
                                         <tr class="table-light">
-                                        <th>Product</th>
-                                        <th>Qty</th>
-                                        <th>Price</th>
-                                        <th>Total</th>
+                                            <th style="min-width: 250px;">Product</th>
+                                            <th style="width: 100px; min-width: 100px;">Qty</th>
+                                            <th style="width: 150px; min-width: 150px;">Price</th>
+                                            <th style="width: 120px; min-width: 120px;">Total</th>
                                             <th style="width: 44px;"></th>
                                         </tr>
                                     </thead>

@@ -162,11 +162,11 @@
                             <table class="table mb-0" id="itemsTable">
                                 <thead>
                                     <tr class="table-light">
-                                        <th>Product</th>
-                                        <th>Qty</th>
-                                        <th>Price</th>
-                                        <th>Discount</th>
-                                        <th>Total</th>
+                                        <th style="min-width: 250px;">Product</th>
+                                        <th style="width: 100px; min-width: 100px;">Qty</th>
+                                        <th style="width: 120px; min-width: 120px;">Price</th>
+                                        <th style="width: 200px; min-width: 200px;">Discount</th>
+                                        <th style="width: 120px; min-width: 120px;">Total</th>
                                         <th style="width: 44px;"></th>
                                     </tr>
                                 </thead>
@@ -313,8 +313,8 @@
                 <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
             <td class="align-middle">
-                <div class="input-group">
-                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="max-width: 130px;">
+                <div class="input-group flex-nowrap" style="min-width: 170px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 120px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
                         <option value="flat">Flat</option>
                         <option value="percentage">Percentage</option>
                     </select>

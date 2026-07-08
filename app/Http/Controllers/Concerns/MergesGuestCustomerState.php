@@ -25,9 +25,11 @@ trait MergesGuestCustomerState
                 $qty       = (int) ($item['qty'] ?? 1);
 
                 if ($productId > 0) {
+                    $pairType = $item['pair_type'] ?? 'single';
                     $existing = CartItem::where('customer_id', $customer->id)
                         ->where('product_id', $productId)
                         ->where('product_variant_id', $variantId)
+                        ->where('pair_type', $pairType)
                         ->first();
 
                     if ($existing) {
@@ -37,6 +39,7 @@ trait MergesGuestCustomerState
                             'customer_id'        => $customer->id,
                             'product_id'         => $productId,
                             'product_variant_id' => $variantId,
+                            'pair_type'          => $pairType,
                             'qty'                => $qty,
                         ]);
                     }

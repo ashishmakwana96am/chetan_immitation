@@ -77,9 +77,9 @@
                             <table class="table mb-0" id="itemsTable">
                                 <thead>
                                     <tr class="table-light">
-                                        <th>Product</th>
-                                        <th style="width: 140px;">Available</th>
-                                        <th style="width: 140px;">Qty</th>
+                                        <th style="min-width: 250px;">Product</th>
+                                        <th style="width: 140px; min-width: 140px;">Available</th>
+                                        <th style="width: 140px; min-width: 140px;">Qty</th>
                                         <th style="width: 58px;"></th>
                                     </tr>
                                 </thead>

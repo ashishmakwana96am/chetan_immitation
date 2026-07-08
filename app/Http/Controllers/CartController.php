@@ -77,6 +77,7 @@ class CartController extends Controller
                     $item = new CartItem([
                         'product_id'         => $productId,
                         'product_variant_id' => $variantId,
+                        'pair_type'          => $itemData['pair_type'] ?? 'single',
                         'qty'                => $qty
                     ]);
                     $item->id = $index; // Use array index as item ID for guest actions
