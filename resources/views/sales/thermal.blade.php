@@ -227,7 +227,7 @@
                             {{ $item->product->name ?? '-' }}
                         </td>
                         <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none;">
-                            {{ $item->quantity }}
+                            {{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
                         </td>
                         <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
                             {{ number_format($item->price, 2) }}

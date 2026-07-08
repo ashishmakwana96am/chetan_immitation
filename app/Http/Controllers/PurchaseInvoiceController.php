@@ -434,8 +434,9 @@ class PurchaseInvoiceController extends Controller
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
+            $isPair = $item->product && $item->product->pair_product;
             foreach ($item->allocations as $allocation) {
-                $qtyToAdd = $allocation->quantity;
+                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
 
                 $inventory = Inventory::firstOrCreate(
                     [
@@ -458,8 +459,9 @@ class PurchaseInvoiceController extends Controller
 
     private function reverseInvoiceStock(PurchaseInvoice $purchase): void
     {
-        $purchase->load('items.allocations');
+        $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
+            $isPair = $item->product && $item->product->pair_product;
             foreach ($item->allocations as $allocation) {
                 $inventory = Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $allocation->location_id)
@@ -467,7 +469,8 @@ class PurchaseInvoiceController extends Controller
 
                 if ($inventory) {
                     $oldQty = $inventory->quantity;
-                    $newQty = max(0, $inventory->quantity - $allocation->quantity);
+                    $qtyToSubtract = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
+                    $newQty = max(0, $inventory->quantity - $qtyToSubtract);
                     $inventory->update(['quantity' => $newQty]);
 
                     ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' edit');

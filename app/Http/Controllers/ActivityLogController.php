@@ -49,7 +49,7 @@ class ActivityLogController extends Controller
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
-            $actions .= '<button type="button" class="dropdown-item" data-common-modal="' . route('admin.reports.utility.show', $log) . '"><i class="ti ti-eye me-2"></i>View</button>';
+            $actions .= '<a href="' . route('admin.reports.utility.show', $log) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             $actions .= '</div></div>';
 
             return [
@@ -64,6 +64,7 @@ class ActivityLogController extends Controller
                 'description' => e($log->description ?? '-'),
                 'ip_address'  => e($log->ip_address ?? '-'),
                 'actions'     => $actions,
+                'view_url'    => route('admin.reports.utility.show', $log),
             ];
         });
 

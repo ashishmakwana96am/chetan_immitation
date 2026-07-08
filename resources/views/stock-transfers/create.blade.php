@@ -12,6 +12,18 @@
     #itemsTable input[type=number] {
         -moz-appearance: textfield;
     }
+    #itemsTable {
+        min-width: 600px !important;
+    }
+    
+    /* Pair type toggle */
+    .pair-type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .pair-type-toggle .pair-btn + .pair-btn { border-left: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -74,12 +86,13 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="itemsTable">
+                            <table class="table mb-0" id="itemsTable" style="display: none;">
                                 <thead>
                                     <tr class="table-light">
-                                        <th>Product</th>
-                                        <th style="width: 140px;">Available</th>
-                                        <th style="width: 140px;">Qty</th>
+                                        <th style="min-width: 250px;">Product</th>
+                                        <th style="width: 140px; min-width: 140px;">Unit</th>
+                                        <th style="width: 140px; min-width: 140px;">Available</th>
+                                        <th style="width: 140px; min-width: 140px;">Qty</th>
                                         <th style="width: 58px;"></th>
                                     </tr>
                                 </thead>
@@ -133,6 +146,9 @@
                 </div>
             </td>
             <td class="align-middle">
+                <div class="pair-type-container"></div>
+            </td>
+            <td class="align-middle">
                 <span class="badge bg-label-secondary stock-info-display">Select source</span>
             </td>
             <td class="align-middle">
@@ -160,6 +176,7 @@ $(document).ready(function () {
                 'sku' => $p->sku,
                 'barcode' => $p->barcode,
                 'type' => $p->type,
+                'pair_product' => $p->pair_product,
                 'purchase_price' => $p->purchase_price,
                 'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
             ];
@@ -267,6 +284,21 @@ $(document).ready(function () {
             row.data('variant-id', row.find('.variant-select').val() || null);
         }
 
+        // Pair product selector
+        if (product.pair_product) {
+            const pairHtml = `
+                <div class="pair-type-toggle" data-index="${idx}">
+                    <button type="button" class="pair-btn active" data-value="single">Piece</button>
+                    <button type="button" class="pair-btn" data-value="pair">Pair</button>
+                </div>
+                <input type="hidden" name="items[${idx}][pair_type]" class="pair-type-input" value="single">`;
+            row.find('.pair-type-container').html(pairHtml);
+        } else {
+            row.find('.pair-type-container').html(`
+                <span class="text-muted">Piece</span>
+                <input type="hidden" name="items[${idx}][pair_type]" class="pair-type-input" value="single">`);
+        }
+
         $('#itemsBody').append(row);
         refreshRowStock(row);
         updateSummary();
@@ -302,16 +334,31 @@ $(document).ready(function () {
                     titleText += `\n- ${item.location_name}: ${item.quantity}`;
                 });
             }
-            row.data('available', qty);
-            row.find('.stock-info-display')
-                .removeClass('bg-label-secondary bg-label-warning bg-label-danger')
-                .addClass(qty > 0 ? 'bg-label-success' : 'bg-label-danger')
-                .attr('title', titleText)
-                .css('cursor', 'help')
-                .text(qty + ' pcs');
+            row.data('available-pcs', qty);
+            updateRowAvailableStockDisplay(row);
+            row.find('.stock-info-display').attr('title', titleText).css('cursor', 'help');
         }).fail(function () {
             row.find('.stock-info-display').removeClass('bg-label-success bg-label-secondary').addClass('bg-label-danger').text('N/A');
         });
+    }
+
+    function updateRowAvailableStockDisplay(row) {
+        const qtyPcs = parseInt(row.data('available-pcs') || 0);
+        const pairType = row.find('.pair-type-input').val() || 'single';
+        
+        let displayQty = qtyPcs;
+        let unitLabel = 'Pcs';
+        
+        if (pairType === 'pair') {
+            displayQty = Math.floor(qtyPcs / 2);
+            unitLabel = 'Pairs';
+        }
+        
+        row.data('available', displayQty);
+        row.find('.stock-info-display')
+            .text(displayQty + ' ' + unitLabel)
+            .removeClass('bg-label-secondary bg-label-warning bg-label-danger bg-label-success')
+            .addClass(displayQty > 0 ? 'bg-label-success' : 'bg-label-danger');
     }
 
     function updateSummary() {
@@ -327,6 +374,7 @@ $(document).ready(function () {
         $('#summaryItems').text(items);
         $('#summaryQty').text(qty);
         $('#noItemsMsg').toggle(items === 0);
+        $('#itemsTable').toggle(items > 0);
     }
 
     function selectSearchProduct(product) {
@@ -405,6 +453,31 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('click', '.pair-type-toggle .pair-btn', function () {
+        const btn = $(this);
+        const toggle = btn.closest('.pair-type-toggle');
+        const row = btn.closest('.item-row');
+        
+        toggle.find('.pair-btn').removeClass('active');
+        btn.addClass('active');
+        
+        const val = btn.data('value') || 'single';
+        row.find('.pair-type-input').val(val);
+        
+        updateRowAvailableStockDisplay(row);
+        
+        // Also trigger check validation
+        const qty = parseInt(row.find('.item-qty').val()) || 0;
+        const available = parseInt(row.data('available') || 0);
+        if (qty > available) {
+            row.find('.item-qty').addClass('is-invalid');
+        } else {
+            row.find('.item-qty').removeClass('is-invalid');
+        }
+        
+        updateSummary();
+    });
+
     $(document).on('change', '.variant-select', function () {
         const row = $(this).closest('.item-row');
         const product = row.data('product');
@@ -471,6 +544,7 @@ $(document).ready(function () {
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             submitIdx++;
         });

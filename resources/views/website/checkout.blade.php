@@ -15,7 +15,7 @@
                     Complete your order securely and receive your jewellery at your doorstep.
                 </p>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,70%)_1fr] 2xl:grid-cols-[953px_1fr] gap-6 items-start ">
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,60%)_1fr] 2xl:grid-cols-[953px_1fr] lg:gap-6 items-start">
                 <!-- LEFT SIDE -->
 
                 <div class="min-w-0 space-y-6">
@@ -435,12 +435,19 @@
                                 @php
                                     $product  = $item->product;
                                     $variant  = $item->productVariant;
+                                    $pairType = $item->pair_type ?? 'single';
+                                    
                                     if ($variant) {
                                         $price = (float) $variant->sale_price;
                                         $mrp = (float) $product->mrp;
                                     } else {
+                                        if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                                            $price = (float) $product->pair_sale_price;
+                                            $mrp = (float) ($product->pair_mrp ?: $product->mrp);
+                                    } else {
                                         $price = (float) $product->sale_price;
                                         $mrp = (float) $product->mrp;
+                                        }
                                     }
                                     
                                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
@@ -527,6 +534,12 @@
                                                             <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                                         </p>
                                                         @endif
+                                                        @if($product->pair_product)
+                                                        <p class="text-base flex flex-wrap">
+                                                            <span class="font-medium text-[#131615] w-[120px]">Type:</span>
+                                                            <span class="text-[#757575] ml-2">{{ $pairType === 'pair' ? 'Pairs' : 'Pcs' }}</span>
+                                                        </p>
+                                                        @endif
 
                                                         <p class="text-base flex flex-wrap">
                                                             <span class="font-medium text-[#131615] w-[120px]">Item Total:</span>
@@ -543,8 +556,8 @@
                                                                 {{ $item->qty }}
                                                             </span>
                                                         </div>
-                                                        <span class="text-sm font-medium text-[#757575]">
-                                                            Pcs
+                                                        <span class="text-sm font-medium {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : 'text-[#757575]' }}">
+                                                            {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
                                                         </span>
                                                     </div>
                                                 </div>

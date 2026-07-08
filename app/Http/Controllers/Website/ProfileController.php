@@ -229,7 +229,7 @@ class ProfileController extends Controller
             DB::transaction(function () use ($order, $request) {
                 if ((int) $order->status === Order::STATUS_APPROVE) {
                     foreach ($order->items as $item) {
-                        $stockRestore = $item->quantity;
+                        $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
                         Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
                             ->increment('quantity', $stockRestore);

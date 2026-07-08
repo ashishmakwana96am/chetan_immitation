@@ -550,7 +550,7 @@
                     <td class="text-right">{{ format_price($item->price) }}</td>
                     <td class="text-right">
                         {{ $item->quantity }}
-                        Pcs
+                        {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
                     </td>
                     <td class="text-right">
                         @if($item->discount_amount > 0)

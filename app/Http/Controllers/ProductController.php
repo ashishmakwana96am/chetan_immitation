@@ -96,6 +96,10 @@ class ProductController extends Controller
                 $nameHtml .= ' <span class="badge bg-label-info ms-1" style="font-size:10px">Variable</span>';
             }
 
+            if ($product->pair_product) {
+                $nameHtml .= ' <span class="badge bg-label-warning ms-1" style="font-size:10px">Pair</span>';
+            }
+
             $image = $product->primaryImage
                 ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover product-thumbnail" alt="' . e($product->name) . '">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
@@ -265,6 +269,7 @@ class ProductController extends Controller
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
+            'pair_product'             => ['nullable', 'boolean'],
             'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
             'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
@@ -274,6 +279,8 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
+        $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -324,13 +331,24 @@ class ProductController extends Controller
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
+                'pair_product'    => $request->has('pair_product') ? 1 : 0,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
 
             $productData['purchase_price'] = $request->purchase_price;
-            $productData['sale_price']     = $request->sale_price;
-            $productData['mrp']            = $request->mrp;
+
+            if ($request->has('pair_product')) {
+                $productData['pair_sale_price'] = $request->pair_sale_price;
+                $productData['pair_mrp']        = $request->pair_mrp;
+                $productData['sale_price']      = $request->sale_price;
+                $productData['mrp']             = $request->mrp;
+            } else {
+                $productData['pair_sale_price'] = null;
+                $productData['pair_mrp']        = null;
+                $productData['sale_price']      = $request->sale_price;
+                $productData['mrp']             = $request->mrp;
+            }
 
             $product = Product::create($productData);
 
@@ -442,6 +460,7 @@ class ProductController extends Controller
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
+            'pair_product'             => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
@@ -451,6 +470,8 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
+        $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = ['required', 'json'];
@@ -502,11 +523,22 @@ class ProductController extends Controller
                 'type'            => $request->type,
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
+                'pair_product'    => $request->has('pair_product') ? 1 : 0,
             ];
 
             $productData['purchase_price'] = $request->purchase_price;
-            $productData['sale_price']     = $request->sale_price;
-            $productData['mrp']            = $request->mrp;
+
+            if ($request->has('pair_product')) {
+                $productData['pair_sale_price'] = $request->pair_sale_price;
+                $productData['pair_mrp']        = $request->pair_mrp;
+                $productData['sale_price']      = $request->sale_price;
+                $productData['mrp']             = $request->mrp;
+            } else {
+                $productData['pair_sale_price'] = null;
+                $productData['pair_mrp']        = null;
+                $productData['sale_price']      = $request->sale_price;
+                $productData['mrp']             = $request->mrp;
+            }
 
             $product->update($productData);
 
@@ -947,7 +979,7 @@ class ProductController extends Controller
                 // Use the SKU given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
                 $skuInput = trim($row['sku'] ?? '');
                 if (!empty($skuInput)) {
-                    if (Product::where('sku', $skuInput)->exists()) {
+                    if (Product::withTrashed()->where('sku', $skuInput)->exists()) {
                         $errors[] = "Row {$rowNum}: Product SKU '{$skuInput}' already exists in the system.";
                         continue;
                     }
@@ -959,23 +991,23 @@ class ProductController extends Controller
                         continue;
                     }
 
-                    $seq = Product::where('sku', 'like', $prefix . '-%')->count() + 1;
+                    $seq = Product::withTrashed()->where('sku', 'like', $prefix . '-%')->count() + 1;
                     do {
                         $sku = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
                         $seq++;
-                    } while (Product::where('sku', $sku)->exists() || Product::where('barcode', $sku)->exists());
+                    } while (Product::withTrashed()->where('sku', $sku)->exists() || Product::withTrashed()->where('barcode', $sku)->exists());
                 }
 
                 // Use the Barcode given in the sheet, or default to the SKU
                 $barcodeInput = trim($row['barcode'] ?? '');
                 if (!empty($barcodeInput)) {
-                    if (Product::where('barcode', $barcodeInput)->exists()) {
+                    if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
                         $errors[] = "Row {$rowNum}: Product Barcode '{$barcodeInput}' already exists in the system.";
                         continue;
                     }
                     $barcode = $barcodeInput;
                 } else {
-                    if (Product::where('barcode', $sku)->exists()) {
+                    if (Product::withTrashed()->where('barcode', $sku)->exists()) {
                         $errors[] = "Row {$rowNum}: Generated Barcode '{$sku}' already exists in the system.";
                         continue;
                     }
@@ -983,7 +1015,7 @@ class ProductController extends Controller
                 }
 
                 // Find or create category
-                $category = Category::firstOrCreate(
+                $category = Category::withTrashed()->firstOrCreate(
                     [
                         'name' => $categoryName
                     ],
@@ -994,11 +1026,15 @@ class ProductController extends Controller
                     ]
                 );
 
+                if ($category->trashed()) {
+                    $category->restore();
+                }
+
                 // Find or create subcategory if provided
                 $subCategoryId = null;
                 $subCategoryName = $row['sub_category'] ?? null;
                 if (!empty($subCategoryName)) {
-                    $subCategory = SubCategory::firstOrCreate(
+                    $subCategory = SubCategory::withTrashed()->firstOrCreate(
                         [
                             'category_id' => $category->id,
                             'name' => $subCategoryName
@@ -1009,13 +1045,17 @@ class ProductController extends Controller
                             'created_by' => auth()->id()
                         ]
                     );
+
+                    if ($subCategory->trashed()) {
+                        $subCategory->restore();
+                    }
                     $subCategoryId = $subCategory->id;
                 }
 
                 // Calculate prices
                 $purchasePrice = floatval($productCode) * 2.5;
                 $salePrice = $roundToNearest5(floatval($productCode) * 4.125);
-                $mrp = $roundToNearest5($salePrice * 4.575);
+                $mrp = $roundToNearest5(floatval($productCode) * 4.575);
 
                 // Create Product
                 $product = Product::create([
@@ -1086,7 +1126,7 @@ class ProductController extends Controller
                     }
 
                     // Find or create Attribute
-                    $attribute = Attribute::firstOrCreate(
+                    $attribute = Attribute::withTrashed()->firstOrCreate(
                         [
                             'name' => $attributeName
                         ],
@@ -1098,12 +1138,20 @@ class ProductController extends Controller
                         ]
                     );
 
+                    if ($attribute->trashed()) {
+                        $attribute->restore();
+                    }
+
                     foreach ($attrValues as $val) {
                         // Find or create AttributeValue
-                        $attributeValue = AttributeValue::firstOrCreate([
+                        $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
                             'attribute_id' => $attribute->id,
                             'value' => $val
                         ]);
+
+                        if ($attributeValue->trashed()) {
+                            $attributeValue->restore();
+                        }
 
                         // Create variant
                         ProductVariant::create([

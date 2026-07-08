@@ -165,7 +165,9 @@ class ShopCategoryController extends Controller
             ->with(['subCategories' => function ($q) {
                 $q->where('status', SubCategory::STATUS_ACTIVE)->orderBy('sort_order');
             }])
-            ->withCount('products')
+            ->withCount(['products' => function ($q) {
+                $q->whereNull('products.deleted_at');
+            }])
             ->orderBy('sort_order')
             ->get();
 

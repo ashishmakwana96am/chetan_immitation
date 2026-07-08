@@ -144,6 +144,7 @@ class StockTransferController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
 
@@ -171,6 +172,7 @@ class StockTransferController extends Controller
                     'stock_transfer_id' => $transfer->id,
                     'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'pair_type' => $item['pair_type'] ?? 'single',
                     'quantity' => $item['quantity'],
                 ]);
             }
@@ -218,10 +220,12 @@ class StockTransferController extends Controller
                     ->where('location_id', $stockTransfer->from_location_id)
                     ->first();
 
+                $stockQty = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+
                 if ($source) {
                     $oldQty = $source->quantity;
-                    $source->decrement('quantity', $item->quantity);
-                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $item->quantity], 'Stock transferred out for transfer #' . $stockTransfer->transfer_no);
+                    $source->decrement('quantity', $stockQty);
+                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock transferred out for transfer #' . $stockTransfer->transfer_no);
                 }
 
                 $destination = Inventory::firstOrCreate(
@@ -235,8 +239,8 @@ class StockTransferController extends Controller
                     ]
                 );
                 $destOldQty = $destination->quantity;
-                $destination->increment('quantity', $item->quantity);
-                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $item->quantity], 'Stock transferred in for transfer #' . $stockTransfer->transfer_no);
+                $destination->increment('quantity', $stockQty);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock transferred in for transfer #' . $stockTransfer->transfer_no);
             }
 
             $stockTransfer->update([
@@ -276,12 +280,15 @@ class StockTransferController extends Controller
             $variantId = is_array($item) ? ($item['product_variant_id'] ?? null) : $item->product_variant_id;
             $variantId = $variantId ? (int) $variantId : null;
             $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
-            $key = $productId . ':' . ($variantId ?? 0);
+            $pairType = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
+
+            $key = $productId . ':' . ($variantId ?? 0) . ':' . $pairType;
 
             if (!isset($normalized[$key])) {
                 $normalized[$key] = [
                     'product_id' => $productId,
                     'product_variant_id' => $variantId,
+                    'pair_type' => $pairType,
                     'quantity' => 0,
                 ];
             }
@@ -316,8 +323,11 @@ class StockTransferController extends Controller
                     ->value('quantity');
             }
 
-            if ($available < $item['quantity']) {
-                return 'Product "' . $label . '" only has ' . $available . ' units in source stock; ' . $item['quantity'] . ' requested.';
+            $neededQty = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+
+            if ($available < $neededQty) {
+                $requestedText = ($item['pair_type'] === 'pair') ? ($item['quantity'] . ' Pairs') : ($item['quantity'] . ' Pcs');
+                return 'Product "' . $label . '" only has ' . $available . ' units in source stock; ' . $requestedText . ' requested.';
             }
         }
 

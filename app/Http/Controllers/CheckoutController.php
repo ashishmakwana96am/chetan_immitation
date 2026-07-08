@@ -136,10 +136,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {
@@ -395,10 +395,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {
@@ -417,11 +417,15 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+        $fulfillment = $this->isDefaultLocationWithStock($cartItems->map(fn ($item) => [
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
+            'pair_type'  => $item->pair_type ?? 'single',
         ])->all());
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json([
@@ -465,7 +469,7 @@ class CheckoutController extends Controller
                 'customer_id' => $customer->id,
                 'address_id' => $address->id,
                 'location_id' => $location->id,
-                'is_default' => (bool) $location->is_default,
+                'is_default' => $hasStock,
                 'total' => $total,
                 'shipping_charge' => $shipping,
                 'coupon_id' => $coupon ? $coupon->id : null,
@@ -476,6 +480,7 @@ class CheckoutController extends Controller
                     return [
                         'product_id' => $item->product_id,
                         'variant_id' => $item->product_variant_id,
+                        'pair_type'  => $item->pair_type ?? 'single',
                         'quantity' => $item->qty,
                         'price' => $price,
                         'total' => $price * $item->qty,
@@ -536,15 +541,18 @@ class CheckoutController extends Controller
 
         if (hash_equals($expectedSignature, $request->razorpay_signature)) {
             $order = DB::transaction(function () use ($pendingPayment, $request) {
+                $isDefault = (bool) ($pendingPayment['is_default'] ?? true);
+                $status = $isDefault ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
+
                 $order = Order::create([
                     'customer_id' => $pendingPayment['customer_id'],
                     'customer_address_id' => $pendingPayment['address_id'],
                     'location_id' => $pendingPayment['location_id'],
-                    'is_default' => $pendingPayment['is_default'] ?? true,
+                    'is_default' => $isDefault,
                     'order_no' => $pendingPayment['order_no'],
                     'order_type' => 'sale',
-                    'status' => Order::STATUS_APPROVE,
-                    'confirmed_at' => now(),
+                    'status' => $status,
+                    'confirmed_at' => $isDefault ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'payment_method' => 'online',
                     'final_amount' => $pendingPayment['total'],
@@ -570,15 +578,19 @@ class CheckoutController extends Controller
                         'order_id'           => $order->id,
                         'product_id'         => $item['product_id'],
                         'product_variant_id' => $item['variant_id'] ?? null,
+                        'pair_type'          => $item['pair_type'] ?? 'single',
                         'quantity'           => $item['quantity'],
                         'price'              => $item['price'],
                         'discount'           => 0.0,
                         'total'              => $item['total'],
                     ]);
 
-                    Inventory::where('product_id', $item['product_id'])
-                        ->where('location_id', $order->location_id)
-                        ->decrement('quantity', $item['quantity']);
+                    if ($isDefault) {
+                        $deductQty = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                        Inventory::where('product_id', $item['product_id'])
+                            ->where('location_id', $order->location_id)
+                            ->decrement('quantity', $deductQty);
+                    }
                 }
 
                 if ($pendingPayment['type'] === 'checkout') {
@@ -644,6 +656,7 @@ class CheckoutController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'qty' => ['nullable', 'integer', 'min:1'],
+            'pair_type' => ['nullable', 'string', 'in:single,pair'],
         ]);
 
         if (! (bool) Setting::getValue('payment_method_razorpay', true)) {
@@ -676,7 +689,14 @@ class CheckoutController extends Controller
         }
 
         $qty = max(1, (int) ($request->qty ?? 1));
+        $pairType = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
 
+        // If not a pair product, force single
+        if (!$product->pair_product) {
+            $pairType = 'single';
+        }
+
+        // Calculate price based on pair_type
         if ($request->filled('variant_id')) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('status', 1)
@@ -686,18 +706,27 @@ class CheckoutController extends Controller
             }
             $price = $variant->sale_price;
         } else {
-            $price = $product->sale_price;
+            // Regular product: check pair_type
+            if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                $price = $product->pair_sale_price;
+            } else {
+                $price = $product->sale_price;
+            }
         }
 
         $subtotal = round((float) $price * $qty, 2);
         $shipping = $this->calculateShipping($subtotal, $address, null);
         $total = round($subtotal + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation([[
+        $fulfillment = $this->isDefaultLocationWithStock([[
             'product_id' => $product->id,
             'variant_id' => $request->filled('variant_id') ? (int) $request->variant_id : null,
             'quantity'   => $qty,
+            'pair_type'  => $pairType,
         ]]);
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json(['status' => 'error', 'message' => 'No fulfillment location is active.'], 422);
@@ -737,7 +766,7 @@ class CheckoutController extends Controller
                 'customer_id' => $customer->id,
                 'address_id' => $address->id,
                 'location_id' => $location->id,
-                'is_default' => (bool) $location->is_default,
+                'is_default' => $hasStock,
                 'total' => $total,
                 'shipping_charge' => $shipping,
                 'coupon_id' => null,
@@ -745,6 +774,7 @@ class CheckoutController extends Controller
                 'cart_items' => [[
                     'product_id' => $product->id,
                     'variant_id' => $variantId,
+                    'pair_type' => $pairType,
                     'quantity' => $qty,
                     'price' => $price,
                     'total' => $price * $qty,
@@ -773,31 +803,25 @@ class CheckoutController extends Controller
         }
     }
 
-    private function resolveFulfillmentLocation(array $items): ?Location
+    private function isDefaultLocationWithStock(array $items): array
     {
         $defaultLocation = Location::where('is_default', true)->first()
             ?? Location::where('status', Location::STATUS_ACTIVE)->first()
             ?? Location::first();
 
         if (! $defaultLocation) {
-            return null;
+            return [
+                'location' => null,
+                'has_stock' => false,
+            ];
         }
 
-        if ($this->locationHasStockForItems($defaultLocation->id, $items)) {
-            return $defaultLocation;
-        }
+        $hasStock = $this->locationHasStockForItems($defaultLocation->id, $items);
 
-        $otherLocations = Location::where('status', Location::STATUS_ACTIVE)
-            ->where('id', '!=', $defaultLocation->id)
-            ->get();
-
-        foreach ($otherLocations as $location) {
-            if ($this->locationHasStockForItems($location->id, $items)) {
-                return $location;
-            }
-        }
-
-        return $defaultLocation;
+        return [
+            'location' => $defaultLocation,
+            'has_stock' => $hasStock,
+        ];
     }
 
     private function locationHasStockForItems(int $locationId, array $items): bool
@@ -813,6 +837,9 @@ class CheckoutController extends Controller
                 return false;
             }
 
+            $pairType = $item['pair_type'] ?? 'single';
+            $neededQty = ($pairType === 'pair') ? ((int) $item['quantity']) * 2 : (int) $item['quantity'];
+
             if ($item['variant_id']) {
                 $stockData = $product->getVariantStock($locationId);
                 $available = (int) ($stockData['variants'][$item['variant_id']] ?? 0);
@@ -822,7 +849,7 @@ class CheckoutController extends Controller
                     ->value('quantity') ?? 0);
             }
 
-            if ($available < (int) $item['quantity']) {
+            if ($available < $neededQty) {
                 return false;
             }
         }
@@ -1046,10 +1073,10 @@ class CheckoutController extends Controller
             $coupon = Coupon::where('code', session('applied_coupon_code'))
                 ->where('status', Coupon::STATUS_ACTIVE)
                 ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
                 })
                 ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
                 })
                 ->first();
             if ($coupon) {
@@ -1069,11 +1096,15 @@ class CheckoutController extends Controller
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
 
-        $location = $this->resolveFulfillmentLocation($cartItems->map(fn ($item) => [
+        $fulfillment = $this->isDefaultLocationWithStock($cartItems->map(fn ($item) => [
             'product_id' => $item->product_id,
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
+            'pair_type'  => $item->pair_type ?? 'single',
         ])->all());
+
+        $location = $fulfillment['location'];
+        $hasStock = $fulfillment['has_stock'];
 
         if (! $location) {
             return response()->json([
@@ -1083,17 +1114,20 @@ class CheckoutController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($customer, $location, $total, $shipping, $cartItems, $coupon, $address) {
+            $order = DB::transaction(function () use ($customer, $location, $hasStock, $total, $shipping, $cartItems, $coupon, $address) {
                 $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+
+                $status = $hasStock ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
 
                 $order = Order::create([
                     'customer_id' => $customer->id,
                     'customer_address_id' => $address->id,
                     'location_id' => $location->id,
-                    'is_default' => (bool) $location->is_default,
+                    'is_default' => $hasStock,
                     'order_no' => $orderNo,
                     'order_type' => 'sale',
-                    'status' => Order::STATUS_PENDING,
+                    'status' => $status,
+                    'confirmed_at' => $hasStock ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PENDING,
                     'payment_method' => 'cod',
                     'final_amount' => $total,
@@ -1110,11 +1144,19 @@ class CheckoutController extends Controller
                         'order_id'           => $order->id,
                         'product_id'         => $item->product_id,
                         'product_variant_id' => $item->product_variant_id,
+                        'pair_type'          => $item->pair_type ?? 'single',
                         'quantity'           => $item->qty,
                         'price'              => $price,
                         'discount'           => 0.0,
                         'total'              => $price * $item->qty,
                     ]);
+
+                    if ($hasStock) {
+                        $deductQty = ($item->pair_type === 'pair') ? $item->qty * 2 : $item->qty;
+                        Inventory::where('product_id', $item->product_id)
+                            ->where('location_id', $order->location_id)
+                            ->decrement('quantity', $deductQty);
+                    }
                 }
 
                 CartItem::where('customer_id', $customer->id)->delete();

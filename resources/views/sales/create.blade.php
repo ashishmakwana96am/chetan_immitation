@@ -13,6 +13,9 @@
     #itemsTable input[type=number] {
         -moz-appearance: textfield;
     }
+    #itemsTable {
+        min-width: 850px !important;
+    }
     
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
@@ -56,6 +59,14 @@
     .compact-entry-layout .card.mb-4 {
         margin-bottom: 0 !important;
     }
+    /* Pair type toggle */
+    .pair-type-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .pair-type-toggle .pair-btn + .pair-btn { border-left: 1.5px solid #B4771E; }
+    .pair-type-toggle .pair-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -151,14 +162,14 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="itemsTable">
+                            <table class="table mb-0 d-none" id="itemsTable">
                                 <thead>
                                     <tr class="table-light">
-                                        <th>Product</th>
-                                        <th>Qty</th>
-                                        <th>Price</th>
-                                        <th>Discount</th>
-                                        <th>Total</th>
+                                        <th style="min-width: 250px;">Product</th>
+                                        <th style="width: 100px; min-width: 100px;">Qty</th>
+                                        <th style="width: 120px; min-width: 120px;">Price</th>
+                                        <th style="width: 200px; min-width: 200px;">Discount</th>
+                                        <th style="width: 120px; min-width: 120px;">Total</th>
                                         <th style="width: 44px;"></th>
                                     </tr>
                                 </thead>
@@ -288,9 +299,11 @@
                             <span class="badge stock-display text-nowrap"></span>
                         </div>
                         <div class="variant-select-container"></div>
+                        <div class="pair-type-container mt-1"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
+                <input type="hidden" name="items[__INDEX__][pair_type]" class="pair-type-input" value="single">
                 <div class="invalid-feedback"></div>
             </td>
             <td class="align-middle">
@@ -303,8 +316,8 @@
                 <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
             <td class="align-middle">
-                <div class="input-group">
-                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="max-width: 130px;">
+                <div class="input-group flex-nowrap" style="min-width: 170px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 120px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
                         <option value="flat">Flat</option>
                         <option value="percentage">Percentage</option>
                     </select>
@@ -491,12 +504,13 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single') {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
         $('#itemsBody').append(template);
         $('#noItemsMsg').addClass('d-none');
+        $('#itemsTable').removeClass('d-none');
 
         const row = $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
@@ -534,6 +548,21 @@ $(document).ready(function () {
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
+        // Pair product selector
+        if (product.pair_product) {
+            const singlePrice = product.single_price != null ? product.single_price : 0;
+            const pairPrice   = product.pair_price != null ? product.pair_price : 0;
+            const pairHtml = `
+                <div class="pair-type-toggle mt-1" data-single-price="${singlePrice}" data-pair-price="${pairPrice}">
+                    <button type="button" class="pair-btn ${pairType !== 'pair' ? 'active' : ''}" data-value="single">Piece</button>
+                    <button type="button" class="pair-btn ${pairType === 'pair' ? 'active' : ''}" data-value="pair">Pair</button>
+                </div>`;
+            row.find('.pair-type-container').html(pairHtml);
+            row.find('.pair-type-input').val(pairType);
+            // Set correct price immediately
+            row.find('.item-price').val(pairType === 'pair' ? pairPrice : singlePrice);
+        }
+
         row.find('.item-qty').val(qty);
         row.find('.item-discount-type').val(discountType);
         row.find('.item-discount-value').val(discountValue);
@@ -561,7 +590,22 @@ $(document).ready(function () {
         updateSummary();
     });
 
-
+    // Pair type toggle (Single / Pair)
+    $(document).on('click', '.pair-btn', function () {
+        const toggle = $(this).closest('.pair-type-toggle');
+        const row = $(this).closest('.item-row');
+        const selected = $(this).data('value');
+        toggle.find('.pair-btn').removeClass('active');
+        $(this).addClass('active');
+        row.find('.pair-type-input').val(selected);
+        const price = selected === 'pair'
+            ? parseFloat(toggle.data('pair-price'))
+            : parseFloat(toggle.data('single-price'));
+        row.find('.item-price').val(price);
+        updateRowTotal(row);
+        updateStockInfo(row);
+        updateSummary();
+    });
 
     // -------------------------------------------------------
     // Remove Item Row
@@ -571,6 +615,7 @@ $(document).ready(function () {
         row.remove();
         if ($('#itemsBody .item-row').length === 0) {
             $('#noItemsMsg').removeClass('d-none');
+            $('#itemsTable').addClass('d-none');
         }
         updateSummary();
     });
@@ -594,6 +639,8 @@ $(document).ready(function () {
         const stockDisplay = row.find('.stock-display');
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
         const product = row.data('product');
+        const isPair = row.find('.pair-type-input').val() === 'pair';
+
         if (!productId) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').hide();
             return;
@@ -602,13 +649,19 @@ $(document).ready(function () {
         $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
             .done(function (res) {
                 let rawQty = res.data?.quantity ?? 0;
-                const displayQty = rawQty;
+                // For pair products show available qty based on mode
+                const displayQty = (product && product.pair_product && isPair)
+                    ? Math.floor(rawQty / 2)
+                    : rawQty;
 
                 const breakdown = res.data?.breakdown || [];
                 let titleText = 'Stock Breakdown:\n';
                 if (breakdown.length > 0) {
                     breakdown.forEach(item => {
-                        titleText += `- ${item.location_name}: ${item.quantity}\n`;
+                        const bQty = (product && product.pair_product && isPair)
+                            ? Math.floor(item.quantity / 2)
+                            : item.quantity;
+                        titleText += `- ${item.location_name}: ${bQty}\n`;
                     });
                 } else {
                     titleText += 'No stock in any branch';
@@ -888,6 +941,7 @@ $(document).ready(function () {
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${price}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
