@@ -640,13 +640,13 @@
                         <h3 class="text-lg md:text-xl font-medium mb-3">
                             Have a Coupon?
                         </h3>
-                        <div class="flex gap-2 flex-wrap">
+                        <div class="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-2">
                             <input type="text" id="couponCodeInput" placeholder="Enter Coupon Code"
                                 value="{{ session('applied_coupon_code') }}"
                                 {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
-                                class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-base placeholder:md:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}">
+                                class="h-[44px] lg:h-[52px] border border-[#D5D5D5] px-2 sm:px-4 bg-white text-base md:text-lg leading-[18px] placeholder:text-base placeholder:md:text-lg rounded-sm flex-grow {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }} w-full">
                             <button id="couponActionBtn" onclick="handleCouponAction()"
-                                class="bg-[#B4771E] text-white px-4 xl:px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm">
+                                class="bg-[#B4771E] text-white px-4 xl:px-6 h-[44px] lg:h-[52px] whitespace-nowrap text-base md:text-lg transition rounded-sm w-full xl:w-auto">
                                 {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
                             </button>
                         </div>
