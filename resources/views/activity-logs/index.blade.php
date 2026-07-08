@@ -37,6 +37,12 @@
             align-items: center;
             margin-top: 2px;
         }
+        #activityLogTable tbody tr {
+            cursor: pointer;
+        }
+        #activityLogTable tbody tr.group-header {
+            cursor: default;
+        }
     </style>
 @endsection
 
@@ -228,6 +234,16 @@
                             .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' log' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
+            });
+
+            $('#activityLogTable tbody').on('dblclick', 'tr', function (e) {
+                if ($(e.target).closest('.dropdown, .table-action-dropdown, button, a').length) {
+                    return;
+                }
+                const data = table.row(this).data();
+                if (data && data.view_url) {
+                    window.location.href = data.view_url;
+                }
             });
 
             window.refreshTable = function () {
