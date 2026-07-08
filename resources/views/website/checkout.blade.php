@@ -650,23 +650,6 @@
                                 {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
                             </button>
                         </div>
-                        <div class="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-2">
-    <input
-        type="text"
-        id="couponCodeInput"
-        placeholder="Enter Coupon Code"
-        value="{{ session('applied_coupon_code') }}"
-        {{ session()->has('applied_coupon_code') ? 'disabled' : '' }}
-        class="w-full h-[44px] lg:h-[52px] border border-[#D5D5D5] px-4 rounded-sm {{ session()->has('applied_coupon_code') ? 'bg-gray-100 cursor-not-allowed' : '' }}"
-    >
-
-    <button
-        id="couponActionBtn"
-        onclick="handleCouponAction()"
-        class="w-full xl:w-auto xl:px-6 h-[44px] lg:h-[52px] bg-[#B4771E] text-white rounded-sm whitespace-nowrap">
-        {{ session()->has('applied_coupon_code') ? 'Remove Coupon' : 'Apply Coupon' }}
-    </button>
-</div>
                     </div>
                     <!-- Price Details -->
 
