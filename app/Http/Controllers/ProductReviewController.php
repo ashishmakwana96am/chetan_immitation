@@ -19,15 +19,11 @@ class ProductReviewController extends Controller
 
         $query = ProductReview::with(['product.primaryImage', 'customer', 'images'])->orderBy('id', 'desc');
 
-        if ($request->filled('rating')) {
-            $query->where('rating', $request->rating);
-        }
-
         $reviews = $query->get();
 
         $data = $reviews->map(function ($review, $index) {
             // Stars HTML (filled ★ + empty ☆)
-            $rating  = (float) $review->rating;
+            $rating = (float) $review->rating;
             $full    = (int) floor($rating);
             $half    = ($rating - $full) >= 0.5 ? 1 : 0;
             $empty   = 5 - $full - $half;

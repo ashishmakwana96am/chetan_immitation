@@ -264,6 +264,24 @@ class SaleController extends Controller
                     ];
                 })->all();
             }
+
+            // Calculate stock by location
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent' => $locData['parent'],
+                        'variants' => $locData['variants']
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
             return $data;
         })->values();
         $defaultLocationId = $isRestricted ? $user->location_id : null;
@@ -611,6 +629,24 @@ class SaleController extends Controller
                     ];
                 })->all();
             }
+
+            // Calculate stock by location
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent' => $locData['parent'],
+                        'variants' => $locData['variants']
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
             return $data;
         })->values();
 

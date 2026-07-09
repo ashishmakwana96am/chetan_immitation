@@ -201,7 +201,7 @@
                                 <span class="input-group-text"><i class="ti ti-search"></i></span>
                                 <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name, SKU or barcode..." autocomplete="off">
                             </div>
-                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
+                            <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
                                 <!-- Search results will appear here -->
                             </div>
                         </div>
@@ -415,6 +415,7 @@ $(document).ready(function () {
         }
     }
     const allProducts = @json($allProducts);
+    const locations = @json($locations);
     const existingItems = @json($existingItems);
     updateSummary();
 
@@ -751,9 +752,7 @@ $(document).ready(function () {
 
     $(document).on('change', '#locationSelect', function () {
         $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
-    });
-
-    function updateStockInfo(row) {
+    });    function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
@@ -788,6 +787,38 @@ $(document).ready(function () {
                     .addClass(displayQty > 0 ? (displayQty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
                     .show();
             });
+        } else {
+            if (locationId) {
+                qty = product.stock_by_location?.[locationId] ?? 0;
+            } else {
+                Object.keys(product.stock_by_location || {}).forEach(locId => {
+                    qty += (product.stock_by_location[locId] ?? 0);
+                });
+            }
+            
+            Object.keys(product.stock_by_location || {}).forEach(locId => {
+                const lQty = product.stock_by_location[locId] ?? 0;
+                const loc = locations.find(l => l.id == locId);
+                const locName = loc ? loc.name : 'Unknown';
+                if (lQty > 0) {
+                    breakdownText += `- ${locName}: ${lQty}\n`;
+                    hasStock = true;
+                }
+            });
+        }
+
+        if (!hasStock) {
+            breakdownText += 'No stock in any branch';
+        }
+
+        const labelPrefix = locationId ? 'Stock: ' : 'Total Stock: ';
+        stockDisplay
+            .text(qty === 0 ? 'Out of Stock' : labelPrefix + qty)
+            .attr('title', breakdownText.trim())
+            .css('cursor', 'help')
+            .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
+            .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
+            .show();
     }
 
     $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type', function () {

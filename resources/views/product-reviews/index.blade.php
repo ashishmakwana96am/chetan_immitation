@@ -42,10 +42,7 @@
                 ajax       : {
                     url: '{{ route('admin.product-reviews.data') }}',
                     dataSrc: 'data',
-                    cache: false,
-                    data: function(d) {
-                        d.rating = $('#filter-rating').val();
-                    }
+                    cache: false
                 },
                 columns    : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
