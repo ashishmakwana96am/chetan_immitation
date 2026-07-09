@@ -71,7 +71,7 @@
                             <div id="pwStrengthBar" class="pw-strength-bar w-0 bg-[#dc2626]"></div>
                         </div>
                         <p id="pwStrengthLabel" class="text-[12px] mt-1 text-[#9ca3af]"></p>
-                        <p class="text-[12px] text-[#9ca3af] mt-1">Must contain: uppercase, lowercase, number &amp; special character (min 8 chars)</p>
+                        <p class="text-[12px] text-[#9ca3af] mt-1">Minimum 8 characters</p>
                         <p class="field-error hidden" id="password-error"></p>
                     </div>
 
@@ -127,7 +127,7 @@ $(function () {
         $('#loginInsteadLink').attr('href', loginUrl.pathname + loginUrl.search);
     }
 
-    var strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_#^()\-+=])[A-Za-z\d@$!%*?&_#^()\-+=]{8,}$/;
+    var minLenRegex = /^.{8,}$/;
 
     function showError(field, msg) {
         $('#' + field).addClass('input-invalid').removeClass('input-valid');
@@ -163,7 +163,7 @@ $(function () {
         var labels = ['','Very Weak','Weak','Fair','Good','Strong'];
         $('#pwStrengthBar').css({ width: pct + '%', 'background-color': colors[score] });
         $('#pwStrengthLabel').text(val.length ? labels[score] : '').css('color', colors[score]);
-        if (val.length) { if (strongRegex.test(val)) markValid('password'); else { clearError('password'); $('#password').removeClass('input-valid'); } }
+        if (val.length) { if (minLenRegex.test(val)) markValid('password'); else { clearError('password'); $('#password').removeClass('input-valid'); } }
         if ($('#password_confirmation').val().length) validateConfirm();
     });
 
@@ -201,7 +201,7 @@ $(function () {
     $('#password').on('blur', function () {
         var v = $(this).val();
         if (!v) showError('password', 'Password is required.');
-        else if (!strongRegex.test(v)) showError('password', 'Must contain uppercase, lowercase, digit & special character (min 8 chars).');
+        else if (!minLenRegex.test(v)) showError('password', 'Password must be at least 8 characters.');
         else markValid('password');
     });
 
@@ -233,7 +233,7 @@ $(function () {
 
         var pw = $('#password').val();
         if (!pw) { showError('password', 'Password is required.'); valid = false; }
-        else if (!strongRegex.test(pw)) { showError('password', 'Must contain uppercase, lowercase, digit & special character (min 8 chars).'); valid = false; }
+        else if (!minLenRegex.test(pw)) { showError('password', 'Password must be at least 8 characters.'); valid = false; }
 
         if (!validateConfirm()) valid = false;
 

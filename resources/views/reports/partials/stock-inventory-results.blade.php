@@ -163,7 +163,7 @@
                             </span>
                         </td>
                         <td class="text-end">{{ format_price($product['stock_value']) }}</td>
-                        <td data-order="{{ $product['last_purchase_date'] ?? '0000-00-00' }}">{{ $product['last_purchase_display'] }}</td>
+                        <td data-order="{{ $product['last_purchase_date'] ?? '' }}">{{ $product['last_purchase_display'] }}</td>
                         <td class="text-center" data-order="{{ $product['age_sort'] }}">
                             @if(is_null($product['age_days']))
                                 <span class="badge bg-label-secondary">{{ $product['age_display'] }}</span>

@@ -94,6 +94,17 @@
     $(document).ready(function () {
         let table = null;
 
+        $.fn.dataTable.ext.type.order['null-last-asc'] = function (a, b) {
+            if (a === '') return 1;
+            if (b === '') return -1;
+            return a < b ? -1 : (a > b ? 1 : 0);
+        };
+        $.fn.dataTable.ext.type.order['null-last-desc'] = function (a, b) {
+            if (a === '') return 1;
+            if (b === '') return -1;
+            return a < b ? 1 : (a > b ? -1 : 0);
+        };
+
         function initReport() {
             if ($.fn.DataTable.isDataTable('#stockTable')) {
                 $('#stockTable').DataTable().destroy();
@@ -115,6 +126,10 @@
                         render: function (data, type, row, meta) {
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
+                    },
+                    {
+                        targets: lastPurchaseColumnIndex,
+                        type: 'null-last',
                     }
                 ],
             });
@@ -134,6 +149,7 @@
                     const total = parseInt(row.data('total'));
                     const age   = parseInt(row.data('age'));
                     if (cat              && row.data('category-id') != cat) return false;
+                    if (hasDateFilter    && total <= 0)                     return false; // Last Purchase filter: only items in stock
                     if (stock === 'in'   && total <= 0)                     return false;
                     if (stock === 'low'  && (total === 0 || total > 5))     return false;
                     if (stock === 'out'  && total > 0)                      return false;
@@ -149,6 +165,8 @@
                 $('#customAgeWrapper').toggleClass('d-none', $(this).val() !== 'custom');
                 applyFilters();
             });
+
+            applyFilters();
 
             $('#sortBy').off('change').on('change', function () {
                 const val = $(this).val();
