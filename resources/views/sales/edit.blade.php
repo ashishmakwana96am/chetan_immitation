@@ -951,8 +951,7 @@ $(document).ready(function () {
                     const product = $(this).data('product');
                     const name = (product && product.name) ? product.name : 'item';
                     $(this).find('.item-discount-value').addClass('is-invalid');
-                    errorMsg = 'Final price for "' + name + '" cannot be less than purchase price + 10% (minimum '
-                        + symbol + ' ' + formatPrice(minTotal) + ').';
+                    errorMsg = 'Discount is not applicable';
                 }
             }
         });

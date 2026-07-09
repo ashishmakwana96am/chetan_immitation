@@ -1219,12 +1219,16 @@ class SaleController extends Controller
                 continue;
             }
 
+            $pairType = is_array($itemData) ? ($itemData['pair_type'] ?? 'single') : ($itemData->pair_type ?? 'single');
+            if ($product && $product->pair_product && $pairType === 'single') {
+                $purchasePrice = $purchasePrice / 2;
+            }
+
             $minTotal = $qty * $purchasePrice * 1.10;
             $minFloorTotal += $minTotal;
 
             if ($itemTotal < $minTotal - 0.01) {
-                return 'Final price for "' . $label . '" cannot be less than purchase price + 10% (minimum '
-                    . format_price($minTotal) . ' for the selected quantity).';
+                return 'Discount is not applicable';
             }
         }
 
