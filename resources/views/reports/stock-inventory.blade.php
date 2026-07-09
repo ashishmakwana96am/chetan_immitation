@@ -16,99 +16,6 @@
         </button>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Products</span>
-                            <h4 class="mb-0 mt-1">{{ $activeProductCount }}</h4>
-                        </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Stock Units</span>
-                            @php
-                                $totalStockUnits = $products->where('is_parent', true)->sum('total');
-                            @endphp
-                            <h4 class="mb-0 mt-1">{{ number_format($totalStockUnits) }}</h4>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">SOLD OUT</span>
-                            <h4 class="mb-0 mt-1">{{ $soldoutProductCount }}</h4>
-                        </div>
-                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Locations</span>
-                            <h4 class="mb-0 mt-1">{{ $locations->count() }}</h4>
-                        </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-map-pin ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="row g-4 mb-4">
-
-        <!-- Stock per Location (Bar) -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header"><h5 class="mb-0">Total Stock per Location</h5></div>
-                <div class="card-body">
-                    <div id="locationStockChart"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stock Distribution (Stacked Bar - Top 10 products) -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header"><h5 class="mb-0">Top 10 Products — Stock by Location</h5></div>
-                <div class="card-body">
-                    <div id="stackedStockChart"></div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Low Stock Alert -->
-    @php $lowStock = $products->filter(fn($p) => $p['total'] > 0 && $p['total'] <= 5)->sortBy('total'); @endphp
-    @if($lowStock->count())
-        <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
-            <i class="ti ti-alert-triangle me-2 fs-5"></i>
-            <strong>{{ $lowStock->count() }} product(s)</strong>&nbsp;have low stock (≤ 5 units).
-        </div>
-    @endif
-
     <!-- Filters -->
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -118,8 +25,18 @@
             </button>
         </div>
         <div class="card-body">
+            <form method="GET" action="{{ route('admin.reports.stock-inventory') }}" id="dateFilterForm" class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">From Date <small class="text-muted">(Last Purchase)</small></label>
+                    <input type="text" name="from_date" class="form-control flatpickr" value="{{ $fromDate }}" placeholder="DD-MM-YYYY" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">To Date <small class="text-muted">(Last Purchase)</small></label>
+                    <input type="text" name="to_date" class="form-control flatpickr" value="{{ $toDate }}" placeholder="DD-MM-YYYY" />
+                </div>
+            </form>
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Category</label>
                     <select id="filterCategory" class="form-select">
                         <option value="">All Categories</option>
@@ -128,7 +45,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Stock</label>
                     <select id="filterStock" class="form-select">
                         <option value="">All</option>
@@ -137,82 +54,36 @@
                         <option value="out">SOLD OUT</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Show Products Older Than</label>
+                    <select id="filterAge" class="form-select">
+                        <option value="">Any Age</option>
+                        <option value="30">30 Days</option>
+                        <option value="60">60 Days</option>
+                        <option value="90">90 Days</option>
+                        <option value="180">180 Days</option>
+                        <option value="365">365 Days</option>
+                        <option value="custom">Custom Days</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-none" id="customAgeWrapper">
+                    <label class="form-label">Custom Days</label>
+                    <input type="number" id="filterAgeCustom" class="form-control" min="1" placeholder="e.g. 45" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    <select id="sortBy" class="form-select">
+                        <option value="">Default (Name)</option>
+                        <option value="age_desc">Inventory Age (Oldest First)</option>
+                        <option value="age_asc">Inventory Age (Newest First)</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Stock Table -->
-    <div class="card">
-        <div class="card-header"><h5 class="mb-0">Stock Detail by Location</h5></div>
-        <div class="card-datatable table-responsive">
-            <table class="table border-top" id="stockTable">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Product</th>
-                        <th>Barcode</th>
-                        <th>Category</th>
-                        @foreach($locations as $location)
-                            <th class="text-center">{{ $location->name }}</th>
-                        @endforeach
-                        <th class="text-center">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($products as $index => $product)
-                        <tr data-category-id="{{ $product['category_id'] }}"
-                            data-total="{{ $product['total'] }}">
-                            <td>{{ $index + 1 }}</td>
-                            <td data-order="{{ $product['name'] }} {{ $product['is_parent'] ? '000_parent' : $product['variant_name'] }}">
-                                @if($product['is_parent'])
-                                    <div class="d-flex align-items-center">
-                                        @if($product['image_url'])
-                                            <img src="{{ $product['image_url'] }}" alt="{{ $product['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                        @else
-                                            <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                            </div>
-                                        @endif
-                                        <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
-                                            {{ $product['name'] }}
-                                        </a>
-                                    </div>
-                                @else
-                                    <span class="text-muted ps-4">↳ {{ $product['variant_name'] }}</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if($product['is_parent'])
-                                    <code>{{ $product['barcode'] }}</code>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if($product['is_parent'])
-                                    <span class="badge bg-label-primary">{{ $product['category'] }}</span>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            @foreach($locations as $location)
-                                @php $qty = $product['stock'][$location->id] ?? 0; @endphp
-                                <td class="text-center">
-                                    <span class="badge {{ $qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary') }}">
-                                        {{ $qty }}
-                                    </span>
-                                </td>
-                            @endforeach
-                            <td class="text-center">
-                                <span class="badge {{ $product['total'] > 5 ? 'bg-label-success' : ($product['total'] > 0 ? 'bg-label-warning' : 'bg-label-danger') }} fw-bold">
-                                    {{ $product['total'] }}
-                                </span>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+    <div id="report-results">
+        @include('reports.partials.stock-inventory-results')
     </div>
 @endsection
 
@@ -221,214 +92,246 @@
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
     $(document).ready(function () {
+        let table = null;
 
-        // -------------------------------------------------------
-        // DataTable
-        // -------------------------------------------------------
-        const table = $('#stockTable').DataTable({
-            responsive : false,
-            order      : [[1, 'asc']],
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
+        function initReport() {
+            if ($.fn.DataTable.isDataTable('#stockTable')) {
+                $('#stockTable').DataTable().destroy();
+            }
+
+            table = $('#stockTable').DataTable({
+                responsive : false,
+                order      : [[1, 'asc']],
+                columnDefs : [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        render: function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
                     }
-                }
-            ],
-        });
-
-        function applyFilters() {
-            const cat   = $('#filterCategory').val();
-            const stock = $('#filterStock').val();
-
-            $.fn.dataTable.ext.search = [];
-            $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-                const row   = $(table.row(dataIndex).node());
-                const total = parseInt(row.data('total'));
-                if (cat              && row.data('category-id') != cat) return false;
-                if (stock === 'in'   && total <= 0)                     return false;
-                if (stock === 'low'  && (total === 0 || total > 5))     return false;
-                if (stock === 'out'  && total > 0)                      return false;
-                return true;
+                ],
             });
-            table.draw();
+
+            const ageColumnIndex = 4 + {{ $locations->count() }} + 2; // #, Product, Barcode, Category, [locations...], Total, Stock Value, Last Purchase Date, then Inventory Age
+
+            function applyFilters() {
+                const cat   = $('#filterCategory').val();
+                const stock = $('#filterStock').val();
+                let minAge  = $('#filterAge').val();
+                if (minAge === 'custom') {
+                    minAge = $('#filterAgeCustom').val();
+                }
+                minAge = minAge ? parseInt(minAge) : null;
+
+                $.fn.dataTable.ext.search = [];
+                $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                    const row   = $(table.row(dataIndex).node());
+                    const total = parseInt(row.data('total'));
+                    const age   = parseInt(row.data('age'));
+                    if (cat              && row.data('category-id') != cat) return false;
+                    if (stock === 'in'   && total <= 0)                     return false;
+                    if (stock === 'low'  && (total === 0 || total > 5))     return false;
+                    if (stock === 'out'  && total > 0)                      return false;
+                    if (minAge !== null  && age < minAge)                   return false;
+                    return true;
+                });
+                table.draw();
+            }
+
+            $('#filterCategory, #filterStock, #filterAgeCustom').off('change').on('change', applyFilters);
+
+            $('#filterAge').off('change').on('change', function () {
+                $('#customAgeWrapper').toggleClass('d-none', $(this).val() !== 'custom');
+                applyFilters();
+            });
+
+            $('#sortBy').off('change').on('change', function () {
+                const val = $(this).val();
+                if (val === 'age_desc') {
+                    table.order([ageColumnIndex, 'desc']).draw();
+                } else if (val === 'age_asc') {
+                    table.order([ageColumnIndex, 'asc']).draw();
+                } else {
+                    table.order([1, 'asc']).draw();
+                }
+            });
+
+            initCharts();
         }
 
-        $('#filterCategory, #filterStock').on('change', applyFilters);
+        function initCharts() {
+            const locations   = @json($locations->pluck('name'));
+            const locationIds = @json($locations->pluck('id'));
+
+            const products = JSON.parse(document.getElementById('reportProductsData').textContent || '[]');
+
+            // Only use parent rows for charts — variant rows must NOT be double-counted
+            const parentProducts = products.filter(p => p.is_parent);
+
+            const locationTotals = locationIds.map(function (locId) {
+                return parentProducts.reduce(function (sum, p) {
+                    return sum + (p.stock[locId] || 0);
+                }, 0);
+            });
+
+            new ApexCharts(document.getElementById('locationStockChart'), {
+                chart  : { type: 'bar', height: 380, toolbar: { show: false } },
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        barHeight: '55%',
+                        distributed: true
+                    }
+                },
+                colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+                series : [{ name: 'Total Stock', data: locationTotals }],
+                xaxis  : {
+                    categories: locations,
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                        formatter: function(val) { return parseInt(val); }
+                    }
+                },
+                yaxis  : {
+                    labels: { style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 } }
+                },
+                dataLabels : {
+                    enabled: true,
+                    style: { fontSize: '11px', fontFamily: 'Public Sans', fontWeight: '600', colors: ['#fff'] },
+                    formatter: function(val) { return parseInt(val); }
+                },
+                legend: { show: false },
+                tooltip: { y: { formatter: function(val) { return val + ' Units'; } } },
+                grid: {
+                    borderColor: '#e5e5e5',
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: false } },
+                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                }
+            }).render();
+
+            // Top 10 Products — only parent rows, sorted by total stock descending
+            const top10 = parentProducts.slice().sort((a, b) => b.total - a.total).slice(0, 10);
+
+            const stackedSeries = locationIds.map(function (locId, i) {
+                return {
+                    name : locations[i],
+                    data : top10.map(p => p.stock[locId] || 0),
+                };
+            });
+
+            new ApexCharts(document.getElementById('stackedStockChart'), {
+                chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
+                series : stackedSeries,
+                xaxis  : {
+                    categories: top10.map(p => p.name),
+                    labels: {
+                        style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                        formatter: function(val) { return parseInt(val); }
+                    }
+                },
+                yaxis  : {
+                    labels: { style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 } }
+                },
+                plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
+                dataLabels : {
+                    enabled: true,
+                    style: { fontSize: '10px', fontFamily: 'Public Sans', fontWeight: '600', colors: ['#fff'] },
+                    formatter: function(val) { return val > 0 ? val : ''; }
+                },
+                legend     : {
+                    position: 'bottom',
+                    fontFamily: 'Public Sans',
+                    fontSize: '11px',
+                    labels: { colors: '#5d596c' },
+                    itemMargin: { horizontal: 8, vertical: 4 }
+                },
+                grid: {
+                    borderColor: '#e5e5e5',
+                    xaxis: { lines: { show: true } },
+                    yaxis: { lines: { show: false } },
+                    padding: { top: -15, right: 10, bottom: -10, left: 10 }
+                },
+                tooltip: { y: { formatter: function(val) { return val + ' Units'; } } }
+            }).render();
+        }
+
+        function loadReport(url) {
+            $('#report-results').css('opacity', 0.5);
+            window.showAjaxLoader && window.showAjaxLoader();
+
+            $.get(url, function (html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+
+                $('#report-results').html(newResults);
+                initReport();
+            }).fail(function () {
+                toastr.error('Failed to load the report. Please try again.');
+            }).always(function () {
+                $('#report-results').css('opacity', 1);
+                window.hideAjaxLoader && window.hideAjaxLoader();
+            });
+        }
+
+        function initDatePickers() {
+            if (typeof $.fn.flatpickr === 'undefined') return;
+
+            $('#dateFilterForm .flatpickr').each(function () {
+                if (this._flatpickr) this._flatpickr.destroy();
+            });
+            $('#dateFilterForm .flatpickr').flatpickr({
+                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                onChange: function () {
+                    const form = $('#dateFilterForm');
+                    loadReport(form.attr('action') + '?' + form.serialize());
+                }
+            });
+        }
 
         $('#resetFilters').on('click', function() {
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
-            applyFilters();
+            $('#filterAge').val('').trigger('change.select2');
+            $('#filterAgeCustom').val('');
+            $('#customAgeWrapper').addClass('d-none');
+            $('#sortBy').val('').trigger('change.select2');
+            if (table) {
+                table.order([1, 'asc']).draw();
+                $.fn.dataTable.ext.search = [];
+                table.draw();
+            }
+
+            let hadDateFilter = false;
+            $('#dateFilterForm .flatpickr').each(function () {
+                if (this._flatpickr) {
+                    if (this._flatpickr.selectedDates.length) hadDateFilter = true;
+                    this._flatpickr.clear(false); // false = don't fire onChange, we'll reload once ourselves
+                }
+            });
+
+            if (hadDateFilter) {
+                loadReport('{{ route('admin.reports.stock-inventory') }}');
+            }
         });
 
         $('#exportExcelBtn').on('click', function() {
             const cat = $('#filterCategory').val();
             const stock = $('#filterStock').val();
-            
+
             let url = "{{ route('admin.reports.stock-inventory.export') }}?";
             let params = [];
             if (cat) params.push('category_id=' + cat);
             if (stock) params.push('stock=' + stock);
-            
+
             window.location.href = url + params.join('&');
         });
 
-        // -------------------------------------------------------
-        // Stock per Location Bar Chart
-        // -------------------------------------------------------
-        const locations   = @json($locations->pluck('name'));
-        const locationIds = @json($locations->pluck('id'));
-        const products    = @json($products->values());
-
-        // Only use parent rows for charts — variant rows must NOT be double-counted
-        const parentProducts = products.filter(p => p.is_parent);
-
-        const locationTotals = locationIds.map(function (locId) {
-            return parentProducts.reduce(function (sum, p) {
-                return sum + (p.stock[locId] || 0);
-            }, 0);
-        });
-
-        // Total Stock per Location Horizontal Bar Chart
-        new ApexCharts(document.getElementById('locationStockChart'), {
-            chart  : { type: 'bar', height: 380, toolbar: { show: false } },
-            plotOptions: {
-                bar: {
-                    horizontal: true,
-                    borderRadius: 4,
-                    barHeight: '55%',
-                    distributed: true
-                }
-            },
-            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
-            series : [{ name: 'Total Stock', data: locationTotals }],
-            xaxis  : { 
-                categories: locations,
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans'
-                    },
-                    formatter: function(val) {
-                        return parseInt(val);
-                    }
-                }
-            },
-            yaxis  : {
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans',
-                        fontWeight: 500
-                    }
-                }
-            },
-            dataLabels : { 
-                enabled: true,
-                style: {
-                    fontSize: '11px',
-                    fontFamily: 'Public Sans',
-                    fontWeight: '600',
-                    colors: ['#fff']
-                },
-                formatter: function(val) {
-                    return parseInt(val);
-                }
-            },
-            legend: { show: false },
-            tooltip: {
-                y: {
-                    formatter: function(val) {
-                        return val + ' Units';
-                    }
-                }
-            },
-            grid: {
-                borderColor: '#e5e5e5',
-                xaxis: { lines: { show: true } },
-                yaxis: { lines: { show: false } },
-                padding: { top: -15, right: 10, bottom: -10, left: 10 }
-            }
-        }).render();
-
-        // Top 10 Products — only parent rows, sorted by total stock descending
-        const top10 = parentProducts.slice().sort((a, b) => b.total - a.total).slice(0, 10);
-
-        const stackedSeries = locationIds.map(function (locId, i) {
-            return {
-                name : locations[i],
-                data : top10.map(p => p.stock[locId] || 0),
-            };
-        });
-
-        new ApexCharts(document.getElementById('stackedStockChart'), {
-            chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
-            series : stackedSeries,
-            xaxis  : { 
-                categories: top10.map(p => p.name),
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans'
-                    },
-                    formatter: function(val) {
-                        return parseInt(val);
-                    }
-                }
-            },
-            yaxis  : {
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans',
-                        fontWeight: 500
-                    }
-                }
-            },
-            plotOptions: { 
-                bar: { 
-                    horizontal: true,
-                    borderRadius: 4, 
-                    barHeight: '60%' 
-                } 
-            },
-            dataLabels : { 
-                enabled: true,
-                style: {
-                    fontSize: '10px',
-                    fontFamily: 'Public Sans',
-                    fontWeight: '600',
-                    colors: ['#fff']
-                },
-                formatter: function(val) {
-                    return val > 0 ? val : '';
-                }
-            },
-            legend     : { 
-                position: 'bottom',
-                fontFamily: 'Public Sans',
-                fontSize: '11px',
-                labels: { colors: '#5d596c' },
-                itemMargin: { horizontal: 8, vertical: 4 }
-            },
-            grid: {
-                borderColor: '#e5e5e5',
-                xaxis: { lines: { show: true } },
-                yaxis: { lines: { show: false } },
-                padding: { top: -15, right: 10, bottom: -10, left: 10 }
-            },
-            tooltip: {
-                y: {
-                    formatter: function(val) {
-                        return val + ' Units';
-                    }
-                }
-            }
-        }).render();
-
+        initReport();
+        initDatePickers();
     });
     </script>
 @endsection

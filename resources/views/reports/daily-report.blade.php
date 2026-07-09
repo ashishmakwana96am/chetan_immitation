@@ -43,7 +43,7 @@
         </div>
     </div>
 
-    <div id="dailyReportResults">
+    <div id="report-results">
         @include('reports.partials.daily-report-results')
     </div>
 @endsection
@@ -52,8 +52,6 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            const dataUrl = '{{ route('admin.reports.daily-report.data') }}';
-
             const dailyTableIds = ['#dailySalesTable', '#dailyPurchasesTable', '#dailyExpensesTable', '#dailyPurchaseBillTable'];
 
             function initDailyTables() {
@@ -71,120 +69,28 @@
                 });
             }
 
-            function loadReport() {
+            function loadReport(url) {
+                $('#report-results').css('opacity', 0.5);
                 window.showAjaxLoader && window.showAjaxLoader();
-                $.get(dataUrl, $('#filterForm').serialize())
-                    .done(function (res) {
-                        if (res.status !== 'success') return;
-                        renderResults(res);
-                    })
-                    .fail(function () {
-                        toastr.error('Failed to load the report. Please try again.');
-                    })
-                    .always(function () {
-                        window.hideAjaxLoader && window.hideAjaxLoader();
-                    });
+
+                $.get(url, function (html) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newResults = $(doc).find('#report-results').html();
+
+                    $('#report-results').html(newResults);
+                    initDailyTables();
+                }).fail(function () {
+                    toastr.error('Failed to load the report. Please try again.');
+                }).always(function () {
+                    $('#report-results').css('opacity', 1);
+                    window.hideAjaxLoader && window.hideAjaxLoader();
+                });
             }
 
-            function money(val) {
-                const symbol = '{{ currency_symbol() }}';
-                return symbol + ' ' + parseFloat(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-
-            function renderResults(res) {
-                $('#totalSalesAmount').text(money(res.totalSales));
-                $('#totalSalesCount').text(res.totalSalesCount + ' order' + (res.totalSalesCount == 1 ? '' : 's'));
-                $('#totalPurchasesAmount').text(money(res.totalPurchases));
-                $('#totalPurchasesCount').text(res.totalPurchasesCount + ' invoice' + (res.totalPurchasesCount == 1 ? '' : 's'));
-                $('#totalExpensesAmount').text(money(res.totalExpenses));
-                $('#totalExpensesCount').text(res.totalExpensesCount + ' entr' + (res.totalExpensesCount == 1 ? 'y' : 'ies'));
-                $('#totalTransfersCount').text(res.totalTransfersCount);
-                $('#totalTransfersQty').text(res.totalTransfersQty + ' unit' + (res.totalTransfersQty == 1 ? '' : 's'));
-
-                // Branch-wise breakdown
-                const $branchBody = $('#branchBreakdownBody');
-                const $branchCard = $('#branchBreakdownCard');
-                if (res.branchRows.length > 1) {
-                    let rows = '';
-                    res.branchRows.forEach(function (row) {
-                        rows += '<tr>' +
-                            '<td class="fw-semibold">' + row.location_name + '</td>' +
-                            '<td class="text-end">' + money(row.sales_amount) + ' <small class="text-muted">(' + row.sales_count + ')</small></td>' +
-                            '<td class="text-end">' + money(row.purchase_amount) + ' <small class="text-muted">(' + row.purchase_count + ')</small></td>' +
-                            '<td class="text-end">' + money(row.expense_amount) + ' <small class="text-muted">(' + row.expense_count + ')</small></td>' +
-                            '<td class="text-end">' + row.transfer_count + ' <small class="text-muted">(' + row.transfer_qty + ' units)</small></td>' +
-                            '</tr>';
-                    });
-                    $branchBody.html(rows);
-                    $branchCard.show();
-                } else {
-                    $branchCard.hide();
-                }
-
-                // Sales
-                let salesRows = '';
-                res.salesRows.forEach(function (row) {
-                    salesRows += '<tr>' +
-                        '<td>' + row.index + '</td>' +
-                        '<td><code>' + row.sale_no + '</code></td>' +
-                        '<td>' + row.customer + '</td>' +
-                        '<td>' + row.location + '</td>' +
-                        '<td>' + row.source + '</td>' +
-                        '<td class="text-end">' + money(row.amount) + '</td>' +
-                        '<td>' + row.status + '</td>' +
-                        '<td>' + row.payment_status + '</td>' +
-                        '<td>' + row.method + '</td>' +
-                        '</tr>';
-                });
-                $('#dailySalesBody').html(salesRows);
-
-                // Purchases
-                let purchaseRows = '';
-                res.purchaseRows.forEach(function (row) {
-                    purchaseRows += '<tr>' +
-                        '<td>' + row.index + '</td>' +
-                        '<td><code>' + row.purchase_no + '</code></td>' +
-                        '<td>' + row.supplier + '</td>' +
-                        '<td class="text-end">' + money(row.total_amount) + '</td>' +
-                        '<td>' + row.status + '</td>' +
-                        '<td>' + row.payment_status + '</td>' +
-                        '</tr>';
-                });
-                $('#dailyPurchasesBody').html(purchaseRows);
-
-                // Expenses
-                let expenseRows = '';
-                res.expenseRows.forEach(function (row) {
-                    expenseRows += '<tr>' +
-                        '<td>' + row.index + '</td>' +
-                        '<td>' + row.title + '</td>' +
-                        '<td>' + row.category + '</td>' +
-                        '<td class="text-end">' + money(row.amount) + '</td>' +
-                        '<td>' + row.payment_method + '</td>' +
-                        '<td>' + row.location + '</td>' +
-                        '<td>' + row.expense_date + '</td>' +
-                        '<td>' + row.created_by + '</td>' +
-                        '</tr>';
-                });
-                $('#dailyExpensesBody').html(expenseRows);
-
-                // Purchase Bill
-                let billRows = '';
-                res.purchaseBillRows.forEach(function (row) {
-                    billRows += '<tr>' +
-                        '<td>' + row.index + '</td>' +
-                        '<td><code>' + row.bill_no + '</code></td>' +
-                        '<td>' + row.source + '</td>' +
-                        '<td>' + row.destination + '</td>' +
-                        '<td>' + row.items_count + '</td>' +
-                        '<td class="text-end">' + money(row.amount) + '</td>' +
-                        '<td>' + row.status + '</td>' +
-                        '<td>' + row.created_by + '</td>' +
-                        '</tr>';
-                });
-                $('#dailyPurchaseBillBody').html(billRows);
-
-                initDailyTables();
+            function submitFilters() {
+                const form = $('#filterForm');
+                loadReport(form.attr('action') + '?' + form.serialize());
             }
 
             initDailyTables();
@@ -193,19 +99,18 @@
                 $('.flatpickr').flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
                     onChange: function (selectedDates, dateStr, instance) {
-                        $(instance.element).closest('form').trigger('change');
+                        submitFilters();
                     }
                 });
             }
 
-            $(document).on('change', '#filterForm', function (e) {
-                e.preventDefault();
-                loadReport();
+            $(document).on('change', '#filterForm select', function () {
+                submitFilters();
             });
 
             $('#filterForm').on('submit', function (e) {
                 e.preventDefault();
-                loadReport();
+                submitFilters();
             });
 
             $('#resetFilters').on('click', function () {
@@ -217,9 +122,14 @@
                 } else if (dateInput) {
                     dateInput.value = '{{ now()->toDateString() }}';
                 }
-                form.find('select[name="location_id"]').val('').trigger('change.select2');
 
-                loadReport();
+                const branchSelect = form.find('select[name="location_id"]');
+                if (branchSelect.length) {
+                    // triggering change fires the delegated #filterForm select listener, which reloads once
+                    branchSelect.val('').trigger('change.select2');
+                } else {
+                    submitFilters();
+                }
             });
         });
     </script>

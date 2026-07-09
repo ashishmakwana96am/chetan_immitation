@@ -133,13 +133,16 @@ class ReportController extends Controller
         return view('reports.products', ['products' => $productsList, 'categories' => $categories,'totalProducts' => $totalProducts, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
     }
 
-    public function stockInventory()
+    public function stockInventory(Request $request)
     {
         $this->authorize('view stock inventory reports');
 
         $user      = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $locationId   = $isRestricted ? $user->location_id : null;
+
+        $fromDate = $request->query('from_date');
+        $toDate   = $request->query('to_date');
 
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
@@ -152,8 +155,54 @@ class ReportController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Last purchase date per (product, variant) — one aggregate query for every product, no N+1.
+        $lastPurchaseRows = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->where('purchases.status', Purchase::STATUS_APPROVE)
+            ->when($fromDate, fn ($q) => $q->whereDate('purchases.created_at', '>=', $fromDate))
+            ->when($toDate, fn ($q) => $q->whereDate('purchases.created_at', '<=', $toDate))
+            ->groupBy('purchase_items.product_id', 'purchase_items.product_variant_id')
+            ->select('purchase_items.product_id', 'purchase_items.product_variant_id', DB::raw('MAX(purchases.created_at) as last_purchase_at'))
+            ->get();
+
+        $variantLastPurchase = [];
+        $productLastPurchase = [];
+        foreach ($lastPurchaseRows as $row) {
+            $variantKey = $row->product_id . ':' . ($row->product_variant_id ?? 0);
+            $variantLastPurchase[$variantKey] = $row->last_purchase_at;
+
+            if (!isset($productLastPurchase[$row->product_id]) || $row->last_purchase_at > $productLastPurchase[$row->product_id]) {
+                $productLastPurchase[$row->product_id] = $row->last_purchase_at;
+            }
+        }
+
+        $buildAgeInfo = function (?string $lastPurchaseAt) {
+            if (!$lastPurchaseAt) {
+                return [
+                    'last_purchase_date' => null,
+                    'last_purchase_display' => '-',
+                    'age_days' => null,
+                    'age_display' => 'No Purchase History',
+                    'age_sort' => PHP_INT_MAX, // never-purchased sorts as "oldest" first
+                ];
+            }
+
+            $lastPurchase = \Carbon\Carbon::parse($lastPurchaseAt);
+            $ageDays = (int) floor($lastPurchase->diffInDays(now()));
+
+            return [
+                'last_purchase_date' => $lastPurchase->toDateString(),
+                'last_purchase_display' => $lastPurchase->format('d-M-Y'),
+                'age_days' => $ageDays,
+                'age_display' => $ageDays . ' Days',
+                'age_sort' => $ageDays,
+            ];
+        };
+
         $productsList = collect();
         foreach ($products as $product) {
+            $purchasePrice = (float) $product->purchase_price;
+
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
 
@@ -162,19 +211,21 @@ class ReportController extends Controller
                     $inv = $product->inventories->firstWhere('location_id', $location->id);
                     $parentLocStock[$location->id] = $inv ? $inv->quantity : 0;
                 }
-                $productsList->push([
+                $parentTotal = array_sum($parentLocStock);
+                $productsList->push(array_merge([
                     'id'          => $product->id,
                     'name'        => $product->name,
                     'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $parentLocStock,
-                    'total'       => array_sum($parentLocStock),  // matches Dashboard
+                    'total'       => $parentTotal,  // matches Dashboard
+                    'stock_value' => $parentTotal * $purchasePrice,
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
                     'image_url'   => $product->primaryImage->image_url ?? null,
-                ]);
+                ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
 
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
@@ -183,20 +234,24 @@ class ReportController extends Controller
                     }
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
+                    $vTotal = array_sum($vLocStock);
+                    $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
+                    $variantKey = $product->id . ':' . $v->id;
 
-                    $productsList->push([
+                    $productsList->push(array_merge([
                         'id'          => $product->id,
                         'name'        => $product->name,
                         'barcode'     => $product->barcode,
                         'category'    => $product->category->name ?? '-',
                         'category_id' => $product->category_id,
                         'stock'       => $vLocStock,
-                        'total'       => array_sum($vLocStock),
+                        'total'       => $vTotal,
+                        'stock_value' => $vTotal * $vPrice,
                         'status'      => $v->status,
                         'is_parent'   => false,
                         'variant_name'=> "{$attrName}: {$valName}",
                         'image_url'   => $product->primaryImage->image_url ?? null,
-                    ]);
+                    ], $buildAgeInfo($variantLastPurchase[$variantKey] ?? null)));
                 }
             } else {
                 $stock = [];
@@ -204,19 +259,21 @@ class ReportController extends Controller
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
-                $productsList->push([
+                $total = array_sum($stock);
+                $productsList->push(array_merge([
                     'id'          => $product->id,
                     'name'        => $product->name,
                     'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $stock,
-                    'total'       => array_sum($stock),
+                    'total'       => $total,
+                    'stock_value' => $total * $purchasePrice,
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
                     'image_url'   => $product->primaryImage->image_url ?? null,
-                ]);
+                ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
             }
         }
 
@@ -246,6 +303,8 @@ class ReportController extends Controller
             'activeProductCount' => $activeProductCount,
             'soldoutProductCount'=> $soldoutProductCount,
             'isRestricted'       => $isRestricted,
+            'fromDate'           => $fromDate,
+            'toDate'             => $toDate,
         ]);
     }
 
