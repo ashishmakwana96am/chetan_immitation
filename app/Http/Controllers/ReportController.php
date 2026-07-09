@@ -10,10 +10,14 @@ use App\Models\Supplier;
 use App\Models\Customer;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\PurchaseBill;
+use App\Models\PurchaseBillItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Expense;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use App\Services\ActivityLogger;
 use App\Services\ReportExportService;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -1119,5 +1123,293 @@ class ReportController extends Controller
             'locationId',
             'isSuperAdmin'
         ));
+    }
+
+    public function dailyReport(Request $request)
+    {
+        $this->authorize('view daily reports');
+
+        [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
+
+        return view('reports.daily-report', array_merge(
+            ['locations' => $locations, 'locationId' => $locationId, 'isSuperAdmin' => $isSuperAdmin, 'date' => $date],
+            $this->buildDailyReportData($date, $locationId)
+        ));
+    }
+
+    public function dailyReportData(Request $request)
+    {
+        $this->authorize('view daily reports');
+
+        [$date, $locationId] = $this->resolveDailyReportFilters($request);
+
+        return response()->json(array_merge(['status' => 'success', 'date' => $date], $this->buildDailyReportData($date, $locationId)));
+    }
+
+    private function resolveDailyReportFilters(Request $request): array
+    {
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        $validator = Validator::make($request->all(), [
+            'date'        => ['nullable', 'date_format:Y-m-d'],
+            'location_id' => ['nullable', 'exists:locations,id'],
+        ]);
+        $date = (!$validator->fails() && $request->query('date'))
+            ? $request->query('date')
+            : now()->toDateString();
+
+        if ($user->location_id && !$isSuperAdmin) {
+            $locations  = Location::where('id', $user->location_id)->get();
+            $locationId = $user->location_id;
+        } else {
+            $locations  = Location::where('status', 1)->orderBy('name')->get();
+            $locationId = ($request->query('location_id') && !$validator->fails()) ? $request->query('location_id') : null;
+        }
+
+        return [$date, $locationId, $locations, $isSuperAdmin];
+    }
+
+    private function buildDailyReportData(string $date, $locationId): array
+    {
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        if ($user->location_id && !$isSuperAdmin) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
+
+        // Locations included in this report run: either the single filtered one, or every visible one
+        $reportLocations = $locationId
+            ? $locations->where('id', $locationId)->values()
+            : $locations;
+        $locationIds = $reportLocations->pluck('id');
+
+        $orderStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+
+        $orderStatusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Shipped', 4 => 'Out for delivery', 5 => 'Delivered', 6 => 'Cancelled'];
+        $orderStatusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-info', 4 => 'bg-label-warning', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
+        $orderPaymentLabels = [1 => 'Pending', 2 => 'Paid'];
+        $orderPaymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
+        $purchaseStatusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
+        $purchaseStatusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+        $purchasePaymentLabels = [1 => 'Pending', 2 => 'Paid'];
+        $purchasePaymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
+        $transferStatusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
+        $transferStatusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+
+        $badge = fn (string $label, string $color) => '<span class="badge ' . $color . '">' . $label . '</span>';
+
+        // ── Per-location aggregates (one query each, no N+1) ──────────────
+
+        $salesByLocation = Order::where('order_type', 'sale')
+            ->whereIn('status', $orderStatuses)
+            ->whereDate('created_at', $date)
+            ->whereIn('location_id', $locationIds)
+            ->selectRaw('location_id, COUNT(*) as cnt, SUM(final_amount) as total')
+            ->groupBy('location_id')
+            ->get()
+            ->keyBy('location_id');
+
+        $expensesByLocation = Expense::whereDate('expense_date', $date)
+            ->whereIn('location_id', $locationIds)
+            ->selectRaw('location_id, COUNT(*) as cnt, SUM(amount) as total')
+            ->groupBy('location_id')
+            ->get()
+            ->keyBy('location_id');
+
+        // Purchases have no direct location_id — every item's allocation carries the branch it was received at.
+        $purchasesByLocation = DB::table('purchase_allocations')
+            ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->whereDate('purchases.created_at', $date)
+            ->whereIn('purchase_allocations.location_id', $locationIds)
+            ->groupBy('purchase_allocations.location_id')
+            ->selectRaw('purchase_allocations.location_id as location_id, COUNT(DISTINCT purchases.id) as cnt, SUM(purchase_items.total) as total')
+            ->get()
+            ->keyBy('location_id');
+
+        // Stock transfers touch two branches (source + destination) — count/qty attributed to both sides.
+        $transferFrom = PurchaseBill::join('purchase_bill_items', 'purchase_bill_items.purchase_bill_id', '=', 'purchase_bills.id')
+            ->whereDate('purchase_bills.created_at', $date)
+            ->whereIn('purchase_bills.from_location_id', $locationIds)
+            ->groupBy('purchase_bills.from_location_id')
+            ->selectRaw('purchase_bills.from_location_id as location_id, COUNT(DISTINCT purchase_bills.id) as cnt, SUM(purchase_bill_items.quantity) as qty')
+            ->get();
+        $transferTo = PurchaseBill::join('purchase_bill_items', 'purchase_bill_items.purchase_bill_id', '=', 'purchase_bills.id')
+            ->whereDate('purchase_bills.created_at', $date)
+            ->whereIn('purchase_bills.to_location_id', $locationIds)
+            ->groupBy('purchase_bills.to_location_id')
+            ->selectRaw('purchase_bills.to_location_id as location_id, COUNT(DISTINCT purchase_bills.id) as cnt, SUM(purchase_bill_items.quantity) as qty')
+            ->get();
+
+        $transfersByLocation = [];
+        foreach ($transferFrom->concat($transferTo) as $row) {
+            if (!isset($transfersByLocation[$row->location_id])) {
+                $transfersByLocation[$row->location_id] = ['cnt' => 0, 'qty' => 0];
+            }
+            $transfersByLocation[$row->location_id]['cnt'] += (int) $row->cnt;
+            $transfersByLocation[$row->location_id]['qty'] += (int) $row->qty;
+        }
+
+        // ── Per-branch breakdown table ────────────────────────────────────
+        $branchRows = $reportLocations->map(function ($location) use ($salesByLocation, $expensesByLocation, $purchasesByLocation, $transfersByLocation) {
+            $sale     = $salesByLocation->get($location->id);
+            $expense  = $expensesByLocation->get($location->id);
+            $purchase = $purchasesByLocation->get($location->id);
+            $transfer = $transfersByLocation[$location->id] ?? null;
+
+            return [
+                'location_name'    => $location->name,
+                'sales_amount'     => (float) ($sale->total ?? 0),
+                'sales_count'      => (int) ($sale->cnt ?? 0),
+                'purchase_amount'  => (float) ($purchase->total ?? 0),
+                'purchase_count'   => (int) ($purchase->cnt ?? 0),
+                'expense_amount'   => (float) ($expense->total ?? 0),
+                'expense_count'    => (int) ($expense->cnt ?? 0),
+                'transfer_count'   => (int) ($transfer['cnt'] ?? 0),
+                'transfer_qty'     => (int) ($transfer['qty'] ?? 0),
+            ];
+        })->values();
+
+        // ── Top summary cards (avoid double counting a transfer that touches two visible branches) ──
+        $totalSales    = (float) $salesByLocation->sum('total');
+        $totalSalesCount = (int) $salesByLocation->sum('cnt');
+        $totalPurchases = (float) $purchasesByLocation->sum('total');
+        $totalPurchasesCount = (int) $purchasesByLocation->sum('cnt');
+        $totalExpenses = (float) $expensesByLocation->sum('total');
+        $totalExpensesCount = (int) $expensesByLocation->sum('cnt');
+
+        $transferOverallQuery = PurchaseBill::whereDate('created_at', $date)
+            ->when($locationId, function ($q) use ($locationId) {
+                $q->where(function ($sub) use ($locationId) {
+                    $sub->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
+                });
+            });
+        $totalTransfersCount = (clone $transferOverallQuery)->count();
+        $totalTransfersQty = PurchaseBillItem::whereHas('transfer', function ($q) use ($date, $locationId) {
+            $q->whereDate('created_at', $date);
+            if ($locationId) {
+                $q->where(function ($sub) use ($locationId) {
+                    $sub->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
+                });
+            }
+        })->sum('quantity');
+
+        // ── Per-module tables for the day (mirrors each module's own list columns, no actions) ──
+
+        $salesRows = Order::with(['customer', 'location'])
+            ->where('order_type', 'sale')
+            ->whereIn('status', $orderStatuses)
+            ->whereDate('created_at', $date)
+            ->whereIn('location_id', $locationIds)
+            ->latest()
+            ->get()
+            ->values()
+            ->map(function ($order, $index) use ($orderStatusLabels, $orderStatusColors, $orderPaymentLabels, $orderPaymentColors, $badge) {
+                return [
+                    'index'          => $index + 1,
+                    'sale_no'        => $order->order_no,
+                    'customer'       => $order->customer->name ?? 'Walk-in',
+                    'location'       => $order->location->name ?? '-',
+                    'source'         => $order->source ?? 'POS',
+                    'amount'         => (float) $order->final_amount,
+                    'status'         => $badge($orderStatusLabels[$order->status] ?? '-', $orderStatusColors[$order->status] ?? 'bg-label-secondary'),
+                    'payment_status' => $badge($orderPaymentLabels[$order->payment_status] ?? '-', $orderPaymentColors[$order->payment_status] ?? 'bg-label-secondary'),
+                    'method'         => $order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', (string) $order->payment_method)),
+                ];
+            });
+
+        // One purchase's items are always allocated to a single branch, so pluck the first matching
+        // (purchase_id => location_id) pair per purchase in a single batch query, avoiding N+1 below.
+        $purchaseLocationMap = DB::table('purchase_items')
+            ->join('purchase_allocations', 'purchase_allocations.purchase_item_id', '=', 'purchase_items.id')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->whereDate('purchases.created_at', $date)
+            ->whereIn('purchase_allocations.location_id', $locationIds)
+            ->select('purchase_items.purchase_id', 'purchase_allocations.location_id')
+            ->distinct()
+            ->get()
+            ->keyBy('purchase_id');
+
+        $purchaseRows = Purchase::with(['supplier'])
+            ->whereIn('id', $purchaseLocationMap->keys())
+            ->latest()
+            ->get()
+            ->values()
+            ->map(function ($purchase, $index) use ($purchaseStatusLabels, $purchaseStatusColors, $purchasePaymentLabels, $purchasePaymentColors, $badge) {
+                return [
+                    'index'          => $index + 1,
+                    'purchase_no'    => $purchase->invoice_no,
+                    'supplier'       => $purchase->supplier->name ?? '-',
+                    'total_amount'   => (float) $purchase->total_amount,
+                    'status'         => $badge($purchaseStatusLabels[$purchase->status] ?? '-', $purchaseStatusColors[$purchase->status] ?? 'bg-label-secondary'),
+                    'payment_status' => $badge($purchasePaymentLabels[$purchase->payment_status] ?? '-', $purchasePaymentColors[$purchase->payment_status] ?? 'bg-label-secondary'),
+                ];
+            });
+
+        $expenseRows = Expense::with(['location'])
+            ->whereDate('expense_date', $date)
+            ->whereIn('location_id', $locationIds)
+            ->latest()
+            ->get()
+            ->values()
+            ->map(function ($expense, $index) {
+                return [
+                    'index'          => $index + 1,
+                    'title'          => $expense->title,
+                    'category'       => $expense->category,
+                    'amount'         => (float) $expense->amount,
+                    'payment_method' => $expense->payment_method,
+                    'location'       => $expense->location->name ?? '-',
+                    'expense_date'   => $expense->expense_date->format('d M Y'),
+                    'created_by'     => $expense->createdBy->name ?? '-',
+                ];
+            });
+
+        $purchaseBillRows = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+            ->whereDate('created_at', $date)
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)->orWhereIn('to_location_id', $locationIds);
+            })
+            ->withCount('items')
+            ->latest()
+            ->get()
+            ->values()
+            ->map(function ($transfer, $index) use ($transferStatusLabels, $transferStatusColors, $badge) {
+                $amount = $transfer->items->sum(function ($item) {
+                    $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                    return $price * $item->quantity;
+                });
+
+                return [
+                    'index'       => $index + 1,
+                    'bill_no'     => $transfer->transfer_no,
+                    'source'      => $transfer->fromLocation->name ?? '-',
+                    'destination' => $transfer->toLocation->name ?? '-',
+                    'items_count' => $transfer->items_count,
+                    'amount'      => (float) $amount,
+                    'status'      => $badge($transferStatusLabels[$transfer->status] ?? '-', $transferStatusColors[$transfer->status] ?? 'bg-label-secondary'),
+                    'created_by'  => $transfer->createdBy->name ?? '-',
+                ];
+            });
+
+        return [
+            'branchRows'          => $branchRows,
+            'salesRows'           => $salesRows,
+            'purchaseRows'        => $purchaseRows,
+            'expenseRows'         => $expenseRows,
+            'purchaseBillRows'    => $purchaseBillRows,
+            'totalSales'          => $totalSales,
+            'totalSalesCount'     => $totalSalesCount,
+            'totalPurchases'      => $totalPurchases,
+            'totalPurchasesCount' => $totalPurchasesCount,
+            'totalExpenses'       => $totalExpenses,
+            'totalExpensesCount'  => $totalExpensesCount,
+            'totalTransfersCount' => $totalTransfersCount,
+            'totalTransfersQty'   => $totalTransfersQty,
+        ];
     }
 }

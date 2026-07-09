@@ -418,6 +418,7 @@
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
+            window.showAjaxLoader && window.showAjaxLoader();
 
             $.get(url, function (html) {
                 const parser = new DOMParser();
@@ -429,6 +430,7 @@
                 initDatePickers();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
+                window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 

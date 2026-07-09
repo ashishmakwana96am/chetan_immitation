@@ -219,6 +219,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
+            Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');

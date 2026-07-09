@@ -546,6 +546,35 @@ class SaleController extends Controller
         return $pdf->getDomPDF()->getCanvas()->get_page_count();
     }
 
+    private function measureViewHeight(string $view, array $data, int $itemCount): int
+    {
+        $low = 150;
+        $high = 400 + ($itemCount * 40);
+
+        $pageCount = function (int $height) use ($view, $data) {
+            $pdf = Pdf::loadView($view, array_merge($data, ['pdfHeight' => $height]))
+                ->setPaper([0, 0, 216, $height], 'portrait');
+            $pdf->render();
+
+            return $pdf->getDomPDF()->getCanvas()->get_page_count();
+        };
+
+        while ($pageCount($high) > 1) {
+            $high += 200;
+        }
+
+        while ($high - $low > 1) {
+            $mid = intdiv($low + $high, 2);
+            if ($pageCount($mid) > 1) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $high + 4;
+    }
+
     public function label(Order $sale)
     {
         $this->authorize('view sales');
@@ -560,8 +589,10 @@ class SaleController extends Controller
 
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
 
-        $pdf = Pdf::loadView('sales.label', ['order' => $sale])
-            ->setPaper([0, 0, 288, 432], 'portrait');
+        $height = $this->measureViewHeight('sales.label', ['order' => $sale], $sale->items->count());
+
+        $pdf = Pdf::loadView('sales.label', ['order' => $sale, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
 
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Shipping label printed for sale #' . $sale->order_no);
 

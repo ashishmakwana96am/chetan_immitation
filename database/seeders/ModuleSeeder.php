@@ -271,6 +271,15 @@ class ModuleSeeder extends Seeder
             'permission'     => 'view utility report',
             'sort_order'     => 7,
         ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Daily Report',
+            'icon'           => 'ti ti-calendar-stats',
+            'route'          => 'admin.reports.daily-report',
+            'active_pattern' => 'admin/reports/daily-report',
+            'permission'     => 'view daily reports',
+            'sort_order'     => 8,
+        ]);
 
         // 7. User & Access
         $userAccessCategory = Module::create([

@@ -444,13 +444,17 @@
 
     function loadReport(url) {
         $('#report-results').css('opacity', 0.5);
+        window.showAjaxLoader && window.showAjaxLoader();
         $.get(url, function (html) {
             const doc = new DOMParser().parseFromString(html, 'text/html');
             $('#report-results').html($(doc).find('#report-results').html());
             initCharts();
             initTable();
             initDatePickers();
-        }).always(function () { $('#report-results').css('opacity', 1); });
+        }).always(function () {
+            $('#report-results').css('opacity', 1);
+            window.hideAjaxLoader && window.hideAjaxLoader();
+        });
     }
 
     $(document).ready(function () {

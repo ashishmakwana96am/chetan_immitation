@@ -154,6 +154,7 @@ class PermissionSeeder extends Seeder
 
         $permissions['view payment reports'] = 'Reports';
         $permissions['view utility report'] = 'Reports';
+        $permissions['view daily reports'] = 'Reports';
         $permissions['download sales'] = 'Sales';
         $permissions['download purchases'] = 'Purchases';
 
