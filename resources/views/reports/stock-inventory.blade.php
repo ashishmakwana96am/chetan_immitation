@@ -123,9 +123,6 @@
                     {
                         targets: 0,
                         orderable: false,
-                        render: function (data, type, row, meta) {
-                            return meta.row + meta.settings._iDisplayStart + 1;
-                        }
                     },
                     {
                         targets: lastPurchaseColumnIndex,
@@ -133,6 +130,13 @@
                     }
                 ],
             });
+
+            table.on('draw', function () {
+                const start = table.page.info().start;
+                table.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop) {
+                    $(this.node()).find('td').eq(0).html(start + rowLoop + 1);
+                });
+            }).draw(false);
 
             function applyFilters() {
                 const cat   = $('#filterCategory').val();

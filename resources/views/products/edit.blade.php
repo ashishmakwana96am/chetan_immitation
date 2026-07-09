@@ -100,7 +100,7 @@
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
                                       <input type="number" name="mrp" id="mrpInput" class="form-control"
-                                          placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" readonly style="background-color: #f1f0f2;" />
+                                          placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" />
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
@@ -122,7 +122,7 @@
                                           <div class="input-group has-validation">
                                               <span class="input-group-text">{{ currency_symbol() }}</span>
                                               <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control"
-                                                  placeholder="MRP (Pair)" step="0.01" min="0" value="{{ $product->pair_mrp }}" readonly style="background-color: #f1f0f2;" />
+                                                  placeholder="MRP (Pair)" step="0.01" min="0" value="{{ $product->pair_mrp }}" />
                                               <div class="invalid-feedback"></div>
                                           </div>
                                       </div>

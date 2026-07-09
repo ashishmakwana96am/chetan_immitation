@@ -7,7 +7,6 @@
     .field-error { color: #dc2626; font-size: 13px; margin-top: 6px; }
     .input-invalid { border-color: #dc2626 !important; background-color: #fff5f5 !important; }
     .input-valid { border-color: #16a34a !important; }
-    .pw-strength-bar { height: 4px; border-radius: 2px; transition: width 0.3s ease, background-color 0.3s ease; }
     .toggle-password {
         position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
         cursor: pointer; color: #9ca3af; transition: color 0.2s;
@@ -67,10 +66,6 @@
                                 <svg class="eye hidden" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
-                        <div class="mt-2 bg-[#e5e7eb] rounded-full overflow-hidden h-[4px]">
-                            <div id="pwStrengthBar" class="pw-strength-bar w-0 bg-[#dc2626]"></div>
-                        </div>
-                        <p id="pwStrengthLabel" class="text-[12px] mt-1 text-[#9ca3af]"></p>
                         <p class="text-[12px] text-[#9ca3af] mt-1">Minimum 8 characters</p>
                         <p class="field-error hidden" id="password-error"></p>
                     </div>
@@ -147,22 +142,8 @@ $(function () {
         $('#registerSpinner').addClass('hidden');
     }
 
-    function checkStrength(val) {
-        var s = 0;
-        if (val.length >= 8) s++;
-        if (/[a-z]/.test(val)) s++;
-        if (/[A-Z]/.test(val)) s++;
-        if (/\d/.test(val)) s++;
-        if (/[@$!%*?&_#^()\-+=]/.test(val)) s++;
-        return s;
-    }
-
     $('#password').on('input', function () {
-        var val = $(this).val(), score = checkStrength(val), pct = (score / 5) * 100;
-        var colors = ['#dc2626','#dc2626','#f59e0b','#f59e0b','#22c55e','#16a34a'];
-        var labels = ['','Very Weak','Weak','Fair','Good','Strong'];
-        $('#pwStrengthBar').css({ width: pct + '%', 'background-color': colors[score] });
-        $('#pwStrengthLabel').text(val.length ? labels[score] : '').css('color', colors[score]);
+        var val = $(this).val();
         if (val.length) { if (minLenRegex.test(val)) markValid('password'); else { clearError('password'); $('#password').removeClass('input-valid'); } }
         if ($('#password_confirmation').val().length) validateConfirm();
     });

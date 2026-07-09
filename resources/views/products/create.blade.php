@@ -85,7 +85,7 @@
                                 <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" readonly style="background-color: #f1f0f2;" />
+                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
@@ -104,7 +104,7 @@
                                         <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
                                         <div class="input-group has-validation">
                                             <span class="input-group-text">{{ currency_symbol() }}</span>
-                                            <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" readonly style="background-color: #f1f0f2;" />
+                                            <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" />
                                             <div class="invalid-feedback"></div>
                                         </div>
                                     </div>
