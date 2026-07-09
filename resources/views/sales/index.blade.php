@@ -337,7 +337,7 @@
                         searchable: false,
                         render: function (data, type, row, meta) {
                             const rowNumber = meta.row + meta.settings._iDisplayStart + 1;
-                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + '</span>';
+                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + (row.cancellation_warning || '') + '</span>';
                         }
                     },
                     { data: 'order_no' },
@@ -363,6 +363,9 @@
                 createdRow: function (row, data) {
                     if (data.stock_warning) {
                         $(row).addClass('table-warning');
+                    }
+                    if (data.cancellation_requested) {
+                        $(row).addClass('table-danger');
                     }
                 },
                 drawCallback: function () {

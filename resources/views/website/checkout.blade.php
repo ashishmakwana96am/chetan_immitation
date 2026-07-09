@@ -1282,12 +1282,23 @@ function createAddressCardHtml(addr) {
         </button>
     ` : '';
 
+    const iconSvg = addr.type === 'work' ? `
+        <svg width="19" height="21" viewBox="0 0 19 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0.75 19.5H17.9375M1.53125 0.75H17.1562M2.3125 0.75V19.5M16.375 0.75V19.5M6.21875 4.65625H7.78125M6.21875 7.78125H7.78125M6.21875 10.9062H7.78125M10.9062 4.65625H12.4687M10.9062 7.78125H12.4687M10.9062 10.9062H12.4687M6.21875 19.5V15.9844C6.21875 15.3375 6.74375 14.8125 7.39062 14.8125H11.2969C11.9437 14.8125 12.4687 15.3375 12.4687 15.9844V19.5" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    ` : `
+        <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0.75 10.4211L10.0771 1.09297C10.5354 0.635677 11.2771 0.635677 11.7344 1.09297L21.0625 10.4211M3.09375 8.07734V18.6242C3.09375 19.2711 3.61875 19.7961 4.26562 19.7961H8.5625V14.718C8.5625 14.0711 9.0875 13.5461 9.73437 13.5461H12.0781C12.725 13.5461 13.25 14.0711 13.25 14.718V19.7961H17.5469C18.1937 19.7961 18.7187 19.2711 18.7187 18.6242V8.07734M7 19.7961H15.5937" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    `;
+
     return `
         <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] cursor-pointer bg-white border-l-[4px] border-l-transparent last:border-b-0 ${isActive} text-[#131615]" data-address-id="${addr.id}">
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                         <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} />
+                        ${iconSvg}
                         <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
                             Deliver To:
                         </span>

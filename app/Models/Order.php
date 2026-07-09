@@ -111,4 +111,14 @@ class Order extends Model
     {
         return $this->hasMany(OrderPayment::class);
     }
+
+    public function cancellationRequest()
+    {
+        return $this->hasOne(OrderCancellationRequest::class)->latestOfMany();
+    }
+
+    public function cancellationRequests()
+    {
+        return $this->hasMany(OrderCancellationRequest::class);
+    }
 }

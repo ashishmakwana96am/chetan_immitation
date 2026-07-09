@@ -15,6 +15,7 @@ use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\ProductReview;
 use App\Models\State;
+use App\Models\OrderCancellationRequest;
 use App\Mail\OrderStatusMail;
 
 class ProfileController extends Controller
@@ -158,7 +159,7 @@ class ProfileController extends Controller
         $order = Order::where('customer_id', $customer->id)
             ->where('source', 'ONLINE')
             ->where('id', $id)
-            ->with(['items.product.variants.attributeValue.attribute', 'customer', 'location', 'coupon', 'customerAddress', 'user'])
+            ->with(['items.product.variants.attributeValue.attribute', 'customer', 'location', 'coupon', 'customerAddress', 'user', 'cancellationRequest'])
             ->firstOrFail();
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.pdf', ['order' => $order])
@@ -177,7 +178,7 @@ class ProfileController extends Controller
         $order = Order::where('customer_id', $customer->id)
             ->where('source', 'ONLINE')
             ->where('id', $id)
-            ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress', 'coupon'])
+            ->with(['items.product.primaryImage', 'items.product.category', 'customerAddress', 'coupon', 'cancellationRequest'])
             ->firstOrFail();
 
         $reviewsByProduct = ProductReview::where('customer_id', $customer->id)
@@ -218,48 +219,57 @@ class ProfileController extends Controller
             ->with(['items', 'customer'])
             ->firstOrFail();
 
-        if (!in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)) {
+        $existingRequest = OrderCancellationRequest::where('order_id', $order->id)
+            ->first();
+
+        if ($existingRequest) {
+            $msg = 'A cancellation request has already been submitted for this order.';
+            if ($existingRequest->status === 'pending') {
+                $msg = 'A cancellation request for this order is already pending.';
+            } elseif ($existingRequest->status === 'approved') {
+                $msg = 'This order has already been cancelled.';
+            } elseif ($existingRequest->status === 'rejected') {
+                $msg = 'Your cancellation request for this order has been rejected.';
+            }
             return response()->json([
                 'status' => 'error',
-                'message' => 'This order can no longer be cancelled from your account.',
+                'message' => $msg,
             ], 422);
+        }
+
+        if (!in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This order can no longer be cancelled.',
+            ], 422);
+        }
+
+        if ((int) $order->status === Order::STATUS_DELIVERED) {
+            if (!$order->delivered_at || now()->diffInHours($order->delivered_at) > 24) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Orders can only be cancelled within 24 hours of delivery.',
+                ], 422);
+            }
         }
 
         try {
             DB::transaction(function () use ($order, $request) {
-                if ((int) $order->status === Order::STATUS_APPROVE) {
-                    foreach ($order->items as $item) {
-                        $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
-                        Inventory::where('product_id', $item->product_id)
-                            ->where('location_id', $order->location_id)
-                            ->increment('quantity', $stockRestore);
-                    }
-                }
-
-                $order->update([
-                    'status' => Order::STATUS_DECLINE,
+                OrderCancellationRequest::create([
+                    'order_id'            => $order->id,
                     'cancellation_reason' => trim($request->cancellation_reason),
+                    'status'              => OrderCancellationRequest::STATUS_PENDING,
                 ]);
             });
 
-            if ($order->customer && $order->customer->email) {
-                try {
-                    Mail::to($order->customer->email)->send(new OrderStatusMail($order->fresh(['customer'])));
-                } catch (\Exception $mailEx) {
-                    Log::error('Failed to send customer cancellation status mail: ' . $mailEx->getMessage());
-                }
-            }
-
             return response()->json([
                 'status' => 'success',
-                'message' => 'Your order has been cancelled successfully.',
+                'message' => 'Your cancellation request has been submitted successfully.',
             ]);
         } catch (\Exception $e) {
-            Log::error('Customer order cancellation failed: ' . $e->getMessage());
-
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unable to cancel this order right now. Please try again.',
+                'message' => 'Unable to request cancellation right now. Please try again.',
             ], 500);
         }
     }

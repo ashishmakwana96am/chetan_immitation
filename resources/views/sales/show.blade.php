@@ -190,6 +190,26 @@
         @endcan
     </div>
 
+    @if($order->cancellationRequest && $order->cancellationRequest->status === 'pending')
+    <div class="alert alert-danger d-flex flex-column gap-3 mb-4" role="alert" id="cancellation-request-alert">
+        <div class="d-flex align-items-center">
+            <i class="ti ti-alert-triangle me-2 fs-4 text-danger"></i>
+            <div>
+                <h5 class="alert-heading mb-1 text-danger">Cancellation Request Pending</h5>
+                <span>Customer requested to cancel this order. Reason: <strong>{{ $order->cancellationRequest->cancellation_reason }}</strong></span>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm approve-cancel-btn" data-url="{{ route('admin.sales.cancellation.approve', $order) }}">
+                <i class="ti ti-check me-1"></i> Approve & Refund
+            </button>
+            <button class="btn btn-danger btn-sm reject-cancel-btn" data-url="{{ route('admin.sales.cancellation.reject', $order) }}">
+                <i class="ti ti-x me-1"></i> Reject
+            </button>
+        </div>
+    </div>
+    @endif
+
     <div class="row g-4">
 
         {{-- ══════════════════ LEFT COLUMN ══════════════════ --}}
@@ -231,6 +251,19 @@
                         <span class="sale-info-label">Cancel Reason</span>
                         <span class="sale-info-value text-danger" style="max-width:65%;">{{ $order->cancellation_reason }}</span>
                     </div>
+                    @endif
+
+                    @if($order->cancellationRequest && $order->cancellationRequest->status === 'approved')
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Refunded Amount</span>
+                        <span class="sale-info-value text-success">₹{{ number_format($order->cancellationRequest->refund_amount, 2) }}</span>
+                    </div>
+                    @if($order->cancellationRequest->refund_gateway_id)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Refund ID</span>
+                        <span class="sale-info-value text-muted">{{ $order->cancellationRequest->refund_gateway_id }}</span>
+                    </div>
+                    @endif
                     @endif
 
                     @if($order->shipped_client_url)
@@ -698,6 +731,82 @@ $(document).ready(function () {
             } else {
                 $('#change-sale-status').val(current);
                 $('#cancel-reason-wrap').hide();
+            }
+        });
+    });
+
+    $(document).on('click', '.approve-cancel-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+
+        Swal.fire({
+            title: 'Approve Cancellation?',
+            text: 'This will cancel the order, restore inventory stock, and automatically process the Razorpay refund if paid online.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Approve & Refund',
+            customClass: { confirmButton: 'btn btn-success me-3', cancelButton: 'btn btn-label-secondary' },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            toastr.error(res.message || 'Failed to approve cancellation.');
+                        }
+                    },
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
+            }
+        });
+    });
+
+    $(document).on('click', '.reject-cancel-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+
+        Swal.fire({
+            title: 'Reject Cancellation?',
+            text: 'This will decline the customer\'s cancellation request and keep the order active.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Reject Request',
+            customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            toastr.error(res.message || 'Failed to reject cancellation.');
+                        }
+                    },
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
             }
         });
     });

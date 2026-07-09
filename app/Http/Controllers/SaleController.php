@@ -14,6 +14,15 @@ use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Models\OrderCancellationRequest;
+use App\Models\State;
+use App\Models\CustomerAddress;
+use App\Models\OrderPayment;
+use App\Models\Setting;
+use App\Mail\OrderStatusMail;
 
 class SaleController extends Controller
 {
@@ -36,7 +45,7 @@ class SaleController extends Controller
         $this->authorize('view sales');
 
         $user      = auth()->user();
-        $orders    = Order::with(['customer', 'location', 'user', 'items.product'])
+        $orders    = Order::with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
             ->where('order_type', 'sale')
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function($q) use ($request) {
@@ -104,6 +113,13 @@ class SaleController extends Controller
         ];
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+            $cancellationRequested = false;
+            $cancellationWarningHtml = '';
+            if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
+                $cancellationRequested = true;
+                $cancellationWarningHtml = ' <i class="ti ti-alert-triangle text-danger fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" title="Cancellation Requested: ' . e($order->cancellationRequest->cancellation_reason) . '"></i>';
+            }
+
             $stockWarningHtml = '';
             $isFallbackOrder = !$order->is_default;
 
@@ -199,6 +215,8 @@ class SaleController extends Controller
                 : '<span class="badge bg-label-info">POS</span>';
 
             return [
+                'cancellation_requested' => $cancellationRequested,
+                'cancellation_warning'   => $cancellationWarningHtml,
                 'index'          => $index + 1,
                 'is_default'     => (bool) $order->is_default,
                 'stock_warning'  => $stockWarningHtml,
@@ -454,7 +472,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment', 'cancellationRequest']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -466,7 +484,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment', 'cancellationRequest']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
@@ -1145,6 +1163,170 @@ class SaleController extends Controller
         }
 
         return null;
+    }
+
+    public function approveCancellation(Order $sale)
+    {
+        $this->authorize('edit sales status');
+
+        $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
+            ->where('status', OrderCancellationRequest::STATUS_PENDING)
+            ->first();
+
+        if (!$cancellationRequest) {
+            return response()->json(['status' => 'error', 'message' => 'No pending cancellation request found.'], 404);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $refundAmount = (float)$sale->final_amount;
+            $shippingDeducted = 0.0;
+            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+
+            if ($shippedOrLater) {
+                // Find state shipping charge
+                $address = CustomerAddress::find($sale->customer_address_id);
+                if ($address && $address->state) {
+                    $state = State::where('name', $address->state)->first();
+                    if ($state) {
+                        $shippingDeducted = (float)$state->shipping_charge;
+                    }
+                }
+                $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
+            }
+
+            $refundGatewayId = null;
+
+            // Trigger Razorpay refund if paid online and Razorpay order exists
+            $payment = $sale->payment;
+            if ($payment && $payment->gateway === 'razorpay' && !empty($payment->gateway_payment_id) && $payment->status === OrderPayment::STATUS_CAPTURED) {
+                $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+                $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+                $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
+
+                if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+                    throw new \Exception('Razorpay credentials are not configured.');
+                }
+
+                // Razorpay expects amount in paise
+                $refundAmountInPaise = round($refundAmount * 100);
+
+                if ($refundAmountInPaise > 0) {
+                    $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                        ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
+                            'amount' => $refundAmountInPaise,
+                            'speed'  => 'normal',
+                        ]);
+
+                    if ($response->failed()) {
+                        Log::error('Razorpay Refund API Failed: ' . $response->body());
+                        throw new \Exception('Razorpay Refund failed: ' . ($response->json('error.description') ?? 'Unknown error'));
+                    }
+
+                    $refundData = $response->json();
+                    $refundGatewayId = $refundData['id'] ?? null;
+                }
+
+                // Update payment record to refunded
+                $payment->update([
+                    'status' => OrderPayment::STATUS_REFUNDED
+                ]);
+
+                // Create a new refunded transaction entry
+                OrderPayment::create([
+                    'order_id'           => $sale->id,
+                    'gateway'            => 'razorpay',
+                    'gateway_order_id'   => $payment->gateway_order_id,
+                    'gateway_payment_id' => $payment->gateway_payment_id,
+                    'status'             => OrderPayment::STATUS_REFUNDED,
+                    'amount'             => -$refundAmount,
+                    'currency'           => $payment->currency ?? 'INR',
+                ]);
+            }
+
+            // Restore Stock/Inventory
+            foreach ($sale->items as $item) {
+                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                Inventory::where('product_id', $item->product_id)
+                    ->where('location_id', $sale->location_id)
+                    ->increment('quantity', $stockRestore);
+            }
+
+            // Update cancellation request status
+            $cancellationRequest->update([
+                'status'            => OrderCancellationRequest::STATUS_APPROVED,
+                'refund_amount'     => $refundAmount,
+                'refund_gateway_id' => $refundGatewayId,
+            ]);
+
+            // Update order status
+            $sale->update([
+                'status'              => Order::STATUS_DECLINE,
+                'payment_status'      => Order::PAYMENT_STATUS_PENDING,
+                'cancellation_reason' => $cancellationRequest->cancellation_reason,
+            ]);
+
+            DB::commit();
+
+            // Send status mail
+            if ($sale->customer && $sale->customer->email) {
+                try {
+                    Mail::to($sale->customer->email)->send(new OrderStatusMail($sale->fresh(['customer'])));
+                } catch (\Exception $mailEx) {
+                    Log::error('Failed to send cancellation approval email: ' . $mailEx->getMessage());
+                }
+            }
+
+            // Log activity
+            ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request approved & order cancelled. Refund processed: ₹' . $refundAmount);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Cancellation request approved. Refund processed: ₹' . number_format($refundAmount, 2),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Cancellation Approval Failed: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to approve cancellation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function rejectCancellation(Order $sale)
+    {
+        $this->authorize('edit sales status');
+
+        $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
+            ->where('status', OrderCancellationRequest::STATUS_PENDING)
+            ->first();
+
+        if (!$cancellationRequest) {
+            return response()->json(['status' => 'error', 'message' => 'No pending cancellation request found.'], 404);
+        }
+
+        try {
+            $cancellationRequest->update([
+                'status' => OrderCancellationRequest::STATUS_REJECTED,
+            ]);
+
+            // Log activity
+            ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request rejected.');
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Cancellation request rejected successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Cancellation Rejection Failed: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to reject cancellation: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy(Order $sale)
