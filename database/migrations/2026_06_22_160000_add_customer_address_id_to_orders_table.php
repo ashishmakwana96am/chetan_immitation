@@ -8,16 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->foreignId('customer_address_id')->nullable()->after('customer_id')->constrained('customer_addresses')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('orders', 'customer_address_id')) {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->foreignId('customer_address_id')->nullable()->after('customer_id')->constrained('customer_addresses')->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->dropForeign(['customer_address_id']);
-            $table->dropColumn('customer_address_id');
-        });
+        if (Schema::hasColumn('orders', 'customer_address_id')) {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->dropForeign(['customer_address_id']);
+                $table->dropColumn('customer_address_id');
+            });
+        }
     }
 };
