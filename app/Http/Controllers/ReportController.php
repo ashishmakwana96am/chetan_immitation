@@ -305,7 +305,7 @@ class ReportController extends Controller
         // Top Purchased Products
         $invoiceIds = $invoices->pluck('id');
         $productPurchases = PurchaseItem::with('product.primaryImage')
-            ->whereIn('purchase_invoice_id', $invoiceIds)
+            ->whereIn('purchase_id', $invoiceIds)
             ->selectRaw('product_id, SUM(quantity) as qty_purchased, SUM(total) as total_cost')
             ->groupBy('product_id')
             ->get()
@@ -829,7 +829,7 @@ class ReportController extends Controller
         $invoiceIds = $invoices->pluck('id');
 
         $productPurchases = PurchaseItem::with('product')
-            ->whereIn('purchase_invoice_id', $invoiceIds)
+            ->whereIn('purchase_id', $invoiceIds)
             ->selectRaw('product_id, SUM(quantity) as qty_purchased, SUM(total) as total_cost')
             ->groupBy('product_id')
             ->get()
