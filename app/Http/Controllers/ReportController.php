@@ -46,13 +46,13 @@ class ReportController extends Controller
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
                 
-                // Parent row
+                // Parent row — total stock is the sum of all variant stock (the parent has no stock of its own)
                 $parentStock = 0;
                 if ($user->location_id && !$user->hasRole('super-admin')) {
-                    $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
+                    $parentStock = array_sum($variantStock[$user->location_id]['variants'] ?? []);
                 } else {
                     foreach ($variantStock as $locData) {
-                        $parentStock += $locData['parent'];
+                        $parentStock += array_sum($locData['variants']);
                     }
                 }
 
@@ -639,13 +639,13 @@ class ReportController extends Controller
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
                 
-                // Parent row
+                // Parent row — total stock is the sum of all variant stock (the parent has no stock of its own)
                 $parentStock = 0;
                 if ($user->location_id && !$user->hasRole('super-admin')) {
-                    $parentStock = $variantStock[$user->location_id]['parent'] ?? 0;
+                    $parentStock = array_sum($variantStock[$user->location_id]['variants'] ?? []);
                 } else {
                     foreach ($variantStock as $locData) {
-                        $parentStock += $locData['parent'];
+                        $parentStock += array_sum($locData['variants']);
                     }
                 }
 
@@ -761,10 +761,10 @@ class ReportController extends Controller
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
                 
-                // Parent Stock per location
+                // Parent Stock per location — total stock is the sum of all variant stock (the parent has no stock of its own)
                 $parentLocStock = [];
                 foreach ($locations as $location) {
-                    $parentLocStock[$location->id] = $variantStock[$location->id]['parent'] ?? 0;
+                    $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
                 }
                 $productsList->push([
                     'id'          => $product->id,
