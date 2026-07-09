@@ -2,28 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
+use App\Models\UtilityReport;
 use App\Models\Location;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class ActivityLogController extends Controller
+class UtilityReportController extends Controller
 {
     public function index()
     {
-        $this->authorize('view activity logs');
+        $this->authorize('view utility report');
 
         $users     = User::orderBy('name')->get(['id', 'name']);
         $locations = Location::orderBy('name')->get(['id', 'name']);
-        $modules   = ActivityLog::select('module')->distinct()->orderBy('module')->pluck('module');
-        $actions   = ActivityLog::select('action')->distinct()->orderBy('action')->pluck('action');
+        $modules   = UtilityReport::select('module')->distinct()->orderBy('module')->pluck('module');
+        $actions   = UtilityReport::select('action')->distinct()->orderBy('action')->pluck('action');
 
-        return view('activity-logs.index', compact('users', 'locations', 'modules', 'actions'));
+        return view('utility-reports.index', compact('users', 'locations', 'modules', 'actions'));
     }
 
     public function data(Request $request)
     {
-        $this->authorize('view activity logs');
+        $this->authorize('view utility report');
 
         $logs = $this->filteredQuery($request)->orderByDesc('created_at')->orderByDesc('id')->get();
 
@@ -74,16 +74,16 @@ class ActivityLogController extends Controller
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
-    public function show(ActivityLog $activityLog)
+    public function show(UtilityReport $utilityReport)
     {
-        $this->authorize('view activity logs');
+        $this->authorize('view utility report');
 
-        return view('activity-logs.show', ['log' => $activityLog]);
+        return view('utility-reports.show', ['log' => $utilityReport]);
     }
 
     private function filteredQuery(Request $request)
     {
-        $query = ActivityLog::query();
+        $query = UtilityReport::query();
 
         $startDate = $request->start_date ?: now()->subDays(30)->format('Y-m-d');
         $endDate   = $request->end_date ?: now()->format('Y-m-d');

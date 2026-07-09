@@ -7,12 +7,23 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use App\Models\Module;
 
-class ActivityLogModuleSeeder extends Seeder
+class UtilityReportModuleSeeder extends Seeder
 {
     public function run(): void
     {
+        // Migrate/cleanup old permission if it exists
+        $oldPermission = Permission::where('name', 'view activity logs')->first();
+        if ($oldPermission) {
+            $newPermission = Permission::firstOrCreate(['name' => 'view utility report', 'module' => 'Reports']);
+            $rolesWithOldPermission = Role::permission('view activity logs')->get();
+            foreach ($rolesWithOldPermission as $role) {
+                $role->givePermissionTo($newPermission);
+            }
+            $oldPermission->delete();
+        }
+
         $permissions = [
-            'view activity logs' => 'Utility Report',
+            'view utility report' => 'Reports',
         ];
 
         foreach ($permissions as $name => $module) {
@@ -48,7 +59,7 @@ class ActivityLogModuleSeeder extends Seeder
                     'icon'           => 'ti ti-history',
                     'route'          => 'admin.reports.utility',
                     'active_pattern' => 'admin/reports/utility*',
-                    'permission'     => 'view activity logs',
+                    'permission'     => 'view utility report',
                     'sort_order'     => $maxSort + 1,
                 ]
             );

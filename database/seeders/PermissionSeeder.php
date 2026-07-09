@@ -139,12 +139,21 @@ class PermissionSeeder extends Seeder
             // Settings
             'view settings' => 'Settings',
             'edit settings' => 'Settings',
-
-            // Activity Logs
-            'view activity logs' => 'Activity Logs',
         ];
 
+        // Migrate/cleanup old permission if it exists
+        $oldPermission = Permission::where('name', 'view activity logs')->first();
+        if ($oldPermission) {
+            $newPermission = Permission::firstOrCreate(['name' => 'view utility report', 'module' => 'Reports']);
+            $rolesWithOldPermission = Role::permission('view activity logs')->get();
+            foreach ($rolesWithOldPermission as $role) {
+                $role->givePermissionTo($newPermission);
+            }
+            $oldPermission->delete();
+        }
+
         $permissions['view payment reports'] = 'Reports';
+        $permissions['view utility report'] = 'Reports';
         $permissions['download sales'] = 'Sales';
         $permissions['download purchases'] = 'Purchases';
 

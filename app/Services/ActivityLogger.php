@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\ActivityLog;
+use App\Models\UtilityReport;
 use App\Models\Location;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +24,7 @@ class ActivityLogger
         try {
             $user = auth('web')->user();
 
-            ActivityLog::create([
+            UtilityReport::create([
                 'user_id'       => $user?->id,
                 'user_name'     => $user?->name,
                 'user_role'     => $user?->role?->name,

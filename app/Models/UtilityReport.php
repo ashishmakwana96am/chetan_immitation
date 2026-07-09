@@ -5,8 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ActivityLog extends Model
+class UtilityReport extends Model
 {
+    protected $table = 'utility_reports';
+
     const UPDATED_AT = null;
 
     protected $fillable = [

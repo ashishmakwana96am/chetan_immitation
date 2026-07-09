@@ -268,7 +268,7 @@ class ModuleSeeder extends Seeder
             'icon'           => 'ti ti-history',
             'route'          => 'admin.reports.utility',
             'active_pattern' => 'admin/reports/utility*',
-            'permission'     => 'view activity logs',
+            'permission'     => 'view utility report',
             'sort_order'     => 7,
         ]);
 
