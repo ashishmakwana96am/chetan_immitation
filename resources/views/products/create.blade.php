@@ -90,24 +90,20 @@
                                 </div>
                             </div>
 
-                            <div id="pairPricingSection" class="{{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
-                                        <div class="input-group has-validation">
-                                            <span class="input-group-text">{{ currency_symbol() }}</span>
-                                            <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
-                                            <div class="invalid-feedback"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
-                                        <div class="input-group has-validation">
-                                            <span class="input-group-text">{{ currency_symbol() }}</span>
-                                            <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" />
-                                            <div class="invalid-feedback"></div>
-                                        </div>
-                                    </div>
+                            <div class="col-md-6 pair-pricing-field {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                                <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
+                                <div class="input-group has-validation">
+                                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                                    <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 pair-pricing-field {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                                <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
+                                <div class="input-group has-validation">
+                                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                                    <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" />
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -861,9 +857,9 @@
                 const isPair = $(this).is(':checked');
                 updatePairPricingLabels(isPair);
                 if (isPair) {
-                    $('#pairPricingSection').removeClass('d-none');
+                    $('.pair-pricing-field').removeClass('d-none');
                 } else {
-                    $('#pairPricingSection').addClass('d-none');
+                    $('.pair-pricing-field').addClass('d-none');
                     $('#pairSalePriceInput').val('');
                     $('#pairMrpInput').val('');
                 }
