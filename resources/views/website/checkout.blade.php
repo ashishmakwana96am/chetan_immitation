@@ -863,8 +863,7 @@
 
             <button
                 onclick="window.location.href='{{ route('customer.profile') }}'"
-                class="w-full h-[52px] bg-[#B4771E] text-white
-                text-base md:text-[22px] md:leading-[24px] mt-7">
+                class="w-full common-btn h-[52px] mt-7">
                 View My Orders
             </button>
             <button
