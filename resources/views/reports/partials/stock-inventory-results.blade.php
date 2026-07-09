@@ -91,6 +91,75 @@
     </div>
 @endif
 
+<!-- Filters -->
+<div class="card mb-4" id="filterReportCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Filter Report</h5>
+        <div class="d-flex gap-2 d-none" id="filterActionButtons">
+            <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                <i class="ti ti-filter me-1"></i> Apply
+            </button>
+            <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Clear
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ route('admin.reports.stock-inventory') }}" id="filterForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">From Date <small class="text-muted">(Last Purchase)</small></label>
+                <input type="text" name="from_date" class="form-control flatpickr" value="{{ $fromDate }}" placeholder="DD-MM-YYYY" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">To Date <small class="text-muted">(Last Purchase)</small></label>
+                <input type="text" name="to_date" class="form-control flatpickr" value="{{ $toDate }}" placeholder="DD-MM-YYYY" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Filter by Category</label>
+                <select id="filterCategory" class="form-select">
+                    <option value="">All Categories</option>
+                    @foreach($categories as $category)
+                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Filter by Stock</label>
+                <select id="filterStock" class="form-select">
+                    <option value="">All</option>
+                    <option value="in">In Stock</option>
+                    <option value="low">Low Stock (≤ 5)</option>
+                    <option value="out">SOLD OUT</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Show Products Older Than</label>
+                <select id="filterAge" class="form-select">
+                    <option value="">Any Age</option>
+                    <option value="30">30 Days</option>
+                    <option value="60">60 Days</option>
+                    <option value="90">90 Days</option>
+                    <option value="180">180 Days</option>
+                    <option value="365">365 Days</option>
+                    <option value="custom">Custom Days</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-none" id="customAgeWrapper">
+                <label class="form-label">Custom Days</label>
+                <input type="number" id="filterAgeCustom" class="form-control" min="1" placeholder="e.g. 45" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sort By</label>
+                <select id="sortBy" class="form-select">
+                    <option value="">Default</option>
+                    <option value="age_desc">Inventory Age (Oldest First)</option>
+                    <option value="age_asc">Inventory Age (Newest First)</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Stock Table -->
 <div class="card" id="stockDetailCard">
     <div class="card-header"><h5 class="mb-0">Stock Detail by Location</h5></div>

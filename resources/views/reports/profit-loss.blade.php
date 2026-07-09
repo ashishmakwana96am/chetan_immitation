@@ -206,21 +206,26 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
+            <div class="d-flex gap-2 d-none" id="filterActionButtons">
+                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                    <i class="ti ti-filter me-1"></i> Apply
+                </button>
+                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-refresh me-1"></i> Clear
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.profit-loss') }}" id="filterForm" class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Start Date</label>
                     <input type="text" name="start_date" class="form-control flatpickr" value="{{ $startDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">End Date</label>
                     <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Location</label>
                     <select name="location_id" class="form-select">
                         <option value="">All Locations</option>
@@ -428,20 +433,33 @@
                 $('#report-results').html(newResults);
                 initReport();
                 initDatePickers();
+                updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
                 window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 
-        $(document).on('change', '#filterForm', function () {
-            const form = $(this);
+        function updateFilterButtonsVisibility() {
+            const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                return $(el).val();
+            });
+            $('#filterActionButtons').toggleClass('d-none', !hasValue);
+        }
+
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $(document).on('click', '#applyFiltersBtn', function () {
+            const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
             loadReport(url);
         });
 
-        $(document).on('click', '#resetFilters', function () {
+        $(document).on('click', '#clearFiltersBtn', function () {
             const form = $('#filterForm');
 
             form[0].reset();
@@ -454,6 +472,7 @@
             });
             form.find('input').val('');
             form.find('select').val('').trigger('change.select2');
+            updateFilterButtonsVisibility();
 
             loadReport(form.attr('action'));
         });

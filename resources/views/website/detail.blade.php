@@ -190,7 +190,7 @@
                 </div>
 
                 <div class="flex gap-3 mt-6">
-                    @php $detailStock = $product->inventories_sum_quantity ?? 0; @endphp
+                    @php $detailStock = $product->totalAvailableStock(); @endphp
                     @if($detailStock < 1)
                     <button id="addToCartBtn"
                         class="common-btn h-[50px] w-full max-w-[300px] opacity-50 cursor-not-allowed pointer-events-none"

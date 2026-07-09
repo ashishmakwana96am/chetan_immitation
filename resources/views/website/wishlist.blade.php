@@ -41,7 +41,7 @@
                         $attrValue = $variant->attributeValue->value;
                         $attrLabel = $attrName ? $attrName . ': ' . $attrValue : $attrValue;
                     }
-                    $stockQty = $prod->inventories_sum_quantity ?? 0;
+                    $stockQty = $prod->totalAvailableStock($variant?->id);
                 @endphp
                 <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-wishlist-id="{{ $wishlist->id }}">
                     <div class="flex flex-col sm:flex-row gap-4 group">

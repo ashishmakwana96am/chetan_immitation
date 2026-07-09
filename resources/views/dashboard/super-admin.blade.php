@@ -313,7 +313,8 @@
                                                 </div>
                                             </td>
                                             <td>{{ $product->category->name ?? '-' }}</td>
-                                            <td class="text-end"><span class="badge {{ $product->inventories->sum('quantity') == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $product->inventories->sum('quantity') }}</span></td>
+                                            @php($lowStockQty = $product->totalAvailableStock())
+                                            <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $lowStockQty }}</span></td>
                                         </tr>
                                     @empty
                                         <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>

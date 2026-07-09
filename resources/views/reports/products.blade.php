@@ -146,13 +146,18 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
+            <div class="d-flex gap-2 d-none" id="filterActionButtons">
+                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                    <i class="ti ti-filter me-1"></i> Apply
+                </button>
+                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-refresh me-1"></i> Clear
+                </button>
+            </div>
         </div>
         <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-4">
+            <form id="filterForm" class="row g-3" onsubmit="return false;">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Category</label>
                     <select id="filterCategory" class="form-select">
                         <option value="">All Categories</option>
@@ -161,7 +166,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Status</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">All</option>
@@ -169,7 +174,7 @@
                         <option value="2">Inactive</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Stock</label>
                     <select id="filterStock" class="form-select">
                         <option value="">All</option>
@@ -177,7 +182,7 @@
                         <option value="out">SOLD OUT</option>
                     </select>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -386,12 +391,25 @@
             table.draw();
         }
 
-        $('#filterCategory, #filterStatus, #filterStock').on('change', applyFilters);
+        function updateFilterButtonsVisibility() {
+            const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                return $(el).val();
+            });
+            $('#filterActionButtons').toggleClass('d-none', !hasValue);
+        }
 
-        $('#resetFilters').on('click', function() {
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $('#applyFiltersBtn').on('click', applyFilters);
+
+        $('#clearFiltersBtn').on('click', function() {
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStatus').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
+            updateFilterButtonsVisibility();
             applyFilters();
         });
 

@@ -80,11 +80,22 @@ class Product extends Model
      */
     public function totalAvailableStock($variantId = null)
     {
-        if ($this->type === 'variable' && $variantId) {
+        if ($this->type === 'variable') {
             $stockData = $this->getVariantStock();
+
+            if ($variantId) {
+                $totalStock = 0;
+                foreach ($stockData as $locData) {
+                    $totalStock += (int) ($locData['variants'][$variantId] ?? 0);
+                }
+                return max(0, $totalStock);
+            }
+
             $totalStock = 0;
             foreach ($stockData as $locData) {
-                $totalStock += (int) ($locData['variants'][$variantId] ?? 0);
+                foreach ($locData['variants'] as $vStock) {
+                    $totalStock += (int) $vStock;
+                }
             }
             return max(0, $totalStock);
         }

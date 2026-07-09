@@ -351,7 +351,7 @@
                                                 $variantSum = 0;
                                                 foreach($data['variants'] as $vId => $qty) { $variantSum += $qty; }
                                                 $invRecord  = $invByLocation[$locId] ?? null;
-                                                $locTotal   = $invRecord ? $invRecord->quantity : ($variantSum > 0 ? $variantSum : $data['parent']);
+                                                $locTotal   = $variantSum > 0 ? $variantSum : ($invRecord ? $invRecord->quantity : $data['parent']);
                                                 $grandTotalAll += $locTotal;
                                                 $useParentFallback = ($variantSum === 0);
                                             @endphp

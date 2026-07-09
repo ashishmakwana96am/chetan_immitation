@@ -459,7 +459,7 @@ class ReportExportService
     /**
      * Export Profit & Loss Report (2 Sheets: P&L Overview & Product Profitability).
      */
-    public function exportProfitLoss($totalRevenue, $totalCogs, $netProfit, $profitMargin, $productProfitability): Spreadsheet
+    public function exportProfitLoss($totalRevenue, $totalCogs, $totalExpenses, $netProfit, $profitMargin, $productProfitability): Spreadsheet
     {
         $spreadsheet = new Spreadsheet();
 
@@ -474,6 +474,7 @@ class ReportExportService
         $data = [
             ['Total Revenue', (float) $totalRevenue],
             ['Total Cost of Goods Sold (COGS)', (float) $totalCogs],
+            ['Total Expenses', (float) $totalExpenses],
             ['Net Profit', (float) $netProfit],
             ['Gross Profit Margin', (float) ($profitMargin / 100)],
         ];
@@ -486,15 +487,13 @@ class ReportExportService
         }
 
         $sheet1->getStyle('A1:B1')->applyFromArray($this->getHeaderStyle());
-        $sheet1->getStyle('A2:B5')->applyFromArray($this->getDataStyle());
+        $sheet1->getStyle('A2:B6')->applyFromArray($this->getDataStyle());
 
-        // Profit margin is a percentage, rest are currency
         $currencyCode = $this->getCurrencyFormatCode();
-        $sheet1->getStyle('B2:B4')->getNumberFormat()->setFormatCode($currencyCode);
-        $sheet1->getStyle('B5')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+        $sheet1->getStyle('B2:B5')->getNumberFormat()->setFormatCode($currencyCode);
+        $sheet1->getStyle('B6')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
-        // Add some highlights/backgrounds to sheet 1 rows for premium feel
-        $sheet1->getStyle('A4:B4')->applyFromArray([
+        $sheet1->getStyle('A5:B5')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => $netProfit >= 0 ? 'FF28C76F' : 'FFEA5455']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF0FDF4']]
         ]);

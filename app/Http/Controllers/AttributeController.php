@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attribute;
 use App\Models\AttributeValue;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -129,6 +130,32 @@ class AttributeController extends Controller
             'values_json' => ['required', 'json'],
             'status'     => ['nullable', 'string'],
         ]);
+
+        $validator->after(function ($validator) use ($request, $attribute) {
+            $submittedValues = collect(json_decode($request->values_json, true) ?: [])
+                ->pluck('value')
+                ->map(fn ($v) => trim($v))
+                ->all();
+
+            $removedValues = $attribute->values()->get()
+                ->filter(fn ($v) => !in_array($v->value, $submittedValues, true));
+
+            foreach ($removedValues as $value) {
+                $productNames = ProductVariant::where('attribute_value_id', $value->id)
+                    ->with('product')
+                    ->get()
+                    ->pluck('product.name')
+                    ->filter()
+                    ->unique();
+
+                if ($productNames->isNotEmpty()) {
+                    $validator->errors()->add(
+                        'values_json',
+                        'Value "' . $value->value . '" is used in product(s): ' . $productNames->implode(', ') . '. Please remove it from there first before deleting this value.'
+                    );
+                }
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([

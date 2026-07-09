@@ -149,9 +149,14 @@
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Filter Report</h5>
-                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Reset
-                </button>
+                <div class="d-flex gap-2 d-none" id="filterActionButtons">
+                    <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
+                    <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <form method="GET" action="{{ route('admin.reports.payments') }}" id="filterForm" class="row g-3">
@@ -164,7 +169,7 @@
                         <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                     </div>
                     @if($isSuperAdmin)
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Location</label>
                         <select name="location_id" class="form-select no-select2">
                             <option value="">All Locations</option>
@@ -174,7 +179,7 @@
                         </select>
                     </div>
                     @endif
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Source</label>
                         <select name="source" class="form-select no-select2">
                             <option value="">All Sources</option>
@@ -183,7 +188,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Payment Method</label>
                         <select name="payment_method" class="form-select no-select2">
                             <option value="">All Methods</option>
@@ -194,7 +199,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Payment Status</label>
                         <select name="payment_status" class="form-select no-select2">
                             <option value="">All Statuses</option>
@@ -442,6 +447,13 @@
         }
     }
 
+    function updateFilterButtonsVisibility() {
+        const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+            return $(el).val();
+        });
+        $('#filterActionButtons').toggleClass('d-none', !hasValue);
+    }
+
     function loadReport(url) {
         $('#report-results').css('opacity', 0.5);
         window.showAjaxLoader && window.showAjaxLoader();
@@ -451,6 +463,7 @@
             initCharts();
             initTable();
             initDatePickers();
+            updateFilterButtonsVisibility();
         }).always(function () {
             $('#report-results').css('opacity', 1);
             window.hideAjaxLoader && window.hideAjaxLoader();
@@ -462,11 +475,16 @@
         initTable();
         initDatePickers();
 
-        $(document).on('change', '#filterForm', function () {
-            loadReport($(this).attr('action') + '?' + $(this).serialize());
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $(document).on('click', '#applyFiltersBtn', function () {
+            loadReport($('#filterForm').attr('action') + '?' + $('#filterForm').serialize());
         });
 
-        $(document).on('click', '#resetFilters', function () {
+        $(document).on('click', '#clearFiltersBtn', function () {
             const form = $('#filterForm');
             form[0].reset();
             form.find('.flatpickr').each(function () {
@@ -477,6 +495,7 @@
                 }
             });
             form.find('select').val('');
+            updateFilterButtonsVisibility();
             loadReport(form.attr('action'));
         });
     });

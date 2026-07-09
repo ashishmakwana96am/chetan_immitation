@@ -126,14 +126,26 @@ class SaleController extends Controller
             if ($isFallbackOrder) {
                 $issueBlocks = [];
                 foreach ($order->items as $item) {
-                    $invRows = $inventoryByProduct->get($item->product_id, collect());
-                    $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+                    if ($item->product_variant_id) {
+                        $product = $item->product;
+                        $stockData = $product ? $product->getVariantStock() : [];
+                        $qtyAtLocation = (int) ($stockData[$order->location_id]['variants'][$item->product_variant_id] ?? 0);
+                        $otherLocations = collect($stockData)
+                            ->filter(fn ($d, $locId) => (int) $locId !== (int) $order->location_id)
+                            ->map(fn ($d) => ['name' => $d['location_name'], 'qty' => (int) ($d['variants'][$item->product_variant_id] ?? 0)])
+                            ->filter(fn ($d) => $d['qty'] > 0);
+                    } else {
+                        $invRows = $inventoryByProduct->get($item->product_id, collect());
+                        $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+                        $otherLocations = $invRows->where('location_id', '!=', $order->location_id)
+                            ->filter(fn ($inv) => $inv->quantity > 0)
+                            ->map(fn ($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
+                    }
 
                     if ($qtyAtLocation < $item->quantity) {
-                        $otherRows = $invRows->where('location_id', '!=', $order->location_id)
-                            ->filter(fn ($inv) => $inv->quantity > 0)
-                            ->map(function ($inv) {
-                                return "<div class='sw-branch'><span>" . e($inv->location->name ?? 'Unknown') . "</span><span class='sw-qty'>" . (int) $inv->quantity . "</span></div>";
+                        $otherRows = $otherLocations
+                            ->map(function ($d) {
+                                return "<div class='sw-branch'><span>" . e($d['name']) . "</span><span class='sw-qty'>" . $d['qty'] . "</span></div>";
                             })
                             ->implode('');
 

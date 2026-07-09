@@ -55,7 +55,7 @@
                             ? $variant->attributeValue->attribute->name . ': ' . $variant->attributeValue->value
                             : $variant->attributeValue->value;
                     }
-                    $stockQty = $product->inventories_sum_quantity ?? 0;
+                    $stockQty = $product->totalAvailableStock($variant?->id);
                     $inWishlist = auth('customer')->check()
                         && auth('customer')->user()->wishlists->contains('product_id', $product->id);
                 @endphp

@@ -36,7 +36,9 @@ class InventoryController extends Controller
                     $totalQuantity += ($locData['variants'][$variantId] ?? 0);
                 }
             } else {
-                $totalQuantity = (int)Inventory::where('product_id', $productId)->sum('quantity');
+                foreach ($variantStock as $locData) {
+                    $totalQuantity += array_sum($locData['variants']);
+                }
             }
 
             if ($locationId) {
@@ -46,9 +48,7 @@ class InventoryController extends Controller
                 } elseif ($variantId) {
                     $locationQuantity = $locData['variants'][$variantId] ?? 0;
                 } else {
-                    $locationQuantity = (int)Inventory::where('product_id', $productId)
-                        ->where('location_id', $locationId)
-                        ->value('quantity');
+                    $locationQuantity = array_sum($locData['variants'] ?? []);
                 }
             } else {
                 $locationQuantity = $totalQuantity;
@@ -65,10 +65,7 @@ class InventoryController extends Controller
                 } elseif ($variantId) {
                     $qty = $locData['variants'][$variantId] ?? 0;
                 } else {
-                    $qty = $locData['parent'];
-                    foreach ($locData['variants'] as $vqty) {
-                        $qty += $vqty;
-                    }
+                    $qty = array_sum($locData['variants'] ?? []);
                 }
                 if ($qty > 0) {
                     $breakdown[] = [

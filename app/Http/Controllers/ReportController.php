@@ -124,10 +124,13 @@ class ReportController extends Controller
 
         $totalProducts = Product::count();
         $activeProductCount = Product::where('status', 1)->count();
-        $soldoutProductCount = Product::where('status', 1)
-            ->whereDoesntHave('inventories', function ($q) {
-                $q->where('quantity', '>', 0);
-            })
+
+        // Derived from $productsList (already ledger-aware for variable products) rather than a
+        // raw inventories-table query, which misreports variable products as sold out.
+        $soldoutProductCount = $productsList
+            ->where('is_parent', true)
+            ->where('status', 1)
+            ->filter(fn ($p) => $p['total_stock'] <= 0)
             ->count();
 
         return view('reports.products', ['products' => $productsList, 'categories' => $categories,'totalProducts' => $totalProducts, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
@@ -208,8 +211,7 @@ class ReportController extends Controller
 
                 $parentLocStock = [];
                 foreach ($locations as $location) {
-                    $inv = $product->inventories->firstWhere('location_id', $location->id);
-                    $parentLocStock[$location->id] = $inv ? $inv->quantity : 0;
+                    $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
                 }
                 $parentTotal = array_sum($parentLocStock);
                 $productsList->push(array_merge([
@@ -279,22 +281,13 @@ class ReportController extends Controller
 
         $activeProductCount = Product::where('status', 1)->count();
 
-        if ($locationId) {
-            $soldoutProductCount = Product::where('status', 1)
-                ->whereDoesntHave('inventories', function ($q) use ($locationId) {
-                    $q->where('location_id', $locationId)->where('quantity', '>', 0);
-                })
-                ->whereHas('inventories', function ($q) use ($locationId) {
-                    $q->where('location_id', $locationId);
-                })
-                ->count();
-        } else {
-            $soldoutProductCount = Product::where('status', 1)
-                ->whereDoesntHave('inventories', function ($q) {
-                    $q->where('quantity', '>', 0);
-                })
-                ->count();
-        }
+        // Derived from $productsList (already ledger-aware for variable products) rather than a
+        // raw inventories-table query, which misreports variable products as sold out.
+        $soldoutProductCount = $productsList
+            ->where('is_parent', true)
+            ->where('status', 1)
+            ->filter(fn ($p) => $p['total'] <= 0)
+            ->count();
 
         return view('reports.stock-inventory', [
             'products'           => $productsList,
@@ -317,10 +310,10 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
         $supplierId = $request->query('supplier_id');
-        $status     = $request->query('status');
 
         $user = auth()->user();
         $query = Purchase::with(['supplier', 'items.product'])
+            ->where('status', Purchase::STATUS_APPROVE)
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -336,17 +329,13 @@ class ReportController extends Controller
         if ($supplierId) {
             $query->where('supplier_id', $supplierId);
         }
-        if ($status) {
-            $query->where('status', $status);
-        }
 
         $invoices = $query->latest()->get();
 
         // Totals
         $totalPurchases = $invoices->sum('total_amount');
         $invoiceCount   = $invoices->count();
-        $confirmedCount = $invoices->where('status', 2)->count();
-        $draftCount     = $invoices->where('status', 1)->count();
+        $confirmedCount = $invoiceCount;
 
         // Purchase by Supplier (Donut Chart)
         $supplierData = [];
@@ -381,14 +370,12 @@ class ReportController extends Controller
             'totalPurchases',
             'invoiceCount',
             'confirmedCount',
-            'draftCount',
             'supplierData',
             'purchasesTrend',
             'productPurchases',
             'startDate',
             'endDate',
-            'supplierId',
-            'status'
+            'supplierId'
         ));
     }
 
@@ -865,10 +852,10 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
         $supplierId = $request->query('supplier_id');
-        $status     = $request->query('status');
 
         $user = auth()->user();
         $query = Purchase::with(['supplier', 'items.product'])
+            ->where('status', Purchase::STATUS_APPROVE)
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -883,9 +870,6 @@ class ReportController extends Controller
         }
         if ($supplierId) {
             $query->where('supplier_id', $supplierId);
-        }
-        if ($status) {
-            $query->where('status', $status);
         }
 
         $invoices = $query->latest()->get();
@@ -1032,10 +1016,22 @@ class ReportController extends Controller
 
         krsort($productProfitability);
 
-        $netProfit = $totalRevenue - $totalCogs;
+        $expensesQuery = Expense::when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+        if ($startDate) {
+            $expensesQuery->whereDate('expense_date', '>=', $startDate);
+        }
+        if ($endDate) {
+            $expensesQuery->whereDate('expense_date', '<=', $endDate);
+        }
+        if ($locationId) {
+            $expensesQuery->where('location_id', $locationId);
+        }
+        $totalExpenses = (float) $expensesQuery->sum('amount');
+
+        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        $spreadsheet = $this->exportService->exportProfitLoss($totalRevenue, $totalCogs, $netProfit, $profitMargin, $productProfitability);
+        $spreadsheet = $this->exportService->exportProfitLoss($totalRevenue, $totalCogs, $totalExpenses, $netProfit, $profitMargin, $productProfitability);
 
         ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & loss report exported to Excel');
 

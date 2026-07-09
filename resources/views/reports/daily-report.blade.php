@@ -16,9 +16,14 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
+            <div class="d-flex gap-2 d-none" id="filterActionButtons">
+                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                    <i class="ti ti-filter me-1"></i> Apply
+                </button>
+                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-refresh me-1"></i> Clear
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.daily-report') }}" id="filterForm" class="row g-3">
@@ -93,27 +98,39 @@
                 loadReport(form.attr('action') + '?' + form.serialize());
             }
 
+            function updateFilterButtonsVisibility() {
+                const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                    return $(el).val();
+                });
+                $('#filterActionButtons').toggleClass('d-none', !hasValue);
+            }
+
             initDailyTables();
 
             if (typeof $.fn.flatpickr !== 'undefined') {
                 $('.flatpickr').flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
                     onChange: function (selectedDates, dateStr, instance) {
-                        submitFilters();
+                        updateFilterButtonsVisibility();
                     }
                 });
             }
 
-            $(document).on('change', '#filterForm select', function () {
-                submitFilters();
+            $(document).on('input change', '#filterForm', function () {
+                updateFilterButtonsVisibility();
             });
+            updateFilterButtonsVisibility();
 
             $('#filterForm').on('submit', function (e) {
                 e.preventDefault();
                 submitFilters();
             });
 
-            $('#resetFilters').on('click', function () {
+            $('#applyFiltersBtn').on('click', function () {
+                submitFilters();
+            });
+
+            $('#clearFiltersBtn').on('click', function () {
                 const form = $('#filterForm');
                 const dateInput = form.find('input[name="date"]')[0];
 
@@ -124,12 +141,9 @@
                 }
 
                 const branchSelect = form.find('select[name="location_id"]');
-                if (branchSelect.length) {
-                    // triggering change fires the delegated #filterForm select listener, which reloads once
-                    branchSelect.val('').trigger('change.select2');
-                } else {
-                    submitFilters();
-                }
+                branchSelect.val('').trigger('change.select2');
+                updateFilterButtonsVisibility();
+                submitFilters();
             });
         });
     </script>

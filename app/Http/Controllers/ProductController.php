@@ -67,25 +67,34 @@ class ProductController extends Controller
             $q->where('status', $request->status);
         });
 
-        if ($request->stock_status === 'in_stock') {
-            $query->whereHas('inventories', function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                $q->where('quantity', '>', 0);
-            });
-        } elseif ($request->stock_status === 'out_of_stock') {
-            $query->whereDoesntHave('inventories', function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                $q->where('quantity', '>', 0);
-            });
-        }
-
         $products = $query->orderBy('id', 'desc')->get();
+
+        $computeStock = function ($product) use ($locationId) {
+            if ($product->type === 'variable') {
+                $stockData = $product->getVariantStock($locationId);
+                if ($locationId) {
+                    return $stockData ? array_sum($stockData['variants']) : 0;
+                }
+                $total = 0;
+                foreach ($stockData as $locData) {
+                    $total += array_sum($locData['variants']);
+                }
+                return $total;
+            }
+            return $product->inventories->sum('quantity');
+        };
+
+        if ($request->stock_status === 'in_stock') {
+            $products = $products->filter(fn($product) => $computeStock($product) > 0)->values();
+        } elseif ($request->stock_status === 'out_of_stock') {
+            $products = $products->filter(fn($product) => $computeStock($product) <= 0)->values();
+        }
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
         $canClone  = auth()->user()->can('clone products');
 
-        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone) {
+        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone, $computeStock) {
             $nameHtml = $product->name;
             $variationsStr = $product->variants->map(function ($variant) {
                 return $variant->attributeValue->value ?? '';
@@ -108,7 +117,7 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
-            $stockSum = $product->inventories->sum('quantity');
+            $stockSum = $computeStock($product);
             $stock = $stockSum > 0
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';

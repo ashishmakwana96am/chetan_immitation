@@ -115,7 +115,7 @@ class WishlistController extends Controller
             if ($newItem) {
                 $prod    = $newItem->product;
                 $variant = $newItem->productVariant;
-                $stockQty = $prod->inventories_sum_quantity ?? 0;
+                $stockQty = $prod->totalAvailableStock($variant?->id);
                 $attrLabel = null;
                 if ($variant && $variant->attributeValue) {
                     $attrName  = optional($variant->attributeValue->attribute)->name;
