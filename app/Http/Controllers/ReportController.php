@@ -1290,27 +1290,17 @@ class ReportController extends Controller
             ->get()
             ->keyBy('location_id');
 
-        // Stock transfers touch two branches (source + destination) — count/qty attributed to both sides.
+        // A branch's Purchase Bill activity is counted only when it is the SOURCE (sender) of the transfer.
         $transferFrom = PurchaseBill::join('purchase_bill_items', 'purchase_bill_items.purchase_bill_id', '=', 'purchase_bills.id')
             ->whereDate('purchase_bills.created_at', $date)
             ->whereIn('purchase_bills.from_location_id', $locationIds)
             ->groupBy('purchase_bills.from_location_id')
             ->selectRaw('purchase_bills.from_location_id as location_id, COUNT(DISTINCT purchase_bills.id) as cnt, SUM(purchase_bill_items.quantity) as qty')
             ->get();
-        $transferTo = PurchaseBill::join('purchase_bill_items', 'purchase_bill_items.purchase_bill_id', '=', 'purchase_bills.id')
-            ->whereDate('purchase_bills.created_at', $date)
-            ->whereIn('purchase_bills.to_location_id', $locationIds)
-            ->groupBy('purchase_bills.to_location_id')
-            ->selectRaw('purchase_bills.to_location_id as location_id, COUNT(DISTINCT purchase_bills.id) as cnt, SUM(purchase_bill_items.quantity) as qty')
-            ->get();
 
         $transfersByLocation = [];
-        foreach ($transferFrom->concat($transferTo) as $row) {
-            if (!isset($transfersByLocation[$row->location_id])) {
-                $transfersByLocation[$row->location_id] = ['cnt' => 0, 'qty' => 0];
-            }
-            $transfersByLocation[$row->location_id]['cnt'] += (int) $row->cnt;
-            $transfersByLocation[$row->location_id]['qty'] += (int) $row->qty;
+        foreach ($transferFrom as $row) {
+            $transfersByLocation[$row->location_id] = ['cnt' => (int) $row->cnt, 'qty' => (int) $row->qty];
         }
 
         // ── Per-branch breakdown table ────────────────────────────────────
@@ -1342,18 +1332,12 @@ class ReportController extends Controller
         $totalExpensesCount = (int) $expensesByLocation->sum('cnt');
 
         $transferOverallQuery = PurchaseBill::whereDate('created_at', $date)
-            ->when($locationId, function ($q) use ($locationId) {
-                $q->where(function ($sub) use ($locationId) {
-                    $sub->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
-                });
-            });
+            ->when($locationId, fn ($q) => $q->where('from_location_id', $locationId));
         $totalTransfersCount = (clone $transferOverallQuery)->count();
         $totalTransfersQty = PurchaseBillItem::whereHas('transfer', function ($q) use ($date, $locationId) {
             $q->whereDate('created_at', $date);
             if ($locationId) {
-                $q->where(function ($sub) use ($locationId) {
-                    $sub->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
-                });
+                $q->where('from_location_id', $locationId);
             }
         })->sum('quantity');
 
@@ -1430,9 +1414,7 @@ class ReportController extends Controller
 
         $purchaseBillRows = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
             ->whereDate('created_at', $date)
-            ->where(function ($q) use ($locationIds) {
-                $q->whereIn('from_location_id', $locationIds)->orWhereIn('to_location_id', $locationIds);
-            })
+            ->whereIn('from_location_id', $locationIds)
             ->withCount('items')
             ->latest()
             ->get()

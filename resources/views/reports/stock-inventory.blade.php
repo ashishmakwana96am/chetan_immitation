@@ -99,9 +99,15 @@
                 $('#stockTable').DataTable().destroy();
             }
 
+            const lastPurchaseColumnIndex = 4 + {{ $locations->count() }} + 2;
+            const ageColumnIndex = lastPurchaseColumnIndex + 1;
+
+            const hasDateFilter = !!($('input[name="from_date"]').val() || $('input[name="to_date"]').val());
+            const defaultOrder = hasDateFilter ? [lastPurchaseColumnIndex, 'asc'] : [lastPurchaseColumnIndex, 'desc'];
+
             table = $('#stockTable').DataTable({
                 responsive : false,
-                order      : [[1, 'asc']],
+                order      : [defaultOrder],
                 columnDefs : [
                     {
                         targets: 0,
@@ -112,8 +118,6 @@
                     }
                 ],
             });
-
-            const ageColumnIndex = 4 + {{ $locations->count() }} + 2; // #, Product, Barcode, Category, [locations...], Total, Stock Value, Last Purchase Date, then Inventory Age
 
             function applyFilters() {
                 const cat   = $('#filterCategory').val();
