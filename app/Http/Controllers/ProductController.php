@@ -1028,6 +1028,10 @@ class ProductController extends Controller
 
                 if ($category->trashed()) {
                     $category->restore();
+                    $category->update([
+                        'image' => null,
+                        'low_stock_threshold' => null,
+                    ]);
                 }
 
                 // Find or create subcategory if provided
@@ -1048,6 +1052,16 @@ class ProductController extends Controller
 
                     if ($subCategory->trashed()) {
                         $subCategory->restore();
+                        $subCategoryUpdate = [];
+                        if (in_array('image', $subCategory->getFillable())) {
+                            $subCategoryUpdate['image'] = null;
+                        }
+                        if (in_array('low_stock_threshold', $subCategory->getFillable())) {
+                            $subCategoryUpdate['low_stock_threshold'] = null;
+                        }
+                        if (!empty($subCategoryUpdate)) {
+                            $subCategory->update($subCategoryUpdate);
+                        }
                     }
                     $subCategoryId = $subCategory->id;
                 }
