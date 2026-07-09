@@ -379,7 +379,7 @@
         new ApexCharts(document.getElementById('orderStatusChart'), {
             chart   : { type: 'donut', height: 250 },
             series  : [{{ $salesStats['pending'] }}, {{ $salesStats['approve'] }}, {{ $salesStats['decline'] }}],
-            labels  : ['Pending', 'Approve', 'Decline'],
+            labels  : ['Pending', 'Approve', 'Cancelled'],
             colors  : ['#ff9f43', '#28c76f', '#ea5455'],
             legend  : { position: 'bottom' },
             noData  : { text: 'No orders yet' },

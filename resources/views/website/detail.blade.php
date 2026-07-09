@@ -246,7 +246,8 @@
                             <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
                                 data-variant-id="{{ $variant->id }}"
                                 data-sale-price="{{ $variant->sale_price }}"
-                                data-mrp="{{ $variant->product->mrp ?? '' }}">
+                                data-mrp="{{ $variant->product->mrp ?? '' }}"
+                                data-stock="{{ $product->totalAvailableStock($variant->id) }}">
                                 {{ $variant->attributeValue->value }}
                             </button>
                             @endforeach
@@ -447,15 +448,52 @@ const plusBtn = document.getElementById("plusBtn");
 const minusBtn = document.getElementById("minusBtn");
 let count = parseInt(qty ? qty.innerText : 1) || 1;
 
+function getMaxAllowedStock() {
+    const activeVariant = document.querySelector('.variant-selector.active');
+    if (activeVariant) {
+        let stock = parseInt(activeVariant.dataset.stock) || 0;
+        const selectedPairType = document.getElementById('selectedPairType');
+        if (selectedPairType && selectedPairType.value === 'pair') {
+            return Math.floor(stock / 2);
+        }
+        return stock;
+    }
+    let stock = parseInt('{{ $product->totalAvailableStock() }}') || 0;
+    const selectedPairType = document.getElementById('selectedPairType');
+    if (selectedPairType && selectedPairType.value === 'pair') {
+        return Math.floor(stock / 2);
+    }
+    return stock;
+}
+
+window.getMaxAllowedStock = getMaxAllowedStock;
+window.getQtyCount = () => count;
+window.setQtyCount = (val) => {
+    count = val;
+    if (qty) qty.innerText = count;
+};
+
+// Initialize count based on initial stock
+const initialMaxStock = getMaxAllowedStock();
+if (initialMaxStock <= 0) {
+    count = 0;
+    if (qty) qty.innerText = count;
+}
+
 if (plusBtn) {
     plusBtn.addEventListener("click", () => {
-        count++;
-        if (qty) qty.innerText = count;
+        const maxStock = getMaxAllowedStock();
+        if (count < maxStock) {
+            count++;
+            if (qty) qty.innerText = count;
+        }
     });
 }
 if (minusBtn) {
     minusBtn.addEventListener("click", () => {
-        if (count > 1) {
+        const maxStock = getMaxAllowedStock();
+        const minQty = maxStock > 0 ? 1 : 0;
+        if (count > minQty) {
             count--;
             if (qty) qty.innerText = count;
         }
@@ -569,6 +607,21 @@ if (minusBtn) {
                 priceSpan.textContent = fmtPrice(parseFloat(btn.dataset.salePrice));
             }
 
+            // Check if current count exceeds new variant's stock
+            if (typeof window.getMaxAllowedStock === 'function') {
+                const maxStock = window.getMaxAllowedStock();
+                if (maxStock <= 0) {
+                    window.setQtyCount(0);
+                } else {
+                    const currentCount = window.getQtyCount();
+                    if (currentCount <= 0) {
+                        window.setQtyCount(1);
+                    } else if (currentCount > maxStock) {
+                        window.setQtyCount(maxStock);
+                    }
+                }
+            }
+
             var variantId = btn.dataset.variantId || null;
             var mainBtn   = getMainWishlistBtn();
 
@@ -650,6 +703,21 @@ if (minusBtn) {
 
         // Update hidden input
         document.getElementById('selectedPairType').value = value;
+
+        // Check if current count exceeds stock
+        if (typeof window.getMaxAllowedStock === 'function') {
+            const maxStock = window.getMaxAllowedStock();
+            if (maxStock <= 0) {
+                window.setQtyCount(0);
+            } else {
+                const currentCount = window.getQtyCount();
+                if (currentCount <= 0) {
+                    window.setQtyCount(1);
+                } else if (currentCount > maxStock) {
+                    window.setQtyCount(maxStock);
+                }
+            }
+        }
 
         // Update button styles
         toggle.querySelectorAll('.pair-type-btn').forEach(function (b) {

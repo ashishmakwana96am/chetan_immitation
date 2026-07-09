@@ -76,6 +76,23 @@ class Product extends Model
         return $this->hasMany(Inventory::class);
     }
 
+    /**
+     * Get the total available stock (Pcs) across all locations.
+     */
+    public function totalAvailableStock($variantId = null)
+    {
+        if ($this->type === 'variable' && $variantId) {
+            $stockData = $this->getVariantStock();
+            $totalStock = 0;
+            foreach ($stockData as $locData) {
+                $totalStock += (int) ($locData['variants'][$variantId] ?? 0);
+            }
+            return max(0, $totalStock);
+        }
+
+        return (int) $this->inventories()->sum('quantity');
+    }
+
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');

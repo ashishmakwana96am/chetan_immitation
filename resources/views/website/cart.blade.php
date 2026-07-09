@@ -388,8 +388,15 @@
         })
         .then(data => {
             if (data.status === 'success') {
-                qtyEl.textContent   = qty;
-                totalEl.textContent = formatPrice(data.item_total);
+                if (data.qty === 0) {
+                    row.remove();
+                    if (data.count === 0) {
+                        window.location.reload();
+                    }
+                } else {
+                    qtyEl.textContent   = data.qty;
+                    totalEl.textContent = formatPrice(data.item_total);
+                }
                 if (window.updateCartBadge) window.updateCartBadge(data.count);
                 updateSummary(data.totals);
             } else {

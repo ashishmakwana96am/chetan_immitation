@@ -59,7 +59,7 @@
             3 => 'Shipped',
             4 => 'Out for delivery',
             5 => 'Delivered',
-            6 => 'Decline',
+            6 => 'Cancelled',
         ];
         $paymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
         $paymentLabels = [1 => 'Pending',          2 => 'Paid'];
@@ -168,7 +168,7 @@
                         <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
                         <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
                         <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
-                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Decline</option>
+                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Cancelled</option>
                     @endif
                 </select>
             @endcan
@@ -179,7 +179,7 @@
 
         </div>
 
-        {{-- Decline reason — shown below when Decline selected --}}
+        {{-- Cancel reason — shown below when Cancel selected --}}
         @can('edit sales status')
         <div id="cancel-reason-wrap" class="d-flex align-items-center gap-2 mt-2" style="display:none !important;">
             <textarea id="cancel-reason-input" class="form-control form-control-sm" rows="1" maxlength="500"
@@ -689,11 +689,11 @@ $(document).ready(function () {
 
         const url = "{{ route('admin.sales.status', $order) }}";
         Swal.fire({
-            title: 'Decline Order',
-            text: 'Are you sure you want to decline this order?',
+            title: 'Cancel Order',
+            text: 'Are you sure you want to cancel this order?',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Yes, Decline',
+            confirmButtonText: 'Yes, Cancel',
             customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
             buttonsStyling: false
         }).then((result) => {
@@ -779,7 +779,7 @@ $(document).ready(function () {
 
         Swal.fire({
             title: 'Reject Cancellation?',
-            text: 'This will decline the customer\'s cancellation request and keep the order active.',
+            text: 'This will reject the customer\'s cancellation request and keep the order active.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Yes, Reject Request',

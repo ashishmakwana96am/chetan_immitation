@@ -261,7 +261,7 @@
         3 => 'Shipped',
         4 => 'Out for Delivery',
         5 => 'Delivered',
-        6 => 'Declined',
+        6 => 'Cancelled',
     ];
     $statusBadge = [
         1 => 'badge-pending',

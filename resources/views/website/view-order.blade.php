@@ -386,7 +386,7 @@
                             @elseif($order->cancellationRequest->status === 'approved')
                                 This request was approved on {{ $order->cancellationRequest->updated_at->format('d M Y, h:i A') }}. Refund of {{ website_price($order->cancellationRequest->refund_amount) }} has been processed. Note: The refunded amount will be credited to your account within 5-7 business days.
                             @elseif($order->cancellationRequest->status === 'rejected')
-                                This request was declined on {{ $order->cancellationRequest->updated_at->format('d M Y, h:i A') }}.
+                                This request was rejected on {{ $order->cancellationRequest->updated_at->format('d M Y, h:i A') }}.
                             @endif
                         </div>
                     </div>

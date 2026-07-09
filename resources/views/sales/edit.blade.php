@@ -292,7 +292,7 @@
                         <select name="status" class="form-select no-select2">
                             <option value="1" {{ $order->status == 1 ? 'selected' : '' }}>Pending</option>
                             <option value="2" {{ $order->status == 2 ? 'selected' : '' }}>Approve</option>
-                            <option value="6" {{ $order->status == 6 ? 'selected' : '' }}>Decline</option>
+                            <option value="6" {{ $order->status == 6 ? 'selected' : '' }}>Cancelled</option>
                         </select>
                     </div>
                 </div>

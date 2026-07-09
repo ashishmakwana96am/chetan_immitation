@@ -100,7 +100,7 @@ class SaleController extends Controller
             3 => 'Shipped',
             4 => 'Out for delivery',
             5 => 'Delivered',
-            6 => 'Decline',
+            6 => 'Cancelled',
         ];
 
         $paymentColors = [
@@ -888,7 +888,7 @@ class SaleController extends Controller
                             throw new \Exception('Delivered orders cannot be modified.');
                         }
                         if ($oldStatus == Order::STATUS_DECLINE) {
-                            throw new \Exception('Declined orders cannot be modified.');
+                            throw new \Exception('Cancelled orders cannot be modified.');
                         }
 
                         // 2. Backward progression validation (Decline is always allowed from any non-terminal status)
@@ -931,7 +931,7 @@ class SaleController extends Controller
                             }
                         }
 
-                        // Require cancellation reason when declining
+                        // Require cancellation reason when cancelling
                         if ($newStatus == Order::STATUS_DECLINE && empty($request->cancellation_reason)) {
                             throw new \Exception('Please provide a cancellation reason.');
                         }
@@ -1334,7 +1334,7 @@ class SaleController extends Controller
         $this->authorize('delete sales');
 
         if ($sale->status != 6) {
-            return response()->json(['status' => 'error', 'message' => 'Only declined sales can be deleted.'], 422);
+            return response()->json(['status' => 'error', 'message' => 'Only cancelled sales can be deleted.'], 422);
         }
 
         $sale->delete();

@@ -144,7 +144,7 @@
                             <option value="3">Shipped</option>
                             <option value="4">Out for delivery</option>
                             <option value="5">Delivered</option>
-                            <option value="6">Declined</option>
+                            <option value="6">Cancelled</option>
                         </select>
                     </div>
 
@@ -419,7 +419,7 @@
                         <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
                         <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
                         <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
-                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Cancelled</option>
                     `;
                 }
 
