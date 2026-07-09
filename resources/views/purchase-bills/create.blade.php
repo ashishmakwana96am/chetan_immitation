@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'New Stock Transfer')
+@section('title', 'New Purchase Bill')
 
 @section('page-css')
 <style>
@@ -53,13 +53,13 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">New Stock Transfer</h4>
-        <a href="{{ route('admin.stock-transfers.index') }}" class="btn btn-label-secondary">
+        <h4 class="fw-semibold mb-0">New Purchase Bill</h4>
+        <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary">
             <i class="ti ti-arrow-left me-1"></i> Back
         </a>
     </div>
 
-    <form id="stockTransferForm" action="{{ route('admin.stock-transfers.store') }}" method="POST">
+    <form id="purchaseBillForm" action="{{ route('admin.purchase-bills.store') }}" method="POST">
         @csrf
         <div class="row g-3">
             <div class="col-lg-8">
@@ -68,7 +68,7 @@
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">Transfer No</label>
+                                <label class="form-label">Bill No</label>
                                 <input type="text" class="form-control" value="{{ $transferNo }}" disabled>
                                 <small class="text-muted">Auto-generated on save</small>
                             </div>
@@ -125,6 +125,8 @@
                                         <th style="width: 140px; min-width: 140px;">Unit</th>
                                         <th style="width: 140px; min-width: 140px;">Available</th>
                                         <th style="width: 140px; min-width: 140px;">Qty</th>
+                                        <th style="width: 120px; min-width: 120px;">Price</th>
+                                        <th style="width: 130px; min-width: 130px;">Total</th>
                                         <th style="width: 58px;"></th>
                                     </tr>
                                 </thead>
@@ -146,9 +148,13 @@
                             <span class="text-muted">Total Items</span>
                             <span id="summaryItems" class="fw-semibold">0</span>
                         </div>
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Total Qty</span>
                             <span id="summaryQty" class="fw-bold text-primary">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Total Amount</span>
+                            <span id="summaryAmount" class="fw-bold text-primary">{{ currency_symbol() }} 0.00</span>
                         </div>
                     </div>
                 </div>
@@ -158,7 +164,7 @@
                         <button type="submit" class="btn btn-primary w-100 py-2 fs-5" id="submitBtn">
                             <i class="ti ti-device-floppy me-1"></i> Save Request
                         </button>
-                        <a href="{{ route('admin.stock-transfers.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 mt-3">Cancel</a>
+                        <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 mt-3">Cancel</a>
                     </div>
                 </div>
             </div>
@@ -186,6 +192,8 @@
             <td class="align-middle">
                 <input type="number" class="form-control item-qty" min="1" value="1">
             </td>
+            <td class="align-middle price-display"></td>
+            <td class="align-middle text-end fw-semibold total-display"></td>
             <td class="align-middle text-end">
                 <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn" title="Remove Item">
                     <i class="ti ti-trash"></i>
@@ -316,6 +324,8 @@ $(document).ready(function () {
             row.data('variant-id', row.find('.variant-select').val() || null);
         }
 
+        updateRowPrice(row);
+
         // Pair product selector
         if (product.pair_product) {
             const pairHtml = `
@@ -393,18 +403,49 @@ $(document).ready(function () {
             .addClass(displayQty > 0 ? 'bg-label-success' : 'bg-label-danger');
     }
 
+    function getRowPrice(row) {
+        const product = row.data('product');
+        if (!product) return 0;
+        const variantId = row.find('.variant-select').val() || null;
+        if (variantId && product.variants) {
+            const variant = product.variants.find(v => String(v.id) === String(variantId));
+            if (variant) return parseFloat(variant.purchase_price || 0);
+        }
+        return parseFloat(product.purchase_price || 0);
+    }
+
+    function updateRowPrice(row) {
+        const price = getRowPrice(row);
+        row.data('price', price);
+        row.find('.price-display').text(symbol + ' ' + formatPrice(price));
+        updateRowTotal(row);
+    }
+
+    function updateRowTotal(row) {
+        const price = parseFloat(row.data('price') || 0);
+        const qty = parseInt(row.find('.item-qty').val()) || 0;
+        const total = price * qty;
+        row.data('total', total);
+        row.find('.total-display').text(symbol + ' ' + formatPrice(total));
+    }
+
     function updateSummary() {
         let items = 0;
         let qty = 0;
+        let amount = 0;
         $('.item-row').each(function () {
-            const rowQty = parseInt($(this).find('.item-qty').val()) || 0;
+            const row = $(this);
+            updateRowTotal(row);
+            const rowQty = parseInt(row.find('.item-qty').val()) || 0;
             if (rowQty > 0) {
                 items++;
                 qty += rowQty;
+                amount += parseFloat(row.data('total') || 0);
             }
         });
         $('#summaryItems').text(items);
         $('#summaryQty').text(qty);
+        $('#summaryAmount').text(symbol + ' ' + formatPrice(amount));
         $('#noItemsMsg').toggle(items === 0);
         $('#itemsTable').toggle(items > 0);
     }
@@ -521,6 +562,7 @@ $(document).ready(function () {
         }
         row.data('variant-id', variantId);
         refreshRowStock(row);
+        updateRowPrice(row);
     });
 
     $(document).on('input', '.item-qty', updateSummary);
@@ -529,7 +571,7 @@ $(document).ready(function () {
         updateSummary();
     });
 
-    $('#stockTransferForm').on('submit', function (e) {
+    $('#purchaseBillForm').on('submit', function (e) {
         e.preventDefault();
         const form = $(this);
 
@@ -593,7 +635,7 @@ $(document).ready(function () {
             data: form.serialize(),
             success: function (res) {
                 toastr.success(res.message);
-                setTimeout(() => window.location.href = '{{ route('admin.stock-transfers.index') }}', 800);
+                setTimeout(() => window.location.href = '{{ route('admin.purchase-bills.index') }}', 800);
             },
             error: function (xhr) {
                 hiddenContainer.remove();

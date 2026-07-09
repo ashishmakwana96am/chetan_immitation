@@ -5,18 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Product;
-use App\Models\StockTransfer;
-use App\Models\StockTransferItem;
+use App\Models\PurchaseBill;
+use App\Models\PurchaseBillItem;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-class StockTransferController extends Controller
+class PurchaseBillController extends Controller
 {
     public function index()
     {
-        $this->authorize('view stock transfers');
+        $this->authorize('view purchase bills');
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
@@ -26,16 +26,16 @@ class StockTransferController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        return view('stock-transfers.index', compact('locations', 'isRestricted'));
+        return view('purchase-bills.index', compact('locations', 'isRestricted'));
     }
 
     public function pendingCount()
     {
-        $this->authorize('view stock transfers');
+        $this->authorize('view purchase bills');
 
         $user = auth()->user();
 
-        $count = StockTransfer::where('status', StockTransfer::STATUS_PENDING)
+        $count = PurchaseBill::where('status', PurchaseBill::STATUS_PENDING)
             ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
                 $q->where(function ($sub) use ($user) {
                     $sub->where('from_location_id', $user->location_id)
@@ -49,11 +49,11 @@ class StockTransferController extends Controller
 
     public function data(Request $request)
     {
-        $this->authorize('view stock transfers');
+        $this->authorize('view purchase bills');
 
         $user = auth()->user();
 
-        $transfers = StockTransfer::with(['fromLocation', 'toLocation', 'createdBy'])
+        $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
             ->withCount('items')
             ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
                 $q->where(function ($sub) use ($user) {
@@ -67,22 +67,27 @@ class StockTransferController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $canAccept = auth()->user()->can('accept stock transfers');
-        $canReject = auth()->user()->can('reject stock transfers');
+        $canAccept = auth()->user()->can('accept purchase bills');
+        $canReject = auth()->user()->can('reject purchase bills');
 
         $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject) {
             $statusBadge = $this->statusBadge($transfer->status);
 
+            $totalAmount = $transfer->items->sum(function ($item) {
+                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                return $price * $item->quantity;
+            });
+
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
-            $actions .= '<a href="' . route('admin.stock-transfers.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
-            if ($transfer->status == StockTransfer::STATUS_PENDING) {
+            $actions .= '<a href="' . route('admin.purchase-bills.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
+            if ($transfer->status == PurchaseBill::STATUS_PENDING) {
                 if ($canAccept) {
-                    $actions .= '<button class="dropdown-item text-success stock-transfer-action" data-url="' . route('admin.stock-transfers.accept', $transfer) . '" data-method="PATCH" data-title="Accept Stock Transfer" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
+                    $actions .= '<button class="dropdown-item text-success purchase-bill-action" data-url="' . route('admin.purchase-bills.accept', $transfer) . '" data-method="PATCH" data-title="Accept Purchase Bill" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
                 }
                 if ($canReject) {
-                    $actions .= '<button class="dropdown-item text-danger stock-transfer-action" data-url="' . route('admin.stock-transfers.reject', $transfer) . '" data-method="PATCH" data-title="Reject Stock Transfer" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
+                    $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.reject', $transfer) . '" data-method="PATCH" data-title="Reject Purchase Bill" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
                 }
             }
             $actions .= '</div></div>';
@@ -93,6 +98,7 @@ class StockTransferController extends Controller
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
                 'items_count' => $transfer->items_count,
+                'total_amount' => currency_symbol() . ' ' . number_format($totalAmount, 2),
                 'status' => $statusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
                 'date_group' => $transfer->created_at->format('d M Y'),
@@ -109,7 +115,7 @@ class StockTransferController extends Controller
 
     public function create()
     {
-        $this->authorize('create stock transfers');
+        $this->authorize('create purchase bills');
 
         $user = auth()->user();
         $canChooseSource = $user->hasRole('super-admin');
@@ -117,7 +123,7 @@ class StockTransferController extends Controller
         try {
             $defaultLocation = $this->resolveSourceLocation();
         } catch (\RuntimeException $e) {
-            return redirect()->route('admin.stock-transfers.index')->with('error', $e->getMessage());
+            return redirect()->route('admin.purchase-bills.index')->with('error', $e->getMessage());
         }
 
         $sourceLocations = $canChooseSource
@@ -128,14 +134,14 @@ class StockTransferController extends Controller
             ->where('status', 1)
             ->orderBy('name')
             ->get();
-        $transferNo = generate_invoice_no('STF', StockTransfer::class, 'transfer_no');
+        $transferNo = generate_invoice_no('PB', PurchaseBill::class, 'transfer_no');
 
-        return view('stock-transfers.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'transferNo'));
+        return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'transferNo'));
     }
 
     public function store(Request $request)
     {
-        $this->authorize('create stock transfers');
+        $this->authorize('create purchase bills');
 
         try {
             $defaultLocation = $this->resolveSourceLocation($request->input('from_location_id'));
@@ -165,18 +171,18 @@ class StockTransferController extends Controller
         }
 
         DB::transaction(function () use ($request, $defaultLocation) {
-            $transfer = StockTransfer::create([
-                'transfer_no' => generate_invoice_no('STF', StockTransfer::class, 'transfer_no'),
+            $transfer = PurchaseBill::create([
+                'transfer_no' => generate_invoice_no('PB', PurchaseBill::class, 'transfer_no'),
                 'from_location_id' => $defaultLocation->id,
                 'to_location_id' => $request->to_location_id,
-                'status' => StockTransfer::STATUS_PENDING,
+                'status' => PurchaseBill::STATUS_PENDING,
                 'remarks' => $request->remarks,
                 'created_by' => auth()->id(),
             ]);
 
             foreach ($this->normalizeItems($request->items) as $item) {
-                StockTransferItem::create([
-                    'stock_transfer_id' => $transfer->id,
+                PurchaseBillItem::create([
+                    'purchase_bill_id' => $transfer->id,
                     'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
                     'pair_type' => $item['pair_type'] ?? 'single',
@@ -185,15 +191,15 @@ class StockTransferController extends Controller
             }
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Stock transfer request created successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Purchase bill created successfully.']);
     }
 
-    public function show(StockTransfer $stockTransfer)
+    public function show(PurchaseBill $purchaseBill)
     {
-        $this->authorize('view stock transfers');
-        $this->guardLocationAccess($stockTransfer);
+        $this->authorize('view purchase bills');
+        $this->guardLocationAccess($purchaseBill);
 
-        $stockTransfer->load([
+        $purchaseBill->load([
             'fromLocation',
             'toLocation',
             'createdBy',
@@ -203,28 +209,28 @@ class StockTransferController extends Controller
             'items.variant.attributeValue.attribute',
         ]);
 
-        return view('stock-transfers.show', ['transfer' => $stockTransfer]);
+        return view('purchase-bills.show', ['transfer' => $purchaseBill]);
     }
 
-    public function accept(StockTransfer $stockTransfer)
+    public function accept(PurchaseBill $purchaseBill)
     {
-        $this->authorize('accept stock transfers');
-        $this->guardLocationAccess($stockTransfer);
+        $this->authorize('accept purchase bills');
+        $this->guardLocationAccess($purchaseBill);
 
-        if ($stockTransfer->status != StockTransfer::STATUS_PENDING) {
-            return response()->json(['status' => 'error', 'message' => 'Only pending transfers can be accepted.'], 422);
+        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be accepted.'], 422);
         }
 
-        $stockTransfer->load('items');
-        $stockError = $this->getStockError($stockTransfer->items, (int) $stockTransfer->from_location_id);
+        $purchaseBill->load('items');
+        $stockError = $this->getStockError($purchaseBill->items, (int) $purchaseBill->from_location_id);
         if ($stockError) {
             return response()->json(['status' => 'error', 'message' => $stockError], 422);
         }
 
-        DB::transaction(function () use ($stockTransfer) {
-            foreach ($stockTransfer->items as $item) {
+        DB::transaction(function () use ($purchaseBill) {
+            foreach ($purchaseBill->items as $item) {
                 $source = Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $stockTransfer->from_location_id)
+                    ->where('location_id', $purchaseBill->from_location_id)
                     ->first();
 
                 $stockQty = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
@@ -232,13 +238,13 @@ class StockTransferController extends Controller
                 if ($source) {
                     $oldQty = $source->quantity;
                     $source->decrement('quantity', $stockQty);
-                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock transferred out for transfer #' . $stockTransfer->transfer_no);
+                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock transferred out for purchase bill #' . $purchaseBill->transfer_no);
                 }
 
                 $destination = Inventory::firstOrCreate(
                     [
                         'product_id' => $item->product_id,
-                        'location_id' => $stockTransfer->to_location_id,
+                        'location_id' => $purchaseBill->to_location_id,
                     ],
                     [
                         'quantity' => 0,
@@ -247,35 +253,35 @@ class StockTransferController extends Controller
                 );
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock transferred in for transfer #' . $stockTransfer->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock transferred in for purchase bill #' . $purchaseBill->transfer_no);
             }
 
-            $stockTransfer->update([
-                'status' => StockTransfer::STATUS_ACCEPTED,
+            $purchaseBill->update([
+                'status' => PurchaseBill::STATUS_ACCEPTED,
                 'accepted_by' => auth()->id(),
                 'accepted_at' => now(),
             ]);
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Stock transfer accepted successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Purchase bill accepted successfully.']);
     }
 
-    public function reject(StockTransfer $stockTransfer)
+    public function reject(PurchaseBill $purchaseBill)
     {
-        $this->authorize('reject stock transfers');
-        $this->guardLocationAccess($stockTransfer);
+        $this->authorize('reject purchase bills');
+        $this->guardLocationAccess($purchaseBill);
 
-        if ($stockTransfer->status != StockTransfer::STATUS_PENDING) {
-            return response()->json(['status' => 'error', 'message' => 'Only pending transfers can be rejected.'], 422);
+        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be rejected.'], 422);
         }
 
-        $stockTransfer->update([
-            'status' => StockTransfer::STATUS_REJECTED,
+        $purchaseBill->update([
+            'status' => PurchaseBill::STATUS_REJECTED,
             'accepted_by' => auth()->id(),
             'accepted_at' => now(),
         ]);
 
-        return response()->json(['status' => 'success', 'message' => 'Stock transfer rejected successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Purchase bill rejected successfully.']);
     }
 
     private function normalizeItems(iterable $items): array
@@ -341,7 +347,7 @@ class StockTransferController extends Controller
         return null;
     }
 
-    private function guardLocationAccess(StockTransfer $transfer, bool $destinationOnly = false): void
+    private function guardLocationAccess(PurchaseBill $transfer, bool $destinationOnly = false): void
     {
         $user = auth()->user();
         if (!$user->location_id || $user->hasRole('super-admin')) {
@@ -362,7 +368,7 @@ class StockTransferController extends Controller
         $location = Location::where('is_default', true)->first() ?? Location::first();
 
         if (!$location) {
-            throw new \RuntimeException('Please create a default location before creating stock transfers.');
+            throw new \RuntimeException('Please create a default location before creating purchase bills.');
         }
 
         return $location;
@@ -402,14 +408,14 @@ class StockTransferController extends Controller
     private function statusBadge(int $status): string
     {
         $colors = [
-            StockTransfer::STATUS_PENDING => 'bg-label-secondary',
-            StockTransfer::STATUS_ACCEPTED => 'bg-label-success',
-            StockTransfer::STATUS_REJECTED => 'bg-label-danger',
+            PurchaseBill::STATUS_PENDING => 'bg-label-secondary',
+            PurchaseBill::STATUS_ACCEPTED => 'bg-label-success',
+            PurchaseBill::STATUS_REJECTED => 'bg-label-danger',
         ];
         $labels = [
-            StockTransfer::STATUS_PENDING => 'Pending',
-            StockTransfer::STATUS_ACCEPTED => 'Accepted',
-            StockTransfer::STATUS_REJECTED => 'Rejected',
+            PurchaseBill::STATUS_PENDING => 'Pending',
+            PurchaseBill::STATUS_ACCEPTED => 'Accepted',
+            PurchaseBill::STATUS_REJECTED => 'Rejected',
         ];
 
         return '<span class="badge ' . ($colors[$status] ?? 'bg-label-secondary') . '">' . ($labels[$status] ?? 'Pending') . '</span>';

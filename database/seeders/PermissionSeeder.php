@@ -86,11 +86,11 @@ class PermissionSeeder extends Seeder
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
 
-            // Stock Transfers
-            'view stock transfers' => 'Stock Transfers',
-            'create stock transfers' => 'Stock Transfers',
-            'accept stock transfers' => 'Stock Transfers',
-            'reject stock transfers' => 'Stock Transfers',
+            // Purchase Bills
+            'view purchase bills' => 'Purchase Bill',
+            'create purchase bills' => 'Purchase Bill',
+            'accept purchase bills' => 'Purchase Bill',
+            'reject purchase bills' => 'Purchase Bill',
 
             // Expenses
             'view expenses' => 'Expenses',

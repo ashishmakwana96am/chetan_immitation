@@ -107,7 +107,7 @@
                 ];
                 return $statusMap[$val] ?? "Status #$val";
             }
-            if ($log->module === 'Stock Transfer') {
+            if (in_array($log->module, ['Purchase Bill', 'Stock Transfer'], true)) {
                 $statusMap = [
                     1 => 'Pending',
                     2 => 'Accepted',
@@ -137,6 +137,12 @@
         }
         if (is_bool($val)) {
             return $val ? 'true' : 'false';
+        }
+
+        // Handle Date/Datetime values (show time in 12-hour format)
+        if (is_string($val) && preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$/', $val)) {
+            $hasTime = str_contains($val, ':');
+            return format_date($val, $hasTime ? 'd M Y h:i A' : 'd M Y');
         }
 
         return $val;

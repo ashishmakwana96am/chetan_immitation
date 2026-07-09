@@ -20,7 +20,7 @@
         </div>
         @can('create sales')
             <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
-                <i class="ti ti-plus me-1"></i> New Sale
+                <i class="ti ti-plus me-1"></i> Add Sale
             </a>
         @endcan
     </div>

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Stock Transfers')
+@section('title', 'Purchase Bill')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -10,7 +10,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-semibold mb-0">Stock Transfers</h4>
+        <h4 class="fw-semibold mb-0">Purchase Bill</h4>
         <div class="d-flex gap-2 align-items-center">
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -55,9 +55,9 @@
                 </div>
             </div>
 
-            @can('create stock transfers')
-                <a href="{{ route('admin.stock-transfers.create') }}" class="btn btn-primary">
-                    <i class="ti ti-plus me-1"></i> New Transfer
+            @can('create purchase bills')
+                <a href="{{ route('admin.purchase-bills.create') }}" class="btn btn-primary">
+                    <i class="ti ti-plus me-1"></i> Add New Purchase Bill
                 </a>
             @endcan
         </div>
@@ -65,14 +65,15 @@
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top" id="stockTransfersTable">
+            <table class="table border-top" id="purchaseBillsTable">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Transfer No</th>
+                        <th>Bill No</th>
                         <th>Source</th>
                         <th>Destination</th>
                         <th>Items</th>
+                        <th>Amount</th>
                         <th>Status</th>
                         <th>Created By</th>
                         <th>Actions</th>
@@ -89,12 +90,12 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            const table = $('#stockTransfersTable').DataTable({
+            const table = $('#purchaseBillsTable').DataTable({
                 responsive: false,
-                order: [[9, 'desc']],
-                orderFixed: { pre: [[9, 'desc']] },
+                order: [[10, 'desc']],
+                orderFixed: { pre: [[10, 'desc']] },
                 ajax: {
-                    url: '{{ route('admin.stock-transfers.data') }}',
+                    url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
                     cache: false,
                     data: function (d) {
@@ -117,6 +118,7 @@
                     { data: 'from_location' },
                     { data: 'to_location' },
                     { data: 'items_count' },
+                    { data: 'total_amount' },
                     { data: 'status', orderable: false },
                     { data: 'created_by' },
                     { data: 'actions', orderable: false },
@@ -127,7 +129,7 @@
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="9" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
+                            .append('<td colspan="10" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
                     }
                 },
             });
@@ -147,7 +149,7 @@
                 bootstrap.Dropdown.getOrCreateInstance(document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]')).hide();
             });
 
-            $(document).on('click', '.stock-transfer-action', function () {
+            $(document).on('click', '.purchase-bill-action', function () {
                 const button = $(this);
                 Swal.fire({
                     title: button.data('title'),
@@ -172,8 +174,8 @@
                             window.hideAjaxLoader();
                             toastr.success(res.message);
                             window.refreshTable();
-                            if (typeof window.refreshStockTransferBadge === 'function') {
-                                window.refreshStockTransferBadge();
+                            if (typeof window.refreshPurchaseBillBadge === 'function') {
+                                window.refreshPurchaseBillBadge();
                             }
                         },
                         error: function (xhr) {

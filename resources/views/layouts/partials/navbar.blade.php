@@ -12,7 +12,7 @@
       @can('create sales')
       <li class="nav-item me-3">
         <a href="{{ route('admin.sales.create') }}" class="btn btn-primary d-flex align-items-center">
-          <i class="ti ti-plus me-1" style="margin-top: -3px;"></i> Add New Bill
+          <i class="ti ti-plus me-1" style="margin-top: -3px;"></i> Add Sale
         </a>
       </li>
       @endcan

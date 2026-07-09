@@ -5,13 +5,13 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
-class StockTransfer extends Model
+class PurchaseBill extends Model
 {
     use LogsActivity;
 
     public function activityModule(): string
     {
-        return 'Stock Transfer';
+        return 'Purchase Bill';
     }
 
     const STATUS_PENDING = 1;
@@ -59,6 +59,6 @@ class StockTransfer extends Model
 
     public function items()
     {
-        return $this->hasMany(StockTransferItem::class);
+        return $this->hasMany(PurchaseBillItem::class);
     }
 }

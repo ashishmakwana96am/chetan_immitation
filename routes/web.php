@@ -24,6 +24,7 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\PurchaseBillController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
@@ -31,7 +32,6 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopCategoryController;
 use App\Http\Controllers\StateController;
-use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -169,13 +169,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
         Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
-        // Stock Transfers
-        Route::get('stock-transfers/data', [StockTransferController::class, 'data'])->name('stock-transfers.data');
-        Route::get('stock-transfers/pending-count', [StockTransferController::class, 'pendingCount'])->name('stock-transfers.pending-count');
-        Route::patch('stock-transfers/{stockTransfer}/accept', [StockTransferController::class, 'accept'])->name('stock-transfers.accept');
-        Route::patch('stock-transfers/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('stock-transfers.reject');
-        Route::resource('stock-transfers', StockTransferController::class)
-            ->parameters(['stock-transfers' => 'stockTransfer'])
+        // Purchase Bills
+        Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
+        Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
+        Route::patch('purchase-bills/{purchaseBill}/accept', [PurchaseBillController::class, 'accept'])->name('purchase-bills.accept');
+        Route::patch('purchase-bills/{purchaseBill}/reject', [PurchaseBillController::class, 'reject'])->name('purchase-bills.reject');
+        Route::resource('purchase-bills', PurchaseBillController::class)
+            ->parameters(['purchase-bills' => 'purchaseBill'])
             ->only(['index', 'create', 'store', 'show']);
 
         // Suppliers

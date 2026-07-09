@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class StockTransferItem extends Model
+class PurchaseBillItem extends Model
 {
     protected $fillable = [
-        'stock_transfer_id',
+        'purchase_bill_id',
         'product_id',
         'product_variant_id',
         'pair_type',
@@ -23,7 +23,7 @@ class StockTransferItem extends Model
 
     public function transfer()
     {
-        return $this->belongsTo(StockTransfer::class, 'stock_transfer_id');
+        return $this->belongsTo(PurchaseBill::class, 'purchase_bill_id');
     }
 
     public function product()

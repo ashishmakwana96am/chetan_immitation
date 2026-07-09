@@ -181,9 +181,9 @@ class Product extends Model
             }
         }
 
-        $transferItems = StockTransferItem::where('product_id', $this->id)
+        $transferItems = PurchaseBillItem::where('product_id', $this->id)
             ->whereHas('transfer', function ($q) {
-                $q->where('status', StockTransfer::STATUS_ACCEPTED);
+                $q->where('status', PurchaseBill::STATUS_ACCEPTED);
             })
             ->with('transfer')
             ->get();
