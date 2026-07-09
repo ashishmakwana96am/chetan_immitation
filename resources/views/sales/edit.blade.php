@@ -199,7 +199,7 @@
                         <div class="position-relative">
                             <div class="input-group input-group-merge">
                                 <span class="input-group-text"><i class="ti ti-search"></i></span>
-                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name, SKU or barcode..." autocomplete="off">
+                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name or barcode..." autocomplete="off">
                             </div>
                             <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
                                 <!-- Search results will appear here -->
@@ -446,7 +446,6 @@ $(document).ready(function () {
         if (!q) return null;
         const matches = allProducts.filter(p =>
             p.name.toLowerCase() === q ||
-            (p.sku && String(p.sku).toLowerCase() === q) ||
             (p.barcode && String(p.barcode).toLowerCase() === q)
         );
         return matches.length === 1 ? matches[0] : null;
@@ -503,9 +502,8 @@ $(document).ready(function () {
             return;
         }
 
-        const matchedProducts = allProducts.filter(p => 
+        const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.sku && p.sku.toLowerCase().includes(query)) ||
             p.label.toLowerCase().includes(query) ||
             (p.barcode && p.barcode.toLowerCase().includes(query))
         );
@@ -531,7 +529,7 @@ $(document).ready(function () {
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${p.name}</div>
-                            <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                            <small class="text-muted">Barcode: ${p.barcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
@@ -591,9 +589,9 @@ $(document).ready(function () {
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
             setItemPrice(row, initialPrice);
-            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
-            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }

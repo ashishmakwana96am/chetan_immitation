@@ -119,7 +119,7 @@ class ReportExportService
         $headers = [
             'S.No.',
             'Product Name',
-            'SKU',
+            'Barcode',
             'Category',
             'Purchase Price',
             'Sale Price',
@@ -138,17 +138,17 @@ class ReportExportService
             $marginPct = $product['purchase_price'] > 0 ? ($margin / $product['purchase_price']) : 0;
 
             $productName = $product['name'];
-            $sku = $product['sku'];
+            $barcode = $product['barcode'];
             $category = $product['category'];
             if (isset($product['is_parent']) && !$product['is_parent']) {
                 $productName = "    ↳ " . $product['variant_name'];
-                $sku = "-";
+                $barcode = "-";
                 $category = "-";
             }
 
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $productName);
-            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('C' . $row, $barcode);
             $sheet->setCellValue('D' . $row, $category);
             $sheet->setCellValue('E' . $row, (float) $product['purchase_price']);
             $sheet->setCellValue('F' . $row, (float) $product['sale_price']);
@@ -203,7 +203,7 @@ class ReportExportService
         $sheet->setTitle('Stock Inventory');
 
         // Build Headers
-        $headers = ['S.No.', 'Product Name', 'SKU', 'Category'];
+        $headers = ['S.No.', 'Product Name', 'Barcode', 'Category'];
         foreach ($locations as $loc) {
             $headers[] = $loc->name;
         }
@@ -216,17 +216,17 @@ class ReportExportService
         $row = 2;
         foreach ($products as $index => $product) {
             $productName = $product['name'];
-            $sku = $product['sku'];
+            $barcode = $product['barcode'];
             $category = $product['category'];
             if (isset($product['is_parent']) && !$product['is_parent']) {
                 $productName = "    ↳ " . $product['variant_name'];
-                $sku = "-";
+                $barcode = "-";
                 $category = "-";
             }
 
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $productName);
-            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('C' . $row, $barcode);
             $sheet->setCellValue('D' . $row, $category);
 
             $colIdx = 5; // Col E starts at index 5 (1-based)
@@ -329,7 +329,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Purchased Products');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Purchased', 'Total Cost'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Purchased', 'Total Cost'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -337,7 +337,7 @@ class ReportExportService
         foreach ($productPurchases as $index => $item) {
             $sheet2->setCellValue('A' . $row, $index + 1);
             $sheet2->setCellValue('B' . $row, $item->product->name ?? 'Unknown');
-            $sheet2->setCellValue('C' . $row, $item->product->sku ?? '-');
+            $sheet2->setCellValue('C' . $row, $item->product->barcode ?? '-');
             $sheet2->setCellValue('D' . $row, (int) $item->qty_purchased);
             $sheet2->setCellValue('E' . $row, (float) $item->total_cost);
             $row++;
@@ -420,7 +420,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Selling Products');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Sold', 'Total Revenue'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -428,7 +428,7 @@ class ReportExportService
         foreach ($productSales as $index => $item) {
             $sheet2->setCellValue('A' . $row, $index + 1);
             $sheet2->setCellValue('B' . $row, $item->product->name ?? 'Unknown');
-            $sheet2->setCellValue('C' . $row, $item->product->sku ?? '-');
+            $sheet2->setCellValue('C' . $row, $item->product->barcode ?? '-');
             $sheet2->setCellValue('D' . $row, (int) $item->qty_sold);
             $sheet2->setCellValue('E' . $row, (float) $item->total_revenue);
             $row++;
@@ -505,7 +505,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Product Profitability');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Sold', 'Total Revenue', 'Total Cost (COGS)', 'Net Profit', 'Profit Margin %'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Total Cost (COGS)', 'Net Profit', 'Profit Margin %'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -516,7 +516,7 @@ class ReportExportService
 
             $sheet2->setCellValue('A' . $row, $row - 1);
             $sheet2->setCellValue('B' . $row, $item['name']);
-            $sheet2->setCellValue('C' . $row, $item['sku']);
+            $sheet2->setCellValue('C' . $row, $item['barcode']);
             $sheet2->setCellValue('D' . $row, (int) $item['qty_sold']);
             $sheet2->setCellValue('E' . $row, (float) $item['total_revenue']);
             $sheet2->setCellValue('F' . $row, (float) $item['total_cost']);

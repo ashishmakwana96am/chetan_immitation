@@ -150,7 +150,7 @@
                     <tr>
                         <th>#</th>
                         <th>Product</th>
-                        <th>SKU</th>
+                        <th>Barcode</th>
                         <th>Category</th>
                         @foreach($locations as $location)
                             <th class="text-center">{{ $location->name }}</th>
@@ -183,7 +183,7 @@
                             </td>
                             <td>
                                 @if($product['is_parent'])
-                                    <code>{{ $product['sku'] }}</code>
+                                    <code>{{ $product['barcode'] }}</code>
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif

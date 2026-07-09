@@ -61,11 +61,13 @@ class ProductReviewController extends Controller
                 ? '<img src="' . e($review->product->primaryImage->image_url) . '" alt="' . e($review->product->name ?? '') . '" class="rounded me-2 product-thumbnail" style="width: 36px; height: 36px; object-fit: cover;">'
                 : '<div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;"><i class="ti ti-photo text-muted"></i></div>';
 
+            $productBarcodeDisplay = $review->product?->barcode;
+
             return [
                 'index'      => $index + 1,
                 'product'    => '<div class="d-flex align-items-center">' . $productImageHtml
                               . '<div><span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
-                              . ($review->product?->sku ? '<br><small class="text-muted">' . e($review->product->sku) . '</small>' : '')
+                              . ($productBarcodeDisplay ? '<br><small class="text-muted">' . e($productBarcodeDisplay) . '</small>' : '')
                               . '</div></div>',
                 'customer'   => e($review->customer->name ?? '-'),
                 'rating'     => $starsHtml,

@@ -124,7 +124,7 @@
             <tr>
                 <th>#</th>
                 <th>Product</th>
-                <th>SKU</th>
+                <th>Barcode</th>
                 <th class="text-right">Purchase Price</th>
                 <th class="text-right">Qty</th>
                 <th class="text-right">Total</th>
@@ -236,7 +236,7 @@
                     </td>
                     <td>
                         @if($item->is_parent)
-                            {{ $item->product->sku ?? '-' }}
+                            {{ $item->product->barcode ?? '-' }}
                         @else
                             -
                         @endif

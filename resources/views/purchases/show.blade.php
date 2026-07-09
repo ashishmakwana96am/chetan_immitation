@@ -235,8 +235,8 @@
                                             @endif
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
-                                                @if($item->product?->sku)
-                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @if($item->product?->barcode)
+                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
                                                 @endif
                                             </div>
                                         </div>

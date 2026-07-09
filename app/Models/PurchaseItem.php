@@ -9,7 +9,7 @@ class PurchaseItem extends Model
 {
     use SoftDeletes;
     protected $fillable = [
-        'purchase_invoice_id',
+        'purchase_id',
         'product_id',
         'product_variant_id',
         'purchase_price',
@@ -27,7 +27,7 @@ class PurchaseItem extends Model
 
     public function invoice()
     {
-        return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+        return $this->belongsTo(Purchase::class, 'purchase_id');
     }
 
     public function product()

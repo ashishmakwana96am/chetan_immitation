@@ -113,7 +113,7 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
 
-            $barcodeVal = $product->barcode ?: $product->sku;
+            $barcodeVal = $product->barcode;
             $barcode = $barcodeVal
                 ? '<div class="d-flex align-items-center gap-2">
                     <code>' . $barcodeVal . '</code>
@@ -146,9 +146,8 @@ class ProductController extends Controller
                 'index'          => $index + 1,
                 'image'          => $image,
                 'name'           => $nameHtml,
-                'sku'            => '<code>' . $product->sku . '</code>',
                 'barcode'        => $barcode,
-                'raw_barcode'    => $product->barcode ?: $product->sku,
+                'raw_barcode'    => $product->barcode,
                 'product_code'   => $product->product_code,
                 'category'       => $product->category->name ?? '-',
                 'variations'     => $variationsStr,
@@ -176,7 +175,7 @@ class ProductController extends Controller
         foreach ($itemsInput as $item) {
             $product = Product::with(['category', 'variants.attributeValue'])->find($item['id'] ?? null);
             if ($product) {
-                $barcodeVal = $product->barcode ?: $product->sku;
+                $barcodeVal = $product->barcode;
                 $category = $product->category->name ?? '';
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
                 $salePrice = str_replace('₹', '<span class="rupee-symbol">&#8377;</span>', format_price($product->sale_price));
@@ -262,9 +261,8 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
-            'description'              => ['required', 'string'],
+            'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
@@ -322,7 +320,6 @@ class ProductController extends Controller
                 'slug'            => generate_slug(Product::class, $request->name),
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
-                'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
                 'description'     => $request->description,
@@ -453,9 +450,8 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
-            'description'              => ['required', 'string'],
+            'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
@@ -514,7 +510,6 @@ class ProductController extends Controller
                 'name'            => $request->name,
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
-                'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
                 'description'     => $request->description,
@@ -698,19 +693,18 @@ class ProductController extends Controller
             ->when($request->q, function ($q) use ($request) {
                 $q->where(function ($sub) use ($request) {
                     $sub->where('name', 'like', '%' . $request->q . '%')
-                        ->orWhere('sku', 'like', '%' . $request->q . '%');
+                        ->orWhere('barcode', 'like', '%' . $request->q . '%');
                 });
             })
             ->orderBy('name')
             ->limit(50)
-            ->get(['id', 'name', 'sku']);
+            ->get(['id', 'name', 'barcode']);
 
         return response()->json($query->map(function ($product) {
             return [
                 'id' => $product->id,
-                'text' => $product->name . ' (' . $product->sku . ')',
+                'text' => $product->barcode ? $product->name . ' (' . $product->barcode . ')' : $product->name,
                 'name' => $product->name,
-                'sku' => $product->sku,
             ];
         }));
     }
@@ -774,9 +768,9 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
-        $barcodeText = $product->barcode ?: $product->sku;
+        $barcodeText = $product->barcode;
         if (empty($barcodeText)) {
-            return response()->json(['status' => 'error', 'message' => 'No barcode or SKU found for this product'], 404);
+            return response()->json(['status' => 'error', 'message' => 'No barcode found for this product'], 404);
         }
 
         $generator = new BarcodeGeneratorSVG();
@@ -798,22 +792,22 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $columns = [
-            'Category', 'Sub Category', 'Name', 'No.', 'SKU', 'Barcode',
+            'Category', 'Sub Category', 'Name', 'No.', 'Barcode',
             'Product Code', 'Discreptions', 'Product Type', 'Size', 'Colour',
         ];
 
-        // 2 categories x 5 products, using SKU/Barcode left blank so they auto-generate from "No."
+        // 2 categories x 5 products, using Barcode left blank so it auto-generates from "No."
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '', '100.00', 'Traditional short necklace - regular finish', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '', '110.00', 'Traditional short necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '', '150.00', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '', '160.00', 'Elegant long necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '', '200.00', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '', '90.00', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '', '95.00', 'Classic bangal - antique finish', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '', '130.00', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '', '140.00', 'CNC cut kadali design', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '', '160.00', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', 'Traditional short necklace - regular finish', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', 'Traditional short necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', 'Elegant long necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', 'Classic bangal - antique finish', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', 'CNC cut kadali design', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -976,29 +970,7 @@ class ProductController extends Controller
                     continue;
                 }
 
-                // Use the SKU given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
-                $skuInput = trim($row['sku'] ?? '');
-                if (!empty($skuInput)) {
-                    if (Product::withTrashed()->where('sku', $skuInput)->exists()) {
-                        $errors[] = "Row {$rowNum}: Product SKU '{$skuInput}' already exists in the system.";
-                        continue;
-                    }
-                    $sku = $skuInput;
-                } else {
-                    $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $no));
-                    if (empty($prefix)) {
-                        $errors[] = "Row {$rowNum}: No. must contain at least one letter or number.";
-                        continue;
-                    }
-
-                    $seq = Product::withTrashed()->where('sku', 'like', $prefix . '-%')->count() + 1;
-                    do {
-                        $sku = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-                        $seq++;
-                    } while (Product::withTrashed()->where('sku', $sku)->exists() || Product::withTrashed()->where('barcode', $sku)->exists());
-                }
-
-                // Use the Barcode given in the sheet, or default to the SKU
+                // Use the Barcode given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
                 $barcodeInput = trim($row['barcode'] ?? '');
                 if (!empty($barcodeInput)) {
                     if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
@@ -1007,11 +979,17 @@ class ProductController extends Controller
                     }
                     $barcode = $barcodeInput;
                 } else {
-                    if (Product::withTrashed()->where('barcode', $sku)->exists()) {
-                        $errors[] = "Row {$rowNum}: Generated Barcode '{$sku}' already exists in the system.";
+                    $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $no));
+                    if (empty($prefix)) {
+                        $errors[] = "Row {$rowNum}: No. must contain at least one letter or number.";
                         continue;
                     }
-                    $barcode = $sku;
+
+                    $seq = Product::withTrashed()->where('barcode', 'like', $prefix . '-%')->count() + 1;
+                    do {
+                        $barcode = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                        $seq++;
+                    } while (Product::withTrashed()->where('barcode', $barcode)->exists());
                 }
 
                 // Find or create category
@@ -1077,7 +1055,6 @@ class ProductController extends Controller
                     'slug' => generate_slug(Product::class, $name),
                     'category_id' => $category->id,
                     'sub_category_id' => $subCategoryId,
-                    'sku' => $sku,
                     'barcode' => $barcode,
                     'product_code' => $productCode,
                     'description' => $row['description'] ?? $name,

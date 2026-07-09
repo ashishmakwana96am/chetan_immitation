@@ -6,7 +6,7 @@ use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PurchaseInvoice extends Model
+class Purchase extends Model
 {
     use SoftDeletes, LogsActivity;
 

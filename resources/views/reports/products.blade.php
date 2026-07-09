@@ -190,7 +190,7 @@
                     <tr>
                         <th>#</th>
                         <th>Product</th>
-                        <th>SKU</th>
+                        <th>Barcode</th>
                         <th>Category</th>
                         <th class="text-end">Purchase Price</th>
                         <th class="text-end">Sale Price</th>
@@ -245,7 +245,7 @@
                                     </a>
                                 </div>
                             </td>
-                            <td><code>{{ $parent['sku'] }}</code></td>
+                            <td><code>{{ $parent['barcode'] }}</code></td>
                             <td><span class="badge bg-label-primary">{{ $parent['category'] }}</span></td>
                             <td class="text-end">{{ format_price($parent['purchase_price']) }}</td>
                             <td class="text-end">{{ format_price($parent['sale_price']) }}</td>

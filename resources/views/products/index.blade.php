@@ -100,7 +100,6 @@
                         <th>#</th>
                         <th>Image</th>
                         <th>Name</th>
-                        <th>SKU</th>
                         <th>Barcode</th>
                         <th>Category</th>
                         <th>Stock</th>
@@ -145,7 +144,6 @@
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image',          orderable: false },
                 { data: 'name' },
-                { data: 'sku' },
                 { data: 'barcode',       orderable: false },
                 { data: 'category' },
                 { data: 'stock' },
@@ -256,7 +254,7 @@
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
 
                 // The action button HTML comes from the server with only barcode + id,
-                // so pull the rest (sku/mrp/product_code/name) from the already-loaded row data.
+                // so pull the rest (mrp/product_code/name) from the already-loaded row data.
                 const rowData = table.rows().data().toArray().find(r => String(r.id) === String(productId)) || {};
                 const rowCategory = rowData.category ?? '';
                 const rowVariations = rowData.variations ?? '';

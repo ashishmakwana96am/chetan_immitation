@@ -8,7 +8,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Customer;
-use App\Models\PurchaseInvoice;
+use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -55,7 +55,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
-                    'sku'            => $product->sku,
+                    'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
                     'purchase_price' => $product->purchase_price,
@@ -84,7 +84,7 @@ class ReportController extends Controller
                     $productsList->push([
                         'id'             => $product->id,
                         'name'           => $product->name,
-                        'sku'            => $product->sku,
+                        'barcode'        => $product->barcode,
                         'category'       => $product->category->name ?? '-',
                         'category_id'    => $product->category_id,
                         'purchase_price' => $v->purchase_price,
@@ -104,7 +104,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
-                    'sku'            => $product->sku,
+                    'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
                     'purchase_price' => $product->purchase_price,
@@ -161,7 +161,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
-                    'sku'         => $product->sku,
+                    'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $parentLocStock,
@@ -183,7 +183,7 @@ class ReportController extends Controller
                     $productsList->push([
                         'id'          => $product->id,
                         'name'        => $product->name,
-                        'sku'         => $product->sku,
+                        'barcode'     => $product->barcode,
                         'category'    => $product->category->name ?? '-',
                         'category_id' => $product->category_id,
                         'stock'       => $vLocStock,
@@ -203,7 +203,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
-                    'sku'         => $product->sku,
+                    'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $stock,
@@ -257,7 +257,7 @@ class ReportController extends Controller
         $status     = $request->query('status');
 
         $user = auth()->user();
-        $query = PurchaseInvoice::with(['supplier', 'items.product'])
+        $query = Purchase::with(['supplier', 'items.product'])
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -472,7 +472,7 @@ class ReportController extends Controller
             if (!isset($productProfitability[$productId])) {
                 $productProfitability[$productId] = [
                     'name'          => $item->product->name ?? 'Unknown',
-                    'sku'           => $item->product->sku ?? '-',
+                    'barcode'       => $item->product->barcode ?? '-',
                     'qty_sold'      => 0,
                     'total_revenue' => 0.0,
                     'total_cost'    => 0.0,
@@ -602,7 +602,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
-                    'sku'            => $product->sku,
+                    'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
                     'purchase_price' => $product->purchase_price,
@@ -630,7 +630,7 @@ class ReportController extends Controller
                     $productsList->push([
                         'id'             => $product->id,
                         'name'           => $product->name,
-                        'sku'            => $product->sku,
+                        'barcode'        => $product->barcode,
                         'category'       => $product->category->name ?? '-',
                         'category_id'    => $product->category_id,
                         'purchase_price' => $v->purchase_price,
@@ -649,7 +649,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'             => $product->id,
                     'name'           => $product->name,
-                    'sku'            => $product->sku,
+                    'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
                     'purchase_price' => $product->purchase_price,
@@ -719,7 +719,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
-                    'sku'         => $product->sku,
+                    'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $parentLocStock,
@@ -741,7 +741,7 @@ class ReportController extends Controller
                     $productsList->push([
                         'id'          => $product->id,
                         'name'        => $product->name,
-                        'sku'         => $product->sku,
+                        'barcode'     => $product->barcode,
                         'category'    => $product->category->name ?? '-',
                         'category_id' => $product->category_id,
                         'stock'       => $vLocStock,
@@ -761,7 +761,7 @@ class ReportController extends Controller
                 $productsList->push([
                     'id'          => $product->id,
                     'name'        => $product->name,
-                    'sku'         => $product->sku,
+                    'barcode'     => $product->barcode,
                     'category'    => $product->category->name ?? '-',
                     'category_id' => $product->category_id,
                     'stock'       => $stock,
@@ -805,7 +805,7 @@ class ReportController extends Controller
         $status     = $request->query('status');
 
         $user = auth()->user();
-        $query = PurchaseInvoice::with(['supplier', 'items.product'])
+        $query = Purchase::with(['supplier', 'items.product'])
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -956,7 +956,7 @@ class ReportController extends Controller
             if (!isset($productProfitability[$productId])) {
                 $productProfitability[$productId] = [
                     'name'          => $item->product->name ?? 'Unknown',
-                    'sku'           => $item->product->sku ?? '-',
+                    'barcode'       => $item->product->barcode ?? '-',
                     'qty_sold'      => 0,
                     'total_revenue' => 0.0,
                     'total_cost'    => 0.0,

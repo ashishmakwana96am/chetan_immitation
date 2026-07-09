@@ -10,7 +10,7 @@ use App\Models\Location;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\PurchaseInvoice;
+use App\Models\Purchase;
 use App\Models\Supplier;
 use App\Models\User;
 
@@ -48,8 +48,8 @@ class DashboardController extends Controller
         ];
 
         $purchaseStats = [
-            'confirmed' => (float) PurchaseInvoice::where('status', PurchaseInvoice::STATUS_APPROVE)->sum('total_amount'),
-            'draft'     => PurchaseInvoice::where('status', PurchaseInvoice::STATUS_PENDING)->count(),
+            'confirmed' => (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount'),
+            'draft'     => Purchase::where('status', Purchase::STATUS_PENDING)->count(),
         ];
 
         $monthlySales   = $this->getMonthlySales();

@@ -116,7 +116,7 @@
         <div>
             <h4 class="fw-semibold mb-0">{{ $product->name }}</h4>
             <small class="text-muted">
-                <code>{{ $product->sku }}</code> &middot; {{ format_date($product->created_at) }}
+                <code>{{ $product->barcode }}</code> &middot; {{ format_date($product->created_at) }}
                 &middot;
                 <span class="badge {{ $statusColors[$product->status] ?? 'bg-label-secondary' }}">
                     {{ $statusLabels[$product->status] ?? 'Unknown' }}
@@ -196,15 +196,11 @@
                 </div>
                 <div class="card-body py-1 px-3">
                     <div class="info-row">
-                        <span class="info-label">SKU</span>
-                        <code class="info-value">{{ $product->sku }}</code>
-                    </div>
-                    <div class="info-row">
                         <span class="info-label">Barcode</span>
                         <div class="info-value d-flex gap-2 align-items-center">
                             <code>{{ $product->barcode ?? '-' }}</code>
-                             @if($product->barcode || $product->sku)
-                                <button onclick="viewBarcode('{{ $product->barcode ?: $product->sku }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
+                             @if($product->barcode)
+                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
                                     <i class="ti ti-printer"></i>
                                 </button>
                             @endif

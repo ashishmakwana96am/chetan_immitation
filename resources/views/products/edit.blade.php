@@ -33,18 +33,12 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" name="sku" class="form-control"
-                                    placeholder="Enter SKU" value="{{ $product->sku }}" />
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Barcode <span class="text-danger">*</span></label>
                                 <div class="d-flex gap-2">
-                                    <input type="text" name="barcode" class="form-control" 
+                                    <input type="text" name="barcode" class="form-control"
                                         placeholder="Enter Barcode" value="{{ $product->barcode ?? '' }}" />
-                                     @if($product->barcode || $product->sku)
-                                    <button type="button" onclick="viewBarcode('{{ $product->barcode ?: $product->sku }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
+                                     @if($product->barcode)
+                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
                                         <i class="ti ti-barcode"></i>
                                     </button>
                                     @endif
@@ -190,7 +184,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! $product->description !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none">{{ $product->description }}</textarea>
                                 <div class="invalid-feedback"></div>

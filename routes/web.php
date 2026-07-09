@@ -25,7 +25,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\PurchaseBillController;
-use App\Http\Controllers\PurchaseInvoiceController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
@@ -161,13 +161,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
         // Purchases
-        Route::get('purchases/data', [PurchaseInvoiceController::class, 'data'])->name('purchases.data');
-        Route::get('products/{product}/price', [PurchaseInvoiceController::class, 'getProductPrice'])->name('products.price');
-        Route::resource('purchases', PurchaseInvoiceController::class)->except('show');
-        Route::get('purchases/{purchase}', [PurchaseInvoiceController::class, 'show'])->name('purchases.show');
-        Route::get('purchases/{purchase}/pdf', [PurchaseInvoiceController::class, 'pdf'])->name('purchases.pdf');
-        Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
-        Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
+        Route::get('purchases/data', [PurchaseController::class, 'data'])->name('purchases.data');
+        Route::get('products/{product}/price', [PurchaseController::class, 'getProductPrice'])->name('products.price');
+        Route::resource('purchases', PurchaseController::class)->except('show');
+        Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+        Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
+        Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
+        Route::patch('purchases/{purchase}/payment-status', [PurchaseController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
         // Purchase Bills
         Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');

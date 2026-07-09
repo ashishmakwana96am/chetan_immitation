@@ -327,7 +327,7 @@
             <table class="product-table">
                 <thead>
                     <tr>
-                        <th style="width: 35%;">SKU</th>
+                        <th style="width: 35%;">Barcode</th>
                         <th style="width: 16%;">Size</th>
                         <th style="width: 10%;">Qty</th>
                         <th style="width: 15%;">Color</th>
@@ -356,7 +356,7 @@
                             }
                         @endphp
                         <tr>
-                            <td>{{ $item->product->sku ?? '-' }}</td>
+                            <td>{{ $item->product->barcode ?? '-' }}</td>
                             <td>{{ $size }}</td>
                             <td>{{ $item->quantity }}</td>
                             <td>{{ $color }}</td>

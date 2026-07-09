@@ -7,7 +7,7 @@ use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\PurchaseAllocation;
-use App\Models\PurchaseInvoice;
+use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-class PurchaseInvoiceController extends Controller
+class PurchaseController extends Controller
 {
     public function index()
     {
@@ -29,7 +29,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        $invoices = PurchaseInvoice::with(['supplier', 'createdBy'])
+        $invoices = Purchase::with(['supplier', 'createdBy'])
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -58,7 +58,7 @@ class PurchaseInvoiceController extends Controller
             ->orderBy('id', 'desc')
             ->get();
         $canEdit                       = auth()->user()->can('edit purchases');
-        $canDelete                     = auth()->user()->can('delete purchases');
+        $canDelete                     = auth()->user()->hasRole('super-admin');
         $canEditPurchasesStatus        = auth()->user()->can('edit purchases status');
         $canEditPurchasesPaymentStatus = auth()->user()->can('edit purchases payment status');
         $canDownloadPurchases          = auth()->user()->can('download purchases');
@@ -102,7 +102,7 @@ class PurchaseInvoiceController extends Controller
             if ($canEditPurchasesPaymentStatus && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status == 1))) {
                 $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete && $invoice->status == 1) {
+            if ($canDelete) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
@@ -127,7 +127,7 @@ class PurchaseInvoiceController extends Controller
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
-    public function show(PurchaseInvoice $purchase)
+    public function show(Purchase $purchase)
     {
         $this->authorize('view purchases');
 
@@ -153,7 +153,7 @@ class PurchaseInvoiceController extends Controller
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        $invoiceNo = generate_invoice_no('PUR', PurchaseInvoice::class);
+        $invoiceNo = generate_invoice_no('PUR', Purchase::class);
         return view('purchases.create', compact('suppliers', 'products', 'invoiceNo'));
     }
 
@@ -188,9 +188,9 @@ class PurchaseInvoiceController extends Controller
         DB::transaction(function () use ($request, $defaultLocation) {
             $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
 
-            $invoice = PurchaseInvoice::create([
+            $invoice = Purchase::create([
                 'supplier_id'    => $request->supplier_id,
-                'invoice_no'     => generate_invoice_no('PUR', PurchaseInvoice::class),
+                'invoice_no'     => generate_invoice_no('PUR', Purchase::class),
                 'total_amount'   => $totalAmount,
                 'status'         => $request->status ?? 2,
                 'payment_status' => $request->payment_status ?? 1,
@@ -199,7 +199,7 @@ class PurchaseInvoiceController extends Controller
 
             foreach ($request->items as $itemData) {
                 $item = PurchaseItem::create([
-                    'purchase_invoice_id' => $invoice->id,
+                    'purchase_id' => $invoice->id,
                     'product_id'          => $itemData['product_id'],
                     'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
@@ -225,7 +225,7 @@ class PurchaseInvoiceController extends Controller
         ]);
     }
 
-    public function edit(PurchaseInvoice $purchase)
+    public function edit(Purchase $purchase)
     {
         $this->authorize('edit purchases');
 
@@ -255,7 +255,7 @@ class PurchaseInvoiceController extends Controller
         return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'existingItems'));
     }
 
-    public function update(Request $request, PurchaseInvoice $purchase)
+    public function update(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases');
 
@@ -289,7 +289,7 @@ class PurchaseInvoiceController extends Controller
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
             
-            if ($oldStatus == PurchaseInvoice::STATUS_APPROVE) {
+            if ($oldStatus == Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
             }
 
@@ -304,7 +304,7 @@ class PurchaseInvoiceController extends Controller
 
             foreach ($request->items as $itemData) {
                 $item = PurchaseItem::create([
-                    'purchase_invoice_id' => $purchase->id,
+                    'purchase_id' => $purchase->id,
                     'product_id'          => $itemData['product_id'],
                     'product_variant_id'  => $itemData['product_variant_id'] ?? null,
                     'purchase_price'      => $itemData['purchase_price'],
@@ -319,7 +319,7 @@ class PurchaseInvoiceController extends Controller
                 ]);
             }
 
-            if ($newStatus == PurchaseInvoice::STATUS_APPROVE) {
+            if ($newStatus == Purchase::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
             }
         });
@@ -330,7 +330,7 @@ class PurchaseInvoiceController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, PurchaseInvoice $purchase)
+    public function updateStatus(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases status');
 
@@ -375,15 +375,10 @@ class PurchaseInvoiceController extends Controller
         ]);
     }
 
-    public function destroy(PurchaseInvoice $purchase)
+    public function destroy(Purchase $purchase)
     {
-        $this->authorize('delete purchases');
-
-        if ($purchase->status != 1) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Only pending purchase can be deleted.',
-            ], 422);
+        if (!auth()->user()->hasRole('super-admin')) {
+            abort(403);
         }
 
         $purchase->delete();
@@ -394,7 +389,7 @@ class PurchaseInvoiceController extends Controller
         ]);
     }
 
-    public function pdf(PurchaseInvoice $purchase)
+    public function pdf(Purchase $purchase)
     {
         $this->authorize('view purchases');
 
@@ -425,12 +420,11 @@ class PurchaseInvoiceController extends Controller
             'data'   => [
                 'purchase_price' => $product->purchase_price,
                 'name'           => $product->name,
-                'sku'            => $product->sku,
             ],
         ]);
     }
 
-    private function approveInvoice(PurchaseInvoice $purchase)
+    private function approveInvoice(Purchase $purchase)
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
@@ -457,7 +451,7 @@ class PurchaseInvoiceController extends Controller
         }
     }
 
-    private function reverseInvoiceStock(PurchaseInvoice $purchase): void
+    private function reverseInvoiceStock(Purchase $purchase): void
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
@@ -490,7 +484,7 @@ class PurchaseInvoiceController extends Controller
         return $location;
     }
 
-    public function updatePaymentStatus(Request $request, PurchaseInvoice $purchase)
+    public function updatePaymentStatus(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases payment status');
 

@@ -34,11 +34,6 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" name="sku" class="form-control" placeholder="Enter SKU" value="{{ isset($clonedProduct) ? $clonedProduct->sku . '-copy' : '' }}" />
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Barcode <span class="text-danger">*</span></label>
                                 <input type="text" name="barcode" class="form-control" placeholder="Enter Barcode" value="{{ isset($clonedProduct) ? $clonedProduct->barcode . '-copy' : '' }}" />
                                 <div class="invalid-feedback"></div>
@@ -168,7 +163,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) }}</textarea>
                                 <div class="invalid-feedback"></div>

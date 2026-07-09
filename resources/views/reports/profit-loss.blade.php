@@ -245,7 +245,7 @@
                     <tr>
                         <th>#</th>
                         <th>Product</th>
-                        <th>SKU</th>
+                        <th>Barcode</th>
                         <th class="text-end">Qty Sold</th>
                         <th class="text-end">Revenue</th>
                         <th class="text-end">Purchase Cost</th>
@@ -276,7 +276,7 @@
                                     </a>
                                 </div>
                             </td>
-                            <td><code>{{ $data['sku'] }}</code></td>
+                            <td><code>{{ $data['barcode'] }}</code></td>
                             <td class="text-end fw-semibold">{{ $data['qty_sold'] }}</td>
                             <td class="text-end text-success fw-semibold">{{ format_price($data['total_revenue']) }}</td>
                             <td class="text-end text-danger fw-semibold">{{ format_price($data['total_cost']) }}</td>
