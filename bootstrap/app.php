@@ -83,34 +83,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            if (!$e instanceof HttpExceptionInterface) {
-                return null;
-            }
-
-            $statusCode = $e->getStatusCode();
+            $statusCode = $e instanceof HttpExceptionInterface ? $e->getStatusCode() : 500;
 
             if ($statusCode === 404) {
-                if ($request->expectsJson()) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Resource not found.',
-                    ], 404);
-                }
-
                 return response()->view('errors.404_error', [], 404);
             }
 
-            if ($statusCode === 500) {
-                if ($request->expectsJson()) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Internal Server Error.',
-                    ], 500);
-                }
-
-                return response()->view('errors.500_error', [], 500);
-            }
-
-            return null;
+            return response()->view('errors.500_error', [], $statusCode);
         });
     })->create();

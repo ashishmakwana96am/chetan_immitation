@@ -97,6 +97,7 @@ class DashboardController extends Controller
         ];
 
         $lowStockInventories = Inventory::with(['product.category', 'product.primaryImage'])
+            ->whereHas('product')
             ->where('location_id', $locationId)
             ->get()
             ->filter(function ($inv) {

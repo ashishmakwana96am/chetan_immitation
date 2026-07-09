@@ -12,8 +12,9 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: Arial, sans-serif;
             color: #000;
+            font-weight: bold;
         }
 
         html, body {
@@ -43,14 +44,14 @@
         .fw-bold     { font-weight: bold; }
 
         .store-title {
-            font-size: 13.5px;
+            font-size: 16px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .gstin-label {
-            font-size: 8.5px;
+            font-size: 10.5px;
             font-weight: bold;
             margin-top: 2px;
         }
@@ -149,7 +150,7 @@
                     <img src="{{ public_path('assets/img/thurmal-logo.png') }}" style="width: 58px; height: 58px; object-fit: contain;" alt="Logo" />
                 </td>
                 {{-- Right side: Branches sorted by current order's branch first, limited to 3 --}}
-                <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 7.5px; font-weight: bold; line-height: 1.35;">
+                <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 9.5px; font-weight: bold; line-height: 1.35;">
                     @php
                         $locations = \App\Models\Location::orderByRaw('id = ? DESC', [$order->location_id ?? 0])->limit(3)->get();
                     @endphp
@@ -163,9 +164,9 @@
         <div class="divider-dotted" style="margin-top: 3px; margin-bottom: 3px;"></div>
 
         {{-- Invoice Title Row --}}
-        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 8.5px;">
+        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 10.5px;">
             <tr>
-                <td style="text-align: left; width: 50%; font-size: 9.5px; border: none; padding: 0;">
+                <td style="text-align: left; width: 50%; font-size: 11.5px; border: none; padding: 0;">
                     INVOICE
                 </td>
                 <td style="text-align: right; width: 50%; border: none; padding: 0;">
@@ -177,7 +178,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Customer & Bill Details Block --}}
-        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 8px; font-weight: bold; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
             <tr>
                 <td style="width: 52%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
                     @php
@@ -213,7 +214,7 @@
         <div class="divider-solid"></div>
 
         {{-- Items Table --}}
-        <table style="width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 8px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 10px; font-weight: bold; line-height: 1.3;">
             <thead>
                 <tr style="border-bottom: 1px solid #000;">
                     <th style="text-align: left; padding-bottom: 3px; font-weight: bold; border: none;">ITEM NAME</th>
@@ -226,7 +227,7 @@
                 @foreach($order->items as $item)
                     <tr>
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
-                            {{ $item->product->name ?? '-' }}
+                            {{ $item->product?->category?->name ?? '-' }}
                         </td>
                         <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none;">
                             {{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
@@ -245,7 +246,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Totals Block --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 8px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; font-weight: bold; line-height: 1.3;">
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Discount Amt :</td>
                 <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalDiscount, 2) }}</td>
@@ -260,7 +261,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Tax & Payment Detail block --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 8px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
             <!-- Header Row with solid borders -->
             <tr style="border-bottom: 1px solid #000;">
                 <td colspan="2" style="text-align: left; padding-bottom: 3px; border: none;">TAX DETAIL</td>
@@ -302,8 +303,8 @@
         </table>
 
         {{-- Terms & Conditions Footer --}}
-        <div style="text-align: left; font-size: 7px; font-weight: bold; line-height: 1.3;">
-            <div style="font-size: 7.5px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
+        <div style="text-align: left; font-size: 9px; font-weight: bold; line-height: 1.3;">
+            <div style="font-size: 9.5px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
             <div>-> KEEP THE PRODUCT AWAY FROM PERFUME, WATER AND CHEMICALS.</div>
             <div>-> ITEM THAT CAN BE REPAIRED WILL BE REPAIRED, CHARGEABLE.</div>
             <div>-> NO RETURN, NO EXCHANGE.</div>
@@ -313,7 +314,7 @@
         <div class="divider-dotted" style="margin-top: 5px; margin-bottom: 5px;"></div>
 
         {{-- Monospaced Thank You Note --}}
-        <div style="text-align: center; font-family: Courier, monospace; font-size: 7.5px; font-weight: bold; line-height: 1.4;">
+        <div style="text-align: center; font-family: Arial, sans-serif; font-size: 9.5px; font-weight: bold; line-height: 1.4;">
             <div>Thank you for shopping with us!</div>
         </div>
 
