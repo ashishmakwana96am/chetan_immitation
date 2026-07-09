@@ -967,6 +967,89 @@ class SaleController extends Controller
                         $updateData = ['status' => $newStatus];
                         if ($newStatus == Order::STATUS_DECLINE) {
                             $updateData['cancellation_reason'] = $request->cancellation_reason;
+
+                            // Process Refund for Direct Admin Cancellation
+                            $refundAmount = (float)$sale->final_amount;
+                            $shippingDeducted = 0.0;
+                            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+
+                            if ($shippedOrLater) {
+                                $address = CustomerAddress::find($sale->customer_address_id);
+                                if ($address && $address->state) {
+                                    $state = State::where('name', $address->state)->first();
+                                    if ($state) {
+                                        $shippingDeducted = (float)$state->shipping_charge;
+                                    }
+                                }
+                                $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
+                            }
+
+                            $refundGatewayId = null;
+
+                            // Trigger Razorpay refund if paid online and payment is captured
+                            $payment = $sale->payment;
+                            if ($payment && $payment->gateway === 'razorpay' && !empty($payment->gateway_payment_id) && $payment->status === OrderPayment::STATUS_CAPTURED) {
+                                $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+                                $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+                                $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
+
+                                if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+                                    throw new \Exception('Razorpay credentials are not configured.');
+                                }
+
+                                $refundAmountInPaise = round($refundAmount * 100);
+
+                                if ($refundAmountInPaise > 0) {
+                                    $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                                        ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
+                                            'amount' => $refundAmountInPaise,
+                                            'speed'  => 'normal',
+                                        ]);
+
+                                    if ($response->failed()) {
+                                        Log::error('Razorpay Refund API Failed from Admin updateStatus: ' . $response->body());
+                                        throw new \Exception('Razorpay Refund failed: ' . ($response->json('error.description') ?? 'Unknown error'));
+                                    }
+
+                                    $refundData = $response->json();
+                                    $refundGatewayId = $refundData['id'] ?? null;
+                                }
+
+                                // Update payment record to refunded
+                                $payment->update([
+                                    'status' => OrderPayment::STATUS_REFUNDED
+                                ]);
+
+                                // Create a new refunded transaction entry
+                                OrderPayment::create([
+                                    'order_id'           => $sale->id,
+                                    'gateway'            => 'razorpay',
+                                    'gateway_order_id'   => $payment->gateway_order_id,
+                                    'gateway_payment_id' => $payment->gateway_payment_id,
+                                    'status'             => OrderPayment::STATUS_REFUNDED,
+                                    'amount'             => -$refundAmount,
+                                    'currency'           => $payment->currency ?? 'INR',
+                                ]);
+                            }
+
+                            // Create or update cancellation request record
+                            $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)->first();
+                            if ($cancellationRequest) {
+                                $cancellationRequest->update([
+                                    'status'            => OrderCancellationRequest::STATUS_APPROVED,
+                                    'refund_amount'     => $refundAmount,
+                                    'refund_gateway_id' => $refundGatewayId,
+                                ]);
+                            } else {
+                                OrderCancellationRequest::create([
+                                    'order_id'            => $sale->id,
+                                    'customer_id'         => $sale->customer_id,
+                                    'cancellation_reason' => $request->cancellation_reason ?? 'Cancelled by Admin',
+                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
+                                    'refund_amount'       => $refundAmount,
+                                    'refund_gateway_id'   => $refundGatewayId,
+                                ]);
+                            }
                         }
 
                         // Record dates for status change
