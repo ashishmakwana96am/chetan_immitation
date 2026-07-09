@@ -16,26 +16,33 @@
         </button>
     </div>
 
+    <div id="report-results">
+        @include('reports.partials.stock-inventory-results')
+    </div>
+
     <!-- Filters -->
-    <div class="card mb-4">
+    <div class="card mb-4" id="filterReportCard">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                    <i class="ti ti-filter me-1"></i> Apply
+                </button>
+                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                    <i class="ti ti-refresh me-1"></i> Clear
+                </button>
+            </div>
         </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('admin.reports.stock-inventory') }}" id="dateFilterForm" class="row g-3 mb-3">
-                <div class="col-md-6">
+            <form method="GET" action="{{ route('admin.reports.stock-inventory') }}" id="dateFilterForm" class="row g-3">
+                <div class="col-md-3">
                     <label class="form-label">From Date <small class="text-muted">(Last Purchase)</small></label>
                     <input type="text" name="from_date" class="form-control flatpickr" value="{{ $fromDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label class="form-label">To Date <small class="text-muted">(Last Purchase)</small></label>
                     <input type="text" name="to_date" class="form-control flatpickr" value="{{ $toDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-            </form>
-            <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Filter by Category</label>
                     <select id="filterCategory" class="form-select">
@@ -73,17 +80,13 @@
                 <div class="col-md-3">
                     <label class="form-label">Sort By</label>
                     <select id="sortBy" class="form-select">
-                        <option value="">Default (Name)</option>
+                        <option value="">Default</option>
                         <option value="age_desc">Inventory Age (Oldest First)</option>
                         <option value="age_asc">Inventory Age (Newest First)</option>
                     </select>
                 </div>
-            </div>
+            </form>
         </div>
-    </div>
-
-    <div id="report-results">
-        @include('reports.partials.stock-inventory-results')
     </div>
 @endsection
 
@@ -93,6 +96,7 @@
     <script>
     $(document).ready(function () {
         let table = null;
+        let $filterCard = null;
 
         $.fn.dataTable.ext.type.order['null-last-asc'] = function (a, b) {
             if (a === '') return 1;
@@ -106,6 +110,11 @@
         };
 
         function initReport() {
+            if (!$filterCard) {
+                $filterCard = $('#filterReportCard');
+            }
+            $filterCard.insertBefore('#stockDetailCard');
+
             if ($.fn.DataTable.isDataTable('#stockTable')) {
                 $('#stockTable').DataTable().destroy();
             }
@@ -163,25 +172,22 @@
                 table.draw();
             }
 
-            $('#filterCategory, #filterStock, #filterAgeCustom').off('change').on('change', applyFilters);
-
             $('#filterAge').off('change').on('change', function () {
                 $('#customAgeWrapper').toggleClass('d-none', $(this).val() !== 'custom');
-                applyFilters();
             });
 
-            applyFilters();
-
-            $('#sortBy').off('change').on('change', function () {
-                const val = $(this).val();
+            function applySort() {
+                const val = $('#sortBy').val();
                 if (val === 'age_desc') {
                     table.order([ageColumnIndex, 'desc']).draw();
                 } else if (val === 'age_asc') {
                     table.order([ageColumnIndex, 'asc']).draw();
-                } else {
-                    table.order([1, 'asc']).draw();
                 }
-            });
+                // blank ("Default") keeps the order already set above (latest/oldest by Last Purchase Date)
+            }
+
+            applyFilters();
+            applySort();
 
             initCharts();
         }
@@ -288,6 +294,8 @@
             $('#report-results').css('opacity', 0.5);
             window.showAjaxLoader && window.showAjaxLoader();
 
+            if ($filterCard) $filterCard.detach();
+
             $.get(url, function (html) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
@@ -297,6 +305,7 @@
                 initReport();
             }).fail(function () {
                 toastr.error('Failed to load the report. Please try again.');
+                if ($filterCard) $filterCard.insertBefore('#stockDetailCard');
             }).always(function () {
                 $('#report-results').css('opacity', 1);
                 window.hideAjaxLoader && window.hideAjaxLoader();
@@ -311,37 +320,26 @@
             });
             $('#dateFilterForm .flatpickr').flatpickr({
                 altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
-                onChange: function () {
-                    const form = $('#dateFilterForm');
-                    loadReport(form.attr('action') + '?' + form.serialize());
-                }
             });
         }
+        
+        $('#applyFiltersBtn').on('click', function () {
+            const form = $('#dateFilterForm');
+            loadReport(form.attr('action') + '?' + form.serialize());
+        });
 
-        $('#resetFilters').on('click', function() {
+        $('#clearFiltersBtn').on('click', function() {
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
             $('#filterAge').val('').trigger('change.select2');
             $('#filterAgeCustom').val('');
             $('#customAgeWrapper').addClass('d-none');
             $('#sortBy').val('').trigger('change.select2');
-            if (table) {
-                table.order([1, 'asc']).draw();
-                $.fn.dataTable.ext.search = [];
-                table.draw();
-            }
-
-            let hadDateFilter = false;
             $('#dateFilterForm .flatpickr').each(function () {
-                if (this._flatpickr) {
-                    if (this._flatpickr.selectedDates.length) hadDateFilter = true;
-                    this._flatpickr.clear(false); // false = don't fire onChange, we'll reload once ourselves
-                }
+                if (this._flatpickr) this._flatpickr.clear();
             });
 
-            if (hadDateFilter) {
-                loadReport('{{ route('admin.reports.stock-inventory') }}');
-            }
+            loadReport('{{ route('admin.reports.stock-inventory') }}');
         });
 
         $('#exportExcelBtn').on('click', function() {

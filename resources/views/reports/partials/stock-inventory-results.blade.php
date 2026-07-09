@@ -92,7 +92,7 @@
 @endif
 
 <!-- Stock Table -->
-<div class="card">
+<div class="card" id="stockDetailCard">
     <div class="card-header"><h5 class="mb-0">Stock Detail by Location</h5></div>
     <div class="card-datatable table-responsive">
         <table class="table border-top" id="stockTable">
