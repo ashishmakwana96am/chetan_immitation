@@ -324,6 +324,14 @@
     </div>
 @endsection
 
+@php
+    $categoryChartData = $products->where('is_parent', true)->groupBy('category')->map(fn($g) => $g->count())->sortDesc();
+    $top10ChartData = $products->where('is_parent', true)->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
+        'name'  => $p['name'],
+        'stock' => $p['total_stock'],
+    ]);
+@endphp
+
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
@@ -436,9 +444,7 @@
         // -------------------------------------------------------
         // Products by Category Horizontal Bar Chart
         // -------------------------------------------------------
-        const categoryData = @json(
-            $products->where('is_parent', true)->groupBy('category')->map(fn($g) => $g->count())->sortDesc()
-        );
+        const categoryData = @json($categoryChartData);
 
         new ApexCharts(document.getElementById('categoryPieChart'), {
             chart   : { type: 'bar', height: 300, toolbar: { show: false } },
@@ -508,12 +514,7 @@
         // -------------------------------------------------------
         // Top 10 Products by Stock Bar Chart
         // -------------------------------------------------------
-        const top10 = @json(
-            $products->where('is_parent', true)->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
-                'name'  => $p['name'],
-                'stock' => $p['total_stock'],
-            ])
-        );
+        const top10 = @json($top10ChartData);
 
         new ApexCharts(document.getElementById('topStockChart'), {
             chart  : { type: 'bar', height: 340, toolbar: { show: false } },
