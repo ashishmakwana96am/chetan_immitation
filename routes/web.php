@@ -39,6 +39,7 @@ use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReview
 use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
 use App\Http\Controllers\WebsiteContentController;
 use App\Http\Controllers\WishlistController;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes
@@ -299,4 +300,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
     });
+});
+
+Route::get('/set-debug-true', function () {
+    Setting::setValue('app_debug', 'true');
+    return response('Debug mode enabled. Laravel error trace will be shown.', 200);
+});
+
+Route::get('/set-debug-false', function () {
+    Setting::setValue('app_debug', 'false');
+    return response('Debug mode disabled. Custom error pages (404/500) will be shown.', 200);
 });

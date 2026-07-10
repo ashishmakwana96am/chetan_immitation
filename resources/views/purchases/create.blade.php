@@ -48,6 +48,7 @@
     }
     #itemsTable .input-group {
         flex-wrap: nowrap !important;
+        width: fit-content !important;
     }
     #itemsTable .product-sku-display {
         white-space: nowrap !important;
