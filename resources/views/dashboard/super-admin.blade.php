@@ -167,7 +167,7 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Recent Sales</h5>
-                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">
@@ -207,7 +207,7 @@
                                     <span class="badge bg-label-warning ms-1">{{ $todayInquiriesCount }} today</span>
                                 @endif
                             </h5>
-                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">

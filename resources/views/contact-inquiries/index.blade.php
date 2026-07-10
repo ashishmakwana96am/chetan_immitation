@@ -8,7 +8,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Contact Inquiries</h4>
         {{-- Filter Dropdown --}}
         <div class="dropdown d-inline-block" id="filterDropdownContainer">
