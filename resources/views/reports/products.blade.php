@@ -437,7 +437,7 @@
         // Products by Category Horizontal Bar Chart
         // -------------------------------------------------------
         const categoryData = @json(
-            $products->groupBy('category')->map(fn($g) => $g->count())->sortDesc()
+            $products->where('is_parent', true)->groupBy('category')->map(fn($g) => $g->count())->sortDesc()
         );
 
         new ApexCharts(document.getElementById('categoryPieChart'), {
@@ -509,7 +509,7 @@
         // Top 10 Products by Stock Bar Chart
         // -------------------------------------------------------
         const top10 = @json(
-            $products->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
+            $products->where('is_parent', true)->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
                 'name'  => $p['name'],
                 'stock' => $p['total_stock'],
             ])
