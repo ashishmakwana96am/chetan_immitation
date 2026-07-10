@@ -310,9 +310,20 @@
         </div>
     </div>
 
-    <div class="invoice-info-row"><span class="label">Purchase Order No.</span><span>{{ $order->order_no }}</span></div>
-    <div class="invoice-info-row"><span class="label">Order Date</span><span>{{ format_date($order->created_at, 'd.m.Y') }}</span></div>
-    <div class="invoice-info-row"><span class="label">Invoice Date</span><span>{{ format_date($order->created_at, 'd.m.Y') }}</span></div>
+    <table style="width: 100%; font-size: 6.8px; line-height: 1.35; margin-bottom: 2px; border-collapse: collapse;">
+        <tr>
+            <td style="font-weight: bold; text-align: left; padding: 1px 0;">Purchase Order No.</td>
+            <td style="text-align: right; padding: 1px 0;">{{ $order->order_no }}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: bold; text-align: left; padding: 1px 0;">Order Date</td>
+            <td style="text-align: right; padding: 1px 0;">{{ format_date($order->created_at, 'd.m.Y') }}</td>
+        </tr>
+        <tr>
+            <td style="font-weight: bold; text-align: left; padding: 1px 0;">Invoice Date</td>
+            <td style="text-align: right; padding: 1px 0;">{{ format_date($order->created_at, 'd.m.Y') }}</td>
+        </tr>
+    </table>
 
     <div class="divider-dotted"></div>
 
@@ -395,11 +406,28 @@
 
     <div class="divider-dotted"></div>
 
-    <div class="summary-row"><span>Gross Amount</span><span>Rs.{{ number_format($totalGross, 2) }}</span></div>
-    <div class="summary-row"><span>Discount</span><span>Rs.{{ number_format($totalDiscount, 2) }}</span></div>
-    <div class="summary-row"><span>Taxable Value</span><span>Rs.{{ number_format($totalTaxable, 2) }}</span></div>
-    <div class="summary-row"><span>Taxes (GST @0%)</span><span>Rs.{{ number_format($totalTaxes, 2) }}</span></div>
-    <div class="summary-row total"><span>Total</span><span>Rs.{{ number_format($totalFinal, 2) }}</span></div>
+    <table style="width: 100%; font-size: 7px; line-height: 1.4; border-collapse: collapse; margin-top: 3px;">
+        <tr>
+            <td style="text-align: left; padding: 1.5px 0;">Gross Amount</td>
+            <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalGross, 2) }}</td>
+        </tr>
+        <tr>
+            <td style="text-align: left; padding: 1.5px 0;">Discount</td>
+            <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalDiscount, 2) }}</td>
+        </tr>
+        <tr>
+            <td style="text-align: left; padding: 1.5px 0;">Taxable Value</td>
+            <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxable, 2) }}</td>
+        </tr>
+        <tr>
+            <td style="text-align: left; padding: 1.5px 0;">Taxes (GST @0%)</td>
+            <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes, 2) }}</td>
+        </tr>
+        <tr style="font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000;">
+            <td style="text-align: left; padding: 3px 0; font-size: 8px;">Total</td>
+            <td style="text-align: right; padding: 3px 0; font-size: 8px;">Rs.{{ number_format($totalFinal, 2) }}</td>
+        </tr>
+    </table>
 
     <div class="divider-dotted"></div>
 

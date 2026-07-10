@@ -14,7 +14,7 @@
     <!-- Header -->
     <tr>
         <td style="background-color:#131615;padding:28px 30px;text-align:center;">
-            <img src="{{ asset('website/assets/images/logo.png') }}" alt="Chetan Imitation" style="max-width:150px;height:auto;display:inline-block;">
+            <img src="https://royalgujarati.com/chetan-imitation/website/assets/images/logo.png" alt="Chetan Imitation" style="max-width:150px;height:auto;display:inline-block;">
         </td>
     </tr>
 
