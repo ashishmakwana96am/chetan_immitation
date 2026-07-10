@@ -227,7 +227,7 @@
             <div class="col-12">
                 <div class="row g-3">
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5" id="submitBtn">
+                        <button type="submit" class="btn btn-primary w-100 py-2.5 fs-5" id="submitBtn">
                             <i class="ti ti-device-floppy me-1"></i> Save Purchase
                         </button>
                     </div>

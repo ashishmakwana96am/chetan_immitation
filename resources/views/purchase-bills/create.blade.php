@@ -161,7 +161,7 @@
 
                 <div class="card">
                     <div class="card-body">
-                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5" id="submitBtn">
+                        <button type="submit" class="btn btn-primary w-100 py-2.5 fs-5" id="submitBtn">
                             <i class="ti ti-device-floppy me-1"></i> Save Request
                         </button>
                         <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 mt-3">Cancel</a>
