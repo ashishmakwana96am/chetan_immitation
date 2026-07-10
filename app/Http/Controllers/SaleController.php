@@ -1465,6 +1465,7 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only cancelled sales can be deleted.'], 422);
         }
 
+        $sale->update(['order_no' => 'DEL-' . $sale->id . '-' . $sale->order_no]);
         $sale->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Sale deleted successfully.']);

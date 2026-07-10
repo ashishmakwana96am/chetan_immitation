@@ -73,7 +73,7 @@
 
         {{-- Stats Cards --}}
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -87,7 +87,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -101,7 +101,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -111,6 +111,20 @@
                                 <small class="text-muted">{{ $pendingCount }} pending payment{{ $pendingCount != 1 ? 's' : '' }}</small>
                             </div>
                             <span class="badge bg-label-warning rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card payment-stat-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Refunds</span>
+                                <h4 class="mb-0 mt-1 text-danger">{{ format_price($refundAmount) }}</h4>
+                                <small class="text-muted">{{ $refundCount }} refund{{ $refundCount != 1 ? 's' : '' }}</small>
+                            </div>
+                            <span class="badge bg-label-danger rounded p-2"><i class="ti ti-receipt-refund ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
@@ -227,6 +241,7 @@
                             <th>Payment Method</th>
                             <th>Status</th>
                             <th class="text-end">Amount</th>
+                            <th class="text-end">Refund Amount</th>
                             <th class="d-none">date_group</th>
                             <th class="d-none">date_sort</th>
                         </tr>
@@ -235,6 +250,10 @@
                         @foreach($orders as $order)
                             @php
                                 $payment = $order->payment;
+                                $cancellation = $order->cancellationRequest;
+                                $isRefunded = $cancellation
+                                    && $cancellation->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED
+                                    && (float) $cancellation->refund_amount > 0;
                                 $sourceVal = strtoupper($order->source ?? 'POS');
                                 $normalizedMethod = match ($order->payment_method) {
                                     'razorpay' => 'online',
@@ -246,7 +265,10 @@
                                     'cash'   => 'Cash',
                                     default  => ucwords(str_replace('_', ' ', $normalizedMethod ?? '')),
                                 };
-                                if ($payment) {
+                                if ($isRefunded) {
+                                    $statusLabel = 'Refunded';
+                                    $statusClass = 'status-refunded';
+                                } elseif ($payment) {
                                     $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
                                     $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
                                 } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
@@ -275,6 +297,7 @@
                                     <span class="gateway-badge {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </td>
                                 <td class="text-end fw-semibold text-nowrap">{{ format_price($order->final_amount) }}</td>
+                                <td class="text-end fw-semibold text-nowrap text-danger">{{ $isRefunded ? format_price($cancellation->refund_amount) : '-' }}</td>
                                 <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
                                 <td class="d-none">{{ $order->created_at->format('Ymd') }}</td>
                             </tr>
@@ -368,8 +391,8 @@
         }
         $('#paymentsTable').DataTable({
             responsive : false,
-            order      : [[8, 'desc']],
-            orderFixed : { pre: [[8, 'desc']] },
+            order      : [[9, 'desc']],
+            orderFixed : { pre: [[9, 'desc']] },
             columnDefs : [
                 {
                     targets: 0,
@@ -379,13 +402,13 @@
                         return meta.row + meta.settings._iDisplayStart + 1;
                     }
                 },
-                { targets: [7, 8], visible: false }
+                { targets: [8, 9], visible: false }
             ],
             rowGroup   : {
-                dataSrc: 7,
+                dataSrc: 8,
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
-                        .append('<td colspan="7"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                        .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                 }
             },
             drawCallback: function () {

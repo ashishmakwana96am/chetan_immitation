@@ -1069,6 +1069,33 @@ class ReportController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
+        $applyCommonFilters = function ($q) use ($user, $isSuperAdmin, $locationId, $startDate, $endDate, $source, $paymentMethod) {
+            if ($user->location_id && !$isSuperAdmin) {
+                $q->where('location_id', $user->location_id);
+            } elseif ($locationId) {
+                $q->where('location_id', $locationId);
+            }
+
+            if ($startDate) {
+                $q->whereDate('created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $q->whereDate('created_at', '<=', $endDate);
+            }
+            if ($source) {
+                $q->where('source', $source);
+            }
+            if ($paymentMethod) {
+                if ($paymentMethod === 'online') {
+                    $q->whereIn('payment_method', ['online', 'razorpay']);
+                } else {
+                    $q->where('payment_method', $paymentMethod);
+                }
+            }
+
+            return $q;
+        };
+
         $query = Order::with(['customer', 'payment'])
             ->where('order_type', 'sale')
             ->whereIn('status', [
@@ -1077,29 +1104,8 @@ class ReportController extends Controller
                 Order::STATUS_OUT_FOR_DELIVERY,
                 Order::STATUS_DELIVERED,
             ]);
+        $applyCommonFilters($query);
 
-        if ($user->location_id && !$isSuperAdmin) {
-            $query->where('location_id', $user->location_id);
-        } elseif ($locationId) {
-            $query->where('location_id', $locationId);
-        }
-
-        if ($startDate) {
-            $query->whereDate('created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $query->whereDate('created_at', '<=', $endDate);
-        }
-        if ($source) {
-            $query->where('source', $source);
-        }
-        if ($paymentMethod) {
-            if ($paymentMethod === 'online') {
-                $query->whereIn('payment_method', ['online', 'razorpay']);
-            } else {
-                $query->where('payment_method', $paymentMethod);
-            }
-        }
         if ($paymentStatus) {
             $query->where('payment_status', $paymentStatus);
         }
@@ -1113,6 +1119,20 @@ class ReportController extends Controller
         $pendingOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING);
         $pendingAmount = (float) $pendingOrders->sum('final_amount');
         $pendingCount  = $pendingOrders->count();
+
+        // ── Refunded Orders (cancelled sales with an approved refund) ──
+        $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
+            ->where('order_type', 'sale')
+            ->where('status', Order::STATUS_DECLINE)
+            ->whereHas('cancellationRequest', function ($q) {
+                $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
+                  ->where('refund_amount', '>', 0);
+            });
+        $applyCommonFilters($refundQuery);
+
+        $refundedOrders = $refundQuery->latest()->get();
+        $refundAmount   = (float) $refundedOrders->sum(fn ($order) => (float) $order->cancellationRequest->refund_amount);
+        $refundCount    = $refundedOrders->count();
 
         $normalizePaymentMethod = function (?string $method): string {
             return match ($method) {
@@ -1157,6 +1177,9 @@ class ReportController extends Controller
         $availableSources        = ['POS', 'ONLINE'];
         $availablePaymentMethods = ['cash', 'online', 'cod'];
 
+        // Merge refunded orders into the table listing (not into the sales totals/charts above)
+        $orders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
+
         return view('reports.payments', compact(
             'orders',
             'locations',
@@ -1165,6 +1188,8 @@ class ReportController extends Controller
             'avgAmount',
             'pendingAmount',
             'pendingCount',
+            'refundAmount',
+            'refundCount',
             'paymentTrend',
             'paymentMethodData',
             'sourceData',

@@ -1,3 +1,9 @@
+<div id="chart-data"
+     data-total-sales="{{ $totalSales }}"
+     data-total-purchases="{{ $totalPurchases }}"
+     data-total-expenses="{{ $totalExpenses }}">
+</div>
+
 <!-- Stats Cards -->
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
@@ -58,6 +64,50 @@
     </div>
 </div>
 
+<!-- Overview Chart -->
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Overview</h5></div>
+    <div class="card-body">
+        <div id="dailyOverviewChart"></div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Filter Report</h5>
+        <div class="d-flex gap-2 d-none" id="filterActionButtons">
+            <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
+                <i class="ti ti-filter me-1"></i> Apply
+            </button>
+            <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
+                <i class="ti ti-refresh me-1"></i> Clear
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ route('admin.reports.daily-report') }}" id="filterForm" class="row g-3">
+            <div class="col-md-3 col-sm-6">
+                <label class="form-label">Date</label>
+                <input type="text" name="date" class="form-control flatpickr" value="{{ $date }}" placeholder="DD-MM-YYYY" />
+            </div>
+            @if($isSuperAdmin)
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Branch</label>
+                    <select name="location_id" class="form-select">
+                        <option value="">All Branches</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location->id }}" {{ (string) $locationId === (string) $location->id ? 'selected' : '' }}>
+                                {{ $location->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+        </form>
+    </div>
+</div>
+
 <!-- Branch-wise Breakdown -->
 <div class="card mb-4" id="branchBreakdownCard" style="{{ $branchRows->count() > 1 ? '' : 'display:none;' }}">
     <div class="card-header"><h5 class="mb-0">Branch-wise Breakdown</h5></div>
@@ -112,7 +162,7 @@
                         <td><code>{{ $row['sale_no'] }}</code></td>
                         <td>{{ $row['customer'] }}</td>
                         <td>{{ $row['location'] }}</td>
-                        <td>{{ $row['source'] }}</td>
+                        <td><span class="badge {{ strtoupper($row['source']) === 'ONLINE' ? 'bg-label-primary' : 'bg-label-secondary' }}">{{ $row['source'] }}</span></td>
                         <td class="text-end">{{ format_price($row['amount']) }}</td>
                         <td>{!! $row['status'] !!}</td>
                         <td>{!! $row['payment_status'] !!}</td>

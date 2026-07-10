@@ -373,22 +373,28 @@
         });
 
         function applyFilters() {
-            const cat    = $('#filterCategory').val();
-            const status = $('#filterStatus').val();
-            const stock  = $('#filterStock').val();
+            window.showAjaxLoader && window.showAjaxLoader();
 
-            $.fn.dataTable.ext.search = [];
-            $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-                const row   = $(table.row(dataIndex).node());
+            setTimeout(function () {
+                const cat    = $('#filterCategory').val();
+                const status = $('#filterStatus').val();
+                const stock  = $('#filterStock').val();
 
-                const total = parseInt(row.data('stock') || 0);
-                if (cat    && row.data('category-id') != cat)    return false;
-                if (status && String(row.data('status')) !== status) return false;
-                if (stock === 'in'  && total <= 0)                return false;
-                if (stock === 'out' && total > 0)                 return false;
-                return true;
-            });
-            table.draw();
+                $.fn.dataTable.ext.search = [];
+                $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                    const row   = $(table.row(dataIndex).node());
+
+                    const total = parseInt(row.data('stock') || 0);
+                    if (cat    && row.data('category-id') != cat)    return false;
+                    if (status && String(row.data('status')) !== status) return false;
+                    if (stock === 'in'  && total <= 0)                return false;
+                    if (stock === 'out' && total > 0)                 return false;
+                    return true;
+                });
+                table.draw();
+
+                window.hideAjaxLoader && window.hideAjaxLoader();
+            }, 150);
         }
 
         function updateFilterButtonsVisibility() {

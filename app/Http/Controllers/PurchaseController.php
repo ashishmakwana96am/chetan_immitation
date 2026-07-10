@@ -381,6 +381,7 @@ class PurchaseController extends Controller
             abort(403);
         }
 
+        $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
         $purchase->delete();
 
         return response()->json([
