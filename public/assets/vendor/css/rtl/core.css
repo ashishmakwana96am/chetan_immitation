@@ -2556,11 +2556,11 @@ textarea.form-control-lg {
 
 .btn {
   --bs-btn-padding-x: 1.25rem;
-  --bs-btn-padding-y: 0.6rem;
+  --bs-btn-padding-y: 10px;
   --bs-btn-font-family: ;
   --bs-btn-font-size: 0.9375rem;
   --bs-btn-font-weight: 500;
-  --bs-btn-line-height: 1.125;
+  --bs-btn-line-height: 15px;
   --bs-btn-color: #6f6b7d;
   --bs-btn-bg: transparent;
   --bs-btn-border-width: 1px;
@@ -6665,7 +6665,7 @@ a.invert-bg-dark:hover, a.invert-bg-dark:focus {
   transform: scale(1.001);
 }
 .btn .ti {
-  line-height: 0.9;
+  line-height: 15px;
 }
 .btn:not([class*=btn-label-]):not([class*=btn-outline-]) {
   box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.4);
