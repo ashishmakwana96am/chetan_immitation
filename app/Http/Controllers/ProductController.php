@@ -815,21 +815,21 @@ class ProductController extends Controller
         $columns = [
             'Category', 'Sub Category', 'Name', 'No.', 'Barcode', 'Product Code',
             'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier',
-            'Discreptions', 'Product Type', 'Size', 'Colour',
+            'Product Type', 'Size', 'Colour',
         ];
 
         // 2 categories x 5 products, using Barcode left blank so it auto-generates from "No."
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', '2.5', '4.125', '4.575', 'Traditional short necklace - regular finish', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', '2.5', '4.125', '4.575', 'Traditional short necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', '2.5', '4.125', '4.575', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', '2.5', '4.125', '4.575', 'Elegant long necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', '2.5', '4.125', '4.575', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', '2.5', '4.125', '4.575', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', '2.5', '4.125', '4.575', 'Classic bangal - antique finish', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', '2.5', '4.125', '4.575', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', '2.5', '4.125', '4.575', 'CNC cut kadali design', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', '2.5', '4.125', '4.575', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Silver, Rose Gold'],
         ];
 
         $spreadsheet = new Spreadsheet();
