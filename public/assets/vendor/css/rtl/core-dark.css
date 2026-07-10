@@ -7900,7 +7900,8 @@ html:not([dir=rtl]) .input-group > .btn-group:last-child > .btn:not([class*=btn-
 }
 
 .dropdown-toggle::after {
-  margin-top: -0.28em;
+  margin-top: 0;
+  /* margin-top: -0.28em; */
   width: 0.42em;
   height: 0.42em;
   border: 1px solid;
@@ -8110,7 +8111,8 @@ html:not([dir=rtl]) .input-group > .btn-group:last-child > .btn:not([class*=btn-
 }
 
 .tab-content {
-  padding: 1.5rem;
+  padding: 0;
+  /* padding: 1.5rem; */
   border-radius: 0.375rem;
 }
 
