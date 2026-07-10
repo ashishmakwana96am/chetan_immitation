@@ -300,6 +300,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Settings
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
+        
+        // Google Drive OAuth
+        Route::get('settings/google-drive/connect', [SettingController::class, 'googleDriveConnect'])->name('settings.google-drive.connect');
+        Route::get('settings/google-drive/callback', [SettingController::class, 'googleDriveCallback'])->name('settings.google-drive.callback');
+        Route::post('settings/google-drive/disconnect', [SettingController::class, 'googleDriveDisconnect'])->name('settings.google-drive.disconnect');
+
+        // AJAX Backup
+        Route::post('settings/backup/run', [SettingController::class, 'runBackup'])->name('settings.backup.run');
     });
 });
 

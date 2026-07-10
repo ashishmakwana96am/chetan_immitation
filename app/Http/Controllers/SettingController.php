@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Setting;
 use App\Services\ActivityLogger;
+use App\Services\GoogleDriveService;
+use Symfony\Component\Process\Process;
 
 class SettingController extends Controller
 {
@@ -22,6 +25,13 @@ class SettingController extends Controller
         $paymentMethodCod      = (bool) Setting::getValue('payment_method_cod', true);
         $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
         $comingSoon            = (bool) Setting::getValue('coming_soon', false);
+        $googleDriveConnected = false;
+        $googleDriveEmail = '';
+        $token = Setting::getValue('google_drive_oauth_token');
+        if ($token) {
+            $googleDriveConnected = true;
+            $googleDriveEmail = Setting::getValue('google_drive_connected_email', 'Connected Account');
+        }
 
         return view('settings.index', compact(
             'razorpayPaymentMode',
@@ -32,7 +42,9 @@ class SettingController extends Controller
             'announcementText',
             'paymentMethodCod',
             'paymentMethodRazorpay',
-            'comingSoon'
+            'comingSoon',
+            'googleDriveConnected',
+            'googleDriveEmail'
         ));
     }
 
@@ -100,6 +112,166 @@ class SettingController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Settings updated successfully.',
+        ]);
+    }
+
+    public function googleDriveConnect()
+    {
+        $this->authorize('edit settings');
+
+        try {
+            $googleService = app(GoogleDriveService::class);
+            $client = $googleService->getClient();
+            $authUrl = $client->createAuthUrl();
+            return redirect()->away($authUrl);
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')->with('error', 'Google Drive connection setup failed: ' . $e->getMessage());
+        }
+    }
+
+    public function googleDriveCallback(Request $request)
+    {
+        $this->authorize('edit settings');
+
+        if ($request->has('error')) {
+            return redirect()->route('admin.settings.index')->with('error', 'Google Drive connection cancelled: ' . $request->get('error'));
+        }
+
+        if (!$request->has('code')) {
+            return redirect()->route('admin.settings.index')->with('error', 'Google Drive connection failed: Authorization code not found.');
+        }
+
+        try {
+            $googleService = app(GoogleDriveService::class);
+            $client = $googleService->getClient();
+            $token = $client->fetchAccessTokenWithAuthCode($request->get('code'));
+
+            if (isset($token['error'])) {
+                return redirect()->route('admin.settings.index')->with('error', 'Failed to fetch access token: ' . ($token['error_description'] ?? $token['error']));
+            }
+
+            Setting::setValue('google_drive_oauth_token', $token);
+
+            // Fetch the user's email to show on settings page
+            $oauth2 = new \Google\Service\Oauth2($client);
+            try {
+                $userInfo = $oauth2->userinfo->get();
+                Setting::setValue('google_drive_connected_email', $userInfo->email);
+            } catch (\Throwable $e) {
+                // In case API fails or scope isn't granted, set default placeholder
+                Setting::setValue('google_drive_connected_email', 'Connected Account');
+            }
+
+            return redirect()->route('admin.settings.index')->with('success', 'Google Drive connected successfully!');
+        } catch (\Throwable $e) {
+            Log::error('Google Drive OAuth callback failed: ' . $e->getMessage());
+            return redirect()->route('admin.settings.index')->with('error', 'Failed to connect Google Drive: ' . $e->getMessage());
+        }
+    }
+
+    public function googleDriveDisconnect()
+    {
+        $this->authorize('edit settings');
+
+        Setting::setValue('google_drive_oauth_token', null);
+        Setting::setValue('google_drive_connected_email', null);
+
+        return redirect()->route('admin.settings.index')->with('success', 'Google Drive disconnected successfully.');
+    }
+
+    public function runBackup()
+    {
+        $this->authorize('download backup');
+
+        $connection = config('database.connections.' . config('database.default'));
+        $fileName = 'Backup_' . now()->format('Y-m-d_H-i-s') . '.sql';
+
+        $backupDir = storage_path('app' . DIRECTORY_SEPARATOR . 'backups');
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+        $filePath = $backupDir . DIRECTORY_SEPARATOR . $fileName;
+
+        $mysqldumpBin = env('MYSQLDUMP_PATH', 'C:\\xampp\\mysql\\bin\\mysqldump.exe');
+
+        $command = [
+            $mysqldumpBin,
+            '-h', $connection['host'],
+            '-P', (string) ($connection['port'] ?? 3306),
+            '-u', $connection['username'],
+        ];
+        if (!empty($connection['password'])) {
+            $command[] = '-p' . $connection['password'];
+        }
+        $command[] = '--routines';
+        $command[] = '--single-transaction';
+        $command[] = '--result-file=' . $filePath;
+        $command[] = $connection['database'];
+
+        $env = array_merge($_ENV, $_SERVER, [
+            'SystemRoot' => getenv('SystemRoot') ?: 'C:\\Windows',
+            'PATH' => getenv('PATH') ?: 'C:\\Windows\\system32;C:\\Windows',
+        ]);
+
+        $process = new Process($command, null, $env);
+        $process->setTimeout(600);
+
+        try {
+            $process->run();
+        } catch (\Throwable $e) {
+            Log::error('Database backup failed to run mysqldump: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Backup failed: could not run mysqldump. ' . $e->getMessage(),
+            ], 500);
+        }
+
+        if (!$process->isSuccessful() || !is_file($filePath) || filesize($filePath) === 0) {
+            @unlink($filePath);
+            Log::error('Database backup failed: ' . $process->getErrorOutput());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Backup failed. Please check that mysqldump is installed and accessible.',
+            ], 500);
+        }
+
+        // Clean up "don't" / "don\'t" / "Don't" / "Don\'t" to prevent MySQL import issues
+        try {
+            $sqlContent = file_get_contents($filePath);
+            $search = ["don\\'t", "don't", "Don\\'t", "Don't"];
+            $replace = ["dont", "dont", "Dont", "Dont"];
+            $sqlContent = str_replace($search, $replace, $sqlContent);
+            file_put_contents($filePath, $sqlContent);
+        } catch (\Throwable $e) {
+            Log::error('Database backup content cleanup failed: ' . $e->getMessage());
+        }
+
+        $driveUploaded = false;
+        $driveError = null;
+
+        try {
+            app(GoogleDriveService::class)->uploadFile($filePath, $fileName);
+            $driveUploaded = true;
+        } catch (\Throwable $e) {
+            $driveError = $e->getMessage();
+            Log::error('Google Drive backup upload failed: ' . $driveError);
+        }
+
+        // Delete the temporary local file immediately
+        @unlink($filePath);
+
+        if (!$driveUploaded) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Backup failed to upload to Google Drive: ' . $driveError,
+            ], 500);
+        }
+
+        ActivityLogger::log('Settings', 'export', null, null, null, 'Database backup uploaded to Google Drive');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Database backup successfully generated and stored in Google Drive!',
         ]);
     }
 }

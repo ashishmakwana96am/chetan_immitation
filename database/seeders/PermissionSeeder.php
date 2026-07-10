@@ -140,6 +140,7 @@ class PermissionSeeder extends Seeder
             // Settings
             'view settings' => 'Settings',
             'edit settings' => 'Settings',
+            'download backup' => 'Settings',
         ];
 
         // Migrate/cleanup old permission if it exists
