@@ -38,6 +38,7 @@ class Product extends Model
         'pair_product',
         'pair_sale_price',
         'pair_mrp',
+        'bypass_min_price',
     ];
 
     protected function casts(): array
@@ -53,6 +54,7 @@ class Product extends Model
             'pair_sale_price' => 'decimal:2',
             'pair_mrp'        => 'decimal:2',
             'pair_product'    => 'boolean',
+            'bypass_min_price' => 'boolean',
         ];
     }
 

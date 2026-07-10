@@ -288,7 +288,7 @@ class PurchaseController extends Controller
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
-            
+
             if ($oldStatus == Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
             }

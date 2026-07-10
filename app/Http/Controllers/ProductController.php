@@ -277,6 +277,7 @@ class ProductController extends Controller
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
+            'bypass_min_price'         => ['nullable', 'boolean'],
             'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
             'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
@@ -327,6 +328,8 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request) {
+            $isSuperAdmin = auth()->user()->hasRole('super-admin');
+
             $productData = [
                 'name'            => $request->name,
                 'slug'            => generate_slug(Product::class, $request->name),
@@ -344,6 +347,7 @@ class ProductController extends Controller
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
+                'bypass_min_price' => $isSuperAdmin && $request->has('bypass_min_price') ? 1 : 0,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
@@ -472,6 +476,7 @@ class ProductController extends Controller
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
+            'bypass_min_price'         => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
@@ -524,6 +529,8 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request, $product) {
+            $isSuperAdmin = auth()->user()->hasRole('super-admin');
+
             $productData = [
                 'name'            => $request->name,
                 'category_id'     => $request->category_id,
@@ -541,6 +548,12 @@ class ProductController extends Controller
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
             ];
+
+            // Only a super-admin's submission can change this — for anyone else the field
+            // is simply omitted so the product's existing flag is left untouched.
+            if ($isSuperAdmin) {
+                $productData['bypass_min_price'] = $request->has('bypass_min_price') ? 1 : 0;
+            }
 
             $productData['purchase_price'] = $request->purchase_price;
 

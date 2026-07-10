@@ -234,11 +234,18 @@
                                 {{ $product->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch @if(auth()->user()->hasRole('super-admin')) mb-3 @endif">
                             <input class="form-check-input" type="checkbox" id="productPair" name="pair_product" value="1"
                                 {{ $product->pair_product == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1"
+                                    {{ $product->bypass_min_price == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productBypassMinPrice">Allow Below Cost Price on Sale</label>
+                            </div>
+                        @endif
                     </div>
                 </div>
 

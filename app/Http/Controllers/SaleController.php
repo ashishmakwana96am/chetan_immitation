@@ -278,6 +278,7 @@ class SaleController extends Controller
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
+                'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -655,6 +656,7 @@ class SaleController extends Controller
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
+                'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -1077,9 +1079,10 @@ class SaleController extends Controller
                             $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)->first();
                             if ($cancellationRequest) {
                                 $cancellationRequest->update([
-                                    'status'            => OrderCancellationRequest::STATUS_APPROVED,
-                                    'refund_amount'     => $refundAmount,
-                                    'refund_gateway_id' => $refundGatewayId,
+                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
+                                    'cancellation_reason' => $request->cancellation_reason ?? $cancellationRequest->cancellation_reason,
+                                    'refund_amount'       => $refundAmount,
+                                    'refund_gateway_id'   => $refundGatewayId,
                                 ]);
                             } else {
                                 OrderCancellationRequest::create([
@@ -1221,6 +1224,7 @@ class SaleController extends Controller
     {
         $itemsTotal    = 0.0;
         $minFloorTotal = 0.0;
+        $hasItems      = false;
 
         foreach ($items as $itemData) {
             $productId = is_array($itemData) ? $itemData['product_id'] : $itemData->product_id;
@@ -1233,6 +1237,7 @@ class SaleController extends Controller
             if ($qty <= 0) {
                 continue;
             }
+            $hasItems = true;
 
             $subtotal = $qty * $price;
             $discAmount = $discType === 'percentage' ? $subtotal * ($discVal / 100) : $discVal;
@@ -1254,6 +1259,17 @@ class SaleController extends Controller
                 $product = Product::find($productId);
                 $purchasePrice = $product->purchase_price ?? null;
                 $label = $product->name ?? 'Product';
+            }
+
+            $bypass = (bool) ($product->bypass_min_price ?? false);
+
+            // Product-level bypass (set on the Product record): the purchase-price+10% floor
+            // doesn't apply to this item, but its own total must still be a positive amount.
+            if ($bypass) {
+                if ($itemTotal <= 0) {
+                    return 'Item amount must be greater than 0.';
+                }
+                continue;
             }
 
             if ($purchasePrice === null) {
@@ -1284,6 +1300,10 @@ class SaleController extends Controller
         }
 
         $finalAmount = $itemsTotal - $orderDiscountAmount;
+
+        if ($hasItems && $finalAmount <= 0) {
+            return 'Order total must be greater than 0.';
+        }
 
         if ($minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
             return 'Order total cannot be less than ' . format_price($minFloorTotal)

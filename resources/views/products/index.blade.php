@@ -82,7 +82,7 @@
 
             @can('create products')
                 <button type="button" class="btn btn-outline-primary" data-common-modal="{{ route('admin.products.import.form') }}">
-                    <i class="ti ti-upload me-1"></i> Products
+                    <i class="ti ti-upload me-1"></i> Import
                 </button>
                 <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
                     <i class="ti ti-plus me-1"></i> Add Product

@@ -377,7 +377,7 @@
                         <div>
                             <span class="font-semibold text-[#131615]">Cancellation Reason:</span>
                             <p class="mt-1 text-[#757575] bg-gray-50 p-3 border border-[#EAEAEA] rounded-[4px] italic">
-                                "{{ $order->cancellationRequest->cancellation_reason }}"
+                                "{{ $order->cancellation_reason ?? $order->cancellationRequest->cancellation_reason }}"
                             </p>
                         </div>
                         <div class="text-xs text-[#757575] pt-2 border-t border-[#EAEAEA]">

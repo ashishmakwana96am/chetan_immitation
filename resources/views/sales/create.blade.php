@@ -395,6 +395,8 @@ $(document).ready(function () {
         row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
     }
     function getMinAllowedTotal(row) {
+        if (row.data('bypass-min-price')) return 0;
+
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
         const product = row.data('product');
@@ -585,11 +587,13 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
+            row.data('bypass-min-price', !!product.bypass_min_price);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
+            row.data('bypass-min-price', !!product.bypass_min_price);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -756,11 +760,15 @@ $(document).ready(function () {
 
         if (discount > subtotal) discount = subtotal;
 
-        const minTotal = getMinAllowedTotal(row);
-        const violatesFloor = minTotal > 0 && (subtotal - discount) < minTotal - 0.01;
+        const total = subtotal - discount;
+        let violatesFloor;
+        if (row.data('bypass-min-price')) {
+            violatesFloor = total <= 0;
+        } else {
+            const minTotal = getMinAllowedTotal(row);
+            violatesFloor = minTotal > 0 && total < minTotal - 0.01;
+        }
         row.find('.item-discount-value').toggleClass('is-invalid', violatesFloor);
-
-        const total    = subtotal - discount;
         if (row.hasClass('parent-row')) {
             row.find('.parent-total').text(symbol + ' ' + formatPrice(total));
         } else {
@@ -820,10 +828,10 @@ $(document).ready(function () {
             orderDiscountAmount = itemsTotal;
         }
 
-        const orderViolatesFloor = minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01;
-        $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
-
         const finalAmount = itemsTotal - orderDiscountAmount;
+        const orderViolatesFloor = (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
+            || (count > 0 && finalAmount <= 0);
+        $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
 
         $('#itemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
@@ -870,6 +878,14 @@ $(document).ready(function () {
             const itemTotal = subtotal - discount;
             itemsTotal += itemTotal;
 
+            if ($(this).data('bypass-min-price')) {
+                if (itemTotal <= 0) {
+                    $(this).find('.item-discount-value').addClass('is-invalid');
+                    errorMsg = 'Item amount must be greater than 0.';
+                }
+                return;
+            }
+
             const minTotal = getMinAllowedTotal($(this));
             if (minTotal > 0) {
                 minFloorTotal += minTotal;
@@ -889,7 +905,14 @@ $(document).ready(function () {
         let orderDiscountAmount = orderDiscType === 'percentage' ? itemsTotal * (orderDiscVal / 100) : orderDiscVal;
         if (orderDiscountAmount > itemsTotal) orderDiscountAmount = itemsTotal;
 
-        if (minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01) {
+        const finalAmount = itemsTotal - orderDiscountAmount;
+
+        if (finalAmount <= 0) {
+            $('#orderDiscountValueInput').addClass('is-invalid');
+            return 'Order total must be greater than 0.';
+        }
+
+        if (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
             $('#orderDiscountValueInput').addClass('is-invalid');
             return 'Order total cannot be less than ' + symbol + ' ' + formatPrice(minFloorTotal)
                 + ' (combined purchase price + 10% of all items).';
@@ -927,24 +950,20 @@ $(document).ready(function () {
         form.find('.select2-container .select2-selection').css('border-color', '');
         form.find('.invalid-feedback').text('').hide();
 
-        // Remove any previously appended hidden mapping container
         $('#hiddenSubmitContainer').remove();
 
-        // Create a container for our mapped inputs
         const hiddenContainer = $('<div id="hiddenSubmitContainer" style="display: none;"></div>');
         form.append(hiddenContainer);
 
-        // Disable all inputs in the visible table so they are NOT serialized
         const visibleInputs = $('#itemsTable').find('input, select');
         visibleInputs.prop('disabled', true);
 
-        // Submit each visible row as a separate item so different variants stay separate.
         let submitIdx = 0;
         $('.item-row').each(function() {
             const row = $(this);
             const product = row.data('product');
             const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return; // skip rows with 0 qty
+            if (qty <= 0) return;
 
             const variantId = row.data('variant-id') || '';
             const price = parseFloat(row.find('.item-price').val()) || 0;
