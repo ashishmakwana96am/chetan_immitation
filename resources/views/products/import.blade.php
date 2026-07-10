@@ -8,7 +8,7 @@
     <div class="row g-3">
         <div class="col-12">
             <div class="alert alert-info py-2 small mb-0" role="alert">
-                <i class="ti ti-info-circle me-1"></i> download the <a href="{{ route('admin.products.import.sample') }}" class="fw-bold text-decoration-underline text-info">Sample Excel file</a>
+                <i class="ti ti-info-circle me-1"></i> download the <a href="{{ route('admin.products.import.sample') }}" class="fw-bold text-decoration-underline text-info">Sample file</a>
             </div>
         </div>
 
