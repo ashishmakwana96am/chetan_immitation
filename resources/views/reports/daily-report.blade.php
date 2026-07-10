@@ -93,7 +93,7 @@
                     }
                 });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         updateFilterButtonsVisibility();
                     }

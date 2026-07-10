@@ -161,21 +161,28 @@ class ReportExportService
         }
 
         // Add Totals row
+        $variantParentIds = collect($products)->where('is_parent', false)->pluck('id')->unique();
+        $totalStock = 0;
+        foreach ($products as $product) {
+            $isVariantParent = $product['is_parent'] && $variantParentIds->contains($product['id']);
+            if (!$isVariantParent) {
+                $totalStock += (int) $product['total_stock'];
+            }
+        }
+
         $totalRow = $row;
         $sheet->setCellValue('A' . $totalRow, 'Total / Average');
         $sheet->setCellValue('E' . $totalRow, "=AVERAGE(E2:E" . ($totalRow - 1) . ")");
         $sheet->setCellValue('F' . $totalRow, "=AVERAGE(F2:F" . ($totalRow - 1) . ")");
         $sheet->setCellValue('G' . $totalRow, "=AVERAGE(G2:G" . ($totalRow - 1) . ")");
         $sheet->setCellValue('H' . $totalRow, "=AVERAGE(H2:H" . ($totalRow - 1) . ")");
-        $sheet->setCellValue('I' . $totalRow, "=SUM(I2:I" . ($totalRow - 1) . ")");
+        $sheet->setCellValue('I' . $totalRow, $totalStock);
 
-        // Apply Styles
         $lastCol = 'J';
         $sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($this->getHeaderStyle());
         $sheet->getStyle('A2:' . $lastCol . ($totalRow - 1))->applyFromArray($this->getDataStyle());
         $sheet->getStyle('A' . $totalRow . ':' . $lastCol . $totalRow)->applyFromArray($this->getTotalsStyle());
 
-        // Alignments & Number formats
         $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('C2:C' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('D2:D' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);

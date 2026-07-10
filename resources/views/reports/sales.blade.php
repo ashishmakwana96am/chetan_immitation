@@ -449,7 +449,7 @@
                 if (endEl._flatpickr) endEl._flatpickr.destroy();
 
                 const startPicker = $(startEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
@@ -461,13 +461,13 @@
                 });
 
                 const endPicker = $(endEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
-                            startPicker.set('maxDate', null);
+                            startPicker.set('maxDate', 'today');
                         }
                     }
                 });
@@ -481,7 +481,7 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                     }

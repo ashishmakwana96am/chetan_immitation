@@ -315,7 +315,7 @@
 
         {{-- Monospaced Thank You Note --}}
         <div style="text-align: center; font-family: Arial, sans-serif; font-size: 9.5px; font-weight: bold; line-height: 1.4;">
-            <div>Thank you for shopping with us!</div>
+            <div>Thank you for shopping by chetan imitation!</div>
         </div>
 
     </div>

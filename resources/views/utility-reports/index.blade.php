@@ -145,6 +145,7 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onChange   : function (selectedDates) {
                     if (selectedDates.length) {
                         endPicker.set('minDate', selectedDates[0]);
@@ -160,11 +161,12 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onChange   : function (selectedDates) {
                     if (selectedDates.length) {
                         startPicker.set('maxDate', selectedDates[0]);
                     } else {
-                        startPicker.set('maxDate', null);
+                        startPicker.set('maxDate', 'today');
                     }
                     updateFilterButtonsVisibility();
                 }

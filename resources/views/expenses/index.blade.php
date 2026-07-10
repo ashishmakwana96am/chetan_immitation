@@ -53,12 +53,12 @@
 
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-start-date">From Date</label>
-                        <input type="date" id="filter-start-date" class="form-control" />
+                        <input type="date" id="filter-start-date" class="form-control" max="{{ now()->format('Y-m-d') }}" />
                     </div>
 
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-end-date">To Date</label>
-                        <input type="date" id="filter-end-date" class="form-control" />
+                        <input type="date" id="filter-end-date" class="form-control" max="{{ now()->format('Y-m-d') }}" />
                     </div>
 
                     <div class="dropdown-divider"></div>

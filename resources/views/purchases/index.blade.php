@@ -154,6 +154,7 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onOpen     : function () { flatpickrOpen = true; },
                 onClose    : function (selectedDates) {
                     flatpickrOpen = false;
@@ -168,6 +169,7 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onOpen     : function () { flatpickrOpen = true; },
                 onClose    : function (selectedDates) {
                     flatpickrOpen = false;

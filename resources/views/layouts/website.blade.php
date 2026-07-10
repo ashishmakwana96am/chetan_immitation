@@ -240,8 +240,13 @@
                         <!-- Mobile Search Icon -->
 
                         <div class="search-container items-center w-[170px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
-                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') ?? session('shop_filters.search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
-                            <svg id="clearHeaderSearch" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-white/60 hover:text-white cursor-pointer mr-2 {{ (request('search') ?? session('shop_filters.search')) ? '' : 'hidden' }} shrink-0">
+                            @php
+                                $headerSearchValue = request()->routeIs('shop-by-category')
+                                    ? (request('search') ?? session('shop_filters.search'))
+                                    : null;
+                            @endphp
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ $headerSearchValue }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
+                            <svg id="clearHeaderSearch" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-white/60 hover:text-white cursor-pointer mr-2 {{ $headerSearchValue ? '' : 'hidden' }} shrink-0">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white shrink-0">
@@ -1128,10 +1133,11 @@ window.addEventListener('resize', function () {
                 headerSearch.value = '';
                 clearHeaderSearch.classList.add('hidden');
                 headerSearch.focus();
-                
-                // If we are currently on the shop page, reload to clear filters
+
                 if (window.location.pathname.includes('/shop')) {
                     window.location.href = '{{ url('/shop') }}?clear_search=1';
+                } else {
+                    fetch('{{ url('/shop') }}?clear_search=1', { redirect: 'manual', keepalive: true });
                 }
             });
         }

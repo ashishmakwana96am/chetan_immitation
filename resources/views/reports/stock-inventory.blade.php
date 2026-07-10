@@ -219,12 +219,33 @@
             $('#report-results').css('opacity', 0.5);
             window.showAjaxLoader && window.showAjaxLoader();
 
+            // These filters (category/stock/age/sort) are applied client-side after the
+            // partial reloads — the reload re-renders fresh <select> elements with no
+            // selection, so without restoring them here the user's choice is silently lost.
+            const savedFilters = {
+                category  : $('#filterCategory').val(),
+                stock     : $('#filterStock').val(),
+                age       : $('#filterAge').val(),
+                ageCustom : $('#filterAgeCustom').val(),
+                sortBy    : $('#sortBy').val(),
+            };
+
             $.get(url, function (html) {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const newResults = $(doc).find('#report-results').html();
 
                 $('#report-results').html(newResults);
+
+                $('#filterCategory').val(savedFilters.category);
+                $('#filterStock').val(savedFilters.stock);
+                $('#filterAge').val(savedFilters.age);
+                if (savedFilters.age === 'custom') {
+                    $('#customAgeWrapper').removeClass('d-none');
+                    $('#filterAgeCustom').val(savedFilters.ageCustom);
+                }
+                $('#sortBy').val(savedFilters.sortBy);
+
                 initReport();
                 initDatePickers();
                 updateFilterButtonsVisibility();
@@ -243,7 +264,7 @@
                 if (this._flatpickr) this._flatpickr.destroy();
             });
             $('#filterForm .flatpickr').flatpickr({
-                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
             });
         }
 
