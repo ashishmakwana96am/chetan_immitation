@@ -121,7 +121,7 @@ class GoogleDriveService
         $rootFolderId = $this->findOrCreateFolder('Database Backup', 'root');
 
         // 2. Get or create date-wise folder inside "Database Backup"
-        $dateFolderName = now()->format('Y-m-d');
+        $dateFolderName = now()->format('d-m-Y');
         $dateFolderId = $this->findOrCreateFolder($dateFolderName, $rootFolderId);
 
         // 3. Upload file inside the date folder
