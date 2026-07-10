@@ -1233,6 +1233,15 @@ window.addEventListener('resize', function () {
         document.body.classList.remove('modal-open');
     };
     </script>
+
+    <!-- Floating WhatsApp Chat Button -->
+    <a href="https://wa.me/919876543210" target="_blank" rel="noopener"
+        class="fixed bottom-5 right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition"
+        aria-label="Chat with us on WhatsApp">
+        <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75 animate-ping"></span>
+        <i class="fa-brands fa-whatsapp text-white text-[28px] relative"></i>
+    </a>
+
     @yield('page-js')
 </body>
 </html>

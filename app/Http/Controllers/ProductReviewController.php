@@ -17,7 +17,9 @@ class ProductReviewController extends Controller
     {
         $this->authorize('view product reviews');
 
-        $query = ProductReview::with(['product.primaryImage', 'customer', 'images'])->orderBy('id', 'desc');
+        $query = ProductReview::with(['product' => function ($q) {
+            $q->withTrashed()->with('primaryImage');
+        }, 'customer', 'images'])->orderBy('id', 'desc');
 
         if ($request->filled('rating')) {
             $query->where('rating', $request->rating);

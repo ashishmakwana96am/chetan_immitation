@@ -250,7 +250,7 @@ class ProductController extends Controller
         $subCategories = collect();
         if ($request->filled('clone_id')) {
             $this->authorize('clone products');
-            $clonedProduct = Product::with('images')->findOrFail($request->clone_id);
+            $clonedProduct = Product::with(['images', 'variants.attributeValue.attribute'])->findOrFail($request->clone_id);
             $subCategories = SubCategory::where('category_id', $clonedProduct->category_id)
                 ->where('status', 1)
                 ->orderBy('name')
@@ -283,6 +283,9 @@ class ProductController extends Controller
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
+        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -331,6 +334,9 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
+                'purchase_multiplier' => $request->purchase_multiplier,
+                'sale_multiplier' => $request->sale_multiplier,
+                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -472,6 +478,9 @@ class ProductController extends Controller
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
+        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -521,6 +530,9 @@ class ProductController extends Controller
                 'sub_category_id' => $request->sub_category_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
+                'purchase_multiplier' => $request->purchase_multiplier,
+                'sale_multiplier' => $request->sale_multiplier,
+                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -801,22 +813,23 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $columns = [
-            'Category', 'Sub Category', 'Name', 'No.', 'Barcode',
-            'Product Code', 'Discreptions', 'Product Type', 'Size', 'Colour',
+            'Category', 'Sub Category', 'Name', 'No.', 'Barcode', 'Product Code',
+            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier',
+            'Discreptions', 'Product Type', 'Size', 'Colour',
         ];
 
         // 2 categories x 5 products, using Barcode left blank so it auto-generates from "No."
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', 'Traditional short necklace - regular finish', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', 'Traditional short necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', 'Elegant long necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', 'Classic bangal - antique finish', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', 'CNC cut kadali design', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', '2.5', '4.125', '4.575', 'Traditional short necklace - regular finish', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', '2.5', '4.125', '4.575', 'Traditional short necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', '2.5', '4.125', '4.575', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', '2.5', '4.125', '4.575', 'Elegant long necklace - antique finish', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', '2.5', '4.125', '4.575', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', '2.5', '4.125', '4.575', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', '2.5', '4.125', '4.575', 'Classic bangal - antique finish', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', '2.5', '4.125', '4.575', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', '2.5', '4.125', '4.575', 'CNC cut kadali design', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', '2.5', '4.125', '4.575', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -887,6 +900,12 @@ class ProductController extends Controller
                     $normalizedHeader[] = 'sub_category';
                 } elseif ($norm === 'productcode') {
                     $normalizedHeader[] = 'product_code';
+                } elseif ($norm === 'purchasemultiplier') {
+                    $normalizedHeader[] = 'purchase_multiplier';
+                } elseif ($norm === 'salemultiplier') {
+                    $normalizedHeader[] = 'sale_multiplier';
+                } elseif ($norm === 'mrpmultiplier') {
+                    $normalizedHeader[] = 'mrp_multiplier';
                 } elseif ($norm === 'no') {
                     $normalizedHeader[] = 'no';
                 } elseif (in_array($norm, ['discreptions', 'discreption', 'descriptions', 'description'])) {
@@ -1053,12 +1072,14 @@ class ProductController extends Controller
                     $subCategoryId = $subCategory->id;
                 }
 
-                // Calculate prices
-                $purchasePrice = floatval($productCode) * 2.5;
-                $salePrice = $roundToNearest5(floatval($productCode) * 4.125);
-                $mrp = $roundToNearest5(floatval($productCode) * 4.575);
+                $purchaseMultiplier = is_numeric($row['purchase_multiplier'] ?? null) ? floatval($row['purchase_multiplier']) : 2.5;
+                $saleMultiplier = is_numeric($row['sale_multiplier'] ?? null) ? floatval($row['sale_multiplier']) : 4.125;
+                $mrpMultiplier = is_numeric($row['mrp_multiplier'] ?? null) ? floatval($row['mrp_multiplier']) : 4.575;
 
-                // Create Product
+                $purchasePrice = floatval($productCode) * $purchaseMultiplier;
+                $salePrice = $roundToNearest5(floatval($productCode) * $saleMultiplier);
+                $mrp = $roundToNearest5(floatval($productCode) * $mrpMultiplier);
+
                 $product = Product::create([
                     'name' => $name,
                     'slug' => generate_slug(Product::class, $name),
@@ -1066,6 +1087,9 @@ class ProductController extends Controller
                     'sub_category_id' => $subCategoryId,
                     'barcode' => $barcode,
                     'product_code' => $productCode,
+                    'purchase_multiplier' => $purchaseMultiplier,
+                    'sale_multiplier' => $saleMultiplier,
+                    'mrp_multiplier' => $mrpMultiplier,
                     'description' => $row['description'] ?? $name,
                     'purchase_price' => $purchasePrice,
                     'sale_price' => $salePrice,

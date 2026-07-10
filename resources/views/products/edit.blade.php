@@ -77,6 +77,21 @@
                                       placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ $product->product_code }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ $product->purchase_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ $product->sale_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ $product->mrp_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
                               <div class="col-md-6">
                                   <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
@@ -886,16 +901,25 @@
                 return Math.ceil(parseFloat(val) / 5) * 5;
             }
 
-            $('#productCodeInput').on('input change', function () {
-                const code = parseFloat($(this).val()) || 0;
-                const purchasePrice = (code * 2.5).toFixed(2);
+            function getMultipliers() {
+                return {
+                    purchase: parseFloat($('#purchaseMultiplierInput').val()) || 0,
+                    sale: parseFloat($('#saleMultiplierInput').val()) || 0,
+                    mrp: parseFloat($('#mrpMultiplierInput').val()) || 0,
+                };
+            }
+
+            $('#productCodeInput, #purchaseMultiplierInput, #saleMultiplierInput, #mrpMultiplierInput').on('input change', function () {
+                const code = parseFloat($('#productCodeInput').val()) || 0;
+                const mult = getMultipliers();
+                const purchasePrice = (code * mult.purchase).toFixed(2);
                 const isPair = $('#productPair').is(':checked');
 
                 if (isPair) {
-                    const pairSalePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const pairMrp = roundToNearest5(code * 4.575).toFixed(2);
-                    const singleSalePrice = roundToNearest5((code / 2) * 4.125).toFixed(2);
-                    const singleMrp = roundToNearest5((code / 2) * 4.575).toFixed(2);
+                    const pairSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const pairMrp = roundToNearest5(code * mult.mrp).toFixed(2);
+                    const singleSalePrice = roundToNearest5((code / 2) * mult.sale).toFixed(2);
+                    const singleMrp = roundToNearest5((code / 2) * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(singleSalePrice).trigger('change');
@@ -903,8 +927,8 @@
                     $('#pairSalePriceInput').val(pairSalePrice);
                     $('#pairMrpInput').val(pairMrp);
                 } else {
-                    const salePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const mrp = roundToNearest5(code * 4.575).toFixed(2);
+                    const salePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const mrp = roundToNearest5(code * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(salePrice).trigger('change');
@@ -943,11 +967,15 @@
             updatePairPricingLabels($('#productPair').is(':checked'));
 
             $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $('#pairSalePriceInput').on('input', function () {
-                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {
