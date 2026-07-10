@@ -169,6 +169,7 @@
                 <tr>
                     <th>#</th>
                     <th>Product</th>
+                    <th>Last Purchase Date</th>
                     <th>Barcode</th>
                     <th>Category</th>
                     @foreach($locations as $location)
@@ -176,7 +177,6 @@
                     @endforeach
                     <th class="text-center">Total</th>
                     <th class="text-end">Stock Value</th>
-                    <th>Last Purchase Date</th>
                     <th class="text-center">Inventory Age</th>
                 </tr>
             </thead>
@@ -204,6 +204,7 @@
                                 <span class="text-muted ps-4">↳ {{ $product['variant_name'] }}</span>
                             @endif
                         </td>
+                        <td data-order="{{ $product['last_purchase_date'] ?? '' }}">{{ $product['last_purchase_display'] }}</td>
                         <td>
                             @if($product['is_parent'])
                                 <code>{{ $product['barcode'] }}</code>
@@ -232,7 +233,6 @@
                             </span>
                         </td>
                         <td class="text-end">{{ format_price($product['stock_value']) }}</td>
-                        <td data-order="{{ $product['last_purchase_date'] ?? '' }}">{{ $product['last_purchase_display'] }}</td>
                         <td class="text-center" data-order="{{ $product['age_sort'] }}">
                             @if(is_null($product['age_days']))
                                 <span class="badge bg-label-secondary">{{ $product['age_display'] }}</span>

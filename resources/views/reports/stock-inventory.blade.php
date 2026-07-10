@@ -44,8 +44,8 @@
                 $('#stockTable').DataTable().destroy();
             }
 
-            const lastPurchaseColumnIndex = 4 + {{ $locations->count() }} + 2;
-            const ageColumnIndex = lastPurchaseColumnIndex + 1;
+            const lastPurchaseColumnIndex = 2;
+            const ageColumnIndex = 4 + {{ $locations->count() }} + 3;
 
             const hasDateFilter = !!($('input[name="from_date"]').val() || $('input[name="to_date"]').val());
             const defaultOrder = hasDateFilter ? [lastPurchaseColumnIndex, 'asc'] : [lastPurchaseColumnIndex, 'desc'];
