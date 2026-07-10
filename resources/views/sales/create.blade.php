@@ -113,7 +113,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">New Sale</h4>
         <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">
             <i class="ti ti-arrow-left me-1"></i> Back

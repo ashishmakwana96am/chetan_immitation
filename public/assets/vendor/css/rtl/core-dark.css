@@ -17944,6 +17944,11 @@ html:not(.layout-menu-fixed) .menu-inner-shadow {
   border-radius: 0.375rem;
   padding: 0 1.5rem;
 }
+@media(max-width:768px){
+  .layout-navbar.navbar-detached {
+     padding: 0 12px;
+  }
+}
 .layout-navbar.navbar-detached.container-xxl {
   max-width: calc(1440px - calc(1.5rem * 2));
 }

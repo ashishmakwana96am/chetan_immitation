@@ -3,7 +3,7 @@
 @section('title', 'Edit Product')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Edit Product</h4>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.products.show', $product) }}" class="btn btn-label-secondary">

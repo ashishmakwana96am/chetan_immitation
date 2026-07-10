@@ -8,7 +8,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Roles List</h4>
         @can('create roles')
             <button class="btn btn-primary" data-common-modal="{{ route('admin.roles.create') }}" data-size="modal-xl">

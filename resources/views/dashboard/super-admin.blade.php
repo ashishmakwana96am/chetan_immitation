@@ -8,7 +8,7 @@
 
 @section('content')
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Dashboard</h4>
             <small class="text-muted">Welcome back, {{ auth()->user()->name }}</small>
@@ -247,6 +247,7 @@
                     <div class="card">
                         <div class="card-header"><h5 class="mb-0">Top Selling Products</h5></div>
                         <div class="card-body p-0">
+                          <div class="table-responsive">
                             <table class="table mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -278,6 +279,7 @@
                                     @endforelse
                                 </tbody>
                             </table>
+                           </div>
                         </div>
                     </div>
                 </div>
