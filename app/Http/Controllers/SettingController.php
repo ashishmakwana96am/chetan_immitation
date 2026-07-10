@@ -192,7 +192,10 @@ class SettingController extends Controller
         }
         $filePath = $backupDir . DIRECTORY_SEPARATOR . $fileName;
 
-        $mysqldumpBin = env('MYSQLDUMP_PATH', 'C:\\xampp\\mysql\\bin\\mysqldump.exe');
+        $defaultMysqldump = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
+            ? 'C:\\xampp\\mysql\\bin\\mysqldump.exe'
+            : 'mysqldump';
+        $mysqldumpBin = env('MYSQLDUMP_PATH', $defaultMysqldump);
 
         $command = [
             $mysqldumpBin,
