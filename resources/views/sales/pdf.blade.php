@@ -623,7 +623,7 @@
 
     {{-- ── FOOTER ────────────────────────────────────────────────────── --}}
     <div class="footer">
-        <div class="footer-thank">Thank you for your business!</div>
+        <div class="footer-thank">Thank you for shopping by chetan imitation!</div>
         <div class="footer-text">
             Generated on {{ now()->format('d M Y, H:i') }}
             &nbsp;&bull;&nbsp;

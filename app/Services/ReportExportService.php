@@ -367,6 +367,65 @@ class ReportExportService
     }
 
     /**
+     * Export Purchase Bills List.
+     */
+    public function exportPurchaseBills($transfers): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Purchase Bills');
+
+        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Status', 'Created By', 'Date'];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        $statusLabels = [
+            1 => 'Pending',
+            2 => 'Accepted',
+            3 => 'Rejected',
+        ];
+
+        $row = 2;
+        foreach ($transfers as $index => $transfer) {
+            $totalAmount = $transfer->items->sum(function ($item) {
+                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                return $price * $item->quantity;
+            });
+
+            $sheet->setCellValue('A' . $row, $index + 1);
+            $sheet->setCellValue('B' . $row, $transfer->transfer_no);
+            $sheet->setCellValue('C' . $row, $transfer->fromLocation->name ?? '-');
+            $sheet->setCellValue('D' . $row, $transfer->toLocation->name ?? '-');
+            $sheet->setCellValue('E' . $row, $transfer->items_count);
+            $sheet->setCellValue('F' . $row, (float) $totalAmount);
+            $sheet->setCellValue('G' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
+            $sheet->setCellValue('H' . $row, $transfer->createdBy->name ?? '-');
+            $sheet->setCellValue('I' . $row, $transfer->created_at->format('d M Y'));
+            $row++;
+        }
+
+        $totalRow = $row;
+        $sheet->setCellValue('A' . $totalRow, 'Total');
+        $sheet->setCellValue('F' . $totalRow, "=SUM(F2:F" . ($totalRow - 1) . ")");
+
+        $sheet->getStyle('A1:I1')->applyFromArray($this->getHeaderStyle());
+        $sheet->getStyle('A2:I' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
+        $sheet->getStyle('A' . $totalRow . ':I' . $totalRow)->applyFromArray($this->getTotalsStyle());
+
+        $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B2:B' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('E2:E' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('G2:G' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('I2:I' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F2:F' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
+
+        $this->autoFitColumns($sheet);
+
+        return $spreadsheet;
+    }
+
+    /**
      * Export Sales Report (2 Sheets: Orders List & Top Products).
      */
     public function exportSales($orders, $productSales): Spreadsheet

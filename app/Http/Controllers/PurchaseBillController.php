@@ -8,12 +8,21 @@ use App\Models\Product;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Services\ActivityLogger;
+use App\Services\ReportExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PurchaseBillController extends Controller
 {
+    protected $exportService;
+
+    public function __construct(ReportExportService $exportService)
+    {
+        $this->exportService = $exportService;
+    }
+
     public function index()
     {
         $this->authorize('view purchase bills');
@@ -99,6 +108,7 @@ class PurchaseBillController extends Controller
                 'to_location' => e($transfer->toLocation->name ?? '-'),
                 'items_count' => $transfer->items_count,
                 'total_amount' => currency_symbol() . ' ' . number_format($totalAmount, 2),
+                'total_amount_raw' => $totalAmount,
                 'status' => $statusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
                 'date_group' => $transfer->created_at->format('d M Y'),
@@ -111,6 +121,39 @@ class PurchaseBillController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+    }
+
+    public function export(Request $request)
+    {
+        $this->authorize('export purchase bills');
+
+        $user = auth()->user();
+
+        $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+            ->withCount('items')
+            ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('from_location_id', $user->location_id)
+                        ->orWhere('to_location_id', $user->location_id);
+                });
+            })
+            ->when($request->from_location_id, fn ($q) => $q->where('from_location_id', $request->from_location_id))
+            ->when($request->to_location_id, fn ($q) => $q->where('to_location_id', $request->to_location_id))
+            ->when($request->status, fn ($q) => $q->where('status', $request->status))
+            ->orderByDesc('id')
+            ->get();
+
+        $spreadsheet = $this->exportService->exportPurchaseBills($transfers);
+
+        ActivityLogger::log('Purchase Bill', 'export', null, null, null, 'Purchase bills exported to Excel');
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, 'purchase_bills_' . now()->format('Ymd_His') . '.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function create()

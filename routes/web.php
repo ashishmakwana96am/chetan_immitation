@@ -172,6 +172,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Purchase Bills
         Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
+        Route::get('purchase-bills/export', [PurchaseBillController::class, 'export'])->name('purchase-bills.export');
         Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
         Route::patch('purchase-bills/{purchaseBill}/accept', [PurchaseBillController::class, 'accept'])->name('purchase-bills.accept');
         Route::patch('purchase-bills/{purchaseBill}/reject', [PurchaseBillController::class, 'reject'])->name('purchase-bills.reject');

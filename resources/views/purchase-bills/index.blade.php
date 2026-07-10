@@ -55,6 +55,12 @@
                 </div>
             </div>
 
+            @can('export purchase bills')
+                <button type="button" id="btnExportPurchaseBills" class="btn btn-success">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Export
+                </button>
+            @endcan
+
             @can('create purchase bills')
                 <a href="{{ route('admin.purchase-bills.create') }}" class="btn btn-primary">
                     <i class="ti ti-plus me-1"></i> Add New Purchase Bill
@@ -81,6 +87,13 @@
                         <th class="d-none">Date Sort</th>
                     </tr>
                 </thead>
+                <tfoot>
+                    <tr>
+                        <th colspan="5" class="text-end">Total</th>
+                        <th id="purchaseBillsTotalAmount"></th>
+                        <th colspan="3"></th>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
@@ -124,7 +137,15 @@
                     { data: 'actions', orderable: false },
                     { data: 'date_group', visible: false },
                     { data: 'date_sort', visible: false },
+                    { data: 'total_amount_raw', visible: false, searchable: false },
                 ],
+                footerCallback: function () {
+                    const api = this.api();
+                    const total = api.column(11, { search: 'applied' }).data().reduce(function (a, b) {
+                        return (parseFloat(a) || 0) + (parseFloat(b) || 0);
+                    }, 0);
+                    $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                },
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
@@ -137,6 +158,15 @@
             window.refreshTable = function () {
                 table.ajax.reload(null, false);
             };
+
+            $('#btnExportPurchaseBills').on('click', function () {
+                const params = $.param({
+                    from_location_id: $('#filter-from-location').val() || '',
+                    to_location_id: $('#filter-to-location').val() || '',
+                    status: $('#filter-status').val() || '',
+                });
+                window.location.href = '{{ route('admin.purchase-bills.export') }}?' + params;
+            });
 
             $('#btnApplyFilter').on('click', function () {
                 window.refreshTable();
