@@ -516,12 +516,38 @@
         );
 
         new ApexCharts(document.getElementById('topStockChart'), {
-            chart  : { type: 'bar', height: 300, toolbar: { show: false } },
-            series : [{ name: 'Stock', data: top10.map(p => p.stock) }],
-            xaxis  : { categories: top10.map(p => p.name), labels: { rotate: -30 } },
+            chart  : { type: 'bar', height: 340, toolbar: { show: false } },
+            series : [{ name: 'Stock', data: top10.map(p => p.stock).reverse() }],
+            xaxis  : {
+                categories: top10.map(p => p.name).reverse(),
+                labels: {
+                    style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                    formatter: function (val) { return parseInt(val); }
+                }
+            },
+            yaxis  : {
+                labels: {
+                    style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 },
+                    maxWidth: 220
+                }
+            },
             colors : ['#B4771E'],
-            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-            dataLabels : { enabled: false },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%' } },
+            dataLabels : {
+                enabled: true,
+                style: { fontSize: '11px', fontFamily: 'Public Sans', fontWeight: '600', colors: ['#fff'] },
+                formatter: function (val) { return parseInt(val); },
+                offsetX: 0
+            },
+            grid: {
+                borderColor: '#e5e5e5',
+                xaxis: { lines: { show: true } },
+                yaxis: { lines: { show: false } },
+                padding: { top: -15, right: 10, bottom: -10, left: 10 }
+            },
+            tooltip: {
+                y: { formatter: function (val) { return val + ' units'; } }
+            },
         }).render();
 
     });
