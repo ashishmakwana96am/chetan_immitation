@@ -175,7 +175,11 @@ if (!function_exists('generate_invoice_no')) {
         $date   = now()->format('Ymd');
         $prefix = strtoupper($prefix) . '-' . $date . '-';
 
-        $last = $model::where($column, 'like', $prefix . '%')
+        $query = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model))
+            ? $model::withTrashed()
+            : $model::query();
+
+        $last = $query->where($column, 'like', $prefix . '%')
             ->orderByDesc($column)
             ->value($column);
 
