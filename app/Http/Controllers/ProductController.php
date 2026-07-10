@@ -813,23 +813,23 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $columns = [
-            'Category', 'Sub Category', 'Name', 'No.', 'Barcode', 'Product Code',
+            'Category', 'Sub Category', 'Name', 'Barcode', 'Product Code',
             'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier',
             'Product Type', 'Size', 'Colour',
         ];
 
-        // 2 categories x 5 products, using Barcode left blank so it auto-generates from "No."
+        // 2 categories x 5 products, using Barcode left blank so it auto-generates sequentially
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '100.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '110.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '150.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '160.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '200.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '90.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '95.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '130.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '140.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '160.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Silver, Rose Gold'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', '', '100.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', '', '110.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', '', '150.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', '', '160.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', '', '200.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', '', '90.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', '', '95.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', '', '130.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', '', '140.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', '', '160.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Silver, Rose Gold'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -978,13 +978,12 @@ class ProductController extends Controller
 
                 // Validate required fields
                 $name = $row['name'] ?? null;
-                $no = $row['no'] ?? null;
                 $productCode = $row['product_code'] ?? null;
                 $categoryName = $row['category'] ?? null;
                 $type = strtolower($row['product_type'] ?? 'normal');
 
-                if (empty($name) || empty($no) || empty($productCode) || empty($categoryName)) {
-                    $errors[] = "Row {$rowNum}: Missing required product details (Name, No., Product Code, and Category are required).";
+                if (empty($name) || empty($productCode) || empty($categoryName)) {
+                    $errors[] = "Row {$rowNum}: Missing required product details (Name, Product Code, and Category are required).";
                     continue;
                 }
 
@@ -998,7 +997,7 @@ class ProductController extends Controller
                     continue;
                 }
 
-                // Use the Barcode given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
+                // Use the Barcode given in the sheet, or build a unique one sequentially
                 $barcodeInput = trim($row['barcode'] ?? '');
                 if (!empty($barcodeInput)) {
                     if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
@@ -1007,15 +1006,9 @@ class ProductController extends Controller
                     }
                     $barcode = $barcodeInput;
                 } else {
-                    $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $no));
-                    if (empty($prefix)) {
-                        $errors[] = "Row {$rowNum}: No. must contain at least one letter or number.";
-                        continue;
-                    }
-
-                    $seq = Product::withTrashed()->where('barcode', 'like', $prefix . '-%')->count() + 1;
+                    $seq = Product::withTrashed()->count() + 1;
                     do {
-                        $barcode = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                        $barcode = str_pad($seq, 8, '0', STR_PAD_LEFT);
                         $seq++;
                     } while (Product::withTrashed()->where('barcode', $barcode)->exists());
                 }
