@@ -291,38 +291,40 @@
                             <h5 class="mb-0"><i class="ti ti-alert-triangle me-1"></i> Low Stock Alert</h5>
                         </div>
                         <div class="card-body p-0">
-                            <table class="table mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Category</th>
-                                        <th class="text-end">Stock</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($lowStock as $product)
+                            <div class="table-responsive">
+                                <table class="table mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    @if($product->primaryImage)
-                                                        <img src="{{ $product->primaryImage->image_url }}" alt="{{ $product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                                    @else
-                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                                        </div>
-                                                    @endif
-                                                    <a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a>
-                                                </div>
-                                            </td>
-                                            <td>{{ $product->category->name ?? '-' }}</td>
-                                            @php($lowStockQty = $product->totalAvailableStock())
-                                            <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $lowStockQty }}</span></td>
+                                            <th>Product</th>
+                                            <th>Category</th>
+                                            <th class="text-end">Stock</th>
                                         </tr>
-                                    @empty
-                                        <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($lowStock as $product)
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        @if($product->primaryImage)
+                                                            <img src="{{ $product->primaryImage->image_url }}" alt="{{ $product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                        @else
+                                                            <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                                <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                                            </div>
+                                                        @endif
+                                                        <a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a>
+                                                    </div>
+                                                </td>
+                                                <td>{{ $product->category->name ?? '-' }}</td>
+                                                @php($lowStockQty = $product->totalAvailableStock())
+                                                <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $lowStockQty }}</span></td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
