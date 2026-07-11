@@ -836,7 +836,7 @@ function renderOrderPagination(totalPages) {
 
   pg.innerHTML = `
     <nav class="mt-8 md:mt-10 w-full max-w-full overflow-visible px-1" role="navigation">
-        <div class="flex w-full max-w-full flex-nowrap items-center justify-center gap-2 md:gap-3">
+        <div class="flex w-full max-w-full flex-nowrap items-center justify-center gap-2 md:gap-3 flex-wrap">
             ${prev}
             ${pages}
             ${next}
