@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ComingSoon;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\EnsureCustomerIsActive;
 use App\Http\Middleware\PreventResponseCaching;
 use App\Http\Middleware\RedirectIfAdminAuthenticated;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.guest' => RedirectIfAdminAuthenticated::class,
             'active.user' => EnsureUserIsActive::class,
+            'active.customer' => EnsureCustomerIsActive::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -41,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             PreventResponseCaching::class,
             ComingSoon::class,
+            EnsureCustomerIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

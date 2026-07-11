@@ -29,6 +29,9 @@ class Purchase extends Model
         'supplier_id',
         'invoice_no',
         'total_amount',
+        'discount_type',
+        'discount_value',
+        'discount_amount',
         'status',
         'payment_status',
         'created_by',
@@ -38,6 +41,8 @@ class Purchase extends Model
     {
         return [
             'total_amount' => 'decimal:2',
+            'discount_value' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
         ];
     }
 

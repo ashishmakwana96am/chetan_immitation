@@ -123,7 +123,7 @@ class SaleController extends Controller
             $stockWarningHtml = '';
             $isFallbackOrder = !$order->is_default;
 
-            if ($isFallbackOrder) {
+            if ($isFallbackOrder && (int)$order->status === Order::STATUS_PENDING) {
                 $issueBlocks = [];
                 foreach ($order->items as $item) {
                     if ($item->product_variant_id) {
@@ -279,6 +279,7 @@ class SaleController extends Controller
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
+                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -657,6 +658,7 @@ class SaleController extends Controller
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
+                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -1262,6 +1264,14 @@ class SaleController extends Controller
             }
 
             $bypass = (bool) ($product->bypass_min_price ?? false);
+            $allowFullDiscount = (bool) ($product->allow_full_discount ?? false);
+
+            if ($allowFullDiscount) {
+                if ($itemTotal < 0) {
+                    return 'Item amount cannot be negative.';
+                }
+                continue;
+            }
 
             // Product-level bypass (set on the Product record): the purchase-price+10% floor
             // doesn't apply to this item, but its own total must still be a positive amount.
@@ -1301,8 +1311,8 @@ class SaleController extends Controller
 
         $finalAmount = $itemsTotal - $orderDiscountAmount;
 
-        if ($hasItems && $finalAmount <= 0) {
-            return 'Order total must be greater than 0.';
+        if ($hasItems && $finalAmount < 0) {
+            return 'Order total cannot be negative.';
         }
 
         if ($minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {

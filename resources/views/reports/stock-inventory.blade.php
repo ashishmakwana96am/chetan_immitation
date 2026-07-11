@@ -268,11 +268,18 @@
             });
         }
 
+        let isFiltered = false;
+
         function updateFilterButtonsVisibility() {
             const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
                 return $(el).val();
             });
             $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+            if (!hasValue && isFiltered) {
+                isFiltered = false;
+                loadReport('{{ route('admin.reports.stock-inventory') }}');
+            }
         }
 
         $(document).on('input change', '#filterForm', function () {
@@ -281,11 +288,13 @@
         updateFilterButtonsVisibility();
 
         $(document).on('click', '#applyFiltersBtn', function () {
+            isFiltered = true;
             const form = $('#filterForm');
             loadReport(form.attr('action') + '?' + form.serialize());
         });
 
         $(document).on('click', '#clearFiltersBtn', function() {
+            isFiltered = false;
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
             $('#filterAge').val('').trigger('change.select2');

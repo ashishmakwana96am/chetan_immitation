@@ -473,3 +473,23 @@ input[readonly].flatpickr,
   opacity: 0.9;
 }
 
+/* Filter buttons hover custom styling */
+#clearFiltersBtn:hover {
+  background-color: #B4771E !important;
+  border-color: #B4771E !important;
+  color: #fff !important;
+}
+#clearFiltersBtn:hover i {
+  color: #fff !important;
+}
+
+#applyFiltersBtn:hover {
+  background-color: transparent !important;
+  border-color: #B4771E !important;
+  color: #B4771E !important;
+}
+#applyFiltersBtn:hover i {
+  color: #B4771E !important;
+}
+
+

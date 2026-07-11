@@ -306,6 +306,11 @@
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
+        $(document).ajaxError(function(event, xhr, settings, thrownError) {
+            if (xhr.status === 401 || xhr.status === 419) {
+                window.location.reload();
+            }
+        });
     </script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
     <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>

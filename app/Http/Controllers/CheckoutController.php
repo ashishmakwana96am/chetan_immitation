@@ -160,11 +160,15 @@ class CheckoutController extends Controller
                 session()->forget('applied_coupon_code');
             }
         }
-        $defaultAddress = $addresses->first();
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        $activeStateNames = $states->pluck('name')->toArray();
+
+        $defaultAddress = $addresses->first(function ($address) use ($activeStateNames) {
+            return in_array($address->state, $activeStateNames);
+        });
+
         $shipping = $this->calculateShipping($subtotal, $defaultAddress, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
-
-        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
 
         $paymentMethodCod = (bool) Setting::getValue('payment_method_cod', true);
         $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
@@ -173,7 +177,7 @@ class CheckoutController extends Controller
             $paymentMethodCod = true;
         }
 
-        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'states', 'paymentMethodCod', 'paymentMethodRazorpay'));
+        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'states', 'paymentMethodCod', 'paymentMethodRazorpay', 'defaultAddress'));
     }
 
     public function saveAddress(Request $request)
@@ -378,6 +382,14 @@ class CheckoutController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Please select a valid shipping address.',
+            ], 422);
+        }
+
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
             ], 422);
         }
 
@@ -687,6 +699,14 @@ class CheckoutController extends Controller
 
         if (! $address) {
             return response()->json(['status' => 'error', 'message' => 'Please select a valid shipping address.'], 422);
+        }
+
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
+            ], 422);
         }
 
         $product = Product::where('status', Product::STATUS_ACTIVE)
@@ -1075,6 +1095,14 @@ class CheckoutController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Please select a valid shipping address.',
+            ], 422);
+        }
+
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
             ], 422);
         }
 

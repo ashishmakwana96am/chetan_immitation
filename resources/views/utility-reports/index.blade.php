@@ -53,16 +53,8 @@
 
     <!-- Filters -->
     <div class="card mb-4" id="filterReportCard">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
             <h5 class="mb-0">Filter Report</h5>
-            <div class="d-flex gap-2 d-none" id="filterActionButtons">
-                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
-                    <i class="ti ti-filter me-1"></i> Apply
-                </button>
-                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Clear
-                </button>
-            </div>
         </div>
         <div class="card-body">
             <form id="filterForm" class="row g-3" onsubmit="return false;">
@@ -110,6 +102,14 @@
                     <label class="form-label">End Date</label>
                     <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                     <small class="text-muted">Defaults to the last 30 days when left blank.</small>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
                 </div>
             </form>
         </div>
@@ -172,11 +172,18 @@
                 }
             });
 
+            let isFiltered = false;
+
             function updateFilterButtonsVisibility() {
                 const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
                     return $(el).val();
                 });
                 $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+                if (!hasValue && isFiltered) {
+                    isFiltered = false;
+                    window.refreshTable();
+                }
             }
 
             $(document).on('input change', '#filterForm', function () {
@@ -254,11 +261,13 @@
 
             $(document).on('click', '#applyFiltersBtn', function (e) {
                 e.preventDefault();
+                isFiltered = true;
                 window.refreshTable();
             });
 
             $(document).on('click', '#clearFiltersBtn', function (e) {
                 e.preventDefault();
+                isFiltered = false;
                 $('#filter-user').val('').trigger('change.select2');
                 $('#filter-location').val('').trigger('change.select2');
                 $('#filter-module').val('').trigger('change.select2');

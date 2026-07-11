@@ -168,6 +168,10 @@ class PurchaseController extends Controller
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
@@ -186,31 +190,90 @@ class PurchaseController extends Controller
         }
 
         DB::transaction(function () use ($request, $defaultLocation) {
-            $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
-
-            $invoice = Purchase::create([
-                'supplier_id'    => $request->supplier_id,
-                'invoice_no'     => generate_invoice_no('PUR', Purchase::class),
-                'total_amount'   => $totalAmount,
-                'status'         => $request->status ?? 2,
-                'payment_status' => $request->payment_status ?? 1,
-                'created_by'     => auth()->id(),
-            ]);
+            $itemsTotal = 0.0;
+            $itemsData = [];
 
             foreach ($request->items as $itemData) {
-                $item = PurchaseItem::create([
-                    'purchase_id' => $invoice->id,
-                    'product_id'          => $itemData['product_id'],
-                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
-                    'purchase_price'      => $itemData['purchase_price'],
-                    'quantity'            => $itemData['quantity'],
-                    'total'               => $itemData['purchase_price'] * $itemData['quantity'],
+                $qty = (int)$itemData['quantity'];
+                $price = (float)$itemData['purchase_price'];
+                $subtotal = $qty * $price;
+
+                $discVal = (float)($itemData['discount_value'] ?? 0);
+                $discType = $itemData['discount_type'] ?? 'flat';
+
+                $discAmount = 0.0;
+                if ($discType === 'flat') {
+                    $discAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $discAmount = $subtotal * ($discVal / 100);
+                }
+
+                if ($discAmount > $subtotal) {
+                    $discAmount = $subtotal;
+                }
+
+                $itemTotal = $subtotal - $discAmount;
+                $itemsTotal += $itemTotal;
+
+                $itemsData[] = [
+                    'product_id'         => $itemData['product_id'],
+                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'purchase_price'     => $price,
+                    'discount_type'      => $discType,
+                    'discount_value'     => $discVal,
+                    'discount_amount'    => $discAmount,
+                    'quantity'           => $qty,
+                    'total'              => $itemTotal,
+                ];
+            }
+
+            $orderDiscVal = (float)($request->discount_value ?? 0);
+            $orderDiscType = $orderDiscVal > 0 ? ($request->discount_type ?? 'flat') : null;
+
+            $orderDiscountAmount = 0.0;
+            if ($orderDiscVal > 0) {
+                if ($orderDiscType === 'flat') {
+                    $orderDiscountAmount = $orderDiscVal;
+                } else if ($orderDiscType === 'percentage') {
+                    $orderDiscountAmount = $itemsTotal * ($orderDiscVal / 100);
+                }
+            }
+
+            if ($orderDiscountAmount > $itemsTotal) {
+                $orderDiscountAmount = $itemsTotal;
+            }
+
+            $finalAmount = $itemsTotal - $orderDiscountAmount;
+
+            $invoice = Purchase::create([
+                'supplier_id'     => $request->supplier_id,
+                'invoice_no'      => generate_invoice_no('PUR', Purchase::class),
+                'total_amount'    => $finalAmount,
+                'discount_type'   => $orderDiscType,
+                'discount_value'  => $orderDiscVal,
+                'discount_amount' => $orderDiscountAmount,
+                'status'          => $request->status ?? 2,
+                'payment_status'  => $request->payment_status ?? 1,
+                'created_by'      => auth()->id(),
+            ]);
+
+            foreach ($itemsData as $item) {
+                $createdItem = PurchaseItem::create([
+                    'purchase_id'        => $invoice->id,
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'purchase_price'     => $item['purchase_price'],
+                    'discount_type'      => $item['discount_type'],
+                    'discount_value'     => $item['discount_value'],
+                    'discount_amount'    => $item['discount_amount'],
+                    'quantity'           => $item['quantity'],
+                    'total'              => $item['total'],
                 ]);
 
                 PurchaseAllocation::create([
-                    'purchase_item_id' => $item->id,
+                    'purchase_item_id' => $createdItem->id,
                     'location_id'      => $defaultLocation->id,
-                    'quantity'         => $itemData['quantity'],
+                    'quantity'         => $item['quantity'],
                 ]);
             }
 
@@ -248,6 +311,8 @@ class PurchaseController extends Controller
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'purchase_price'     => $item->purchase_price,
+                'discount_type'      => $item->discount_type ?? 'flat',
+                'discount_value'     => $item->discount_value ?? 0,
                 'quantity'           => $item->quantity,
             ];
         })->values();
@@ -266,6 +331,10 @@ class PurchaseController extends Controller
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
+            'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
+            'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2'],
         ]);
@@ -284,7 +353,60 @@ class PurchaseController extends Controller
         }
 
         DB::transaction(function () use ($request, $purchase, $defaultLocation) {
-            $totalAmount = collect($request->items)->sum(fn($item) => $item['purchase_price'] * $item['quantity']);
+            $itemsTotal = 0.0;
+            $itemsData = [];
+
+            foreach ($request->items as $itemData) {
+                $qty = (int)$itemData['quantity'];
+                $price = (float)$itemData['purchase_price'];
+                $subtotal = $qty * $price;
+
+                $discVal = (float)($itemData['discount_value'] ?? 0);
+                $discType = $itemData['discount_type'] ?? 'flat';
+
+                $discAmount = 0.0;
+                if ($discType === 'flat') {
+                    $discAmount = $discVal;
+                } else if ($discType === 'percentage') {
+                    $discAmount = $subtotal * ($discVal / 100);
+                }
+
+                if ($discAmount > $subtotal) {
+                    $discAmount = $subtotal;
+                }
+
+                $itemTotal = $subtotal - $discAmount;
+                $itemsTotal += $itemTotal;
+
+                $itemsData[] = [
+                    'product_id'         => $itemData['product_id'],
+                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'purchase_price'     => $price,
+                    'discount_type'      => $discType,
+                    'discount_value'     => $discVal,
+                    'discount_amount'    => $discAmount,
+                    'quantity'           => $qty,
+                    'total'              => $itemTotal,
+                ];
+            }
+
+            $orderDiscVal = (float)($request->discount_value ?? 0);
+            $orderDiscType = $orderDiscVal > 0 ? ($request->discount_type ?? 'flat') : null;
+
+            $orderDiscountAmount = 0.0;
+            if ($orderDiscVal > 0) {
+                if ($orderDiscType === 'flat') {
+                    $orderDiscountAmount = $orderDiscVal;
+                } else if ($orderDiscType === 'percentage') {
+                    $orderDiscountAmount = $itemsTotal * ($orderDiscVal / 100);
+                }
+            }
+
+            if ($orderDiscountAmount > $itemsTotal) {
+                $orderDiscountAmount = $itemsTotal;
+            }
+
+            $finalAmount = $itemsTotal - $orderDiscountAmount;
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
@@ -294,28 +416,34 @@ class PurchaseController extends Controller
             }
 
             $purchase->update([
-                'supplier_id'    => $request->supplier_id,
-                'total_amount'   => $totalAmount,
-                'status'         => $newStatus,
-                'payment_status' => $request->payment_status ?? 1,
+                'supplier_id'     => $request->supplier_id,
+                'total_amount'    => $finalAmount,
+                'discount_type'   => $orderDiscType,
+                'discount_value'  => $orderDiscVal,
+                'discount_amount' => $orderDiscountAmount,
+                'status'          => $newStatus,
+                'payment_status'  => $request->payment_status ?? 1,
             ]);
 
             $purchase->items()->delete();
 
-            foreach ($request->items as $itemData) {
-                $item = PurchaseItem::create([
-                    'purchase_id' => $purchase->id,
-                    'product_id'          => $itemData['product_id'],
-                    'product_variant_id'  => $itemData['product_variant_id'] ?? null,
-                    'purchase_price'      => $itemData['purchase_price'],
-                    'quantity'            => $itemData['quantity'],
-                    'total'               => $itemData['purchase_price'] * $itemData['quantity'],
+            foreach ($itemsData as $item) {
+                $createdItem = PurchaseItem::create([
+                    'purchase_id'        => $purchase->id,
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'purchase_price'     => $item['purchase_price'],
+                    'discount_type'      => $item['discount_type'],
+                    'discount_value'     => $item['discount_value'],
+                    'discount_amount'    => $item['discount_amount'],
+                    'quantity'           => $item['quantity'],
+                    'total'              => $item['total'],
                 ]);
 
                 PurchaseAllocation::create([
-                    'purchase_item_id' => $item->id,
+                    'purchase_item_id' => $createdItem->id,
                     'location_id'      => $defaultLocation->id,
-                    'quantity'         => $itemData['quantity'],
+                    'quantity'         => $item['quantity'],
                 ]);
             }
 

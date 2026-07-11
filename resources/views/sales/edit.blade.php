@@ -398,7 +398,7 @@ $(document).ready(function () {
         row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
     }
     function getMinAllowedTotal(row) {
-        if (row.data('bypass-min-price')) return 0;
+        if (row.data('allow-full-discount') || row.data('bypass-min-price')) return 0;
 
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
@@ -592,12 +592,14 @@ $(document).ready(function () {
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
             row.data('bypass-min-price', !!product.bypass_min_price);
+            row.data('allow-full-discount', !!product.allow_full_discount);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
             row.data('bypass-min-price', !!product.bypass_min_price);
+            row.data('allow-full-discount', !!product.allow_full_discount);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -828,7 +830,9 @@ $(document).ready(function () {
 
         const total = subtotal - discount;
         let violatesFloor;
-        if (row.data('bypass-min-price')) {
+        if (row.data('allow-full-discount')) {
+            violatesFloor = total < 0;
+        } else if (row.data('bypass-min-price')) {
             violatesFloor = total <= 0;
         } else {
             const minTotal = getMinAllowedTotal(row);
@@ -951,6 +955,14 @@ $(document).ready(function () {
             const itemTotal = subtotal - discount;
             itemsTotal += itemTotal;
 
+            if ($(this).data('allow-full-discount')) {
+                if (itemTotal < 0) {
+                    $(this).find('.item-discount-value').addClass('is-invalid');
+                    errorMsg = 'Item amount cannot be negative.';
+                }
+                return;
+            }
+
             if ($(this).data('bypass-min-price')) {
                 if (itemTotal <= 0) {
                     $(this).find('.item-discount-value').addClass('is-invalid');
@@ -980,9 +992,9 @@ $(document).ready(function () {
 
         const finalAmount = itemsTotal - orderDiscountAmount;
 
-        if (finalAmount <= 0) {
+        if (finalAmount < 0) {
             $('#orderDiscountValueInput').addClass('is-invalid');
-            return 'Order total must be greater than 0.';
+            return 'Order total cannot be negative.';
         }
 
         if (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {

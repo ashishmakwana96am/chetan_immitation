@@ -240,6 +240,11 @@
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
                         @if(auth()->user()->hasRole('super-admin'))
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="productAllowFullDiscount" name="allow_full_discount" value="1"
+                                    {{ $product->allow_full_discount == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productAllowFullDiscount">Allow 100% Discount on Sale</label>
+                            </div>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1"
                                     {{ $product->bypass_min_price == 1 ? 'checked' : '' }} />
@@ -372,6 +377,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script>
         $(document).ready(function () {
+
+            // Mutual exclusivity for pricing bypass switches
+            $('#productAllowFullDiscount').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productBypassMinPrice').prop('checked', false);
+                }
+            });
+            $('#productBypassMinPrice').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productAllowFullDiscount').prop('checked', false);
+                }
+            });
 
             // Initialize Quill Editor for Description
             const descriptionQuill = new Quill('#description-editor', {

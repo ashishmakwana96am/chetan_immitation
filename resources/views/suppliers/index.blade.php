@@ -49,6 +49,7 @@
                         <th>#</th>
                         <th>Name</th>
                         <th>Phone</th>
+                        <th>State</th>
                         <th>Address</th>
                         <th>Status</th>
                         <th>Created Date</th>
@@ -81,6 +82,7 @@
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'name' },
                     { data: 'phone' },
+                    { data: 'state' },
                     { data: 'address' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },

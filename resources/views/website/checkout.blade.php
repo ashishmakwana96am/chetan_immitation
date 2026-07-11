@@ -314,41 +314,51 @@
 </div>
                         <div id="addressesCardsList">
                             @forelse($addresses as $addr)
-                            <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] cursor-pointer bg-white border-l-[4px] border-l-transparent last:border-b-0 {{ $addr->is_default ? 'active-address default-address-card' : '' }} text-[#131615]" data-address-id="{{ $addr->id }}">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                                            <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" {{ $addr->is_default ? 'checked' : '' }} />
-                                            <!-- <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon" /> -->
-                                             @if($addr->type === 'work')
+                                @php
+                                    $isDeliverable = $states->contains('name', $addr->state);
+                                    $isActive = $defaultAddress && ($addr->id === $defaultAddress->id);
+                                @endphp
+                                <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] bg-white border-l-[4px] border-l-transparent last:border-b-0 {{ $isActive ? 'active-address' : '' }} {{ $addr->is_default && $isDeliverable ? 'default-address-card' : '' }} {{ !$isDeliverable ? 'opacity-60 bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer' }} text-[#131615]" data-address-id="{{ $addr->id }}" data-deliverable="{{ $isDeliverable ? 'true' : 'false' }}" {!! !$isDeliverable ? 'title="Delivery is temporarily unavailable at this address."' : '' !!}>
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                                                <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" {{ $isActive ? 'checked' : '' }} {{ !$isDeliverable ? 'disabled' : '' }} />
+                                                <!-- <img src="{{ asset('website/assets/images/' . ($addr->type === 'work' ? 'home1.png' : 'home.png')) }}" class="address-icon" /> -->
+                                                 @if($addr->type === 'work')
 
-                                                <svg width="19" height="21" viewBox="0 0 19 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M0.75 19.5H17.9375M1.53125 0.75H17.1562M2.3125 0.75V19.5M16.375 0.75V19.5M6.21875 4.65625H7.78125M6.21875 7.78125H7.78125M6.21875 10.9062H7.78125M10.9062 4.65625H12.4687M10.9062 7.78125H12.4687M10.9062 10.9062H12.4687M6.21875 19.5V15.9844C6.21875 15.3375 6.74375 14.8125 7.39062 14.8125H11.2969C11.9437 14.8125 12.4687 15.3375 12.4687 15.9844V19.5" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <svg width="19" height="21" viewBox="0 0 19 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M0.75 19.5H17.9375M1.53125 0.75H17.1562M2.3125 0.75V19.5M16.375 0.75V19.5M6.21875 4.65625H7.78125M6.21875 7.78125H7.78125M6.21875 10.9062H7.78125M10.9062 4.65625H12.4687M10.9062 7.78125H12.4687M10.9062 10.9062H12.4687M6.21875 19.5V15.9844C6.21875 15.3375 6.74375 14.8125 7.39062 14.8125H11.2969C11.9437 14.8125 12.4687 15.3375 12.4687 15.9844V19.5" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    </svg>
+
+                                                @else
+                                                
+                                                <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M0.75 10.4211L10.0771 1.09297C10.5354 0.635677 11.2771 0.635677 11.7344 1.09297L21.0625 10.4211M3.09375 8.07734V18.6242C3.09375 19.2711 3.61875 19.7961 4.26562 19.7961H8.5625V14.718C8.5625 14.0711 9.0875 13.5461 9.73437 13.5461H12.0781C12.725 13.5461 13.25 14.0711 13.25 14.718V19.7961H17.5469C18.1937 19.7961 18.7187 19.2711 18.7187 18.6242V8.07734M7 19.7961H15.5937" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                                 </svg>
 
-                                            @else
-                                            
-                                            <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M0.75 10.4211L10.0771 1.09297C10.5354 0.635677 11.2771 0.635677 11.7344 1.09297L21.0625 10.4211M3.09375 8.07734V18.6242C3.09375 19.2711 3.61875 19.7961 4.26562 19.7961H8.5625V14.718C8.5625 14.0711 9.0875 13.5461 9.73437 13.5461H12.0781C12.725 13.5461 13.25 14.0711 13.25 14.718V19.7961H17.5469C18.1937 19.7961 18.7187 19.2711 18.7187 18.6242V8.07734M7 19.7961H15.5937" stroke="#131615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-
-                                            @endif
-                                            <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
-                                                Deliver To:
-                                            </span>
-                                            <span class="font-semibold text-sm sm:text-base lg:text-lg text-[#131615] customer-name-phone">
-                                                {{ $addr->name }}, {{ $addr->phone }}
-                                            </span>
-                                            @if($addr->is_default)
-                                            <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
-                                                Default
-                                            </span>
+                                                @endif
+                                                <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
+                                                    Deliver To:
+                                                </span>
+                                                <span class="font-semibold text-sm sm:text-base lg:text-lg text-[#131615] customer-name-phone">
+                                                    {{ $addr->name }}, {{ $addr->phone }}
+                                                </span>
+                                                @if($addr->is_default && $isDeliverable)
+                                                <span class="bg-[#B4771E29] text-[#B4771E] text-sm sm:text-base px-2 sm:px-[15px] py-[4px] font-semibold rounded-[2px] leading-[20px] default-badge">
+                                                    Default
+                                                </span>
+                                                @endif
+                                            </div>
+                                            <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
+                                                {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}
+                                            </p>
+                                            @if(!$isDeliverable)
+                                                <p class="text-red-500 text-sm mt-1 font-medium flex items-center gap-1">
+                                                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                    Delivery is temporarily unavailable at this address.
+                                                </p>
                                             @endif
                                         </div>
-                                        <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
-                                            {{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}
-                                        </p>
-                                    </div>
                                     <div class="relative address-menu-container">
                                         <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
                                             <i class="fa-solid fa-ellipsis text-[#3D403F]"></i>
@@ -1003,6 +1013,7 @@ YOU MAY ALSO LIKE
 <script>
 const CHECKOUT_CART_REMOVE_URL = '{{ route('cart.remove') }}';
 const CHECKOUT_WISHLIST_TOGGLE_URL = '{{ route('wishlist.toggle') }}';
+const activeStates = @json($states->pluck('name'));
 const CHECKOUT_LOGIN_URL = '{{ route('login') }}?intended={{ urlencode(route('checkout')) }}';
 const CHECKOUT_CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 const CHECKOUT_SUBTOTAL = {{ $subtotal }};
@@ -1302,12 +1313,19 @@ function createAddressCardHtml(addr) {
         </svg>
     `;
 
+    const warningText = !isDeliverable ? `
+        <p class="text-red-500 text-sm mt-1 font-medium flex items-center gap-1">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Delivery is temporarily unavailable at this address.
+        </p>
+    ` : '';
+
     return `
-        <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] cursor-pointer bg-white border-l-[4px] border-l-transparent last:border-b-0 ${isActive} text-[#131615]" data-address-id="${addr.id}">
+        <div class="address-card border-b-[1px] border-[#D5D5D5] px-3 md:px-4 py-3 md:py-4 sm:py-[30px] bg-white border-l-[4px] border-l-transparent last:border-b-0 ${isActive} ${isDefaultCard} ${disabledClass}" data-address-id="${addr.id}" data-deliverable="${deliverableAttr}" ${titleAttr}>
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                        <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} />
+                        <input type="radio" name="selected_address" class="address-radio accent-[#B4771E] w-[18px] h-[18px] mr-1" ${isChecked} ${isDisabledRadio} />
                         ${iconSvg}
                         <span class="text-sm sm:text-base lg:text-lg font-normal text-[#131615]">
                             Deliver To:
@@ -1320,6 +1338,7 @@ function createAddressCardHtml(addr) {
                     <p class="mt-2 text-sm sm:text-base text-[#3D403F] address-text">
                         ${addr.address}, ${addr.city}, ${addr.state}${addr.pincode ? ' - ' + addr.pincode : ''}
                     </p>
+                    ${warningText}
                 </div>
                 <div class="relative address-menu-container">
                     <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none">
@@ -1346,7 +1365,7 @@ function createAddressCardHtml(addr) {
                                                     Remove
                                                 </span>
                         </button>
-                        ${!addr.is_default ? '<div class="mx-3 border-t border-[#D5D5D5]"></div>' + setAsDefaultButton : ''}
+                        ${!addr.is_default && isDeliverable ? '<div class="mx-3 border-t border-[#D5D5D5]"></div>' + setAsDefaultButton : ''}
                     </div>
                 </div>
             </div>
@@ -1428,6 +1447,11 @@ document.addEventListener('click', function(e) {
 
     const card = e.target.closest('.address-card');
     if (card && !e.target.closest('.address-menu-container')) {
+        if (card.dataset.deliverable === 'false') {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         const addrId = card.dataset.addressId;
         refreshAddressSelection(addrId);
         recalculateShippingForAddress(addrId);

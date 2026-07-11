@@ -122,6 +122,8 @@
                 });
             }
 
+            let isFiltered = false;
+
             function submitFilters() {
                 const form = $('#filterForm');
                 loadReport(form.attr('action') + '?' + form.serialize());
@@ -132,6 +134,11 @@
                     return $(el).val();
                 });
                 $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+                if (!hasValue && isFiltered) {
+                    isFiltered = false;
+                    submitFilters();
+                }
             }
 
             initDailyChart();
@@ -145,14 +152,17 @@
 
             $(document).on('submit', '#filterForm', function (e) {
                 e.preventDefault();
+                isFiltered = true;
                 submitFilters();
             });
 
             $(document).on('click', '#applyFiltersBtn', function () {
+                isFiltered = true;
                 submitFilters();
             });
 
             $(document).on('click', '#clearFiltersBtn', function () {
+                isFiltered = false;
                 const form = $('#filterForm');
                 const dateInput = form.find('input[name="date"]')[0];
 

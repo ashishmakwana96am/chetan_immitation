@@ -19,21 +19,25 @@
 
     /* Column Width Alignments */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
-        width: 35% !important;
+        width: 30% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
-        width: 18% !important;
+        width: 12% !important;
         min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
-        width: 27% !important;
-        min-width: 150px !important;
+        width: 20% !important;
+        min-width: 130px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 20% !important;
-        min-width: 70px !important;
+        width: 23% !important;
+        min-width: 190px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
+        width: 15% !important;
+        min-width: 70px !important;
+    }
+    #itemsTable th:nth-child(6), #itemsTable td:nth-child(6) {
         width: 44px !important;
         min-width: 44px !important;
         max-width: 44px !important;
@@ -57,7 +61,7 @@
         margin-bottom: 0 !important;
     }
 
-    /* Fixed, industry-standard widths for Qty / Price inputs on every screen size */
+    /* Fixed, industry-standard widths for Qty / Price / Discount inputs on every screen size */
     #itemsTable .item-qty {
         width: 70px !important;
         min-width: 70px !important;
@@ -71,16 +75,29 @@
         max-width: 110px !important;
         flex: 0 0 110px !important;
     }
+    #itemsTable .item-discount-type {
+        width: 110px !important;
+        flex: 0 0 110px !important;
+    }
+    #itemsTable .item-discount-value {
+        width: 80px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+        flex: 0 0 80px !important;
+    }
 
     /* Prevent large amounts from ever breaking the sidebar layout, on any screen size */
-    #summaryColumn .d-flex.justify-content-between {
+    #summaryColumn .d-flex.justify-content-between,
+    #discountColumn .d-flex.justify-content-between {
         flex-wrap: wrap;
         row-gap: 4px;
     }
-    #summaryColumn .d-flex.justify-content-between > span {
+    #summaryColumn .d-flex.justify-content-between > span,
+    #discountColumn .d-flex.justify-content-between > span {
         min-width: 0;
     }
-    #summaryColumn .d-flex.justify-content-between > span:last-child {
+    #summaryColumn .d-flex.justify-content-between > span:last-child,
+    #discountColumn .d-flex.justify-content-between > span:last-child {
         overflow-wrap: anywhere;
         word-break: break-word;
         text-align: right;
@@ -152,6 +169,7 @@
                                             <th style="min-width: 250px;">Product</th>
                                             <th style="width: 100px; min-width: 100px;">Qty</th>
                                             <th style="width: 150px; min-width: 150px;">Price</th>
+                                            <th style="width: 200px; min-width: 200px;">Discount</th>
                                             <th style="width: 120px; min-width: 120px;">Total</th>
                                             <th style="width: 44px;"></th>
                                         </tr>
@@ -159,7 +177,7 @@
                                 <tbody id="itemsBody"></tbody>
                                 <tfoot>
                                     <tr class="table-light">
-                                        <td colspan="3" class="text-end fw-semibold">Grand Total</td>
+                                        <td colspan="4" class="text-end fw-semibold">Grand Total</td>
                                         <td class="fw-bold text-primary text-nowrap" id="grandTotal">{{ currency_symbol() }} 0.00</td>
                                         <td></td>
                                     </tr>
@@ -173,11 +191,34 @@
                 </div>
             </div>
 
+            <input type="hidden" id="overallDiscountType" name="discount_type" value="flat" />
+            <input type="hidden" id="overallDiscountValue" name="discount_value" value="0" />
                 </div>
             </div>
 
             <div class="col-lg-4">
                 <div class="row g-3">
+
+            <!-- Discount on purchase -->
+            <div class="col-12" id="discountColumn" style="display: none;">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Discount on purchase</h5></div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <select id="orderDiscountTypeSelect" class="form-select no-select2">
+                                    <option value="flat">Flat</option>
+                                    <option value="percentage">Percentage</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <input type="number" id="orderDiscountValueInput" class="form-control" placeholder="0" min="0" value="0" />
+                                <div class="invalid-feedback">Cannot exceed total.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Bottom widgets: Summary -->
             <div class="col-12" id="summaryColumn" style="display: none;">
@@ -187,6 +228,14 @@
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Total Items</span>
                             <span id="summaryItems" class="fw-semibold">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Subtotal</span>
+                            <span id="summaryItemsTotal" class="fw-semibold">0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 d-none" id="summaryDiscountRow">
+                            <span class="text-muted">Discount</span>
+                            <span id="summaryDiscountAmount" class="fw-semibold text-danger">0.00</span>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span class="text-muted">Grand Total</span>
@@ -271,6 +320,17 @@
                     <input type="number" name="items[__INDEX__][purchase_price]"
                         class="form-control purchase-price"
                         placeholder="0.00" step="0.01" min="0" value="0" />
+                </div>
+            </td>
+            <td class="align-middle">
+                <div class="input-group flex-nowrap" style="min-width: 190px;">
+                    <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 110px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="flat">Flat</option>
+                        <option value="percentage">Percentage</option>
+                    </select>
+                    <input type="number" name="items[__INDEX__][discount_value]"
+                        class="form-control item-discount-value"
+                        placeholder="0" min="0" step="0.01" value="0" />
                 </div>
             </td>
             <td class="align-middle">
@@ -453,7 +513,7 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -499,6 +559,8 @@ $(document).ready(function () {
         }
 
         row.find('.item-qty').val(qty);
+        row.find('.item-discount-type').val(discountType);
+        row.find('.item-discount-value').val(discountValue);
 
         updateRowTotal(row);
         updateStockInfo(row);
@@ -555,7 +617,7 @@ $(document).ready(function () {
     });
 
     // -------------------------------------------------------
-    // Price / Qty change
+    // Price / Qty / Discount change
     // -------------------------------------------------------
     $(document).on('input', '.purchase-price', function () {
         updateRowTotal($(this).closest('.item-row'));
@@ -566,61 +628,100 @@ $(document).ready(function () {
         updateRowTotal(row);
     });
 
-    function updateRowTotal(row) {
-        if (row.hasClass('variant-row')) {
-            const price = parseFloat(row.find('.purchase-price').val()) || 0;
-            const qty   = parseInt(row.find('.item-qty').val()) || 0;
-            row.find('.item-total').text(symbol + ' ' + formatPrice(price * qty));
+    $(document).on('change', '.item-discount-type', function () {
+        updateGrandTotal();
+    });
 
-            const parentId = row.data('parent-id');
-            updateParentTotal(parentId);
-        } else if (row.hasClass('parent-row')) {
-            const parentId = row.data('product-id');
-            updateParentTotal(parentId);
-        } else {
-            const price = parseFloat(row.find('.purchase-price').val()) || 0;
-            const qty   = parseInt(row.find('.item-qty').val()) || 0;
-            row.find('.item-total').text(symbol + ' ' + formatPrice(price * qty));
-        }
+    $(document).on('input', '.item-discount-value', function () {
+        updateGrandTotal();
+    });
+
+    $(document).on('change', '#orderDiscountTypeSelect', function () {
+        $('#overallDiscountType').val($(this).val());
+        updateGrandTotal();
+    });
+
+    $(document).on('input', '#orderDiscountValueInput', function () {
+        $('#overallDiscountValue').val($(this).val());
+        updateGrandTotal();
+    });
+
+    function updateRowTotal(row) {
         updateGrandTotal();
     }
 
-    function updateParentTotal(parentId) {
-        const parentRow = $(`.parent-row[data-product-id="${parentId}"]`);
-        if (parentRow.length === 0) return;
-
-        const parentPrice = parseFloat(parentRow.find('.purchase-price').val()) || 0;
-        const parentQty   = parseInt(parentRow.find('.item-qty').val()) || 0;
-        let parentTotal   = parentPrice * parentQty;
-
-        $(`.variant-row[data-parent-id="${parentId}"]`).each(function () {
-            const price = parseFloat($(this).find('.purchase-price').val()) || 0;
-            const qty   = parseInt($(this).find('.item-qty').val()) || 0;
-            parentTotal += price * qty;
-        });
-
-        parentRow.find('.parent-total').text(symbol + ' ' + formatPrice(parentTotal));
-    }
-
     function updateGrandTotal() {
-        let grand = 0, count = 0;
+        let subtotalSum = 0;
+        let discountSum = 0;
+        let count = 0;
+
         $('.item-row').each(function () {
             const qty = parseInt($(this).find('.item-qty').val()) || 0;
-            const price = parseFloat($(this).find('.purchase-price').val()) || 0;
-            grand += price * qty;
-            if (qty > 0) {
-                count++;
-            }
-        });
-        $('#grandTotal, #summaryTotal').text(symbol + ' ' + formatPrice(grand));
-        $('#summaryItems').text(count);
+            if (qty <= 0) return;
 
-        if ($('.item-row').length > 0) {
+            const price = parseFloat($(this).find('.purchase-price').val()) || 0;
+            const discVal = parseFloat($(this).find('.item-discount-value').val()) || 0;
+            const discType = $(this).find('.item-discount-type').val() || 'flat';
+
+            const subtotal = price * qty;
+            let discount = 0;
+            if (discType === 'flat') {
+                discount = discVal;
+            } else if (discType === 'percentage') {
+                discount = subtotal * (discVal / 100);
+            }
+
+            if (discount > subtotal) discount = subtotal;
+
+            const itemTotal = subtotal - discount;
+            $(this).find('.item-total').text(symbol + ' ' + formatPrice(itemTotal));
+
+            subtotalSum += subtotal;
+            discountSum += discount;
+            count++;
+        });
+
+        const itemsTotal = subtotalSum - discountSum;
+
+        const orderDiscType = $('#overallDiscountType').val() || 'flat';
+        const orderDiscVal = parseFloat($('#overallDiscountValue').val()) || 0;
+        let orderDiscountAmount = 0;
+
+        if (orderDiscVal > 0) {
+            if (orderDiscType === 'flat') {
+                orderDiscountAmount = orderDiscVal;
+            } else if (orderDiscType === 'percentage') {
+                orderDiscountAmount = itemsTotal * (orderDiscVal / 100);
+            }
+        }
+
+        if (orderDiscountAmount > itemsTotal) {
+            orderDiscountAmount = itemsTotal;
+        }
+
+        const finalAmount = itemsTotal - orderDiscountAmount;
+        const totalDiscount = discountSum + orderDiscountAmount;
+
+        $('#grandTotal').text(symbol + ' ' + formatPrice(finalAmount));
+        $('#summaryItems').text(count);
+        $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
+        $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
+        $('#summaryTotal').text(symbol + ' ' + formatPrice(finalAmount));
+
+        if (totalDiscount > 0) {
+            $('#summaryDiscountRow').removeClass('d-none');
+        } else {
+            $('#summaryDiscountRow').addClass('d-none');
+        }
+
+        if (count > 0) {
             $('#grandTotal').closest('tr').show();
             $('#summaryColumn').show();
+            $('#discountColumn').show();
         } else {
             $('#grandTotal').closest('tr').hide();
             $('#summaryColumn').hide();
+            $('#discountColumn').hide();
         }
     }
 
@@ -701,11 +802,15 @@ $(document).ready(function () {
 
             const variantId = row.data('variant-id') || '';
             const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
+            const discountType = row.find('.item-discount-type').val() || 'flat';
+            const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_value]" value="${discountValue}">`);
             submitIdx++;
         });
 

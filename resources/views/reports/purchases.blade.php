@@ -121,16 +121,8 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
             <h5 class="mb-0">Filter Report</h5>
-            <div class="d-flex gap-2 d-none" id="filterActionButtons">
-                <button type="button" id="applyFiltersBtn" class="btn btn-sm btn-primary">
-                    <i class="ti ti-filter me-1"></i> Apply
-                </button>
-                <button type="button" id="clearFiltersBtn" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Clear
-                </button>
-            </div>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
@@ -153,7 +145,14 @@
                         @endforeach
                     </select>
                 </div>
-
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -521,11 +520,18 @@
             });
         }
 
+        let isFiltered = false;
+
         function updateFilterButtonsVisibility() {
             const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
                 return $(el).val();
             });
             $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+            if (!hasValue && isFiltered) {
+                isFiltered = false;
+                loadReport($('#filterForm').attr('action'));
+            }
         }
 
         $(document).on('input change', '#filterForm', function () {
@@ -534,6 +540,7 @@
         updateFilterButtonsVisibility();
 
         $(document).on('click', '#applyFiltersBtn', function () {
+            isFiltered = true;
             const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
@@ -541,6 +548,7 @@
         });
 
         $(document).on('click', '#clearFiltersBtn', function () {
+            isFiltered = false;
             const form = $('#filterForm');
 
             form[0].reset();
