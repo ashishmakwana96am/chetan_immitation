@@ -4,7 +4,7 @@
         $lastPage = $paginator->lastPage();
     @endphp
     <nav class="mt-8 md:mt-10 w-full max-w-full overflow-visible px-1" role="navigation">
-        <div class="flex w-full max-w-full flex-nowrap items-center justify-center gap-2 md:gap-3">
+        <div class="flex w-full max-w-full flex-nowrap items-center justify-center gap-2 md:gap-3 flex-wrap">
         {{-- Previous Page --}}
         @if ($paginator->onFirstPage())
             <span class="h-10 sm:h-[47px] min-w-10 sm:min-w-[104px] max-w-full px-2 sm:px-3 border border-[#D5D5D5] text-[#757575] text-sm sm:text-base lg:text-lg font-medium flex items-center justify-center gap-1 sm:gap-2 opacity-50 cursor-not-allowed whitespace-nowrap">

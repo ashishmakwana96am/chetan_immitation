@@ -10,7 +10,7 @@
 
         <div class="grid lg:grid-cols-2 items-center">
 
-            <div class="relative z-10 py-16 lg:py-0">
+            <div class="relative z-10 py-16 lg:py-0 text-center md:text-left">
 
                 <span class="inline-flex items-center bg-white text-[#B4771E] text-base md:text-xl px-[15px] py-[10px] mb-2">
                     Get In Touch

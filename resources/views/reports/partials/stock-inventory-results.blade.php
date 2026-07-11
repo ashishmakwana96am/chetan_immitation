@@ -85,7 +85,7 @@
 <!-- Low Stock Alert -->
 @php $lowStock = $products->filter(fn($p) => $p['total'] > 0 && $p['total'] <= 5)->sortBy('total'); @endphp
 @if($lowStock->count())
-    <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+    <div class="alert alert-warning d-flex align-items-center mb-4 flex-wrap" role="alert">
         <i class="ti ti-alert-triangle me-2 fs-5"></i>
         <strong>{{ $lowStock->count() }} product(s)</strong>&nbsp;have low stock (≤ 5 units).
     </div>
