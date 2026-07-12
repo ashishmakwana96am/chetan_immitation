@@ -41,17 +41,11 @@ trait FetchesPexelsJewelryPhotos
      *
      * @return string[]
      */
-    protected function searchJewelryPhotos(string $apiKey, string $searchTerm, int $count): array
+    protected function searchJewelryPhotos(string $apiKey, string $searchTerm, int $count, bool $allowDuplicates = false): array
     {
-        $response = Http::withHeaders(['Authorization' => $apiKey])
-            ->timeout(15)
-            ->get('https://api.pexels.com/v1/search', [
-                'query' => $searchTerm,
-                'per_page' => min(max($count * 5, 25), 80),
-                'orientation' => 'square',
-            ]);
+        $response = $this->pexelsSearchWithRetry($apiKey, $searchTerm, min(max($count * 5, 25), 80));
 
-        if (! $response->successful()) {
+        if (! $response) {
             return [];
         }
 
@@ -93,11 +87,20 @@ trait FetchesPexelsJewelryPhotos
             $id = $photo['id'] ?? null;
             $url = $photo['src']['large'] ?? null;
 
-            if (! $url || $id === null || in_array($id, $this->usedPexelsPhotoIds, true)) {
+            if (! $url || $id === null) {
                 continue;
             }
 
-            $this->usedPexelsPhotoIds[] = $id;
+            $alreadyUsed = in_array($id, $this->usedPexelsPhotoIds, true);
+
+            if ($alreadyUsed && ! $allowDuplicates) {
+                continue;
+            }
+
+            if (! $alreadyUsed) {
+                $this->usedPexelsPhotoIds[] = $id;
+            }
+
             $picked[] = $url;
 
             if (count($picked) >= $count) {
@@ -106,6 +109,50 @@ trait FetchesPexelsJewelryPhotos
         }
 
         return $picked;
+    }
+
+    /**
+     * Call the Pexels search endpoint, automatically waiting out and
+     * retrying a 429 rate-limit response instead of giving up — so a long
+     * run (100+ products) survives crossing the hourly request quota
+     * instead of failing every item after the limit is hit.
+     */
+    protected function pexelsSearchWithRetry(string $apiKey, string $searchTerm, int $perPage, int $maxRetries = 3)
+    {
+        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+            $response = Http::withHeaders(['Authorization' => $apiKey])
+                ->timeout(15)
+                ->get('https://api.pexels.com/v1/search', [
+                    'query' => $searchTerm,
+                    'per_page' => $perPage,
+                    'orientation' => 'square',
+                ]);
+
+            if ($response->successful()) {
+                return $response;
+            }
+
+            if ($response->status() === 429 && $attempt < $maxRetries) {
+                // Pexels sends the epoch timestamp its quota resets at; trust
+                // it (capped at 30 min) rather than a short guess, so we
+                // actually clear the window instead of retrying too soon.
+                $resetAt = (int) $response->header('X-Ratelimit-Reset');
+                $waitSeconds = $resetAt > time() ? ($resetAt - time() + 2) : 60;
+                $waitSeconds = min($waitSeconds, 1800);
+
+                if (method_exists($this, 'warn')) {
+                    $this->warn("Pexels rate limit hit, waiting {$waitSeconds}s before retrying...");
+                }
+
+                sleep($waitSeconds);
+
+                continue;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     /**
@@ -130,6 +177,26 @@ trait FetchesPexelsJewelryPhotos
 
             $found = $this->searchJewelryPhotos($apiKey, $term, $count - count($picked));
             $picked = array_merge($picked, $found);
+        }
+
+        // Last resort: every unique candidate is exhausted. Reuse a photo
+        // already used elsewhere in this run rather than leaving this
+        // product/category with zero images.
+        if (empty($picked)) {
+            foreach ($searchTerms as $term) {
+                $term = trim((string) $term);
+
+                if ($term === '') {
+                    continue;
+                }
+
+                $found = $this->searchJewelryPhotos($apiKey, $term, $count, allowDuplicates: true);
+
+                if (! empty($found)) {
+                    $picked = $found;
+                    break;
+                }
+            }
         }
 
         return $picked;

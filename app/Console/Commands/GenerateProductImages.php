@@ -13,7 +13,7 @@ class GenerateProductImages extends Command
 {
     use FetchesPexelsJewelryPhotos;
 
-    protected const ADDITIONAL_COUNT = 5;
+    protected const ADDITIONAL_COUNT = 1;
 
     protected const MIN_REQUIRED = 1; // at least a primary image — 0 is never acceptable
 
@@ -31,7 +31,7 @@ class GenerateProductImages extends Command
      *
      * @var string
      */
-    protected $description = 'Download real imitation-jewelry stock photos (via Pexels) for products missing images: 1 primary + up to 5 additional';
+    protected $description = 'Download real imitation-jewelry stock photos (via Pexels) for products missing images: 1 primary + 1 additional';
 
     /**
      * Execute the console command.
