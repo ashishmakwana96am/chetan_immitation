@@ -78,6 +78,7 @@ class GenerateCategoryImages extends Command
                 trim($suffix),
                 'imitation jewelry product photography',
                 'fashion jewelry flatlay',
+                'jewelry',
             ]));
 
             $photoUrls = $this->searchJewelryPhotosBroadening($apiKey, $searchTerms, 1);
