@@ -46,4 +46,8 @@ return [
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'pexels' => [
+        'key' => env('PEXELS_API_KEY'),
+    ],
+
 ];
