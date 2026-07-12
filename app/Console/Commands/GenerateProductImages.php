@@ -15,6 +15,8 @@ class GenerateProductImages extends Command
 
     protected const ADDITIONAL_COUNT = 5;
 
+    protected const MIN_REQUIRED = 2; // 1 primary + at least 1 additional
+
     /**
      * The name and signature of the console command.
      *
@@ -89,12 +91,24 @@ class GenerateProductImages extends Command
             }
 
             $categoryName = $product->category->name ?? ($product->subCategory->name ?? '');
-            $searchTerm = trim($product->name.' '.$categoryName.' '.$suffix);
 
-            $photoUrls = $this->searchJewelryPhotos($apiKey, $searchTerm, 1 + self::ADDITIONAL_COUNT);
+            // Broaden progressively: specific product+category search first,
+            // then category-only, then product-only, then a generic jewelry
+            // search that will virtually always return people-free results —
+            // so every product ends up with at least MIN_REQUIRED images.
+            $searchTerms = array_unique(array_filter([
+                trim($product->name.' '.$categoryName.' '.$suffix),
+                trim($categoryName.' '.$suffix),
+                trim($product->name.' '.$suffix),
+                trim($suffix),
+                'imitation jewelry product photography',
+                'fashion jewelry flatlay',
+            ]));
 
-            if (empty($photoUrls)) {
-                $this->warn("No real jewelry photos found for \"{$product->name}\" (searched \"{$searchTerm}\"). Skipping.");
+            $photoUrls = $this->searchJewelryPhotosBroadening($apiKey, $searchTerms, 1 + self::ADDITIONAL_COUNT);
+
+            if (count($photoUrls) < self::MIN_REQUIRED) {
+                $this->warn("Could not find enough real jewelry photos for \"{$product->name}\" (found ".count($photoUrls).', need at least '.self::MIN_REQUIRED.'). Skipping.');
                 $failCount++;
                 $bar->advance();
                 $bar->display();

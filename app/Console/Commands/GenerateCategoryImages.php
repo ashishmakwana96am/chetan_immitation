@@ -73,11 +73,17 @@ class GenerateCategoryImages extends Command
         foreach ($categories as $category) {
             $bar->clear();
 
-            $searchTerm = trim($category->name.' '.$suffix);
-            $photoUrls = $this->searchJewelryPhotos($apiKey, $searchTerm, 1);
+            $searchTerms = array_unique(array_filter([
+                trim($category->name.' '.$suffix),
+                trim($suffix),
+                'imitation jewelry product photography',
+                'fashion jewelry flatlay',
+            ]));
+
+            $photoUrls = $this->searchJewelryPhotosBroadening($apiKey, $searchTerms, 1);
 
             if (empty($photoUrls)) {
-                $this->warn("No real jewelry photo found for \"{$category->name}\" (searched \"{$searchTerm}\"). Skipping.");
+                $this->warn("No real jewelry photo found for \"{$category->name}\". Skipping.");
                 $failCount++;
                 $bar->advance();
                 $bar->display();

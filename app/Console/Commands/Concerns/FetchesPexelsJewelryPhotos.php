@@ -109,6 +109,33 @@ trait FetchesPexelsJewelryPhotos
     }
 
     /**
+     * Try each search term in order (most specific first), topping up the
+     * result set from the next, broader term whenever the previous one
+     * couldn't fill the quota. Guarantees the best possible chance of
+     * reaching $count without ever returning a person/model photo.
+     *
+     * @param  string[]  $searchTerms
+     * @return string[]
+     */
+    protected function searchJewelryPhotosBroadening(string $apiKey, array $searchTerms, int $count): array
+    {
+        $picked = [];
+
+        foreach ($searchTerms as $term) {
+            $term = trim((string) $term);
+
+            if ($term === '' || count($picked) >= $count) {
+                continue;
+            }
+
+            $found = $this->searchJewelryPhotos($apiKey, $term, $count - count($picked));
+            $picked = array_merge($picked, $found);
+        }
+
+        return $picked;
+    }
+
+    /**
      * Download a photo URL into $destDir and return its path relative to
      * the public/uploads directory (e.g. "categories/xyz.jpg").
      */
