@@ -47,75 +47,71 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Utility Report</h4>
-        <div class="d-flex gap-2 align-items-center">
-            {{-- Filter Dropdown --}}
-            <div class="dropdown d-inline-block" id="filterDropdownContainer">
-                <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
-                    <i class="ti ti-filter me-1"></i> Filter
-                </button>
-                <div class="dropdown-menu dropdown-menu-end p-4" style="min-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;">
-                    <h5 class="dropdown-header px-0 mb-3 text-start fw-semibold fs-5 text-dark">Filters</h5>
+    </div>
 
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-user">User</label>
-                        <select id="filter-user" class="form-select">
-                            <option value="">All Users</option>
-                            @foreach($users as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-location">Location</label>
-                        <select id="filter-location" class="form-select">
-                            <option value="">All Locations</option>
-                            @foreach($locations as $location)
-                                <option value="{{ $location->id }}">{{ $location->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-module">Module</label>
-                        <select id="filter-module" class="form-select">
-                            <option value="">All Modules</option>
-                            @foreach($modules as $module)
-                                <option value="{{ $module }}">{{ $module }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1" for="filter-action">Action</label>
-                        <select id="filter-action" class="form-select">
-                            <option value="">All Actions</option>
-                            @foreach($actions as $action)
-                                <option value="{{ $action }}">{{ ucwords(str_replace('_', ' ', $action)) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3 text-start">
-                        <label class="form-label fw-medium text-muted mb-1">Date Range</label>
-                        <div class="w-100">
-                            <input type="text" id="filter-start-date" class="form-control flatpickr-log mb-2" placeholder="Start Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
-                            <div class="text-center text-muted small mb-2">to</div>
-                            <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="End Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
-                        </div>
-                        <small class="text-muted">Defaults to the last 30 days when left blank.</small>
-                    </div>
-
-                    <div class="dropdown-divider"></div>
-
-                    <div class="d-flex justify-content-between gap-2 pt-2">
-                        <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
-                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
-                    </div>
+    <!-- Filters -->
+    <div class="card mb-4" id="filterReportCard">
+        <div class="card-header">
+            <h5 class="mb-0">Filter Report</h5>
+        </div>
+        <div class="card-body">
+            <form id="filterForm" class="row g-3" onsubmit="return false;">
+                <div class="col-md-3">
+                    <label class="form-label">User</label>
+                    <select id="filter-user" class="form-select">
+                        <option value="">All Users</option>
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
-            </div>
+                <div class="col-md-3">
+                    <label class="form-label">Location</label>
+                    <select id="filter-location" class="form-select">
+                        <option value="">All Locations</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location->id }}">{{ $location->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Module</label>
+                    <select id="filter-module" class="form-select">
+                        <option value="">All Modules</option>
+                        @foreach($modules as $module)
+                            <option value="{{ $module }}">{{ $module }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Action</label>
+                    <select id="filter-action" class="form-select">
+                        <option value="">All Actions</option>
+                        @foreach($actions as $action)
+                            <option value="{{ $action }}">{{ ucwords(str_replace('_', ' ', $action)) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="text" id="filter-start-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date</label>
+                    <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
+                    <small class="text-muted">Defaults to the last 30 days when left blank.</small>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -144,19 +140,19 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            let flatpickrOpen = false;
-
             const startPicker = $('#filter-start-date').flatpickr({
                 altInput   : true,
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
-                onOpen     : function () { flatpickrOpen = true; },
-                onClose    : function (selectedDates) {
-                    flatpickrOpen = false;
+                maxDate    : 'today',
+                onChange   : function (selectedDates) {
                     if (selectedDates.length) {
                         endPicker.set('minDate', selectedDates[0]);
+                    } else {
+                        endPicker.set('minDate', null);
                     }
+                    updateFilterButtonsVisibility();
                 }
             });
 
@@ -165,25 +161,35 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
-                onOpen     : function () { flatpickrOpen = true; },
-                onClose    : function (selectedDates) {
-                    flatpickrOpen = false;
+                maxDate    : 'today',
+                onChange   : function (selectedDates) {
                     if (selectedDates.length) {
                         startPicker.set('maxDate', selectedDates[0]);
+                    } else {
+                        startPicker.set('maxDate', 'today');
                     }
+                    updateFilterButtonsVisibility();
                 }
             });
 
-            $('#filterDropdownContainer').on('hide.bs.dropdown', function (e) {
-                if (flatpickrOpen) {
-                    e.preventDefault();
-                    return false;
-                }
-            });
+            let isFiltered = false;
 
-            $(document).on('mousedown', '.flatpickr-calendar', function (e) {
-                e.stopPropagation();
+            function updateFilterButtonsVisibility() {
+                const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                    return $(el).val();
+                });
+                $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+                if (!hasValue && isFiltered) {
+                    isFiltered = false;
+                    window.refreshTable();
+                }
+            }
+
+            $(document).on('input change', '#filterForm', function () {
+                updateFilterButtonsVisibility();
             });
+            updateFilterButtonsVisibility();
 
             function currentFilters() {
                 return {
@@ -247,35 +253,31 @@
             });
 
             window.refreshTable = function () {
-                table.ajax.reload(null, false);
+                window.showAjaxLoader && window.showAjaxLoader();
+                table.ajax.reload(function () {
+                    window.hideAjaxLoader && window.hideAjaxLoader();
+                }, false);
             };
 
-            $(document).on('click', '#btnApplyFilter', function (e) {
+            $(document).on('click', '#applyFiltersBtn', function (e) {
                 e.preventDefault();
+                isFiltered = true;
                 window.refreshTable();
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
             });
 
-            $(document).on('click', '#btnClearFilter', function (e) {
+            $(document).on('click', '#clearFiltersBtn', function (e) {
                 e.preventDefault();
-                $('#filter-user').val('');
-                $('#filter-location').val('');
-                $('#filter-module').val('');
-                $('#filter-action').val('');
+                isFiltered = false;
+                $('#filter-user').val('').trigger('change.select2');
+                $('#filter-location').val('').trigger('change.select2');
+                $('#filter-module').val('').trigger('change.select2');
+                $('#filter-action').val('').trigger('change.select2');
                 startPicker.clear();
                 endPicker.clear();
                 startPicker.set('maxDate', null);
                 endPicker.set('minDate', null);
+                updateFilterButtonsVisibility();
                 window.refreshTable();
-                const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
-                if (dropdownToggleEl) {
-                    const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
-                    dropdownInstance.hide();
-                }
             });
         });
     </script>

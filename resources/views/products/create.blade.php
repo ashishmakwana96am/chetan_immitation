@@ -11,7 +11,7 @@
         $defaultHighlights = '<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>';
     @endphp
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Add Product</h4>
         <a href="{{ route('admin.products.index') }}" class="btn btn-label-secondary">
             <i class="ti ti-arrow-left me-1"></i> Back
@@ -31,11 +31,6 @@
                             <div class="col-12">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control" placeholder="Enter Product Name" value="{{ isset($clonedProduct) ? $clonedProduct->name . ' - Copy' : '' }}" />
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" name="sku" class="form-control" placeholder="Enter SKU" value="{{ isset($clonedProduct) ? $clonedProduct->sku . '-copy' : '' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
@@ -70,6 +65,21 @@
                                 <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
+                                <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_multiplier : '2.5' }}" required />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
+                                <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_multiplier : '4.125' }}" required />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
+                                <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp_multiplier : '4.575' }}" required />
+                                <div class="invalid-feedback"></div>
+                            </div>
                             <div class="col-md-6">
                                 <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
@@ -90,29 +100,25 @@
                                 <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
                                 <div class="input-group has-validation">
                                     <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" readonly style="background-color: #f1f0f2;" />
+                                    <input type="number" name="mrp" id="mrpInput" class="form-control" placeholder="Enter MRP" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp : '' }}" />
                                     <div class="invalid-feedback"></div>
                                 </div>
                             </div>
 
-                            <div id="pairPricingSection" class="{{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
-                                        <div class="input-group has-validation">
-                                            <span class="input-group-text">{{ currency_symbol() }}</span>
-                                            <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
-                                            <div class="invalid-feedback"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
-                                        <div class="input-group has-validation">
-                                            <span class="input-group-text">{{ currency_symbol() }}</span>
-                                            <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" readonly style="background-color: #f1f0f2;" />
-                                            <div class="invalid-feedback"></div>
-                                        </div>
-                                    </div>
+                            <div class="col-md-6 pair-pricing-field {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                                <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
+                                <div class="input-group has-validation">
+                                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                                    <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 pair-pricing-field {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                                <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
+                                <div class="input-group has-validation">
+                                    <span class="input-group-text">{{ currency_symbol() }}</span>
+                                    <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" />
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -123,7 +129,7 @@
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div id="variableSection" class="d-none">
+                            <div id="variableSection" class="{{ isset($clonedProduct) && $clonedProduct->type === 'variable' ? '' : 'd-none' }}">
                                 <div class="card border shadow-sm mb-3" style="border-left: 3px solid #B4771E !important;">
                                     <div class="card-header py-3 bg-white">
                                         <div class="d-flex align-items-center justify-content-between">
@@ -136,8 +142,11 @@
                                     <div class="card-body pt-0">
                                         <div id="attributesCheckboxes" class="d-flex flex-wrap gap-2 pt-3">
                                             @foreach($attributes as $attr)
-                                                <label class="attribute-chip btn btn-sm d-inline-flex align-items-center gap-2 px-3 py-2 cursor-pointer mb-0" for="attr_{{ $attr->id }}" style="transition:all .2s;user-select:none;">
-                                                    <input class="form-check-input attribute-select m-0 d-none" type="checkbox" data-attribute-id="{{ $attr->id }}" id="attr_{{ $attr->id }}" style="cursor:pointer;" />
+                                                @php
+                                                    $isClonedSelected = isset($clonedProduct) && $clonedProduct->variants->pluck('attributeValue.attribute_id')->unique()->contains($attr->id);
+                                                @endphp
+                                                <label class="attribute-chip btn btn-sm d-inline-flex align-items-center gap-2 px-3 py-2 cursor-pointer mb-0 {{ $isClonedSelected ? 'active' : '' }}" for="attr_{{ $attr->id }}" style="transition:all .2s;user-select:none;">
+                                                    <input class="form-check-input attribute-select m-0 d-none" type="checkbox" data-attribute-id="{{ $attr->id }}" id="attr_{{ $attr->id }}" {{ $isClonedSelected ? 'checked' : '' }} style="cursor:pointer;" />
                                                     <span class="fw-medium" style="font-size:.85rem;">{{ $attr->name }}</span>
                                                 </label>
                                             @endforeach
@@ -168,7 +177,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none">{{ isset($clonedProduct) ? $clonedProduct->description : (old('description') ?: $defaultDescription) }}</textarea>
                                 <div class="invalid-feedback"></div>
@@ -205,10 +214,20 @@
                             <input class="form-check-input" type="checkbox" id="productSale" name="sale" value="1" {{ isset($clonedProduct) && $clonedProduct->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch @if(auth()->user()->hasRole('super-admin')) mb-3 @endif">
                             <input class="form-check-input" type="checkbox" id="productPair" name="pair_product" value="1" {{ isset($clonedProduct) && $clonedProduct->pair_product == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="productAllowFullDiscount" name="allow_full_discount" value="1" {{ isset($clonedProduct) && $clonedProduct->allow_full_discount == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productAllowFullDiscount">Allow 100% Discount on Sale</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1" {{ isset($clonedProduct) && $clonedProduct->bypass_min_price == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productBypassMinPrice">Allow Below Cost Price on Sale</label>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -324,6 +343,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script>
         $(document).ready(function () {
+
+            // Mutual exclusivity for pricing bypass switches
+            $('#productAllowFullDiscount').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productBypassMinPrice').prop('checked', false);
+                }
+            });
+            $('#productBypassMinPrice').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productAllowFullDiscount').prop('checked', false);
+                }
+            });
 
             // Initialize Quill Editor for Description
             const descriptionQuill = new Quill('#description-editor', {
@@ -689,8 +720,19 @@
 
             // ====== Variable Product Logic ======
             const allAttributes = @json($attributes);
+            const clonedVariants = @json(isset($clonedProduct) ? $clonedProduct->variants : []);
             let variantsData = [];
             const removedValueIds = {};
+
+            function buildExistingMap() {
+                const map = {};
+                clonedVariants.forEach(function (v) {
+                    map[v.attribute_value_id] = { purchase_price: v.purchase_price, sale_price: v.sale_price, status: v.status };
+                });
+                return map;
+            }
+
+            const existingMap = buildExistingMap();
 
             function findAttrValue(attrValueId) {
                 for (let a = 0; a < allAttributes.length; a++) {
@@ -741,8 +783,8 @@
                     return;
                 }
 
-                const existingMap = {};
-                variantsData.forEach(function (v) { existingMap[v.attribute_value_id] = v; });
+                const existingMapCopy = {};
+                variantsData.forEach(function (v) { existingMapCopy[v.attribute_value_id] = v; });
 
                 const defaultPurchase = parseFloat($('input[name="purchase_price"]').val()) || 0;
                 const defaultSale = parseFloat($('input[name="sale_price"]').val()) || 0;
@@ -754,9 +796,9 @@
                     if (attr) {
                         attr.values.forEach(function (val) {
                             if (removedValueIds[val.id]) return;
-                            const existing = existingMap[val.id];
+                            const existing = existingMapCopy[val.id] || existingMap[val.id];
                             if (existing) {
-                                newData.push({ ...existing });
+                                newData.push({ ...existing, attribute_value_id: val.id });
                             } else {
                                 newData.push({
                                     attribute_value_id: val.id,
@@ -822,16 +864,25 @@
                 return Math.ceil(parseFloat(val) / 5) * 5;
             }
 
-            $('#productCodeInput').on('input change', function () {
-                const code = parseFloat($(this).val()) || 0;
-                const purchasePrice = (code * 2.5).toFixed(2);
+            function getMultipliers() {
+                return {
+                    purchase: parseFloat($('#purchaseMultiplierInput').val()) || 0,
+                    sale: parseFloat($('#saleMultiplierInput').val()) || 0,
+                    mrp: parseFloat($('#mrpMultiplierInput').val()) || 0,
+                };
+            }
+
+            $('#productCodeInput, #purchaseMultiplierInput, #saleMultiplierInput, #mrpMultiplierInput').on('input change', function () {
+                const code = parseFloat($('#productCodeInput').val()) || 0;
+                const mult = getMultipliers();
+                const purchasePrice = (code * mult.purchase).toFixed(2);
                 const isPair = $('#productPair').is(':checked');
 
                 if (isPair) {
-                    const pairSalePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const pairMrp = roundToNearest5(code * 4.575).toFixed(2);
-                    const singleSalePrice = roundToNearest5((code / 2) * 4.125).toFixed(2);
-                    const singleMrp = roundToNearest5((code / 2) * 4.575).toFixed(2);
+                    const pairSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const pairMrp = roundToNearest5(code * mult.mrp).toFixed(2);
+                    const singleSalePrice = roundToNearest5((code / 2) * mult.sale).toFixed(2);
+                    const singleMrp = roundToNearest5((code / 2) * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(singleSalePrice).trigger('change');
@@ -839,8 +890,8 @@
                     $('#pairSalePriceInput').val(pairSalePrice);
                     $('#pairMrpInput').val(pairMrp);
                 } else {
-                    const salePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const mrp = roundToNearest5(code * 4.575).toFixed(2);
+                    const salePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const mrp = roundToNearest5(code * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(salePrice).trigger('change');
@@ -866,9 +917,9 @@
                 const isPair = $(this).is(':checked');
                 updatePairPricingLabels(isPair);
                 if (isPair) {
-                    $('#pairPricingSection').removeClass('d-none');
+                    $('.pair-pricing-field').removeClass('d-none');
                 } else {
-                    $('#pairPricingSection').addClass('d-none');
+                    $('.pair-pricing-field').addClass('d-none');
                     $('#pairSalePriceInput').val('');
                     $('#pairMrpInput').val('');
                 }
@@ -879,11 +930,15 @@
             updatePairPricingLabels($('#productPair').is(':checked'));
 
             $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $('#pairSalePriceInput').on('input', function () {
-                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

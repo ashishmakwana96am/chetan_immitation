@@ -24,14 +24,14 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
-use App\Http\Controllers\PurchaseInvoiceController;
+use App\Http\Controllers\PurchaseBillController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShopCategoryController;
 use App\Http\Controllers\StateController;
-use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -39,6 +39,7 @@ use App\Http\Controllers\Website\ProductReviewController as WebsiteProductReview
 use App\Http\Controllers\Website\ProfileController as WebsiteProfileController;
 use App\Http\Controllers\WebsiteContentController;
 use App\Http\Controllers\WishlistController;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
 // Frontend routes
@@ -161,21 +162,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
         // Purchases
-        Route::get('purchases/data', [PurchaseInvoiceController::class, 'data'])->name('purchases.data');
-        Route::get('products/{product}/price', [PurchaseInvoiceController::class, 'getProductPrice'])->name('products.price');
-        Route::resource('purchases', PurchaseInvoiceController::class)->except('show');
-        Route::get('purchases/{purchase}', [PurchaseInvoiceController::class, 'show'])->name('purchases.show');
-        Route::get('purchases/{purchase}/pdf', [PurchaseInvoiceController::class, 'pdf'])->name('purchases.pdf');
-        Route::patch('purchases/{purchase}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('purchases.status');
-        Route::patch('purchases/{purchase}/payment-status', [PurchaseInvoiceController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
+        Route::get('purchases/data', [PurchaseController::class, 'data'])->name('purchases.data');
+        Route::get('products/{product}/price', [PurchaseController::class, 'getProductPrice'])->name('products.price');
+        Route::resource('purchases', PurchaseController::class)->except('show');
+        Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+        Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
+        Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
+        Route::patch('purchases/{purchase}/payment-status', [PurchaseController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
 
-        // Stock Transfers
-        Route::get('stock-transfers/data', [StockTransferController::class, 'data'])->name('stock-transfers.data');
-        Route::get('stock-transfers/pending-count', [StockTransferController::class, 'pendingCount'])->name('stock-transfers.pending-count');
-        Route::patch('stock-transfers/{stockTransfer}/accept', [StockTransferController::class, 'accept'])->name('stock-transfers.accept');
-        Route::patch('stock-transfers/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('stock-transfers.reject');
-        Route::resource('stock-transfers', StockTransferController::class)
-            ->parameters(['stock-transfers' => 'stockTransfer'])
+        // Purchase Bills
+        Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
+        Route::get('purchase-bills/export', [PurchaseBillController::class, 'export'])->name('purchase-bills.export');
+        Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
+        Route::patch('purchase-bills/{purchaseBill}/accept', [PurchaseBillController::class, 'accept'])->name('purchase-bills.accept');
+        Route::patch('purchase-bills/{purchaseBill}/reject', [PurchaseBillController::class, 'reject'])->name('purchase-bills.reject');
+        Route::resource('purchase-bills', PurchaseBillController::class)
+            ->parameters(['purchase-bills' => 'purchaseBill'])
             ->only(['index', 'create', 'store', 'show']);
 
         // Suppliers
@@ -219,6 +221,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
+            Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
@@ -234,6 +238,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
         Route::get('sales/{sale}/label', [SaleController::class, 'label'])->name('sales.label');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
+        Route::post('sales/{sale}/cancellation/approve', [SaleController::class, 'approveCancellation'])->name('sales.cancellation.approve');
+        Route::post('sales/{sale}/cancellation/reject', [SaleController::class, 'rejectCancellation'])->name('sales.cancellation.reject');
 
         // Categories
         Route::get('categories/data', [CategoryController::class, 'data'])->name('categories.data');
@@ -294,5 +300,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Settings
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
+        
+        // Google Drive OAuth
+        Route::get('settings/google-drive/connect', [SettingController::class, 'googleDriveConnect'])->name('settings.google-drive.connect');
+        Route::get('settings/google-drive/callback', [SettingController::class, 'googleDriveCallback'])->name('settings.google-drive.callback');
+        Route::post('settings/google-drive/disconnect', [SettingController::class, 'googleDriveDisconnect'])->name('settings.google-drive.disconnect');
+
+        // AJAX Backup
+        Route::post('settings/backup/run', [SettingController::class, 'runBackup'])->name('settings.backup.run');
     });
+});
+
+Route::get('/set-debug-true', function () {
+    Setting::setValue('app_debug', 'true');
+    return response('Debug mode enabled. Laravel error trace will be shown.', 200);
+});
+
+Route::get('/set-debug-false', function () {
+    Setting::setValue('app_debug', 'false');
+    return response('Debug mode disabled. Custom error pages (404/500) will be shown.', 200);
 });

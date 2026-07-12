@@ -54,7 +54,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Products Report</h4>
         <button id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
@@ -144,15 +144,12 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
         </div>
         <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-4">
+            <form id="filterForm" class="row g-3" onsubmit="return false;">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Category</label>
                     <select id="filterCategory" class="form-select">
                         <option value="">All Categories</option>
@@ -161,7 +158,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Status</label>
                     <select id="filterStatus" class="form-select">
                         <option value="">All</option>
@@ -169,7 +166,7 @@
                         <option value="2">Inactive</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Filter by Stock</label>
                     <select id="filterStock" class="form-select">
                         <option value="">All</option>
@@ -177,7 +174,15 @@
                         <option value="out">SOLD OUT</option>
                     </select>
                 </div>
-            </div>
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -190,7 +195,7 @@
                     <tr>
                         <th>#</th>
                         <th>Product</th>
-                        <th>SKU</th>
+                        <th>Barcode</th>
                         <th>Category</th>
                         <th class="text-end">Purchase Price</th>
                         <th class="text-end">Sale Price</th>
@@ -245,7 +250,7 @@
                                     </a>
                                 </div>
                             </td>
-                            <td><code>{{ $parent['sku'] }}</code></td>
+                            <td><code>{{ $parent['barcode'] }}</code></td>
                             <td><span class="badge bg-label-primary">{{ $parent['category'] }}</span></td>
                             <td class="text-end">{{ format_price($parent['purchase_price']) }}</td>
                             <td class="text-end">{{ format_price($parent['sale_price']) }}</td>
@@ -319,6 +324,14 @@
     </div>
 @endsection
 
+@php
+    $categoryChartData = $products->where('is_parent', true)->groupBy('category')->map(fn($g) => $g->count())->sortDesc();
+    $top10ChartData = $products->where('is_parent', true)->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
+        'name'  => $p['name'],
+        'stock' => $p['total_stock'],
+    ]);
+@endphp
+
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
@@ -368,30 +381,60 @@
         });
 
         function applyFilters() {
-            const cat    = $('#filterCategory').val();
-            const status = $('#filterStatus').val();
-            const stock  = $('#filterStock').val();
+            window.showAjaxLoader && window.showAjaxLoader();
 
-            $.fn.dataTable.ext.search = [];
-            $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-                const row   = $(table.row(dataIndex).node());
+            setTimeout(function () {
+                const cat    = $('#filterCategory').val();
+                const status = $('#filterStatus').val();
+                const stock  = $('#filterStock').val();
 
-                const total = parseInt(row.data('stock') || 0);
-                if (cat    && row.data('category-id') != cat)    return false;
-                if (status && String(row.data('status')) !== status) return false;
-                if (stock === 'in'  && total <= 0)                return false;
-                if (stock === 'out' && total > 0)                 return false;
-                return true;
-            });
-            table.draw();
+                $.fn.dataTable.ext.search = [];
+                $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                    const row   = $(table.row(dataIndex).node());
+
+                    const total = parseInt(row.data('stock') || 0);
+                    if (cat    && row.data('category-id') != cat)    return false;
+                    if (status && String(row.data('status')) !== status) return false;
+                    if (stock === 'in'  && total <= 0)                return false;
+                    if (stock === 'out' && total > 0)                 return false;
+                    return true;
+                });
+                table.draw();
+
+                window.hideAjaxLoader && window.hideAjaxLoader();
+            }, 150);
         }
 
-        $('#filterCategory, #filterStatus, #filterStock').on('change', applyFilters);
+        let isFiltered = false;
 
-        $('#resetFilters').on('click', function() {
+        function updateFilterButtonsVisibility() {
+            const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                return $(el).val();
+            });
+            $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+            if (!hasValue && isFiltered) {
+                isFiltered = false;
+                applyFilters();
+            }
+        }
+
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $('#applyFiltersBtn').on('click', function () {
+            isFiltered = true;
+            applyFilters();
+        });
+
+        $('#clearFiltersBtn').on('click', function() {
+            isFiltered = false;
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStatus').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
+            updateFilterButtonsVisibility();
             applyFilters();
         });
 
@@ -412,9 +455,7 @@
         // -------------------------------------------------------
         // Products by Category Horizontal Bar Chart
         // -------------------------------------------------------
-        const categoryData = @json(
-            $products->groupBy('category')->map(fn($g) => $g->count())->sortDesc()
-        );
+        const categoryData = @json($categoryChartData);
 
         new ApexCharts(document.getElementById('categoryPieChart'), {
             chart   : { type: 'bar', height: 300, toolbar: { show: false } },
@@ -484,20 +525,41 @@
         // -------------------------------------------------------
         // Top 10 Products by Stock Bar Chart
         // -------------------------------------------------------
-        const top10 = @json(
-            $products->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
-                'name'  => $p['name'],
-                'stock' => $p['total_stock'],
-            ])
-        );
+        const top10 = @json($top10ChartData);
 
         new ApexCharts(document.getElementById('topStockChart'), {
-            chart  : { type: 'bar', height: 300, toolbar: { show: false } },
-            series : [{ name: 'Stock', data: top10.map(p => p.stock) }],
-            xaxis  : { categories: top10.map(p => p.name), labels: { rotate: -30 } },
+            chart  : { type: 'bar', height: 340, toolbar: { show: false } },
+            series : [{ name: 'Stock', data: top10.map(p => p.stock).reverse() }],
+            xaxis  : {
+                categories: top10.map(p => p.name).reverse(),
+                labels: {
+                    style: { colors: '#5d596c', fontFamily: 'Public Sans' },
+                    formatter: function (val) { return parseInt(val); }
+                }
+            },
+            yaxis  : {
+                labels: {
+                    style: { colors: '#5d596c', fontFamily: 'Public Sans', fontWeight: 500 },
+                    maxWidth: 220
+                }
+            },
             colors : ['#B4771E'],
-            plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-            dataLabels : { enabled: false },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '55%' } },
+            dataLabels : {
+                enabled: true,
+                style: { fontSize: '11px', fontFamily: 'Public Sans', fontWeight: '600', colors: ['#fff'] },
+                formatter: function (val) { return parseInt(val); },
+                offsetX: 0
+            },
+            grid: {
+                borderColor: '#e5e5e5',
+                xaxis: { lines: { show: true } },
+                yaxis: { lines: { show: false } },
+                padding: { top: -15, right: 10, bottom: -10, left: 10 }
+            },
+            tooltip: {
+                y: { formatter: function (val) { return val + ' units'; } }
+            },
         }).render();
 
     });

@@ -4,7 +4,7 @@
 
 @section('content')
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h4 class="fw-semibold mb-0">System Settings</h4>
 </div>
 
@@ -158,6 +158,54 @@
             </div>
         </div>
 
+        <!-- Backup -->
+        @can('download backup')
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header"><h5 class="mb-0">Database Backup & Google Drive Settings</h5></div>
+                    <div class="card-body">
+                        <!-- Google Drive Connection Status -->
+                        <div class="d-flex align-items-center justify-content-between border rounded p-3 mb-3 flex-wrap gap-3">
+                            <div>
+                                <p class="fw-semibold mb-0">Google Drive Integration</p>
+                                @if($googleDriveConnected)
+                                    <p class="text-success small mb-0">
+                                        <i class="ti ti-circle-check me-1"></i> Connected to: <strong>{{ $googleDriveEmail }}</strong>
+                                    </p>
+                                @else
+                                    <p class="text-danger small mb-0">
+                                        <i class="ti ti-circle-x me-1"></i> Disconnected
+                                    </p>
+                                @endif
+                            </div>
+                            <div>
+                                @if($googleDriveConnected)
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="event.preventDefault(); document.getElementById('googleDriveDisconnectForm').submit();">
+                                        <i class="ti ti-logout me-1"></i> Disconnect Drive
+                                    </button>
+                                @else
+                                    <a href="{{ route('admin.settings.google-drive.connect') }}" class="btn btn-outline-success btn-sm">
+                                        <i class="ti ti-brand-google me-1"></i> Connect Google Drive
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Backup Action -->
+                        <div class="d-flex align-items-center justify-content-between border rounded p-3 flex-wrap gap-3">
+                            <div>
+                                <p class="fw-semibold mb-0">Generate Backup</p>
+                                <p class="text-muted small mb-0">Exports the full database to a .sql file and uploads it directly to your connected Google Drive account.</p>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btnDownloadBackup">
+                                <i class="ti ti-database-export me-1"></i> Generate Backup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endcan
+
         <!-- Submit -->
         <div class="col-12">
             @can('edit settings')
@@ -225,6 +273,37 @@ $(document).ready(function () {
     // Coming soon toggle label
     $('#coming_soon_toggle').on('change', function () {
         $('#coming_soon_label').text(this.checked ? 'Enabled' : 'Disabled');
+    });
+
+    // Generate Backup via AJAX (Google Drive Only)
+    $('#btnDownloadBackup').on('click', function () {
+        var btn = $(this);
+        toastr.info('Generating backup and uploading to Google Drive, please wait...');
+        btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Processing...');
+
+        $.ajax({
+            url: '{{ route("admin.settings.backup.run") }}',
+            type: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}'
+            },
+            success: function (res) {
+                btn.prop('disabled', false).html('<i class="ti ti-database-export me-1"></i> Generate Backup');
+                if (res.status === 'success') {
+                    toastr.success(res.message || 'Database backup successfully uploaded to Google Drive!');
+                } else {
+                    toastr.error(res.message || 'Backup failed.');
+                }
+            },
+            error: function (xhr) {
+                btn.prop('disabled', false).html('<i class="ti ti-database-export me-1"></i> Generate Backup');
+                let errorMsg = 'Something went wrong while generating backup.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                toastr.error(errorMsg);
+            }
+        });
     });
 
     $('#settingsForm').on('submit', function (e) {
@@ -338,4 +417,8 @@ document.addEventListener('DOMContentLoaded', function () {
     bindSecretToggle('live-secret-group', 'razorpay_live_key_secret');
 });
 </script>
+
+<form action="{{ route('admin.settings.google-drive.disconnect') }}" method="POST" id="googleDriveDisconnectForm" style="display: none;">
+    @csrf
+</form>
 @endsection

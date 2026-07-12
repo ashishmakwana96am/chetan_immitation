@@ -8,9 +8,9 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Suppliers List</h4>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             {{-- Filter Dropdown --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
@@ -49,6 +49,7 @@
                         <th>#</th>
                         <th>Name</th>
                         <th>Phone</th>
+                        <th>State</th>
                         <th>Address</th>
                         <th>Status</th>
                         <th>Created Date</th>
@@ -81,6 +82,7 @@
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'name' },
                     { data: 'phone' },
+                    { data: 'state' },
                     { data: 'address' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },

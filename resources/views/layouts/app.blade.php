@@ -261,7 +261,7 @@
                     <footer class="content-footer footer bg-footer-theme">
                         <div class="container-fluid">
                             <div
-                                class="footer-container d-flex align-items-center justify-content-between py-2 flex-md-row flex-column">
+                                class="footer-container d-flex align-items-center justify-center justify-content-between py-2 flex-md-row flex-column text-center sm:text-left">
                                 <div>©
                                     <script>
                                         document.write(new Date().getFullYear());
@@ -304,6 +304,11 @@
             cache: false,
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+        $(document).ajaxError(function(event, xhr, settings, thrownError) {
+            if (xhr.status === 401 || xhr.status === 419) {
+                window.location.reload();
             }
         });
     </script>

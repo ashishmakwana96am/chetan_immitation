@@ -14,6 +14,15 @@ use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Models\OrderCancellationRequest;
+use App\Models\State;
+use App\Models\CustomerAddress;
+use App\Models\OrderPayment;
+use App\Models\Setting;
+use App\Mail\OrderStatusMail;
 
 class SaleController extends Controller
 {
@@ -36,7 +45,7 @@ class SaleController extends Controller
         $this->authorize('view sales');
 
         $user      = auth()->user();
-        $orders    = Order::with(['customer', 'location', 'user', 'items.product'])
+        $orders    = Order::with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
             ->where('order_type', 'sale')
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function($q) use ($request) {
@@ -91,7 +100,7 @@ class SaleController extends Controller
             3 => 'Shipped',
             4 => 'Out for delivery',
             5 => 'Delivered',
-            6 => 'Decline',
+            6 => 'Cancelled',
         ];
 
         $paymentColors = [
@@ -104,20 +113,39 @@ class SaleController extends Controller
         ];
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+            $cancellationRequested = false;
+            $cancellationWarningHtml = '';
+            if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
+                $cancellationRequested = true;
+                $cancellationWarningHtml = ' <i class="ti ti-alert-triangle text-danger fs-5 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" title="Cancellation Requested: ' . e($order->cancellationRequest->cancellation_reason) . '"></i>';
+            }
+
             $stockWarningHtml = '';
             $isFallbackOrder = !$order->is_default;
 
-            if ($isFallbackOrder) {
+            if ($isFallbackOrder && (int)$order->status === Order::STATUS_PENDING) {
                 $issueBlocks = [];
                 foreach ($order->items as $item) {
-                    $invRows = $inventoryByProduct->get($item->product_id, collect());
-                    $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+                    if ($item->product_variant_id) {
+                        $product = $item->product;
+                        $stockData = $product ? $product->getVariantStock() : [];
+                        $qtyAtLocation = (int) ($stockData[$order->location_id]['variants'][$item->product_variant_id] ?? 0);
+                        $otherLocations = collect($stockData)
+                            ->filter(fn ($d, $locId) => (int) $locId !== (int) $order->location_id)
+                            ->map(fn ($d) => ['name' => $d['location_name'], 'qty' => (int) ($d['variants'][$item->product_variant_id] ?? 0)])
+                            ->filter(fn ($d) => $d['qty'] > 0);
+                    } else {
+                        $invRows = $inventoryByProduct->get($item->product_id, collect());
+                        $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+                        $otherLocations = $invRows->where('location_id', '!=', $order->location_id)
+                            ->filter(fn ($inv) => $inv->quantity > 0)
+                            ->map(fn ($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
+                    }
 
                     if ($qtyAtLocation < $item->quantity) {
-                        $otherRows = $invRows->where('location_id', '!=', $order->location_id)
-                            ->filter(fn ($inv) => $inv->quantity > 0)
-                            ->map(function ($inv) {
-                                return "<div class='sw-branch'><span>" . e($inv->location->name ?? 'Unknown') . "</span><span class='sw-qty'>" . (int) $inv->quantity . "</span></div>";
+                        $otherRows = $otherLocations
+                            ->map(function ($d) {
+                                return "<div class='sw-branch'><span>" . e($d['name']) . "</span><span class='sw-qty'>" . $d['qty'] . "</span></div>";
                             })
                             ->implode('');
 
@@ -199,6 +227,8 @@ class SaleController extends Controller
                 : '<span class="badge bg-label-info">POS</span>';
 
             return [
+                'cancellation_requested' => $cancellationRequested,
+                'cancellation_warning'   => $cancellationWarningHtml,
                 'index'          => $index + 1,
                 'is_default'     => (bool) $order->is_default,
                 'stock_warning'  => $stockWarningHtml,
@@ -240,15 +270,16 @@ class SaleController extends Controller
                 'id'              => $p->id,
                 'name'            => $p->name,
                 'price'           => $p->sale_price,
-                'sku'             => $p->sku,
                 'barcode'         => $p->barcode,
-                'label'           => $p->name . ' (' . $p->sku . ')',
+                'label'           => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'pair_product'    => (bool) $p->pair_product,
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
+                'bypass_min_price' => (bool) $p->bypass_min_price,
+                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -472,7 +503,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment', 'cancellationRequest']);
         return view('sales.show', ['order' => $sale]);
     }
 
@@ -484,7 +515,7 @@ class SaleController extends Controller
             abort(403);
         }
 
-        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
+        $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment', 'cancellationRequest']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
@@ -547,6 +578,35 @@ class SaleController extends Controller
         return $pdf->getDomPDF()->getCanvas()->get_page_count();
     }
 
+    private function measureViewHeight(string $view, array $data, int $itemCount): int
+    {
+        $low = 150;
+        $high = 400 + ($itemCount * 40);
+
+        $pageCount = function (int $height) use ($view, $data) {
+            $pdf = Pdf::loadView($view, array_merge($data, ['pdfHeight' => $height]))
+                ->setPaper([0, 0, 216, $height], 'portrait');
+            $pdf->render();
+
+            return $pdf->getDomPDF()->getCanvas()->get_page_count();
+        };
+
+        while ($pageCount($high) > 1) {
+            $high += 200;
+        }
+
+        while ($high - $low > 1) {
+            $mid = intdiv($low + $high, 2);
+            if ($pageCount($mid) > 1) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $high + 4;
+    }
+
     public function label(Order $sale)
     {
         $this->authorize('view sales');
@@ -561,8 +621,10 @@ class SaleController extends Controller
 
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
 
-        $pdf = Pdf::loadView('sales.label', ['order' => $sale])
-            ->setPaper([0, 0, 288, 432], 'portrait');
+        $height = $this->measureViewHeight('sales.label', ['order' => $sale], $sale->items->count());
+
+        $pdf = Pdf::loadView('sales.label', ['order' => $sale, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
 
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Shipping label printed for sale #' . $sale->order_no);
 
@@ -605,15 +667,16 @@ class SaleController extends Controller
                 'id'              => $p->id,
                 'name'            => $p->name,
                 'price'           => $p->sale_price,
-                'sku'             => $p->sku,
                 'barcode'         => $p->barcode,
-                'label'           => $p->name . ' (' . $p->sku . ')',
+                'label'           => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'pair_product'    => (bool) $p->pair_product,
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
+                'bypass_min_price' => (bool) $p->bypass_min_price,
+                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -906,7 +969,7 @@ class SaleController extends Controller
                             throw new \Exception('Delivered orders cannot be modified.');
                         }
                         if ($oldStatus == Order::STATUS_DECLINE) {
-                            throw new \Exception('Declined orders cannot be modified.');
+                            throw new \Exception('Cancelled orders cannot be modified.');
                         }
 
                         // 2. Backward progression validation (Decline is always allowed from any non-terminal status)
@@ -949,7 +1012,7 @@ class SaleController extends Controller
                             }
                         }
 
-                        // Require cancellation reason when declining
+                        // Require cancellation reason when cancelling
                         if ($newStatus == Order::STATUS_DECLINE && empty($request->cancellation_reason)) {
                             throw new \Exception('Please provide a cancellation reason.');
                         }
@@ -985,6 +1048,90 @@ class SaleController extends Controller
                         $updateData = ['status' => $newStatus];
                         if ($newStatus == Order::STATUS_DECLINE) {
                             $updateData['cancellation_reason'] = $request->cancellation_reason;
+
+                            // Process Refund for Direct Admin Cancellation
+                            $refundAmount = (float)$sale->final_amount;
+                            $shippingDeducted = 0.0;
+                            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+
+                            if ($shippedOrLater) {
+                                $address = CustomerAddress::find($sale->customer_address_id);
+                                if ($address && $address->state) {
+                                    $state = State::where('name', $address->state)->first();
+                                    if ($state) {
+                                        $shippingDeducted = (float)$state->shipping_charge;
+                                    }
+                                }
+                                $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
+                            }
+
+                            $refundGatewayId = null;
+
+                            // Trigger Razorpay refund if paid online and payment is captured
+                            $payment = $sale->payment;
+                            if ($payment && $payment->gateway === 'razorpay' && !empty($payment->gateway_payment_id) && $payment->status === OrderPayment::STATUS_CAPTURED) {
+                                $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+                                $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+                                $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
+
+                                if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+                                    throw new \Exception('Razorpay credentials are not configured.');
+                                }
+
+                                $refundAmountInPaise = round($refundAmount * 100);
+
+                                if ($refundAmountInPaise > 0) {
+                                    $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                                        ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
+                                            'amount' => $refundAmountInPaise,
+                                            'speed'  => 'normal',
+                                        ]);
+
+                                    if ($response->failed()) {
+                                        Log::error('Razorpay Refund API Failed from Admin updateStatus: ' . $response->body());
+                                        throw new \Exception('Razorpay Refund failed: ' . ($response->json('error.description') ?? 'Unknown error'));
+                                    }
+
+                                    $refundData = $response->json();
+                                    $refundGatewayId = $refundData['id'] ?? null;
+                                }
+
+                                // Update payment record to refunded
+                                $payment->update([
+                                    'status' => OrderPayment::STATUS_REFUNDED
+                                ]);
+
+                                // Create a new refunded transaction entry
+                                OrderPayment::create([
+                                    'order_id'           => $sale->id,
+                                    'gateway'            => 'razorpay',
+                                    'gateway_order_id'   => $payment->gateway_order_id,
+                                    'gateway_payment_id' => $payment->gateway_payment_id,
+                                    'status'             => OrderPayment::STATUS_REFUNDED,
+                                    'amount'             => -$refundAmount,
+                                    'currency'           => $payment->currency ?? 'INR',
+                                ]);
+                            }
+
+                            // Create or update cancellation request record
+                            $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)->first();
+                            if ($cancellationRequest) {
+                                $cancellationRequest->update([
+                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
+                                    'cancellation_reason' => $request->cancellation_reason ?? $cancellationRequest->cancellation_reason,
+                                    'refund_amount'       => $refundAmount,
+                                    'refund_gateway_id'   => $refundGatewayId,
+                                ]);
+                            } else {
+                                OrderCancellationRequest::create([
+                                    'order_id'            => $sale->id,
+                                    'customer_id'         => $sale->customer_id,
+                                    'cancellation_reason' => $request->cancellation_reason ?? 'Cancelled by Admin',
+                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
+                                    'refund_amount'       => $refundAmount,
+                                    'refund_gateway_id'   => $refundGatewayId,
+                                ]);
+                            }
                         }
 
                         // Record dates for status change
@@ -1115,6 +1262,7 @@ class SaleController extends Controller
     {
         $itemsTotal    = 0.0;
         $minFloorTotal = 0.0;
+        $hasItems      = false;
 
         foreach ($items as $itemData) {
             $productId = is_array($itemData) ? $itemData['product_id'] : $itemData->product_id;
@@ -1127,6 +1275,7 @@ class SaleController extends Controller
             if ($qty <= 0) {
                 continue;
             }
+            $hasItems = true;
 
             $subtotal = $qty * $price;
             $discAmount = $discType === 'percentage' ? $subtotal * ($discVal / 100) : $discVal;
@@ -1150,16 +1299,39 @@ class SaleController extends Controller
                 $label = $product->name ?? 'Product';
             }
 
+            $bypass = (bool) ($product->bypass_min_price ?? false);
+            $allowFullDiscount = (bool) ($product->allow_full_discount ?? false);
+
+            if ($allowFullDiscount) {
+                if ($itemTotal < 0) {
+                    return 'Item amount cannot be negative.';
+                }
+                continue;
+            }
+
+            // Product-level bypass (set on the Product record): the purchase-price+10% floor
+            // doesn't apply to this item, but its own total must still be a positive amount.
+            if ($bypass) {
+                if ($itemTotal <= 0) {
+                    return 'Item amount must be greater than 0.';
+                }
+                continue;
+            }
+
             if ($purchasePrice === null) {
                 continue;
+            }
+
+            $pairType = is_array($itemData) ? ($itemData['pair_type'] ?? 'single') : ($itemData->pair_type ?? 'single');
+            if ($product && $product->pair_product && $pairType === 'single') {
+                $purchasePrice = $purchasePrice / 2;
             }
 
             $minTotal = $qty * $purchasePrice * 1.10;
             $minFloorTotal += $minTotal;
 
             if ($itemTotal < $minTotal - 0.01) {
-                return 'Final price for "' . $label . '" cannot be less than purchase price + 10% (minimum '
-                    . format_price($minTotal) . ' for the selected quantity).';
+                return 'Discount is not applicable';
             }
         }
 
@@ -1175,6 +1347,10 @@ class SaleController extends Controller
 
         $finalAmount = $itemsTotal - $orderDiscountAmount;
 
+        if ($hasItems && $finalAmount < 0) {
+            return 'Order total cannot be negative.';
+        }
+
         if ($minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
             return 'Order total cannot be less than ' . format_price($minFloorTotal)
                 . ' (combined purchase price + 10% of all items).';
@@ -1183,14 +1359,179 @@ class SaleController extends Controller
         return null;
     }
 
+    public function approveCancellation(Order $sale)
+    {
+        $this->authorize('edit sales status');
+
+        $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
+            ->where('status', OrderCancellationRequest::STATUS_PENDING)
+            ->first();
+
+        if (!$cancellationRequest) {
+            return response()->json(['status' => 'error', 'message' => 'No pending cancellation request found.'], 404);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $refundAmount = (float)$sale->final_amount;
+            $shippingDeducted = 0.0;
+            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+
+            if ($shippedOrLater) {
+                // Find state shipping charge
+                $address = CustomerAddress::find($sale->customer_address_id);
+                if ($address && $address->state) {
+                    $state = State::where('name', $address->state)->first();
+                    if ($state) {
+                        $shippingDeducted = (float)$state->shipping_charge;
+                    }
+                }
+                $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
+            }
+
+            $refundGatewayId = null;
+
+            // Trigger Razorpay refund if paid online and Razorpay order exists
+            $payment = $sale->payment;
+            if ($payment && $payment->gateway === 'razorpay' && !empty($payment->gateway_payment_id) && $payment->status === OrderPayment::STATUS_CAPTURED) {
+                $paymentMode = Setting::getValue('razorpay_payment_mode', 'test');
+                $razorpayKeyId = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_id' : 'razorpay_test_key_id', '');
+                $razorpayKeySecret = Setting::getValue($paymentMode === 'live' ? 'razorpay_live_key_secret' : 'razorpay_test_key_secret', '');
+
+                if (empty($razorpayKeyId) || empty($razorpayKeySecret)) {
+                    throw new \Exception('Razorpay credentials are not configured.');
+                }
+
+                // Razorpay expects amount in paise
+                $refundAmountInPaise = round($refundAmount * 100);
+
+                if ($refundAmountInPaise > 0) {
+                    $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
+                        ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
+                            'amount' => $refundAmountInPaise,
+                            'speed'  => 'normal',
+                        ]);
+
+                    if ($response->failed()) {
+                        Log::error('Razorpay Refund API Failed: ' . $response->body());
+                        throw new \Exception('Razorpay Refund failed: ' . ($response->json('error.description') ?? 'Unknown error'));
+                    }
+
+                    $refundData = $response->json();
+                    $refundGatewayId = $refundData['id'] ?? null;
+                }
+
+                // Update payment record to refunded
+                $payment->update([
+                    'status' => OrderPayment::STATUS_REFUNDED
+                ]);
+
+                // Create a new refunded transaction entry
+                OrderPayment::create([
+                    'order_id'           => $sale->id,
+                    'gateway'            => 'razorpay',
+                    'gateway_order_id'   => $payment->gateway_order_id,
+                    'gateway_payment_id' => $payment->gateway_payment_id,
+                    'status'             => OrderPayment::STATUS_REFUNDED,
+                    'amount'             => -$refundAmount,
+                    'currency'           => $payment->currency ?? 'INR',
+                ]);
+            }
+
+            // Restore Stock/Inventory
+            foreach ($sale->items as $item) {
+                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                Inventory::where('product_id', $item->product_id)
+                    ->where('location_id', $sale->location_id)
+                    ->increment('quantity', $stockRestore);
+            }
+
+            // Update cancellation request status
+            $cancellationRequest->update([
+                'status'            => OrderCancellationRequest::STATUS_APPROVED,
+                'refund_amount'     => $refundAmount,
+                'refund_gateway_id' => $refundGatewayId,
+            ]);
+
+            // Update order status
+            $sale->update([
+                'status'              => Order::STATUS_DECLINE,
+                'payment_status'      => Order::PAYMENT_STATUS_PENDING,
+                'cancellation_reason' => $cancellationRequest->cancellation_reason,
+            ]);
+
+            DB::commit();
+
+            // Send status mail
+            if ($sale->customer && $sale->customer->email) {
+                try {
+                    Mail::to($sale->customer->email)->send(new OrderStatusMail($sale->fresh(['customer'])));
+                } catch (\Exception $mailEx) {
+                    Log::error('Failed to send cancellation approval email: ' . $mailEx->getMessage());
+                }
+            }
+
+            // Log activity
+            ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request approved & order cancelled. Refund processed: ₹' . $refundAmount);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Cancellation request approved. Refund processed: ₹' . number_format($refundAmount, 2),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Cancellation Approval Failed: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to approve cancellation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function rejectCancellation(Order $sale)
+    {
+        $this->authorize('edit sales status');
+
+        $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
+            ->where('status', OrderCancellationRequest::STATUS_PENDING)
+            ->first();
+
+        if (!$cancellationRequest) {
+            return response()->json(['status' => 'error', 'message' => 'No pending cancellation request found.'], 404);
+        }
+
+        try {
+            $cancellationRequest->update([
+                'status' => OrderCancellationRequest::STATUS_REJECTED,
+            ]);
+
+            // Log activity
+            ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request rejected.');
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Cancellation request rejected successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Cancellation Rejection Failed: ' . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to reject cancellation: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function destroy(Order $sale)
     {
         $this->authorize('delete sales');
 
         if ($sale->status != 6) {
-            return response()->json(['status' => 'error', 'message' => 'Only declined sales can be deleted.'], 422);
+            return response()->json(['status' => 'error', 'message' => 'Only cancelled sales can be deleted.'], 422);
         }
 
+        $sale->update(['order_no' => 'DEL-' . $sale->id . '-' . $sale->order_no]);
         $sale->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Sale deleted successfully.']);

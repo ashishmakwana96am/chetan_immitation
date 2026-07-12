@@ -19,9 +19,11 @@ class Product extends Model
         'slug',
         'category_id',
         'sub_category_id',
-        'sku',
         'barcode',
         'product_code',
+        'purchase_multiplier',
+        'sale_multiplier',
+        'mrp_multiplier',
         'description',
         'additional_information',
         'product_highlights',
@@ -36,18 +38,25 @@ class Product extends Model
         'pair_product',
         'pair_sale_price',
         'pair_mrp',
+        'bypass_min_price',
+        'allow_full_discount',
     ];
 
     protected function casts(): array
     {
         return [
             'product_code'    => 'decimal:2',
+            'purchase_multiplier' => 'decimal:3',
+            'sale_multiplier' => 'decimal:3',
+            'mrp_multiplier'  => 'decimal:3',
             'purchase_price'  => 'decimal:2',
             'sale_price'      => 'decimal:2',
             'mrp'             => 'decimal:2',
             'pair_sale_price' => 'decimal:2',
             'pair_mrp'        => 'decimal:2',
             'pair_product'    => 'boolean',
+            'bypass_min_price' => 'boolean',
+            'allow_full_discount' => 'boolean',
         ];
     }
 
@@ -74,6 +83,34 @@ class Product extends Model
     public function inventories()
     {
         return $this->hasMany(Inventory::class);
+    }
+
+    /**
+     * Get the total available stock (Pcs) across all locations.
+     */
+    public function totalAvailableStock($variantId = null)
+    {
+        if ($this->type === 'variable') {
+            $stockData = $this->getVariantStock();
+
+            if ($variantId) {
+                $totalStock = 0;
+                foreach ($stockData as $locData) {
+                    $totalStock += (int) ($locData['variants'][$variantId] ?? 0);
+                }
+                return max(0, $totalStock);
+            }
+
+            $totalStock = 0;
+            foreach ($stockData as $locData) {
+                foreach ($locData['variants'] as $vStock) {
+                    $totalStock += (int) $vStock;
+                }
+            }
+            return max(0, $totalStock);
+        }
+
+        return (int) $this->inventories()->sum('quantity');
     }
 
     public function createdBy()
@@ -164,9 +201,9 @@ class Product extends Model
             }
         }
 
-        $transferItems = StockTransferItem::where('product_id', $this->id)
+        $transferItems = PurchaseBillItem::where('product_id', $this->id)
             ->whereHas('transfer', function ($q) {
-                $q->where('status', StockTransfer::STATUS_ACCEPTED);
+                $q->where('status', PurchaseBill::STATUS_ACCEPTED);
             })
             ->with('transfer')
             ->get();

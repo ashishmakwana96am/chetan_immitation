@@ -111,7 +111,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales</h4>
         <div class="d-flex gap-2 align-items-center">
             {{-- Filter Dropdown --}}
@@ -144,7 +144,7 @@
                             <option value="3">Shipped</option>
                             <option value="4">Out for delivery</option>
                             <option value="5">Delivered</option>
-                            <option value="6">Declined</option>
+                            <option value="6">Cancelled</option>
                         </select>
                     </div>
 
@@ -242,6 +242,7 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onOpen     : function () { flatpickrOpen = true; },
                 onClose    : function (selectedDates) {
                     flatpickrOpen = false;
@@ -256,6 +257,7 @@
                 altFormat  : 'd-m-Y',
                 dateFormat : 'Y-m-d',
                 allowInput : false,
+                maxDate    : 'today',
                 onOpen     : function () { flatpickrOpen = true; },
                 onClose    : function (selectedDates) {
                     flatpickrOpen = false;
@@ -337,7 +339,7 @@
                         searchable: false,
                         render: function (data, type, row, meta) {
                             const rowNumber = meta.row + meta.settings._iDisplayStart + 1;
-                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + '</span>';
+                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + (row.cancellation_warning || '') + '</span>';
                         }
                     },
                     { data: 'order_no' },
@@ -363,6 +365,9 @@
                 createdRow: function (row, data) {
                     if (data.stock_warning) {
                         $(row).addClass('table-warning');
+                    }
+                    if (data.cancellation_requested) {
+                        $(row).addClass('table-danger');
                     }
                 },
                 drawCallback: function () {
@@ -416,7 +421,7 @@
                         <option value="3" ${currentStatus == 3 ? 'selected' : ''} ${opt3}>Shipped</option>
                         <option value="4" ${currentStatus == 4 ? 'selected' : ''} ${opt4}>Out for delivery</option>
                         <option value="5" ${currentStatus == 5 ? 'selected' : ''} ${opt5}>Delivered</option>
-                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Decline</option>
+                        <option value="6" ${currentStatus == 6 ? 'selected' : ''} ${opt6}>Cancelled</option>
                     `;
                 }
 

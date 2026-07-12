@@ -167,7 +167,7 @@ if (!function_exists('generate_invoice_no')) {
     /**
      * Generate a unique invoice number.
      *
-     * Usage: generate_invoice_no('PUR', PurchaseInvoice::class)
+     * Usage: generate_invoice_no('PUR', Purchase::class)
      *        generate_invoice_no('ORD', Order::class, 'order_no')
      */
     function generate_invoice_no(string $prefix, string $model, string $column = 'invoice_no'): string
@@ -175,7 +175,11 @@ if (!function_exists('generate_invoice_no')) {
         $date   = now()->format('Ymd');
         $prefix = strtoupper($prefix) . '-' . $date . '-';
 
-        $last = $model::where($column, 'like', $prefix . '%')
+        $query = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model))
+            ? $model::withTrashed()
+            : $model::query();
+
+        $last = $query->where($column, 'like', $prefix . '%')
             ->orderByDesc($column)
             ->value($column);
 

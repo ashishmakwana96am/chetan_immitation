@@ -10,7 +10,7 @@ use App\Models\Location;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\PurchaseInvoice;
+use App\Models\Purchase;
 use App\Models\Supplier;
 use App\Models\User;
 
@@ -48,15 +48,15 @@ class DashboardController extends Controller
         ];
 
         $purchaseStats = [
-            'confirmed' => (float) PurchaseInvoice::where('status', PurchaseInvoice::STATUS_APPROVE)->sum('total_amount'),
-            'draft'     => PurchaseInvoice::where('status', PurchaseInvoice::STATUS_PENDING)->count(),
+            'confirmed' => (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount'),
+            'draft'     => Purchase::where('status', Purchase::STATUS_PENDING)->count(),
         ];
 
         $monthlySales   = $this->getMonthlySales();
         $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
         $lowStock       = Product::with(['inventories', 'category', 'primaryImage'])->get()->filter(function ($p) {
             $threshold = $p->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
-            return $p->inventories->sum('quantity') <= $threshold;
+            return $p->totalAvailableStock() <= $threshold;
         })->take(10)->values();
         $topProducts    = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
         $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])], 'final_amount')
@@ -96,18 +96,34 @@ class DashboardController extends Controller
             'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 
-        $lowStockInventories = Inventory::with(['product.category', 'product.primaryImage'])
-            ->where('location_id', $locationId)
-            ->get()
-            ->filter(function ($inv) {
-                $threshold = $inv->product->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
-                return $inv->quantity <= $threshold;
-            });
+        $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
+        $stockRows = collect();
+        foreach (Product::with(['category', 'primaryImage'])->get() as $product) {
+            if ($product->type === 'variable') {
+                $stockData = $product->getVariantStock($locationId);
+                if (!$stockData) {
+                    continue;
+                }
+                $qty = array_sum($stockData['variants']);
+            } else {
+                $inv = $invByProduct->get($product->id);
+                if (!$inv) {
+                    continue;
+                }
+                $qty = $inv->quantity;
+            }
+            $stockRows->push((object) ['product' => $product, 'quantity' => $qty]);
+        }
+
+        $lowStockInventories = $stockRows->filter(function ($row) {
+            $threshold = $row->product->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
+            return $row->quantity <= $threshold;
+        });
 
         $stockStats = [
-            'total_products' => Inventory::where('location_id', $locationId)->count(),
-            'total_units'    => (int) Inventory::where('location_id', $locationId)->sum('quantity'),
-            'out_of_stock'   => Inventory::where('location_id', $locationId)->where('quantity', 0)->count(),
+            'total_products' => $stockRows->count(),
+            'total_units'    => (int) $stockRows->sum('quantity'),
+            'out_of_stock'   => $stockRows->where('quantity', 0)->count(),
             'low_stock'      => $lowStockInventories->where('quantity', '>', 0)->count(),
         ];
 

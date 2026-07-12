@@ -196,14 +196,12 @@ class CustomerPasswordResetController extends Controller
                 'string',
                 'min:8',
                 'confirmed',
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_#^()\-+=])[A-Za-z\d@$!%*?&_#^()\-+=]{8,}$/',
             ],
             'password_confirmation' => ['required'],
         ], [
             'password.required'              => 'New password is required.',
             'password.min'                   => 'Password must be at least 8 characters.',
             'password.confirmed'             => 'Passwords do not match.',
-            'password.regex'                 => 'Password must contain at least 1 uppercase, 1 lowercase, 1 digit, and 1 special character.',
             'password_confirmation.required' => 'Please confirm your new password.',
         ]);
 

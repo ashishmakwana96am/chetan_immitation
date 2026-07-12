@@ -140,8 +140,49 @@ class CartController extends Controller
         }
 
         // Verify stock
-        if (($product->inventories_sum_quantity ?? 0) < 1) {
-            return response()->json(['status' => 'error', 'message' => 'This product is currently out of stock.'], 422);
+        $availableStock = $product->totalAvailableStock($variantId);
+        if ($availableStock < 1) {
+            $count = $customer ? CartItem::where('customer_id', $customer->id)->sum('qty') : array_sum(array_column($this->getGuestCart($request), 'qty'));
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Item added to cart.',
+                'count'   => $count,
+            ]);
+        }
+
+        // Calculate total quantity (in Pcs) of this product/variant already in the user's cart
+        $cartPcs = 0;
+        if ($customer) {
+            $cartItems = CartItem::where('customer_id', $customer->id)
+                ->where('product_id', $productId)
+                ->where('product_variant_id', $variantId)
+                ->get();
+            foreach ($cartItems as $cItem) {
+                $cartPcs += ($cItem->pair_type === 'pair') ? $cItem->qty * 2 : $cItem->qty;
+            }
+        } else {
+            $guestCart = $this->getGuestCart($request);
+            foreach ($guestCart as $cItem) {
+                if ($cItem['product_id'] === $productId && $cItem['variant_id'] === $variantId) {
+                    $cartPcs += (($cItem['pair_type'] ?? 'single') === 'pair') ? $cItem['qty'] * 2 : $cItem['qty'];
+                }
+            }
+        }
+
+        // The proposed new addition Pcs
+        $newPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+
+        if (($cartPcs + $newPcs) > $availableStock) {
+            $allowedPcs = $availableStock - $cartPcs;
+            if ($allowedPcs > 0) {
+                if ($pairType === 'pair') {
+                    $qty = (int) floor($allowedPcs / 2);
+                } else {
+                    $qty = $allowedPcs;
+                }
+            } else {
+                $qty = 0;
+            }
         }
 
         // Verify variant belongs to product
@@ -152,63 +193,58 @@ class CartController extends Controller
             }
         }
 
-        if ($customer) {
-            $existing = CartItem::where('customer_id', $customer->id)
-                ->where('product_id', $productId)
-                ->where('product_variant_id', $variantId)
-                ->where('pair_type', $pairType)
-                ->first();
+        if ($qty > 0) {
+            if ($customer) {
+                $existing = CartItem::where('customer_id', $customer->id)
+                    ->where('product_id', $productId)
+                    ->where('product_variant_id', $variantId)
+                    ->where('pair_type', $pairType)
+                    ->first();
 
-            if ($existing) {
-                $existing->increment('qty', $qty);
-            } else {
-                CartItem::create([
-                    'customer_id'        => $customer->id,
-                    'product_id'         => $productId,
-                    'product_variant_id' => $variantId,
-                    'pair_type'          => $pairType,
-                    'qty'                => $qty,
-                ]);
-            }
-
-            $count = CartItem::where('customer_id', $customer->id)->sum('qty');
-
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Item added to cart.',
-                'count'   => $count,
-            ]);
-        } else {
-            // Guest user
-            $guestCart = $this->getGuestCart($request);
-
-            $found = false;
-            foreach ($guestCart as &$item) {
-                if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
-                    $item['qty'] += $qty;
-                    $found = true;
-                    break;
+                if ($existing) {
+                    $existing->increment('qty', $qty);
+                } else {
+                    CartItem::create([
+                        'customer_id'        => $customer->id,
+                        'product_id'         => $productId,
+                        'product_variant_id' => $variantId,
+                        'pair_type'          => $pairType,
+                        'qty'                => $qty,
+                    ]);
                 }
+            } else {
+                // Guest user
+                $guestCart = $this->getGuestCart($request);
+
+                $found = false;
+                foreach ($guestCart as &$item) {
+                    if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
+                        $item['qty'] += $qty;
+                        $found = true;
+                        break;
+                    }
+                }
+
+                if (!$found) {
+                    $guestCart[] = [
+                        'product_id' => $productId,
+                        'variant_id' => $variantId,
+                        'pair_type'  => $pairType,
+                        'qty'        => $qty,
+                    ];
+                }
+
+                session()->put('guest_cart', $guestCart);
             }
-
-            if (!$found) {
-                $guestCart[] = [
-                    'product_id' => $productId,
-                    'variant_id' => $variantId,
-                    'pair_type'  => $pairType,
-                    'qty'        => $qty,
-                ];
-            }
-
-            session()->put('guest_cart', $guestCart);
-            $count = array_sum(array_column($guestCart, 'qty'));
-
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Item added to cart.',
-                'count'   => $count,
-            ]);
         }
+
+        $count = $customer ? CartItem::where('customer_id', $customer->id)->sum('qty') : array_sum(array_column($this->getGuestCart($request), 'qty'));
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Item added to cart.',
+            'count'   => $count,
+        ]);
     }
 
     /**
@@ -233,14 +269,48 @@ class CartController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Item not found.'], 404);
             }
 
-            $item->update(['qty' => $qty]);
+            $product = $item->product;
+            $variant = $item->productVariant;
+            $productId = $product->id;
+            $variantId = $variant ? $variant->id : null;
+            $pairType = $item->pair_type ?? 'single';
+
+            $availableStock = $product->totalAvailableStock($variantId);
+
+            // Get other cart items of the same product/variant
+            $otherCartPcs = 0;
+            $cartItems = CartItem::where('customer_id', $customer->id)
+                ->where('product_id', $productId)
+                ->where('product_variant_id', $variantId)
+                ->get();
+            foreach ($cartItems as $cItem) {
+                if ($cItem->id !== $item->id) {
+                    $otherCartPcs += ($cItem->pair_type === 'pair') ? $cItem->qty * 2 : $cItem->qty;
+                }
+            }
+
+            $proposedPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+            if (($otherCartPcs + $proposedPcs) > $availableStock) {
+                $allowedPcs = $availableStock - $otherCartPcs;
+                if ($allowedPcs <= 0) {
+                    $qty = 0;
+                } else {
+                    if ($pairType === 'pair') {
+                        $qty = (int) floor($allowedPcs / 2);
+                    } else {
+                        $qty = $allowedPcs;
+                    }
+                }
+            }
+
+            if ($qty > 0) {
+                $item->update(['qty' => $qty]);
+            } else {
+                $item->delete();
+            }
 
             $count  = CartItem::where('customer_id', $customer->id)->sum('qty');
             $totals = $this->calculateTotals($customer->id);
-
-            $product = $item->product;
-            $variant = $item->productVariant;
-            $pairType = $item->pair_type ?? 'single';
 
             if ($variant) {
                 $price = (float) $variant->sale_price;
@@ -255,7 +325,8 @@ class CartController extends Controller
             return response()->json([
                 'status'     => 'success',
                 'count'      => $count,
-                'item_total' => $price * $item->qty,
+                'qty'        => $qty,
+                'item_total' => $price * $qty,
                 'totals'     => $totals,
             ]);
         } else {
@@ -267,17 +338,48 @@ class CartController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Item not found.'], 404);
             }
 
-            $guestCart[$cartItemId]['qty'] = $qty;
+            $itemData = $guestCart[$cartItemId];
+            $productId = $itemData['product_id'];
+            $variantId = isset($itemData['variant_id']) && $itemData['variant_id'] !== '' ? (int) $itemData['variant_id'] : null;
+            $pairType = $itemData['pair_type'] ?? 'single';
+
+            $product = Product::find($productId);
+            $availableStock = $product->totalAvailableStock($variantId);
+
+            // Get other cart items of the same product/variant
+            $otherCartPcs = 0;
+            foreach ($guestCart as $idx => $cItem) {
+                if ($idx !== $cartItemId && $cItem['product_id'] === $productId && $cItem['variant_id'] === $variantId) {
+                    $otherCartPcs += (($cItem['pair_type'] ?? 'single') === 'pair') ? $cItem['qty'] * 2 : $cItem['qty'];
+                }
+            }
+
+            $proposedPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+            if (($otherCartPcs + $proposedPcs) > $availableStock) {
+                $allowedPcs = $availableStock - $otherCartPcs;
+                if ($allowedPcs <= 0) {
+                    $qty = 0;
+                } else {
+                    if ($pairType === 'pair') {
+                        $qty = (int) floor($allowedPcs / 2);
+                    } else {
+                        $qty = $allowedPcs;
+                    }
+                }
+            }
+
+            if ($qty > 0) {
+                $guestCart[$cartItemId]['qty'] = $qty;
+            } else {
+                unset($guestCart[$cartItemId]);
+                $guestCart = array_values($guestCart);
+            }
 
             session()->put('guest_cart', $guestCart);
             $totals = $this->calculateGuestTotals($guestCart);
             $count = array_sum(array_column($guestCart, 'qty'));
 
-            $itemData = $guestCart[$cartItemId];
-            $product = Product::find($itemData['product_id']);
-            $variant = isset($itemData['variant_id']) && $itemData['variant_id'] !== '' ? ProductVariant::find($itemData['variant_id']) : null;
-            $pairType = $itemData['pair_type'] ?? 'single';
-
+            $variant = $variantId ? ProductVariant::find($variantId) : null;
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
@@ -291,6 +393,7 @@ class CartController extends Controller
             return response()->json([
                 'status'     => 'success',
                 'count'      => $count,
+                'qty'        => $qty,
                 'item_total' => $price * $qty,
                 'totals'     => $totals,
             ]);

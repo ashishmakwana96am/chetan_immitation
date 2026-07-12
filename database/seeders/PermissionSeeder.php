@@ -86,11 +86,12 @@ class PermissionSeeder extends Seeder
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
 
-            // Stock Transfers
-            'view stock transfers' => 'Stock Transfers',
-            'create stock transfers' => 'Stock Transfers',
-            'accept stock transfers' => 'Stock Transfers',
-            'reject stock transfers' => 'Stock Transfers',
+            // Purchase Bills
+            'view purchase bills' => 'Purchase Bill',
+            'create purchase bills' => 'Purchase Bill',
+            'accept purchase bills' => 'Purchase Bill',
+            'reject purchase bills' => 'Purchase Bill',
+            'export purchase bills' => 'Purchase Bill',
 
             // Expenses
             'view expenses' => 'Expenses',
@@ -139,6 +140,7 @@ class PermissionSeeder extends Seeder
             // Settings
             'view settings' => 'Settings',
             'edit settings' => 'Settings',
+            'download backup' => 'Settings',
         ];
 
         // Migrate/cleanup old permission if it exists
@@ -154,6 +156,7 @@ class PermissionSeeder extends Seeder
 
         $permissions['view payment reports'] = 'Reports';
         $permissions['view utility report'] = 'Reports';
+        $permissions['view daily reports'] = 'Reports';
         $permissions['download sales'] = 'Sales';
         $permissions['download purchases'] = 'Purchases';
 

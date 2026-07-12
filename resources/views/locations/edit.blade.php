@@ -43,6 +43,7 @@
                 <label class="form-check-label" for="locationStatus">Active</label>
             </div>
         </div>
+        {{--
         <div class="col-md-6">
             <label class="form-label">Set as Default</label>
             <div class="form-check form-switch mt-2">
@@ -51,6 +52,7 @@
                 <label class="form-check-label" for="locationDefault">Default</label>
             </div>
         </div>
+        --}}
     </div>
 
     <div class="d-flex gap-2 mt-auto pt-3 border-top">

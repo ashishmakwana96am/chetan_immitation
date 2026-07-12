@@ -72,17 +72,7 @@
                         </div>
                     </div>
 
-                    @if($order->cancellation_reason)
-                    <div class="mt-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-0.5 w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                        </svg>
-                        <div>
-                            <p class="text-red-700 font-semibold text-sm">Cancellation Reason</p>
-                            <p class="text-red-600 text-sm mt-1">{{ $order->cancellation_reason }}</p>
-                        </div>
-                    </div>
-                    @endif
+
 
                     @else
                     <div class="grid grid-cols-5 relative">
@@ -366,6 +356,42 @@
                     @endif
                 </div>
                 @endforeach
+
+                @if($order->cancellationRequest)
+                <div class="border border-[#D5D5D5] p-5 md:p-6 bg-white">
+                    <h3 class="text-[#131615] text-lg md:text-[22px] font-semibold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-[#B4771E]"></i>
+                        Cancellation Request Details
+                    </h3>
+                    <div class="space-y-3 text-sm md:text-base text-[#131615]">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-[#131615]">Request Status:</span>
+                            <span class="font-bold px-2 py-0.5 rounded-[3px] text-white text-xs uppercase tracking-wider
+                                @if($order->cancellationRequest->status === 'pending') bg-[#B4771E]
+                                @elseif($order->cancellationRequest->status === 'approved') bg-green-600
+                                @elseif($order->cancellationRequest->status === 'rejected') bg-red-600
+                                @endif">
+                                {{ $order->cancellationRequest->status }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-[#131615]">Cancellation Reason:</span>
+                            <p class="mt-1 text-[#757575] bg-gray-50 p-3 border border-[#EAEAEA] rounded-[4px] italic">
+                                "{{ $order->cancellation_reason ?? $order->cancellationRequest->cancellation_reason }}"
+                            </p>
+                        </div>
+                        <div class="text-xs text-[#757575] pt-2 border-t border-[#EAEAEA]">
+                            @if($order->cancellationRequest->status === 'pending')
+                                Your request was submitted on {{ $order->cancellationRequest->created_at->format('d M Y, h:i A') }} and is currently under review by our team.
+                            @elseif($order->cancellationRequest->status === 'approved')
+                                This request was approved on {{ $order->cancellationRequest->updated_at->format('d M Y, h:i A') }}. Refund of {{ website_price($order->cancellationRequest->refund_amount) }} has been processed. Note: The refunded amount will be credited to your account within 5-7 business days.
+                            @elseif($order->cancellationRequest->status === 'rejected')
+                                This request was rejected on {{ $order->cancellationRequest->updated_at->format('d M Y, h:i A') }}.
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <!-- RIGHT -->
@@ -377,10 +403,19 @@
                 $shippingCost = (float)$order->shipping_charge;
                 $discount = $subtotal - ($finalAmount - $shippingCost);
                 if ($discount < 0) $discount = 0;
-                $canCancelOrder = in_array((int) $order->status, [
-                    \App\Models\Order::STATUS_PENDING,
-                    \App\Models\Order::STATUS_APPROVE,
-                ], true);
+                $hasCancellationRequest = $order->cancellationRequest !== null;
+                $isDeliveredWithin24Hours = (int) $order->status === \App\Models\Order::STATUS_DELIVERED 
+                    && $order->delivered_at 
+                    && now()->diffInHours($order->delivered_at) <= 24;
+
+                $canCancelOrder = !$hasCancellationRequest && (
+                    in_array((int) $order->status, [
+                        \App\Models\Order::STATUS_PENDING,
+                        \App\Models\Order::STATUS_APPROVE,
+                        \App\Models\Order::STATUS_SHIPPED,
+                        \App\Models\Order::STATUS_OUT_FOR_DELIVERY,
+                    ], true) || $isDeliveredWithin24Hours
+                );
             @endphp
             <div class="space-y-5">
                 <!-- Delivery Details -->
@@ -504,10 +539,10 @@
                 <p class="ml-auto text-xs text-[#757575]"><span id="cancelRemarkCount">0</span>/500</p>
             </div>
             <div class="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium hover:border-[#131615] rounded-md">
+                <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium rounded-md transition-all duration-300 ease-in-out hover:border-[#131615] hover:bg-[#131615] hover:text-white hover:shadow-md active:scale-[0.98]">
                     Keep Order
                 </button>
-                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-md">
+                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium  rounded-md  transition-all duration-300 ease-in-out hover:bg-white hover:border-[#C0392B] hover:text-[#C0392B] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60">
                     Confirm Cancellation
                 </button>
             </div>

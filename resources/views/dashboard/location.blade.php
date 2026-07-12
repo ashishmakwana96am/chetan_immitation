@@ -8,7 +8,7 @@
 
 @section('content')
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Dashboard</h4>
             <small class="text-muted">
@@ -20,7 +20,7 @@
         </div>
         @can('create sales')
             <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
-                <i class="ti ti-plus me-1"></i> New Sale
+                <i class="ti ti-plus me-1"></i> Add Sale
             </a>
         @endcan
     </div>
@@ -177,7 +177,7 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Recent Sales</h5>
-                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">
@@ -221,7 +221,7 @@
                                     <span class="badge bg-label-warning ms-1">{{ $todayInquiriesCount }} today</span>
                                 @endif
                             </h5>
-                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">
@@ -379,7 +379,7 @@
         new ApexCharts(document.getElementById('orderStatusChart'), {
             chart   : { type: 'donut', height: 250 },
             series  : [{{ $salesStats['pending'] }}, {{ $salesStats['approve'] }}, {{ $salesStats['decline'] }}],
-            labels  : ['Pending', 'Approve', 'Decline'],
+            labels  : ['Pending', 'Approve', 'Cancelled'],
             colors  : ['#ff9f43', '#28c76f', '#ea5455'],
             legend  : { position: 'bottom' },
             noData  : { text: 'No orders yet' },

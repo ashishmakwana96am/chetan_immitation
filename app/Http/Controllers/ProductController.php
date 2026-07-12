@@ -67,25 +67,34 @@ class ProductController extends Controller
             $q->where('status', $request->status);
         });
 
-        if ($request->stock_status === 'in_stock') {
-            $query->whereHas('inventories', function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                $q->where('quantity', '>', 0);
-            });
-        } elseif ($request->stock_status === 'out_of_stock') {
-            $query->whereDoesntHave('inventories', function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                $q->where('quantity', '>', 0);
-            });
-        }
-
         $products = $query->orderBy('id', 'desc')->get();
+
+        $computeStock = function ($product) use ($locationId) {
+            if ($product->type === 'variable') {
+                $stockData = $product->getVariantStock($locationId);
+                if ($locationId) {
+                    return $stockData ? array_sum($stockData['variants']) : 0;
+                }
+                $total = 0;
+                foreach ($stockData as $locData) {
+                    $total += array_sum($locData['variants']);
+                }
+                return $total;
+            }
+            return $product->inventories->sum('quantity');
+        };
+
+        if ($request->stock_status === 'in_stock') {
+            $products = $products->filter(fn($product) => $computeStock($product) > 0)->values();
+        } elseif ($request->stock_status === 'out_of_stock') {
+            $products = $products->filter(fn($product) => $computeStock($product) <= 0)->values();
+        }
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
         $canClone  = auth()->user()->can('clone products');
 
-        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone) {
+        $data = $products->map(function ($product, $index) use ($canEdit, $canDelete, $canClone, $computeStock) {
             $nameHtml = $product->name;
             $variationsStr = $product->variants->map(function ($variant) {
                 return $variant->attributeValue->value ?? '';
@@ -108,12 +117,12 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
-            $stockSum = $product->inventories->sum('quantity');
+            $stockSum = $computeStock($product);
             $stock = $stockSum > 0
                 ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
                 : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
 
-            $barcodeVal = $product->barcode ?: $product->sku;
+            $barcodeVal = $product->barcode;
             $barcode = $barcodeVal
                 ? '<div class="d-flex align-items-center gap-2">
                     <code>' . $barcodeVal . '</code>
@@ -146,9 +155,8 @@ class ProductController extends Controller
                 'index'          => $index + 1,
                 'image'          => $image,
                 'name'           => $nameHtml,
-                'sku'            => '<code>' . $product->sku . '</code>',
                 'barcode'        => $barcode,
-                'raw_barcode'    => $product->barcode ?: $product->sku,
+                'raw_barcode'    => $product->barcode,
                 'product_code'   => $product->product_code,
                 'category'       => $product->category->name ?? '-',
                 'variations'     => $variationsStr,
@@ -176,7 +184,7 @@ class ProductController extends Controller
         foreach ($itemsInput as $item) {
             $product = Product::with(['category', 'variants.attributeValue'])->find($item['id'] ?? null);
             if ($product) {
-                $barcodeVal = $product->barcode ?: $product->sku;
+                $barcodeVal = $product->barcode;
                 $category = $product->category->name ?? '';
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
                 $salePrice = str_replace('₹', '<span class="rupee-symbol">&#8377;</span>', format_price($product->sale_price));
@@ -242,7 +250,7 @@ class ProductController extends Controller
         $subCategories = collect();
         if ($request->filled('clone_id')) {
             $this->authorize('clone products');
-            $clonedProduct = Product::with('images')->findOrFail($request->clone_id);
+            $clonedProduct = Product::with(['images', 'variants.attributeValue.attribute'])->findOrFail($request->clone_id);
             $subCategories = SubCategory::where('category_id', $clonedProduct->category_id)
                 ->where('status', 1)
                 ->orderBy('name')
@@ -262,20 +270,24 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
-            'description'              => ['required', 'string'],
+            'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
+            'bypass_min_price'         => ['nullable', 'boolean'],
+            'allow_full_discount'      => ['nullable', 'boolean'],
             'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
             'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
             'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
+        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -317,14 +329,18 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request) {
+            $isSuperAdmin = auth()->user()->hasRole('super-admin');
+
             $productData = [
                 'name'            => $request->name,
                 'slug'            => generate_slug(Product::class, $request->name),
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
-                'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
+                'purchase_multiplier' => $request->purchase_multiplier,
+                'sale_multiplier' => $request->sale_multiplier,
+                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -332,6 +348,8 @@ class ProductController extends Controller
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
+                'bypass_min_price' => $isSuperAdmin && $request->has('bypass_min_price') && !$request->has('allow_full_discount') ? 1 : 0,
+                'allow_full_discount' => $isSuperAdmin && $request->has('allow_full_discount') ? 1 : 0,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
@@ -453,20 +471,24 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'sku'                      => ['required', 'string', 'max:100', 'unique:products,sku,' . $product->id],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
-            'description'              => ['required', 'string'],
+            'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
             'product_highlights'        => ['nullable', 'string'],
             'type'                     => ['required', 'in:normal,variable'],
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
+            'bypass_min_price'         => ['nullable', 'boolean'],
+            'allow_full_discount'      => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
+        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
+        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -510,13 +532,17 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($request, $product) {
+            $isSuperAdmin = auth()->user()->hasRole('super-admin');
+
             $productData = [
                 'name'            => $request->name,
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
-                'sku'             => $request->sku,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
+                'purchase_multiplier' => $request->purchase_multiplier,
+                'sale_multiplier' => $request->sale_multiplier,
+                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -525,6 +551,13 @@ class ProductController extends Controller
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
             ];
+
+            // Only a super-admin's submission can change this — for anyone else the field
+            // is simply omitted so the product's existing flag is left untouched.
+            if ($isSuperAdmin) {
+                $productData['bypass_min_price'] = $request->has('bypass_min_price') && !$request->has('allow_full_discount') ? 1 : 0;
+                $productData['allow_full_discount'] = $request->has('allow_full_discount') ? 1 : 0;
+            }
 
             $productData['purchase_price'] = $request->purchase_price;
 
@@ -698,19 +731,18 @@ class ProductController extends Controller
             ->when($request->q, function ($q) use ($request) {
                 $q->where(function ($sub) use ($request) {
                     $sub->where('name', 'like', '%' . $request->q . '%')
-                        ->orWhere('sku', 'like', '%' . $request->q . '%');
+                        ->orWhere('barcode', 'like', '%' . $request->q . '%');
                 });
             })
             ->orderBy('name')
             ->limit(50)
-            ->get(['id', 'name', 'sku']);
+            ->get(['id', 'name', 'barcode']);
 
         return response()->json($query->map(function ($product) {
             return [
                 'id' => $product->id,
-                'text' => $product->name . ' (' . $product->sku . ')',
+                'text' => $product->barcode ? $product->name . ' (' . $product->barcode . ')' : $product->name,
                 'name' => $product->name,
-                'sku' => $product->sku,
             ];
         }));
     }
@@ -774,9 +806,9 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
-        $barcodeText = $product->barcode ?: $product->sku;
+        $barcodeText = $product->barcode;
         if (empty($barcodeText)) {
-            return response()->json(['status' => 'error', 'message' => 'No barcode or SKU found for this product'], 404);
+            return response()->json(['status' => 'error', 'message' => 'No barcode found for this product'], 404);
         }
 
         $generator = new BarcodeGeneratorSVG();
@@ -798,22 +830,23 @@ class ProductController extends Controller
         $this->authorize('create products');
 
         $columns = [
-            'Category', 'Sub Category', 'Name', 'No.', 'SKU', 'Barcode',
-            'Product Code', 'Discreptions', 'Product Type', 'Size', 'Colour',
+            'Category', 'Sub Category', 'Name', 'Barcode', 'Product Code',
+            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier',
+            'Product Type', 'Size', 'Colour',
         ];
 
-        // 2 categories x 5 products, using SKU/Barcode left blank so they auto-generate from "No."
+        // 2 categories x 5 products, using Barcode left blank so it auto-generates sequentially
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'SNR', '', '', '100.00', 'Traditional short necklace - regular finish', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', 'SNA', '', '', '110.00', 'Traditional short necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', 'LNR', '', '', '150.00', 'Elegant long necklace - regular finish', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', 'LNA', '', '', '160.00', 'Elegant long necklace - antique finish', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', 'YNR', '', '', '200.00', 'Bridal leriyat necklace - regular finish', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BGR', '', '', '90.00', 'Classic bangal - regular finish', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', 'BGA', '', '', '95.00', 'Classic bangal - antique finish', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', 'KDR', '', '', '130.00', 'Regular kadali design', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', 'KDC', '', '', '140.00', 'CNC cut kadali design', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', 'KDA', '', '', '160.00', 'American Diamond studded kadali', 'variable', '', 'Gold, Silver, Rose Gold'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', '', '100.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', '', '110.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', '', '150.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Rose Gold'],
+            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', '', '160.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', '', '200.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', 'Gold, Silver'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', '', '90.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', '', '95.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', '', '130.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
+            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', '', '140.00', '2.5', '4.125', '4.575', 'normal', '', ''],
+            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', '', '160.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Silver, Rose Gold'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -884,6 +917,12 @@ class ProductController extends Controller
                     $normalizedHeader[] = 'sub_category';
                 } elseif ($norm === 'productcode') {
                     $normalizedHeader[] = 'product_code';
+                } elseif ($norm === 'purchasemultiplier') {
+                    $normalizedHeader[] = 'purchase_multiplier';
+                } elseif ($norm === 'salemultiplier') {
+                    $normalizedHeader[] = 'sale_multiplier';
+                } elseif ($norm === 'mrpmultiplier') {
+                    $normalizedHeader[] = 'mrp_multiplier';
                 } elseif ($norm === 'no') {
                     $normalizedHeader[] = 'no';
                 } elseif (in_array($norm, ['discreptions', 'discreption', 'descriptions', 'description'])) {
@@ -956,13 +995,12 @@ class ProductController extends Controller
 
                 // Validate required fields
                 $name = $row['name'] ?? null;
-                $no = $row['no'] ?? null;
                 $productCode = $row['product_code'] ?? null;
                 $categoryName = $row['category'] ?? null;
                 $type = strtolower($row['product_type'] ?? 'normal');
 
-                if (empty($name) || empty($no) || empty($productCode) || empty($categoryName)) {
-                    $errors[] = "Row {$rowNum}: Missing required product details (Name, No., Product Code, and Category are required).";
+                if (empty($name) || empty($productCode) || empty($categoryName)) {
+                    $errors[] = "Row {$rowNum}: Missing required product details (Name, Product Code, and Category are required).";
                     continue;
                 }
 
@@ -976,29 +1014,7 @@ class ProductController extends Controller
                     continue;
                 }
 
-                // Use the SKU given in the sheet, or build a unique one from the "No." prefix (e.g. SNR -> SNR-0001)
-                $skuInput = trim($row['sku'] ?? '');
-                if (!empty($skuInput)) {
-                    if (Product::withTrashed()->where('sku', $skuInput)->exists()) {
-                        $errors[] = "Row {$rowNum}: Product SKU '{$skuInput}' already exists in the system.";
-                        continue;
-                    }
-                    $sku = $skuInput;
-                } else {
-                    $prefix = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $no));
-                    if (empty($prefix)) {
-                        $errors[] = "Row {$rowNum}: No. must contain at least one letter or number.";
-                        continue;
-                    }
-
-                    $seq = Product::withTrashed()->where('sku', 'like', $prefix . '-%')->count() + 1;
-                    do {
-                        $sku = $prefix . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-                        $seq++;
-                    } while (Product::withTrashed()->where('sku', $sku)->exists() || Product::withTrashed()->where('barcode', $sku)->exists());
-                }
-
-                // Use the Barcode given in the sheet, or default to the SKU
+                // Use the Barcode given in the sheet, or build a unique one sequentially
                 $barcodeInput = trim($row['barcode'] ?? '');
                 if (!empty($barcodeInput)) {
                     if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
@@ -1007,11 +1023,11 @@ class ProductController extends Controller
                     }
                     $barcode = $barcodeInput;
                 } else {
-                    if (Product::withTrashed()->where('barcode', $sku)->exists()) {
-                        $errors[] = "Row {$rowNum}: Generated Barcode '{$sku}' already exists in the system.";
-                        continue;
-                    }
-                    $barcode = $sku;
+                    $seq = Product::withTrashed()->count() + 1;
+                    do {
+                        $barcode = str_pad($seq, 8, '0', STR_PAD_LEFT);
+                        $seq++;
+                    } while (Product::withTrashed()->where('barcode', $barcode)->exists());
                 }
 
                 // Find or create category
@@ -1028,6 +1044,10 @@ class ProductController extends Controller
 
                 if ($category->trashed()) {
                     $category->restore();
+                    $category->update([
+                        'image' => null,
+                        'low_stock_threshold' => null,
+                    ]);
                 }
 
                 // Find or create subcategory if provided
@@ -1048,24 +1068,38 @@ class ProductController extends Controller
 
                     if ($subCategory->trashed()) {
                         $subCategory->restore();
+                        $subCategoryUpdate = [];
+                        if (in_array('image', $subCategory->getFillable())) {
+                            $subCategoryUpdate['image'] = null;
+                        }
+                        if (in_array('low_stock_threshold', $subCategory->getFillable())) {
+                            $subCategoryUpdate['low_stock_threshold'] = null;
+                        }
+                        if (!empty($subCategoryUpdate)) {
+                            $subCategory->update($subCategoryUpdate);
+                        }
                     }
                     $subCategoryId = $subCategory->id;
                 }
 
-                // Calculate prices
-                $purchasePrice = floatval($productCode) * 2.5;
-                $salePrice = $roundToNearest5(floatval($productCode) * 4.125);
-                $mrp = $roundToNearest5(floatval($productCode) * 4.575);
+                $purchaseMultiplier = is_numeric($row['purchase_multiplier'] ?? null) ? floatval($row['purchase_multiplier']) : 2.5;
+                $saleMultiplier = is_numeric($row['sale_multiplier'] ?? null) ? floatval($row['sale_multiplier']) : 4.125;
+                $mrpMultiplier = is_numeric($row['mrp_multiplier'] ?? null) ? floatval($row['mrp_multiplier']) : 4.575;
 
-                // Create Product
+                $purchasePrice = floatval($productCode) * $purchaseMultiplier;
+                $salePrice = $roundToNearest5(floatval($productCode) * $saleMultiplier);
+                $mrp = $roundToNearest5(floatval($productCode) * $mrpMultiplier);
+
                 $product = Product::create([
                     'name' => $name,
                     'slug' => generate_slug(Product::class, $name),
                     'category_id' => $category->id,
                     'sub_category_id' => $subCategoryId,
-                    'sku' => $sku,
                     'barcode' => $barcode,
                     'product_code' => $productCode,
+                    'purchase_multiplier' => $purchaseMultiplier,
+                    'sale_multiplier' => $saleMultiplier,
+                    'mrp_multiplier' => $mrpMultiplier,
                     'description' => $row['description'] ?? $name,
                     'purchase_price' => $purchasePrice,
                     'sale_price' => $salePrice,

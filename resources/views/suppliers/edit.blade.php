@@ -29,6 +29,16 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
+            <label class="form-label" for="supplierState">State</label>
+            <select id="supplierState" name="state" class="form-select no-select2">
+                <option value="">Select State</option>
+                @foreach($states as $state)
+                    <option value="{{ $state->name }}" {{ $supplier->state === $state->name ? 'selected' : '' }}>{{ $state->name }}</option>
+                @endforeach
+            </select>
+            <div class="invalid-feedback"></div>
+        </div>
+        <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
                 <input class="form-check-input" type="checkbox" id="supplierStatus" name="status" value="1"

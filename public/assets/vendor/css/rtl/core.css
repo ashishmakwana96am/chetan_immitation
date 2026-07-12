@@ -2555,12 +2555,12 @@ textarea.form-control-lg {
 }
 
 .btn {
-  --bs-btn-padding-x: 1.25rem;
-  --bs-btn-padding-y: 0.6rem;
+  --bs-btn-padding-x: 14px;
+  --bs-btn-padding-y: 10px;
   --bs-btn-font-family: ;
   --bs-btn-font-size: 0.9375rem;
   --bs-btn-font-weight: 500;
-  --bs-btn-line-height: 1.125;
+  --bs-btn-line-height: 15px;
   --bs-btn-color: #6f6b7d;
   --bs-btn-bg: transparent;
   --bs-btn-border-width: 1px;
@@ -6665,7 +6665,7 @@ a.invert-bg-dark:hover, a.invert-bg-dark:focus {
   transform: scale(1.001);
 }
 .btn .ti {
-  line-height: 0.9;
+  line-height: 15px;
 }
 .btn:not([class*=btn-label-]):not([class*=btn-outline-]) {
   box-shadow: 0px 2px 4px rgba(165, 163, 174, 0.4);
@@ -7933,7 +7933,8 @@ html:not([dir=rtl]) .input-group > .btn-group:last-child > .btn:not([class*=btn-
 }
 
 .dropdown-toggle::after {
-  margin-top: -0.28em;
+  margin-top: 0;
+  /* margin-top: -0.28em; */
   width: 0.42em;
   height: 0.42em;
   border: 1px solid;
@@ -8143,7 +8144,8 @@ html:not([dir=rtl]) .input-group > .btn-group:last-child > .btn:not([class*=btn-
 }
 
 .tab-content {
-  padding: 1.5rem;
+  padding: 0;
+  /* padding: 1.5rem; */
   border-radius: 0.375rem;
 }
 
@@ -17977,6 +17979,11 @@ html:not(.layout-menu-fixed) .menu-inner-shadow {
   margin: 1rem auto 0;
   border-radius: 0.375rem;
   padding: 0 1.5rem;
+}
+@media(max-width:768px){
+  .layout-navbar.navbar-detached {
+     padding: 0 12px;
+  }
 }
 .layout-navbar.navbar-detached.container-xxl {
   max-width: calc(1440px - calc(1.5rem * 2));

@@ -240,8 +240,13 @@
                         <!-- Mobile Search Icon -->
 
                         <div class="search-container items-center w-[170px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
-                            <input type="text" id="headerSearch" placeholder="Search" value="{{ request('search') ?? session('shop_filters.search') }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
-                            <svg id="clearHeaderSearch" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-white/60 hover:text-white cursor-pointer mr-2 {{ (request('search') ?? session('shop_filters.search')) ? '' : 'hidden' }} shrink-0">
+                            @php
+                                $headerSearchValue = request()->routeIs('shop-by-category')
+                                    ? (request('search') ?? session('shop_filters.search'))
+                                    : null;
+                            @endphp
+                            <input type="text" id="headerSearch" placeholder="Search" value="{{ $headerSearchValue }}" class="w-full bg-transparent text-white text-xs lg:text-base placeholder:text-xs placeholder:lg:text-base outline-none" onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v)window.location='{{ url('/shop') }}?search='+encodeURIComponent(v);}">
+                            <svg id="clearHeaderSearch" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-white/60 hover:text-white cursor-pointer mr-2 {{ $headerSearchValue ? '' : 'hidden' }} shrink-0">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 lg:size-6 text-white shrink-0">
@@ -333,7 +338,9 @@
                         </div>
                         @else
                         <a href="{{ route('login') }}" class="text-white hover-gold-filter hidden lg:block">
-                            <img src="{{ asset('website/assets/images/user.png') }}" alt="">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-white">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                            </svg>
                         </a>
                         @endauth
                         <!-- Mobile Button -->
@@ -1128,10 +1135,11 @@ window.addEventListener('resize', function () {
                 headerSearch.value = '';
                 clearHeaderSearch.classList.add('hidden');
                 headerSearch.focus();
-                
-                // If we are currently on the shop page, reload to clear filters
+
                 if (window.location.pathname.includes('/shop')) {
                     window.location.href = '{{ url('/shop') }}?clear_search=1';
+                } else {
+                    fetch('{{ url('/shop') }}?clear_search=1', { redirect: 'manual', keepalive: true });
                 }
             });
         }
@@ -1233,6 +1241,15 @@ window.addEventListener('resize', function () {
         document.body.classList.remove('modal-open');
     };
     </script>
+
+    <!-- Floating WhatsApp Chat Button -->
+    <a href="https://wa.me/919876543210" target="_blank" rel="noopener"
+        class="fixed bottom-5 right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition"
+        aria-label="Chat with us on WhatsApp">
+        <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75 animate-ping"></span>
+        <i class="fa-brands fa-whatsapp text-white text-[28px] relative"></i>
+    </a>
+
     @yield('page-js')
 </body>
 </html>

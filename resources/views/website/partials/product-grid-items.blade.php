@@ -13,7 +13,7 @@
 @endphp
 @forelse($products as $product)
 @php
-    $stockQty   = $product->inventories_sum_quantity ?? 0;
+    $stockQty   = $product->type === 'variable' ? $product->totalAvailableStock() : ($product->inventories_sum_quantity ?? 0);
     $wishlistItem = auth('customer')->check()
         ? auth('customer')->user()->wishlists->where('product_id', $product->id)->first()
         : null;

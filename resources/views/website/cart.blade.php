@@ -55,7 +55,7 @@
                             ? $variant->attributeValue->attribute->name . ': ' . $variant->attributeValue->value
                             : $variant->attributeValue->value;
                     }
-                    $stockQty = $product->inventories_sum_quantity ?? 0;
+                    $stockQty = $product->totalAvailableStock($variant?->id);
                     $inWishlist = auth('customer')->check()
                         && auth('customer')->user()->wishlists->contains('product_id', $product->id);
                 @endphp
@@ -388,8 +388,15 @@
         })
         .then(data => {
             if (data.status === 'success') {
-                qtyEl.textContent   = qty;
-                totalEl.textContent = formatPrice(data.item_total);
+                if (data.qty === 0) {
+                    row.remove();
+                    if (data.count === 0) {
+                        window.location.reload();
+                    }
+                } else {
+                    qtyEl.textContent   = data.qty;
+                    totalEl.textContent = formatPrice(data.item_total);
+                }
                 if (window.updateCartBadge) window.updateCartBadge(data.count);
                 updateSummary(data.totals);
             } else {

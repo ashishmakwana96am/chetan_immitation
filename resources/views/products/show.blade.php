@@ -41,7 +41,7 @@
         .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
         .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
         .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
-        .product-main-image { width: 100%; height: 260px; object-fit: contain; border-radius: 0.375rem; }
+        .product-main-image { width: 100%; height: 100%; border-radius: 0.375rem; }
         .product-thumb-image { width: 60px; height: 60px; object-fit: cover; border-radius: 0.375rem; }
         .product-thumb-slide { width: auto !important; opacity: 0.6; transition: opacity 0.2s; }
         .product-thumb-slide.swiper-slide-thumb-active { opacity: 1; border: 2px solid #B4771E; border-radius: 0.5rem; }
@@ -116,7 +116,7 @@
         <div>
             <h4 class="fw-semibold mb-0">{{ $product->name }}</h4>
             <small class="text-muted">
-                <code>{{ $product->sku }}</code> &middot; {{ format_date($product->created_at) }}
+                <code>{{ $product->barcode }}</code> &middot; {{ format_date($product->created_at) }}
                 &middot;
                 <span class="badge {{ $statusColors[$product->status] ?? 'bg-label-secondary' }}">
                     {{ $statusLabels[$product->status] ?? 'Unknown' }}
@@ -196,15 +196,11 @@
                 </div>
                 <div class="card-body py-1 px-3">
                     <div class="info-row">
-                        <span class="info-label">SKU</span>
-                        <code class="info-value">{{ $product->sku }}</code>
-                    </div>
-                    <div class="info-row">
                         <span class="info-label">Barcode</span>
                         <div class="info-value d-flex gap-2 align-items-center">
                             <code>{{ $product->barcode ?? '-' }}</code>
-                             @if($product->barcode || $product->sku)
-                                <button onclick="viewBarcode('{{ $product->barcode ?: $product->sku }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
+                             @if($product->barcode)
+                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
                                     <i class="ti ti-printer"></i>
                                 </button>
                             @endif
@@ -355,7 +351,7 @@
                                                 $variantSum = 0;
                                                 foreach($data['variants'] as $vId => $qty) { $variantSum += $qty; }
                                                 $invRecord  = $invByLocation[$locId] ?? null;
-                                                $locTotal   = $invRecord ? $invRecord->quantity : ($variantSum > 0 ? $variantSum : $data['parent']);
+                                                $locTotal   = $variantSum > 0 ? $variantSum : ($invRecord ? $invRecord->quantity : $data['parent']);
                                                 $grandTotalAll += $locTotal;
                                                 $useParentFallback = ($variantSum === 0);
                                             @endphp

@@ -54,6 +54,7 @@ class SupplierController extends Controller
                 'index'      => $index + 1,
                 'name'       => $supplier->name,
                 'phone'      => $supplier->phone ?? '-',
+                'state'      => $supplier->state ?? '-',
                 'address'    => $supplier->address ?? '-',
                 'status'     => $status,
                 'created_at' => format_date($supplier->created_at),
@@ -67,7 +68,8 @@ class SupplierController extends Controller
     public function create()
     {
         $this->authorize('create suppliers');
-        return view('suppliers.create');
+        $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('suppliers.create', compact('states'));
     }
 
     public function store(Request $request)
@@ -78,6 +80,7 @@ class SupplierController extends Controller
             'name'    => ['required', 'string', 'max:100'],
             'phone'   => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
+            'state'   => ['nullable', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -91,6 +94,7 @@ class SupplierController extends Controller
             'name'       => $request->name,
             'phone'      => $request->phone,
             'address'    => $request->address,
+            'state'      => $request->state,
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
@@ -104,7 +108,8 @@ class SupplierController extends Controller
     public function edit(Supplier $supplier)
     {
         $this->authorize('edit suppliers');
-        return view('suppliers.edit', compact('supplier'));
+        $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
+        return view('suppliers.edit', compact('supplier', 'states'));
     }
 
     public function update(Request $request, Supplier $supplier)
@@ -115,6 +120,7 @@ class SupplierController extends Controller
             'name'    => ['required', 'string', 'max:100'],
             'phone'   => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
+            'state'   => ['nullable', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -128,6 +134,7 @@ class SupplierController extends Controller
             'name'    => $request->name,
             'phone'   => $request->phone,
             'address' => $request->address,
+            'state'   => $request->state,
             'status'  => $request->has('status') ? 1 : 2,
         ]);
 

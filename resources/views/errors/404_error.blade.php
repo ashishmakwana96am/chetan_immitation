@@ -408,7 +408,7 @@
 
             <div class="action-group">
                 <a href="{{ url('/') }}" class="btn btn-primary">
-                    <i class="fa-solid fa-house"></i> Back to Home
+                    <i class="fa-solid fa-house"></i> Back to Website
                 </a>
                 <button onclick="window.history.back()" class="btn btn-secondary">
                     <i class="fa-solid fa-arrow-left"></i> Go Back

@@ -59,7 +59,7 @@
             3 => 'Shipped',
             4 => 'Out for delivery',
             5 => 'Delivered',
-            6 => 'Decline',
+            6 => 'Cancelled',
         ];
         $paymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
         $paymentLabels = [1 => 'Pending',          2 => 'Paid'];
@@ -168,7 +168,7 @@
                         <option value="3" {{ $order->status==3?'selected':'' }} {{ $o3 }}>Shipped</option>
                         <option value="4" {{ $order->status==4?'selected':'' }} {{ $o4 }}>Out for delivery</option>
                         <option value="5" {{ $order->status==5?'selected':'' }} {{ $o5 }}>Delivered</option>
-                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Decline</option>
+                        <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Cancelled</option>
                     @endif
                 </select>
             @endcan
@@ -179,16 +179,33 @@
 
         </div>
 
-        {{-- Decline reason — shown below when Decline selected --}}
+        {{-- Cancellation reason is now captured via SweetAlert popup --}}
         @can('edit sales status')
-        <div id="cancel-reason-wrap" class="d-flex align-items-center gap-2 mt-2" style="display:none !important;">
-            <textarea id="cancel-reason-input" class="form-control form-control-sm" rows="1" maxlength="500"
-                placeholder="Cancellation reason..." style="width:260px; resize:none;"></textarea>
-            <button id="confirm-decline-btn" class="btn btn-danger btn-sm">Confirm</button>
-            <button type="button" class="btn btn-label-secondary btn-sm" id="cancel-decline-btn">Cancel</button>
+        <div id="cancel-reason-wrap" style="display:none !important;"></div>
+        @endcan
+    </div>
+
+    @if($order->cancellationRequest && $order->cancellationRequest->status === 'pending')
+    <div class="alert alert-danger d-flex flex-column gap-3 mb-4" role="alert" id="cancellation-request-alert">
+        <div class="d-flex align-items-center">
+            <i class="ti ti-alert-triangle me-2 fs-4 text-danger"></i>
+            <div>
+                <h5 class="alert-heading mb-1 text-danger">Cancellation Request Pending</h5>
+                <span>Customer requested to cancel this order. Reason: <strong>{{ $order->cancellationRequest->cancellation_reason }}</strong></span>
+            </div>
+        </div>
+        @can('edit sales status')
+        <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm approve-cancel-btn" data-url="{{ route('admin.sales.cancellation.approve', $order) }}">
+                <i class="ti ti-check me-1"></i> Approve & Refund
+            </button>
+            <button class="btn btn-danger btn-sm reject-cancel-btn" data-url="{{ route('admin.sales.cancellation.reject', $order) }}">
+                <i class="ti ti-x me-1"></i> Reject
+            </button>
         </div>
         @endcan
     </div>
+    @endif
 
     <div class="row g-4">
 
@@ -231,6 +248,19 @@
                         <span class="sale-info-label">Cancel Reason</span>
                         <span class="sale-info-value text-danger" style="max-width:65%;">{{ $order->cancellation_reason }}</span>
                     </div>
+                    @endif
+
+                    @if($order->cancellationRequest && $order->cancellationRequest->status === 'approved')
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Refunded Amount</span>
+                        <span class="sale-info-value text-success">₹{{ number_format($order->cancellationRequest->refund_amount, 2) }}</span>
+                    </div>
+                    @if($order->cancellationRequest->refund_gateway_id)
+                    <div class="sale-info-row">
+                        <span class="sale-info-label">Refund ID</span>
+                        <span class="sale-info-value text-muted">{{ $order->cancellationRequest->refund_gateway_id }}</span>
+                    </div>
+                    @endif
                     @endif
 
                     @if($order->shipped_client_url)
@@ -423,8 +453,8 @@
                                             @endif
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
-                                                @if($item->product?->sku)
-                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @if($item->product?->barcode)
+                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
                                                 @endif
                                             </div>
                                         </div>
@@ -532,10 +562,82 @@ $(document).ready(function () {
         const url     = "{{ route('admin.sales.status', $order) }}";
 
         if (status == '6') {
-            $('#cancel-reason-wrap').show();
+            Swal.fire({
+                title: 'Cancel Order',
+                html: `
+                    <div class="mb-3 text-start">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label for="swal-cancel-reason" class="form-label fw-semibold mb-0">Cancellation Reason <span class="text-danger">*</span></label>
+                            <small class="text-muted" id="swal-char-counter">0/500</small>
+                        </div>
+                        <textarea id="swal-cancel-reason" class="form-control" rows="3" maxlength="500" placeholder="Enter the reason for cancellation..."></textarea>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Cancel Order',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    confirmButton: 'btn btn-danger me-3',
+                    cancelButton: 'btn btn-label-secondary'
+                },
+                buttonsStyling: false,
+                didOpen: () => {
+                    const reasonInput = document.getElementById('swal-cancel-reason');
+                    const charCounter = document.getElementById('swal-char-counter');
+                    reasonInput.addEventListener('input', () => {
+                        charCounter.textContent = `${reasonInput.value.length}/500`;
+                    });
+                },
+                preConfirm: () => {
+                    const reason = document.getElementById('swal-cancel-reason').value.trim();
+                    if (!reason) {
+                        Swal.showValidationMessage('Please enter a cancellation reason.');
+                        return false;
+                    }
+                    return { reason: reason };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    window.showAjaxLoader();
+                    $.ajax({
+                        url: url,
+                        type: 'PATCH',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            status: 6,
+                            cancellation_reason: result.value.reason
+                        },
+                        success: function (res) {
+                            window.hideAjaxLoader();
+                            if (res.status === 'success') {
+                                toastr.success(res.message);
+                                if (res.pending_count !== undefined) {
+                                    const badge = $('.pending-sales-counter-badge');
+                                    if (badge.length > 0) {
+                                        badge.text(res.pending_count);
+                                        if (res.pending_count > 0) {
+                                            badge.attr('style', 'display: inline-block !important;');
+                                        } else {
+                                            badge.attr('style', 'display: none !important;');
+                                        }
+                                    }
+                                }
+                                setTimeout(() => location.reload(), 800);
+                            }
+                        },
+                        error: function (xhr) {
+                            window.hideAjaxLoader();
+                            const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                            toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                            $('#change-sale-status').val(current);
+                        }
+                    });
+                } else {
+                    $('#change-sale-status').val(current);
+                }
+            });
             return;
         }
-        $('#cancel-reason-wrap').hide();
 
         if (status == '3') {
             Swal.fire({
@@ -649,55 +751,79 @@ $(document).ready(function () {
         });
     });
 
-    $('#confirm-decline-btn').on('click', function () {
-        const reason  = $('#cancel-reason-input').val().trim();
-        const current = $('#change-sale-status').data('current');
-        if (!reason) { toastr.error('Please enter a cancellation reason.'); return; }
 
-        const url = "{{ route('admin.sales.status', $order) }}";
+    $(document).on('click', '.approve-cancel-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+
         Swal.fire({
-            title: 'Decline Order',
-            text: 'Are you sure you want to decline this order?',
+            title: 'Approve Cancellation?',
+            text: 'This will cancel the order, restore inventory stock, and automatically process the Razorpay refund if paid online.',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Yes, Decline',
-            customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+            confirmButtonText: 'Yes, Approve & Refund',
+            customClass: { confirmButton: 'btn btn-success me-3', cancelButton: 'btn btn-label-secondary' },
             buttonsStyling: false
         }).then((result) => {
             if (result.isConfirmed) {
                 window.showAjaxLoader();
                 $.ajax({
-                    url: url, type: 'PATCH',
-                    data: { _token: '{{ csrf_token() }}', status: 6, cancellation_reason: reason },
+                    url: url,
+                    type: 'POST',
+                    data: { _token: '{{ csrf_token() }}' },
                     success: function (res) {
                         window.hideAjaxLoader();
                         if (res.status === 'success') {
                             toastr.success(res.message);
-                            if (res.pending_count !== undefined) {
-                                const badge = $('.pending-sales-counter-badge');
-                                if (badge.length > 0) {
-                                    badge.text(res.pending_count);
-                                    if (res.pending_count > 0) {
-                                        badge.attr('style', 'display: inline-block !important;');
-                                    } else {
-                                        badge.attr('style', 'display: none !important;');
-                                    }
-                                }
-                            }
-                            setTimeout(() => location.reload(), 800);
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            toastr.error(res.message || 'Failed to approve cancellation.');
                         }
                     },
                     error: function (xhr) {
                         window.hideAjaxLoader();
                         const msg = xhr.responseJSON?.message || 'Something went wrong.';
                         toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                        $('#change-sale-status').val(current);
-                        $('#cancel-reason-wrap').hide();
                     }
                 });
-            } else {
-                $('#change-sale-status').val(current);
-                $('#cancel-reason-wrap').hide();
+            }
+        });
+    });
+
+    $(document).on('click', '.reject-cancel-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+
+        Swal.fire({
+            title: 'Reject Cancellation?',
+            text: 'This will reject the customer\'s cancellation request and keep the order active.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Reject Request',
+            customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.showAjaxLoader();
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: { _token: '{{ csrf_token() }}' },
+                    success: function (res) {
+                        window.hideAjaxLoader();
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            toastr.error(res.message || 'Failed to reject cancellation.');
+                        }
+                    },
+                    error: function (xhr) {
+                        window.hideAjaxLoader();
+                        const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                        toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                    }
+                });
             }
         });
     });

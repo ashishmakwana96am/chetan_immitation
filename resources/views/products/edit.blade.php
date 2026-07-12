@@ -3,7 +3,7 @@
 @section('title', 'Edit Product')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Edit Product</h4>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.products.show', $product) }}" class="btn btn-label-secondary">
@@ -33,18 +33,12 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" name="sku" class="form-control"
-                                    placeholder="Enter SKU" value="{{ $product->sku }}" />
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Barcode <span class="text-danger">*</span></label>
                                 <div class="d-flex gap-2">
-                                    <input type="text" name="barcode" class="form-control" 
+                                    <input type="text" name="barcode" class="form-control"
                                         placeholder="Enter Barcode" value="{{ $product->barcode ?? '' }}" />
-                                     @if($product->barcode || $product->sku)
-                                    <button type="button" onclick="viewBarcode('{{ $product->barcode ?: $product->sku }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
+                                     @if($product->barcode)
+                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
                                         <i class="ti ti-barcode"></i>
                                     </button>
                                     @endif
@@ -83,6 +77,21 @@
                                       placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ $product->product_code }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ $product->purchase_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ $product->sale_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-4">
+                                  <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
+                                  <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ $product->mrp_multiplier }}" required />
+                                  <div class="invalid-feedback"></div>
+                              </div>
                               <div class="col-md-6">
                                   <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
@@ -106,32 +115,28 @@
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
                                       <input type="number" name="mrp" id="mrpInput" class="form-control"
-                                          placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" readonly style="background-color: #f1f0f2;" />
+                                          placeholder="Enter MRP" step="0.01" min="0" value="{{ $product->mrp }}" />
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
 
-                              {{-- Pair Product pricing rows (shown only when pair_product is enabled) --}}
-                              <div id="pairPricingSection" class="{{ $product->pair_product ? '' : 'd-none' }}">
-                                  <div class="row g-3">
-                                      <div class="col-md-6">
-                                          <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
-                                          <div class="input-group has-validation">
-                                              <span class="input-group-text">{{ currency_symbol() }}</span>
-                                              <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control"
-                                                  placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ $product->pair_sale_price }}" />
-                                              <div class="invalid-feedback"></div>
-                                          </div>
-                                      </div>
-                                      <div class="col-md-6">
-                                          <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
-                                          <div class="input-group has-validation">
-                                              <span class="input-group-text">{{ currency_symbol() }}</span>
-                                              <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control"
-                                                  placeholder="MRP (Pair)" step="0.01" min="0" value="{{ $product->pair_mrp }}" readonly style="background-color: #f1f0f2;" />
-                                              <div class="invalid-feedback"></div>
-                                          </div>
-                                      </div>
+                              {{-- Pair Product pricing fields (shown only when pair_product is enabled) --}}
+                              <div class="col-md-6 pair-pricing-field {{ $product->pair_product ? '' : 'd-none' }}">
+                                  <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
+                                  <div class="input-group has-validation">
+                                      <span class="input-group-text">{{ currency_symbol() }}</span>
+                                      <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control"
+                                          placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ $product->pair_sale_price }}" />
+                                      <div class="invalid-feedback"></div>
+                                  </div>
+                              </div>
+                              <div class="col-md-6 pair-pricing-field {{ $product->pair_product ? '' : 'd-none' }}">
+                                  <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
+                                  <div class="input-group has-validation">
+                                      <span class="input-group-text">{{ currency_symbol() }}</span>
+                                      <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control"
+                                          placeholder="MRP (Pair)" step="0.01" min="0" value="{{ $product->pair_mrp }}" />
+                                      <div class="invalid-feedback"></div>
                                   </div>
                               </div>
                              <div class="col-md-6">
@@ -190,7 +195,7 @@
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description <span class="text-danger">*</span></label>
+                                <label class="form-label">Description</label>
                                 <div id="description-editor">{!! $product->description !!}</div>
                                 <textarea name="description" id="description-textarea" class="d-none">{{ $product->description }}</textarea>
                                 <div class="invalid-feedback"></div>
@@ -229,11 +234,23 @@
                                 {{ $product->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
                         </div>
-                        <div class="form-check form-switch">
+                        <div class="form-check form-switch @if(auth()->user()->hasRole('super-admin')) mb-3 @endif">
                             <input class="form-check-input" type="checkbox" id="productPair" name="pair_product" value="1"
                                 {{ $product->pair_product == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="productAllowFullDiscount" name="allow_full_discount" value="1"
+                                    {{ $product->allow_full_discount == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productAllowFullDiscount">Allow 100% Discount on Sale</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1"
+                                    {{ $product->bypass_min_price == 1 ? 'checked' : '' }} />
+                                <label class="form-check-label" for="productBypassMinPrice">Allow Below Cost Price on Sale</label>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -360,6 +377,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script>
         $(document).ready(function () {
+
+            // Mutual exclusivity for pricing bypass switches
+            $('#productAllowFullDiscount').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productBypassMinPrice').prop('checked', false);
+                }
+            });
+            $('#productBypassMinPrice').on('change', function () {
+                if ($(this).is(':checked')) {
+                    $('#productAllowFullDiscount').prop('checked', false);
+                }
+            });
 
             // Initialize Quill Editor for Description
             const descriptionQuill = new Quill('#description-editor', {
@@ -896,16 +925,25 @@
                 return Math.ceil(parseFloat(val) / 5) * 5;
             }
 
-            $('#productCodeInput').on('input change', function () {
-                const code = parseFloat($(this).val()) || 0;
-                const purchasePrice = (code * 2.5).toFixed(2);
+            function getMultipliers() {
+                return {
+                    purchase: parseFloat($('#purchaseMultiplierInput').val()) || 0,
+                    sale: parseFloat($('#saleMultiplierInput').val()) || 0,
+                    mrp: parseFloat($('#mrpMultiplierInput').val()) || 0,
+                };
+            }
+
+            $('#productCodeInput, #purchaseMultiplierInput, #saleMultiplierInput, #mrpMultiplierInput').on('input change', function () {
+                const code = parseFloat($('#productCodeInput').val()) || 0;
+                const mult = getMultipliers();
+                const purchasePrice = (code * mult.purchase).toFixed(2);
                 const isPair = $('#productPair').is(':checked');
 
                 if (isPair) {
-                    const pairSalePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const pairMrp = roundToNearest5(code * 4.575).toFixed(2);
-                    const singleSalePrice = roundToNearest5((code / 2) * 4.125).toFixed(2);
-                    const singleMrp = roundToNearest5((code / 2) * 4.575).toFixed(2);
+                    const pairSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const pairMrp = roundToNearest5(code * mult.mrp).toFixed(2);
+                    const singleSalePrice = roundToNearest5((code / 2) * mult.sale).toFixed(2);
+                    const singleMrp = roundToNearest5((code / 2) * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(singleSalePrice).trigger('change');
@@ -913,8 +951,8 @@
                     $('#pairSalePriceInput').val(pairSalePrice);
                     $('#pairMrpInput').val(pairMrp);
                 } else {
-                    const salePrice = roundToNearest5(code * 4.125).toFixed(2);
-                    const mrp = roundToNearest5(code * 4.575).toFixed(2);
+                    const salePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const mrp = roundToNearest5(code * mult.mrp).toFixed(2);
 
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
                     $('#salePriceInput').val(salePrice).trigger('change');
@@ -940,9 +978,9 @@
                 const isPair = $(this).is(':checked');
                 updatePairPricingLabels(isPair);
                 if (isPair) {
-                    $('#pairPricingSection').removeClass('d-none');
+                    $('.pair-pricing-field').removeClass('d-none');
                 } else {
-                    $('#pairPricingSection').addClass('d-none');
+                    $('.pair-pricing-field').addClass('d-none');
                     $('#pairSalePriceInput').val('');
                     $('#pairMrpInput').val('');
                 }
@@ -953,11 +991,15 @@
             updatePairPricingLabels($('#productPair').is(':checked'));
 
             $('#salePriceInput').on('input', function () {
-                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#mrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $('#pairSalePriceInput').on('input', function () {
-                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * (4.575 / 4.125)).toFixed(2));
+                const mult = getMultipliers();
+                const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
+                $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {

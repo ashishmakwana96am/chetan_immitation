@@ -9,7 +9,7 @@ use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Customer;
-use App\Models\PurchaseInvoice;
+use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseAllocation;
 use App\Models\Order;
@@ -31,7 +31,7 @@ class DummyDataSeeder extends Seeder
         Schema::disableForeignKeyConstraints();
         PurchaseAllocation::truncate();
         PurchaseItem::truncate();
-        PurchaseInvoice::truncate();
+        Purchase::truncate();
         OrderItem::truncate();
         Order::truncate();
         Inventory::truncate();
@@ -172,26 +172,26 @@ class DummyDataSeeder extends Seeder
 
         // 5. Generate 20 Premium Imitation Jewellery Products
         $productsData = [
-            ['name' => 'Royal Kundan Choker Set', 'cat_idx' => 0, 'sub_idx' => 1, 'sku' => 'NEC-KUN-001', 'purchase' => 1200, 'sale' => 2500],
-            ['name' => 'Antique Matte Temple Haran', 'cat_idx' => 0, 'sub_idx' => 2, 'sku' => 'NEC-TEM-002', 'purchase' => 1800, 'sale' => 3800],
-            ['name' => 'Gold Plated AD Kada Set', 'cat_idx' => 1, 'sub_idx' => 5, 'sku' => 'BAN-KAD-001', 'purchase' => 450, 'sale' => 950],
-            ['name' => 'Handcrafted Silk Thread Bangles', 'cat_idx' => 1, 'sub_idx' => 4, 'sku' => 'BAN-SIL-002', 'purchase' => 180, 'sale' => 399],
-            ['name' => 'Meenakari Peacock Jhumkas', 'cat_idx' => 2, 'sub_idx' => 6, 'sku' => 'EAR-JHU-001', 'purchase' => 150, 'sale' => 350],
-            ['name' => 'Elegant Solitaire AD Studs', 'cat_idx' => 2, 'sub_idx' => 7, 'sku' => 'EAR-STU-002', 'purchase' => 90, 'sale' => 250],
-            ['name' => 'Royal Pearl Chandbalis', 'cat_idx' => 2, 'sub_idx' => 8, 'sku' => 'EAR-CHA-003', 'purchase' => 280, 'sale' => 650],
-            ['name' => 'Adjustable Floral Couple Ring', 'cat_idx' => 3, 'sub_idx' => 9, 'sku' => 'RNG-COP-001', 'purchase' => 120, 'sale' => 299],
-            ['name' => 'CZ Solitaire Engagement Ring', 'cat_idx' => 3, 'sub_idx' => 10, 'sku' => 'RNG-ENG-002', 'purchase' => 350, 'sale' => 799],
-            ['name' => 'Silver Ghungroo Bridal Payal', 'cat_idx' => 4, 'sub_idx' => 11, 'sku' => 'ANK-GHU-001', 'purchase' => 300, 'sale' => 699],
-            ['name' => 'Traditional Rajputi Nath', 'cat_idx' => 10, 'sub_idx' => 0, 'sku' => 'NAT-RAJ-001', 'purchase' => 110, 'sale' => 290],
-            ['name' => 'Short Diamond Cut Mangalsutra', 'cat_idx' => 6, 'sub_idx' => 13, 'sku' => 'MAN-SHO-001', 'purchase' => 220, 'sale' => 499],
-            ['name' => 'Royal Dulhan Kundan Combo Set', 'cat_idx' => 8, 'sub_idx' => 15, 'sku' => 'BRD-KUN-001', 'purchase' => 4500, 'sale' => 9999],
-            ['name' => 'CZ Rhodium Plated Bracelet', 'cat_idx' => 11, 'sub_idx' => 16, 'sku' => 'BRC-RHO-001', 'purchase' => 250, 'sale' => 599],
-            ['name' => 'Bridal Kundan Kamarbandh', 'cat_idx' => 13, 'sub_idx' => 17, 'sku' => 'WST-KUN-001', 'purchase' => 850, 'sale' => 1899],
-            ['name' => 'Antique Plated Bajubandh Set', 'cat_idx' => 14, 'sub_idx' => 18, 'sku' => 'ARM-ANT-001', 'purchase' => 400, 'sale' => 899],
-            ['name' => 'Traditional Kempu Pendant Set', 'cat_idx' => 5, 'sub_idx' => 0, 'sku' => 'PEN-KEM-001', 'purchase' => 320, 'sale' => 750],
-            ['name' => 'Kundan Dulhan Maang Tikka', 'cat_idx' => 7, 'sub_idx' => 0, 'sku' => 'TIK-KUN-001', 'purchase' => 140, 'sale' => 320],
-            ['name' => 'Oxidised Silver Hair Pin Set', 'cat_idx' => 9, 'sub_idx' => 0, 'sku' => 'HAR-PIN-001', 'purchase' => 80, 'sale' => 199],
-            ['name' => 'Gold Plated Classic Brooch', 'cat_idx' => 12, 'sub_idx' => 0, 'sku' => 'BRO-GLD-001', 'purchase' => 130, 'sale' => 350]
+            ['name' => 'Royal Kundan Choker Set', 'cat_idx' => 0, 'sub_idx' => 1, 'purchase' => 1200, 'sale' => 2500],
+            ['name' => 'Antique Matte Temple Haran', 'cat_idx' => 0, 'sub_idx' => 2, 'purchase' => 1800, 'sale' => 3800],
+            ['name' => 'Gold Plated AD Kada Set', 'cat_idx' => 1, 'sub_idx' => 5, 'purchase' => 450, 'sale' => 950],
+            ['name' => 'Handcrafted Silk Thread Bangles', 'cat_idx' => 1, 'sub_idx' => 4, 'purchase' => 180, 'sale' => 399],
+            ['name' => 'Meenakari Peacock Jhumkas', 'cat_idx' => 2, 'sub_idx' => 6, 'purchase' => 150, 'sale' => 350],
+            ['name' => 'Elegant Solitaire AD Studs', 'cat_idx' => 2, 'sub_idx' => 7, 'purchase' => 90, 'sale' => 250],
+            ['name' => 'Royal Pearl Chandbalis', 'cat_idx' => 2, 'sub_idx' => 8, 'purchase' => 280, 'sale' => 650],
+            ['name' => 'Adjustable Floral Couple Ring', 'cat_idx' => 3, 'sub_idx' => 9, 'purchase' => 120, 'sale' => 299],
+            ['name' => 'CZ Solitaire Engagement Ring', 'cat_idx' => 3, 'sub_idx' => 10, 'purchase' => 350, 'sale' => 799],
+            ['name' => 'Silver Ghungroo Bridal Payal', 'cat_idx' => 4, 'sub_idx' => 11, 'purchase' => 300, 'sale' => 699],
+            ['name' => 'Traditional Rajputi Nath', 'cat_idx' => 10, 'sub_idx' => 0, 'purchase' => 110, 'sale' => 290],
+            ['name' => 'Short Diamond Cut Mangalsutra', 'cat_idx' => 6, 'sub_idx' => 13, 'purchase' => 220, 'sale' => 499],
+            ['name' => 'Royal Dulhan Kundan Combo Set', 'cat_idx' => 8, 'sub_idx' => 15, 'purchase' => 4500, 'sale' => 9999],
+            ['name' => 'CZ Rhodium Plated Bracelet', 'cat_idx' => 11, 'sub_idx' => 16, 'purchase' => 250, 'sale' => 599],
+            ['name' => 'Bridal Kundan Kamarbandh', 'cat_idx' => 13, 'sub_idx' => 17, 'purchase' => 850, 'sale' => 1899],
+            ['name' => 'Antique Plated Bajubandh Set', 'cat_idx' => 14, 'sub_idx' => 18, 'purchase' => 400, 'sale' => 899],
+            ['name' => 'Traditional Kempu Pendant Set', 'cat_idx' => 5, 'sub_idx' => 0, 'purchase' => 320, 'sale' => 750],
+            ['name' => 'Kundan Dulhan Maang Tikka', 'cat_idx' => 7, 'sub_idx' => 0, 'purchase' => 140, 'sale' => 320],
+            ['name' => 'Oxidised Silver Hair Pin Set', 'cat_idx' => 9, 'sub_idx' => 0, 'purchase' => 80, 'sale' => 199],
+            ['name' => 'Gold Plated Classic Brooch', 'cat_idx' => 12, 'sub_idx' => 0, 'purchase' => 130, 'sale' => 350]
         ];
 
         $products = [];
@@ -203,7 +203,6 @@ class DummyDataSeeder extends Seeder
                 'slug'            => Str::slug($prod['name']),
                 'category_id'     => $cat->id,
                 'sub_category_id' => $sub,
-                'sku'             => $prod['sku'],
                 'description'     => 'This is a premium handcrafted ' . $prod['name'] . ', designed with absolute precision and top-grade electroplating to give a realistic look.',
                 'purchase_price'  => $prod['purchase'],
                 'sale_price'      => $prod['sale'],
@@ -213,14 +212,14 @@ class DummyDataSeeder extends Seeder
             $products[] = $product;
 
             // Generate images for this product!
-            $sku = $product->sku;
+            $identifier = $product->slug;
             $dir = public_path('uploads/products');
             if (!file_exists($dir)) {
                 mkdir($dir, 0755, true);
             }
 
             // 1. Primary Image
-            $primaryFilename = 'products/' . $sku . '_primary.png';
+            $primaryFilename = 'products/' . $identifier . '_primary.png';
             $primaryFullPath = public_path('uploads/' . $primaryFilename);
             $bg = [180, 119, 30]; // Gold (#B4771E)
             $fg = [255, 255, 255];
@@ -236,7 +235,7 @@ class DummyDataSeeder extends Seeder
             // 2. 3 to 5 Additional Images
             $numAdditional = rand(3, 5);
             for ($j = 1; $j <= $numAdditional; $j++) {
-                $additionalFilename = 'products/' . $sku . '_detail_' . $j . '.png';
+                $additionalFilename = 'products/' . $identifier . '_detail_' . $j . '.png';
                 $additionalFullPath = public_path('uploads/' . $additionalFilename);
                 
                 // Use a different color palette for details
@@ -248,7 +247,7 @@ class DummyDataSeeder extends Seeder
                     [168, 115, 255]  // Light purple
                 ];
                 $bgIdx = ($j - 1) % count($detailBgs);
-                self::generatePlaceholderImage($additionalFullPath, 600, 600, $sku . ' - Detail ' . $j, $detailBgs[$bgIdx], [255, 255, 255]);
+                self::generatePlaceholderImage($additionalFullPath, 600, 600, $identifier . ' - Detail ' . $j, $detailBgs[$bgIdx], [255, 255, 255]);
 
                 ProductImage::create([
                     'product_id' => $product->id,
@@ -325,7 +324,7 @@ class DummyDataSeeder extends Seeder
             $supplier = $suppliers[$i];
             $invoiceNo = 'PUR-' . date('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT);
             
-            $invoice = PurchaseInvoice::create([
+            $invoice = Purchase::create([
                 'supplier_id'    => $supplier->id,
                 'invoice_no'     => $invoiceNo,
                 'total_amount'   => 0.0,
@@ -347,7 +346,7 @@ class DummyDataSeeder extends Seeder
                 $totalAmount += $itemTotal;
 
                 $item = PurchaseItem::create([
-                    'purchase_invoice_id' => $invoice->id,
+                    'purchase_id'         => $invoice->id,
                     'product_id'          => $product->id,
                     'purchase_price'      => $purchasePrice,
                     'quantity'            => $quantity,

@@ -84,7 +84,7 @@ class ModuleSeeder extends Seeder
             'name'           => 'Inventory & Procurement',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/suppliers*,admin/purchases*,admin/stock-transfers*,admin/expenses*',
+            'active_pattern' => 'admin/suppliers*,admin/purchases*,admin/purchase-bills*,admin/expenses*',
             'permission'     => null,
             'sort_order'     => 3,
         ]);
@@ -108,11 +108,11 @@ class ModuleSeeder extends Seeder
         ]);
         Module::create([
             'parent_id'      => $inventoryCategory->id,
-            'name'           => 'Stock Transfers',
-            'icon'           => 'ti ti-transfer-out',
-            'route'          => 'admin.stock-transfers.index',
-            'active_pattern' => 'admin/stock-transfers*',
-            'permission'     => 'view stock transfers',
+            'name'           => 'Purchase Bill',
+            'icon'           => 'ti ti-file-invoice',
+            'route'          => 'admin.purchase-bills.index',
+            'active_pattern' => 'admin/purchase-bills*',
+            'permission'     => 'view purchase bills',
             'sort_order'     => 3,
         ]);
         Module::create([
@@ -270,6 +270,15 @@ class ModuleSeeder extends Seeder
             'active_pattern' => 'admin/reports/utility*',
             'permission'     => 'view utility report',
             'sort_order'     => 7,
+        ]);
+        Module::create([
+            'parent_id'      => $reportsCategory->id,
+            'name'           => 'Daily Report',
+            'icon'           => 'ti ti-calendar-stats',
+            'route'          => 'admin.reports.daily-report',
+            'active_pattern' => 'admin/reports/daily-report',
+            'permission'     => 'view daily reports',
+            'sort_order'     => 8,
         ]);
 
         // 7. User & Access

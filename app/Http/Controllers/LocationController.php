@@ -91,14 +91,14 @@ class LocationController extends Controller
             'gst_number' => ['required', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
         ]);
 
-        $validator->after(function ($validator) use ($request) {
-            if ($request->boolean('is_default')) {
-                $exists = Location::where('is_default', true)->exists();
-                if ($exists) {
-                    $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
-                }
-            }
-        });
+        // $validator->after(function ($validator) use ($request) {
+        //     if ($request->boolean('is_default')) {
+        //         $exists = Location::where('is_default', true)->exists();
+        //         if ($exists) {
+        //             $validator->errors()->add('is_default', 'A default location is already set. Please unset the current default location first.');
+        //         }
+        //     }
+        // });
 
         if ($validator->fails()) {
             return response()->json([
@@ -113,7 +113,7 @@ class LocationController extends Controller
             'address'    => $request->address,
             'phone'      => $request->phone,
             'gst_number' => $request->gst_number ? strtoupper($request->gst_number) : null,
-            'is_default' => $request->boolean('is_default'),
+            // 'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
@@ -141,16 +141,16 @@ class LocationController extends Controller
             'gst_number' => ['required', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i'],
         ]);
 
-        $validator->after(function ($validator) use ($request, $location) {
-            if (!$request->boolean('is_default') && $location->is_default) {
-                $otherDefault = Location::where('is_default', true)
-                    ->where('id', '!=', $location->id)
-                    ->exists();
-                if (!$otherDefault) {
-                    $validator->errors()->add('is_default', 'At least one location must be set as default. Please set another location as default first.');
-                }
-            }
-        });
+        // $validator->after(function ($validator) use ($request, $location) {
+        //     if (!$request->boolean('is_default') && $location->is_default) {
+        //         $otherDefault = Location::where('is_default', true)
+        //             ->where('id', '!=', $location->id)
+        //             ->exists();
+        //         if (!$otherDefault) {
+        //             $validator->errors()->add('is_default', 'At least one location must be set as default. Please set another location as default first.');
+        //         }
+        //     }
+        // });
 
         if ($validator->fails()) {
             return response()->json([
@@ -159,11 +159,11 @@ class LocationController extends Controller
             ], 422);
         }
 
-        if ($request->boolean('is_default')) {
-            Location::where('is_default', true)
-                ->where('id', '!=', $location->id)
-                ->update(['is_default' => false]);
-        }
+        // if ($request->boolean('is_default')) {
+        //     Location::where('is_default', true)
+        //         ->where('id', '!=', $location->id)
+        //         ->update(['is_default' => false]);
+        // }
 
         $location->update([
             'name'       => $request->name,
@@ -171,7 +171,7 @@ class LocationController extends Controller
             'address'    => $request->address,
             'phone'      => $request->phone,
             'gst_number' => $request->gst_number ? strtoupper($request->gst_number) : null,
-            'is_default' => $request->boolean('is_default'),
+            // 'is_default' => $request->boolean('is_default'),
             'status'     => $request->has('status') ? 1 : 2,
         ]);
 

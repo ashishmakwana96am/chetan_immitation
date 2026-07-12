@@ -40,7 +40,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">All Purchase</h4>
         <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
@@ -55,7 +55,7 @@
 
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -68,7 +68,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -81,7 +81,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
+        <div class="col-sm-6 col-xl-4">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -90,19 +90,6 @@
                             <h4 class="mb-0 mt-1">{{ $confirmedCount }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-circle-check ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Draft Purchase</span>
-                            <h4 class="mb-0 mt-1">{{ $draftCount }}</h4>
-                        </div>
-                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-pencil ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -134,11 +121,8 @@
 
     <!-- Filters -->
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.purchases') }}" id="filterForm" class="row g-3">
@@ -161,16 +145,14 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Purchase Status</label>
-                    <select name="status" class="form-select no-select2">
-                        <option value="">All Statuses</option>
-                        <option value="1" {{ $status == 1 ? 'selected' : '' }}>Pending</option>
-                        <option value="2" {{ $status == 2 ? 'selected' : '' }}>Approve</option>
-                        <option value="3" {{ $status == 3 ? 'selected' : '' }}>Decline</option>
-                    </select>
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
                 </div>
-
             </form>
         </div>
     </div>
@@ -260,7 +242,7 @@
                             <tr>
                                 <th>#</th>
                                 <th>Product Name</th>
-                                <th>SKU</th>
+                                <th>Barcode</th>
                                 <th class="text-end text-nowrap">Qty Purchased</th>
                                 <th class="text-end text-nowrap">Total Cost</th>
                             </tr>
@@ -283,7 +265,7 @@
                                             </a>
                                         </div>
                                     </td>
-                                    <td><code>{{ $item->product->sku ?? '-' }}</code></td>
+                                    <td><code>{{ $item->product->barcode ?? '-' }}</code></td>
                                     <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_purchased }}</td>
                                     <td class="text-end text-nowrap fw-bold text-success">{{ format_price($item->total_cost) }}</td>
                                 </tr>
@@ -473,7 +455,7 @@
                 if (endEl._flatpickr) endEl._flatpickr.destroy();
 
                 const startPicker = $(startEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
@@ -485,13 +467,13 @@
                 });
 
                 const endPicker = $(endEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
-                            startPicker.set('maxDate', null);
+                            startPicker.set('maxDate', 'today');
                         }
                     }
                 });
@@ -505,7 +487,7 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                     }
@@ -521,6 +503,7 @@
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
+            window.showAjaxLoader && window.showAjaxLoader();
 
             $.get(url, function (html) {
                 const parser = new DOMParser();
@@ -530,20 +513,42 @@
                 $('#report-results').html(newResults);
                 initReport();
                 initDatePickers();
+                updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
+                window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 
-        // AJAX Filtering on form field changes
-        $(document).on('change', '#filterForm', function () {
-            const form = $(this);
+        let isFiltered = false;
+
+        function updateFilterButtonsVisibility() {
+            const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                return $(el).val();
+            });
+            $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+            if (!hasValue && isFiltered) {
+                isFiltered = false;
+                loadReport($('#filterForm').attr('action'));
+            }
+        }
+
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $(document).on('click', '#applyFiltersBtn', function () {
+            isFiltered = true;
+            const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
             loadReport(url);
         });
 
-        $(document).on('click', '#resetFilters', function () {
+        $(document).on('click', '#clearFiltersBtn', function () {
+            isFiltered = false;
             const form = $('#filterForm');
 
             form[0].reset();
@@ -556,6 +561,7 @@
             });
             form.find('input').val('');
             form.find('select').val('').trigger('change.select2');
+            updateFilterButtonsVisibility();
 
             loadReport(form.attr('action'));
         });

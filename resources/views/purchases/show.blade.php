@@ -195,6 +195,7 @@
                                 <th>Product</th>
                                 <th class="text-end">Purchase Price</th>
                                 <th class="text-end">Qty</th>
+                                <th class="text-end">Discount</th>
                                 <th class="text-end">Total</th>
                                 <th>Allocations</th>
                             </tr>
@@ -214,7 +215,9 @@
                                         $myAllocation = $item->allocations->firstWhere('location_id', $locationId);
                                         $displayQty   = $myAllocation ? $myAllocation->quantity : 0;
 
-                                        $displayTotal = $item->purchase_price * $displayQty;
+                                        $subtotal = $item->purchase_price * $displayQty;
+                                        $itemDiscAmount = ($item->quantity > 0) ? ($item->discount_amount * ($displayQty / $item->quantity)) : 0;
+                                        $displayTotal = $subtotal - $itemDiscAmount;
                                         $displayAllocations = $myAllocation ? collect([$myAllocation]) : collect();
                                     } else {
                                         $displayQty         = $item->quantity;
@@ -235,8 +238,8 @@
                                             @endif
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
-                                                @if($item->product?->sku)
-                                                    <br><small class="text-muted">{{ $item->product->sku }}</small>
+                                                @if($item->product?->barcode)
+                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
                                                 @endif
                                             </div>
                                         </div>
@@ -248,6 +251,17 @@
                                             <small class="text-muted">Pairs</small>
                                         @else
                                             <small class="text-muted">Pcs</small>
+                                        @endif
+                                    </td>
+                                    <td class="text-end text-nowrap small">
+                                        @if($item->discount_value > 0)
+                                            @if($item->discount_type === 'flat')
+                                                {{ format_price($item->discount_value) }}
+                                            @else
+                                                {{ number_format($item->discount_value, 0) }}%
+                                            @endif
+                                        @else
+                                            -
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($displayTotal) }}</td>
@@ -262,23 +276,54 @@
                             @endforeach
                         </tbody>
                         <tfoot>
+                            @php
+                                $totalSubtotal = 0;
+                                $totalItemDiscount = 0;
+                                foreach($purchase->items as $item) {
+                                    if ($isRestricted && $locationId) {
+                                        $myAlloc = $item->allocations->firstWhere('location_id', $locationId);
+                                        $dq = $myAlloc ? $myAlloc->quantity : 0;
+                                    } else {
+                                        $dq = $item->quantity;
+                                    }
+                                    $sub = $item->purchase_price * $dq;
+                                    $totalSubtotal += $sub;
+
+                                    if ($isRestricted && $locationId) {
+                                        $da = ($item->quantity > 0) ? ($item->discount_amount * ($dq / $item->quantity)) : 0;
+                                    } else {
+                                        $da = $item->discount_amount;
+                                    }
+                                    $totalItemDiscount += $da;
+                                }
+
+                                // Overall discount
+                                $overallDiscAmount = 0;
+                                if (!$isRestricted) {
+                                    $overallDiscAmount = $purchase->discount_amount;
+                                } else {
+                                    $totalItemsAmount = $totalSubtotal - $totalItemDiscount;
+                                    $overallDiscAmount = ($purchase->total_amount > 0) ? ($purchase->discount_amount * ($totalItemsAmount / ($purchase->total_amount + $purchase->discount_amount))) : 0;
+                                }
+                                $finalTotal = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+                            @endphp
+
+                            @if($totalItemDiscount > 0 || $overallDiscAmount > 0)
+                                <tr>
+                                    <td colspan="5" class="text-end fw-semibold text-muted">Subtotal</td>
+                                    <td class="text-end fw-semibold text-muted">{{ format_price($totalSubtotal) }}</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" class="text-end fw-semibold text-danger">Discount</td>
+                                    <td class="text-end fw-semibold text-danger">-{{ format_price($totalItemDiscount + $overallDiscAmount) }}</td>
+                                    <td></td>
+                                </tr>
+                            @endif
+
                             <tr style="border-top:2px solid #B4771E;">
-                                <td colspan="4" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
-                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">
-                                    @if($isRestricted)
-                                        @php
-                                            // Sum only this location's allocated items
-                                            $locTotal = 0;
-                                            foreach($purchase->items as $item) {
-                                                $myAlloc = $item->allocations->firstWhere('location_id', $locationId);
-                                                $locTotal += $item->purchase_price * ($myAlloc ? $myAlloc->quantity : 0);
-                                            }
-                                        @endphp
-                                        {{ format_price($locTotal) }}
-                                    @else
-                                        {{ format_price($purchase->total_amount) }}
-                                    @endif
-                                </td>
+                                <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
+                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($finalTotal) }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>

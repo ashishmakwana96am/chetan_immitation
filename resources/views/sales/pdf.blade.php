@@ -261,7 +261,7 @@
         3 => 'Shipped',
         4 => 'Out for Delivery',
         5 => 'Delivered',
-        6 => 'Declined',
+        6 => 'Cancelled',
     ];
     $statusBadge = [
         1 => 'badge-pending',
@@ -470,12 +470,6 @@
                         <span class="info-value" style="font-size:9.5px;">{{ $order->payment->gateway_payment_id }}</span>
                     </div>
                     @endif
-                    @if($order->status == 6 && $order->cancellation_reason)
-                    <div class="info-row" style="margin-top:3px;">
-                        <span class="info-label">Cancel Reason: </span>
-                        <span style="color:#c62828;">{{ $order->cancellation_reason }}</span>
-                    </div>
-                    @endif
                 </div>
             </td>
 
@@ -490,6 +484,10 @@
                     <div class="info-row">
                         <span class="info-label">Sale No: </span>
                         <span class="info-value">{{ $order->order_no }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Order Status: </span>
+                        <span class="info-value" style="color:#c62828; text-transform:uppercase;">{{ $statusLabels[$order->status ?? 1] ?? 'Pending' }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Generated: </span>{{ now()->format('d M Y') }}
@@ -515,6 +513,33 @@
                         <div class="address-row">{{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}</div>
                         @if($addr->email)
                         <div class="address-row">{{ $addr->email }}</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endif
+
+    {{-- ── CANCELLATION & REFUND DETAILS ─────────────────────────── --}}
+    @if($order->cancellationRequest && in_array($order->cancellationRequest->status, ['approved', 'pending']))
+        <div class="address-box" style="background:#fdf4f4; border-color:#f5c8c8;">
+            <div class="address-box-title" style="color:#c62828;">&#x26A0; Order Cancellation & Refund Information</div>
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <td style="width:55%; border:none; padding:0; vertical-align:top;">
+                        <div class="address-row"><strong>Request Status:</strong> <span style="text-transform:uppercase; font-weight:bold; color:{{ $order->cancellationRequest->status === 'approved' ? '#2e7d32' : '#b4771e' }};">{{ $order->cancellationRequest->status }}</span></div>
+                        <div class="address-row"><strong>Reason:</strong> {{ $order->cancellationRequest->cancellation_reason }}</div>
+                        <div class="address-row"><strong>Submitted On:</strong> {{ $order->cancellationRequest->created_at->format('d M Y, h:i A') }}</div>
+                    </td>
+                    <td style="width:45%; border:none; padding:0; vertical-align:top; text-align:right;">
+                        @if($order->cancellationRequest->status === 'approved')
+                            <div class="address-row"><strong>Refunded Amount:</strong> <strong style="color:#2e7d32; font-size:12px;">₹{{ number_format($order->cancellationRequest->refund_amount, 2) }}</strong></div>
+                            @if($order->cancellationRequest->refund_gateway_id)
+                                <div class="address-row"><strong>Refund Transaction ID:</strong> <span style="font-family:monospace; font-size:9px; background:#f5ecec; padding:1px 3px; border-radius:2px;">{{ $order->cancellationRequest->refund_gateway_id }}</span></div>
+                            @endif
+                            <div class="address-row" style="color:#666; font-size:9px; margin-top:4px;">Processed via Online Gateway (credited in 5-7 business days)</div>
+                        @else
+                            <div class="address-row" style="color:#b4771e; font-weight:bold; margin-top:4px;">Refund is pending approval</div>
                         @endif
                     </td>
                 </tr>
@@ -598,7 +623,7 @@
 
     {{-- ── FOOTER ────────────────────────────────────────────────────── --}}
     <div class="footer">
-        <div class="footer-thank">Thank you for your business!</div>
+        <div class="footer-thank">Thank you for shopping by chetan imitation!</div>
         <div class="footer-text">
             Generated on {{ now()->format('d M Y, H:i') }}
             &nbsp;&bull;&nbsp;

@@ -124,9 +124,10 @@
             <tr>
                 <th>#</th>
                 <th>Product</th>
-                <th>SKU</th>
+                <th>Barcode</th>
                 <th class="text-right">Purchase Price</th>
                 <th class="text-right">Qty</th>
+                <th class="text-right">Discount</th>
                 <th class="text-right">Total</th>
                 <th>Allocations</th>
             </tr>
@@ -236,7 +237,7 @@
                     </td>
                     <td>
                         @if($item->is_parent)
-                            {{ $item->product->sku ?? '-' }}
+                            {{ $item->product->barcode ?? '-' }}
                         @else
                             -
                         @endif
@@ -245,6 +246,17 @@
                     <td class="text-right">
                         {{ $item->quantity }}
                         {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                    </td>
+                    <td class="text-right">
+                        @if($item->discount_value > 0)
+                            @if($item->discount_type === 'flat')
+                                {{ format_price($item->discount_value) }}
+                            @else
+                                {{ number_format($item->discount_value, 0) }}%
+                            @endif
+                        @else
+                            -
+                        @endif
                     </td>
                     <td class="text-right"><strong>{{ format_price($item->total) }}</strong></td>
                     <td>
@@ -257,12 +269,33 @@
         </tbody>
     </table>
 
+    @php
+        $totalSubtotal = 0;
+        $totalItemDiscount = 0;
+        foreach($purchase->items as $item) {
+            $totalSubtotal += $item->purchase_price * $item->quantity;
+            $totalItemDiscount += $item->discount_amount;
+        }
+        $overallDiscAmount = $purchase->discount_amount;
+        $finalTotal = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+    @endphp
+
     <!-- Grand Total -->
     <div class="totals-section">
-        <table style="width:100%; border-top: 2px solid #B4771E; padding-top: 8px;">
-            <tr>
-                <td style="font-size:14px; font-weight:bold; color:#B4771E; padding: 8px 0;">Grand Total</td>
-                <td style="font-size:14px; font-weight:bold; color:#B4771E; text-align:right; padding: 8px 0;">{{ format_price($purchase->total_amount) }}</td>
+        <table style="width:100%; padding-top: 8px;">
+            @if($totalItemDiscount > 0 || $overallDiscAmount > 0)
+                <tr>
+                    <td style="font-size:12px; font-weight:semibold; color:#555; padding: 4px 0; border: none;">Subtotal</td>
+                    <td style="font-size:12px; font-weight:semibold; color:#555; text-align:right; padding: 4px 0; border: none;">{{ format_price($totalSubtotal) }}</td>
+                </tr>
+                <tr>
+                    <td style="font-size:12px; font-weight:semibold; color:#d9534f; padding: 4px 0; border: none;">Discount</td>
+                    <td style="font-size:12px; font-weight:semibold; color:#d9534f; text-align:right; padding: 4px 0; border: none;">-{{ format_price($totalItemDiscount + $overallDiscAmount) }}</td>
+                </tr>
+            @endif
+            <tr style="border-top: 2px solid #B4771E;">
+                <td style="font-size:14px; font-weight:bold; color:#B4771E; padding: 8px 0; border-top: 2px solid #B4771E; border-bottom: none;">Grand Total</td>
+                <td style="font-size:14px; font-weight:bold; color:#B4771E; text-align:right; padding: 8px 0; border-top: 2px solid #B4771E; border-bottom: none;">{{ format_price($finalTotal) }}</td>
             </tr>
         </table>
     </div>

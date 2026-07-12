@@ -52,6 +52,7 @@
     }
     #itemsTable .input-group {
         flex-wrap: nowrap !important;
+        width: fit-content !important;
     }
     #itemsTable .product-sku-display {
         white-space: nowrap !important;
@@ -112,7 +113,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Edit Sale <code>{{ $order->order_no }}</code></h4>
         <div class="d-flex gap-2">
             <a href="{{ route('admin.sales.show', $order) }}" class="btn btn-label-secondary">
@@ -199,7 +200,7 @@
                         <div class="position-relative">
                             <div class="input-group input-group-merge">
                                 <span class="input-group-text"><i class="ti ti-search"></i></span>
-                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name, SKU or barcode..." autocomplete="off">
+                                <input type="text" id="productSearchInput" class="form-control" placeholder="Search product by name or barcode..." autocomplete="off">
                             </div>
                             <div id="productSearchResults" class="list-group position-absolute w-100 mt-1 bg-white" style="z-index: 9999; background-color: #ffffff; display: none; max-height: 250px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 0.375rem;">
                                 <!-- Search results will appear here -->
@@ -292,7 +293,7 @@
                         <select name="status" class="form-select no-select2">
                             <option value="1" {{ $order->status == 1 ? 'selected' : '' }}>Pending</option>
                             <option value="2" {{ $order->status == 2 ? 'selected' : '' }}>Approve</option>
-                            <option value="6" {{ $order->status == 6 ? 'selected' : '' }}>Decline</option>
+                            <option value="6" {{ $order->status == 6 ? 'selected' : '' }}>Cancelled</option>
                         </select>
                     </div>
                 </div>
@@ -315,12 +316,12 @@
             <div class="col-12">
                 <div class="row g-3">
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary w-100 py-2 fs-5" id="submitBtn">
+                        <button type="submit" class="btn btn-primary w-100" id="submitBtn">
                             <i class="ti ti-device-floppy me-1"></i> Update Sale
                         </button>
                     </div>
                     <div class="col-12">
-                        <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary w-100 py-2 fs-5 d-flex align-items-center justify-content-center">Cancel</a>
+                        <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary w-100 d-flex align-items-center justify-content-center">Cancel</a>
                     </div>
                 </div>
             </div>
@@ -397,11 +398,13 @@ $(document).ready(function () {
         row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
     }
     function getMinAllowedTotal(row) {
+        if (row.data('allow-full-discount') || row.data('bypass-min-price')) return 0;
+
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
-        
+
         if (product && product.pair_product && !isPair) {
             purchasePrice = purchasePrice / 2;
         }
@@ -447,7 +450,6 @@ $(document).ready(function () {
         if (!q) return null;
         const matches = allProducts.filter(p =>
             p.name.toLowerCase() === q ||
-            (p.sku && String(p.sku).toLowerCase() === q) ||
             (p.barcode && String(p.barcode).toLowerCase() === q)
         );
         return matches.length === 1 ? matches[0] : null;
@@ -504,9 +506,8 @@ $(document).ready(function () {
             return;
         }
 
-        const matchedProducts = allProducts.filter(p => 
+        const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.sku && p.sku.toLowerCase().includes(query)) ||
             p.label.toLowerCase().includes(query) ||
             (p.barcode && p.barcode.toLowerCase().includes(query))
         );
@@ -532,7 +533,7 @@ $(document).ready(function () {
                         ${imgHtml}
                         <div>
                             <div class="fw-semibold">${p.name}</div>
-                            <small class="text-muted">SKU: ${p.sku}${p.barcode ? ' | Barcode: ' + p.barcode : ''}</small>
+                            <small class="text-muted">Barcode: ${p.barcode}</small>
                         </div>
                     </div>
                     ${priceBadge}
@@ -591,11 +592,15 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
+            row.data('bypass-min-price', !!product.bypass_min_price);
+            row.data('allow-full-discount', !!product.allow_full_discount);
             setItemPrice(row, initialPrice);
-            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
-            row.find('.product-sku-display').text('SKU: ' + product.sku);
+            row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
+            row.data('bypass-min-price', !!product.bypass_min_price);
+            row.data('allow-full-discount', !!product.allow_full_discount);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -854,11 +859,17 @@ $(document).ready(function () {
 
         if (discount > subtotal) discount = subtotal;
 
-        const minTotal = getMinAllowedTotal(row);
-        const violatesFloor = minTotal > 0 && (subtotal - discount) < minTotal - 0.01;
+        const total = subtotal - discount;
+        let violatesFloor;
+        if (row.data('allow-full-discount')) {
+            violatesFloor = total < 0;
+        } else if (row.data('bypass-min-price')) {
+            violatesFloor = total <= 0;
+        } else {
+            const minTotal = getMinAllowedTotal(row);
+            violatesFloor = minTotal > 0 && total < minTotal - 0.01;
+        }
         row.find('.item-discount-value').toggleClass('is-invalid', violatesFloor);
-
-        const total    = subtotal - discount;
         if (row.hasClass('parent-row')) {
             row.find('.parent-total').text(symbol + ' ' + formatPrice(total));
         } else {
@@ -918,10 +929,10 @@ $(document).ready(function () {
             orderDiscountAmount = itemsTotal;
         }
 
-        const orderViolatesFloor = minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01;
-        $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
-
         const finalAmount = itemsTotal - orderDiscountAmount;
+        const orderViolatesFloor = (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
+            || (count > 0 && finalAmount <= 0);
+        $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
 
         $('#itemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
@@ -975,6 +986,22 @@ $(document).ready(function () {
             const itemTotal = subtotal - discount;
             itemsTotal += itemTotal;
 
+            if ($(this).data('allow-full-discount')) {
+                if (itemTotal < 0) {
+                    $(this).find('.item-discount-value').addClass('is-invalid');
+                    errorMsg = 'Item amount cannot be negative.';
+                }
+                return;
+            }
+
+            if ($(this).data('bypass-min-price')) {
+                if (itemTotal <= 0) {
+                    $(this).find('.item-discount-value').addClass('is-invalid');
+                    errorMsg = 'Item amount must be greater than 0.';
+                }
+                return;
+            }
+
             const minTotal = getMinAllowedTotal($(this));
             if (minTotal > 0) {
                 minFloorTotal += minTotal;
@@ -982,8 +1009,7 @@ $(document).ready(function () {
                     const product = $(this).data('product');
                     const name = (product && product.name) ? product.name : 'item';
                     $(this).find('.item-discount-value').addClass('is-invalid');
-                    errorMsg = 'Final price for "' + name + '" cannot be less than purchase price + 10% (minimum '
-                        + symbol + ' ' + formatPrice(minTotal) + ').';
+                    errorMsg = 'Discount is not applicable';
                 }
             }
         });
@@ -995,7 +1021,14 @@ $(document).ready(function () {
         let orderDiscountAmount = orderDiscType === 'percentage' ? itemsTotal * (orderDiscVal / 100) : orderDiscVal;
         if (orderDiscountAmount > itemsTotal) orderDiscountAmount = itemsTotal;
 
-        if (minFloorTotal > 0 && (itemsTotal - orderDiscountAmount) < minFloorTotal - 0.01) {
+        const finalAmount = itemsTotal - orderDiscountAmount;
+
+        if (finalAmount < 0) {
+            $('#orderDiscountValueInput').addClass('is-invalid');
+            return 'Order total cannot be negative.';
+        }
+
+        if (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
             $('#orderDiscountValueInput').addClass('is-invalid');
             return 'Order total cannot be less than ' + symbol + ' ' + formatPrice(minFloorTotal)
                 + ' (combined purchase price + 10% of all items).';

@@ -8,9 +8,9 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Expenses</h4>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             {{-- Filter Dropdown --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
@@ -53,12 +53,12 @@
 
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-start-date">From Date</label>
-                        <input type="date" id="filter-start-date" class="form-control" />
+                        <input type="date" id="filter-start-date" class="form-control" max="{{ now()->format('Y-m-d') }}" />
                     </div>
 
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-end-date">To Date</label>
-                        <input type="date" id="filter-end-date" class="form-control" />
+                        <input type="date" id="filter-end-date" class="form-control" max="{{ now()->format('Y-m-d') }}" />
                     </div>
 
                     <div class="dropdown-divider"></div>

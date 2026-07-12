@@ -8,7 +8,7 @@
 
 @section('content')
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Dashboard</h4>
             <small class="text-muted">Welcome back, {{ auth()->user()->name }}</small>
@@ -167,7 +167,7 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Recent Sales</h5>
-                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.sales.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap" style="white-space: nowrap;">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">
@@ -207,7 +207,7 @@
                                     <span class="badge bg-label-warning ms-1">{{ $todayInquiriesCount }} today</span>
                                 @endif
                             </h5>
-                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary">View All</a>
+                            <a href="{{ route('admin.contact-inquiries.index') }}" class="btn btn-sm btn-label-primary whitespace-nowrap" style="white-space: nowrap;">View All</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table mb-0">
@@ -247,6 +247,7 @@
                     <div class="card">
                         <div class="card-header"><h5 class="mb-0">Top Selling Products</h5></div>
                         <div class="card-body p-0">
+                          <div class="table-responsive">
                             <table class="table mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -278,6 +279,7 @@
                                     @endforelse
                                 </tbody>
                             </table>
+                           </div>
                         </div>
                     </div>
                 </div>
@@ -289,37 +291,40 @@
                             <h5 class="mb-0"><i class="ti ti-alert-triangle me-1"></i> Low Stock Alert</h5>
                         </div>
                         <div class="card-body p-0">
-                            <table class="table mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Category</th>
-                                        <th class="text-end">Stock</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($lowStock as $product)
+                            <div class="table-responsive">
+                                <table class="table mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    @if($product->primaryImage)
-                                                        <img src="{{ $product->primaryImage->image_url }}" alt="{{ $product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                                    @else
-                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                                        </div>
-                                                    @endif
-                                                    <a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a>
-                                                </div>
-                                            </td>
-                                            <td>{{ $product->category->name ?? '-' }}</td>
-                                            <td class="text-end"><span class="badge {{ $product->inventories->sum('quantity') == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $product->inventories->sum('quantity') }}</span></td>
+                                            <th>Product</th>
+                                            <th>Category</th>
+                                            <th class="text-end">Stock</th>
                                         </tr>
-                                    @empty
-                                        <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($lowStock as $product)
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        @if($product->primaryImage)
+                                                            <img src="{{ $product->primaryImage->image_url }}" alt="{{ $product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                        @else
+                                                            <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                                <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
+                                                            </div>
+                                                        @endif
+                                                        <a href="{{ route('admin.products.show', $product->id) }}">{{ $product->name }}</a>
+                                                    </div>
+                                                </td>
+                                                <td>{{ $product->category->name ?? '-' }}</td>
+                                                @php($lowStockQty = $product->totalAvailableStock())
+                                                <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $lowStockQty }}</span></td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

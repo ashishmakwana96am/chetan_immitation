@@ -12,9 +12,9 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Products List</h4>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-label-primary d-none">
                 <i class="ti ti-printer me-1"></i> <span id="bulkPrintBtnText">Bulk Print Barcodes</span>
             </button>
@@ -82,7 +82,7 @@
 
             @can('create products')
                 <button type="button" class="btn btn-outline-primary" data-common-modal="{{ route('admin.products.import.form') }}">
-                    <i class="ti ti-upload me-1"></i> Import Products
+                    <i class="ti ti-upload me-1"></i> Import
                 </button>
                 <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
                     <i class="ti ti-plus me-1"></i> Add Product
@@ -100,7 +100,6 @@
                         <th>#</th>
                         <th>Image</th>
                         <th>Name</th>
-                        <th>SKU</th>
                         <th>Barcode</th>
                         <th>Category</th>
                         <th>Stock</th>
@@ -145,7 +144,6 @@
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image',          orderable: false },
                 { data: 'name' },
-                { data: 'sku' },
                 { data: 'barcode',       orderable: false },
                 { data: 'category' },
                 { data: 'stock' },
@@ -256,7 +254,7 @@
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
 
                 // The action button HTML comes from the server with only barcode + id,
-                // so pull the rest (sku/mrp/product_code/name) from the already-loaded row data.
+                // so pull the rest (mrp/product_code/name) from the already-loaded row data.
                 const rowData = table.rows().data().toArray().find(r => String(r.id) === String(productId)) || {};
                 const rowCategory = rowData.category ?? '';
                 const rowVariations = rowData.variations ?? '';

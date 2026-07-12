@@ -70,7 +70,7 @@
                       }
                     @endphp
                     @if($pendingSalesCount > 0)
-                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                      <div class="pending-sales-counter-badge notranslate" translate="no" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
                     @endif
                   @endif
                   @if($child->route === 'admin.contact-inquiries.index')
@@ -82,15 +82,15 @@
                       }
                     @endphp
                     @if($todayInquiriesCount > 0)
-                      <div class="pending-sales-counter-badge" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $todayInquiriesCount }}</div>
+                      <div class="pending-sales-counter-badge notranslate" translate="no" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $todayInquiriesCount }}</div>
                     @endif
                   @endif
-                  @if($child->route === 'admin.stock-transfers.index')
+                  @if($child->route === 'admin.purchase-bills.index')
                     @php
                       try {
                           $authUser = auth()->user();
                           $isTransferRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
-                          $pendingTransfersCount = \App\Models\StockTransfer::where('status', \App\Models\StockTransfer::STATUS_PENDING)
+                          $pendingTransfersCount = \App\Models\PurchaseBill::where('status', \App\Models\PurchaseBill::STATUS_PENDING)
                               ->when($isTransferRestricted, function ($q) use ($authUser) {
                                   $q->where(function ($sub) use ($authUser) {
                                       $sub->where('from_location_id', $authUser->location_id)
@@ -102,7 +102,7 @@
                           $pendingTransfersCount = 0;
                       }
                     @endphp
-                    <div id="stock-transfer-pending-badge" class="pending-sales-counter-badge" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
+                    <div id="purchase-bill-pending-badge" class="pending-sales-counter-badge notranslate" translate="no" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
                   @endif
                 </a>
               </li>
@@ -123,12 +123,12 @@
   </ul>
 </aside>
 
-@if(Route::has('admin.stock-transfers.pending-count'))
+@if(Route::has('admin.purchase-bills.pending-count'))
 <script>
-    window.refreshStockTransferBadge = function () {
-        const badge = document.getElementById('stock-transfer-pending-badge');
+    window.refreshPurchaseBillBadge = function () {
+        const badge = document.getElementById('purchase-bill-pending-badge');
         if (!badge) return;
-        fetch('{{ route('admin.stock-transfers.pending-count') }}', {
+        fetch('{{ route('admin.purchase-bills.pending-count') }}', {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(res => res.json())

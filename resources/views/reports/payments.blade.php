@@ -60,7 +60,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Payment Report</h4>
     </div>
 
@@ -73,7 +73,7 @@
 
         {{-- Stats Cards --}}
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -87,7 +87,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -101,7 +101,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card payment-stat-card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -111,6 +111,20 @@
                                 <small class="text-muted">{{ $pendingCount }} pending payment{{ $pendingCount != 1 ? 's' : '' }}</small>
                             </div>
                             <span class="badge bg-label-warning rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card payment-stat-card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Refunds</span>
+                                <h4 class="mb-0 mt-1 text-danger">{{ format_price($refundAmount) }}</h4>
+                                <small class="text-muted">{{ $refundCount }} refund{{ $refundCount != 1 ? 's' : '' }}</small>
+                            </div>
+                            <span class="badge bg-label-danger rounded p-2"><i class="ti ti-receipt-refund ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
@@ -147,11 +161,8 @@
 
         {{-- Filters --}}
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header">
                 <h5 class="mb-0">Filter Report</h5>
-                <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                    <i class="ti ti-refresh me-1"></i> Reset
-                </button>
             </div>
             <div class="card-body">
                 <form method="GET" action="{{ route('admin.reports.payments') }}" id="filterForm" class="row g-3">
@@ -164,7 +175,7 @@
                         <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                     </div>
                     @if($isSuperAdmin)
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Location</label>
                         <select name="location_id" class="form-select no-select2">
                             <option value="">All Locations</option>
@@ -174,7 +185,7 @@
                         </select>
                     </div>
                     @endif
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Source</label>
                         <select name="source" class="form-select no-select2">
                             <option value="">All Sources</option>
@@ -183,7 +194,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Payment Method</label>
                         <select name="payment_method" class="form-select no-select2">
                             <option value="">All Methods</option>
@@ -194,13 +205,21 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label class="form-label">Payment Status</label>
                         <select name="payment_status" class="form-select no-select2">
                             <option value="">All Statuses</option>
                             <option value="{{ \App\Models\Order::PAYMENT_STATUS_PENDING }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PENDING ? 'selected' : '' }}>Pending</option>
                             <option value="{{ \App\Models\Order::PAYMENT_STATUS_PAID }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PAID ? 'selected' : '' }}>Paid</option>
                         </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                        <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                            <i class="ti ti-refresh me-1"></i> Clear
+                        </button>
+                        <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                            <i class="ti ti-filter me-1"></i> Apply
+                        </button>
                     </div>
                 </form>
             </div>
@@ -222,6 +241,7 @@
                             <th>Payment Method</th>
                             <th>Status</th>
                             <th class="text-end">Amount</th>
+                            <th class="text-end">Refund Amount</th>
                             <th class="d-none">date_group</th>
                             <th class="d-none">date_sort</th>
                         </tr>
@@ -230,6 +250,10 @@
                         @foreach($orders as $order)
                             @php
                                 $payment = $order->payment;
+                                $cancellation = $order->cancellationRequest;
+                                $isRefunded = $cancellation
+                                    && $cancellation->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED
+                                    && (float) $cancellation->refund_amount > 0;
                                 $sourceVal = strtoupper($order->source ?? 'POS');
                                 $normalizedMethod = match ($order->payment_method) {
                                     'razorpay' => 'online',
@@ -241,7 +265,10 @@
                                     'cash'   => 'Cash',
                                     default  => ucwords(str_replace('_', ' ', $normalizedMethod ?? '')),
                                 };
-                                if ($payment) {
+                                if ($isRefunded) {
+                                    $statusLabel = 'Refunded';
+                                    $statusClass = 'status-refunded';
+                                } elseif ($payment) {
                                     $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
                                     $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
                                 } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
@@ -270,6 +297,7 @@
                                     <span class="gateway-badge {{ $statusClass }}">{{ $statusLabel }}</span>
                                 </td>
                                 <td class="text-end fw-semibold text-nowrap">{{ format_price($order->final_amount) }}</td>
+                                <td class="text-end fw-semibold text-nowrap text-danger">{{ $isRefunded ? format_price($cancellation->refund_amount) : '-' }}</td>
                                 <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
                                 <td class="d-none">{{ $order->created_at->format('Ymd') }}</td>
                             </tr>
@@ -363,8 +391,8 @@
         }
         $('#paymentsTable').DataTable({
             responsive : false,
-            order      : [[8, 'desc']],
-            orderFixed : { pre: [[8, 'desc']] },
+            order      : [[9, 'desc']],
+            orderFixed : { pre: [[9, 'desc']] },
             columnDefs : [
                 {
                     targets: 0,
@@ -374,13 +402,13 @@
                         return meta.row + meta.settings._iDisplayStart + 1;
                     }
                 },
-                { targets: [7, 8], visible: false }
+                { targets: [8, 9], visible: false }
             ],
             rowGroup   : {
-                dataSrc: 7,
+                dataSrc: 8,
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
-                        .append('<td colspan="7"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                        .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                 }
             },
             drawCallback: function () {
@@ -401,7 +429,7 @@
                 if (endEl._flatpickr) endEl._flatpickr.destroy();
 
                 const startPicker = $(startEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
@@ -413,13 +441,13 @@
                 });
 
                 const endPicker = $(endEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
-                            startPicker.set('maxDate', null);
+                            startPicker.set('maxDate', 'today');
                         }
                     }
                 });
@@ -433,7 +461,7 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                     }
@@ -442,15 +470,34 @@
         }
     }
 
+    let isFiltered = false;
+
+    function updateFilterButtonsVisibility() {
+        const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+            return $(el).val();
+        });
+        $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+        if (!hasValue && isFiltered) {
+            isFiltered = false;
+            loadReport($('#filterForm').attr('action'));
+        }
+    }
+
     function loadReport(url) {
         $('#report-results').css('opacity', 0.5);
+        window.showAjaxLoader && window.showAjaxLoader();
         $.get(url, function (html) {
             const doc = new DOMParser().parseFromString(html, 'text/html');
             $('#report-results').html($(doc).find('#report-results').html());
             initCharts();
             initTable();
             initDatePickers();
-        }).always(function () { $('#report-results').css('opacity', 1); });
+            updateFilterButtonsVisibility();
+        }).always(function () {
+            $('#report-results').css('opacity', 1);
+            window.hideAjaxLoader && window.hideAjaxLoader();
+        });
     }
 
     $(document).ready(function () {
@@ -458,11 +505,18 @@
         initTable();
         initDatePickers();
 
-        $(document).on('change', '#filterForm', function () {
-            loadReport($(this).attr('action') + '?' + $(this).serialize());
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $(document).on('click', '#applyFiltersBtn', function () {
+            isFiltered = true;
+            loadReport($('#filterForm').attr('action') + '?' + $('#filterForm').serialize());
         });
 
-        $(document).on('click', '#resetFilters', function () {
+        $(document).on('click', '#clearFiltersBtn', function () {
+            isFiltered = false;
             const form = $('#filterForm');
             form[0].reset();
             form.find('.flatpickr').each(function () {
@@ -473,6 +527,7 @@
                 }
             });
             form.find('select').val('');
+            updateFilterButtonsVisibility();
             loadReport(form.attr('action'));
         });
     });

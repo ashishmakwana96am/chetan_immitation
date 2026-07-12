@@ -40,7 +40,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales Report</h4>
         <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
@@ -48,8 +48,8 @@
     </div>
 
     <div id="report-results">
-        <div id="chart-data" 
-             data-sales-trend='@json($salesTrend)' 
+        <div id="chart-data"
+             data-sales-trend='@json($salesTrend)'
              data-payment-method='@json($paymentMethodData)'>
         </div>
 
@@ -136,24 +136,21 @@
     </div>
 
     <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card mb-4" id="filterReportCard">
+        <div class="card-header">
             <h5 class="mb-0">Filter Report</h5>
-            <button type="button" id="resetFilters" class="btn btn-sm btn-label-secondary">
-                <i class="ti ti-refresh me-1"></i> Reset
-            </button>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('admin.reports.sales') }}" id="filterForm" class="row g-3">
-                <div class="col-md-2.4 col-sm-6">
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">Start Date</label>
                     <input type="text" name="start_date" class="form-control flatpickr" value="{{ $startDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-                <div class="col-md-2.4 col-sm-6">
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">End Date</label>
                     <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                 </div>
-                <div class="col-md-2.4 col-sm-6">
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">Location</label>
                     <select name="location_id" class="form-select">
                         <option value="">All Locations</option>
@@ -164,7 +161,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-2.4 col-sm-6">
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">Payment Status</label>
                     <select name="payment_status" class="form-select no-select2">
                         <option value="">All Statuses</option>
@@ -172,7 +169,7 @@
                         <option value="2" {{ $paymentStatus == 2 ? 'selected' : '' }}>Paid</option>
                     </select>
                 </div>
-                <div class="col-md-2.4 col-sm-6">
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">Payment Method</label>
                     <select name="payment_method" class="form-select no-select2">
                         <option value="">All Methods</option>
@@ -180,7 +177,14 @@
                         <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
                     </select>
                 </div>
-
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                    <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
+                        <i class="ti ti-refresh me-1"></i> Clear
+                    </button>
+                    <button type="button" id="applyFiltersBtn" class="btn btn-primary">
+                        <i class="ti ti-filter me-1"></i> Apply
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -272,7 +276,7 @@
                             <tr>
                                 <th>#</th>
                                 <th>Product Name</th>
-                                <th>SKU</th>
+                                <th>Barcode</th>
                                 <th class="text-end text-nowrap">Qty Sold</th>
                                 <th class="text-end text-nowrap">Total Revenue</th>
                             </tr>
@@ -295,7 +299,7 @@
                                             </a>
                                         </div>
                                     </td>
-                                    <td><code>{{ $item->product->sku ?? '-' }}</code></td>
+                                    <td><code>{{ $item->product->barcode ?? '-' }}</code></td>
                                     <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_sold }}</td>
                                     <td class="text-end text-nowrap fw-bold text-success">{{ format_price($item->total_revenue) }}</td>
                                 </tr>
@@ -421,6 +425,13 @@
                 labels: methods.map(m => m.toUpperCase().replace('_', ' ')),
                 legend: { position: 'bottom' },
                 dataLabels: { enabled: true },
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    }
+                },
             });
             paymentMethodChart.render();
         } else {
@@ -437,7 +448,7 @@
                 if (endEl._flatpickr) endEl._flatpickr.destroy();
 
                 const startPicker = $(startEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
@@ -449,13 +460,13 @@
                 });
 
                 const endPicker = $(endEl).flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
-                            startPicker.set('maxDate', null);
+                            startPicker.set('maxDate', 'today');
                         }
                     }
                 });
@@ -469,7 +480,7 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false,
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
                         $(instance.element).closest('form').trigger('change');
                     }
@@ -485,6 +496,7 @@
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
+            window.showAjaxLoader && window.showAjaxLoader();
 
             $.get(url, function (html) {
                 const parser = new DOMParser();
@@ -494,20 +506,42 @@
                 $('#report-results').html(newResults);
                 initReport();
                 initDatePickers();
+                updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
+                window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 
-        // AJAX Filtering on form field changes
-        $(document).on('change', '#filterForm', function () {
-            const form = $(this);
+        let isFiltered = false;
+
+        function updateFilterButtonsVisibility() {
+            const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
+                return $(el).val();
+            });
+            $('#filterActionButtons').toggleClass('d-none', !hasValue);
+
+            if (!hasValue && isFiltered) {
+                isFiltered = false;
+                loadReport($('#filterForm').attr('action'));
+            }
+        }
+
+        $(document).on('input change', '#filterForm', function () {
+            updateFilterButtonsVisibility();
+        });
+        updateFilterButtonsVisibility();
+
+        $(document).on('click', '#applyFiltersBtn', function () {
+            isFiltered = true;
+            const form = $('#filterForm');
             const url = form.attr('action') + '?' + form.serialize();
 
             loadReport(url);
         });
 
-        $(document).on('click', '#resetFilters', function () {
+        $(document).on('click', '#clearFiltersBtn', function () {
+            isFiltered = false;
             const form = $('#filterForm');
 
             form[0].reset();
@@ -520,6 +554,7 @@
             });
             form.find('input').val('');
             form.find('select').val('').trigger('change.select2');
+            updateFilterButtonsVisibility();
 
             loadReport(form.attr('action'));
         });

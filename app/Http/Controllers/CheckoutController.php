@@ -78,6 +78,11 @@ class CheckoutController extends Controller
     {
         $customer = $this->customer();
 
+        $adjustment = $this->adjustCartToAvailableStock($customer->id);
+        if ($adjustment['adjusted']) {
+            session()->flash('warning', 'Some items in your cart were adjusted or removed due to stock updates: ' . implode(' ', $adjustment['messages']));
+        }
+
         $cartItems = CartItem::where('customer_id', $customer->id)
             ->with([
                 'product' => function ($q) {
@@ -155,11 +160,15 @@ class CheckoutController extends Controller
                 session()->forget('applied_coupon_code');
             }
         }
-        $defaultAddress = $addresses->first();
+        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
+        $activeStateNames = $states->pluck('name')->toArray();
+
+        $defaultAddress = $addresses->first(function ($address) use ($activeStateNames) {
+            return in_array($address->state, $activeStateNames);
+        });
+
         $shipping = $this->calculateShipping($subtotal, $defaultAddress, $coupon);
         $total = round($subtotal - $discount + $shipping, 2);
-
-        $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
 
         $paymentMethodCod = (bool) Setting::getValue('payment_method_cod', true);
         $paymentMethodRazorpay = (bool) Setting::getValue('payment_method_razorpay', true);
@@ -168,7 +177,7 @@ class CheckoutController extends Controller
             $paymentMethodCod = true;
         }
 
-        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'states', 'paymentMethodCod', 'paymentMethodRazorpay'));
+        return view('website.checkout', compact('cartItems', 'addresses', 'relatedProducts', 'subtotal', 'discount', 'shipping', 'total', 'coupon', 'states', 'paymentMethodCod', 'paymentMethodRazorpay', 'defaultAddress'));
     }
 
     public function saveAddress(Request $request)
@@ -357,6 +366,14 @@ class CheckoutController extends Controller
 
         $customer = $this->customer();
 
+        $adjustment = $this->adjustCartToAvailableStock($customer->id);
+        if ($adjustment['adjusted']) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Some items in your cart were adjusted or removed due to stock updates: ' . implode(' ', $adjustment['messages']) . ' Please review your cart and try again.'
+            ], 422);
+        }
+
         $address = CustomerAddress::where('customer_id', $customer->id)
             ->where('id', $request->address_id)
             ->first();
@@ -365,6 +382,14 @@ class CheckoutController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Please select a valid shipping address.',
+            ], 422);
+        }
+
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
             ], 422);
         }
 
@@ -676,6 +701,14 @@ class CheckoutController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Please select a valid shipping address.'], 422);
         }
 
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
+            ], 422);
+        }
+
         $product = Product::where('status', Product::STATUS_ACTIVE)
             ->withSum('inventories', 'quantity')
             ->find($request->product_id);
@@ -684,16 +717,29 @@ class CheckoutController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Product not found.'], 404);
         }
 
-        if (($product->inventories_sum_quantity ?? 0) < 1) {
+        $variantId = $request->filled('variant_id') ? (int) $request->variant_id : null;
+        $availableStock = $product->totalAvailableStock($variantId);
+        if ($availableStock < 1) {
             return response()->json(['status' => 'error', 'message' => 'This product is currently out of stock.'], 422);
         }
 
         $qty = max(1, (int) ($request->qty ?? 1));
         $pairType = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
-
-        // If not a pair product, force single
         if (!$product->pair_product) {
             $pairType = 'single';
+        }
+
+        $neededPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+        if ($neededPcs > $availableStock) {
+            if ($pairType === 'pair') {
+                $allowedQty = (int) floor($availableStock / 2);
+                if ($allowedQty <= 0) {
+                    return response()->json(['status' => 'error', 'message' => 'Only ' . $availableStock . ' Pc(s) left in stock. Cannot purchase as a pair.'], 422);
+                }
+                return response()->json(['status' => 'error', 'message' => 'Only ' . $allowedQty . ' pair(s) are available in stock.'], 422);
+            } else {
+                return response()->json(['status' => 'error', 'message' => 'Only ' . $availableStock . ' Pc(s) are available in stock.'], 422);
+            }
         }
 
         // Calculate price based on pair_type
@@ -1033,6 +1079,14 @@ class CheckoutController extends Controller
 
         $customer = $this->customer();
 
+        $adjustment = $this->adjustCartToAvailableStock($customer->id);
+        if ($adjustment['adjusted']) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Some items in your cart were adjusted or removed due to stock updates: ' . implode(' ', $adjustment['messages']) . ' Please review your cart and try again.'
+            ], 422);
+        }
+
         $address = CustomerAddress::where('customer_id', $customer->id)
             ->where('id', $request->address_id)
             ->first();
@@ -1041,6 +1095,14 @@ class CheckoutController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Please select a valid shipping address.',
+            ], 422);
+        }
+
+        $isStateActive = State::where('name', $address->state)->where('status', State::STATUS_ACTIVE)->exists();
+        if (!$isStateActive) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Delivery is temporarily unavailable at this address.',
             ], 422);
         }
 
@@ -1187,5 +1249,85 @@ class CheckoutController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function adjustCartToAvailableStock(int $customerId): array
+    {
+        $cartItems = CartItem::where('customer_id', $customerId)
+            ->with(['product', 'productVariant'])
+            ->get();
+
+        $adjusted = false;
+        $messages = [];
+
+        // Group cart items by product_id and product_variant_id
+        $grouped = $cartItems->groupBy(function ($item) {
+            return $item->product_id . '_' . ($item->product_variant_id ?? '0');
+        });
+
+        foreach ($grouped as $key => $items) {
+            $first = $items->first();
+            $product = $first->product;
+            $variant = $first->productVariant;
+            $variantId = $variant ? $variant->id : null;
+
+            if (!$product || $product->status !== Product::STATUS_ACTIVE) {
+                // Product is deleted or inactive, remove all
+                foreach ($items as $item) {
+                    $item->delete();
+                }
+                $adjusted = true;
+                $messages[] = "Product '" . ($product->name ?? 'Unknown') . "' is no longer available and has been removed from your cart.";
+                continue;
+            }
+
+            $availableStock = $product->totalAvailableStock($variantId);
+            $totalPcsNeeded = 0;
+            foreach ($items as $item) {
+                $totalPcsNeeded += ($item->pair_type === 'pair') ? $item->qty * 2 : $item->qty;
+            }
+
+            if ($totalPcsNeeded > $availableStock) {
+                $adjusted = true;
+                $remainingStock = $availableStock;
+
+                // Sort items: let's loop and adjust
+                foreach ($items as $item) {
+                    $isPair = ($item->pair_type === 'pair');
+                    if ($isPair) {
+                        $allowedPairs = (int) floor($remainingStock / 2);
+                        if ($allowedPairs < $item->qty) {
+                            $oldQty = $item->qty;
+                            if ($allowedPairs > 0) {
+                                $item->update(['qty' => $allowedPairs]);
+                                $messages[] = "Quantity of '" . $product->name . "' (Pair) was reduced from " . $oldQty . " to " . $allowedPairs . " due to limited stock.";
+                            } else {
+                                $item->delete();
+                                $messages[] = "'" . $product->name . "' (Pair) was removed from your cart as it is out of stock.";
+                            }
+                        }
+                        $remainingStock -= ($item->qty * 2);
+                    } else {
+                        $allowedSingles = $remainingStock;
+                        if ($allowedSingles < $item->qty) {
+                            $oldQty = $item->qty;
+                            if ($allowedSingles > 0) {
+                                $item->update(['qty' => $allowedSingles]);
+                                $messages[] = "Quantity of '" . $product->name . "' (Pcs) was reduced from " . $oldQty . " to " . $allowedSingles . " due to limited stock.";
+                            } else {
+                                $item->delete();
+                                $messages[] = "'" . $product->name . "' (Pcs) was removed from your cart as it is out of stock.";
+                            }
+                        }
+                        $remainingStock -= $item->qty;
+                    }
+                }
+            }
+        }
+
+        return [
+            'adjusted' => $adjusted,
+            'messages' => $messages,
+        ];
     }
 }

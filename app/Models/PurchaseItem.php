@@ -9,10 +9,13 @@ class PurchaseItem extends Model
 {
     use SoftDeletes;
     protected $fillable = [
-        'purchase_invoice_id',
+        'purchase_id',
         'product_id',
         'product_variant_id',
         'purchase_price',
+        'discount_type',
+        'discount_value',
+        'discount_amount',
         'quantity',
         'total',
     ];
@@ -21,13 +24,15 @@ class PurchaseItem extends Model
     {
         return [
             'purchase_price' => 'decimal:2',
+            'discount_value' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'total' => 'decimal:2',
         ];
     }
 
     public function invoice()
     {
-        return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+        return $this->belongsTo(Purchase::class, 'purchase_id');
     }
 
     public function product()

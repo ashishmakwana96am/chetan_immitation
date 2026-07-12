@@ -42,13 +42,13 @@
 .ql-editor ul > li:not(.ql-direction-rtl),
 .ql-content ol > li:not(.ql-direction-rtl),
 .ql-content ul > li:not(.ql-direction-rtl) {
-  padding-left: 2rem;
+  padding-left: 1rem;
 }
 [dir=rtl] .ql-editor ol > li:not(.ql-direction-rtl),
 [dir=rtl] .ql-editor ul > li:not(.ql-direction-rtl),
 [dir=rtl] .ql-content ol > li:not(.ql-direction-rtl),
 [dir=rtl] .ql-content ul > li:not(.ql-direction-rtl) {
-  padding-right: 2rem;
+  padding-right: 1rem;
   padding-left: 0;
 }
 .ql-editor ol > li.ql-direction-rtl,

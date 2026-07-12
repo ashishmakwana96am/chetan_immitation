@@ -119,7 +119,7 @@ class ReportExportService
         $headers = [
             'S.No.',
             'Product Name',
-            'SKU',
+            'Barcode',
             'Category',
             'Purchase Price',
             'Sale Price',
@@ -138,17 +138,17 @@ class ReportExportService
             $marginPct = $product['purchase_price'] > 0 ? ($margin / $product['purchase_price']) : 0;
 
             $productName = $product['name'];
-            $sku = $product['sku'];
+            $barcode = $product['barcode'];
             $category = $product['category'];
             if (isset($product['is_parent']) && !$product['is_parent']) {
                 $productName = "    ↳ " . $product['variant_name'];
-                $sku = "-";
+                $barcode = "-";
                 $category = "-";
             }
 
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $productName);
-            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('C' . $row, $barcode);
             $sheet->setCellValue('D' . $row, $category);
             $sheet->setCellValue('E' . $row, (float) $product['purchase_price']);
             $sheet->setCellValue('F' . $row, (float) $product['sale_price']);
@@ -161,21 +161,28 @@ class ReportExportService
         }
 
         // Add Totals row
+        $variantParentIds = collect($products)->where('is_parent', false)->pluck('id')->unique();
+        $totalStock = 0;
+        foreach ($products as $product) {
+            $isVariantParent = $product['is_parent'] && $variantParentIds->contains($product['id']);
+            if (!$isVariantParent) {
+                $totalStock += (int) $product['total_stock'];
+            }
+        }
+
         $totalRow = $row;
         $sheet->setCellValue('A' . $totalRow, 'Total / Average');
         $sheet->setCellValue('E' . $totalRow, "=AVERAGE(E2:E" . ($totalRow - 1) . ")");
         $sheet->setCellValue('F' . $totalRow, "=AVERAGE(F2:F" . ($totalRow - 1) . ")");
         $sheet->setCellValue('G' . $totalRow, "=AVERAGE(G2:G" . ($totalRow - 1) . ")");
         $sheet->setCellValue('H' . $totalRow, "=AVERAGE(H2:H" . ($totalRow - 1) . ")");
-        $sheet->setCellValue('I' . $totalRow, "=SUM(I2:I" . ($totalRow - 1) . ")");
+        $sheet->setCellValue('I' . $totalRow, $totalStock);
 
-        // Apply Styles
         $lastCol = 'J';
         $sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($this->getHeaderStyle());
         $sheet->getStyle('A2:' . $lastCol . ($totalRow - 1))->applyFromArray($this->getDataStyle());
         $sheet->getStyle('A' . $totalRow . ':' . $lastCol . $totalRow)->applyFromArray($this->getTotalsStyle());
 
-        // Alignments & Number formats
         $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('C2:C' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('D2:D' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -203,7 +210,7 @@ class ReportExportService
         $sheet->setTitle('Stock Inventory');
 
         // Build Headers
-        $headers = ['S.No.', 'Product Name', 'SKU', 'Category'];
+        $headers = ['S.No.', 'Product Name', 'Barcode', 'Category'];
         foreach ($locations as $loc) {
             $headers[] = $loc->name;
         }
@@ -216,17 +223,17 @@ class ReportExportService
         $row = 2;
         foreach ($products as $index => $product) {
             $productName = $product['name'];
-            $sku = $product['sku'];
+            $barcode = $product['barcode'];
             $category = $product['category'];
             if (isset($product['is_parent']) && !$product['is_parent']) {
                 $productName = "    ↳ " . $product['variant_name'];
-                $sku = "-";
+                $barcode = "-";
                 $category = "-";
             }
 
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $productName);
-            $sheet->setCellValue('C' . $row, $sku);
+            $sheet->setCellValue('C' . $row, $barcode);
             $sheet->setCellValue('D' . $row, $category);
 
             $colIdx = 5; // Col E starts at index 5 (1-based)
@@ -329,7 +336,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Purchased Products');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Purchased', 'Total Cost'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Purchased', 'Total Cost'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -337,7 +344,7 @@ class ReportExportService
         foreach ($productPurchases as $index => $item) {
             $sheet2->setCellValue('A' . $row, $index + 1);
             $sheet2->setCellValue('B' . $row, $item->product->name ?? 'Unknown');
-            $sheet2->setCellValue('C' . $row, $item->product->sku ?? '-');
+            $sheet2->setCellValue('C' . $row, $item->product->barcode ?? '-');
             $sheet2->setCellValue('D' . $row, (int) $item->qty_purchased);
             $sheet2->setCellValue('E' . $row, (float) $item->total_cost);
             $row++;
@@ -362,6 +369,65 @@ class ReportExportService
 
         // Reset active sheet to index 0 (Invoices List)
         $spreadsheet->setActiveSheetIndex(0);
+
+        return $spreadsheet;
+    }
+
+    /**
+     * Export Purchase Bills List.
+     */
+    public function exportPurchaseBills($transfers): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Purchase Bills');
+
+        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Status', 'Created By', 'Date'];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        $statusLabels = [
+            1 => 'Pending',
+            2 => 'Accepted',
+            3 => 'Rejected',
+        ];
+
+        $row = 2;
+        foreach ($transfers as $index => $transfer) {
+            $totalAmount = $transfer->items->sum(function ($item) {
+                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                return $price * $item->quantity;
+            });
+
+            $sheet->setCellValue('A' . $row, $index + 1);
+            $sheet->setCellValue('B' . $row, $transfer->transfer_no);
+            $sheet->setCellValue('C' . $row, $transfer->fromLocation->name ?? '-');
+            $sheet->setCellValue('D' . $row, $transfer->toLocation->name ?? '-');
+            $sheet->setCellValue('E' . $row, $transfer->items_count);
+            $sheet->setCellValue('F' . $row, (float) $totalAmount);
+            $sheet->setCellValue('G' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
+            $sheet->setCellValue('H' . $row, $transfer->createdBy->name ?? '-');
+            $sheet->setCellValue('I' . $row, $transfer->created_at->format('d M Y'));
+            $row++;
+        }
+
+        $totalRow = $row;
+        $sheet->setCellValue('A' . $totalRow, 'Total');
+        $sheet->setCellValue('F' . $totalRow, "=SUM(F2:F" . ($totalRow - 1) . ")");
+
+        $sheet->getStyle('A1:I1')->applyFromArray($this->getHeaderStyle());
+        $sheet->getStyle('A2:I' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
+        $sheet->getStyle('A' . $totalRow . ':I' . $totalRow)->applyFromArray($this->getTotalsStyle());
+
+        $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B2:B' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('E2:E' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('G2:G' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('I2:I' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F2:F' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
+
+        $this->autoFitColumns($sheet);
 
         return $spreadsheet;
     }
@@ -420,7 +486,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Selling Products');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Sold', 'Total Revenue'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -428,7 +494,7 @@ class ReportExportService
         foreach ($productSales as $index => $item) {
             $sheet2->setCellValue('A' . $row, $index + 1);
             $sheet2->setCellValue('B' . $row, $item->product->name ?? 'Unknown');
-            $sheet2->setCellValue('C' . $row, $item->product->sku ?? '-');
+            $sheet2->setCellValue('C' . $row, $item->product->barcode ?? '-');
             $sheet2->setCellValue('D' . $row, (int) $item->qty_sold);
             $sheet2->setCellValue('E' . $row, (float) $item->total_revenue);
             $row++;
@@ -459,7 +525,7 @@ class ReportExportService
     /**
      * Export Profit & Loss Report (2 Sheets: P&L Overview & Product Profitability).
      */
-    public function exportProfitLoss($totalRevenue, $totalCogs, $netProfit, $profitMargin, $productProfitability): Spreadsheet
+    public function exportProfitLoss($totalRevenue, $totalCogs, $totalExpenses, $netProfit, $profitMargin, $productProfitability): Spreadsheet
     {
         $spreadsheet = new Spreadsheet();
 
@@ -474,6 +540,7 @@ class ReportExportService
         $data = [
             ['Total Revenue', (float) $totalRevenue],
             ['Total Cost of Goods Sold (COGS)', (float) $totalCogs],
+            ['Total Expenses', (float) $totalExpenses],
             ['Net Profit', (float) $netProfit],
             ['Gross Profit Margin', (float) ($profitMargin / 100)],
         ];
@@ -486,15 +553,13 @@ class ReportExportService
         }
 
         $sheet1->getStyle('A1:B1')->applyFromArray($this->getHeaderStyle());
-        $sheet1->getStyle('A2:B5')->applyFromArray($this->getDataStyle());
+        $sheet1->getStyle('A2:B6')->applyFromArray($this->getDataStyle());
 
-        // Profit margin is a percentage, rest are currency
         $currencyCode = $this->getCurrencyFormatCode();
-        $sheet1->getStyle('B2:B4')->getNumberFormat()->setFormatCode($currencyCode);
-        $sheet1->getStyle('B5')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+        $sheet1->getStyle('B2:B5')->getNumberFormat()->setFormatCode($currencyCode);
+        $sheet1->getStyle('B6')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
-        // Add some highlights/backgrounds to sheet 1 rows for premium feel
-        $sheet1->getStyle('A4:B4')->applyFromArray([
+        $sheet1->getStyle('A5:B5')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => $netProfit >= 0 ? 'FF28C76F' : 'FFEA5455']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF0FDF4']]
         ]);
@@ -505,7 +570,7 @@ class ReportExportService
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Product Profitability');
 
-        $headers2 = ['S.No.', 'Product Name', 'SKU', 'Qty Sold', 'Total Revenue', 'Total Cost (COGS)', 'Net Profit', 'Profit Margin %'];
+        $headers2 = ['S.No.', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Total Cost (COGS)', 'Net Profit', 'Profit Margin %'];
         $sheet2->fromArray($headers2, null, 'A1');
         $sheet2->getRowDimension(1)->setRowHeight(28);
 
@@ -516,7 +581,7 @@ class ReportExportService
 
             $sheet2->setCellValue('A' . $row, $row - 1);
             $sheet2->setCellValue('B' . $row, $item['name']);
-            $sheet2->setCellValue('C' . $row, $item['sku']);
+            $sheet2->setCellValue('C' . $row, $item['barcode']);
             $sheet2->setCellValue('D' . $row, (int) $item['qty_sold']);
             $sheet2->setCellValue('E' . $row, (float) $item['total_revenue']);
             $sheet2->setCellValue('F' . $row, (float) $item['total_cost']);

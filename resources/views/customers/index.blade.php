@@ -8,9 +8,9 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Customers List</h4>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
             {{-- Filter Dropdown --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
@@ -29,9 +29,9 @@
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1">Date Range</label>
                         <div class="w-100">
-                            <input type="date" id="filter-start-date" class="form-control mb-2" />
+                            <input type="date" id="filter-start-date" class="form-control mb-2" max="{{ now()->format('Y-m-d') }}" />
                             <div class="text-center text-muted small mb-2">to</div>
-                            <input type="date" id="filter-end-date" class="form-control" />
+                            <input type="date" id="filter-end-date" class="form-control" max="{{ now()->format('Y-m-d') }}" />
                         </div>
                     </div>
                     <div class="dropdown-divider"></div>
@@ -126,7 +126,7 @@
             $(document).on('click', '#btnClearFilter', function (e) {
                 e.preventDefault();
                 $('#filter-status').val('');
-                $('#filter-start-date').val('').removeAttr('max');
+                $('#filter-start-date').val('').attr('max', '{{ now()->format('Y-m-d') }}');
                 $('#filter-end-date').val('').removeAttr('min');
                 window.refreshTable();
                 const btn = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
