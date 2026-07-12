@@ -19,12 +19,25 @@ trait FetchesPexelsJewelryPhotos
         'ornament', 'ornaments', 'accessory', 'accessories', 'gem', 'gems',
         'gold', 'silver', 'diamond', 'tikka', 'mangalsutra', 'nose ring',
         'hairpin', 'hair pin', 'chain', 'chains', 'kada', 'jhumka', 'jhumkas',
-        'bridal', 'gemstone',
+        'gemstone',
     ];
 
     /**
-     * Search Pexels for real photos relevant to jewelry and return up to
-     * $count unique, not-yet-used image URLs.
+     * Any photo whose alt text matches one of these (as a whole word) is
+     * dropped, even if it also mentions jewelry — we only want product-only
+     * shots, never a person/model wearing the piece.
+     */
+    protected array $excludedHumanKeywords = [
+        'woman', 'women', 'girl', 'girls', 'lady', 'ladies', 'man', 'men',
+        'boy', 'boys', 'person', 'people', 'human', 'model', 'models',
+        'portrait', 'face', 'hand', 'hands', 'wrist', 'wrists', 'finger',
+        'fingers', 'neck', 'ear', 'ears', 'wearing', 'bride', 'bridal',
+        'groom', 'she', 'her', 'him', 'his', 'selfie', 'smiling', 'skin',
+    ];
+
+    /**
+     * Search Pexels for real, people-free photos relevant to jewelry and
+     * return up to $count unique, not-yet-used image URLs.
      *
      * @return string[]
      */
@@ -34,7 +47,7 @@ trait FetchesPexelsJewelryPhotos
             ->timeout(15)
             ->get('https://api.pexels.com/v1/search', [
                 'query' => $searchTerm,
-                'per_page' => min(max($count * 3, 15), 80),
+                'per_page' => min(max($count * 5, 25), 80),
                 'orientation' => 'square',
             ]);
 
@@ -44,7 +57,21 @@ trait FetchesPexelsJewelryPhotos
 
         $photos = $response->json('photos') ?? [];
 
-        $relevant = array_values(array_filter($photos, function ($photo) {
+        // Hard filter: never let a photo showing a person through, even if
+        // it also matches a jewelry keyword. This never falls back.
+        $peopleFree = array_values(array_filter($photos, function ($photo) {
+            $alt = strtolower($photo['alt'] ?? '');
+
+            foreach ($this->excludedHumanKeywords as $keyword) {
+                if (preg_match('/\b'.preg_quote($keyword, '/').'\b/', $alt)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+
+        $relevant = array_values(array_filter($peopleFree, function ($photo) {
             $alt = strtolower($photo['alt'] ?? '');
 
             foreach ($this->jewelryKeywords as $keyword) {
@@ -56,9 +83,9 @@ trait FetchesPexelsJewelryPhotos
             return false;
         }));
 
-        // If the alt-text filter is too strict for this search term, fall
-        // back to the raw (still query-matched) results rather than skip.
-        $candidates = ! empty($relevant) ? $relevant : $photos;
+        // If the jewelry-keyword filter is too strict for this search term,
+        // fall back to the people-free pool (never the raw, unfiltered one).
+        $candidates = ! empty($relevant) ? $relevant : $peopleFree;
 
         $picked = [];
 
