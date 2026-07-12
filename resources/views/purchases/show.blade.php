@@ -229,13 +229,7 @@
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            @if($item->product?->primaryImage)
-                                                <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            @else
-                                                <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                    <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
-                                                </div>
-                                            @endif
+                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
                                                 @if($item->product?->barcode)

@@ -233,7 +233,7 @@
 
                 <!-- Primary Image -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Primary Image <span class="text-danger">*</span></h5></div>
+                    <div class="card-header"><h5 class="mb-0">Primary Image</h5></div>
                     <div class="card-body">
                         <input type="hidden" name="primary_image_base64" id="primaryImageBase64" />
                         <input type="hidden" name="cloned_from_id" value="{{ isset($clonedProduct) ? $clonedProduct->id : '' }}" />
@@ -263,7 +263,7 @@
 
                 <!-- Additional Images -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Additional Images <span class="text-danger">*</span></h5></div>
+                    <div class="card-header"><h5 class="mb-0">Additional Images</h5></div>
                     <div class="card-body">
                         <div id="additionalDropZone" class="border border-2 rounded-3 p-4 text-center cursor-pointer position-relative" style="border-style: dashed !important; border-color: #cbd5e1 !important; background-color: #f8fafc; transition: all 0.2s ease; min-height: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden;">
                             <input type="file" id="additionalImagesInput" class="position-absolute" style="position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; opacity: 0 !important; cursor: pointer !important; z-index: 10 !important; margin: 0 !important; padding: 0 !important;" multiple accept="image/*" />

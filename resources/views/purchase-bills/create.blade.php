@@ -217,7 +217,7 @@ $(document).ready(function () {
                 'type' => $p->type,
                 'pair_product' => $p->pair_product,
                 'purchase_price' => $p->purchase_price,
-                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'image' => $p->primary_image_url,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(fn($v) => $v->status == 1)->values()->map(function($v) {

@@ -64,6 +64,7 @@ class PermissionSeeder extends Seeder
             'edit products' => 'Products',
             'delete products' => 'Products',
             'clone products' => 'Products',
+            'bulk upload product images' => 'Products',
 
             // Reports
             'view product reports' => 'Reports',
@@ -85,6 +86,7 @@ class PermissionSeeder extends Seeder
             'delete purchases' => 'Purchases',
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
+            'import purchases' => 'Purchases',
 
             // Purchase Bills
             'view purchase bills' => 'Purchase Bill',

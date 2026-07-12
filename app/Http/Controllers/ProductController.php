@@ -9,18 +9,12 @@ use App\Models\Product;
 use App\Models\Location;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
-use App\Models\AttributeValue;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Picqer\Barcode\BarcodeGeneratorSVG;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class ProductController extends Controller
 {
@@ -109,9 +103,7 @@ class ProductController extends Controller
                 $nameHtml .= ' <span class="badge bg-label-warning ms-1" style="font-size:10px">Pair</span>';
             }
 
-            $image = $product->primaryImage
-                ? '<img src="' . $product->primaryImage->image_url . '" width="45" height="45" class="rounded object-fit-cover product-thumbnail" alt="' . e($product->name) . '">'
-                : '<span class="badge bg-label-secondary">No Image</span>';
+            $image = '<img src="' . $product->primary_image_url . '" width="45" height="45" class="rounded object-fit-cover product-thumbnail" alt="' . e($product->name) . '">';
 
             $status = $product->status == 1
                 ? '<span class="badge bg-label-success">Active</span>'
@@ -279,9 +271,9 @@ class ProductController extends Controller
             'pair_product'             => ['nullable', 'boolean'],
             'bypass_min_price'         => ['nullable', 'boolean'],
             'allow_full_discount'      => ['nullable', 'boolean'],
-            'primary_image_base64'     => [$isCloning ? 'nullable' : 'required', 'string'],
-            'additional_images_base64' => [$isCloning ? 'nullable' : 'required', 'array', $isCloning ? 'nullable' : 'min:1'],
-            'additional_images_base64.*' => ['required_with:additional_images_base64', 'string'],
+            'primary_image_base64'     => ['nullable', 'string'],
+            'additional_images_base64' => ['nullable', 'array'],
+            'additional_images_base64.*' => ['nullable', 'string'],
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
@@ -298,28 +290,7 @@ class ProductController extends Controller
             $rules['variants_json'] = ['required', 'json'];
         }
 
-        $validator = Validator::make($request->all(), $rules, [
-            'primary_image_base64.required'     => 'The primary image field is required.',
-            'additional_images_base64.required'  => 'At least one additional image is required.',
-        ]);
-
-        $validator->after(function ($validator) use ($request) {
-            if ($request->filled('cloned_from_id')) {
-                $hasNewPrimary = $request->filled('primary_image_base64');
-                $isRemovingPrimary = $request->boolean('remove_cloned_primary');
-                
-                if ($isRemovingPrimary && !$hasNewPrimary) {
-                    $validator->errors()->add('primary_image_base64', 'The primary image field is required.');
-                }
-
-                $hasNewAdditional = $request->filled('additional_images_base64') && count($request->additional_images_base64) > 0;
-                $hasKeptClonedAdditional = $request->filled('existing_cloned_images') && count($request->existing_cloned_images) > 0;
-                
-                if (!$hasNewAdditional && !$hasKeptClonedAdditional) {
-                    $validator->errors()->add('additional_images_base64', 'At least one additional image is required.');
-                }
-            }
-        });
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -500,29 +471,6 @@ class ProductController extends Controller
         }
 
         $validator = Validator::make($request->all(), $rules);
-
-        $validator->after(function ($validator) use ($request, $product) {
-            // Primary Image validation
-            $hasNewPrimary = $request->filled('primary_image_base64');
-            $isRemovingPrimary = $request->boolean('remove_primary_image');
-            $hasExistingPrimary = $product->images()->where('is_primary', true)->exists();
-
-            if (!$hasNewPrimary && ($isRemovingPrimary || !$hasExistingPrimary)) {
-                $validator->errors()->add('primary_image_base64', 'The primary image field is required.');
-            }
-
-            // Additional Images validation
-            $hasNewAdditional = $request->filled('additional_images_base64') && count($request->additional_images_base64) > 0;
-            $deletedIds = $request->input('deleted_additional_images', []);
-            $hasExistingAdditional = $product->images()
-                ->where('is_primary', false)
-                ->whereNotIn('id', $deletedIds)
-                ->exists();
-
-            if (!$hasNewAdditional && !$hasExistingAdditional) {
-                $validator->errors()->add('additional_images_base64', 'At least one additional image is required.');
-            }
-        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -815,422 +763,6 @@ class ProductController extends Controller
         $barcode = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128);
 
         return response($barcode, 200)->header('Content-Type', 'image/svg+xml');
-    }
-
-
-    public function importForm()
-    {
-        $this->authorize('create products');
-
-        return view('products.import');
-    }
-
-    public function downloadSampleCsv()
-    {
-        $this->authorize('create products');
-
-        $columns = [
-            'Category', 'Sub Category', 'Name', 'Barcode', 'Product Code',
-            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier',
-            'Product Type', 'Size', 'Colour',
-        ];
-
-        // 2 categories x 5 products, using Barcode left blank so it auto-generates sequentially
-        $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', '', '100.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Short Necklace (A)', 'Short Necklace Antique', '', '110.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Long Necklace (R)', 'Long Necklace Regular', '', '150.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Rose Gold'],
-            ['Necklace', 'Long Necklace (A)', 'Long Necklace Antique', '', '160.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Necklace', 'Leriyat Necklace (R)', 'Leriyat Necklace Regular', '', '200.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', 'Gold, Silver'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', '', '90.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Bangal (A)', 'Bangal Antique', '', '95.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (Regular)', 'Kadali Regular', '', '130.00', '2.5', '4.125', '4.575', 'variable', '2.2, 2.4', ''],
-            ['Bangles & Kada', 'Kadali (CNC)', 'Kadali CNC', '', '140.00', '2.5', '4.125', '4.575', 'normal', '', ''],
-            ['Bangles & Kada', 'Kadali (A.D.)', 'Kadali AD', '', '160.00', '2.5', '4.125', '4.575', 'variable', '', 'Gold, Silver, Rose Gold'],
-        ];
-
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Products');
-
-        $sheet->fromArray($columns, null, 'A1');
-        $sheet->fromArray($rows, null, 'A2');
-
-        $lastColumn = chr(ord('A') + count($columns) - 1);
-        $dataStartRow = 2;
-        $dataEndRow = $dataStartRow + count($rows) - 1;
-
-        $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);
-        $sheet->getStyle('A1:' . $lastColumn . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        foreach (range('A', $lastColumn) as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
-        $mergeStart = $dataStartRow;
-        foreach ($rows as $i => $row) {
-            $rowNum = $dataStartRow + $i;
-            $isLastRow = $i === count($rows) - 1;
-            $sameAsNext = !$isLastRow && $row[0] === $rows[$i + 1][0];
-
-            if (!$sameAsNext) {
-                if ($rowNum > $mergeStart) {
-                    $sheet->mergeCells('A' . $mergeStart . ':A' . $rowNum);
-                }
-                $sheet->getStyle('A' . $mergeStart . ':A' . $rowNum)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-                $mergeStart = $rowNum + 1;
-            }
-        }
-
-        $sheet->getStyle('A1:' . $lastColumn . $dataEndRow)
-            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-
-        $headers = [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="sample_products_import.xlsx"',
-        ];
-
-        $callback = function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    public function import(Request $request)
-    {
-        $this->authorize('create products');
-
-        $request->validate([
-            'csv_file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'], // Max 5MB
-        ]);
-
-        $file = $request->file('csv_file');
-        $path = $file->getRealPath();
-        $extension = strtolower($file->getClientOriginalExtension());
-
-        $normalizeHeader = function ($rawHeader) {
-            $normalizedHeader = [];
-            foreach ($rawHeader as $col) {
-                $norm = preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $col)));
-                if ($norm === 'subcategory') {
-                    $normalizedHeader[] = 'sub_category';
-                } elseif ($norm === 'productcode') {
-                    $normalizedHeader[] = 'product_code';
-                } elseif ($norm === 'purchasemultiplier') {
-                    $normalizedHeader[] = 'purchase_multiplier';
-                } elseif ($norm === 'salemultiplier') {
-                    $normalizedHeader[] = 'sale_multiplier';
-                } elseif ($norm === 'mrpmultiplier') {
-                    $normalizedHeader[] = 'mrp_multiplier';
-                } elseif ($norm === 'no') {
-                    $normalizedHeader[] = 'no';
-                } elseif (in_array($norm, ['discreptions', 'discreption', 'descriptions', 'description'])) {
-                    $normalizedHeader[] = 'description';
-                } elseif ($norm === 'producttype') {
-                    $normalizedHeader[] = 'product_type';
-                } elseif (in_array($norm, ['colour', 'color'])) {
-                    $normalizedHeader[] = 'colour';
-                } else {
-                    $normalizedHeader[] = $norm;
-                }
-            }
-            return $normalizedHeader;
-        };
-
-        // Parse CSV / Excel
-        $rows = [];
-        if (in_array($extension, ['xlsx', 'xls'])) {
-            $spreadsheet = IOFactory::load($path);
-            $sheetData = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
-            $header = null;
-            $lastCategory = null;
-            foreach ($sheetData as $row) {
-                if (!$header) {
-                    $header = $normalizeHeader($row);
-                } else {
-                    if (array_filter($row, fn ($v) => trim((string) $v) !== '') && count($header) == count($row)) {
-                        if (trim((string) $row[0]) !== '') {
-                            $lastCategory = trim((string) $row[0]);
-                        } else {
-                            $row[0] = $lastCategory;
-                        }
-                        $rows[] = array_combine($header, array_map(fn ($v) => trim((string) $v), $row));
-                    }
-                }
-            }
-        } elseif (($handle = fopen($path, 'r')) !== false) {
-            $header = null;
-            while (($row = fgetcsv($handle, 1000, ',')) !== false) {
-                if (!$header) {
-                    $header = $normalizeHeader(array_map('trim', $row));
-                } else {
-                    if (count($header) == count($row)) {
-                        $rows[] = array_combine($header, array_map('trim', $row));
-                    }
-                }
-            }
-            fclose($handle);
-        }
-
-        if (empty($rows)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => ['The uploaded CSV file is empty or invalid.']
-            ], 422);
-        }
-
-        // Helper rounding function
-        $roundToNearest5 = function ($val) {
-            return ceil(floatval($val) / 5) * 5;
-        };
-
-        $importedCount = 0;
-        $errors = [];
-
-        DB::beginTransaction();
-        try {
-            foreach ($rows as $index => $row) {
-                $rowNum = $index + 2; // 1-based, +1 for header
-
-                // Validate required fields
-                $name = $row['name'] ?? null;
-                $productCode = $row['product_code'] ?? null;
-                $categoryName = $row['category'] ?? null;
-                $type = strtolower($row['product_type'] ?? 'normal');
-
-                if (empty($name) || empty($productCode) || empty($categoryName)) {
-                    $errors[] = "Row {$rowNum}: Missing required product details (Name, Product Code, and Category are required).";
-                    continue;
-                }
-
-                if (!is_numeric($productCode) || $productCode <= 0) {
-                    $errors[] = "Row {$rowNum}: Product code must be a valid positive number.";
-                    continue;
-                }
-
-                if (!in_array($type, ['normal', 'variable'], true)) {
-                    $errors[] = "Row {$rowNum}: Product Type must be either 'normal' or 'variable'.";
-                    continue;
-                }
-
-                // Use the Barcode given in the sheet, or build a unique one sequentially
-                $barcodeInput = trim($row['barcode'] ?? '');
-                if (!empty($barcodeInput)) {
-                    if (Product::withTrashed()->where('barcode', $barcodeInput)->exists()) {
-                        $errors[] = "Row {$rowNum}: Product Barcode '{$barcodeInput}' already exists in the system.";
-                        continue;
-                    }
-                    $barcode = $barcodeInput;
-                } else {
-                    $seq = Product::withTrashed()->count() + 1;
-                    do {
-                        $barcode = str_pad($seq, 8, '0', STR_PAD_LEFT);
-                        $seq++;
-                    } while (Product::withTrashed()->where('barcode', $barcode)->exists());
-                }
-
-                // Find or create category
-                $category = Category::withTrashed()->firstOrCreate(
-                    [
-                        'name' => $categoryName
-                    ],
-                    [
-                        'slug' => generate_slug(Category::class, $categoryName),
-                        'status' => 1,
-                        'created_by' => auth()->id()
-                    ]
-                );
-
-                if ($category->trashed()) {
-                    $category->restore();
-                    $category->update([
-                        'image' => null,
-                        'low_stock_threshold' => null,
-                    ]);
-                }
-
-                // Find or create subcategory if provided
-                $subCategoryId = null;
-                $subCategoryName = $row['sub_category'] ?? null;
-                if (!empty($subCategoryName)) {
-                    $subCategory = SubCategory::withTrashed()->firstOrCreate(
-                        [
-                            'category_id' => $category->id,
-                            'name' => $subCategoryName
-                        ],
-                        [
-                            'slug' => generate_slug(SubCategory::class, $subCategoryName),
-                            'status' => 1,
-                            'created_by' => auth()->id()
-                        ]
-                    );
-
-                    if ($subCategory->trashed()) {
-                        $subCategory->restore();
-                        $subCategoryUpdate = [];
-                        if (in_array('image', $subCategory->getFillable())) {
-                            $subCategoryUpdate['image'] = null;
-                        }
-                        if (in_array('low_stock_threshold', $subCategory->getFillable())) {
-                            $subCategoryUpdate['low_stock_threshold'] = null;
-                        }
-                        if (!empty($subCategoryUpdate)) {
-                            $subCategory->update($subCategoryUpdate);
-                        }
-                    }
-                    $subCategoryId = $subCategory->id;
-                }
-
-                $purchaseMultiplier = is_numeric($row['purchase_multiplier'] ?? null) ? floatval($row['purchase_multiplier']) : 2.5;
-                $saleMultiplier = is_numeric($row['sale_multiplier'] ?? null) ? floatval($row['sale_multiplier']) : 4.125;
-                $mrpMultiplier = is_numeric($row['mrp_multiplier'] ?? null) ? floatval($row['mrp_multiplier']) : 4.575;
-
-                $purchasePrice = floatval($productCode) * $purchaseMultiplier;
-                $salePrice = $roundToNearest5(floatval($productCode) * $saleMultiplier);
-                $mrp = $roundToNearest5(floatval($productCode) * $mrpMultiplier);
-
-                $product = Product::create([
-                    'name' => $name,
-                    'slug' => generate_slug(Product::class, $name),
-                    'category_id' => $category->id,
-                    'sub_category_id' => $subCategoryId,
-                    'barcode' => $barcode,
-                    'product_code' => $productCode,
-                    'purchase_multiplier' => $purchaseMultiplier,
-                    'sale_multiplier' => $saleMultiplier,
-                    'mrp_multiplier' => $mrpMultiplier,
-                    'description' => $row['description'] ?? $name,
-                    'purchase_price' => $purchasePrice,
-                    'sale_price' => $salePrice,
-                    'mrp' => $mrp,
-                    'type' => $type,
-                    'status' => Product::STATUS_ACTIVE, // 1 = Active
-                    'created_by' => auth()->id(),
-                    'sort_order' => ((int) Product::max('sort_order')) + 1,
-                ]);
-
-                // Create default image
-                $destDefaultPath = public_path('uploads/products/default.png');
-                if (!file_exists($destDefaultPath)) {
-                    $srcPath = public_path('website/assets/images/Royal_Bridal.png');
-                    if (file_exists($srcPath)) {
-                        if (!file_exists(dirname($destDefaultPath))) {
-                            mkdir(dirname($destDefaultPath), 0755, true);
-                        }
-                        copy($srcPath, $destDefaultPath);
-                    }
-                }
-
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image_path' => 'products/default.png',
-                    'is_primary' => true,
-                    'created_by' => auth()->id(),
-                ]);
-
-                // Create variants for variable product (from Size / Colour columns)
-                if ($type === 'variable') {
-                    $sizeValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['size'] ?? '')))));
-                    $colourValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['colour'] ?? '')))));
-
-                    if (empty($sizeValues) && empty($colourValues)) {
-                        $errors[] = "Row {$rowNum}: Variable product '{$name}' must have Size and/or Colour values.";
-                        DB::rollBack();
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => ["Row {$rowNum}: Variable product '{$name}' must have Size and/or Colour values."]
-                        ], 422);
-                    }
-
-                    if (!empty($sizeValues) && !empty($colourValues)) {
-                        $attributeName = 'Size / Colour';
-                        $attrValues = [];
-                        foreach ($sizeValues as $s) {
-                            foreach ($colourValues as $c) {
-                                $attrValues[] = $s . ' - ' . $c;
-                            }
-                        }
-                    } elseif (!empty($sizeValues)) {
-                        $attributeName = 'Size';
-                        $attrValues = $sizeValues;
-                    } else {
-                        $attributeName = 'Colour';
-                        $attrValues = $colourValues;
-                    }
-
-                    // Find or create Attribute
-                    $attribute = Attribute::withTrashed()->firstOrCreate(
-                        [
-                            'name' => $attributeName
-                        ],
-                        [
-                            'slug' => generate_slug(Attribute::class, $attributeName),
-                            'status' => Attribute::STATUS_ACTIVE,
-                            'created_by' => auth()->id(),
-                            'sort_order' => ((int) Attribute::max('sort_order')) + 1
-                        ]
-                    );
-
-                    if ($attribute->trashed()) {
-                        $attribute->restore();
-                    }
-
-                    foreach ($attrValues as $val) {
-                        // Find or create AttributeValue
-                        $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
-                            'attribute_id' => $attribute->id,
-                            'value' => $val
-                        ]);
-
-                        if ($attributeValue->trashed()) {
-                            $attributeValue->restore();
-                        }
-
-                        // Create variant
-                        ProductVariant::create([
-                            'product_id' => $product->id,
-                            'attribute_value_id' => $attributeValue->id,
-                            'purchase_price' => $purchasePrice,
-                            'sale_price' => $salePrice,
-                            'status' => ProductVariant::STATUS_ACTIVE
-                        ]);
-                    }
-                }
-
-                $importedCount++;
-            }
-
-            if (!empty($errors)) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $errors
-                ], 422);
-            }
-
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => ['An unexpected error occurred: ' . $e->getMessage()]
-            ], 500);
-        }
-
-        ActivityLogger::log(
-            'Product',
-            'import',
-            null,
-            null,
-            ['imported_count' => $importedCount, 'file_name' => $file->getClientOriginalName()],
-            "Imported {$importedCount} products from CSV"
-        );
-
-        return response()->json([
-            'status' => 'success',
-            'message' => "Successfully imported {$importedCount} products."
-        ]);
     }
 
 }

@@ -268,13 +268,7 @@
                             <td>{{ $counter++ }}</td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    @if($data['image_url'])
-                                        <img src="{{ $data['image_url'] }}" alt="{{ $data['name'] }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                    @else
-                                        <div class="rounded bg-label-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                            <i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i>
-                                        </div>
-                                    @endif
+                                    <img src="{{ $data['image_url'] }}" alt="{{ $data['name'] }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                     <a href="{{ route('admin.products.show', $prodId) }}" class="fw-semibold">
                                         {{ $data['name'] }}
                                     </a>

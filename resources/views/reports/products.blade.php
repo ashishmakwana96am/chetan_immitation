@@ -238,13 +238,7 @@
                                     @else
                                         <span class="me-2" style="width: 24px;"></span>
                                     @endif
-                                    @if($parent['image_url'])
-                                        <img src="{{ $parent['image_url'] }}" alt="{{ $parent['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                    @else
-                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                        </div>
-                                    @endif
+                                    <img src="{{ $parent['image_url'] }}" alt="{{ $parent['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                     <a href="{{ route('admin.products.show', $parent['id']) }}" class="fw-semibold mb-0">
                                         {{ $parent['name'] }}
                                     </a>

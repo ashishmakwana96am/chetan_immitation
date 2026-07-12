@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Product;
 use App\Models\PurchaseAllocation;
@@ -153,8 +152,9 @@ class PurchaseController extends Controller
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $invoiceNo = generate_invoice_no('PUR', Purchase::class);
-        return view('purchases.create', compact('suppliers', 'products', 'invoiceNo'));
+        return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
     }
 
     public function store(Request $request)
@@ -304,6 +304,7 @@ class PurchaseController extends Controller
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $purchase->load('items.product');
 
         $existingItems = $purchase->items->map(function ($item) {
@@ -317,7 +318,7 @@ class PurchaseController extends Controller
             ];
         })->values();
 
-        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'existingItems'));
+        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'locations', 'existingItems'));
     }
 
     public function update(Request $request, Purchase $purchase)
@@ -555,51 +556,12 @@ class PurchaseController extends Controller
 
     private function approveInvoice(Purchase $purchase)
     {
-        $purchase->load('items.allocations.location', 'items.product');
-        foreach ($purchase->items as $item) {
-            $isPair = $item->product && $item->product->pair_product;
-            foreach ($item->allocations as $allocation) {
-                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
-
-                $inventory = Inventory::firstOrCreate(
-                    [
-                        'product_id'  => $item->product_id,
-                        'location_id' => $allocation->location_id,
-                    ],
-                    [
-                        'quantity'   => 0,
-                        'created_by' => auth()->id(),
-                    ]
-                );
-
-                $oldQty = $inventory->quantity;
-                $inventory->increment('quantity', $qtyToAdd);
-
-                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $oldQty + $qtyToAdd], 'Stock added for purchase #' . $purchase->invoice_no);
-            }
-        }
+        \App\Services\PurchaseStockService::approve($purchase);
     }
 
     private function reverseInvoiceStock(Purchase $purchase): void
     {
-        $purchase->load('items.allocations.location', 'items.product');
-        foreach ($purchase->items as $item) {
-            $isPair = $item->product && $item->product->pair_product;
-            foreach ($item->allocations as $allocation) {
-                $inventory = Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $allocation->location_id)
-                    ->first();
-
-                if ($inventory) {
-                    $oldQty = $inventory->quantity;
-                    $qtyToSubtract = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
-                    $newQty = max(0, $inventory->quantity - $qtyToSubtract);
-                    $inventory->update(['quantity' => $newQty]);
-
-                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' edit');
-                }
-            }
-        }
+        \App\Services\PurchaseStockService::reverse($purchase);
     }
 
     private function defaultPurchaseLocation(): Location

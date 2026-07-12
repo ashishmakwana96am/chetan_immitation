@@ -80,6 +80,14 @@ class Product extends Model
         return $this->hasOne(ProductImage::class)->where('is_primary', true);
     }
 
+    /**
+     * Falls back to a default placeholder image when the product has no primary image.
+     */
+    public function getPrimaryImageUrlAttribute(): string
+    {
+        return $this->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
+    }
+
     public function inventories()
     {
         return $this->hasMany(Inventory::class);

@@ -274,13 +274,7 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    @if($item->product?->primaryImage)
-                                                        <img src="{{ $item->product->primaryImage->image_url }}" alt="{{ $item->product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                                    @else
-                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                                        </div>
-                                                    @endif
+                                                    <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $item->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                                     {{ $item->product->name ?? '-' }}
                                                 </div>
                                             </td>
@@ -316,13 +310,7 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    @if($inventory->product?->primaryImage)
-                                                        <img src="{{ $inventory->product->primaryImage->image_url }}" alt="{{ $inventory->product->name }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                                    @else
-                                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                                        </div>
-                                                    @endif
+                                                    <img src="{{ $inventory->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $inventory->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                                     {{ $inventory->product->name ?? '-' }}
                                                 </div>
                                             </td>

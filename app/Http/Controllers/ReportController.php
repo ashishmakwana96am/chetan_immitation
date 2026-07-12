@@ -68,7 +68,7 @@ class ReportController extends Controller
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
-                    'image_url'      => $product->primaryImage->image_url ?? null,
+                    'image_url'      => $product->primary_image_url,
                 ]);
 
                 // Variant rows
@@ -97,7 +97,7 @@ class ReportController extends Controller
                         'status'         => $v->status,
                         'is_parent'      => false,
                         'variant_name'   => "{$attrName}: {$valName}",
-                        'image_url'      => $product->primaryImage->image_url ?? null,
+                        'image_url'      => $product->primary_image_url,
                     ]);
                 }
             } else {
@@ -117,7 +117,7 @@ class ReportController extends Controller
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
-                    'image_url'      => $product->primaryImage->image_url ?? null,
+                    'image_url'      => $product->primary_image_url,
                 ]);
             }
         }
@@ -226,7 +226,7 @@ class ReportController extends Controller
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
-                    'image_url'   => $product->primaryImage->image_url ?? null,
+                    'image_url'   => $product->primary_image_url,
                 ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
 
                 foreach ($product->variants as $v) {
@@ -252,7 +252,7 @@ class ReportController extends Controller
                         'status'      => $v->status,
                         'is_parent'   => false,
                         'variant_name'=> "{$attrName}: {$valName}",
-                        'image_url'   => $product->primaryImage->image_url ?? null,
+                        'image_url'   => $product->primary_image_url,
                     ], $buildAgeInfo($variantLastPurchase[$variantKey] ?? null)));
                 }
             } else {
@@ -274,7 +274,7 @@ class ReportController extends Controller
                     'status'      => $product->status,
                     'is_parent'   => true,
                     'variant_name'=> null,
-                    'image_url'   => $product->primaryImage->image_url ?? null,
+                    'image_url'   => $product->primary_image_url,
                 ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
             }
         }
@@ -526,7 +526,7 @@ class ReportController extends Controller
                     'qty_sold'      => 0,
                     'total_revenue' => 0.0,
                     'total_cost'    => 0.0,
-                    'image_url'     => $item->product->primaryImage->image_url ?? null,
+                    'image_url'     => $item->product->primary_image_url,
                 ];
             }
             $productProfitability[$productId]['qty_sold']      += $item->quantity;

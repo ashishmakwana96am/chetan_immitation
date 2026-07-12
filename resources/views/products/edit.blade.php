@@ -256,7 +256,7 @@
 
                 <!-- Primary Image -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Primary Image <span class="text-danger">*</span></h5></div>
+                    <div class="card-header"><h5 class="mb-0">Primary Image</h5></div>
                     <div class="card-body">
                         <input type="hidden" name="primary_image_base64" id="primaryImageBase64" />
                         <input type="hidden" name="remove_primary_image" id="removePrimaryImageVal" value="0" />
@@ -295,7 +295,7 @@
 
                 <!-- Additional Images -->
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Additional Images <span class="text-danger">*</span></h5></div>
+                    <div class="card-header"><h5 class="mb-0">Additional Images</h5></div>
                     <div class="card-body">
                         @php $additionalImages = $product->images->where('is_primary', false); @endphp
                         <div class="d-flex flex-wrap gap-2 mb-3 {{ $additionalImages->count() ? '' : 'd-none' }}" id="existingImages">

@@ -111,6 +111,11 @@
                 </div>
             </div>
 
+            @can('import purchases')
+                <button type="button" class="btn btn-outline-primary" id="purchaseImportBtn">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Import Purchases
+                </button>
+            @endcan
             @can('create purchases')
                 <a href="{{ route('admin.purchases.create') }}" class="btn btn-primary">
                     <i class="ti ti-plus me-1"></i> New Purchase
@@ -118,6 +123,18 @@
             @endcan
         </div>
     </div>
+
+    @can('import purchases')
+        <div class="offcanvas offcanvas-end" id="purchaseImportOffcanvas" aria-hidden="true" data-bs-backdrop="static" tabindex="-1" style="width: 600px; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Import Purchases</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;" id="purchaseImportOffcanvasBody">
+                @include('purchases.purchase_import')
+            </div>
+        </div>
+    @endcan
 
     <div class="card">
         <div class="card-datatable table-responsive">
@@ -418,6 +435,13 @@
                     const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
                     dropdownInstance.hide();
                 }
+            });
+
+            // Import Purchases — side panel (content is already server-rendered
+            // in the DOM, so opening it is instant with no AJAX fetch/spinner delay)
+            $(document).on('click', '#purchaseImportBtn', function () {
+                const offcanvasEl = document.getElementById('purchaseImportOffcanvas');
+                bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
             });
         });
     </script>

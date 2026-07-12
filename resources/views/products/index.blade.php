@@ -8,6 +8,9 @@
     <style>
         tr.sortable-ghost { opacity: 0.4; background: #e7e3ff !important; }
         tr.sortable-chosen { background: #f0eeff !important; }
+        @media (max-width: 991.98px) {
+            #bulkImageOffcanvas { width: 100vw !important; }
+        }
     </style>
 @endsection
 
@@ -80,8 +83,13 @@
                 </div>
             </div>
 
+            @can('bulk upload product images')
+                <button type="button" class="btn btn-outline-primary" id="bulkImageUploadBtn">
+                    <i class="ti ti-file-zip me-1"></i> Bulk Image Upload
+                </button>
+            @endcan
             @can('create products')
-                <button type="button" class="btn btn-outline-primary" data-common-modal="{{ route('admin.products.import.form') }}">
+                <button type="button" class="btn btn-outline-primary" id="productImportBtn">
                     <i class="ti ti-upload me-1"></i> Import
                 </button>
                 <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
@@ -114,6 +122,29 @@
         </div>
     </div>
 
+    @can('bulk upload product images')
+        <div class="offcanvas offcanvas-end" id="bulkImageOffcanvas" aria-hidden="true" data-bs-backdrop="static" tabindex="-1" style="width: 50vw; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Bulk Product Image Upload</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;" id="bulkImageOffcanvasBody">
+                @include('products.bulk_image_upload')
+            </div>
+        </div>
+    @endcan
+
+    @can('create products')
+        <div class="offcanvas offcanvas-end" id="productImportOffcanvas" aria-hidden="true" data-bs-backdrop="static" tabindex="-1" style="width: 600px; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Import Products</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;" id="productImportOffcanvasBody">
+                @include('products.product_import')
+            </div>
+        </div>
+    @endcan
 
 @endsection
 
@@ -459,6 +490,20 @@
 
                 // Hide bulk modal
                 bootstrap.Modal.getInstance(document.getElementById('bulkBarcodeModal')).hide();
+            });
+
+            // Bulk Product Image Upload — side panel (content is already server-rendered
+            // in the DOM, so opening it is instant with no AJAX fetch/spinner delay)
+            $(document).on('click', '#bulkImageUploadBtn', function () {
+                const offcanvasEl = document.getElementById('bulkImageOffcanvas');
+                bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
+            });
+
+            // Import Products — side panel (content is already server-rendered
+            // in the DOM, so opening it is instant with no AJAX fetch/spinner delay)
+            $(document).on('click', '#productImportBtn', function () {
+                const offcanvasEl = document.getElementById('productImportOffcanvas');
+                bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
             });
         });
     </script>

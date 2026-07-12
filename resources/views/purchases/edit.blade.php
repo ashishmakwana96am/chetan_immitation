@@ -377,7 +377,7 @@ $(document).ready(function () {
                 'barcode' => $p->barcode,
                 'type' => $p->type,
                 'purchase_price' => $p->purchase_price,
-                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'image' => $p->primary_image_url,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -415,6 +415,7 @@ $(document).ready(function () {
         })->values()->all();
     @endphp
     const allProducts = @json($mappedProducts);
+    const locations = @json($locations->map(fn ($l) => ['id' => $l->id, 'name' => $l->name])->values());
     updateGrandTotal();
 
     // -------------------------------------------------------

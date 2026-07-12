@@ -189,13 +189,7 @@
                         <td data-order="{{ $product['name'] }} {{ $product['is_parent'] ? '000_parent' : $product['variant_name'] }}">
                             @if($product['is_parent'])
                                 <div class="d-flex align-items-center">
-                                    @if($product['image_url'])
-                                        <img src="{{ $product['image_url'] }}" alt="{{ $product['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
-                                    @else
-                                        <div class="rounded bg-label-secondary me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                            <i class="ti ti-photo text-muted" style="font-size: 1rem;"></i>
-                                        </div>
-                                    @endif
+                                    <img src="{{ $product['image_url'] }}" alt="{{ $product['name'] }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                     <a href="{{ route('admin.products.show', $product['id']) }}" class="fw-semibold">
                                         {{ $product['name'] }}
                                     </a>

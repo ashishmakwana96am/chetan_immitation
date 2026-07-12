@@ -22,8 +22,11 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MemberRegisterController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductBulkImageUploadController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductImportController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\PurchaseImportController;
 use App\Http\Controllers\PurchaseBillController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
@@ -147,9 +150,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('contact-inquiries/{contactInquiry}', [ContactInquiryController::class, 'destroy'])->name('contact-inquiries.destroy');
 
         // Products
-        Route::get('products/import/sample', [ProductController::class, 'downloadSampleCsv'])->name('products.import.sample');
-        Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
-        Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
+        Route::get('products/import/sample', [ProductImportController::class, 'sample'])->name('products.import.sample');
+        Route::post('products/import', [ProductImportController::class, 'store'])->name('products.import');
+        Route::get('products/bulk-images/sample', [ProductBulkImageUploadController::class, 'sample'])->name('products.bulk-images.sample');
+        Route::get('products/bulk-images', [ProductBulkImageUploadController::class, 'form'])->name('products.bulk-images.form');
+        Route::post('products/bulk-images', [ProductBulkImageUploadController::class, 'store'])->name('products.bulk-images.store');
         Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
         Route::get('products/sub-categories', [ProductController::class, 'getSubCategories'])->name('products.sub-categories');
         Route::get('products/search', [ProductController::class, 'search'])->name('products.search');
@@ -162,6 +167,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
         // Purchases
+        Route::get('purchases/import/sample', [PurchaseImportController::class, 'sample'])->name('purchases.import.sample');
+        Route::post('purchases/import', [PurchaseImportController::class, 'store'])->name('purchases.import.store');
         Route::get('purchases/data', [PurchaseController::class, 'data'])->name('purchases.data');
         Route::get('products/{product}/price', [PurchaseController::class, 'getProductPrice'])->name('products.price');
         Route::resource('purchases', PurchaseController::class)->except('show');
