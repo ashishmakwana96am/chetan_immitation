@@ -30,10 +30,11 @@ class LocationController extends Controller
 
         $locations = $query->get();
 
-        $canEdit   = auth()->user()->can('edit locations');
-        $canDelete = auth()->user()->can('delete locations');
+        $canEdit          = auth()->user()->can('edit locations');
+        $canDelete        = auth()->user()->can('delete locations');
+        $canManageBalance = auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances');
 
-        $data = $locations->map(function ($location, $index) use ($canEdit, $canDelete) {
+        $data = $locations->map(function ($location, $index) use ($canEdit, $canDelete, $canManageBalance) {
             $status = $canEdit
                 ? '<div class="form-check form-switch mb-0">
                     <input class="form-check-input location-status-toggle" type="checkbox" role="switch"
@@ -43,10 +44,13 @@ class LocationController extends Controller
                 : '<span class="badge ' . ($location->status == 1 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($location->status == 1 ? 'Active' : 'Inactive') . '</span>';
 
             $actions = '';
-            if ($canEdit || $canDelete) {
+            if ($canEdit || $canDelete || $canManageBalance) {
                 $actions = '<div class="dropdown table-action-dropdown">';
                 $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
+                if ($canManageBalance) {
+                    $actions .= '<a class="dropdown-item" href="' . route('admin.locations.balance.show', $location) . '"><i class="ti ti-cash me-2"></i>Manage Balance</a>';
+                }
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.locations.edit', $location) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }

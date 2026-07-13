@@ -60,7 +60,7 @@
                         <th>GST Number</th>
                         <th>Default</th>
                         <th>Status</th>
-                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
+                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                             <th>Actions</th>
                         @endif
                     </tr>
@@ -96,7 +96,7 @@
                     { data: 'gst_number' },
                     { data: 'is_default' },
                     { data: 'status',  orderable: false },
-                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
+                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                         { data: 'actions', orderable: false },
                     @endif
                 ],

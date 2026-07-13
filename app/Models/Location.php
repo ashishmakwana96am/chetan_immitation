@@ -22,13 +22,17 @@ class Location extends Model
         'gst_number',
         'is_default',
         'status',
+        'cash_balance',
+        'bank_balance',
         'created_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_default' => 'boolean',
+            'is_default'   => 'boolean',
+            'cash_balance' => 'decimal:2',
+            'bank_balance' => 'decimal:2',
         ];
     }
 
@@ -40,5 +44,10 @@ class Location extends Model
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function balanceTransactions()
+    {
+        return $this->hasMany(LocationBalanceTransaction::class);
     }
 }

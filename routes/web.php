@@ -18,6 +18,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\LocationBalanceController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MemberRegisterController;
 use App\Http\Controllers\ModuleController;
@@ -264,6 +266,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('locations/data', [LocationController::class, 'data'])->name('locations.data');
         Route::resource('locations', LocationController::class)->except('show');
         Route::patch('locations/{location}/toggle-status', [LocationController::class, 'toggleStatus'])->name('locations.toggle-status');
+
+        // Location Balances
+        Route::get('locations/{location}/balance', [LocationBalanceController::class, 'show'])->name('locations.balance.show');
+        Route::get('locations/{location}/balance/create', [LocationBalanceController::class, 'create'])->name('locations.balance.create');
+        Route::get('locations/{location}/balance/data', [LocationBalanceController::class, 'data'])->name('locations.balance.data');
+        Route::post('locations/{location}/balance', [LocationBalanceController::class, 'store'])->name('locations.balance.store');
+
+        // Ledgers
+        Route::get('ledgers/supplier', [LedgerController::class, 'supplierLedger'])->name('ledgers.supplier');
+        Route::get('ledgers/supplier/data', [LedgerController::class, 'supplierLedgerData'])->name('ledgers.supplier.data');
+        Route::get('ledgers/cash', [LedgerController::class, 'cashLedger'])->name('ledgers.cash');
+        Route::get('ledgers/cash/data', [LedgerController::class, 'cashLedgerData'])->name('ledgers.cash.data');
+        Route::get('ledgers/bank', [LedgerController::class, 'bankLedger'])->name('ledgers.bank');
+        Route::get('ledgers/bank/data', [LedgerController::class, 'bankLedgerData'])->name('ledgers.bank.data');
+        Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
+        Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');
