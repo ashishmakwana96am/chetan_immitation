@@ -103,11 +103,32 @@
 
         $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
 
-        // GST Calculations (3% total, split into 1.5% CGST + 1.5% SGST)
-        $taxableAmount = round((float)$order->final_amount / 1.03, 2);
-        $totalTax      = round((float)$order->final_amount - $taxableAmount, 2);
-        $sgst          = round($totalTax / 2, 2);
-        $cgst          = round($totalTax - $sgst, 2);
+        // GST Calculations
+        $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+        $isGst = (bool)$order->is_gst;
+        
+        $totalTax = $isGst ? (float)$order->tax_amount : 0.00;
+        $taxableAmount = (float)$order->final_amount - $totalTax - (float)$order->shipping_charge;
+        
+        $sgst = 0.00;
+        $cgst = 0.00;
+        $igst = 0.00;
+
+        if ($isGst) {
+            $isPos = ($order->source ?? 'POS') === 'POS';
+            $buyerState = 'gujarat';
+            if (!$isPos && $order->customerAddress) {
+                $buyerState = strtolower(trim($order->customerAddress->state));
+            }
+            $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+            
+            if ($isPos || $buyerState === '' || $buyerState === $storeState) {
+                $sgst = $totalTax / 2;
+                $cgst = $totalTax / 2;
+            } else {
+                $igst = $totalTax;
+            }
+        }
 
         // Payment Mapping
         $paymentCash = 0.00;
@@ -281,15 +302,15 @@
             </tr>
             <!-- Row 2 -->
             <tr>
-                <td style="text-align: left; padding: 2px 0; border: none;">SGST :</td>
-                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ number_format($sgst, 2) }}</td>
+                <td style="text-align: left; padding: 2px 0; border: none;">{{ $igst > 0 ? 'IGST :' : 'SGST :' }}</td>
+                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $igst > 0 ? number_format($igst, 2) : number_format($sgst, 2) }}</td>
                 <td style="text-align: left; padding: 2px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">CHAQUE :</td>
                 <td style="text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentCheque, 2) }}</td>
             </tr>
             <!-- Row 3 -->
             <tr>
-                <td style="text-align: left; padding: 2px 0; border: none;">CGST :</td>
-                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ number_format($cgst, 2) }}</td>
+                <td style="text-align: left; padding: 2px 0; border: none;">{{ $igst > 0 ? '' : 'CGST :' }}</td>
+                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $igst > 0 ? '' : number_format($cgst, 2) }}</td>
                 <td style="text-align: left; padding: 2px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">Card :</td>
                 <td style="text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentCard, 2) }}</td>
             </tr>

@@ -263,8 +263,21 @@
                         </div>
                     </div>
 
+                    <!-- Tax Details -->
+                    <div class="col-12" id="taxColumn" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header"><h5 class="mb-0">Tax Details</h5></div>
+                            <div class="card-body">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="is_gst_switch" name="is_gst" value="1" {{ $order->is_gst ? 'checked' : '' }} />
+                                    <label class="form-check-label" for="is_gst_switch">GST Bill</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Bottom widgets: Summary -->
-                    <div class="col-12" id="summaryColumn">
+                    <div class="col-12" id="summaryColumn" style="display: none;">
                         <div class="card mb-4">
                             <div class="card-header"><h5 class="mb-0">Sale Summary</h5></div>
                             <div class="card-body">
@@ -272,9 +285,17 @@
                                     <span class="text-muted">Items Total</span>
                                     <span id="summaryItemsTotal" class="fw-semibold">{{ format_price($order->final_amount) }}</span>
                                 </div>
-                                <div class="d-flex justify-content-between mb-3 d-none">
+                                <div class="d-flex justify-content-between mb-3 d-none" id="summaryDiscountRow">
                                     <span class="text-muted">Discount</span>
                                     <span id="summaryDiscountAmount" class="fw-semibold text-danger">0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3 d-none" id="summaryCGSTRow">
+                                    <span class="text-muted" id="summaryCGSTLabel">CGST (1.5%)</span>
+                                    <span id="summaryCGSTAmount" class="fw-semibold">0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3 d-none" id="summarySGSTRow">
+                                    <span class="text-muted" id="summarySGSTLabel">SGST (1.5%)</span>
+                                    <span id="summarySGSTAmount" class="fw-semibold">0.00</span>
                                 </div>
                                 <hr />
                                 <div class="d-flex justify-content-between">
@@ -764,53 +785,44 @@ $(document).ready(function () {
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
-        if (!productId) { stockDisplay.text('').removeAttr('title').css('cursor', '').hide(); return; }
-        $.get('{{ route('admin.inventory.stock') }}', { product_id: productId, location_id: locationId, variant_id: variantId })
-            .done(function (res) {
-                let rawQty = res.data?.quantity ?? 0;
-                const displayQty = (product && product.pair_product && isPair)
-                    ? Math.floor(rawQty / 2)
-                    : rawQty;
+        if (!productId || !product) { stockDisplay.text('').removeAttr('title').css('cursor', '').hide(); return; }
 
-                const breakdown = res.data?.breakdown || [];
-                let titleText = 'Stock Breakdown:\n';
-                if (breakdown.length > 0) {
-                    breakdown.forEach(item => {
-                        const bQty = (product && product.pair_product && isPair)
-                            ? Math.floor(item.quantity / 2)
-                            : item.quantity;
-                        titleText += `- ${item.location_name}: ${bQty}\n`;
-                    });
-                } else {
-                    titleText += 'No stock in any branch';
-                }
+        const stockByLocation = product.stock_by_location || {};
 
-                stockDisplay.text(displayQty === 0 ? 'Out of Stock' : 'Stock: ' + displayQty)
-                    .attr('title', titleText.trim())
-                    .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning')
-                    .addClass(displayQty > 0 ? (displayQty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger')
-                    .show();
-            });
+        function rawQtyAt(locId) {
+            const locData = stockByLocation[locId];
+            if (locData == null) return 0;
+            const raw = product.type === 'variable'
+                ? (variantId ? (locData.variants?.[variantId] ?? 0) : (locData.parent ?? 0))
+                : locData;
+            return Math.ceil(raw);
+        }
+        function displayQtyAt(locId) {
+            const raw = rawQtyAt(locId);
+            return (product.pair_product && isPair) ? Math.floor(raw / 2) : raw;
+        }
+
+        let qty = 0;
+        let breakdownText = 'Stock Breakdown:\n';
+        let hasStock = false;
+
+        if (locationId) {
+            qty = displayQtyAt(locationId);
         } else {
-            if (locationId) {
-                qty = product.stock_by_location?.[locationId] ?? 0;
-            } else {
-                Object.keys(product.stock_by_location || {}).forEach(locId => {
-                    qty += (product.stock_by_location[locId] ?? 0);
-                });
-            }
-            
-            Object.keys(product.stock_by_location || {}).forEach(locId => {
-                const lQty = product.stock_by_location[locId] ?? 0;
-                const loc = locations.find(l => l.id == locId);
-                const locName = loc ? loc.name : 'Unknown';
-                if (lQty > 0) {
-                    breakdownText += `- ${locName}: ${lQty}\n`;
-                    hasStock = true;
-                }
+            Object.keys(stockByLocation).forEach(locId => {
+                qty += displayQtyAt(locId);
             });
         }
+
+        Object.keys(stockByLocation).forEach(locId => {
+            const lQty = displayQtyAt(locId);
+            const loc = locations.find(l => l.id == locId);
+            const locName = loc ? loc.name : 'Unknown';
+            if (lQty > 0) {
+                breakdownText += `- ${locName}: ${lQty}\n`;
+                hasStock = true;
+            }
+        });
 
         if (!hasStock) {
             breakdownText += 'No stock in any branch';
@@ -935,10 +947,35 @@ $(document).ready(function () {
         $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
 
-        $('#itemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
+        // GST Calculation
+        const isGst = $('#is_gst_switch').is(':checked');
+        const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
+        let taxAmount = 0;
+
+        if (isGst) {
+            const halfRate = gstRate / 2;
+            const cgst = finalAmount * (halfRate / 100);
+            const sgst = finalAmount * (halfRate / 100);
+            taxAmount = cgst + sgst;
+
+            $('#summaryCGSTLabel').text('CGST (' + halfRate + '%)');
+            $('#summaryCGSTAmount').text(symbol + ' ' + formatPrice(cgst));
+            $('#summarySGSTLabel').text('SGST (' + halfRate + '%)');
+            $('#summarySGSTAmount').text(symbol + ' ' + formatPrice(sgst));
+
+            $('#summaryCGSTRow').removeClass('d-none');
+            $('#summarySGSTRow').removeClass('d-none');
+        } else {
+            $('#summaryCGSTRow').addClass('d-none');
+            $('#summarySGSTRow').addClass('d-none');
+        }
+
+        const grandTotalAmount = finalAmount + taxAmount;
+
+        $('#itemsTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
         $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
-        $('#summaryFinal').text(symbol + ' ' + formatPrice(finalAmount));
+        $('#summaryFinal').text(symbol + ' ' + formatPrice(grandTotalAmount));
 
         if (totalDiscount > 0) {
             $('#summaryDiscountAmount').closest('.d-flex').removeClass('d-none');
@@ -948,18 +985,24 @@ $(document).ready(function () {
 
         if (count > 0) {
             $('#itemsTotal').closest('tr').show();
+            $('#taxColumn').show();
             $('#summaryColumn').show();
             $('#discountColumn').show();
             $('#noItemsMsg').addClass('d-none');
             $('#itemsTable').removeClass('d-none');
         } else {
             $('#itemsTotal').closest('tr').hide();
+            $('#taxColumn').hide();
             $('#summaryColumn').hide();
             $('#discountColumn').hide();
             $('#noItemsMsg').removeClass('d-none');
             $('#itemsTable').addClass('d-none');
         }
     }
+
+    $(document).on('change', '#is_gst_switch', function () {
+        updateSummary();
+    });
 
     // Recomputes the discount floor from scratch (mirrors the server-side check)
     // and returns an error message if the current discount values violate it.

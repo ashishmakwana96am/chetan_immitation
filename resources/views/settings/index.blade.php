@@ -158,6 +158,76 @@
             </div>
         </div>
 
+        <!-- Invoice & Bill Prefixes Settings -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header"><h5 class="mb-0">Invoice & Bill Number Prefixes</h5></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Configure prefix codes for sales, orders, purchases, and transfers. The sequential number starting from 01 will be appended to these prefixes.</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_online_order">Online Order Prefix</label>
+                            <input type="text" name="prefix_online_order" id="prefix_online_order" class="form-control" value="{{ $prefixOnlineOrder }}" placeholder="e.g. OR" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_offline_sale">Offline Sale Prefix (Non-GST)</label>
+                            <input type="text" name="prefix_offline_sale" id="prefix_offline_sale" class="form-control" value="{{ $prefixOfflineSale }}" placeholder="e.g. SA" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_offline_sale_gst">Offline Sale Prefix (GST)</label>
+                            <input type="text" name="prefix_offline_sale_gst" id="prefix_offline_sale_gst" class="form-control" value="{{ $prefixOfflineSaleGst }}" placeholder="e.g. GS" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_supplier_purchase">Supplier Purchase Prefix (Non-GST)</label>
+                            <input type="text" name="prefix_supplier_purchase" id="prefix_supplier_purchase" class="form-control" value="{{ $prefixSupplierPurchase }}" placeholder="e.g. PS" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_supplier_purchase_gst">Supplier Purchase Prefix (GST)</label>
+                            <input type="text" name="prefix_supplier_purchase_gst" id="prefix_supplier_purchase_gst" class="form-control" value="{{ $prefixSupplierPurchaseGst }}" placeholder="e.g. GP" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label font-semibold" for="prefix_stock_transfer">Stock Transfer Prefix</label>
+                            <input type="text" name="prefix_stock_transfer" id="prefix_stock_transfer" class="form-control" value="{{ $prefixStockTransfer }}" placeholder="e.g. ST" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GST & Tax Settings -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header"><h5 class="mb-0">GST & Tax Settings</h5></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Configure default GST rate and business location state for tax calculations.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label font-semibold" for="purchase_gst_rate">Purchase GST Rate (%)</label>
+                            <input type="number" step="0.01" name="purchase_gst_rate" id="purchase_gst_rate" class="form-control" value="{{ $purchaseGstRate }}" placeholder="e.g. 3" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label font-semibold" for="store_state">Store/Business State</label>
+                            <input type="text" name="store_state" id="store_state" class="form-control" value="{{ $storeState }}" placeholder="e.g. Gujarat" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Backup -->
         @can('download backup')
             <div class="col-12">

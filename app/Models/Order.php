@@ -43,6 +43,8 @@ class Order extends Model
         'payment_status',
         'payment_method',
         'final_amount',
+        'is_gst',
+        'tax_amount',
         'shipping_charge',
         'source',
         'discount_type',
@@ -62,7 +64,9 @@ class Order extends Model
     {
         return [
             'is_default' => 'boolean',
+            'is_gst' => 'boolean',
             'final_amount' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
             'shipping_charge' => 'decimal:2',
             'order_discount_value' => 'decimal:2',
             'confirmed_at' => 'datetime',

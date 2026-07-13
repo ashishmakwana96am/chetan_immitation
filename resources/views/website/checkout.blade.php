@@ -1284,6 +1284,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function createAddressCardHtml(addr) {
+    const isDeliverable = activeStates.includes(addr.state);
+    const isDefaultCard = addr.is_default && isDeliverable ? 'default-address-card' : '';
+    const disabledClass = !isDeliverable ? 'opacity-60 bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer';
+    const deliverableAttr = isDeliverable ? 'true' : 'false';
+    const titleAttr = !isDeliverable ? 'title="Delivery is temporarily unavailable at this address."' : '';
+    const isDisabledRadio = !isDeliverable ? 'disabled' : '';
     const isActive = addr.is_default ? 'active-address default-address-card' : '';
     const isChecked = addr.is_default ? 'checked' : '';
     const defaultBadge = addr.is_default ? `

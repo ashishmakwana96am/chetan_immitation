@@ -495,10 +495,43 @@
                                 <td class="text-end tfoot-amount" style="color:#2e7d32;">-</td>
                             </tr>
                             @endif
+                            @if($order->is_gst && $order->tax_amount > 0)
+                                @php
+                                    $isPos = ($order->source ?? 'POS') === 'POS';
+                                    $buyerState = 'gujarat';
+                                    if (!$isPos && $order->customerAddress) {
+                                        $buyerState = strtolower(trim($order->customerAddress->state));
+                                    }
+                                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                                    $taxAmount = (float) $order->tax_amount;
+                                @endphp
+                                @if($isPos || $buyerState === '' || $buyerState === $storeState)
+                                    @php
+                                        $halfRate = $gstRate / 2;
+                                        $halfTax = $taxAmount / 2;
+                                    @endphp
+                                    <tr>
+                                        <td colspan="5" class="text-end tfoot-label">CGST ({{ $halfRate }}%)</td>
+                                        <td class="text-end tfoot-amount">{{ format_price($halfTax) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="5" class="text-end tfoot-label">SGST ({{ $halfRate }}%)</td>
+                                        <td class="text-end tfoot-amount">{{ format_price($halfTax) }}</td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td colspan="5" class="text-end tfoot-label">IGST ({{ $gstRate }}%)</td>
+                                        <td class="text-end tfoot-amount">{{ format_price($taxAmount) }}</td>
+                                    </tr>
+                                @endif
+                            @endif
+                            @if(($order->source ?? 'POS') !== 'POS')
                             <tr>
                                 <td colspan="5" class="text-end tfoot-label">Shipping</td>
                                 <td class="text-end tfoot-amount">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
                             </tr>
+                            @endif
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
                                 <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($order->final_amount) }}</td>

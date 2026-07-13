@@ -338,6 +338,11 @@
         </thead>
         <tbody>
             @php
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $customerState = strtolower(trim($order->customerAddress->state ?? ''));
+                $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                $isGujarat = ($customerState === '' || $customerState === $storeState);
+
                 $totalTaxable = 0;
                 $totalTaxes = 0;
                 $totalGross = 0;
@@ -349,8 +354,10 @@
                     $itemGross = (float)$item->price * (float)$item->quantity;
                     $itemDiscount = (float)$item->discount_amount;
                     $itemFinal = (float)$item->total;
-                    $itemTaxable = $itemFinal; // 0% GST, so taxable value equals final total
-                    $itemTax = 0.00;
+                    
+                    // Inclusive GST Calculation
+                    $itemTax = $itemFinal * ($gstRate / (100 + $gstRate));
+                    $itemTaxable = $itemFinal - $itemTax;
 
                     $totalGross += $itemGross;
                     $totalDiscount += $itemDiscount;
@@ -373,9 +380,9 @@
                     <td style="text-align: left;">
                         {{ $item->product->name }}{{ $size }}
                         @if($itemDiscount > 0)
-                            <div class="item-note">Discount: Rs.{{ number_format($itemDiscount, 2) }} | GST @0%</div>
+                            <div class="item-note">Discount: Rs.{{ number_format($itemDiscount, 2) }} | GST @{{ $gstRate }}%</div>
                         @else
-                            <div class="item-note">GST @0%</div>
+                            <div class="item-note">GST @{{ $gstRate }}%</div>
                         @endif
                     </td>
                     <td class="text-center">{{ $item->quantity }}</td>
@@ -419,10 +426,21 @@
             <td style="text-align: left; padding: 1.5px 0;">Taxable Value</td>
             <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxable, 2) }}</td>
         </tr>
-        <tr>
-            <td style="text-align: left; padding: 1.5px 0;">Taxes (GST @0%)</td>
-            <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes, 2) }}</td>
-        </tr>
+        @if($isGujarat)
+            <tr>
+                <td style="text-align: left; padding: 1.5px 0;">CGST ({{ $gstRate / 2 }}%)</td>
+                <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes / 2, 2) }}</td>
+            </tr>
+            <tr>
+                <td style="text-align: left; padding: 1.5px 0;">SGST ({{ $gstRate / 2 }}%)</td>
+                <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes / 2, 2) }}</td>
+            </tr>
+        @else
+            <tr>
+                <td style="text-align: left; padding: 1.5px 0;">IGST ({{ $gstRate }}%)</td>
+                <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes, 2) }}</td>
+            </tr>
+        @endif
         <tr style="font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000;">
             <td style="text-align: left; padding: 3px 0; font-size: 8px;">Total</td>
             <td style="text-align: right; padding: 3px 0; font-size: 8px;">Rs.{{ number_format($totalFinal, 2) }}</td>

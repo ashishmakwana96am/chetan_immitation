@@ -129,7 +129,7 @@ class WishlistController extends Controller
                     'variant_id'   => $variant?->id,
                     'name'         => $prod->name,
                     'slug'         => $prod->slug,
-                    'image'        => $prod->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png'),
+                    'image'        => $prod->primary_image_url,
                     'sale_price'   => number_format($prod->sale_price, 0),
                     'mrp'          => $prod->mrp && $prod->mrp > $prod->sale_price ? number_format($prod->mrp, 0) : null,
                     'category'     => $prod->category?->name,

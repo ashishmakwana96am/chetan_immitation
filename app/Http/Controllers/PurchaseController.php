@@ -153,7 +153,7 @@ class PurchaseController extends Controller
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
         $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
-        $invoiceNo = generate_invoice_no('PUR', Purchase::class);
+        $invoiceNo = generate_invoice_no('PS', Purchase::class);
         return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
     }
 
@@ -245,10 +245,24 @@ class PurchaseController extends Controller
 
             $finalAmount = $itemsTotal - $orderDiscountAmount;
 
+            $isGst = $request->boolean('is_gst');
+            $taxAmount = 0.0;
+            $invoicePrefix = 'PS';
+
+            if ($isGst) {
+                $invoicePrefix = 'GP';
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $taxAmount = $finalAmount * ($gstRate / 100);
+            }
+
+            $grandTotal = $finalAmount + $taxAmount;
+
             $invoice = Purchase::create([
                 'supplier_id'     => $request->supplier_id,
-                'invoice_no'      => generate_invoice_no('PUR', Purchase::class),
-                'total_amount'    => $finalAmount,
+                'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
+                'is_gst'          => $isGst,
+                'tax_amount'      => $taxAmount,
+                'total_amount'    => $grandTotal,
                 'discount_type'   => $orderDiscType,
                 'discount_value'  => $orderDiscVal,
                 'discount_amount' => $orderDiscountAmount,
@@ -409,6 +423,18 @@ class PurchaseController extends Controller
 
             $finalAmount = $itemsTotal - $orderDiscountAmount;
 
+            $isGst = $request->boolean('is_gst');
+            $taxAmount = 0.0;
+            $invoicePrefix = 'PS';
+
+            if ($isGst) {
+                $invoicePrefix = 'GP';
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $taxAmount = $finalAmount * ($gstRate / 100);
+            }
+
+            $grandTotal = $finalAmount + $taxAmount;
+
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
 
@@ -416,15 +442,23 @@ class PurchaseController extends Controller
                 $this->reverseInvoiceStock($purchase);
             }
 
-            $purchase->update([
+            $updateData = [
                 'supplier_id'     => $request->supplier_id,
-                'total_amount'    => $finalAmount,
+                'is_gst'          => $isGst,
+                'tax_amount'      => $taxAmount,
+                'total_amount'    => $grandTotal,
                 'discount_type'   => $orderDiscType,
                 'discount_value'  => $orderDiscVal,
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $newStatus,
                 'payment_status'  => $request->payment_status ?? 1,
-            ]);
+            ];
+
+            if ($purchase->is_gst !== $isGst) {
+                $updateData['invoice_no'] = generate_invoice_no($invoicePrefix, Purchase::class);
+            }
+
+            $purchase->update($updateData);
 
             $purchase->items()->delete();
 

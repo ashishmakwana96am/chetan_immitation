@@ -33,6 +33,15 @@ class SettingController extends Controller
             $googleDriveEmail = Setting::getValue('google_drive_connected_email', 'Connected Account');
         }
 
+        $prefixOnlineOrder      = Setting::getValue('prefix_online_order', 'OR');
+        $prefixOfflineSale      = Setting::getValue('prefix_offline_sale', 'SA');
+        $prefixOfflineSaleGst   = Setting::getValue('prefix_offline_sale_gst', 'GS');
+        $prefixSupplierPurchase = Setting::getValue('prefix_supplier_purchase', 'PS');
+        $prefixSupplierPurchaseGst = Setting::getValue('prefix_supplier_purchase_gst', 'GP');
+        $prefixStockTransfer    = Setting::getValue('prefix_stock_transfer', 'ST');
+        $purchaseGstRate        = Setting::getValue('purchase_gst_rate', '3');
+        $storeState             = Setting::getValue('store_state', 'Gujarat');
+
         return view('settings.index', compact(
             'razorpayPaymentMode',
             'razorpayTestKeyId',
@@ -44,7 +53,15 @@ class SettingController extends Controller
             'paymentMethodRazorpay',
             'comingSoon',
             'googleDriveConnected',
-            'googleDriveEmail'
+            'googleDriveEmail',
+            'prefixOnlineOrder',
+            'prefixOfflineSale',
+            'prefixOfflineSaleGst',
+            'prefixSupplierPurchase',
+            'prefixSupplierPurchaseGst',
+            'prefixStockTransfer',
+            'purchaseGstRate',
+            'storeState'
         ));
     }
 
@@ -62,6 +79,14 @@ class SettingController extends Controller
             'payment_method_cod'      => ['nullable', 'boolean'],
             'payment_method_razorpay' => ['nullable', 'boolean'],
             'coming_soon'             => ['nullable', 'boolean'],
+            'prefix_online_order'      => ['nullable', 'string', 'max:10'],
+            'prefix_offline_sale'      => ['nullable', 'string', 'max:10'],
+            'prefix_offline_sale_gst'  => ['nullable', 'string', 'max:10'],
+            'prefix_supplier_purchase' => ['nullable', 'string', 'max:10'],
+            'prefix_supplier_purchase_gst' => ['nullable', 'string', 'max:10'],
+            'prefix_stock_transfer'    => ['nullable', 'string', 'max:10'],
+            'purchase_gst_rate'        => ['required', 'numeric', 'min:0', 'max:100'],
+            'store_state'              => ['required', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -92,6 +117,14 @@ class SettingController extends Controller
             'payment_method_cod'      => $codEnabled ? '1' : '0',
             'payment_method_razorpay' => $razorpayEnabled ? '1' : '0',
             'coming_soon'             => $request->boolean('coming_soon') ? '1' : '0',
+            'prefix_online_order'      => $request->prefix_online_order ?? 'OR',
+            'prefix_offline_sale'      => $request->prefix_offline_sale ?? 'SA',
+            'prefix_offline_sale_gst'  => $request->prefix_offline_sale_gst ?? 'GS',
+            'prefix_supplier_purchase' => $request->prefix_supplier_purchase ?? 'PS',
+            'prefix_supplier_purchase_gst' => $request->prefix_supplier_purchase_gst ?? 'GP',
+            'prefix_stock_transfer'    => $request->prefix_stock_transfer ?? 'ST',
+            'purchase_gst_rate'        => $request->purchase_gst_rate ?? '3',
+            'store_state'              => $request->store_state ?? 'Gujarat',
         ];
 
         $old = [];

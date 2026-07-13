@@ -277,7 +277,9 @@
             $totalItemDiscount += $item->discount_amount;
         }
         $overallDiscAmount = $purchase->discount_amount;
-        $finalTotal = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+        $taxableAmount = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+        $taxAmount = $purchase->is_gst ? $purchase->tax_amount : 0;
+        $grandTotal = $taxableAmount + $taxAmount;
     @endphp
 
     <!-- Grand Total -->
@@ -293,9 +295,34 @@
                     <td style="font-size:12px; font-weight:semibold; color:#d9534f; text-align:right; padding: 4px 0; border: none;">-{{ format_price($totalItemDiscount + $overallDiscAmount) }}</td>
                 </tr>
             @endif
+            @if($purchase->is_gst && $taxAmount > 0)
+                @php
+                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                @endphp
+                @if($storeState === 'gujarat')
+                    @php
+                        $halfRate = $gstRate / 2;
+                        $halfTax = $taxAmount / 2;
+                    @endphp
+                    <tr>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; padding: 4px 0; border: none;">CGST ({{ $halfRate }}%)</td>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; text-align:right; padding: 4px 0; border: none;">{{ format_price($halfTax) }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; padding: 4px 0; border: none;">SGST ({{ $halfRate }}%)</td>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; text-align:right; padding: 4px 0; border: none;">{{ format_price($halfTax) }}</td>
+                    </tr>
+                @else
+                    <tr>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; padding: 4px 0; border: none;">IGST ({{ $gstRate }}%)</td>
+                        <td style="font-size:12px; font-weight:semibold; color:#555; text-align:right; padding: 4px 0; border: none;">{{ format_price($taxAmount) }}</td>
+                    </tr>
+                @endif
+            @endif
             <tr style="border-top: 2px solid #B4771E;">
                 <td style="font-size:14px; font-weight:bold; color:#B4771E; padding: 8px 0; border-top: 2px solid #B4771E; border-bottom: none;">Grand Total</td>
-                <td style="font-size:14px; font-weight:bold; color:#B4771E; text-align:right; padding: 8px 0; border-top: 2px solid #B4771E; border-bottom: none;">{{ format_price($finalTotal) }}</td>
+                <td style="font-size:14px; font-weight:bold; color:#B4771E; text-align:right; padding: 8px 0; border-top: 2px solid #B4771E; border-bottom: none;">{{ format_price($grandTotal) }}</td>
             </tr>
         </table>
     </div>

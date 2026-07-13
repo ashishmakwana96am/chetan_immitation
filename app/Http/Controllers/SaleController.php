@@ -264,7 +264,7 @@ class SaleController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
         $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        $orderNo     = generate_invoice_no('ORD', Order::class, 'order_no');
+        $orderNo     = generate_invoice_no('SA', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
                 'id'              => $p->id,
@@ -453,16 +453,30 @@ class SaleController extends Controller
 
             $finalAmount = $totalAmount - $orderDiscountAmount;
 
+            $isGst = $request->boolean('is_gst');
+            $taxAmount = 0.0;
+            $orderPrefix = 'SA';
+
+            if ($isGst) {
+                $orderPrefix = 'GS';
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $taxAmount = $finalAmount * ($gstRate / 100);
+            }
+
+            $grandTotal = $finalAmount + $taxAmount;
+
             $order = Order::create([
                 'customer_id'          => $request->customer_id,
                 'location_id'          => $request->location_id,
                 'user_id'              => auth()->id(),
-                'order_no'             => generate_invoice_no('ORD', Order::class, 'order_no'),
+                'order_no'             => generate_invoice_no($orderPrefix, Order::class, 'order_no'),
                 'order_type'           => 'sale',
                 'status'               => $request->status ?? 2,
                 'payment_status'       => $request->payment_status ?? 2,
                 'payment_method'       => $request->payment_method,
-                'final_amount'         => $finalAmount,
+                'is_gst'               => $isGst,
+                'tax_amount'           => $taxAmount,
+                'final_amount'         => $grandTotal,
                 'source'               => $request->input('source', 'POS'),
                 'order_discount_type'  => $discType,
                 'order_discount_value' => $discVal,
@@ -878,18 +892,38 @@ class SaleController extends Controller
 
             $finalAmount = $totalAmount - $orderDiscountAmount;
 
-            $sale->update([
+            $isGst = $request->boolean('is_gst');
+            $taxAmount = 0.0;
+            $orderPrefix = 'SA';
+
+            if ($isGst) {
+                $orderPrefix = 'GS';
+                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $taxAmount = $finalAmount * ($gstRate / 100);
+            }
+
+            $grandTotal = $finalAmount + $taxAmount;
+
+            $updateData = [
                 'customer_id'          => $request->customer_id,
                 'location_id'          => $request->location_id,
                 'payment_method'       => $request->payment_method,
                 'status'               => $request->status ?? 2,
                 'payment_status'       => $request->payment_status ?? $sale->payment_status ?? 1,
-                'final_amount'         => $finalAmount,
+                'is_gst'               => $isGst,
+                'tax_amount'           => $taxAmount,
+                'final_amount'         => $grandTotal,
                 'source'               => $request->input('source', $sale->source ?? 'POS'),
                 'order_discount_type'  => $discType,
                 'order_discount_value' => $discVal,
                 'coupon_id'            => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
-            ]);
+            ];
+
+            if ($sale->is_gst !== $isGst) {
+                $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
+            }
+
+            $sale->update($updateData);
 
             foreach ($itemsData as $item) {
                 OrderItem::create([

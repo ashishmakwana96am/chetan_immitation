@@ -28,10 +28,12 @@ class Purchase extends Model
     protected $fillable = [
         'supplier_id',
         'invoice_no',
+        'is_gst',
         'total_amount',
         'discount_type',
         'discount_value',
         'discount_amount',
+        'tax_amount',
         'status',
         'payment_status',
         'created_by',
@@ -43,6 +45,8 @@ class Purchase extends Model
             'total_amount' => 'decimal:2',
             'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'is_gst' => 'boolean',
+            'tax_amount' => 'decimal:2',
         ];
     }
 

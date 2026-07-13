@@ -177,7 +177,7 @@ class PurchaseBillController extends Controller
             ->where('status', 1)
             ->orderBy('name')
             ->get();
-        $transferNo = generate_invoice_no('PB', PurchaseBill::class, 'transfer_no');
+        $transferNo = generate_invoice_no('ST', PurchaseBill::class, 'transfer_no');
 
         return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'transferNo'));
     }
@@ -215,7 +215,7 @@ class PurchaseBillController extends Controller
 
         DB::transaction(function () use ($request, $defaultLocation) {
             $transfer = PurchaseBill::create([
-                'transfer_no' => generate_invoice_no('PB', PurchaseBill::class, 'transfer_no'),
+                'transfer_no' => generate_invoice_no('ST', PurchaseBill::class, 'transfer_no'),
                 'from_location_id' => $defaultLocation->id,
                 'to_location_id' => $request->to_location_id,
                 'status' => PurchaseBill::STATUS_PENDING,

@@ -138,10 +138,10 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Supplier <span class="text-danger">*</span></label>
-                                <select name="supplier_id" class="form-select">
+                                <select name="supplier_id" id="supplier_select" class="form-select">
                                     <option value="">Select Supplier</option>
                                     @foreach($suppliers as $supplier)
-                                        <option value="{{ $supplier->id }}" {{ $purchase->supplier_id === $supplier->id ? 'selected' : '' }}>
+                                        <option value="{{ $supplier->id }}" data-state="{{ $supplier->state }}" {{ $purchase->supplier_id === $supplier->id ? 'selected' : '' }}>
                                             {{ $supplier->name }}
                                         </option>
                                     @endforeach
@@ -227,8 +227,21 @@
                 </div>
             </div>
 
+            <!-- Tax Details -->
+            <div class="col-12" id="taxColumn" style="display: none;">
+                <div class="card mb-4">
+                    <div class="card-header"><h5 class="mb-0">Tax Details</h5></div>
+                    <div class="card-body">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="is_gst_switch" name="is_gst" value="1" {{ $purchase->is_gst ? 'checked' : '' }} />
+                            <label class="form-check-label" for="is_gst_switch">GST Bill</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Bottom widgets: Summary -->
-            <div class="col-12" id="summaryColumn">
+            <div class="col-12" id="summaryColumn" style="display: none;">
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Summary</h5></div>
                     <div class="card-body">
@@ -243,6 +256,18 @@
                         <div class="d-flex justify-content-between mb-2 d-none" id="summaryDiscountRow">
                             <span class="text-muted">Discount</span>
                             <span id="summaryDiscountAmount" class="fw-semibold text-danger">0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 d-none" id="summaryCGSTRow">
+                            <span class="text-muted" id="summaryCGSTLabel">CGST (1.5%)</span>
+                            <span id="summaryCGSTAmount" class="fw-semibold">0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 d-none" id="summarySGSTRow">
+                            <span class="text-muted" id="summarySGSTLabel">SGST (1.5%)</span>
+                            <span id="summarySGSTAmount" class="fw-semibold">0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 d-none" id="summaryIGSTRow">
+                            <span class="text-muted" id="summaryIGSTLabel">IGST (3%)</span>
+                            <span id="summaryIGSTAmount" class="fw-semibold">0.00</span>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span class="text-muted">Grand Total</span>
@@ -691,6 +716,14 @@ $(document).ready(function () {
         updateGrandTotal();
     });
 
+    $(document).on('change', '#supplier_select', function () {
+        updateGrandTotal();
+    });
+
+    $(document).on('change', '#is_gst_switch', function () {
+        updateGrandTotal();
+    });
+
     function updateRowTotal(row) {
         updateGrandTotal();
     }
@@ -747,11 +780,51 @@ $(document).ready(function () {
         const finalAmount = itemsTotal - orderDiscountAmount;
         const totalDiscount = discountSum + orderDiscountAmount;
 
-        $('#grandTotal').text(symbol + ' ' + formatPrice(finalAmount));
+        // GST Calculation
+        const isGst = $('#is_gst_switch').is(':checked');
+        const storeState = @json(strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat'))));
+        const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
+        let taxAmount = 0;
+        
+        if (isGst) {
+            if (storeState === 'gujarat') {
+                const halfRate = gstRate / 2;
+                const cgst = finalAmount * (halfRate / 100);
+                const sgst = finalAmount * (halfRate / 100);
+                taxAmount = cgst + sgst;
+
+                $('#summaryCGSTLabel').text('CGST (' + halfRate + '%)');
+                $('#summaryCGSTAmount').text(symbol + ' ' + formatPrice(cgst));
+                $('#summarySGSTLabel').text('SGST (' + halfRate + '%)');
+                $('#summarySGSTAmount').text(symbol + ' ' + formatPrice(sgst));
+
+                $('#summaryCGSTRow').removeClass('d-none');
+                $('#summarySGSTRow').removeClass('d-none');
+                $('#summaryIGSTRow').addClass('d-none');
+            } else {
+                const igst = finalAmount * (gstRate / 100);
+                taxAmount = igst;
+
+                $('#summaryIGSTLabel').text('IGST (' + gstRate + '%)');
+                $('#summaryIGSTAmount').text(symbol + ' ' + formatPrice(igst));
+
+                $('#summaryCGSTRow').addClass('d-none');
+                $('#summarySGSTRow').addClass('d-none');
+                $('#summaryIGSTRow').removeClass('d-none');
+            }
+        } else {
+            $('#summaryCGSTRow').addClass('d-none');
+            $('#summarySGSTRow').addClass('d-none');
+            $('#summaryIGSTRow').addClass('d-none');
+        }
+
+        const grandTotalAmount = finalAmount + taxAmount;
+
+        $('#grandTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
         $('#summaryItems').text(count);
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
         $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
-        $('#summaryTotal').text(symbol + ' ' + formatPrice(finalAmount));
+        $('#summaryTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
 
         if (totalDiscount > 0) {
             $('#summaryDiscountRow').removeClass('d-none');
@@ -761,10 +834,12 @@ $(document).ready(function () {
 
         if (count > 0) {
             $('#grandTotal').closest('tr').show();
+            $('#taxColumn').show();
             $('#summaryColumn').show();
             $('#discountColumn').show();
         } else {
             $('#grandTotal').closest('tr').hide();
+            $('#taxColumn').hide();
             $('#summaryColumn').hide();
             $('#discountColumn').hide();
         }

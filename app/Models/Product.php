@@ -85,7 +85,7 @@ class Product extends Model
      */
     public function getPrimaryImageUrlAttribute(): string
     {
-        return $this->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
+        return $this->primaryImage?->image_url ?? asset('website/assets/images/placeholder.png');
     }
 
     public function inventories()

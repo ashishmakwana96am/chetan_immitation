@@ -610,6 +610,37 @@
                 <td class="text-right">-</td>
             </tr>
             @endif
+            @if($order->is_gst && $order->tax_amount > 0)
+                @php
+                    $isPos = ($order->source ?? 'POS') === 'POS';
+                    $buyerState = 'gujarat';
+                    if (!$isPos && $order->customerAddress) {
+                        $buyerState = strtolower(trim($order->customerAddress->state));
+                    }
+                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                    $taxAmount = (float) $order->tax_amount;
+                @endphp
+                @if($isPos || $buyerState === '' || $buyerState === $storeState)
+                    @php
+                        $halfRate = $gstRate / 2;
+                        $halfTax = $taxAmount / 2;
+                    @endphp
+                    <tr class="cgst-row">
+                        <td colspan="5" class="text-right">CGST ({{ $halfRate }}%)</td>
+                        <td class="text-right">{{ format_price($halfTax) }}</td>
+                    </tr>
+                    <tr class="sgst-row">
+                        <td colspan="5" class="text-right">SGST ({{ $halfRate }}%)</td>
+                        <td class="text-right">{{ format_price($halfTax) }}</td>
+                    </tr>
+                @else
+                    <tr class="igst-row">
+                        <td colspan="5" class="text-right">IGST ({{ $gstRate }}%)</td>
+                        <td class="text-right">{{ format_price($taxAmount) }}</td>
+                    </tr>
+                @endif
+            @endif
             <tr class="shipping-row">
                 <td colspan="5" class="text-right">Shipping</td>
                 <td class="text-right">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>

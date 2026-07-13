@@ -297,9 +297,23 @@
                                     $overallDiscAmount = $purchase->discount_amount;
                                 } else {
                                     $totalItemsAmount = $totalSubtotal - $totalItemDiscount;
-                                    $overallDiscAmount = ($purchase->total_amount > 0) ? ($purchase->discount_amount * ($totalItemsAmount / ($purchase->total_amount + $purchase->discount_amount))) : 0;
+                                    $purchaseTotalBeforeTax = $purchase->total_amount - $purchase->tax_amount;
+                                    $overallDiscAmount = ($purchaseTotalBeforeTax > 0) ? ($purchase->discount_amount * ($totalItemsAmount / $purchaseTotalBeforeTax)) : 0;
                                 }
-                                $finalTotal = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+                                $taxableAmount = $totalSubtotal - $totalItemDiscount - $overallDiscAmount;
+
+                                // Tax calculation
+                                $taxAmount = 0;
+                                if ($purchase->is_gst && $purchase->tax_amount > 0) {
+                                    if (!$isRestricted) {
+                                        $taxAmount = $purchase->tax_amount;
+                                    } else {
+                                        $purchaseTotalBeforeTax = $purchase->total_amount - $purchase->tax_amount;
+                                        $taxAmount = ($purchaseTotalBeforeTax > 0) ? ($purchase->tax_amount * ($taxableAmount / $purchaseTotalBeforeTax)) : 0;
+                                    }
+                                }
+
+                                $grandTotal = $taxableAmount + $taxAmount;
                             @endphp
 
                             @if($totalItemDiscount > 0 || $overallDiscAmount > 0)
@@ -315,9 +329,38 @@
                                 </tr>
                             @endif
 
+                            @if($purchase->is_gst && $taxAmount > 0)
+                                @php
+                                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                                @endphp
+                                @if($storeState === 'gujarat')
+                                    @php
+                                        $halfRate = $gstRate / 2;
+                                        $halfTax = $taxAmount / 2;
+                                    @endphp
+                                    <tr>
+                                        <td colspan="5" class="text-end fw-semibold text-muted">CGST ({{ $halfRate }}%)</td>
+                                        <td class="text-end fw-semibold text-muted">{{ format_price($halfTax) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="5" class="text-end fw-semibold text-muted">SGST ({{ $halfRate }}%)</td>
+                                        <td class="text-end fw-semibold text-muted">{{ format_price($halfTax) }}</td>
+                                        <td></td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td colspan="5" class="text-end fw-semibold text-muted">IGST ({{ $gstRate }}%)</td>
+                                        <td class="text-end fw-semibold text-muted">{{ format_price($taxAmount) }}</td>
+                                        <td></td>
+                                    </tr>
+                                @endif
+                            @endif
+
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
-                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($finalTotal) }}</td>
+                                <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($grandTotal) }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>

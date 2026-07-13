@@ -172,20 +172,52 @@ if (!function_exists('generate_invoice_no')) {
      */
     function generate_invoice_no(string $prefix, string $model, string $column = 'invoice_no'): string
     {
-        $date   = now()->format('Ymd');
-        $prefix = strtoupper($prefix) . '-' . $date . '-';
+        $resolvedPrefix = $prefix;
+        if ($prefix === 'OR' || $prefix === 'ORD') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_online_order', 'OR');
+        } elseif ($prefix === 'SA') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_offline_sale', 'SA');
+        } elseif ($prefix === 'PS' || $prefix === 'PUR') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_supplier_purchase', 'PS');
+        } elseif ($prefix === 'GP') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_supplier_purchase_gst', 'GP');
+        } elseif ($prefix === 'GS') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_offline_sale_gst', 'GS');
+        } elseif ($prefix === 'ST' || $prefix === 'PB') {
+            $resolvedPrefix = \App\Models\Setting::getValue('prefix_stock_transfer', 'ST');
+        }
+
+        $resolvedPrefix = strtoupper($resolvedPrefix);
 
         $query = in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model))
             ? $model::withTrashed()
             : $model::query();
 
-        $last = $query->where($column, 'like', $prefix . '%')
-            ->orderByDesc($column)
-            ->value($column);
+        $searchPrefix = $resolvedPrefix . '-';
+        $prefixLength = strlen($searchPrefix);
+        $lastRow = $query->where($column, 'like', $searchPrefix . '%')
+            ->get()
+            ->filter(function ($item) use ($column, $searchPrefix, $prefixLength) {
+                $val = $item->$column;
+                $suffix = substr($val, $prefixLength);
+                return is_numeric($suffix) && strlen($suffix) > 0;
+            })
+            ->sortByDesc(function ($item) use ($column, $prefixLength) {
+                return (int) substr($item->$column, $prefixLength);
+            })
+            ->first();
 
-        $next = $last ? (int) substr($last, -4) + 1 : 1;
+        $last = $lastRow ? $lastRow->$column : null;
 
-        return $prefix . str_pad($next, 4, '0', STR_PAD_LEFT);
+        $next = 1;
+        if ($last) {
+            $numericPart = substr($last, $prefixLength);
+            if (is_numeric($numericPart)) {
+                $next = (int) $numericPart + 1;
+            }
+        }
+
+        return $searchPrefix . str_pad($next, 2, '0', STR_PAD_LEFT);
     }
 }
 

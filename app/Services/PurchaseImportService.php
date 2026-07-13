@@ -284,6 +284,12 @@ class PurchaseImportService
         }
 
         if ($product) {
+            if ($product->trashed()) {
+                $product->restore();
+                $product->variants()->onlyTrashed()->restore();
+                $product->images()->onlyTrashed()->restore();
+                $product->inventories()->onlyTrashed()->restore();
+            }
             $summary['existing_products_used']++;
         } else {
             try {
@@ -470,7 +476,9 @@ class PurchaseImportService
 
             $purchase = Purchase::create([
                 'supplier_id'    => $supplier->id,
-                'invoice_no'     => generate_invoice_no('PUR', Purchase::class),
+                'invoice_no'     => generate_invoice_no('PS', Purchase::class),
+                'is_gst'         => false,
+                'tax_amount'     => 0.00,
                 'total_amount'   => $total,
                 'status'         => $status,
                 'payment_status' => $paymentStatus,

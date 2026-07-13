@@ -471,7 +471,7 @@ class CheckoutController extends Controller
         }
 
         try {
-            $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+            $orderNo = generate_invoice_no('OR', Order::class, 'order_no');
 
             $rzpResponse = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
                 ->post('https://api.razorpay.com/v1/orders', [
@@ -569,6 +569,8 @@ class CheckoutController extends Controller
                 $isDefault = (bool) ($pendingPayment['is_default'] ?? true);
                 $status = $isDefault ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
 
+                $totalVal = (float) $pendingPayment['total'];
+
                 $order = Order::create([
                     'customer_id' => $pendingPayment['customer_id'],
                     'customer_address_id' => $pendingPayment['address_id'],
@@ -580,7 +582,9 @@ class CheckoutController extends Controller
                     'confirmed_at' => $isDefault ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'payment_method' => 'online',
-                    'final_amount' => $pendingPayment['total'],
+                    'is_gst' => false,
+                    'tax_amount' => 0,
+                    'final_amount' => $totalVal,
                     'shipping_charge' => $pendingPayment['shipping_charge'] ?? 0,
                     'source' => 'ONLINE',
                     'discount_type' => $pendingPayment['discount_type'],
@@ -787,7 +791,7 @@ class CheckoutController extends Controller
         }
 
         try {
-            $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+            $orderNo = generate_invoice_no('OR', Order::class, 'order_no');
 
             $rzpResponse = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
                 ->post('https://api.razorpay.com/v1/orders', [
@@ -1177,7 +1181,7 @@ class CheckoutController extends Controller
 
         try {
             $order = DB::transaction(function () use ($customer, $location, $hasStock, $total, $shipping, $cartItems, $coupon, $address) {
-                $orderNo = generate_invoice_no('ORD', Order::class, 'order_no');
+                $orderNo = generate_invoice_no('OR', Order::class, 'order_no');
 
                 $status = $hasStock ? Order::STATUS_APPROVE : Order::STATUS_PENDING;
 
@@ -1192,6 +1196,8 @@ class CheckoutController extends Controller
                     'confirmed_at' => $hasStock ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PENDING,
                     'payment_method' => 'cod',
+                    'is_gst' => false,
+                    'tax_amount' => 0,
                     'final_amount' => $total,
                     'shipping_charge' => $shipping,
                     'source' => 'ONLINE',
