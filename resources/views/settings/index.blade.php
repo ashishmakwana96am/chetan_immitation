@@ -158,6 +158,7 @@
             </div>
         </div>
 
+        {{--
         <!-- Invoice & Bill Prefixes Settings -->
         <div class="col-12">
             <div class="card">
@@ -227,6 +228,7 @@
                 </div>
             </div>
         </div>
+        --}}
 
         <!-- Backup -->
         @can('download backup')
