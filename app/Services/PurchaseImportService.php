@@ -61,8 +61,9 @@ class PurchaseImportService
 
         $seenSignatures = [];
 
+        $history = [];
         foreach ($groups as $group) {
-            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId);
+            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history);
         }
 
         ActivityLogger::log(
@@ -74,7 +75,7 @@ class PurchaseImportService
             "Purchase import: {$summary['purchases_created']} purchases created, {$summary['failed_rows']} failed"
         );
 
-        return ['summary' => $summary, 'failures' => $failures];
+        return ['summary' => $summary, 'failures' => $failures, 'history' => $history];
     }
 
     private function parseWorkbook(UploadedFile $file): array
@@ -244,7 +245,7 @@ class PurchaseImportService
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes'], true);
     }
 
-    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId): void
+    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history): void
     {
         $barcode = $group['barcode'];
 
@@ -253,11 +254,34 @@ class PurchaseImportService
                 $summary['failed_rows']++;
                 $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, 'Missing Barcode');
             }
+            $history[] = [
+                'barcode' => 'N/A',
+                'product' => $group['product_name'],
+                'status'  => 'Failed',
+                'reason'  => 'Missing Barcode',
+                'details' => "Group has no barcode. " . count($group['rows']) . " rows failed."
+            ];
 
             return;
         }
 
         $product = $productsByBarcode[$barcode] ?? null;
+
+        $skippedDimensions = [];
+        $firstDimensionName = '';
+        if (!$product && count($group['dimensions']) > 1) {
+            $dimensionKeys = array_keys($group['dimensions']);
+            $firstKey = $dimensionKeys[0];
+            $firstDimensionName = $group['dimensions'][$firstKey]['name'];
+
+            for ($i = 1; $i < count($dimensionKeys); $i++) {
+                $skippedDimensions[] = $group['dimensions'][$dimensionKeys[$i]]['name'];
+            }
+
+            $group['dimensions'] = [
+                $firstKey => $group['dimensions'][$firstKey]
+            ];
+        }
 
         if ($product) {
             $summary['existing_products_used']++;
@@ -272,6 +296,13 @@ class PurchaseImportService
                     $summary['failed_rows']++;
                     $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, $e->getMessage());
                 }
+                $history[] = [
+                    'barcode' => $barcode,
+                    'product' => $group['product_name'],
+                    'status'  => 'Failed',
+                    'reason'  => 'Product Creation Failed',
+                    'details' => $e->getMessage()
+                ];
 
                 return;
             }
@@ -283,21 +314,84 @@ class PurchaseImportService
 
         $lastSupplier = null;
 
+        $successRows = 0;
+        $skippedRows = 0;
+        $failedRows = 0;
+        $failReasons = [];
+
         foreach ($group['rows'] as $row) {
             try {
                 $this->processRow($group, $product, $variants, $row, $lastSupplier, $seenSignatures, $summary, $userId);
+                $successRows++;
             } catch (RowSkipException $e) {
                 $summary['skipped_rows']++;
                 $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, $e->getMessage(), 'Skipped');
+                $skippedRows++;
             } catch (RowFailureException $e) {
                 $summary['failed_rows']++;
                 $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, $e->getMessage());
+                $failedRows++;
+                $failReasons[] = $e->getMessage();
             } catch (\Throwable $e) {
                 Log::error('Purchase import: row ' . $row['row_num'] . ' failed: ' . $e->getMessage());
                 $summary['failed_rows']++;
                 $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, 'Unexpected Error');
+                $failedRows++;
+                $failReasons[] = 'Unexpected Error';
             }
         }
+
+        $uniqueFailReasons = array_values(array_unique($failReasons));
+
+        if ($successRows === 0 && $skippedRows === 0 && !empty($uniqueFailReasons)) {
+            $details = implode('; ', $uniqueFailReasons);
+        } else {
+            $detailsParts = [];
+            if ($successRows > 0) {
+                $detailsParts[] = "{$successRows} purchase(s) imported";
+            }
+            if ($skippedRows > 0) {
+                $detailsParts[] = "{$skippedRows} skipped";
+            }
+            if ($failedRows > 0) {
+                $detailsParts[] = "{$failedRows} failed";
+            }
+
+            $details = implode(', ', $detailsParts) . ".";
+            if (!empty($uniqueFailReasons)) {
+                $details .= " Errors: " . implode("; ", $uniqueFailReasons);
+            }
+        }
+
+        if (!empty($skippedDimensions)) {
+            $details .= " Skipped variant dimensions: " . implode(', ', $skippedDimensions) . " (only first dimension \"{$firstDimensionName}\" was added).";
+        }
+
+        $status = 'Success';
+        $reason = 'Processed';
+        if ($failedRows > 0) {
+            if ($successRows > 0) {
+                $status = 'Warning';
+                $reason = 'Partial Success';
+            } else {
+                $status = 'Failed';
+                $reason = 'Failed';
+            }
+        } elseif ($skippedRows > 0 && $successRows === 0) {
+            $status = 'Warning';
+            $reason = 'Skipped';
+        } elseif (!empty($skippedDimensions)) {
+            $status = 'Warning';
+            $reason = 'Processed (Variant Skipped)';
+        }
+
+        $history[] = [
+            'barcode' => $barcode,
+            'product' => $group['product_name'],
+            'status'  => $status,
+            'reason'  => $reason,
+            'details' => $details
+        ];
     }
 
     private function processRow(array $group, Product $product, $variants, array $row, ?string &$lastSupplier, array &$seenSignatures, array &$summary, ?int $userId): void
@@ -325,6 +419,10 @@ class PurchaseImportService
         $purchaseDate = $this->parseDate($row['purchase_date']);
         if (!$purchaseDate) {
             throw new RowFailureException('Invalid Purchase Date');
+        }
+
+        if ($purchaseDate->isFuture()) {
+            throw new RowFailureException('Purchase Date cannot be in the future');
         }
 
         $productVariantId = null;

@@ -58,6 +58,7 @@ class ProductBulkImageUploadController extends Controller
             'message'  => 'Bulk Product Image Upload Completed Successfully.',
             'summary'  => $result['summary'],
             'failures' => $result['failures'],
+            'history'  => $result['history'],
         ]);
     }
 

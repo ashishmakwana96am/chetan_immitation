@@ -98,27 +98,33 @@ class ProductCreationService
             $pairMrp = null;
         }
 
+        $defaultDescription = '<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>';
+        $defaultInfo = '<ul><li>Premium Quality Brass</li><li>Silver Tone Finish</li><li>Studded with American Diamonds</li><li>Adjustable Chain</li><li>Lightweight Design</li><li>Comfortable for Daily Wear</li><li>Tarnish Resistant Finish</li><li>Elegant Party Wear Bracelet</li></ul>';
+        $defaultHighlights = '<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>';
+
         $product = Product::create([
-            'name'                => $group['product_name'],
-            'slug'                => generate_slug(Product::class, $group['product_name']),
-            'category_id'         => $category->id,
-            'sub_category_id'     => $subCategoryId,
-            'barcode'             => $group['barcode'],
-            'product_code'        => $code,
-            'purchase_multiplier' => $purchaseMultiplier,
-            'sale_multiplier'     => $saleMultiplier,
-            'mrp_multiplier'      => $mrpMultiplier,
-            'description'         => $group['product_name'],
-            'purchase_price'      => $purchasePrice,
-            'sale_price'          => $salePrice,
-            'mrp'                 => $mrp,
-            'pair_product'        => $isPair,
-            'pair_sale_price'     => $pairSalePrice,
-            'pair_mrp'            => $pairMrp,
-            'type'                => $group['product_type'],
-            'status'              => Product::STATUS_ACTIVE,
-            'created_by'          => $userId,
-            'sort_order'          => ((int) Product::max('sort_order')) + 1,
+            'name'                   => $group['product_name'],
+            'slug'                   => generate_slug(Product::class, $group['product_name']),
+            'category_id'            => $category->id,
+            'sub_category_id'        => $subCategoryId,
+            'barcode'                => $group['barcode'],
+            'product_code'           => $code,
+            'purchase_multiplier'    => $purchaseMultiplier,
+            'sale_multiplier'        => $saleMultiplier,
+            'mrp_multiplier'         => $mrpMultiplier,
+            'description'            => $defaultDescription,
+            'additional_information' => $defaultInfo,
+            'product_highlights'     => $defaultHighlights,
+            'purchase_price'         => $purchasePrice,
+            'sale_price'             => $salePrice,
+            'mrp'                    => $mrp,
+            'pair_product'           => $isPair,
+            'pair_sale_price'        => $pairSalePrice,
+            'pair_mrp'               => $pairMrp,
+            'type'                   => $group['product_type'],
+            'status'                 => Product::STATUS_ACTIVE,
+            'created_by'             => $userId,
+            'sort_order'             => ((int) Product::max('sort_order')) + 1,
         ]);
 
         if ($group['product_type'] === 'variable') {

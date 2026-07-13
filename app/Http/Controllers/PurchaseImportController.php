@@ -43,6 +43,7 @@ class PurchaseImportController extends Controller
             'message'  => 'Purchase Import Completed Successfully.',
             'summary'  => $result['summary'],
             'failures' => $result['failures'],
+            'history'  => $result['history'],
         ]);
     }
 

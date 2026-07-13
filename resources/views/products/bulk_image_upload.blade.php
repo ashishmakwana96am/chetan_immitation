@@ -46,10 +46,15 @@
         <div class="invalid-feedback" id="bulkFileErrorFeedback" style="display:none;">Please select a valid ZIP file.</div>
 
         <div id="bulkUploadProgressWrap" class="mt-3">
-            <div class="progress" style="height: 8px;">
+            <div class="progress mb-1" style="height: 8px;">
                 <div id="bulkUploadProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
             </div>
-            <small class="text-muted" id="bulkUploadProgressLabel">Uploading… 0%</small>
+            <div class="d-flex align-items-center justify-content-between">
+                <small class="text-muted" id="bulkUploadProgressLabel">Uploading… 0%</small>
+                <a href="javascript:void(0);" id="bulkBtnCancelUpload" class="text-danger fw-semibold d-inline-flex align-items-center" style="font-size: 0.75rem; text-decoration: none;">
+                    <i class="ti ti-x me-1" style="font-size: 0.85rem;"></i> Cancel
+                </a>
+            </div>
         </div>
 
         <div id="bulkSummarySection" class="d-none mt-4">
@@ -71,6 +76,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileInput = $('#zip_file');
     const dropzone = $('#bulkZipDropzone');
     const badge = $('#bulkSelectedFileBadge');
+    let currentBulkImageUploadRequest = null;
+
+    $(document).on('click', '#bulkBtnCancelUpload', function () {
+        if (currentBulkImageUploadRequest) {
+            currentBulkImageUploadRequest.abort();
+            currentBulkImageUploadRequest = null;
+            toastr.warning('Upload process cancelled.');
+        }
+        $('#bulkUploadProgressWrap').hide();
+        $('#bulkUploadProgressBar').css('width', '0%');
+        $('#bulkUploadProgressLabel').text('Uploading… 0%');
+        $('#bulkBtnSubmit').prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Upload & Process');
+    });
 
     const summaryTiles = [
         { key: 'total_folders', label: 'Total Barcode Folders', icon: 'ti-folder', color: 'primary' },
@@ -123,6 +141,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Refresh the products list whenever the panel closes, so any images
     // uploaded this session show up immediately without a full page reload.
     document.getElementById('bulkImageOffcanvas')?.addEventListener('hidden.bs.offcanvas', function () {
+        if (currentBulkImageUploadRequest) {
+            currentBulkImageUploadRequest.abort();
+            currentBulkImageUploadRequest = null;
+            toastr.warning('Upload process cancelled.');
+        }
         if (typeof window.refreshTable === 'function') {
             window.refreshTable();
         }
@@ -136,6 +159,13 @@ document.addEventListener('DOMContentLoaded', function () {
     dropzone.on('dragleave drop', function (e) {
         e.preventDefault();
         dropzone.removeClass('drag-over');
+        if (e.type === 'drop') {
+            const dt = e.originalEvent.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                fileInput[0].files = dt.files;
+                fileInput.trigger('change');
+            }
+        }
     });
 
     function renderSummary(summary) {
@@ -187,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
         progressLabel.text('Uploading… 0%');
         $('#bulkSummarySection').addClass('d-none');
 
-        $.ajax({
+        currentBulkImageUploadRequest = $.ajax({
             url: '{{ route('admin.products.bulk-images.store') }}',
             type: 'POST',
             data: formData,
@@ -212,17 +242,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 return xhr;
             },
             success: function (res) {
+                currentBulkImageUploadRequest = null;
                 submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Upload & Process');
                 progressWrap.hide();
 
                 if (res.status === 'success') {
                     toastr.success(res.message || 'Bulk upload completed successfully.');
-                    renderSummary(res.summary);
+                    bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('bulkImageOffcanvas')).hide();
+                    showHistoryOffcanvas(res);
                 }
             },
             error: function (xhr) {
+                currentBulkImageUploadRequest = null;
                 submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Upload & Process');
                 progressWrap.hide();
+
+                if (xhr.statusText === 'abort') {
+                    return;
+                }
 
                 let message = 'Failed to process the ZIP file.';
                 if (xhr.responseJSON) {
@@ -239,6 +276,71 @@ document.addEventListener('DOMContentLoaded', function () {
                 toastr.error(message, 'Upload Failed', { timeOut: 12000, closeButton: true });
             }
         });
+    });
+
+    function showHistoryOffcanvas(res) {
+        const summaryCards = $('#historySummaryCards').empty();
+        summaryTiles.forEach(function (tile) {
+            const value = res.summary[tile.key] ?? 0;
+            summaryCards.append(`
+                <div class="col-sm-6 col-md-4">
+                    <div class="card shadow-none border h-100">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-start justify-content-between">
+                                <div>
+                                    <span class="text-muted small">${tile.label}</span>
+                                    <h5 class="mb-0 mt-1">${value}</h5>
+                                </div>
+                                <span class="badge bg-label-${tile.color} rounded p-2"><i class="ti ${tile.icon} ti-sm"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+
+        window.bulkUploadHistory = res.history || [];
+        $('#historySearchInput').val('');
+        renderHistoryTable(window.bulkUploadHistory);
+
+        const historyEl = document.getElementById('bulkImageHistoryOffcanvas');
+        bootstrap.Offcanvas.getOrCreateInstance(historyEl).show();
+    }
+
+    function renderHistoryTable(items) {
+        const tbody = $('#historyTableBody').empty();
+        if (items.length === 0) {
+            tbody.append(`<tr><td colspan="3" class="text-center text-muted py-3">No history details available.</td></tr>`);
+            return;
+        }
+
+        items.forEach(function (item) {
+            let badgeColor = 'secondary';
+            if (item.status === 'Success') badgeColor = 'success';
+            else if (item.status === 'Warning') badgeColor = 'warning';
+            else if (item.status === 'Failed') badgeColor = 'danger';
+
+            tbody.append(`
+                <tr>
+                    <td class="fw-semibold">${item.barcode}</td>
+                    <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
+                    <td>
+                        <span class="text-dark d-block fw-medium">${item.reason}</span>
+                        <small class="text-muted">${item.details}</small>
+                    </td>
+                </tr>
+            `);
+        });
+    }
+
+    $(document).on('input', '#historySearchInput', function () {
+        const query = $(this).val().toLowerCase().trim();
+        if (!window.bulkUploadHistory) return;
+        const filtered = window.bulkUploadHistory.filter(function (item) {
+            const barcode = item.barcode ? String(item.barcode).toLowerCase() : '';
+            return barcode.includes(query);
+        });
+        renderHistoryTable(filtered);
     });
 });
 </script>

@@ -65,6 +65,7 @@ class ProductBulkImageUploadService
             mkdir($destDir, 0755, true);
         }
 
+        $history = [];
         foreach ($allBarcodes as $barcode) {
             $entries = $folders[$barcode] ?? [];
             $product = $productsByBarcode[$barcode] ?? null;
@@ -72,6 +73,12 @@ class ProductBulkImageUploadService
             if (!$product) {
                 $summary['not_found']++;
                 $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => 'Product Not Found'];
+                $history[] = [
+                    'barcode' => $barcode,
+                    'status'  => 'Failed',
+                    'reason'  => 'Product Not Found',
+                    'details' => 'No product exists with this barcode.'
+                ];
                 continue;
             }
 
@@ -79,6 +86,12 @@ class ProductBulkImageUploadService
 
             if (empty($entries)) {
                 $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => 'Empty Folder'];
+                $history[] = [
+                    'barcode' => $barcode,
+                    'status'  => 'Failed',
+                    'reason'  => 'Empty Folder',
+                    'details' => 'The folder contains no supported image files.'
+                ];
                 continue;
             }
 
@@ -89,6 +102,12 @@ class ProductBulkImageUploadService
             if ($result === null) {
                 // Whole folder failed with an unexpected error; already logged inside processFolder.
                 $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => 'Unexpected Error'];
+                $history[] = [
+                    'barcode' => $barcode,
+                    'status'  => 'Failed',
+                    'reason'  => 'Unexpected Error',
+                    'details' => 'An unexpected error occurred while saving the images.'
+                ];
                 continue;
             }
 
@@ -99,6 +118,38 @@ class ProductBulkImageUploadService
             if (!$result['saved_any']) {
                 $reason = $result['failed_images'] > 0 ? 'Corrupted Image' : 'Invalid Image';
                 $failures[] = ['barcode' => $barcode, 'status' => 'Failed', 'reason' => $reason];
+                $history[] = [
+                    'barcode' => $barcode,
+                    'status'  => 'Failed',
+                    'reason'  => $reason,
+                    'details' => 'No images could be saved from the folder.'
+                ];
+            } else {
+                $details = [];
+                if ($result['primary_added'] > 0) {
+                    $details[] = $result['primary_added'] . ' primary';
+                }
+                if ($result['additional_added'] > 0) {
+                    $details[] = $result['additional_added'] . ' additional';
+                }
+                if ($result['failed_images'] > 0) {
+                    $details[] = $result['failed_images'] . ' failed';
+                }
+                $details_str = implode(', ', $details) . ' image(s) processed.';
+
+                $status = 'Success';
+                $reason = 'Processed';
+                if ($result['failed_images'] > 0) {
+                    $status = 'Warning';
+                    $reason = 'Partial success';
+                }
+
+                $history[] = [
+                    'barcode' => $barcode,
+                    'status'  => $status,
+                    'reason'  => $reason,
+                    'details' => $details_str
+                ];
             }
         }
 
@@ -107,6 +158,7 @@ class ProductBulkImageUploadService
         return [
             'summary'  => $summary,
             'failures' => $failures,
+            'history'  => $history,
         ];
     }
 

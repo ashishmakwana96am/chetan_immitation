@@ -37,6 +37,9 @@
             align-items: center;
             margin-top: 2px;
         }
+        @media (max-width: 991.98px) {
+            #purchaseImportHistoryOffcanvas { width: 100vw !important; }
+        }
     </style>
 @endsection
 
@@ -125,13 +128,47 @@
     </div>
 
     @can('import purchases')
-        <div class="offcanvas offcanvas-end" id="purchaseImportOffcanvas" aria-hidden="true" data-bs-backdrop="static" tabindex="-1" style="width: 600px; max-width: 100vw;">
+        <div class="offcanvas offcanvas-end" id="purchaseImportOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 600px; max-width: 100vw;">
             <div class="offcanvas-header border-bottom">
                 <h5 class="offcanvas-title">Import Purchases</h5>
                 <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;" id="purchaseImportOffcanvasBody">
                 @include('purchases.purchase_import')
+            </div>
+        </div>
+
+        <div class="offcanvas offcanvas-end" id="purchaseImportHistoryOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 50vw; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Purchase Import Details & History</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-4" style="overflow-y: auto;">
+                <h6 class="fw-semibold mb-3">Import Summary</h6>
+                <div class="row g-3 mb-4" id="purchaseImportHistorySummaryCards"></div>
+
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <h6 class="mb-0 fw-semibold">Barcode-wise Report</h6>
+                    <div style="width: 250px; max-width: 100%;">
+                        <input type="text" id="purchaseImportHistorySearchInput" class="form-control" placeholder="Search Barcode or Product..." />
+                    </div>
+                </div>
+
+                <div class="table-responsive border rounded-3" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light position-sticky top-0" style="z-index: 1;">
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Product</th>
+                                <th>Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchaseImportHistoryTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     @endcan

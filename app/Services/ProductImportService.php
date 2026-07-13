@@ -49,8 +49,9 @@ class ProductImportService
         $barcodes = array_values(array_unique(array_filter(array_map(fn ($g) => $g['barcode'], $groups))));
         $productsByBarcode = $this->productCreation->lookupProducts($barcodes);
 
+        $history = [];
         foreach ($groups as $group) {
-            $this->processGroup($group, $productsByBarcode, $summary, $failures, $userId);
+            $this->processGroup($group, $productsByBarcode, $summary, $failures, $userId, $history);
         }
 
         ActivityLogger::log(
@@ -62,7 +63,7 @@ class ProductImportService
             "Product import: {$summary['products_created']} created, {$summary['existing_products_used']} reused, {$summary['failed_rows']} failed"
         );
 
-        return ['summary' => $summary, 'failures' => $failures];
+        return ['summary' => $summary, 'failures' => $failures, 'history' => $history];
     }
 
     private function parseWorkbook(UploadedFile $file): array
@@ -209,13 +210,20 @@ class ProductImportService
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes'], true);
     }
 
-    private function processGroup(array $group, array &$productsByBarcode, array &$summary, array &$failures, ?int $userId): void
+    private function processGroup(array $group, array &$productsByBarcode, array &$summary, array &$failures, ?int $userId, array &$history): void
     {
         $barcode = $group['barcode'];
 
         if ($barcode === '') {
             $summary['failed_rows']++;
             $failures[] = $this->failureRow($group['first_row_num'], $group['product_name'], $barcode, 'Missing Barcode');
+            $history[] = [
+                'barcode' => 'N/A',
+                'product' => $group['product_name'],
+                'status'  => 'Failed',
+                'reason'  => 'Missing Barcode',
+                'details' => "Row {$group['first_row_num']}: Missing barcode value."
+            ];
 
             return;
         }
@@ -223,8 +231,31 @@ class ProductImportService
         if (isset($productsByBarcode[$barcode])) {
             // Product already exists — reuse it, never create a duplicate.
             $summary['existing_products_used']++;
+            $history[] = [
+                'barcode' => $barcode,
+                'product' => $group['product_name'],
+                'status'  => 'Success',
+                'reason'  => 'Reused',
+                'details' => "Product with barcode {$barcode} already exists. Reused existing."
+            ];
 
             return;
+        }
+
+        $skippedDimensions = [];
+        $firstDimensionName = '';
+        if (count($group['dimensions']) > 1) {
+            $dimensionKeys = array_keys($group['dimensions']);
+            $firstKey = $dimensionKeys[0];
+            $firstDimensionName = $group['dimensions'][$firstKey]['name'];
+
+            for ($i = 1; $i < count($dimensionKeys); $i++) {
+                $skippedDimensions[] = $group['dimensions'][$dimensionKeys[$i]]['name'];
+            }
+
+            $group['dimensions'] = [
+                $firstKey => $group['dimensions'][$firstKey]
+            ];
         }
 
         try {
@@ -233,10 +264,34 @@ class ProductImportService
                 $productsByBarcode[$barcode] = $product;
             });
             $summary['products_created']++;
+
+            $details = "Successfully created new product.";
+            $status = 'Success';
+            $reason = 'Created';
+            if (!empty($skippedDimensions)) {
+                $status = 'Warning';
+                $reason = 'Created (Variant Skipped)';
+                $details .= " Skipped variant dimensions: " . implode(', ', $skippedDimensions) . " (only first dimension \"{$firstDimensionName}\" was added).";
+            }
+
+            $history[] = [
+                'barcode' => $barcode,
+                'product' => $group['product_name'],
+                'status'  => $status,
+                'reason'  => $reason,
+                'details' => $details
+            ];
         } catch (\Throwable $e) {
             Log::error('Product import: product creation failed for barcode ' . $barcode . ': ' . $e->getMessage());
             $summary['failed_rows']++;
             $failures[] = $this->failureRow($group['first_row_num'], $group['product_name'], $barcode, $e->getMessage());
+            $history[] = [
+                'barcode' => $barcode,
+                'product' => $group['product_name'],
+                'status'  => 'Failed',
+                'reason'  => 'Failed',
+                'details' => $e->getMessage()
+            ];
         }
     }
 

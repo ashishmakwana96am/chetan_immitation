@@ -46,10 +46,15 @@
         <div class="invalid-feedback" id="productImportFileErrorFeedback" style="display:none;">Please select a valid Excel file.</div>
 
         <div id="productImportProgressWrap" class="mt-3">
-            <div class="progress" style="height: 8px;">
+            <div class="progress mb-1" style="height: 8px;">
                 <div id="productImportProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
             </div>
-            <small class="text-muted" id="productImportProgressLabel">Uploading… 0%</small>
+            <div class="d-flex align-items-center justify-content-between">
+                <small class="text-muted" id="productImportProgressLabel">Uploading… 0%</small>
+                <a href="javascript:void(0);" id="productImportBtnCancel" class="text-danger fw-semibold d-inline-flex align-items-center" style="font-size: 0.75rem; text-decoration: none;">
+                    <i class="ti ti-x me-1" style="font-size: 0.85rem;"></i> Cancel
+                </a>
+            </div>
         </div>
     </div>
 
@@ -66,6 +71,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const fileInput = $('#product_excel_file');
     const dropzone = $('#productImportDropzone');
     const badge = $('#productImportSelectedFileBadge');
+    let currentProductImportRequest = null;
+
+    $(document).on('click', '#productImportBtnCancel', function () {
+        if (currentProductImportRequest) {
+            currentProductImportRequest.abort();
+            currentProductImportRequest = null;
+            toastr.warning('Import process cancelled.');
+        }
+        $('#productImportProgressWrap').hide();
+        $('#productImportProgressBar').css('width', '0%');
+        $('#productImportProgressLabel').text('Uploading… 0%');
+        $('#productImportBtnSubmit').prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
+    });
 
     function resetFileState() {
         badge.text('').addClass('d-none');
@@ -103,6 +121,14 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#productImportBtnSubmit').prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
     });
 
+    document.getElementById('productImportOffcanvas')?.addEventListener('hidden.bs.offcanvas', function () {
+        if (currentProductImportRequest) {
+            currentProductImportRequest.abort();
+            currentProductImportRequest = null;
+            toastr.warning('Import process cancelled.');
+        }
+    });
+
     dropzone.on('dragenter dragover', function (e) {
         e.preventDefault();
         dropzone.addClass('drag-over');
@@ -111,6 +137,13 @@ document.addEventListener('DOMContentLoaded', function () {
     dropzone.on('dragleave drop', function (e) {
         e.preventDefault();
         dropzone.removeClass('drag-over');
+        if (e.type === 'drop') {
+            const dt = e.originalEvent.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                fileInput[0].files = dt.files;
+                fileInput.trigger('change');
+            }
+        }
     });
 
     $('#productImportForm').off('submit').on('submit', function (e) {
@@ -138,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
         progressBar.css('width', '0%');
         progressLabel.text('Uploading… 0%');
 
-        $.ajax({
+        currentProductImportRequest = $.ajax({
             url: '{{ route('admin.products.import') }}',
             type: 'POST',
             data: formData,
@@ -163,6 +196,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return xhr;
             },
             success: function (res) {
+                currentProductImportRequest = null;
                 submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
                 progressWrap.hide();
 
@@ -170,15 +204,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     toastr.success(res.message || 'Product import completed successfully.');
                     fileInput.val('');
                     resetFileState();
-                    bootstrap.Offcanvas.getInstance(document.getElementById('productImportOffcanvas'))?.hide();
+                    bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('productImportOffcanvas')).hide();
                     if (typeof window.refreshTable === 'function') {
                         window.refreshTable();
                     }
+                    showProductImportHistoryOffcanvas(res);
                 }
             },
             error: function (xhr) {
+                currentProductImportRequest = null;
                 submitBtn.prop('disabled', false).html('<i class="ti ti-upload me-1"></i> Import');
                 progressWrap.hide();
+
+                if (xhr.statusText === 'abort') {
+                    return;
+                }
 
                 let message = 'Failed to process the Excel file.';
                 if (xhr.responseJSON) {
@@ -195,6 +235,83 @@ document.addEventListener('DOMContentLoaded', function () {
                 toastr.error(message, 'Import Failed', { timeOut: 12000, closeButton: true });
             }
         });
+    });
+
+    const importSummaryTiles = [
+        { key: 'total_groups', label: 'Total Rows/Groups', icon: 'ti-list-details', color: 'primary' },
+        { key: 'products_created', label: 'Products Created', icon: 'ti-square-plus', color: 'success' },
+        { key: 'existing_products_used', label: 'Existing Reused', icon: 'ti-refresh', color: 'info' },
+        { key: 'categories_created', label: 'Categories Created', icon: 'ti-category', color: 'warning' },
+        { key: 'sub_categories_created', label: 'Sub Categories Created', icon: 'ti-category-2', color: 'secondary' },
+        { key: 'failed_rows', label: 'Failed Rows', icon: 'ti-x', color: 'danger' },
+        { key: 'skipped_rows', label: 'Skipped Rows', icon: 'ti-file-off', color: 'secondary' },
+    ];
+
+    function showProductImportHistoryOffcanvas(res) {
+        const summaryCards = $('#productImportHistorySummaryCards').empty();
+        importSummaryTiles.forEach(function (tile) {
+            const value = res.summary[tile.key] ?? 0;
+            summaryCards.append(`
+                <div class="col-sm-6 col-md-4">
+                    <div class="card shadow-none border h-100">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-start justify-content-between">
+                                <div>
+                                    <span class="text-muted small">${tile.label}</span>
+                                    <h5 class="mb-0 mt-1">${value}</h5>
+                                </div>
+                                <span class="badge bg-label-${tile.color} rounded p-2"><i class="ti ${tile.icon} ti-sm"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+
+        window.productImportHistory = res.history || [];
+        $('#productImportHistorySearchInput').val('');
+        renderProductImportHistoryTable(window.productImportHistory);
+
+        const historyEl = document.getElementById('productImportHistoryOffcanvas');
+        bootstrap.Offcanvas.getOrCreateInstance(historyEl).show();
+    }
+
+    function renderProductImportHistoryTable(items) {
+        const tbody = $('#productImportHistoryTableBody').empty();
+        if (items.length === 0) {
+            tbody.append(`<tr><td colspan="4" class="text-center text-muted py-3">No history details available.</td></tr>`);
+            return;
+        }
+
+        items.forEach(function (item) {
+            let badgeColor = 'secondary';
+            if (item.status === 'Success') badgeColor = 'success';
+            else if (item.status === 'Warning') badgeColor = 'warning';
+            else if (item.status === 'Failed') badgeColor = 'danger';
+
+            tbody.append(`
+                <tr>
+                    <td class="fw-semibold">${item.barcode || 'N/A'}</td>
+                    <td>${item.product || 'N/A'}</td>
+                    <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
+                    <td>
+                        <span class="text-dark d-block fw-medium">${item.reason}</span>
+                        <small class="text-muted">${item.details}</small>
+                    </td>
+                </tr>
+            `);
+        });
+    }
+
+    $(document).on('input', '#productImportHistorySearchInput', function () {
+        const query = $(this).val().toLowerCase().trim();
+        if (!window.productImportHistory) return;
+        const filtered = window.productImportHistory.filter(function (item) {
+            const barcode = item.barcode ? String(item.barcode).toLowerCase() : '';
+            const product = item.product ? String(item.product).toLowerCase() : '';
+            return barcode.includes(query) || product.includes(query);
+        });
+        renderProductImportHistoryTable(filtered);
     });
 });
 </script>

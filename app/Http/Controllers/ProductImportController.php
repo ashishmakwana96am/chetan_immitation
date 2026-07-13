@@ -43,6 +43,7 @@ class ProductImportController extends Controller
             'message'  => 'Product Import Completed Successfully.',
             'summary'  => $result['summary'],
             'failures' => $result['failures'],
+            'history'  => $result['history'],
         ]);
     }
 
