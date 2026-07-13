@@ -85,8 +85,8 @@ class SettingController extends Controller
             'prefix_supplier_purchase' => ['nullable', 'string', 'max:10'],
             'prefix_supplier_purchase_gst' => ['nullable', 'string', 'max:10'],
             'prefix_stock_transfer'    => ['nullable', 'string', 'max:10'],
-            'purchase_gst_rate'        => ['required', 'numeric', 'min:0', 'max:100'],
-            'store_state'              => ['required', 'string', 'max:100'],
+            'purchase_gst_rate'        => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'store_state'              => ['nullable', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {

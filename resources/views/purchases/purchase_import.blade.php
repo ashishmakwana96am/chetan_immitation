@@ -23,7 +23,7 @@
     <div class="flex-grow-1 p-4" style="overflow-y: auto;">
         <div class="d-flex justify-content-end mb-4">
             <a href="{{ route('admin.purchases.import.sample') }}" class="btn btn-outline-secondary">
-                <i class="ti ti-file-download me-1"></i> Download Sample Excel
+                <i class="ti ti-file-download me-1"></i> Download Sample File
             </a>
         </div>
 

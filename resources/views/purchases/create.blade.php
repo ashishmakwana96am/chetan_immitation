@@ -289,10 +289,15 @@
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Supplier Payment Status</h5></div>
                     <div class="card-body">
-                        <select name="payment_status" class="form-select no-select2">
+                        <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
                             <option value="1" selected>Pending</option>
+                            <option value="3">Partially Paid</option>
                             <option value="2">Paid</option>
                         </select>
+                        <div class="mt-3 d-none" id="paidAmountWrapper">
+                            <label class="form-label">Amount Paid</label>
+                            <input type="number" name="paid_amount" id="paidAmountInput" class="form-control" min="0.01" step="0.01" placeholder="Enter amount paid" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -435,6 +440,15 @@ $(document).ready(function () {
     const allProducts = @json($mappedProducts);
     const locations = @json($locations->map(fn ($l) => ['id' => $l->id, 'name' => $l->name])->values());
     updateGrandTotal();
+
+    // Show/hide the "Amount Paid" input based on selected Payment Status
+    function togglePaidAmountInput() {
+        const isPartial = $('#paymentStatusSelect').val() === '3';
+        $('#paidAmountWrapper').toggleClass('d-none', !isPartial);
+        $('#paidAmountInput').prop('required', isPartial);
+    }
+    $(document).on('change', '#paymentStatusSelect', togglePaidAmountInput);
+    togglePaidAmountInput();
 
     // -------------------------------------------------------
     // Product Search and Selection

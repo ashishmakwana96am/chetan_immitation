@@ -8,6 +8,7 @@ use App\Models\ProductVariant;
 use App\Models\Purchase;
 use App\Models\PurchaseAllocation;
 use App\Models\PurchaseItem;
+use App\Models\PurchasePayment;
 use App\Models\Supplier;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -129,6 +130,7 @@ class PurchaseImportService
             'quantity'               => 'quantity',
             'purchasestatus'         => 'purchase_status',
             'paymentstatus'          => 'payment_status',
+            'paidamount'             => 'paid_amount',
             'barcode'                => 'barcode',
             'category'               => 'category',
         ];
@@ -230,6 +232,7 @@ class PurchaseImportService
                 'quantity'        => trim($row['quantity'] ?? ''),
                 'purchase_status' => trim($row['purchase_status'] ?? ''),
                 'payment_status'  => trim($row['payment_status'] ?? ''),
+                'paid_amount'     => trim($row['paid_amount'] ?? ''),
             ];
         }
 
@@ -461,13 +464,33 @@ class PurchaseImportService
         $status = $this->mapPurchaseStatus($row['purchase_status']);
         $paymentStatus = $this->mapPaymentStatus($row['payment_status']);
 
-        DB::transaction(function () use ($product, $productVariantId, $supplierName, $purchaseDate, $price, $quantity, $status, $paymentStatus, $userId, &$summary) {
+        $total = round($quantity * $price, 2);
+        $paidAmount = 0.0;
+
+        if ($paymentStatus === Purchase::PAYMENT_STATUS_PAID) {
+            $paidAmount = $total;
+        } elseif ($paymentStatus === Purchase::PAYMENT_STATUS_PARTIAL) {
+            $paidAmountInput = $row['paid_amount'];
+            if ($paidAmountInput === '' || !is_numeric($paidAmountInput) || (float) $paidAmountInput <= 0) {
+                throw new RowFailureException('Invalid Paid Amount');
+            }
+
+            $paidAmount = round((float) $paidAmountInput, 2);
+            if ($paidAmount > $total) {
+                throw new RowFailureException('Paid Amount cannot be greater than Total Amount');
+            }
+
+            if ($paidAmount >= $total) {
+                $paidAmount = $total;
+                $paymentStatus = Purchase::PAYMENT_STATUS_PAID;
+            }
+        }
+
+        DB::transaction(function () use ($product, $productVariantId, $supplierName, $purchaseDate, $price, $quantity, $status, $paymentStatus, $total, $paidAmount, $userId, &$summary) {
             $supplier = Supplier::firstOrCreate(
                 ['name' => $supplierName],
                 ['status' => Supplier::STATUS_ACTIVE, 'created_by' => $userId]
             );
-
-            $total = $quantity * $price;
 
             $purchase = Purchase::create([
                 'supplier_id'    => $supplier->id,
@@ -477,11 +500,20 @@ class PurchaseImportService
                 'total_amount'   => $total,
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
+                'paid_amount'    => $paidAmount,
                 'created_by'     => $userId,
             ]);
             $purchase->created_at = $purchaseDate;
             $purchase->updated_at = $purchaseDate;
             $purchase->save();
+
+            if ($paidAmount > 0) {
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount'      => $paidAmount,
+                    'created_by'  => $userId,
+                ]);
+            }
 
             $item = PurchaseItem::create([
                 'purchase_id'        => $purchase->id,
@@ -541,8 +573,9 @@ class PurchaseImportService
 
     private function mapPaymentStatus(string $value): int
     {
-        return match (strtolower($value)) {
-            'paid'  => Purchase::PAYMENT_STATUS_PAID,
+        return match (strtolower(trim($value))) {
+            'paid' => Purchase::PAYMENT_STATUS_PAID,
+            'partial', 'partially paid' => Purchase::PAYMENT_STATUS_PARTIAL,
             default => Purchase::PAYMENT_STATUS_PENDING,
         };
     }

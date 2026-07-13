@@ -83,6 +83,7 @@
                         <select id="filter-payment-status" class="form-select">
                             <option value="">All Payments</option>
                             <option value="1">Pending</option>
+                            <option value="3">Partially Paid</option>
                             <option value="2">Paid</option>
                         </select>
                     </div>
@@ -382,20 +383,64 @@
                 });
             });
 
+            function buildPaymentHistoryHtml(historyData) {
+                if (!historyData || !historyData.payments || historyData.payments.length === 0) {
+                    return '';
+                }
+
+                let rows = historyData.payments.map(function (p) {
+                    return `<tr><td class="text-nowrap">${p.date}</td><td class="text-end">${p.amount}</td></tr>`;
+                }).join('');
+
+                return `
+                    <div class="mb-3 text-start" style="font-size: 0.8rem;">
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span>Total: <strong>${historyData.total_amount}</strong></span>
+                            <span>Paid: <strong class="text-success">${historyData.paid_amount}</strong></span>
+                            <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
+                        </div>
+                        <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
+                        <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
+                            <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                                <thead class="table-light"><tr><th>Date</th><th class="text-end">Amount</th></tr></thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
             $(document).on('click', '.change-purchase-payment-status-btn', function (e) {
                 e.preventDefault();
                 const url = $(this).data('url');
+                const historyUrl = $(this).data('history-url');
                 const currentPaymentStatus = $(this).data('current');
 
+                $.get(historyUrl)
+                    .done(function (res) {
+                        openPaymentStatusModal(url, currentPaymentStatus, res.data);
+                    })
+                    .fail(function () {
+                        openPaymentStatusModal(url, currentPaymentStatus, null);
+                    });
+            });
+
+            function openPaymentStatusModal(url, currentPaymentStatus, historyData) {
                 Swal.fire({
                     title: 'Update Payment Status',
                     html: `
+                        ${buildPaymentHistoryHtml(historyData)}
                         <div class="mb-3 text-start">
                             <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
                             <select id="swal-payment-status" class="form-select form-select-lg">
-                                <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
+                                <option value="1" ${currentPaymentStatus == 1 ? 'selected' : 'disabled'}>Pending</option>
+                                <option value="3" ${currentPaymentStatus == 3 ? 'selected' : ''}>Partially Paid</option>
                                 <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
                             </select>
+                        </div>
+                        <div class="mb-3 text-start d-none" id="swal-amount-wrapper">
+                            <label for="swal-payment-amount" class="form-label fw-semibold mb-2">Amount Paid Now</label>
+                            <input type="number" id="swal-payment-amount" class="form-control form-control-lg" min="0.01" step="0.01" placeholder="Enter amount paid" />
                         </div>
                     `,
                     showCancelButton: true,
@@ -406,8 +451,23 @@
                         cancelButton: 'btn btn-label-secondary'
                     },
                     buttonsStyling: false,
+                    didOpen: () => {
+                        const statusSelect = document.getElementById('swal-payment-status');
+                        const amountWrapper = document.getElementById('swal-amount-wrapper');
+                        const toggleAmount = () => {
+                            amountWrapper.classList.toggle('d-none', statusSelect.value !== '3');
+                        };
+                        toggleAmount();
+                        statusSelect.addEventListener('change', toggleAmount);
+                    },
                     preConfirm: () => {
-                        return document.getElementById('swal-payment-status').value;
+                        const status = document.getElementById('swal-payment-status').value;
+                        const amount = document.getElementById('swal-payment-amount').value;
+                        if (status === '3' && (!amount || parseFloat(amount) <= 0)) {
+                            Swal.showValidationMessage('Please enter a valid amount paid.');
+                            return false;
+                        }
+                        return { status, amount };
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
@@ -417,7 +477,8 @@
                             type: 'PATCH',
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
-                                payment_status: result.value
+                                payment_status: result.value.status,
+                                amount: result.value.amount
                             },
                             success: function (res) {
                                 window.hideAjaxLoader();
@@ -436,7 +497,7 @@
                         });
                     }
                 });
-            });
+            }
 
 
 

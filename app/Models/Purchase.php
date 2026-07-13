@@ -25,6 +25,8 @@ class Purchase extends Model
 
     const PAYMENT_STATUS_PAID = 2;
 
+    const PAYMENT_STATUS_PARTIAL = 3;
+
     protected $fillable = [
         'supplier_id',
         'invoice_no',
@@ -36,6 +38,7 @@ class Purchase extends Model
         'tax_amount',
         'status',
         'payment_status',
+        'paid_amount',
         'created_by',
     ];
 
@@ -47,6 +50,7 @@ class Purchase extends Model
             'discount_amount' => 'decimal:2',
             'is_gst' => 'boolean',
             'tax_amount' => 'decimal:2',
+            'paid_amount' => 'decimal:2',
         ];
     }
 
@@ -58,6 +62,16 @@ class Purchase extends Model
     public function items()
     {
         return $this->hasMany(PurchaseItem::class);
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(PurchasePayment::class)->latest();
+    }
+
+    public function getBalanceDueAttribute()
+    {
+        return max(0, $this->total_amount - $this->paid_amount);
     }
 
     public function createdBy()

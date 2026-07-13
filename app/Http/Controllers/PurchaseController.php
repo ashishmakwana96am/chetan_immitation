@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\PurchaseAllocation;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\PurchasePayment;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
@@ -78,10 +79,12 @@ class PurchaseController extends Controller
             $paymentColors = [
                 1 => 'bg-label-warning',
                 2 => 'bg-label-info',
+                3 => 'bg-label-primary',
             ];
             $paymentLabels = [
                 1 => 'Pending',
                 2 => 'Paid',
+                3 => 'Partially Paid',
             ];
             $paymentStatusBadge = '<span class="badge ' . ($paymentColors[$invoice->payment_status] ?? 'bg-label-secondary') . '">' . ($paymentLabels[$invoice->payment_status] ?? 'Pending') . '</span>';
 
@@ -98,8 +101,8 @@ class PurchaseController extends Controller
             if ($canEditPurchasesStatus && $invoice->status == 1) {
                 $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditPurchasesPaymentStatus && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status == 1))) {
-                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+            if ($canEditPurchasesPaymentStatus && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status != 2))) {
+                $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-history-url="' . route('admin.purchases.payment-history', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             if ($canDelete) {
                 $actions .= '<div class="dropdown-divider"></div>';
@@ -143,7 +146,7 @@ class PurchaseController extends Controller
             }
         }
 
-        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location']);
+        $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'items.allocations.location', 'payments.createdBy']);
         return view('purchases.show', compact('purchase', 'locationId', 'isRestricted'));
     }
 
@@ -173,7 +176,8 @@ class PurchaseController extends Controller
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
-            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'paid_amount'            => ['nullable', 'numeric', 'min:0.01', 'required_if:payment_status,3'],
         ]);
 
         if ($validator->fails()) {
@@ -189,7 +193,8 @@ class PurchaseController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request, $defaultLocation) {
+        try {
+            DB::transaction(function () use ($request, $defaultLocation) {
             $itemsTotal = 0.0;
             $itemsData = [];
 
@@ -257,6 +262,12 @@ class PurchaseController extends Controller
 
             $grandTotal = $finalAmount + $taxAmount;
 
+            [$paymentStatus, $paidAmount] = $this->resolvePaymentStatus(
+                (int) ($request->payment_status ?? Purchase::PAYMENT_STATUS_PENDING),
+                $grandTotal,
+                (float) ($request->paid_amount ?? 0)
+            );
+
             $invoice = Purchase::create([
                 'supplier_id'     => $request->supplier_id,
                 'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
@@ -267,9 +278,18 @@ class PurchaseController extends Controller
                 'discount_value'  => $orderDiscVal,
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $request->status ?? 2,
-                'payment_status'  => $request->payment_status ?? 1,
+                'payment_status'  => $paymentStatus,
+                'paid_amount'     => $paidAmount,
                 'created_by'      => auth()->id(),
             ]);
+
+            if ($paidAmount > 0) {
+                PurchasePayment::create([
+                    'purchase_id' => $invoice->id,
+                    'amount'      => $paidAmount,
+                    'created_by'  => auth()->id(),
+                ]);
+            }
 
             foreach ($itemsData as $item) {
                 $createdItem = PurchaseItem::create([
@@ -294,7 +314,10 @@ class PurchaseController extends Controller
             if ($invoice->status == 2) {
                 $this->approveInvoice($invoice);
             }
-        });
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'status'  => 'success',
@@ -351,7 +374,8 @@ class PurchaseController extends Controller
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
-            'payment_status'         => ['nullable', 'integer', 'in:1,2'],
+            'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'paid_amount'            => ['nullable', 'numeric', 'min:0', 'required_if:payment_status,3'],
         ]);
 
         if ($validator->fails()) {
@@ -367,7 +391,8 @@ class PurchaseController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
 
-        DB::transaction(function () use ($request, $purchase, $defaultLocation) {
+        try {
+            DB::transaction(function () use ($request, $purchase, $defaultLocation) {
             $itemsTotal = 0.0;
             $itemsData = [];
 
@@ -437,10 +462,18 @@ class PurchaseController extends Controller
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;
+            $oldPaidAmount = (float) $purchase->paid_amount;
 
             if ($oldStatus == Purchase::STATUS_APPROVE) {
                 $this->reverseInvoiceStock($purchase);
             }
+
+            [$paymentStatus, $paidAmount] = $this->resolvePaymentStatus(
+                (int) ($request->payment_status ?? Purchase::PAYMENT_STATUS_PENDING),
+                $grandTotal,
+                (float) ($request->paid_amount ?? $oldPaidAmount),
+                $oldPaidAmount
+            );
 
             $updateData = [
                 'supplier_id'     => $request->supplier_id,
@@ -451,7 +484,8 @@ class PurchaseController extends Controller
                 'discount_value'  => $orderDiscVal,
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $newStatus,
-                'payment_status'  => $request->payment_status ?? 1,
+                'payment_status'  => $paymentStatus,
+                'paid_amount'     => $paidAmount,
             ];
 
             if ($purchase->is_gst !== $isGst) {
@@ -459,6 +493,15 @@ class PurchaseController extends Controller
             }
 
             $purchase->update($updateData);
+
+            $paidAmountDelta = round($paidAmount - $oldPaidAmount, 2);
+            if (abs($paidAmountDelta) >= 0.01) {
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount'      => $paidAmountDelta,
+                    'created_by'  => auth()->id(),
+                ]);
+            }
 
             $purchase->items()->delete();
 
@@ -485,7 +528,10 @@ class PurchaseController extends Controller
             if ($newStatus == Purchase::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
             }
-        });
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
             'status'  => 'success',
@@ -598,6 +644,30 @@ class PurchaseController extends Controller
         \App\Services\PurchaseStockService::reverse($purchase);
     }
 
+    /**
+     * @return array{0: int, 1: float} [payment_status, paid_amount]
+     */
+    private function resolvePaymentStatus(int $requestedStatus, float $total, float $paidAmountInput, float $fallbackPaidAmount = 0.0): array
+    {
+        if ($requestedStatus === Purchase::PAYMENT_STATUS_PAID) {
+            return [Purchase::PAYMENT_STATUS_PAID, round($total, 2)];
+        }
+
+        if ($requestedStatus === Purchase::PAYMENT_STATUS_PARTIAL) {
+            if (round($paidAmountInput, 2) > round($total, 2)) {
+                throw new \RuntimeException('Paid amount cannot be greater than the total purchase amount.');
+            }
+
+            if (round($paidAmountInput, 2) >= round($total, 2)) {
+                return [Purchase::PAYMENT_STATUS_PAID, round($total, 2)];
+            }
+
+            return [Purchase::PAYMENT_STATUS_PARTIAL, round($paidAmountInput, 2)];
+        }
+
+        return [Purchase::PAYMENT_STATUS_PENDING, round($fallbackPaidAmount, 2)];
+    }
+
     private function defaultPurchaseLocation(): Location
     {
         $location = Location::where('is_default', true)->first() ?? Location::first();
@@ -609,12 +679,35 @@ class PurchaseController extends Controller
         return $location;
     }
 
+    public function paymentHistory(Purchase $purchase)
+    {
+        $this->authorize('view purchases');
+
+        $payments = $purchase->payments()->with('createdBy')->get()->map(function ($payment) {
+            return [
+                'amount' => format_price($payment->amount),
+                'date'   => $payment->created_at->format('d M Y, h:i A'),
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'total_amount' => format_price($purchase->total_amount),
+                'paid_amount'  => format_price($purchase->paid_amount),
+                'balance_due'  => format_price($purchase->balance_due),
+                'payments'     => $payments,
+            ],
+        ]);
+    }
+
     public function updatePaymentStatus(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases payment status');
 
         $validator = Validator::make($request->all(), [
-            'payment_status' => ['required', 'in:1,2'],
+            'payment_status' => ['required', 'in:1,2,3'],
+            'amount'         => ['nullable', 'numeric', 'min:0.01', 'required_if:payment_status,3'],
         ]);
 
         if ($validator->fails()) {
@@ -624,9 +717,69 @@ class PurchaseController extends Controller
             ], 422);
         }
 
-        $purchase->update([
-            'payment_status' => $request->payment_status,
-        ]);
+        $newStatus = (int) $request->payment_status;
+        $balanceDue = round($purchase->total_amount - $purchase->paid_amount, 2);
+
+        $statusRank = [
+            Purchase::PAYMENT_STATUS_PENDING => 0,
+            Purchase::PAYMENT_STATUS_PARTIAL => 1,
+            Purchase::PAYMENT_STATUS_PAID    => 2,
+        ];
+        $currentRank = $statusRank[$purchase->payment_status ?? Purchase::PAYMENT_STATUS_PENDING] ?? 0;
+        $newRank = $statusRank[$newStatus] ?? 0;
+
+        if ($newRank < $currentRank) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Payment status cannot be moved back to a previous stage.',
+            ], 422);
+        }
+
+        if ($balanceDue <= 0 && $newStatus !== Purchase::PAYMENT_STATUS_PENDING) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'This purchase is already fully paid.',
+            ], 422);
+        }
+
+        if ($newStatus === Purchase::PAYMENT_STATUS_PARTIAL && round((float) $request->amount, 2) > $balanceDue) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($purchase, $newStatus, $request, $balanceDue) {
+            if ($newStatus === Purchase::PAYMENT_STATUS_PAID) {
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount'      => $balanceDue,
+                    'created_by'  => auth()->id(),
+                ]);
+
+                $purchase->update([
+                    'payment_status' => Purchase::PAYMENT_STATUS_PAID,
+                    'paid_amount'    => $purchase->total_amount,
+                ]);
+            } elseif ($newStatus === Purchase::PAYMENT_STATUS_PARTIAL) {
+                $amount = (float) $request->amount;
+                $newPaidAmount = round($purchase->paid_amount + $amount, 2);
+                $finalStatus = $newPaidAmount >= $purchase->total_amount ? Purchase::PAYMENT_STATUS_PAID : Purchase::PAYMENT_STATUS_PARTIAL;
+
+                PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount'      => $amount,
+                    'created_by'  => auth()->id(),
+                ]);
+
+                $purchase->update([
+                    'payment_status' => $finalStatus,
+                    'paid_amount'    => min($newPaidAmount, $purchase->total_amount),
+                ]);
+            } else {
+                $purchase->update(['payment_status' => Purchase::PAYMENT_STATUS_PENDING]);
+            }
+        });
 
         return response()->json([
             'status'  => 'success',

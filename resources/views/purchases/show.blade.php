@@ -84,18 +84,16 @@
                         <i class="ti ti-x me-1"></i> Decline
                     </button>
                 @endif
-                @if(($purchase->payment_status ?? 1) == 1 && $purchase->status == 2)
-                    <button class="btn btn-success"
-                        data-common-confirm="{{ route('admin.purchases.update-payment-status', $purchase) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Mark as Paid"
-                        data-confirm-text="Are you sure you want to mark this purchase as paid?"
-                        data-confirm-btn="Yes, Mark as Paid"
-                        data-confirm-btn-class="btn-success"
-                        data-confirm-data='{"payment_status":2}'>
-                        <i class="ti ti-currency-rupee me-1"></i> Mark as Paid
-                    </button>
-                @endif
+                @can('edit purchases payment status')
+                    @if(($purchase->payment_status ?? 1) != 2 && $purchase->status == 2)
+                        <button class="btn btn-success change-purchase-payment-status-btn"
+                            data-url="{{ route('admin.purchases.update-payment-status', $purchase) }}"
+                            data-history-url="{{ route('admin.purchases.payment-history', $purchase) }}"
+                            data-current="{{ $purchase->payment_status ?? 1 }}">
+                            <i class="ti ti-currency-rupee me-1"></i> Update Payment Status
+                        </button>
+                    @endif
+                @endcan
             @endcan
             <a href="{{ route('admin.purchases.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
@@ -131,8 +129,8 @@
                     <div class="sale-info-row">
                         <span class="sale-info-label">Payment Status</span>
                         @php
-                            $payColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
-                            $payLabels = [1 => 'Pending', 2 => 'Paid'];
+                            $payColors = [1 => 'bg-label-warning', 2 => 'bg-label-info', 3 => 'bg-label-primary'];
+                            $payLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
                         @endphp
                         <span class="badge {{ $payColors[$purchase->payment_status ?? 1] ?? 'bg-label-secondary' }}">
                             {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}
@@ -144,6 +142,17 @@
                         <span class="sale-info-value fw-bold text-primary">{{ format_price($purchase->total_amount) }}</span>
                     </div>
 
+                    @if(($purchase->payment_status ?? 1) != 1)
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Paid Amount</span>
+                            <span class="sale-info-value fw-semibold text-success">{{ format_price($purchase->paid_amount) }}</span>
+                        </div>
+                        <div class="sale-info-row">
+                            <span class="sale-info-label">Balance Due</span>
+                            <span class="sale-info-value fw-semibold text-danger">{{ format_price($purchase->balance_due) }}</span>
+                        </div>
+                    @endif
+
                     <div class="sale-info-row">
                         <span class="sale-info-label">Date</span>
                         <span class="sale-info-value">{{ format_date($purchase->created_at) }}</span>
@@ -151,6 +160,34 @@
 
                 </div>
             </div>
+
+            @if($purchase->payments->isNotEmpty())
+            {{-- Payment History --}}
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-history"></i></span>
+                    <h6 class="mb-0 fw-semibold">Payment History</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($purchase->payments as $payment)
+                                <tr>
+                                    <td class="small text-nowrap">{{ format_date($payment->created_at) }}</td>
+                                    <td class="text-end small fw-semibold {{ $payment->amount < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($payment->amount) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
 
             {{-- Supplier --}}
             <div class="card">
@@ -370,4 +407,124 @@
         </div>
 
     </div>
+@endsection
+
+@section('page-js')
+    <script>
+        function buildPaymentHistoryHtml(historyData) {
+            if (!historyData || !historyData.payments || historyData.payments.length === 0) {
+                return '';
+            }
+
+            let rows = historyData.payments.map(function (p) {
+                return `<tr><td class="text-nowrap">${p.date}</td><td class="text-end">${p.amount}</td></tr>`;
+            }).join('');
+
+            return `
+                <div class="mb-3 text-start" style="font-size: 0.8rem;">
+                    <div class="d-flex justify-content-between text-muted mb-2">
+                        <span>Total: <strong>${historyData.total_amount}</strong></span>
+                        <span>Paid: <strong class="text-success">${historyData.paid_amount}</strong></span>
+                        <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
+                    </div>
+                    <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
+                    <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
+                        <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                            <thead class="table-light"><tr><th>Date</th><th class="text-end">Amount</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        $(document).on('click', '.change-purchase-payment-status-btn', function (e) {
+            e.preventDefault();
+            const url = $(this).data('url');
+            const historyUrl = $(this).data('history-url');
+            const currentPaymentStatus = $(this).data('current');
+
+            $.get(historyUrl)
+                .done(function (res) {
+                    openPaymentStatusModal(url, currentPaymentStatus, res.data);
+                })
+                .fail(function () {
+                    openPaymentStatusModal(url, currentPaymentStatus, null);
+                });
+        });
+
+        function openPaymentStatusModal(url, currentPaymentStatus, historyData) {
+            Swal.fire({
+                title: 'Update Payment Status',
+                html: `
+                    ${buildPaymentHistoryHtml(historyData)}
+                    <div class="mb-3 text-start">
+                        <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
+                        <select id="swal-payment-status" class="form-select form-select-lg">
+                            <option value="1" ${currentPaymentStatus == 1 ? 'selected' : 'disabled'}>Pending</option>
+                            <option value="3" ${currentPaymentStatus == 3 ? 'selected' : ''}>Partially Paid</option>
+                            <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 text-start d-none" id="swal-amount-wrapper">
+                        <label for="swal-payment-amount" class="form-label fw-semibold mb-2">Amount Paid Now</label>
+                        <input type="number" id="swal-payment-amount" class="form-control form-control-lg" min="0.01" step="0.01" placeholder="Enter amount paid" />
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Update',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    confirmButton: 'btn btn-primary me-3',
+                    cancelButton: 'btn btn-label-secondary'
+                },
+                buttonsStyling: false,
+                didOpen: () => {
+                    const statusSelect = document.getElementById('swal-payment-status');
+                    const amountWrapper = document.getElementById('swal-amount-wrapper');
+                    const toggleAmount = () => {
+                        amountWrapper.classList.toggle('d-none', statusSelect.value !== '3');
+                    };
+                    toggleAmount();
+                    statusSelect.addEventListener('change', toggleAmount);
+                },
+                preConfirm: () => {
+                    const status = document.getElementById('swal-payment-status').value;
+                    const amount = document.getElementById('swal-payment-amount').value;
+                    if (status === '3' && (!amount || parseFloat(amount) <= 0)) {
+                        Swal.showValidationMessage('Please enter a valid amount paid.');
+                        return false;
+                    }
+                    return { status, amount };
+                }
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    window.showAjaxLoader();
+                    $.ajax({
+                        url: url,
+                        type: 'PATCH',
+                        data: {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            payment_status: result.value.status,
+                            amount: result.value.amount
+                        },
+                        success: function (res) {
+                            window.hideAjaxLoader();
+                            if (res.status === 'success') {
+                                toastr.success(res.message);
+                                setTimeout(() => location.reload(), 800);
+                            } else {
+                                toastr.error(res.message || 'Something went wrong.');
+                            }
+                        },
+                        error: function (xhr) {
+                            window.hideAjaxLoader();
+                            const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                            toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                        }
+                    });
+                }
+            });
+        }
+    </script>
 @endsection

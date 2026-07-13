@@ -176,6 +176,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchases/{purchase}/pdf', [PurchaseController::class, 'pdf'])->name('purchases.pdf');
         Route::patch('purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->name('purchases.status');
         Route::patch('purchases/{purchase}/payment-status', [PurchaseController::class, 'updatePaymentStatus'])->name('purchases.update-payment-status');
+        Route::get('purchases/{purchase}/payment-history', [PurchaseController::class, 'paymentHistory'])->name('purchases.payment-history');
 
         // Purchase Bills
         Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
