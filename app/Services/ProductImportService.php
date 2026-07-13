@@ -230,12 +230,7 @@ class ProductImportService
 
         if (isset($productsByBarcode[$barcode])) {
             $product = $productsByBarcode[$barcode];
-            if ($product->trashed()) {
-                $product->restore();
-                $product->variants()->onlyTrashed()->restore();
-                $product->images()->onlyTrashed()->restore();
-                $product->inventories()->onlyTrashed()->restore();
-            }
+            $this->productCreation->restoreTrashedProduct($product);
             // Product already exists — reuse it, never create a duplicate.
             $summary['existing_products_used']++;
             $history[] = [

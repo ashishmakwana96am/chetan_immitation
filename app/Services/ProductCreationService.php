@@ -20,6 +20,60 @@ class ProductCreationService
     private const CHUNK_SIZE = 500;
 
     /**
+     * Restores a soft-deleted product together with everything it depends on
+     * (Category, SubCategory, and — for variable products — each variant's
+     * AttributeValue/Attribute) so a re-imported product doesn't end up
+     * pointing at still-trashed relations.
+     */
+    public function restoreTrashedProduct(Product $product): void
+    {
+        if (!$product->trashed()) {
+            return;
+        }
+
+        $product->restore();
+        $product->variants()->onlyTrashed()->restore();
+        $product->images()->onlyTrashed()->restore();
+        $product->inventories()->onlyTrashed()->restore();
+
+        $category = Category::withTrashed()->find($product->category_id);
+        if ($category && $category->trashed()) {
+            $category->restore();
+        }
+
+        if ($product->sub_category_id) {
+            $subCategory = SubCategory::withTrashed()->find($product->sub_category_id);
+            if ($subCategory && $subCategory->trashed()) {
+                $subCategory->restore();
+            }
+        }
+
+        if ($product->type === 'variable') {
+            $attributeValueIds = ProductVariant::withTrashed()
+                ->where('product_id', $product->id)
+                ->pluck('attribute_value_id')
+                ->unique();
+
+            if ($attributeValueIds->isNotEmpty()) {
+                $attributeValues = AttributeValue::withTrashed()->whereIn('id', $attributeValueIds)->get();
+
+                foreach ($attributeValues as $attributeValue) {
+                    if ($attributeValue->trashed()) {
+                        $attributeValue->restore();
+                    }
+                }
+
+                $attributeIds = $attributeValues->pluck('attribute_id')->unique();
+                Attribute::withTrashed()->whereIn('id', $attributeIds)->get()->each(function (Attribute $attribute) {
+                    if ($attribute->trashed()) {
+                        $attribute->restore();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
      * @return array<string, Product> barcode => Product
      */
     public function lookupProducts(array $barcodes): array

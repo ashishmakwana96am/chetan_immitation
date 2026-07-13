@@ -284,12 +284,7 @@ class PurchaseImportService
         }
 
         if ($product) {
-            if ($product->trashed()) {
-                $product->restore();
-                $product->variants()->onlyTrashed()->restore();
-                $product->images()->onlyTrashed()->restore();
-                $product->inventories()->onlyTrashed()->restore();
-            }
+            $this->productCreation->restoreTrashedProduct($product);
             $summary['existing_products_used']++;
         } else {
             try {
