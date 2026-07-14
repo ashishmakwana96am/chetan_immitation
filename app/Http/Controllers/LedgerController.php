@@ -8,30 +8,54 @@ use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
+use App\Models\PurchasePayment;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 
 class LedgerController extends Controller
 {
     // -----------------------------------------------------------------
-    // Supplier Ledger (company-wide, super-admin only)
+    // Supplier Ledger (company-wide for super-admin, own location only
+    // for location-restricted users)
     // -----------------------------------------------------------------
 
     public function supplierLedger()
     {
-        $this->guardSuperAdmin('view supplier ledger');
+        $this->authorizeLedger('view supplier ledger');
 
-        return view('ledgers.supplier');
+        [, $isRestricted] = $this->resolveLocations();
+        $locationId = auth()->user()->location_id;
+
+        $suppliers = Supplier::where('status', Supplier::STATUS_ACTIVE)
+            ->when($isRestricted, function ($q) use ($locationId) {
+                $supplierIds = Purchase::whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                })->pluck('supplier_id')->unique();
+
+                $q->whereIn('id', $supplierIds);
+            })
+            ->orderBy('name')
+            ->get();
+
+        return view('ledgers.supplier', compact('suppliers'));
     }
 
     public function supplierLedgerData(Request $request)
     {
-        $this->guardSuperAdmin('view supplier ledger');
+        $this->authorizeLedger('view supplier ledger');
 
         [$startDate, $endDate] = $this->resolveDateRange($request);
+        [, $isRestricted] = $this->resolveLocations();
+        $locationId = auth()->user()->location_id;
 
         $purchases = Purchase::with('supplier')
             ->whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate)
+            ->when($isRestricted, function ($q) use ($locationId) {
+                $q->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            })
             ->get();
 
         // Group by Date portion and Supplier ID
@@ -47,30 +71,20 @@ class LedgerController extends Controller
             $paidAmount  = (float) $items->sum('paid_amount');
             $dueAmount   = max(0.0, $totalAmount - $paidAmount);
 
-            // Determine aggregate status
-            if ($dueAmount <= 0) {
-                $status = Purchase::PAYMENT_STATUS_PAID;
-            } elseif ($paidAmount <= 0) {
-                $status = Purchase::PAYMENT_STATUS_PENDING;
-            } else {
-                $status = Purchase::PAYMENT_STATUS_PARTIAL;
-            }
-
             $dateObj = $first->created_at ?? now();
 
             $rows->push([
                 'supplier_id'    => $first->supplier_id,
                 'supplier_name'  => $first->supplier->name ?? '-',
                 'date_raw'       => $dateObj->format('Y-m-d'),
+                'date_group'     => $dateObj->format('d M Y'),
                 'date_formatted' => format_date($dateObj),
                 'total_amount'   => $totalAmount,
                 'paid_amount'    => $paidAmount,
                 'due_amount'     => $dueAmount,
-                'payment_status' => $status,
             ]);
         }
 
-        // Sort by date desc, then supplier name asc
         $sortedRows = $rows->sort(function ($a, $b) {
             if ($a['date_raw'] !== $b['date_raw']) {
                 return strcmp($b['date_raw'], $a['date_raw']);
@@ -78,30 +92,24 @@ class LedgerController extends Controller
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
-        $statusLabels = [
-            Purchase::PAYMENT_STATUS_PENDING => '<span class="badge bg-label-danger">Pending</span>',
-            Purchase::PAYMENT_STATUS_PAID    => '<span class="badge bg-label-success">Paid</span>',
-            Purchase::PAYMENT_STATUS_PARTIAL => '<span class="badge bg-label-warning">Partially Paid</span>',
-        ];
-
         $totalPurchase = 0.0;
         $totalPayment  = 0.0;
         $totalOutstanding = 0.0;
 
-        $mappedRows = $sortedRows->map(function ($row, $index) use ($statusLabels, &$totalPurchase, &$totalPayment, &$totalOutstanding) {
+        $mappedRows = $sortedRows->map(function ($row, $index) use (&$totalPurchase, &$totalPayment, &$totalOutstanding) {
             $totalPurchase += $row['total_amount'];
             $totalPayment  += $row['paid_amount'];
             $totalOutstanding += $row['due_amount'];
 
             return [
-                'index'          => $index + 1,
-                'supplier'       => e($row['supplier_name']),
-                'date'           => $row['date_formatted'],
-                'date_raw'       => $row['date_raw'],
-                'total_amount'   => format_price($row['total_amount']),
-                'paid_amount'    => format_price($row['paid_amount']),
-                'due_amount'     => format_price($row['due_amount']),
-                'payment_status' => $statusLabels[$row['payment_status']] ?? '-',
+                'index'        => $index + 1,
+                'supplier'     => e($row['supplier_name']),
+                'date'         => $row['date_formatted'],
+                'date_raw'     => $row['date_raw'],
+                'date_group'   => $row['date_group'],
+                'total_amount' => format_price($row['total_amount']),
+                'paid_amount'  => format_price($row['paid_amount']),
+                'due_amount'   => format_price($row['due_amount']),
             ];
         });
 
@@ -114,6 +122,183 @@ class LedgerController extends Controller
                 'outstanding' => format_price($totalOutstanding),
             ],
         ]);
+    }
+
+    /**
+     * Full CA-standard transaction ledger for one supplier: Opening Balance
+     * (outstanding carried forward from before the start date) + every
+     * Purchase (Debit) / Purchase Payment (Credit) inside the date range,
+     * sorted chronologically with a running balance.
+     */
+    public function supplierLedgerDetail(Request $request)
+    {
+        $this->authorizeLedger('view supplier ledger');
+
+        $request->validate(['supplier_id' => ['required', 'integer', 'exists:suppliers,id']]);
+
+        $supplier = Supplier::findOrFail($request->supplier_id);
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        $ledger = $this->buildSupplierLedger($supplier, $startDate, $endDate);
+
+        $mappedRows = collect($ledger['rows'])->values()->map(function ($row, $index) {
+            return [
+                'index'      => $index + 1,
+                'date'       => format_date($row['date']),
+                'date_raw'   => $row['date']->format('Y-m-d'),
+                'voucher_no' => e($row['voucher_no']),
+                'particular' => e($row['particular']),
+                'debit'      => $row['debit'] > 0 ? format_price($row['debit']) : '-',
+                'credit'     => $row['credit'] > 0 ? format_price($row['credit']) : '-',
+                'balance'    => format_price(abs($row['balance'])) . ' ' . ($row['balance'] < 0 ? 'CR' : 'DR'),
+                'items'      => $row['type'] === 'purchase' ? $this->purchaseItemRows($row['purchase']) : [],
+            ];
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $mappedRows,
+            'summary' => [
+                'opening'     => format_price(abs($ledger['opening'])) . ' ' . ($ledger['opening'] < 0 ? 'CR' : 'DR'),
+                'purchase'    => format_price($ledger['total_purchase']),
+                'payment'     => format_price($ledger['total_payment']),
+                'closing'     => format_price(abs($ledger['closing'])) . ' ' . ($ledger['closing'] < 0 ? 'CR' : 'DR'),
+            ],
+        ]);
+    }
+
+    /**
+     * Builds the opening balance + chronological Debit/Credit transaction
+     * rows + running balance + totals for one supplier, reusing existing
+     * Purchase/PurchasePayment data only (no new tables).
+     *
+     * Accounting rule: Purchase = Debit, Purchase Payment = Credit,
+     * Opening Balance = Debit when positive (amount owed to supplier).
+     * A negative running/closing balance means an advance/credit position.
+     */
+    private function buildSupplierLedger(Supplier $supplier, string $startDate, string $endDate): array
+    {
+        [, $isRestricted] = $this->resolveLocations();
+        $locationId = auth()->user()->location_id;
+
+        $locationFilter = function ($q) use ($isRestricted, $locationId) {
+            if ($isRestricted) {
+                $q->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        };
+
+        // Opening Balance = outstanding carried forward from before the start date.
+        $openingPurchaseTotal = (float) Purchase::where('supplier_id', $supplier->id)
+            ->whereDate('created_at', '<', $startDate)
+            ->tap($locationFilter)
+            ->sum('total_amount');
+
+        $openingPaidTotal = (float) PurchasePayment::whereDate('created_at', '<', $startDate)
+            ->whereHas('purchase', function ($q) use ($supplier, $locationFilter) {
+                $q->where('supplier_id', $supplier->id);
+                $locationFilter($q);
+            })
+            ->sum('amount');
+
+        $opening = round($openingPurchaseTotal - $openingPaidTotal, 2);
+
+        // In-range transactions.
+        $purchasesInRange = Purchase::with(['items.product', 'items.variant.attributeValue'])
+            ->where('supplier_id', $supplier->id)
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->tap($locationFilter)
+            ->get();
+
+        $paymentsInRange = PurchasePayment::with('purchase')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->whereHas('purchase', function ($q) use ($supplier, $locationFilter) {
+                $q->where('supplier_id', $supplier->id);
+                $locationFilter($q);
+            })
+            ->get();
+
+        $rows = collect();
+
+        foreach ($purchasesInRange as $purchase) {
+            $rows->push([
+                'date'       => $purchase->created_at,
+                'voucher_no' => $purchase->invoice_no,
+                'particular' => 'Purchase',
+                'debit'      => (float) $purchase->total_amount,
+                'credit'     => 0.0,
+                'type'       => 'purchase',
+                'purchase'   => $purchase,
+            ]);
+        }
+
+        foreach ($paymentsInRange as $payment) {
+            $rows->push([
+                'date'       => $payment->created_at,
+                'voucher_no' => 'Payment against ' . ($payment->purchase->invoice_no ?? '-'),
+                'particular' => 'Purchase Payment',
+                'debit'      => 0.0,
+                'credit'     => (float) $payment->amount,
+                'type'       => 'payment',
+                'purchase'   => null,
+            ]);
+        }
+
+        // Sort by Date, then Voucher No — chronological order.
+        $sortedRows = $rows->sort(function ($a, $b) {
+            $dateCompare = $a['date']->timestamp <=> $b['date']->timestamp;
+            if ($dateCompare !== 0) {
+                return $dateCompare;
+            }
+            return strcmp($a['voucher_no'], $b['voucher_no']);
+        })->values();
+
+        $running = $opening;
+        $totalPurchase = 0.0;
+        $totalPayment = 0.0;
+
+        $finalRows = $sortedRows->map(function ($row) use (&$running, &$totalPurchase, &$totalPayment) {
+            $running += $row['debit'] - $row['credit'];
+            $totalPurchase += $row['debit'];
+            $totalPayment += $row['credit'];
+            $row['balance'] = round($running, 2);
+
+            return $row;
+        });
+
+        return [
+            'opening'        => $opening,
+            'rows'           => $finalRows,
+            'total_purchase' => round($totalPurchase, 2),
+            'total_payment'  => round($totalPayment, 2),
+            'closing'        => round($running, 2),
+        ];
+    }
+
+    /**
+     * Line-item detail for one Purchase (Products, Variants, Qty, Rate,
+     * GST, Amount) — used by the supplier ledger's expandable Purchase rows.
+     * Reuses the same item/variant/GST data already loaded for the purchase.
+     */
+    private function purchaseItemRows(Purchase $purchase): array
+    {
+        $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+
+        return $purchase->items->map(function ($item) use ($purchase, $gstRate) {
+            $gstAmount = $purchase->is_gst ? round(((float) $item->total) * $gstRate / 100, 2) : 0.0;
+
+            return [
+                'product' => $item->product->name ?? '-',
+                'variant' => $item->variant?->attributeValue?->value ?? '-',
+                'quantity' => (int) $item->quantity,
+                'rate'     => format_price($item->purchase_price),
+                'gst'      => $purchase->is_gst ? format_price($gstAmount) : '-',
+                'amount'   => format_price($item->total),
+            ];
+        })->values()->toArray();
     }
 
     // -----------------------------------------------------------------
@@ -372,12 +557,6 @@ class LedgerController extends Controller
     // -----------------------------------------------------------------
     // Shared helpers
     // -----------------------------------------------------------------
-
-    private function guardSuperAdmin(string $permission): void
-    {
-        abort_unless(auth()->user()->hasRole('super-admin'), 403);
-        $this->authorize($permission);
-    }
 
     private function authorizeLedger(string $permission): void
     {
