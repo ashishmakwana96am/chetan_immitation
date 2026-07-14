@@ -453,7 +453,11 @@ class SaleController extends Controller
 
             $finalAmount = $totalAmount - $orderDiscountAmount;
 
+            $source = $request->input('source', 'POS');
             $isGst = $request->boolean('is_gst');
+            if ($source === 'ONLINE') {
+                $isGst = false;
+            }
             $taxAmount = 0.0;
             $orderPrefix = 'SA';
 
@@ -477,7 +481,7 @@ class SaleController extends Controller
                 'is_gst'               => $isGst,
                 'tax_amount'           => $taxAmount,
                 'final_amount'         => $grandTotal,
-                'source'               => $request->input('source', 'POS'),
+                'source'               => $source,
                 'order_discount_type'  => $discType,
                 'order_discount_value' => $discVal,
                 'discount_type'        => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
@@ -892,7 +896,11 @@ class SaleController extends Controller
 
             $finalAmount = $totalAmount - $orderDiscountAmount;
 
+            $source = $request->input('source', $sale->source ?? 'POS');
             $isGst = $request->boolean('is_gst');
+            if ($source === 'ONLINE') {
+                $isGst = false;
+            }
             $taxAmount = 0.0;
             $orderPrefix = 'SA';
 
@@ -913,7 +921,7 @@ class SaleController extends Controller
                 'is_gst'               => $isGst,
                 'tax_amount'           => $taxAmount,
                 'final_amount'         => $grandTotal,
-                'source'               => $request->input('source', $sale->source ?? 'POS'),
+                'source'               => $source,
                 'order_discount_type'  => $discType,
                 'order_discount_value' => $discVal,
                 'coupon_id'            => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,

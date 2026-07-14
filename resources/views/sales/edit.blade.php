@@ -264,6 +264,7 @@
                     </div>
 
                     <!-- Tax Details -->
+                    @if(($order->source ?? 'POS') !== 'ONLINE')
                     <div class="col-12" id="taxColumn" style="display: none;">
                         <div class="card mb-4">
                             <div class="card-header"><h5 class="mb-0">Tax Details</h5></div>
@@ -275,6 +276,7 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     <!-- Bottom widgets: Summary -->
                     <div class="col-12" id="summaryColumn" style="display: none;">
@@ -948,7 +950,8 @@ $(document).ready(function () {
         const totalDiscount = discountSum + orderDiscountAmount;
 
         // GST Calculation
-        const isGst = $('#is_gst_switch').is(':checked');
+        const isOnlineOrder = @json(($order->source ?? 'POS') === 'ONLINE');
+        const isGst = !isOnlineOrder && $('#is_gst_switch').is(':checked');
         const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
         let taxAmount = 0;
 
@@ -985,7 +988,9 @@ $(document).ready(function () {
 
         if (count > 0) {
             $('#itemsTotal').closest('tr').show();
-            $('#taxColumn').show();
+            if (!isOnlineOrder) {
+                $('#taxColumn').show();
+            }
             $('#summaryColumn').show();
             $('#discountColumn').show();
             $('#noItemsMsg').addClass('d-none');

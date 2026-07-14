@@ -446,6 +446,7 @@ $(document).ready(function () {
         const isPartial = $('#paymentStatusSelect').val() === '3';
         $('#paidAmountWrapper').toggleClass('d-none', !isPartial);
         $('#paidAmountInput').prop('required', isPartial);
+        $('#paidAmountInput').prop('disabled', !isPartial);
     }
     $(document).on('change', '#paymentStatusSelect', togglePaidAmountInput);
     togglePaidAmountInput();
@@ -869,13 +870,6 @@ $(document).ready(function () {
                     breakdownText += `- ${locName}: ${lQty}\n`;
                     hasStock = true;
                 }
-                
-                stockDisplay
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
-                    .attr('title', titleText.trim())
-                    .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger');
             });
         } else {
             Object.keys(product.stock_by_location || {}).forEach(locId => {
@@ -979,23 +973,27 @@ $(document).ready(function () {
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Purchase');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
-                    $.each(errors, function (field, messages) {
-                        let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
-                        if (input.length > 0) {
-                            input.addClass('is-invalid');
-                            
-                            if (input.hasClass('select2-hidden-accessible')) {
-                                input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                    if (typeof errors === 'string') {
+                        toastr.error(errors);
+                    } else {
+                        $.each(errors, function (field, messages) {
+                            let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                            if (input.length > 0) {
+                                input.addClass('is-invalid');
+                                
+                                if (input.hasClass('select2-hidden-accessible')) {
+                                    input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                                }
+                                
+                                let container = input.closest('.input-group');
+                                if (container.length > 0) {
+                                    container.siblings('.invalid-feedback').text(messages[0]).show();
+                                } else {
+                                    input.siblings('.invalid-feedback').text(messages[0]).show();
+                                }
                             }
-                            
-                            let container = input.closest('.input-group');
-                            if (container.length > 0) {
-                                container.siblings('.invalid-feedback').text(messages[0]).show();
-                            } else {
-                                input.siblings('.invalid-feedback').text(messages[0]).show();
-                            }
-                        }
-                    });
+                        });
+                    }
                 } else {
                     toastr.error('Something went wrong. Please try again.');
                 }

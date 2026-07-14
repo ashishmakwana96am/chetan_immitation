@@ -304,7 +304,7 @@
         <div class="section-title">Sold By</div>
         <div class="address-text">
             CHETAN IMITATION{{ $order->location?->name ? ' - ' . $order->location->name : '' }}, {{ $order->location?->address ?? 'Surat, Gujarat, 395006' }}
-            @if($order->location?->gst_number)
+            @if((($order->source ?? 'POS') !== 'ONLINE') && $order->location?->gst_number)
                 <br><strong>GSTIN:</strong> {{ $order->location->gst_number }}
             @endif
         </div>
@@ -338,7 +338,7 @@
         </thead>
         <tbody>
             @php
-                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                $gstRate = $order->is_gst ? (float) \App\Models\Setting::getValue('purchase_gst_rate', 3) : 0;
                 $customerState = strtolower(trim($order->customerAddress->state ?? ''));
                 $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
                 $isGujarat = ($customerState === '' || $customerState === $storeState);
@@ -380,8 +380,8 @@
                     <td style="text-align: left;">
                         {{ $item->product->name }}{{ $size }}
                         @if($itemDiscount > 0)
-                            <div class="item-note">Discount: Rs.{{ number_format($itemDiscount, 2) }} | GST @{{ $gstRate }}%</div>
-                        @else
+                            <div class="item-note">Discount: Rs.{{ number_format($itemDiscount, 2) }}@if($gstRate > 0) | GST @{{ $gstRate }}%@endif</div>
+                        @elseif($gstRate > 0)
                             <div class="item-note">GST @{{ $gstRate }}%</div>
                         @endif
                     </td>
@@ -401,7 +401,9 @@
                 <tr>
                     <td style="text-align: left;">
                         Shipping Charge
+                        @if($gstRate > 0)
                         <div class="item-note">GST @0%</div>
+                        @endif
                     </td>
                     <td class="text-center">-</td>
                     <td class="text-right">Rs.{{ number_format($shipGross, 2) }}</td>
@@ -422,6 +424,7 @@
             <td style="text-align: left; padding: 1.5px 0;">Discount</td>
             <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalDiscount, 2) }}</td>
         </tr>
+        @if($gstRate > 0)
         <tr>
             <td style="text-align: left; padding: 1.5px 0;">Taxable Value</td>
             <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxable, 2) }}</td>
@@ -440,6 +443,7 @@
                 <td style="text-align: left; padding: 1.5px 0;">IGST ({{ $gstRate }}%)</td>
                 <td style="text-align: right; padding: 1.5px 0;">Rs.{{ number_format($totalTaxes, 2) }}</td>
             </tr>
+        @endif
         @endif
         <tr style="font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000;">
             <td style="text-align: left; padding: 3px 0; font-size: 8px;">Total</td>
