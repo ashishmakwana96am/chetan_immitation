@@ -612,15 +612,15 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
-            row.data('bypass-min-price', !!product.bypass_min_price);
-            row.data('allow-full-discount', !!product.allow_full_discount);
+            row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
+            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
-            row.data('bypass-min-price', !!product.bypass_min_price);
-            row.data('allow-full-discount', !!product.allow_full_discount);
+            row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
+            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -889,7 +889,8 @@ $(document).ready(function () {
 
         const finalAmount = itemsTotal - orderDiscountAmount;
         const orderViolatesFloor = (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
-            || (count > 0 && finalAmount <= 0);
+            || (minFloorTotal > 0 && finalAmount <= 0)
+            || (finalAmount < 0);
         $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
 

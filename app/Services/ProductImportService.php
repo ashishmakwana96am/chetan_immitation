@@ -174,7 +174,7 @@ class ProductImportService
                     'sale_multiplier'     => trim($row['sale_multiplier'] ?? ''),
                     'mrp_multiplier'      => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'        => $this->toBool($row['pair_product'] ?? ''),
-                    'product_type'        => strtolower(trim($row['product_type'] ?? 'normal')) === 'variable' ? 'variable' : 'normal',
+                    'product_type'        => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
                     'dimensions'          => [],
                 ];
             }
@@ -207,7 +207,7 @@ class ProductImportService
 
     private function toBool($value): bool
     {
-        return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes'], true);
+        return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
     }
 
     private function processGroup(array $group, array &$productsByBarcode, array &$summary, array &$failures, ?int $userId, array &$history): void
