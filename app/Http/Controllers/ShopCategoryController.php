@@ -224,6 +224,10 @@ class ShopCategoryController extends Controller
         $filters = session('shop_filters', []);
         $sort = $filters['sort'] ?? 'default';
 
+        $query->orderByRaw('
+            (SELECT COUNT(*) FROM product_images WHERE product_images.product_id = products.id) = 0
+        ');
+
         switch ($sort) {
             case 'price-low':
                 $query->orderByRaw('

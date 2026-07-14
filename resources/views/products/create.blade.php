@@ -697,6 +697,8 @@
                                 } else if (field === 'additional_images_base64') {
                                     $('#additionalImagesError').text(messages[0]);
                                     $('#additionalDropZone').css('border-color', '#ea5455');
+                                } else if (field === 'variants_json') {
+                                    $('#variantsJson').siblings('.invalid-feedback').text('Please add at least one attribute & variant.');
                                 } else {
                                     const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
                                     let feedback = input.siblings('.invalid-feedback');
@@ -838,12 +840,6 @@
             });
 
             $(document).on('change', '.attribute-select', function () {
-                if (this.checked) {
-                    $('.attribute-select').not(this).each(function () {
-                        this.checked = false;
-                        $(this).closest('.attribute-chip').removeClass('active');
-                    });
-                }
                 $(this).closest('.attribute-chip').toggleClass('active', this.checked);
                 if (!this.checked) {
                     const attrId = parseInt($(this).data('attribute-id'));

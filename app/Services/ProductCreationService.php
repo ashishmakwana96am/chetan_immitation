@@ -92,7 +92,11 @@ class ProductCreationService
     /**
      * @param array $group Must contain: category_name, sub_category_name, product_name,
      *                      barcode, product_code, purchase_multiplier, sale_multiplier,
-     *                      mrp_multiplier, pair_product, product_type, dimensions.
+     *                      mrp_multiplier, pair_product, product_type. For variable products,
+     *                      an optional 'dimensions' key pre-declares attribute/value combos to
+     *                      create upfront (used by Product Import); when omitted/empty, no
+     *                      variants are created here — callers (e.g. Purchase Import) are
+     *                      expected to create them lazily via findOrCreateVariant().
      * @param array $summary Reference; increments 'categories_created'/'sub_categories_created' if present.
      */
     public function create(array $group, array &$summary, ?int $userId): Product
@@ -181,11 +185,47 @@ class ProductCreationService
             'sort_order'             => ((int) Product::max('sort_order')) + 1,
         ]);
 
-        if ($group['product_type'] === 'variable') {
+        if ($group['product_type'] === 'variable' && !empty($group['dimensions'] ?? [])) {
             $this->createVariants($group, $product, $purchasePrice, $salePrice);
         }
 
         return $product;
+    }
+
+    /**
+     * Finds an existing Attribute by name (or creates it), finds an existing
+     * AttributeValue under that attribute (or creates it), then finds an
+     * existing ProductVariant for the pair (or creates it) — used by Purchase
+     * Import, where variants are resolved row-by-row from the "Variant" /
+     * "Variant Value" columns instead of being pre-declared up front.
+     */
+    public function findOrCreateVariant(Product $product, string $attributeName, string $valueName, ?int $userId): ProductVariant
+    {
+        $attribute = Attribute::withTrashed()->firstOrCreate(
+            ['name' => $attributeName],
+            ['slug' => generate_slug(Attribute::class, $attributeName), 'status' => Attribute::STATUS_ACTIVE, 'created_by' => $userId, 'sort_order' => ((int) Attribute::max('sort_order')) + 1]
+        );
+        if ($attribute->trashed()) {
+            $attribute->restore();
+        }
+
+        $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
+            'attribute_id' => $attribute->id,
+            'value'        => $valueName,
+        ]);
+        if ($attributeValue->trashed()) {
+            $attributeValue->restore();
+        }
+
+        $variant = ProductVariant::withTrashed()->firstOrCreate(
+            ['product_id' => $product->id, 'attribute_value_id' => $attributeValue->id],
+            ['purchase_price' => $product->purchase_price, 'sale_price' => $product->sale_price, 'status' => ProductVariant::STATUS_ACTIVE]
+        );
+        if ($variant->trashed()) {
+            $variant->restore();
+        }
+
+        return $variant;
     }
 
     private function createVariants(array $group, Product $product, float $purchasePrice, float $salePrice): void

@@ -176,6 +176,7 @@ class ProductImportService
                     'pair_product'        => $this->toBool($row['pair_product'] ?? ''),
                     'product_type'        => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
                     'dimensions'          => [],
+                    'dimension_error'     => null,
                 ];
             }
 
@@ -185,16 +186,9 @@ class ProductImportService
                 continue;
             }
 
-            $variantName = trim($row['product_variant'] ?? '');
-            $variantValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['product_variant_value'] ?? '')))));
-            if ($variantName !== '' && !empty($variantValues)) {
-                $key = strtolower($variantName);
-                if (!isset($current['dimensions'][$key])) {
-                    $current['dimensions'][$key] = ['name' => $variantName, 'values' => []];
-                }
-                $current['dimensions'][$key]['values'] = array_values(array_unique(
-                    array_merge($current['dimensions'][$key]['values'], $variantValues)
-                ));
+            $error = $this->applyVariantDimensions($current, $row);
+            if ($error !== null && $current['dimension_error'] === null) {
+                $current['dimension_error'] = $error;
             }
         }
 
@@ -208,6 +202,47 @@ class ProductImportService
     private function toBool($value): bool
     {
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
+    }
+
+    /**
+     * Parses "Product Variant" (comma-separated attribute names, e.g. "Color,Size,Design")
+     * together with "Product Variant Value" (pipe-separated value groups matching each
+     * attribute, e.g. "Gold,Rose Gold,Pink | 2.2,2.4,2.6 | Round,Oval") and merges the
+     * parsed values into $group['dimensions']. Returns an error message if the number of
+     * attributes doesn't match the number of value groups, or null on success/no-op.
+     */
+    private function applyVariantDimensions(array &$group, array $row): ?string
+    {
+        $variantNamesRaw = trim($row['product_variant'] ?? '');
+        $variantValuesRaw = trim((string) ($row['product_variant_value'] ?? ''));
+
+        if ($variantNamesRaw === '' && $variantValuesRaw === '') {
+            return null;
+        }
+
+        $variantNames = array_values(array_filter(array_map('trim', explode(',', $variantNamesRaw)), fn ($v) => $v !== ''));
+        $valueGroups = array_map('trim', explode('|', $variantValuesRaw));
+
+        if (count($variantNames) !== count($valueGroups)) {
+            return 'Product Variant / Product Variant Value count mismatch';
+        }
+
+        foreach ($variantNames as $i => $name) {
+            $values = array_values(array_filter(array_map('trim', explode(',', $valueGroups[$i])), fn ($v) => $v !== ''));
+            if (empty($values)) {
+                return 'Product Variant / Product Variant Value count mismatch';
+            }
+
+            $key = strtolower($name);
+            if (!isset($group['dimensions'][$key])) {
+                $group['dimensions'][$key] = ['name' => $name, 'values' => []];
+            }
+            $group['dimensions'][$key]['values'] = array_values(array_unique(
+                array_merge($group['dimensions'][$key]['values'], $values)
+            ));
+        }
+
+        return null;
     }
 
     private function processGroup(array $group, array &$productsByBarcode, array &$summary, array &$failures, ?int $userId, array &$history): void
@@ -244,20 +279,18 @@ class ProductImportService
             return;
         }
 
-        $skippedDimensions = [];
-        $firstDimensionName = '';
-        if (count($group['dimensions']) > 1) {
-            $dimensionKeys = array_keys($group['dimensions']);
-            $firstKey = $dimensionKeys[0];
-            $firstDimensionName = $group['dimensions'][$firstKey]['name'];
-
-            for ($i = 1; $i < count($dimensionKeys); $i++) {
-                $skippedDimensions[] = $group['dimensions'][$dimensionKeys[$i]]['name'];
-            }
-
-            $group['dimensions'] = [
-                $firstKey => $group['dimensions'][$firstKey]
+        if ($group['dimension_error'] !== null) {
+            $summary['failed_rows']++;
+            $failures[] = $this->failureRow($group['first_row_num'], $group['product_name'], $barcode, $group['dimension_error']);
+            $history[] = [
+                'barcode' => $barcode,
+                'product' => $group['product_name'],
+                'status'  => 'Failed',
+                'reason'  => $group['dimension_error'],
+                'details' => "Row {$group['first_row_num']}: {$group['dimension_error']}."
             ];
+
+            return;
         }
 
         try {
@@ -267,21 +300,12 @@ class ProductImportService
             });
             $summary['products_created']++;
 
-            $details = "Successfully created new product.";
-            $status = 'Success';
-            $reason = 'Created';
-            if (!empty($skippedDimensions)) {
-                $status = 'Warning';
-                $reason = 'Created (Variant Skipped)';
-                $details .= " Skipped variant dimensions: " . implode(', ', $skippedDimensions) . " (only first dimension \"{$firstDimensionName}\" was added).";
-            }
-
             $history[] = [
                 'barcode' => $barcode,
                 'product' => $group['product_name'],
-                'status'  => $status,
-                'reason'  => $reason,
-                'details' => $details
+                'status'  => 'Success',
+                'reason'  => 'Created',
+                'details' => "Successfully created new product."
             ];
         } catch (\Throwable $e) {
             Log::error('Product import: product creation failed for barcode ' . $barcode . ': ' . $e->getMessage());

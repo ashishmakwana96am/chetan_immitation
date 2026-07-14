@@ -274,7 +274,7 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $item->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $item->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                                     {{ $item->product->name ?? '-' }}
                                                 </div>
                                             </td>
@@ -310,7 +310,7 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <img src="{{ $inventory->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $inventory->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    <img src="{{ $inventory->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $inventory->product->name ?? '' }}" class="rounded me-2 product-thumbnail" style="width: 32px; height: 32px; object-fit: cover;">
                                                     {{ $inventory->product->name ?? '-' }}
                                                 </div>
                                             </td>

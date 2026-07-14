@@ -364,12 +364,13 @@
         @endif
 
         {{-- Terms & Conditions Footer --}}
+        @php $arrow = '<span style="font-family: DejaVu Sans, sans-serif; font-weight: bold; font-size: 11px;">&#8594;</span>'; @endphp
         <div style="text-align: left; font-size: 9px; font-weight: bold; line-height: 1.3;">
             <div style="font-size: 9.5px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
-            <div>-> KEEP THE PRODUCT AWAY FROM PERFUME, WATER AND CHEMICALS.</div>
-            <div>-> ITEM THAT CAN BE REPAIRED WILL BE REPAIRED, CHARGEABLE.</div>
-            <div>-> NO RETURN, NO EXCHANGE.</div>
-            <div>-> NO GUARANTEE ON POLISH.</div>
+            <div>{!! $arrow !!} KEEP THE PRODUCT AWAY FROM PERFUME, WATER AND CHEMICALS.</div>
+            <div>{!! $arrow !!} ITEM THAT CAN BE REPAIRED WILL BE REPAIRED, CHARGEABLE.</div>
+            <div>{!! $arrow !!} NO RETURN, NO EXCHANGE.</div>
+            <div>{!! $arrow !!} NO GUARANTEE ON POLISH.</div>
         </div>
 
         <div class="divider-dotted" style="margin-top: 5px; margin-bottom: 5px;"></div>

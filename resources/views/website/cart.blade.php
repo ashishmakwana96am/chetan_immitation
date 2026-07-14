@@ -48,7 +48,7 @@
                         }
                     }
                     
-                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
+                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
                     $attrLabel = null;
                     if ($variant && $variant->attributeValue) {
                         $attrLabel = optional($variant->attributeValue->attribute)->name

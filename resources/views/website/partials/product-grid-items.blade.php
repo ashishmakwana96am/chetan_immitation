@@ -36,7 +36,7 @@
         </div>
         @endif
         <a class="product-detail-link" href="{{ $detailUrl }}">
-            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
              {{-- Rating Badge --}}
             @php
                 $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);

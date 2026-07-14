@@ -66,7 +66,7 @@ class ProductBulkImageUploadController extends Controller
     {
         $this->authorize('bulk upload product images');
 
-        $sourceImage = public_path('website/assets/images/Royal_Bridal.png');
+        $sourceImage = public_path('website/assets/images/no-image.svg');
 
         $tmpDir = storage_path('app/private/tmp');
         if (!file_exists($tmpDir)) {

@@ -57,7 +57,7 @@
                             </div>
                             @endif
                             <a href="{{ route('product.detail', $prod->slug) }}">
-                                <img src="{{ $prod->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png') }}"
+                                <img src="{{ $prod->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}"
                                     alt="{{ $prod->name }}"
                                     class="sm:w-[190px] sm:h-[190px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
                             </a>

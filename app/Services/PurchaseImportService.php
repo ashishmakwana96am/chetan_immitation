@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Location;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\Purchase;
 use App\Models\PurchaseAllocation;
 use App\Models\PurchaseItem;
@@ -68,7 +67,6 @@ class PurchaseImportService
             $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows);
         }
 
-        // Group the valid rows by supplier to create purchase bills!
         if (!empty($validRows)) {
             $groupedBySupplier = [];
             foreach ($validRows as $vr) {
@@ -105,7 +103,6 @@ class PurchaseImportService
                     $totalAmount = round($totalAmount, 2);
                     $paidAmount = round($paidAmount, 2);
 
-                    // Determine purchase status: if any item status is Approve, the purchase status is Approve.
                     $status = Purchase::STATUS_PENDING;
                     foreach ($items as $item) {
                         if ($item['status'] === Purchase::STATUS_APPROVE) {
@@ -114,7 +111,6 @@ class PurchaseImportService
                         }
                     }
 
-                    // Determine payment status
                     $paymentStatus = Purchase::PAYMENT_STATUS_PENDING;
                     if ($paidAmount >= $totalAmount) {
                         $paidAmount = $totalAmount;
@@ -221,17 +217,12 @@ class PurchaseImportService
             'mrpmultiplier'          => 'mrp_multiplier',
             'pairproduct'            => 'pair_product',
             'producttype'            => 'product_type',
-            'productvariant'         => 'product_variant',
-            'productvarient'         => 'product_variant',
-            'productvariantvalue'    => 'product_variant_value',
-            'productvarientvalue'    => 'product_variant_value',
             'suppliername'           => 'supplier_name',
             'variant'                => 'variant',
             'varient'                => 'variant',
             'variantvalue'           => 'variant_value',
             'varientvalue'           => 'variant_value',
             'purchasedate'           => 'purchase_date',
-            'purchaseprice'          => 'purchase_price',
             'quantity'               => 'quantity',
             'purchasestatus'         => 'purchase_status',
             'paymentstatus'          => 'payment_status',
@@ -249,10 +240,6 @@ class PurchaseImportService
         return $normalized;
     }
 
-    /**
-     * Group rows by product: a row with a Product Name starts a new group;
-     * a blank-Product Name row is a continuation of the current group.
-     */
     private function groupRows(array $rows): array
     {
         $groups = [];
@@ -276,8 +263,6 @@ class PurchaseImportService
                 continue;
             }
 
-            // Merged Category cells only carry a value on their first row —
-            // every row underneath the merge reads blank, so inherit forward.
             $categoryName = trim($row['category'] ?? '');
             if ($categoryName !== '') {
                 $lastCategoryName = $categoryName;
@@ -304,27 +289,13 @@ class PurchaseImportService
                     'mrp_multiplier'     => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'       => $this->toBool($row['pair_product'] ?? ''),
                     'product_type'       => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
-                    'dimensions'         => [],
                     'rows'               => [],
                 ];
             }
 
             if ($current === null) {
-                // A continuation row with no product context yet — nothing to attach it to.
                 $skipped++;
                 continue;
-            }
-
-            $variantName = trim($row['product_variant'] ?? '');
-            $variantValues = array_values(array_filter(array_map('trim', explode(',', (string) ($row['product_variant_value'] ?? '')))));
-            if ($variantName !== '' && !empty($variantValues)) {
-                $key = strtolower($variantName);
-                if (!isset($current['dimensions'][$key])) {
-                    $current['dimensions'][$key] = ['name' => $variantName, 'values' => []];
-                }
-                $current['dimensions'][$key]['values'] = array_values(array_unique(
-                    array_merge($current['dimensions'][$key]['values'], $variantValues)
-                ));
             }
 
             $current['rows'][] = [
@@ -332,7 +303,6 @@ class PurchaseImportService
                 'supplier_name'   => trim($row['supplier_name'] ?? ''),
                 'variant'         => trim($row['variant'] ?? ''),
                 'variant_value'   => trim($row['variant_value'] ?? ''),
-                'purchase_price'  => trim($row['purchase_price'] ?? ''),
                 'quantity'        => trim($row['quantity'] ?? ''),
                 'purchase_status' => trim($row['purchase_status'] ?? ''),
                 'payment_status'  => trim($row['payment_status'] ?? ''),
@@ -374,22 +344,6 @@ class PurchaseImportService
 
         $product = $productsByBarcode[$barcode] ?? null;
 
-        $skippedDimensions = [];
-        $firstDimensionName = '';
-        if (!$product && count($group['dimensions']) > 1) {
-            $dimensionKeys = array_keys($group['dimensions']);
-            $firstKey = $dimensionKeys[0];
-            $firstDimensionName = $group['dimensions'][$firstKey]['name'];
-
-            for ($i = 1; $i < count($dimensionKeys); $i++) {
-                $skippedDimensions[] = $group['dimensions'][$dimensionKeys[$i]]['name'];
-            }
-
-            $group['dimensions'] = [
-                $firstKey => $group['dimensions'][$firstKey]
-            ];
-        }
-
         if ($product) {
             $this->productCreation->restoreTrashedProduct($product);
             $summary['existing_products_used']++;
@@ -416,11 +370,8 @@ class PurchaseImportService
             }
         }
 
-        $variants = $product->type === 'variable'
-            ? ProductVariant::where('product_id', $product->id)->with('attributeValue')->get()
-            : collect();
-
         $lastSupplier = null;
+        $lastVariant = null;
 
         $successRows = 0;
         $skippedRows = 0;
@@ -429,7 +380,7 @@ class PurchaseImportService
 
         foreach ($group['rows'] as $row) {
             try {
-                $validRow = $this->validateAndParseRow($group, $product, $variants, $row, $lastSupplier, $seenSignatures);
+                $validRow = $this->validateAndParseRow($group, $product, $row, $lastSupplier, $lastVariant, $seenSignatures, $userId);
                 $validRows[] = $validRow;
                 $successRows++;
             } catch (RowSkipException $e) {
@@ -472,10 +423,6 @@ class PurchaseImportService
             }
         }
 
-        if (!empty($skippedDimensions)) {
-            $details .= " Skipped variant dimensions: " . implode(', ', $skippedDimensions) . " (only first dimension \"{$firstDimensionName}\" was added).";
-        }
-
         $status = 'Success';
         $reason = 'Processed';
         if ($failedRows > 0) {
@@ -489,9 +436,6 @@ class PurchaseImportService
         } elseif ($skippedRows > 0 && $successRows === 0) {
             $status = 'Warning';
             $reason = 'Skipped';
-        } elseif (!empty($skippedDimensions)) {
-            $status = 'Warning';
-            $reason = 'Processed (Variant Skipped)';
         }
 
         $history[] = [
@@ -503,7 +447,7 @@ class PurchaseImportService
         ];
     }
 
-    private function validateAndParseRow(array $group, Product $product, $variants, array $row, ?string &$lastSupplier, array &$seenSignatures): array
+    private function validateAndParseRow(array $group, Product $product, array $row, ?string &$lastSupplier, ?string &$lastVariant, array &$seenSignatures, ?int $userId): array
     {
         $supplierName = $row['supplier_name'] !== '' ? $row['supplier_name'] : $lastSupplier;
 
@@ -519,30 +463,24 @@ class PurchaseImportService
         }
         $quantity = (int) $quantity;
 
-        $price = $row['purchase_price'];
-        if ($price === '' || !is_numeric($price) || (float) $price <= 0) {
-            throw new RowFailureException('Invalid Price');
+        $price = round((float) $product->product_code * (float) $product->purchase_multiplier, 2);
+        if ($price <= 0) {
+            throw new RowFailureException('Invalid Price Configuration');
         }
-        $price = (float) $price;
 
         $productVariantId = null;
         if ($product->type === 'variable') {
-            if ($variants->isEmpty()) {
-                throw new RowFailureException('Invalid Variant Data');
+            $variantName = trim($row['variant']) !== '' ? trim($row['variant']) : (string) $lastVariant;
+            $variantValueName = trim($row['variant_value']);
+
+            if ($variantName === '' || $variantValueName === '') {
+                throw new RowFailureException('Missing Variant Data');
             }
 
-            $needle = strtolower($row['variant_value']);
-            if ($needle === '') {
-                throw new RowFailureException('Invalid Variant Data');
-            }
+            $lastVariant = $variantName;
 
-            $exact = $variants->filter(fn ($v) => strtolower(trim($v->attributeValue->value)) === $needle);
-
-            if ($exact->count() !== 1) {
-                throw new RowFailureException('Invalid Variant Data');
-            }
-
-            $productVariantId = $exact->first()->id;
+            $productVariant = $this->productCreation->findOrCreateVariant($product, $variantName, $variantValueName, $userId);
+            $productVariantId = $productVariant->id;
         }
 
         $signature = implode('|', [

@@ -266,7 +266,7 @@
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
                                                 @if($item->product?->barcode)

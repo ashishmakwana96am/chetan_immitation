@@ -197,7 +197,7 @@
                 @php
                     $productImg = ($item->product && $item->product->primaryImage)
                         ? $item->product->primaryImage->image_url
-                        : asset('website/assets/images/detailpage.png');
+                        : asset('website/assets/images/no-image.svg');
                 @endphp
                 <div class="border border-[#D5D5D5] p-3 md:p-4 bg-white group">
                     <div class="">
