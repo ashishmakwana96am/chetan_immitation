@@ -467,7 +467,7 @@ class SaleController extends Controller
                 $taxAmount = $finalAmount * ($gstRate / 100);
             }
 
-            $grandTotal = $finalAmount + $taxAmount;
+            $grandTotal = round($finalAmount + $taxAmount);
 
             $order = Order::create([
                 'customer_id'          => $request->customer_id,
@@ -910,7 +910,7 @@ class SaleController extends Controller
                 $taxAmount = $finalAmount * ($gstRate / 100);
             }
 
-            $grandTotal = $finalAmount + $taxAmount;
+            $grandTotal = round($finalAmount + $taxAmount);
 
             $updateData = [
                 'customer_id'          => $request->customer_id,

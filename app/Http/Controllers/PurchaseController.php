@@ -260,7 +260,7 @@ class PurchaseController extends Controller
                 $taxAmount = $finalAmount * ($gstRate / 100);
             }
 
-            $grandTotal = $finalAmount + $taxAmount;
+            $grandTotal = round($finalAmount + $taxAmount);
 
             [$paymentStatus, $paidAmount] = $this->resolvePaymentStatus(
                 (int) ($request->payment_status ?? Purchase::PAYMENT_STATUS_PENDING),
@@ -458,7 +458,7 @@ class PurchaseController extends Controller
                 $taxAmount = $finalAmount * ($gstRate / 100);
             }
 
-            $grandTotal = $finalAmount + $taxAmount;
+            $grandTotal = round($finalAmount + $taxAmount);
 
             $oldStatus = $purchase->status;
             $newStatus = $request->status ?? 2;

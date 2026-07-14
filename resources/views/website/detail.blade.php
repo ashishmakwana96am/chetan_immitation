@@ -466,19 +466,45 @@ function getMaxAllowedStock() {
     return stock;
 }
 
+function updateSoldOutState() {
+    const addToCartBtn = document.getElementById('addToCartBtn');
+    const buyNowBtn = document.getElementById('buyNowBtn');
+    if (!addToCartBtn || !buyNowBtn) return;
+
+    const maxStock = getMaxAllowedStock();
+
+    if (maxStock <= 0) {
+        addToCartBtn.disabled = true;
+        addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        addToCartBtn.textContent = 'Sold Out';
+
+        buyNowBtn.disabled = true;
+        buyNowBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    } else {
+        addToCartBtn.disabled = false;
+        addToCartBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        addToCartBtn.textContent = 'Add To Cart';
+
+        buyNowBtn.disabled = false;
+        buyNowBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    }
+}
+
 window.getMaxAllowedStock = getMaxAllowedStock;
+window.updateSoldOutState = updateSoldOutState;
 window.getQtyCount = () => count;
 window.setQtyCount = (val) => {
     count = val;
     if (qty) qty.innerText = count;
 };
 
-// Initialize count based on initial stock
+// Initialize count and button states based on initial stock
 const initialMaxStock = getMaxAllowedStock();
 if (initialMaxStock <= 0) {
     count = 0;
     if (qty) qty.innerText = count;
 }
+updateSoldOutState();
 
 if (plusBtn) {
     plusBtn.addEventListener("click", () => {
@@ -621,6 +647,9 @@ if (minusBtn) {
                     }
                 }
             }
+            if (typeof window.updateSoldOutState === 'function') {
+                window.updateSoldOutState();
+            }
 
             var variantId = btn.dataset.variantId || null;
             var mainBtn   = getMainWishlistBtn();
@@ -717,6 +746,9 @@ if (minusBtn) {
                     window.setQtyCount(maxStock);
                 }
             }
+        }
+        if (typeof window.updateSoldOutState === 'function') {
+            window.updateSoldOutState();
         }
 
         // Update button styles

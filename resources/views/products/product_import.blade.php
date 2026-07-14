@@ -40,7 +40,7 @@
         <div class="d-flex align-items-center gap-2 mt-2">
             <span class="badge bg-label-primary px-3 py-2 d-none" id="productImportSelectedFileBadge"></span>
             <button type="button" id="productImportBtnRemoveFile" class="btn btn-sm btn-icon btn-danger rounded-circle d-none" style="width:22px;height:22px;min-width:22px;padding:0;" title="Remove file">
-                <i class="ti ti-x" style="font-size:0.75rem;"></i>
+                <i class="ti ti-trash" style="font-size:0.75rem;"></i>
             </button>
         </div>
         <div class="invalid-feedback" id="productImportFileErrorFeedback" style="display:none;">Please select a valid Excel file.</div>
