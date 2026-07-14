@@ -32,14 +32,51 @@ class LedgerController extends Controller
         $purchases = Purchase::with('supplier')
             ->whereDate('created_at', '>=', $startDate)
             ->whereDate('created_at', '<=', $endDate)
-            ->orderByDesc('created_at')
             ->get();
 
-        $totalPurchase = (float) $purchases->sum('total_amount');
-        $totalPayment  = (float) $purchases->sum('paid_amount');
-        $totalOutstanding = (float) $purchases
-            ->where('payment_status', '!=', Purchase::PAYMENT_STATUS_PAID)
-            ->sum(fn ($purchase) => max(0, $purchase->total_amount - $purchase->paid_amount));
+        // Group by Date portion and Supplier ID
+        $grouped = $purchases->groupBy(function ($purchase) {
+            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($purchase->supplier_id ?? 0);
+        });
+
+        $rows = collect();
+        foreach ($grouped as $key => $items) {
+            $first = $items->first();
+            $totalAmount = (float) $items->sum('total_amount');
+            $paidAmount  = (float) $items->sum('paid_amount');
+            $dueAmount   = max(0.0, $totalAmount - $paidAmount);
+
+            // Determine aggregate status
+            if ($dueAmount <= 0) {
+                $status = Purchase::PAYMENT_STATUS_PAID;
+            } elseif ($paidAmount <= 0) {
+                $status = Purchase::PAYMENT_STATUS_PENDING;
+            } else {
+                $status = Purchase::PAYMENT_STATUS_PARTIAL;
+            }
+
+            $dateObj = $first->created_at ?? now();
+
+            $rows->push([
+                'supplier_id'    => $first->supplier_id,
+                'supplier_name'  => $first->supplier->name ?? '-',
+                'date_raw'       => $dateObj->format('Y-m-d'),
+                'date_formatted' => format_date($dateObj),
+                'total_amount'   => $totalAmount,
+                'paid_amount'    => $paidAmount,
+                'due_amount'     => $dueAmount,
+                'payment_status' => $status,
+            ]);
+        }
+
+        // Sort by date desc, then supplier name asc
+        $sortedRows = $rows->sort(function ($a, $b) {
+            if ($a['date_raw'] !== $b['date_raw']) {
+                return strcmp($b['date_raw'], $a['date_raw']);
+            }
+            return strcmp($a['supplier_name'], $b['supplier_name']);
+        })->values();
 
         $statusLabels = [
             Purchase::PAYMENT_STATUS_PENDING => '<span class="badge bg-label-danger">Pending</span>',
@@ -47,24 +84,30 @@ class LedgerController extends Controller
             Purchase::PAYMENT_STATUS_PARTIAL => '<span class="badge bg-label-warning">Partially Paid</span>',
         ];
 
-        $rows = $purchases->map(function ($purchase, $index) use ($statusLabels) {
-            $due = max(0, $purchase->total_amount - $purchase->paid_amount);
+        $totalPurchase = 0.0;
+        $totalPayment  = 0.0;
+        $totalOutstanding = 0.0;
+
+        $mappedRows = $sortedRows->map(function ($row, $index) use ($statusLabels, &$totalPurchase, &$totalPayment, &$totalOutstanding) {
+            $totalPurchase += $row['total_amount'];
+            $totalPayment  += $row['paid_amount'];
+            $totalOutstanding += $row['due_amount'];
 
             return [
                 'index'          => $index + 1,
-                'invoice_no'     => e($purchase->invoice_no),
-                'supplier'       => e($purchase->supplier->name ?? '-'),
-                'date'           => format_date($purchase->created_at),
-                'total_amount'   => format_price($purchase->total_amount),
-                'paid_amount'    => format_price($purchase->paid_amount),
-                'due_amount'     => format_price($due),
-                'payment_status' => $statusLabels[$purchase->payment_status] ?? '-',
+                'supplier'       => e($row['supplier_name']),
+                'date'           => $row['date_formatted'],
+                'date_raw'       => $row['date_raw'],
+                'total_amount'   => format_price($row['total_amount']),
+                'paid_amount'    => format_price($row['paid_amount']),
+                'due_amount'     => format_price($row['due_amount']),
+                'payment_status' => $statusLabels[$row['payment_status']] ?? '-',
             ];
         });
 
         return response()->json([
             'status'  => 'success',
-            'data'    => $rows,
+            'data'    => $mappedRows,
             'summary' => [
                 'purchase'    => format_price($totalPurchase),
                 'payment'     => format_price($totalPayment),

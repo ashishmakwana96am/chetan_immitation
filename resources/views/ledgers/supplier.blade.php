@@ -5,6 +5,7 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
 @endsection
 
 @section('content')
@@ -74,7 +75,6 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Invoice No</th>
                         <th>Supplier</th>
                         <th>Date</th>
                         <th>Total Amount</th>
@@ -129,7 +129,17 @@
 
             const table = $('#supplierLedgerTable').DataTable({
                 responsive: false,
-                order: [],
+                order: [[7, 'desc']],
+                columnDefs: [
+                    { targets: [7], visible: false }
+                ],
+                rowGroup: {
+                    dataSrc: 'date',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header table-light"/>')
+                            .append('<td colspan="7"><div class="group-header-inner d-flex align-items-center py-2 px-3 fw-bold text-heading"><i class="ti ti-calendar me-2"></i><span>' + group + '</span></div></td>');
+                    }
+                },
                 ajax: {
                     url: '{{ route('admin.ledgers.supplier.data') }}',
                     cache: false,
@@ -145,14 +155,20 @@
                 },
                 columns: [
                     { data: 'index', orderable: false, width: '5%' },
-                    { data: 'invoice_no' },
                     { data: 'supplier' },
                     { data: 'date' },
                     { data: 'total_amount' },
                     { data: 'paid_amount' },
                     { data: 'due_amount' },
                     { data: 'payment_status', orderable: false },
+                    { data: 'date_raw' },
                 ],
+                drawCallback: function () {
+                    const api = this.api();
+                    api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
+                        cell.innerHTML = i + 1;
+                    });
+                }
             });
 
             window.refreshTable = function () {
