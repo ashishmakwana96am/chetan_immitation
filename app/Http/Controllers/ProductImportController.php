@@ -58,10 +58,10 @@ class ProductImportController extends Controller
         ];
 
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '2.5', '4.125', '4.575', 'FALSE', 'Normal', '', ''],
-            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'FALSE', 'Normal', '', ''],
-            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'TRUE', 'Variable', 'Color', 'Gold,Rose Gold'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'FALSE', 'Variable', 'Size', '2.6,3.2,3.5'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '2.5', '4.125', '4.575', 'F', 'N', '', ''],
+            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'F', 'N', '', ''],
+            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'T', 'V', 'Color', 'Gold,Rose Gold'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'F', 'V', 'Size', '2.6,3.2,3.5'],
         ];
 
         $spreadsheet = new Spreadsheet();

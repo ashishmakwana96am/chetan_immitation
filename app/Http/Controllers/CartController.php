@@ -195,14 +195,20 @@ class CartController extends Controller
 
         if ($qty > 0) {
             if ($customer) {
-                $existing = CartItem::where('customer_id', $customer->id)
+                $existing = CartItem::withTrashed()
+                    ->where('customer_id', $customer->id)
                     ->where('product_id', $productId)
                     ->where('product_variant_id', $variantId)
                     ->where('pair_type', $pairType)
                     ->first();
 
                 if ($existing) {
-                    $existing->increment('qty', $qty);
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                        $existing->update(['qty' => $qty]);
+                    } else {
+                        $existing->increment('qty', $qty);
+                    }
                 } else {
                     CartItem::create([
                         'customer_id'        => $customer->id,

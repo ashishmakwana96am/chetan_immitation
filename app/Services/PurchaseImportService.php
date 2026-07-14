@@ -61,10 +61,115 @@ class PurchaseImportService
         $productsByBarcode = $this->productCreation->lookupProducts($barcodes);
 
         $seenSignatures = [];
+        $validRows = [];
 
         $history = [];
         foreach ($groups as $group) {
-            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history);
+            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows);
+        }
+
+        // Group the valid rows by supplier to create purchase bills!
+        if (!empty($validRows)) {
+            $groupedBySupplier = [];
+            foreach ($validRows as $vr) {
+                $key = strtolower(trim($vr['supplier_name']));
+                if (!isset($groupedBySupplier[$key])) {
+                    $groupedBySupplier[$key] = [
+                        'supplier_name' => $vr['supplier_name'],
+                        'items'         => [],
+                    ];
+                }
+                $groupedBySupplier[$key]['items'][] = $vr;
+            }
+
+            $purchaseDate = now()->startOfDay();
+
+            foreach ($groupedBySupplier as $supplierGroup) {
+                DB::transaction(function () use ($supplierGroup, $purchaseDate, $userId, &$summary) {
+                    $supplierName = $supplierGroup['supplier_name'];
+                    $items = $supplierGroup['items'];
+
+                    $supplier = Supplier::firstOrCreate(
+                        ['name' => $supplierName],
+                        ['status' => Supplier::STATUS_ACTIVE, 'created_by' => $userId]
+                    );
+
+                    $totalAmount = 0.0;
+                    $paidAmount = 0.0;
+
+                    foreach ($items as $item) {
+                        $totalAmount += $item['total'];
+                        $paidAmount += $item['paid_amount'];
+                    }
+
+                    $totalAmount = round($totalAmount, 2);
+                    $paidAmount = round($paidAmount, 2);
+
+                    // Determine purchase status: if any item status is Approve, the purchase status is Approve.
+                    $status = Purchase::STATUS_PENDING;
+                    foreach ($items as $item) {
+                        if ($item['status'] === Purchase::STATUS_APPROVE) {
+                            $status = Purchase::STATUS_APPROVE;
+                            break;
+                        }
+                    }
+
+                    // Determine payment status
+                    $paymentStatus = Purchase::PAYMENT_STATUS_PENDING;
+                    if ($paidAmount >= $totalAmount) {
+                        $paidAmount = $totalAmount;
+                        $paymentStatus = Purchase::PAYMENT_STATUS_PAID;
+                    } elseif ($paidAmount > 0) {
+                        $paymentStatus = Purchase::PAYMENT_STATUS_PARTIAL;
+                    }
+
+                    $purchase = Purchase::create([
+                        'supplier_id'    => $supplier->id,
+                        'invoice_no'     => generate_invoice_no('PS', Purchase::class),
+                        'is_gst'         => false,
+                        'tax_amount'     => 0.00,
+                        'total_amount'   => $totalAmount,
+                        'status'         => $status,
+                        'payment_status' => $paymentStatus,
+                        'paid_amount'    => $paidAmount,
+                        'created_by'     => $userId,
+                    ]);
+                    $purchase->created_at = $purchaseDate;
+                    $purchase->updated_at = $purchaseDate;
+                    $purchase->save();
+
+                    if ($paidAmount > 0) {
+                        PurchasePayment::create([
+                            'purchase_id' => $purchase->id,
+                            'amount'      => $paidAmount,
+                            'created_by'  => $userId,
+                        ]);
+                    }
+
+                    foreach ($items as $itemData) {
+                        $item = PurchaseItem::create([
+                            'purchase_id'        => $purchase->id,
+                            'product_id'         => $itemData['product']->id,
+                            'product_variant_id' => $itemData['product_variant_id'],
+                            'purchase_price'     => $itemData['price'],
+                            'quantity'           => $itemData['quantity'],
+                            'total'              => $itemData['total'],
+                        ]);
+
+                        PurchaseAllocation::create([
+                            'purchase_item_id' => $item->id,
+                            'location_id'      => $this->defaultPurchaseLocation()->id,
+                            'quantity'          => $itemData['quantity'],
+                        ]);
+                    }
+
+                    if ($status === Purchase::STATUS_APPROVE) {
+                        PurchaseStockService::approve($purchase);
+                    }
+
+                    $summary['purchases_created']++;
+                });
+            }
         }
 
         ActivityLogger::log(
@@ -198,7 +303,7 @@ class PurchaseImportService
                     'sale_multiplier'    => trim($row['sale_multiplier'] ?? ''),
                     'mrp_multiplier'     => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'       => $this->toBool($row['pair_product'] ?? ''),
-                    'product_type'       => strtolower(trim($row['product_type'] ?? 'normal')) === 'variable' ? 'variable' : 'normal',
+                    'product_type'       => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
                     'dimensions'         => [],
                     'rows'               => [],
                 ];
@@ -227,7 +332,6 @@ class PurchaseImportService
                 'supplier_name'   => trim($row['supplier_name'] ?? ''),
                 'variant'         => trim($row['variant'] ?? ''),
                 'variant_value'   => trim($row['variant_value'] ?? ''),
-                'purchase_date'   => trim($row['purchase_date'] ?? ''),
                 'purchase_price'  => trim($row['purchase_price'] ?? ''),
                 'quantity'        => trim($row['quantity'] ?? ''),
                 'purchase_status' => trim($row['purchase_status'] ?? ''),
@@ -245,10 +349,10 @@ class PurchaseImportService
 
     private function toBool($value): bool
     {
-        return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes'], true);
+        return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
     }
 
-    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history): void
+    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history, array &$validRows): void
     {
         $barcode = $group['barcode'];
 
@@ -325,7 +429,8 @@ class PurchaseImportService
 
         foreach ($group['rows'] as $row) {
             try {
-                $this->processRow($group, $product, $variants, $row, $lastSupplier, $seenSignatures, $summary, $userId);
+                $validRow = $this->validateAndParseRow($group, $product, $variants, $row, $lastSupplier, $seenSignatures);
+                $validRows[] = $validRow;
                 $successRows++;
             } catch (RowSkipException $e) {
                 $summary['skipped_rows']++;
@@ -352,7 +457,7 @@ class PurchaseImportService
         } else {
             $detailsParts = [];
             if ($successRows > 0) {
-                $detailsParts[] = "{$successRows} purchase(s) imported";
+                $detailsParts[] = "{$successRows} item(s) validated";
             }
             if ($skippedRows > 0) {
                 $detailsParts[] = "{$skippedRows} skipped";
@@ -398,7 +503,7 @@ class PurchaseImportService
         ];
     }
 
-    private function processRow(array $group, Product $product, $variants, array $row, ?string &$lastSupplier, array &$seenSignatures, array &$summary, ?int $userId): void
+    private function validateAndParseRow(array $group, Product $product, $variants, array $row, ?string &$lastSupplier, array &$seenSignatures): array
     {
         $supplierName = $row['supplier_name'] !== '' ? $row['supplier_name'] : $lastSupplier;
 
@@ -420,15 +525,6 @@ class PurchaseImportService
         }
         $price = (float) $price;
 
-        $purchaseDate = $this->parseDate($row['purchase_date']);
-        if (!$purchaseDate) {
-            throw new RowFailureException('Invalid Purchase Date');
-        }
-
-        if ($purchaseDate->isFuture()) {
-            throw new RowFailureException('Purchase Date cannot be in the future');
-        }
-
         $productVariantId = null;
         if ($product->type === 'variable') {
             if ($variants->isEmpty()) {
@@ -440,8 +536,6 @@ class PurchaseImportService
                 throw new RowFailureException('Invalid Variant Data');
             }
 
-            // For products with 2+ variant dimensions, the stored value is the full
-            // combined string (e.g. "2.2 - Gold") — the sheet must match it exactly.
             $exact = $variants->filter(fn ($v) => strtolower(trim($v->attributeValue->value)) === $needle);
 
             if ($exact->count() !== 1) {
@@ -453,7 +547,7 @@ class PurchaseImportService
 
         $signature = implode('|', [
             $group['barcode'], $productVariantId, $supplierName,
-            $purchaseDate->format('Y-m-d'), $price, $quantity,
+            $price, $quantity,
             $row['purchase_status'], $row['payment_status'],
         ]);
         if (isset($seenSignatures[$signature])) {
@@ -486,56 +580,17 @@ class PurchaseImportService
             }
         }
 
-        DB::transaction(function () use ($product, $productVariantId, $supplierName, $purchaseDate, $price, $quantity, $status, $paymentStatus, $total, $paidAmount, $userId, &$summary) {
-            $supplier = Supplier::firstOrCreate(
-                ['name' => $supplierName],
-                ['status' => Supplier::STATUS_ACTIVE, 'created_by' => $userId]
-            );
-
-            $purchase = Purchase::create([
-                'supplier_id'    => $supplier->id,
-                'invoice_no'     => generate_invoice_no('PS', Purchase::class),
-                'is_gst'         => false,
-                'tax_amount'     => 0.00,
-                'total_amount'   => $total,
-                'status'         => $status,
-                'payment_status' => $paymentStatus,
-                'paid_amount'    => $paidAmount,
-                'created_by'     => $userId,
-            ]);
-            $purchase->created_at = $purchaseDate;
-            $purchase->updated_at = $purchaseDate;
-            $purchase->save();
-
-            if ($paidAmount > 0) {
-                PurchasePayment::create([
-                    'purchase_id' => $purchase->id,
-                    'amount'      => $paidAmount,
-                    'created_by'  => $userId,
-                ]);
-            }
-
-            $item = PurchaseItem::create([
-                'purchase_id'        => $purchase->id,
-                'product_id'         => $product->id,
-                'product_variant_id' => $productVariantId,
-                'purchase_price'     => $price,
-                'quantity'           => $quantity,
-                'total'              => $total,
-            ]);
-
-            PurchaseAllocation::create([
-                'purchase_item_id' => $item->id,
-                'location_id'      => $this->defaultPurchaseLocation()->id,
-                'quantity'          => $quantity,
-            ]);
-
-            if ($status === Purchase::STATUS_APPROVE) {
-                PurchaseStockService::approve($purchase);
-            }
-
-            $summary['purchases_created']++;
-        });
+        return [
+            'product'            => $product,
+            'product_variant_id' => $productVariantId,
+            'supplier_name'      => $supplierName,
+            'price'              => $price,
+            'quantity'           => $quantity,
+            'status'             => $status,
+            'payment_status'     => $paymentStatus,
+            'total'              => $total,
+            'paid_amount'        => $paidAmount,
+        ];
     }
 
     private function parseDate(string $value): ?Carbon

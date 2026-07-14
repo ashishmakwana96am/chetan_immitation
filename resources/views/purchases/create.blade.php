@@ -385,6 +385,9 @@ $(document).ready(function () {
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function formatPriceNoDecimals(val) {
+        return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
     function setProductImage(container, product) {
         if (product.image) {
             container.html(`<img src="${product.image}" class="rounded product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;" alt="${product.name || ''}" />`);
@@ -446,6 +449,7 @@ $(document).ready(function () {
         const isPartial = $('#paymentStatusSelect').val() === '3';
         $('#paidAmountWrapper').toggleClass('d-none', !isPartial);
         $('#paidAmountInput').prop('required', isPartial);
+        $('#paidAmountInput').prop('disabled', !isPartial);
     }
     $(document).on('change', '#paymentStatusSelect', togglePaidAmountInput);
     togglePaidAmountInput();
@@ -687,19 +691,38 @@ $(document).ready(function () {
     });
 
     $(document).on('change', '.item-discount-type', function () {
+        const row = $(this).closest('.item-row');
+        const discValueInput = row.find('.item-discount-value');
+        if ($(this).val() === 'percentage' && parseFloat(discValueInput.val()) > 100) {
+            discValueInput.val(100);
+        }
         updateGrandTotal();
     });
 
     $(document).on('input', '.item-discount-value', function () {
+        const row = $(this).closest('.item-row');
+        const discType = row.find('.item-discount-type').val();
+        if (discType === 'percentage' && parseFloat($(this).val()) > 100) {
+            $(this).val(100);
+        }
         updateGrandTotal();
     });
 
     $(document).on('change', '#orderDiscountTypeSelect', function () {
+        const valInput = $('#orderDiscountValueInput');
+        if ($(this).val() === 'percentage' && parseFloat(valInput.val()) > 100) {
+            valInput.val(100);
+            $('#overallDiscountValue').val(100);
+        }
         $('#overallDiscountType').val($(this).val());
         updateGrandTotal();
     });
 
     $(document).on('input', '#orderDiscountValueInput', function () {
+        const discType = $('#orderDiscountTypeSelect').val();
+        if (discType === 'percentage' && parseFloat($(this).val()) > 100) {
+            $(this).val(100);
+        }
         $('#overallDiscountValue').val($(this).val());
         updateGrandTotal();
     });
@@ -806,13 +829,13 @@ $(document).ready(function () {
             $('#summaryIGSTRow').addClass('d-none');
         }
 
-        const grandTotalAmount = finalAmount + taxAmount;
+        const grandTotalAmount = Math.round(finalAmount + taxAmount);
 
-        $('#grandTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
+        $('#grandTotal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
         $('#summaryItems').text(count);
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
         $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
-        $('#summaryTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
+        $('#summaryTotal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
 
         if (totalDiscount > 0) {
             $('#summaryDiscountRow').removeClass('d-none');
@@ -869,13 +892,6 @@ $(document).ready(function () {
                     breakdownText += `- ${locName}: ${lQty}\n`;
                     hasStock = true;
                 }
-                
-                stockDisplay
-                    .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
-                    .attr('title', titleText.trim())
-                    .css('cursor', 'help')
-                    .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
-                    .addClass(qty > 0 ? (qty < 10 ? 'bg-label-warning' : 'bg-label-success') : 'bg-label-danger');
             });
         } else {
             Object.keys(product.stock_by_location || {}).forEach(locId => {
@@ -979,23 +995,27 @@ $(document).ready(function () {
                 $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Purchase');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
-                    $.each(errors, function (field, messages) {
-                        let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
-                        if (input.length > 0) {
-                            input.addClass('is-invalid');
-                            
-                            if (input.hasClass('select2-hidden-accessible')) {
-                                input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                    if (typeof errors === 'string') {
+                        toastr.error(errors);
+                    } else {
+                        $.each(errors, function (field, messages) {
+                            let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                            if (input.length > 0) {
+                                input.addClass('is-invalid');
+                                
+                                if (input.hasClass('select2-hidden-accessible')) {
+                                    input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                                }
+                                
+                                let container = input.closest('.input-group');
+                                if (container.length > 0) {
+                                    container.siblings('.invalid-feedback').text(messages[0]).show();
+                                } else {
+                                    input.siblings('.invalid-feedback').text(messages[0]).show();
+                                }
                             }
-                            
-                            let container = input.closest('.input-group');
-                            if (container.length > 0) {
-                                container.siblings('.invalid-feedback').text(messages[0]).show();
-                            } else {
-                                input.siblings('.invalid-feedback').text(messages[0]).show();
-                            }
-                        }
-                    });
+                        });
+                    }
                 } else {
                     toastr.error('Something went wrong. Please try again.');
                 }

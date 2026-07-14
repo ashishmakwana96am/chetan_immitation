@@ -156,7 +156,7 @@
         {{-- Header Section --}}
         <div class="text-center">
             <div class="store-title">Chetan Imitation</div>
-            @if($order->location?->gst_number)
+            @if((($order->source ?? 'POS') !== 'ONLINE') && $order->location?->gst_number)
                 <div class="gstin-label">GSTIN: {{ $order->location->gst_number }}</div>
             @endif
         </div>
@@ -285,7 +285,7 @@
         <table style="width: 100%; border-collapse: collapse; font-size: 10px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
             <!-- Header Row with solid borders -->
             <tr style="border-bottom: 1px solid #000;">
-                <td colspan="2" style="text-align: left; padding-bottom: 3px; border: none;">TAX DETAIL</td>
+                <td colspan="2" style="text-align: left; padding-bottom: 3px; border: none;">{{ $isGst ? 'TAX DETAIL' : '' }}</td>
                 <td style="text-align: left; padding-bottom: 3px; border: none; padding-left: 6px; border-left: 1px dotted #000; text-transform: uppercase;">
                     {{ $order->payment_method === 'cod' ? 'COD' : 'CASH' }} :
                 </td>
@@ -295,29 +295,29 @@
             </tr>
             <!-- Row 1 -->
             <tr>
-                <td style="width: 25%; text-align: left; padding: 2px 0; border: none;">AMOUNT :</td>
-                <td style="width: 23%; text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ number_format($taxableAmount, 2) }}</td>
+                <td style="width: 25%; text-align: left; padding: 2px 0; border: none;">{{ $isGst ? 'AMOUNT :' : '' }}</td>
+                <td style="width: 23%; text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $isGst ? number_format($taxableAmount, 2) : '' }}</td>
                 <td style="width: 27%; text-align: left; padding: 2px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">UPI :</td>
                 <td style="width: 25%; text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentUpi, 2) }}</td>
             </tr>
             <!-- Row 2 -->
             <tr>
-                <td style="text-align: left; padding: 2px 0; border: none;">{{ $igst > 0 ? 'IGST :' : 'SGST :' }}</td>
-                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $igst > 0 ? number_format($igst, 2) : number_format($sgst, 2) }}</td>
+                <td style="text-align: left; padding: 2px 0; border: none;">{{ $isGst ? ($igst > 0 ? 'IGST :' : 'SGST :') : '' }}</td>
+                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $isGst ? ($igst > 0 ? number_format($igst, 2) : number_format($sgst, 2)) : '' }}</td>
                 <td style="text-align: left; padding: 2px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">CHAQUE :</td>
                 <td style="text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentCheque, 2) }}</td>
             </tr>
             <!-- Row 3 -->
             <tr>
-                <td style="text-align: left; padding: 2px 0; border: none;">{{ $igst > 0 ? '' : 'CGST :' }}</td>
-                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $igst > 0 ? '' : number_format($cgst, 2) }}</td>
+                <td style="text-align: left; padding: 2px 0; border: none;">{{ $isGst ? ($igst > 0 ? '' : 'CGST :') : '' }}</td>
+                <td style="text-align: right; padding: 2px 0; border: none; padding-right: 4px;">{{ $isGst ? ($igst > 0 ? '' : number_format($cgst, 2)) : '' }}</td>
                 <td style="text-align: left; padding: 2px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">Card :</td>
                 <td style="text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentCard, 2) }}</td>
             </tr>
             <!-- Row 4 (Totals/Balance) with solid borders -->
             <tr style="border-top: 1px solid #000; border-bottom: 1px solid #000;">
-                <td style="text-align: left; padding: 3px 0; border: none;">TOTAL :</td>
-                <td style="text-align: right; padding: 3px 0; border: none; padding-right: 4px;">{{ number_format($totalTax, 2) }}</td>
+                <td style="text-align: left; padding: 3px 0; border: none;">{{ $isGst ? 'TOTAL :' : '' }}</td>
+                <td style="text-align: right; padding: 3px 0; border: none; padding-right: 4px;">{{ $isGst ? number_format($totalTax, 2) : '' }}</td>
                 <td style="text-align: left; padding: 3px 0; border: none; padding-left: 6px; border-left: 1px dotted #000;">BALENCE :</td>
                 <td style="text-align: right; padding: 3px 0; border: none;">{{ number_format($balance, 2) }}</td>
             </tr>

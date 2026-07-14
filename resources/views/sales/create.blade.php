@@ -410,6 +410,9 @@ $(document).ready(function () {
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function formatPriceNoDecimals(val) {
+        return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
     function setItemPrice(row, price) {
         const val = parseFloat(price) || 0;
         row.find('.item-price').val(val);
@@ -609,15 +612,15 @@ $(document).ready(function () {
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
-            row.data('bypass-min-price', !!product.bypass_min_price);
-            row.data('allow-full-discount', !!product.allow_full_discount);
+            row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
+            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
-            row.data('bypass-min-price', !!product.bypass_min_price);
-            row.data('allow-full-discount', !!product.allow_full_discount);
+            row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
+            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -776,6 +779,11 @@ $(document).ready(function () {
     $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type', function () {
         const row = $(this).closest('.item-row');
         if (row.length > 0) {
+            const discType = row.find('.item-discount-type').val();
+            const discValueInput = row.find('.item-discount-value');
+            if (discType === 'percentage' && parseFloat(discValueInput.val()) > 100) {
+                discValueInput.val(100);
+            }
             updateRowTotal(row);
         } else {
             updateSummary();
@@ -783,8 +791,13 @@ $(document).ready(function () {
     });
 
     $(document).on('input change', '#orderDiscountTypeSelect, #orderDiscountValueInput', function () {
-        $('#overallDiscountType').val($('#orderDiscountTypeSelect').val());
-        $('#overallDiscountValue').val(parseFloat($('#orderDiscountValueInput').val()) || 0);
+        const discType = $('#orderDiscountTypeSelect').val();
+        const valInput = $('#orderDiscountValueInput');
+        if (discType === 'percentage' && parseFloat(valInput.val()) > 100) {
+            valInput.val(100);
+        }
+        $('#overallDiscountType').val(discType);
+        $('#overallDiscountValue').val(parseFloat(valInput.val()) || 0);
         updateSummary();
     });
 
@@ -876,7 +889,8 @@ $(document).ready(function () {
 
         const finalAmount = itemsTotal - orderDiscountAmount;
         const orderViolatesFloor = (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
-            || (count > 0 && finalAmount <= 0);
+            || (minFloorTotal > 0 && finalAmount <= 0)
+            || (finalAmount < 0);
         $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
 
@@ -903,12 +917,12 @@ $(document).ready(function () {
             $('#summarySGSTRow').addClass('d-none');
         }
 
-        const grandTotalAmount = finalAmount + taxAmount;
+        const grandTotalAmount = Math.round(finalAmount + taxAmount);
 
-        $('#itemsTotal').text(symbol + ' ' + formatPrice(grandTotalAmount));
+        $('#itemsTotal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
         $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
-        $('#summaryFinal').text(symbol + ' ' + formatPrice(grandTotalAmount));
+        $('#summaryFinal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
 
         if (totalDiscount > 0) {
             $('#summaryDiscountAmount').closest('.d-flex').removeClass('d-none');
