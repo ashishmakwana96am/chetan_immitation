@@ -1049,30 +1049,20 @@ window.addEventListener('resize', function () {
                     pair_type: pairType || 'single',
                 }),
             })
-            .then(function (r) {
-                if (r.status === 401) {
-                    throw new Error('UNAUTHORIZED');
-                }
-                return r.json().then(function (data) {
-                    if (!r.ok) {
-                        throw new Error(data.message || 'Server error occurred.');
-                    }
-                    return data;
-                });
-            })
+            .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-                updateCartBadge(data.count);
-                showToast('Item added to cart! 🛒');
-                document.dispatchEvent(new CustomEvent('cartUpdated'));
-            })
-            .catch(function (error) {
-                if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-                if (error.message === 'UNAUTHORIZED') {
-                    window.location.href = cartLoginUrl;
+                if (data.status === 'success') {
+                    updateCartBadge(data.count);
+                    showToast('Item added to cart! 🛒');
+                    document.dispatchEvent(new CustomEvent('cartUpdated'));
                 } else {
-                    showToast(error.message || 'Something went wrong.', 'error');
+                    showToast(data.message || 'Could not add to cart.', 'error');
                 }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+                window.location.href = cartLoginUrl;
             });
         };
 
