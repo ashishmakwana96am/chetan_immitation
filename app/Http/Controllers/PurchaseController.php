@@ -696,6 +696,7 @@ class PurchaseController extends Controller
                 'total_amount' => format_price($purchase->total_amount),
                 'paid_amount'  => format_price($purchase->paid_amount),
                 'balance_due'  => format_price($purchase->balance_due),
+                'balance_due_raw' => (float) $purchase->balance_due,
                 'payments'     => $payments,
             ],
         ]);
