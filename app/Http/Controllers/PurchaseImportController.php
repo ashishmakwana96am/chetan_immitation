@@ -54,18 +54,21 @@ class PurchaseImportController extends Controller
         $columns = [
             'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',
             'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier', 'Pair Product',
-            'Product Type', 'Product Variant', 'Product Variant Value', 'Supplier Name',
-            'Variant', 'Variant Value', 'Purchase Price', 'Quantity',
+            'Product Type', 'Supplier Name', 'Variant', 'Variant Value', 'Quantity',
             'Purchase Status', 'Payment Status',
         ];
 
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '2.5', '4.125', '4.575', 'F', 'N', '', '', 'Arihant Tools', '', '', '250', '100', 'Approve', 'Pending'],
-            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'F', 'N', '', '', 'Arihant Tools', '', '', '260', '80', 'Approve', 'Pending'],
-            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'T', 'V', 'Color', 'Gold,Rose Gold', 'Balaji Electroplaters', 'Color', 'Gold', '350', '40', 'Approve', 'Pending'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', 'Balaji Electroplaters', 'Color', 'Rose Gold', '355', '20', 'Approve', 'Paid'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'F', 'V', 'Size', '2.6,3.2,3.5', 'Arihant Tools', 'Size', '2.6', '200', '120', 'Approve', 'Paid'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', 'Star Platers', 'Size', '3.2', '198', '30', 'Approve', 'Pending'],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '2.5', '4.125', '4.575', 'F', 'N', 'Arihant Tools', '', '', '100', 'Approve', 'Pending'],
+            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'F', 'N', 'Arihant Tools', '', '', '80', 'Approve', 'Pending'],
+            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'T', 'V', 'Balaji Electroplaters', 'Color', 'Gold', '40', 'Approve', 'Pending'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '20', 'Approve', 'Paid'],
+            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'F', 'V', 'Arihant Tools', 'Size', '2.6', '120', 'Approve', 'Paid'],
+            ['', '', '', '', '', '', '', '', '', '', 'Star Platers', 'Size', '3.2', '30', 'Approve', 'Pending'],
+            ['Rings', 'Fancy Ring', 'Fancy Ring Combo', 'BAR005', '120', '2.5', '4.125', '4.575', 'F', 'V', 'Arihant Tools', 'Color', 'Gold', '25', 'Approve', 'Pending'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '15', 'Approve', 'Pending'],
+            ['', '', '', '', '', '', '', '', '', '', '', 'Size', '2.2', '10', 'Approve', 'Pending'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', '2.4', '10', 'Approve', 'Pending'],
         ];
 
         $spreadsheet = new Spreadsheet();

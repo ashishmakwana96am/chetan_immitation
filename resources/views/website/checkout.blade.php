@@ -471,7 +471,7 @@
                                         }
                                     }
                                     
-                                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/Royal_Bridal.png');
+                                    $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
                                     $detailUrl = route('product.detail', $product->slug);
                                     if ($variant) {
                                         $detailUrl .= '?variant=' . $variant->id;

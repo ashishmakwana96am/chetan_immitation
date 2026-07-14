@@ -266,7 +266,7 @@
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/Royal_Bridal.png') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
                                             <div>
                                                 <span class="fw-semibold">{{ $displayName }}</span>
                                                 @if($item->product?->barcode)
@@ -460,7 +460,7 @@
                     ${buildPaymentHistoryHtml(historyData)}
                     <div class="mb-3 text-start">
                         <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
-                        <select id="swal-payment-status" class="form-select form-select-lg">
+                        <select id="swal-payment-status" class="form-select form-select-md">
                             <option value="1" ${currentPaymentStatus == 1 ? 'selected' : 'disabled'}>Pending</option>
                             <option value="3" ${currentPaymentStatus == 3 ? 'selected' : ''}>Partially Paid</option>
                             <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
@@ -468,7 +468,7 @@
                     </div>
                     <div class="mb-3 text-start d-none" id="swal-amount-wrapper">
                         <label for="swal-payment-amount" class="form-label fw-semibold mb-2">Amount Paid Now</label>
-                        <input type="number" id="swal-payment-amount" class="form-control form-control-lg" min="0.01" step="0.01" placeholder="Enter amount paid" />
+                        <input type="number" id="swal-payment-amount" class="form-control form-control-md" min="0.01" step="0.01" placeholder="Enter amount paid" />
                     </div>
                 `,
                 showCancelButton: true,
@@ -491,9 +491,16 @@
                 preConfirm: () => {
                     const status = document.getElementById('swal-payment-status').value;
                     const amount = document.getElementById('swal-payment-amount').value;
-                    if (status === '3' && (!amount || parseFloat(amount) <= 0)) {
-                        Swal.showValidationMessage('Please enter a valid amount paid.');
-                        return false;
+                    if (status === '3') {
+                        if (!amount || parseFloat(amount) <= 0) {
+                            Swal.showValidationMessage('Please enter a valid amount paid.');
+                            return false;
+                        }
+                        const balanceDue = historyData ? parseFloat(historyData.balance_due_raw) : null;
+                        if (balanceDue !== null && !isNaN(balanceDue) && parseFloat(amount) > balanceDue) {
+                            Swal.showValidationMessage(`Paid amount cannot be greater than the remaining balance due (${historyData.balance_due}).`);
+                            return false;
+                        }
                     }
                     return { status, amount };
                 }

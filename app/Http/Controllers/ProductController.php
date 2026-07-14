@@ -575,17 +575,32 @@ class ProductController extends Controller
 
             // Update variants for variable products
             if ($request->type === 'variable' && $request->filled('variants_json')) {
-                $product->variants()->delete();
                 $variants = json_decode($request->variants_json, true);
+                $existingVariants = $product->variants()->get()->keyBy('attribute_value_id');
+                $keptAttributeValueIds = [];
+
                 foreach ($variants as $item) {
-                    ProductVariant::create([
-                        'product_id'         => $product->id,
-                        'attribute_value_id' => $item['attribute_value_id'],
-                        'purchase_price'     => $item['purchase_price'] ?? 0,
-                        'sale_price'         => $item['sale_price'] ?? 0,
-                        'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
-                    ]);
+                    $attributeValueId = $item['attribute_value_id'];
+                    $keptAttributeValueIds[] = $attributeValueId;
+
+                    $variantData = [
+                        'purchase_price' => $item['purchase_price'] ?? 0,
+                        'sale_price'     => $item['sale_price'] ?? 0,
+                        'status'         => ($item['status'] ?? 1) == 1 ? 1 : 2,
+                    ];
+
+                    if ($existingVariant = $existingVariants->get($attributeValueId)) {
+                        // Preserve the existing variant's id so purchase/stock history keeps matching it
+                        $existingVariant->update($variantData);
+                    } else {
+                        ProductVariant::create($variantData + [
+                            'product_id'         => $product->id,
+                            'attribute_value_id' => $attributeValueId,
+                        ]);
+                    }
                 }
+
+                $product->variants()->whereNotIn('attribute_value_id', $keptAttributeValueIds)->delete();
             } elseif ($request->type === 'normal') {
                 $product->variants()->delete();
             }

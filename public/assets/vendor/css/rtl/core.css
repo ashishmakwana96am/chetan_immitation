@@ -2086,9 +2086,9 @@ progress {
 }
 
 .form-control-lg {
-  min-height: calc(1.5em + 1.188rem + 2px);
-  padding: 0.594rem 1rem;
-  font-size: 1.125rem;
+  /* min-height: calc(1.5em + 1.188rem + 2px); */
+  padding: 6px 1rem;
+  font-size: 16px;
   border-radius: 0.5rem;
 }
 .form-control-lg::file-selector-button {
@@ -2180,10 +2180,10 @@ textarea.form-control-lg {
 }
 
 .form-select-lg {
-  padding-top: 0.594rem;
-  padding-bottom: 0.594rem;
+  padding-top:6px;
+  padding-bottom: 6px;
   padding-left: 1rem;
-  font-size: 1.125rem;
+  font-size: 16px;
   border-radius: 0.5rem;
 }
 

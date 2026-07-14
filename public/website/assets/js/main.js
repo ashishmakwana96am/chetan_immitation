@@ -19,24 +19,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // ── Product data ──────────────────────────────────────────────
 const allProducts = [
-  { id:1,  name:"Rajwadi Kundan Pearl Bridal Necklace Set", price:4999, mrp:7999,  rating:4, reviews:156, sale:true,  inStock:true,  category:"necklaces", size:4.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:2,  name:"Antique Gold Plated Temple Jewellery Set", price:3499, mrp:5999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:3,  name:"Royal Polki Stone Wedding Necklace",        price:5299, mrp:8499,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:6.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:4,  name:"Designer Emerald Stone Party Necklace",     price:1499, mrp:2999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:4.5, img:"website/assets/images/Royal_Bridal.png" },
-  { id:5,  name:"Traditional Gold Finish Bridal Haar",       price:2299, mrp:4299,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:6,  name:"Handcrafted Polki Pearl Choker Set",        price:4299, mrp:6999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:7.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:7,  name:"Traditional Meenakari Gold Plated Necklace",price:1799, mrp:3299,  rating:4, reviews:156, sale:true,  inStock:true,  category:"necklaces", size:4.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:8,  name:"Elegant American Diamond Party Set",        price:4499, mrp:4499,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:6.5, img:"website/assets/images/Royal_Bridal.png" },
-  { id:9,  name:"Royal Antique Kundan Temple Set",           price:5999, mrp:9499,  rating:4, reviews:156, sale:false, inStock:false, category:"necklaces", size:8.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:10, name:"Bridal Kundan Choker Long Haaram",          price:6499, mrp:9999,  rating:5, reviews:200, sale:true,  inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:11, name:"Oxidised Silver Look Tribal Necklace",      price:1299, mrp:1999,  rating:3, reviews:88,  sale:false, inStock:true,  category:"shortneck",  size:4.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:12, name:"Pearl Drop Long Chain Necklace",            price:2199, mrp:3499,  rating:4, reviews:134, sale:false, inStock:true,  category:"longneck",   size:6.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:13, name:"Gold Plated Bangal Kadali Set",             price:1899, mrp:3199,  rating:4, reviews:112, sale:true,  inStock:true,  category:"bangal",     size:4.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:14, name:"Antique Hathful Set for Weddings",          price:3299, mrp:5500,  rating:4, reviews:95,  sale:false, inStock:false, category:"hathful",    size:7.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:15, name:"Kundan Mangalsutra with Pendant",           price:2499, mrp:4199,  rating:5, reviews:67,  sale:false, inStock:true,  category:"mangalsutra",size:5.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:16, name:"Statement Jhumka Pendal Set",               price:999,  mrp:1699,  rating:4, reviews:200, sale:true,  inStock:true,  category:"pendal",     size:4.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:17, name:"Designer Ring Set – Meenakari Gold",        price:799,  mrp:1299,  rating:4, reviews:145, sale:false, inStock:true,  category:"ring",       size:5.0, img:"website/assets/images/Royal_Bridal.png" },
-  { id:18, name:"Juda Kandora Traditional Bridal Set",       price:3999, mrp:6499,  rating:5, reviews:178, sale:true,  inStock:true,  category:"juda",       size:6.0, img:"website/assets/images/Royal_Bridal.png" },
+  { id:1,  name:"Rajwadi Kundan Pearl Bridal Necklace Set", price:4999, mrp:7999,  rating:4, reviews:156, sale:true,  inStock:true,  category:"necklaces", size:4.0, img:"website/assets/images/no-image.svg" },
+  { id:2,  name:"Antique Gold Plated Temple Jewellery Set", price:3499, mrp:5999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/no-image.svg" },
+  { id:3,  name:"Royal Polki Stone Wedding Necklace",        price:5299, mrp:8499,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:6.0, img:"website/assets/images/no-image.svg" },
+  { id:4,  name:"Designer Emerald Stone Party Necklace",     price:1499, mrp:2999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:4.5, img:"website/assets/images/no-image.svg" },
+  { id:5,  name:"Traditional Gold Finish Bridal Haar",       price:2299, mrp:4299,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/no-image.svg" },
+  { id:6,  name:"Handcrafted Polki Pearl Choker Set",        price:4299, mrp:6999,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:7.0, img:"website/assets/images/no-image.svg" },
+  { id:7,  name:"Traditional Meenakari Gold Plated Necklace",price:1799, mrp:3299,  rating:4, reviews:156, sale:true,  inStock:true,  category:"necklaces", size:4.0, img:"website/assets/images/no-image.svg" },
+  { id:8,  name:"Elegant American Diamond Party Set",        price:4499, mrp:4499,  rating:4, reviews:156, sale:false, inStock:true,  category:"necklaces", size:6.5, img:"website/assets/images/no-image.svg" },
+  { id:9,  name:"Royal Antique Kundan Temple Set",           price:5999, mrp:9499,  rating:4, reviews:156, sale:false, inStock:false, category:"necklaces", size:8.0, img:"website/assets/images/no-image.svg" },
+  { id:10, name:"Bridal Kundan Choker Long Haaram",          price:6499, mrp:9999,  rating:5, reviews:200, sale:true,  inStock:true,  category:"necklaces", size:5.0, img:"website/assets/images/no-image.svg" },
+  { id:11, name:"Oxidised Silver Look Tribal Necklace",      price:1299, mrp:1999,  rating:3, reviews:88,  sale:false, inStock:true,  category:"shortneck",  size:4.0, img:"website/assets/images/no-image.svg" },
+  { id:12, name:"Pearl Drop Long Chain Necklace",            price:2199, mrp:3499,  rating:4, reviews:134, sale:false, inStock:true,  category:"longneck",   size:6.0, img:"website/assets/images/no-image.svg" },
+  { id:13, name:"Gold Plated Bangal Kadali Set",             price:1899, mrp:3199,  rating:4, reviews:112, sale:true,  inStock:true,  category:"bangal",     size:4.0, img:"website/assets/images/no-image.svg" },
+  { id:14, name:"Antique Hathful Set for Weddings",          price:3299, mrp:5500,  rating:4, reviews:95,  sale:false, inStock:false, category:"hathful",    size:7.0, img:"website/assets/images/no-image.svg" },
+  { id:15, name:"Kundan Mangalsutra with Pendant",           price:2499, mrp:4199,  rating:5, reviews:67,  sale:false, inStock:true,  category:"mangalsutra",size:5.0, img:"website/assets/images/no-image.svg" },
+  { id:16, name:"Statement Jhumka Pendal Set",               price:999,  mrp:1699,  rating:4, reviews:200, sale:true,  inStock:true,  category:"pendal",     size:4.0, img:"website/assets/images/no-image.svg" },
+  { id:17, name:"Designer Ring Set - Meenakari Gold",        price:799,  mrp:1299,  rating:4, reviews:145, sale:false, inStock:true,  category:"ring",       size:5.0, img:"website/assets/images/no-image.svg" },
+  { id:18, name:"Juda Kandora Traditional Bridal Set",       price:3999, mrp:6499,  rating:5, reviews:178, sale:true,  inStock:true,  category:"juda",       size:6.0, img:"website/assets/images/no-image.svg" },
 ];
  
 // ── State ─────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ grid.innerHTML = pageItems.map(p => `
         <img src="${p.img}"
             alt="${p.name}"
             loading="lazy"
-            onerror="this.src='assets/images/Royal_Bridal.png'"
+            onerror="this.src='assets/images/no-image.svg'"
             class="w-full h-[340px] object-cover">
 
         <button onclick="toggleWish(${p.id})"

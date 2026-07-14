@@ -56,7 +56,7 @@
                             </div>
                             @empty
                             <div class="swiper-slide">
-                                <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-[573px] object-contain ">
+                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="w-full h-[573px] object-contain ">
                             </div>
                             @endforelse
                         </div>
@@ -96,7 +96,7 @@
                             </div>
                             @empty
                             <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                                <img src="{{ asset('website/assets/images/detailpage.png') }}" class="w-full h-full object-cover">
+                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="w-full h-full object-cover">
                             </div>
                             @endforelse
                         </div>
@@ -618,9 +618,7 @@ if (minusBtn) {
     // When user switches variant, update the heart to reflect wishlist state or auto-update if wishlisted
     document.querySelectorAll('.variant-selector').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            // Visual active state
-            var parent = btn.parentElement;
-            parent.querySelectorAll('.variant-selector').forEach(function (s) {
+            document.querySelectorAll('.variant-selector').forEach(function (s) {
                 s.classList.remove('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
                 s.classList.add('border-[#D5D5D5]', 'text-[#131615]');
             });

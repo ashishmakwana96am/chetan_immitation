@@ -62,6 +62,7 @@ class ProductImportController extends Controller
             ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'F', 'N', '', ''],
             ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'T', 'V', 'Color', 'Gold,Rose Gold'],
             ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'F', 'V', 'Size', '2.6,3.2,3.5'],
+            ['Rings', 'Fancy Ring', 'Fancy Ring Combo', 'BAR005', '120', '2.5', '4.125', '4.575', 'F', 'V', 'Color,Size', 'Gold,Rose Gold|2.2,2.4'],
         ];
 
         $spreadsheet = new Spreadsheet();
