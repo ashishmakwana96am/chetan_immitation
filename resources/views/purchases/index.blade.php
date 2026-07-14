@@ -117,7 +117,7 @@
 
             @can('import purchases')
                 <button type="button" class="btn btn-outline-primary" id="purchaseImportBtn">
-                    <i class="ti ti-file-spreadsheet me-1"></i> Import Purchases
+                    <i class="ti ti-file-spreadsheet me-1"></i> Import
                 </button>
             @endcan
             @can('create purchases')
