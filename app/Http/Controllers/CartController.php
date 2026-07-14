@@ -193,58 +193,65 @@ class CartController extends Controller
             }
         }
 
-        if ($qty > 0) {
-            if ($customer) {
-                $existing = CartItem::where('customer_id', $customer->id)
-                    ->where('product_id', $productId)
-                    ->where('product_variant_id', $variantId)
-                    ->where('pair_type', $pairType)
-                    ->first();
+        try {
+            if ($qty > 0) {
+                if ($customer) {
+                    $existing = CartItem::where('customer_id', $customer->id)
+                        ->where('product_id', $productId)
+                        ->where('product_variant_id', $variantId)
+                        ->where('pair_type', $pairType)
+                        ->first();
 
-                if ($existing) {
-                    $existing->increment('qty', $qty);
-                } else {
-                    CartItem::create([
-                        'customer_id'        => $customer->id,
-                        'product_id'         => $productId,
-                        'product_variant_id' => $variantId,
-                        'pair_type'          => $pairType,
-                        'qty'                => $qty,
-                    ]);
-                }
-            } else {
-                // Guest user
-                $guestCart = $this->getGuestCart($request);
-
-                $found = false;
-                foreach ($guestCart as &$item) {
-                    if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
-                        $item['qty'] += $qty;
-                        $found = true;
-                        break;
+                    if ($existing) {
+                        $existing->increment('qty', $qty);
+                    } else {
+                        CartItem::create([
+                            'customer_id'        => $customer->id,
+                            'product_id'         => $productId,
+                            'product_variant_id' => $variantId,
+                            'pair_type'          => $pairType,
+                            'qty'                => $qty,
+                        ]);
                     }
-                }
+                } else {
+                    // Guest user
+                    $guestCart = $this->getGuestCart($request);
 
-                if (!$found) {
-                    $guestCart[] = [
-                        'product_id' => $productId,
-                        'variant_id' => $variantId,
-                        'pair_type'  => $pairType,
-                        'qty'        => $qty,
-                    ];
-                }
+                    $found = false;
+                    foreach ($guestCart as &$item) {
+                        if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
+                            $item['qty'] += $qty;
+                            $found = true;
+                            break;
+                        }
+                    }
 
-                session()->put('guest_cart', $guestCart);
+                    if (!$found) {
+                        $guestCart[] = [
+                            'product_id' => $productId,
+                            'variant_id' => $variantId,
+                            'pair_type'  => $pairType,
+                            'qty'        => $qty,
+                        ];
+                    }
+
+                    session()->put('guest_cart', $guestCart);
+                }
             }
+
+            $count = $customer ? CartItem::where('customer_id', $customer->id)->sum('qty') : array_sum(array_column($this->getGuestCart($request), 'qty'));
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Item added to cart.',
+                'count'   => $count,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Error adding to cart: ' . $e->getMessage()
+            ], 500);
         }
-
-        $count = $customer ? CartItem::where('customer_id', $customer->id)->sum('qty') : array_sum(array_column($this->getGuestCart($request), 'qty'));
-
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Item added to cart.',
-            'count'   => $count,
-        ]);
     }
 
     /**
