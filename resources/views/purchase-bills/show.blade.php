@@ -89,6 +89,10 @@
                         <span class="info-value">{{ $transfer->toLocation->name ?? '-' }}</span>
                     </div>
                     <div class="info-row">
+                        <span class="info-label">Payment Method</span>
+                        <span class="info-value">{{ ucwords($transfer->payment_method ?? 'cash') }}</span>
+                    </div>
+                    <div class="info-row">
                         <span class="info-label">Created By</span>
                         <span class="info-value">{{ $transfer->createdBy->name ?? '-' }}</span>
                     </div>

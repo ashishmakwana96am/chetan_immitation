@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
@@ -92,7 +93,7 @@ class CategoryController extends Controller
         $this->authorize('create categories');
 
         $validator = Validator::make($request->all(), [
-            'name'                 => ['required', 'string', 'max:100', 'unique:categories,name'],
+            'name'                 => ['required', 'string', 'max:100', Rule::unique('categories', 'name')->whereNull('deleted_at')],
             'image_base64'         => ['required', 'string'],
             'low_stock_threshold'  => ['required', 'integer', 'min:0'],
         ], [
@@ -174,7 +175,7 @@ class CategoryController extends Controller
         $this->authorize('edit categories');
 
         $validator = Validator::make($request->all(), [
-            'name'                => ['required', 'string', 'max:100', 'unique:categories,name,' . $category->id],
+            'name'                => ['required', 'string', 'max:100', Rule::unique('categories', 'name')->ignore($category->id)->whereNull('deleted_at')],
             'image_base64'        => ['nullable', 'string'],
             'low_stock_threshold' => ['required', 'integer', 'min:0'],
         ]);

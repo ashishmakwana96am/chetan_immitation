@@ -196,6 +196,7 @@ class PurchaseBillController extends Controller
         $validator = Validator::make($request->all(), [
             'from_location_id' => ['required', 'exists:locations,id'],
             'to_location_id' => ['required', 'exists:locations,id', 'different:from_location_id'],
+            'payment_method' => ['required', 'string', 'in:cash,online'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -219,6 +220,7 @@ class PurchaseBillController extends Controller
                 'from_location_id' => $defaultLocation->id,
                 'to_location_id' => $request->to_location_id,
                 'status' => PurchaseBill::STATUS_PENDING,
+                'payment_method' => $request->payment_method,
                 'remarks' => $request->remarks,
                 'created_by' => auth()->id(),
             ]);
@@ -264,13 +266,18 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be accepted.'], 422);
         }
 
-        $purchaseBill->load('items');
+        $purchaseBill->load(['items.product', 'items.variant']);
         $stockError = $this->getStockError($purchaseBill->items, (int) $purchaseBill->from_location_id);
         if ($stockError) {
             return response()->json(['status' => 'error', 'message' => $stockError], 422);
         }
 
         DB::transaction(function () use ($purchaseBill) {
+            $totalAmount = $purchaseBill->items->sum(function ($item) {
+                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                return $price * $item->quantity;
+            });
+
             foreach ($purchaseBill->items as $item) {
                 $source = Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $purchaseBill->from_location_id)
@@ -297,6 +304,45 @@ class PurchaseBillController extends Controller
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
                 ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock transferred in for purchase bill #' . $purchaseBill->transfer_no);
+            }
+
+            if ($totalAmount > 0) {
+                $onlineMethods = ['online', 'bank_transfer', 'bank transfer', 'razorpay', 'upi'];
+                $balanceType = in_array(strtolower($purchaseBill->payment_method ?? 'cash'), $onlineMethods, true)
+                    ? \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+                    : \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH;
+
+                $balanceCol = $balanceType === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+                    ? 'bank_balance'
+                    : 'cash_balance';
+
+                $fromLocation = Location::where('id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
+                $newFromBalance = (float) $fromLocation->{$balanceCol} + $totalAmount;
+                $fromLocation->update([$balanceCol => $newFromBalance]);
+
+                \App\Models\LocationBalanceTransaction::create([
+                    'location_id'   => $purchaseBill->from_location_id,
+                    'balance_type'  => $balanceType,
+                    'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
+                    'amount'        => $totalAmount,
+                    'balance_after' => $newFromBalance,
+                    'notes'         => 'Stock Transfer Out #' . $purchaseBill->transfer_no,
+                    'created_by'    => auth()->id(),
+                ]);
+
+                $toLocation = Location::where('id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
+                $newToBalance = max(0, (float) $toLocation->{$balanceCol} - $totalAmount);
+                $toLocation->update([$balanceCol => $newToBalance]);
+
+                \App\Models\LocationBalanceTransaction::create([
+                    'location_id'   => $purchaseBill->to_location_id,
+                    'balance_type'  => $balanceType,
+                    'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $totalAmount,
+                    'balance_after' => $newToBalance,
+                    'notes'         => 'Stock Transfer In #' . $purchaseBill->transfer_no,
+                    'created_by'    => auth()->id(),
+                ]);
             }
 
             $purchaseBill->update([

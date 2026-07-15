@@ -21,9 +21,7 @@ class Expense extends Model
 
     const PAYMENT_METHODS = [
         'Cash',
-        'Bank Transfer',
-        'UPI',
-        'Card',
+        'Online',
     ];
 
     protected $fillable = [

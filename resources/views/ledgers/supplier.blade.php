@@ -91,24 +91,39 @@
         <div class="col-md-4 col-6">
             <div class="card h-100">
                 <div class="card-body">
-                    <p class="text-muted mb-1">Purchase</p>
-                    <h5 class="mb-0" id="summaryPurchase">-</h5>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Purchase</span>
+                            <h4 class="mb-0 mt-1" id="summaryPurchase">-</h4>
+                        </div>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4 col-6">
             <div class="card h-100">
                 <div class="card-body">
-                    <p class="text-muted mb-1">Payment</p>
-                    <h5 class="mb-0 text-success" id="summaryPayment">-</h5>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Payment</span>
+                            <h4 class="mb-0 mt-1 text-success" id="summaryPayment">-</h4>
+                        </div>
+                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-credit-card ti-sm"></i></span>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4 col-6">
             <div class="card h-100">
                 <div class="card-body">
-                    <p class="text-muted mb-1">Outstanding <small class="text-muted">(Accounts Payable)</small></p>
-                    <h5 class="mb-0 text-danger" id="summaryOutstanding">-</h5>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Outstanding <small class="text-muted">(Accounts Payable)</small></span>
+                            <h4 class="mb-0 mt-1 text-danger" id="summaryOutstanding">-</h4>
+                        </div>
+                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-circle ti-sm"></i></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -225,7 +240,7 @@
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
                                         <a href="${window.location.origin}/admin/ledgers/supplier/detail?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
-                                            <i class="ti ti-eye me-2"></i>View Details
+                                            <i class="ti ti-eye me-2"></i>View
                                         </a>
                                     </div>
                                 </div>
@@ -263,7 +278,7 @@
                 endPicker.clear();
                 startPicker.set('maxDate', 'today');
                 endPicker.set('minDate', null);
-                $('#filter-location').val('');
+                $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
             });

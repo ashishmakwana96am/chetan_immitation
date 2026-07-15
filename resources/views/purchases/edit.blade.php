@@ -148,6 +148,14 @@
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" id="paymentMethodSelect" class="form-select no-select2">
+                                    <option value="cash"   {{ ($purchase->payment_method ?? 'cash') === 'cash'   ? 'selected' : '' }}>Cash</option>
+                                    <option value="online" {{ ($purchase->payment_method ?? 'cash') === 'online' ? 'selected' : '' }}>Online</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

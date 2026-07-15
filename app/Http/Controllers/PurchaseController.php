@@ -177,6 +177,7 @@ class PurchaseController extends Controller
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_method'         => ['nullable', 'string', 'in:cash,online'],
             'paid_amount'            => ['nullable', 'numeric', 'min:0.01', 'required_if:payment_status,3'],
         ]);
 
@@ -270,6 +271,7 @@ class PurchaseController extends Controller
 
             $invoice = Purchase::create([
                 'supplier_id'     => $request->supplier_id,
+                'location_id'     => $defaultLocation->id,
                 'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
                 'is_gst'          => $isGst,
                 'tax_amount'      => $taxAmount,
@@ -279,6 +281,7 @@ class PurchaseController extends Controller
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $request->status ?? 2,
                 'payment_status'  => $paymentStatus,
+                'payment_method'  => $request->payment_method ?? 'cash',
                 'paid_amount'     => $paidAmount,
                 'created_by'      => auth()->id(),
             ]);
@@ -375,6 +378,7 @@ class PurchaseController extends Controller
             'discount_value'         => ['nullable', 'numeric', 'min:0'],
             'status'                 => ['nullable', 'integer', 'in:1,2,3'],
             'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_method'         => ['nullable', 'string', 'in:cash,online'],
             'paid_amount'            => ['nullable', 'numeric', 'min:0', 'required_if:payment_status,3'],
         ]);
 
@@ -485,6 +489,7 @@ class PurchaseController extends Controller
                 'discount_amount' => $orderDiscountAmount,
                 'status'          => $newStatus,
                 'payment_status'  => $paymentStatus,
+                'payment_method'  => $request->payment_method ?? $purchase->payment_method ?? 'cash',
                 'paid_amount'     => $paidAmount,
             ];
 

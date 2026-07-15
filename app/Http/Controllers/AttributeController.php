@@ -8,6 +8,7 @@ use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AttributeController extends Controller
 {
@@ -79,7 +80,7 @@ class AttributeController extends Controller
         $this->authorize('create attributes');
 
         $validator = Validator::make($request->all(), [
-            'name'       => ['required', 'string', 'max:255', 'unique:attributes,name'],
+            'name'       => ['required', 'string', 'max:255', Rule::unique('attributes', 'name')->whereNull('deleted_at')],
             'values_json' => ['required', 'json'],
             'status'     => ['nullable', 'string'],
         ]);
@@ -126,7 +127,7 @@ class AttributeController extends Controller
         $this->authorize('edit attributes');
 
         $validator = Validator::make($request->all(), [
-            'name'       => ['required', 'string', 'max:255', 'unique:attributes,name,' . $attribute->id],
+            'name'       => ['required', 'string', 'max:255', Rule::unique('attributes', 'name')->ignore($attribute->id)->whereNull('deleted_at')],
             'values_json' => ['required', 'json'],
             'status'     => ['nullable', 'string'],
         ]);
@@ -285,7 +286,7 @@ class AttributeController extends Controller
         $this->authorize('create attributes');
 
         $validator = Validator::make($request->all(), [
-            'name'   => ['required', 'string', 'max:255', 'unique:attributes,name'],
+            'name'   => ['required', 'string', 'max:255', Rule::unique('attributes', 'name')->whereNull('deleted_at')],
             'values' => ['required', 'string'],
         ]);
 

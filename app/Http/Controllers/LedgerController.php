@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Expense;
 use App\Models\Location;
 use App\Models\LocationBalanceTransaction;
-use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use Illuminate\Http\Request;
@@ -181,6 +179,58 @@ class LedgerController extends Controller
         ));
     }
 
+    public function cashLedgerDetail(Request $request)
+    {
+        $this->authorizeLedger('view cash ledger');
+
+        $request->validate([
+            'location_id' => ['required'],
+            'date'        => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        if ($isRestricted) {
+            $locationIds = [$user->location_id];
+        } elseif ($request->location_id === 'all') {
+            $locationIds = Location::where('status', 1)->pluck('id')->all();
+        } else {
+            $request->validate(['location_id' => ['integer', 'exists:locations,id']]);
+            $locationIds = [(int) $request->location_id];
+        }
+
+        abort_if(empty($locationIds), 404);
+
+        $location = count($locationIds) === 1 ? Location::find($locationIds[0]) : null;
+        $date = \Carbon\Carbon::parse($request->date);
+
+        $transactions = LocationBalanceTransaction::with('createdBy', 'location')
+            ->whereIn('location_id', $locationIds)
+            ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_CASH)
+            ->whereDate('created_at', $request->date)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $openingBalance = collect($locationIds)->sum(
+            fn ($locId) => $this->openingBalance($locId, LocationBalanceTransaction::BALANCE_TYPE_CASH, $request->date)
+        );
+
+        $totalIn = $transactions->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount');
+        $totalOut = $transactions->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount');
+        $closingBalance = $openingBalance + $totalIn - $totalOut;
+
+        return view('ledgers.cash-detail', compact(
+            'location',
+            'date',
+            'transactions',
+            'openingBalance',
+            'totalIn',
+            'totalOut',
+            'closingBalance'
+        ));
+    }
+
     // -----------------------------------------------------------------
     // Cash Ledger (per branch)
     // -----------------------------------------------------------------
@@ -198,56 +248,44 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view cash ledger');
 
-        $locationId = $this->resolveLocationId($request);
+        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
 
-        if (!$locationId) {
+        if (empty($locationIds)) {
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
         $today = now()->format('Y-m-d');
 
-        $sales = Order::where('location_id', $locationId)
-            ->where('order_type', 'sale')
-            ->where('payment_method', 'cash')
-            ->whereDate('created_at', '<=', $today)
-            ->get()
-            ->groupBy(fn ($sale) => $sale->created_at->format('Y-m-d'));
-
-        $expenses = Expense::where('location_id', $locationId)
-            ->where('payment_method', 'Cash')
-            ->whereDate('expense_date', '<=', $today)
-            ->get()
-            ->groupBy(fn ($expense) => $expense->expense_date->format('Y-m-d'));
-
-        $days = $sales->keys()->concat($expenses->keys())->push($today)->unique()->sort()->values();
-
-        $opening = $this->openingBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH, $days->first());
-
-        $running = $opening;
-        $chain = $days->map(function ($day) use (&$running, $sales, $expenses) {
-            $daySale    = (float) ($sales->get($day)?->sum('final_amount') ?? 0);
-            $dayExpense = (float) ($expenses->get($day)?->sum('amount') ?? 0);
-            $dayOpening = $running;
-            $dayClosing = $dayOpening + $daySale - $dayExpense;
-            $running    = $dayClosing;
-
-            return ['date' => $day, 'opening' => $dayOpening, 'in' => $daySale, 'out' => $dayExpense, 'closing' => $dayClosing];
-        });
+        $chain = $this->buildLedgerChain($locationIds, LocationBalanceTransaction::BALANCE_TYPE_CASH, $today);
 
         $todayNode = $chain->firstWhere('date', $today);
 
         $rows = $chain
-            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0)
+            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0 || $node['date'] === $today)
             ->when($request->filled('start_date'), fn ($c) => $c->where('date', '>=', $request->start_date))
             ->when($request->filled('end_date'), fn ($c) => $c->where('date', '<=', $request->end_date))
+            ->sortByDesc('date')
             ->values()
             ->map(fn ($node, $index) => [
-                'index'   => $index + 1,
-                'date'    => format_date($node['date']),
-                'opening' => format_price($node['opening']),
-                'sale'    => format_price($node['in']),
-                'expense' => format_price($node['out']),
-                'closing' => format_price($node['closing']),
+                'index'      => $index + 1,
+                'date'       => format_date($node['date']),
+                'date_sort'  => $node['date'],
+                'date_group' => format_date($node['date']),
+                'opening'    => format_price($node['opening']),
+                'sale'       => format_price($node['in']),
+                'expense'    => format_price($node['out']),
+                'closing'    => format_price($node['closing']),
+                'actions'    => '
+                    <div class="dropdown table-action-dropdown">
+                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                            <span>Actions</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                            <a href="' . route('admin.ledgers.cash.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
+                                <i class="ti ti-eye me-2"></i>View
+                            </a>
+                        </div>
+                    </div>'
             ]);
 
         return response()->json([
@@ -279,61 +317,44 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view bank ledger');
 
-        $locationId = $this->resolveLocationId($request);
+        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
 
-        if (!$locationId) {
+        if (empty($locationIds)) {
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
         $today = now()->format('Y-m-d');
 
-        $receipts = Order::where('location_id', $locationId)
-            ->where('order_type', 'sale')
-            ->where(function ($q) {
-                $q->where('payment_method', 'online')
-                    ->orWhere(function ($q2) {
-                        $q2->where('payment_method', 'cod')->where('payment_status', Order::PAYMENT_STATUS_PAID);
-                    });
-            })
-            ->whereDate('created_at', '<=', $today)
-            ->get()
-            ->groupBy(fn ($order) => $order->created_at->format('Y-m-d'));
-
-        $payments = Expense::where('location_id', $locationId)
-            ->whereIn('payment_method', ['Bank Transfer', 'UPI', 'Card'])
-            ->whereDate('expense_date', '<=', $today)
-            ->get()
-            ->groupBy(fn ($expense) => $expense->expense_date->format('Y-m-d'));
-
-        $days = $receipts->keys()->concat($payments->keys())->push($today)->unique()->sort()->values();
-
-        $opening = $this->openingBalance($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK, $days->first());
-
-        $running = $opening;
-        $chain = $days->map(function ($day) use (&$running, $receipts, $payments) {
-            $dayReceipt = (float) ($receipts->get($day)?->sum('final_amount') ?? 0);
-            $dayPayment = (float) ($payments->get($day)?->sum('amount') ?? 0);
-            $dayOpening = $running;
-            $dayClosing = $dayOpening + $dayReceipt - $dayPayment;
-            $running    = $dayClosing;
-
-            return ['date' => $day, 'opening' => $dayOpening, 'in' => $dayReceipt, 'out' => $dayPayment, 'closing' => $dayClosing];
-        });
+        $chain = $this->buildLedgerChain($locationIds, LocationBalanceTransaction::BALANCE_TYPE_BANK, $today);
 
         $todayNode = $chain->firstWhere('date', $today);
 
         $rows = $chain
-            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0)
+            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0 || $node['date'] === $today)
             ->when($request->filled('start_date'), fn ($c) => $c->where('date', '>=', $request->start_date))
             ->when($request->filled('end_date'), fn ($c) => $c->where('date', '<=', $request->end_date))
+            ->sortByDesc('date')
             ->values()
             ->map(fn ($node, $index) => [
-                'index'   => $index + 1,
-                'date'    => format_date($node['date']),
-                'opening' => format_price($node['opening']),
-                'receipt' => format_price($node['in']),
-                'payment' => format_price($node['out']),
-                'closing' => format_price($node['closing']),
+                'index'      => $index + 1,
+                'date'       => format_date($node['date']),
+                'date_sort'  => $node['date'],
+                'date_group' => format_date($node['date']),
+                'opening'    => format_price($node['opening']),
+                'receipt'    => format_price($node['in']),
+                'payment'    => format_price($node['out']),
+                'closing'    => format_price($node['closing']),
+                'actions'    => '
+                    <div class="dropdown table-action-dropdown">
+                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                            <span>Actions</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                            <a href="' . route('admin.ledgers.bank.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
+                                <i class="ti ti-eye me-2"></i>View
+                            </a>
+                        </div>
+                    </div>'
             ]);
 
         return response()->json([
@@ -346,6 +367,58 @@ class LedgerController extends Controller
                 'closing' => format_price($todayNode['closing']),
             ],
         ]);
+    }
+
+    public function bankLedgerDetail(Request $request)
+    {
+        $this->authorizeLedger('view bank ledger');
+
+        $request->validate([
+            'location_id' => ['required'],
+            'date'        => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        if ($isRestricted) {
+            $locationIds = [$user->location_id];
+        } elseif ($request->location_id === 'all') {
+            $locationIds = Location::where('status', 1)->pluck('id')->all();
+        } else {
+            $request->validate(['location_id' => ['integer', 'exists:locations,id']]);
+            $locationIds = [(int) $request->location_id];
+        }
+
+        abort_if(empty($locationIds), 404);
+
+        $location = count($locationIds) === 1 ? Location::find($locationIds[0]) : null;
+        $date = \Carbon\Carbon::parse($request->date);
+
+        $transactions = LocationBalanceTransaction::with('createdBy', 'location')
+            ->whereIn('location_id', $locationIds)
+            ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_BANK)
+            ->whereDate('created_at', $request->date)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $openingBalance = collect($locationIds)->sum(
+            fn ($locId) => $this->openingBalance($locId, LocationBalanceTransaction::BALANCE_TYPE_BANK, $request->date)
+        );
+
+        $totalIn = $transactions->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount');
+        $totalOut = $transactions->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount');
+        $closingBalance = $openingBalance + $totalIn - $totalOut;
+
+        return view('ledgers.bank-detail', compact(
+            'location',
+            'date',
+            'transactions',
+            'openingBalance',
+            'totalIn',
+            'totalOut',
+            'closingBalance'
+        ));
     }
 
     // -----------------------------------------------------------------
@@ -473,6 +546,33 @@ class LedgerController extends Controller
         return $request->filled('location_id') ? (int) $request->location_id : (int) (Location::where('status', 1)->orderBy('name')->value('id'));
     }
 
+    /**
+     * Resolve the location IDs to scope a ledger query to, plus the value to use
+     * for the "view" action link (a specific location id, or 'all' for the
+     * super-admin aggregate-all-locations view).
+     *
+     * @return array{0: array<int>, 1: int|string}
+     */
+    private function resolveLocationIds(Request $request): array
+    {
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        if ($isRestricted) {
+            return [[$user->location_id], $user->location_id];
+        }
+
+        if ($request->filled('location_id')) {
+            $locationId = (int) $request->location_id;
+
+            return [[$locationId], $locationId];
+        }
+
+        $locationIds = Location::where('status', 1)->pluck('id')->all();
+
+        return [$locationIds, 'all'];
+    }
+
     private function resolveDateRange(Request $request): array
     {
         $startDate = $request->start_date ?: now()->subDays(30)->format('Y-m-d');
@@ -491,5 +591,57 @@ class LedgerController extends Controller
             ->first();
 
         return $lastEntry ? (float) $lastEntry->balance_after : 0.0;
+    }
+
+    /**
+     * Build a day-by-day opening/in/out/closing chain for a set of locations,
+     * sourced directly from LocationBalanceTransaction so every kind of movement
+     * (sales, expenses, purchases, accepted stock transfers, manual adjustments)
+     * is reflected — not just sales/expenses. Aggregates across locations when
+     * more than one is given.
+     *
+     * @param  array<int>  $locationIds
+     * @return \Illuminate\Support\Collection<int, array{date: string, opening: float, in: float, out: float, closing: float}>
+     */
+    private function buildLedgerChain(array $locationIds, string $balanceType, string $upToDate): \Illuminate\Support\Collection
+    {
+        $transactions = LocationBalanceTransaction::whereIn('location_id', $locationIds)
+            ->where('balance_type', $balanceType)
+            ->whereDate('created_at', '<=', $upToDate)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($tx) => $tx->created_at->format('Y-m-d'));
+
+        $days = $transactions->keys()->push($upToDate)->unique()->sort()->values();
+
+        $runningByLocation = [];
+        foreach ($locationIds as $locId) {
+            $runningByLocation[$locId] = $this->openingBalance($locId, $balanceType, $days->first());
+        }
+
+        return $days->map(function ($day) use (&$runningByLocation, $transactions, $locationIds) {
+            $dayTx = $transactions->get($day, collect());
+            $dayOpening = array_sum($runningByLocation);
+
+            $inTotal = 0.0;
+            $outTotal = 0.0;
+
+            foreach ($locationIds as $locId) {
+                $locTx = $dayTx->where('location_id', $locId)->values();
+
+                if ($locTx->isEmpty()) {
+                    continue;
+                }
+
+                $inTotal  += (float) $locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount');
+                $outTotal += (float) $locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount');
+                $runningByLocation[$locId] = (float) $locTx->last()->balance_after;
+            }
+
+            $dayClosing = array_sum($runningByLocation);
+
+            return ['date' => $day, 'opening' => $dayOpening, 'in' => $inTotal, 'out' => $outTotal, 'closing' => $dayClosing];
+        });
     }
 }

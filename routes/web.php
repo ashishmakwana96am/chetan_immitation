@@ -279,8 +279,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/supplier/detail', [LedgerController::class, 'supplierLedgerDetail'])->name('ledgers.supplier.detail');
         Route::get('ledgers/cash', [LedgerController::class, 'cashLedger'])->name('ledgers.cash');
         Route::get('ledgers/cash/data', [LedgerController::class, 'cashLedgerData'])->name('ledgers.cash.data');
+        Route::get('ledgers/cash/detail', [LedgerController::class, 'cashLedgerDetail'])->name('ledgers.cash.detail');
         Route::get('ledgers/bank', [LedgerController::class, 'bankLedger'])->name('ledgers.bank');
         Route::get('ledgers/bank/data', [LedgerController::class, 'bankLedgerData'])->name('ledgers.bank.data');
+        Route::get('ledgers/bank/detail', [LedgerController::class, 'bankLedgerDetail'])->name('ledgers.bank.detail');
         Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
         Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
 

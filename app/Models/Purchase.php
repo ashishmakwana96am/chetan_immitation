@@ -29,6 +29,7 @@ class Purchase extends Model
 
     protected $fillable = [
         'supplier_id',
+        'location_id',
         'invoice_no',
         'is_gst',
         'total_amount',
@@ -38,6 +39,7 @@ class Purchase extends Model
         'tax_amount',
         'status',
         'payment_status',
+        'payment_method',
         'paid_amount',
         'created_by',
     ];
