@@ -192,6 +192,92 @@ class ProductCreationService
         return $product;
     }
 
+    public function updateExistingProduct(Product $product, array $group, array &$summary, ?int $userId): void
+    {
+        if ($group['category_name'] === '') {
+            throw new \RuntimeException('Missing Category');
+        }
+
+        if (!is_numeric($group['product_code']) || (float) $group['product_code'] <= 0) {
+            throw new \RuntimeException('Invalid Product Code');
+        }
+
+        $category = Category::withTrashed()->firstOrCreate(
+            ['name' => $group['category_name']],
+            ['slug' => generate_slug(Category::class, $group['category_name']), 'status' => 1, 'created_by' => $userId]
+        );
+        if ($category->wasRecentlyCreated) {
+            $summary['categories_created'] = ($summary['categories_created'] ?? 0) + 1;
+        }
+        if ($category->trashed()) {
+            $category->restore();
+            $category->update(['image' => null, 'low_stock_threshold' => null]);
+        }
+
+        $subCategoryId = null;
+        if ($group['sub_category_name'] !== '') {
+            $subCategory = SubCategory::withTrashed()->firstOrCreate(
+                ['category_id' => $category->id, 'name' => $group['sub_category_name']],
+                ['slug' => generate_slug(SubCategory::class, $group['sub_category_name']), 'status' => 1, 'created_by' => $userId]
+            );
+            if ($subCategory->wasRecentlyCreated) {
+                $summary['sub_categories_created'] = ($summary['sub_categories_created'] ?? 0) + 1;
+            }
+            if ($subCategory->trashed()) {
+                $subCategory->restore();
+            }
+            $subCategoryId = $subCategory->id;
+        }
+
+        $purchaseMultiplier = is_numeric($group['purchase_multiplier']) ? (float) $group['purchase_multiplier'] : 2.5;
+        $saleMultiplier = is_numeric($group['sale_multiplier']) ? (float) $group['sale_multiplier'] : 4.125;
+        $mrpMultiplier = is_numeric($group['mrp_multiplier']) ? (float) $group['mrp_multiplier'] : 4.575;
+        $code = (float) $group['product_code'];
+        $isPair = $group['pair_product'];
+
+        $purchasePrice = $code * $purchaseMultiplier;
+
+        if ($isPair) {
+            $salePrice = $this->roundToNearest5(($code / 2) * $saleMultiplier);
+            $mrp = $this->roundToNearest5(($code / 2) * $mrpMultiplier);
+            $pairSalePrice = $this->roundToNearest5($code * $saleMultiplier);
+            $pairMrp = $this->roundToNearest5($code * $mrpMultiplier);
+        } else {
+            $salePrice = $this->roundToNearest5($code * $saleMultiplier);
+            $mrp = $this->roundToNearest5($code * $mrpMultiplier);
+            $pairSalePrice = null;
+            $pairMrp = null;
+        }
+
+        $oldType = $product->type;
+        $newType = $group['product_type'];
+
+        $product->update([
+            'name'                   => $group['product_name'],
+            'category_id'            => $category->id,
+            'sub_category_id'        => $subCategoryId,
+            'product_code'           => $code,
+            'purchase_multiplier'    => $purchaseMultiplier,
+            'sale_multiplier'        => $saleMultiplier,
+            'mrp_multiplier'         => $mrpMultiplier,
+            'purchase_price'         => $purchasePrice,
+            'sale_price'             => $salePrice,
+            'mrp'                    => $mrp,
+            'pair_product'           => $isPair,
+            'pair_sale_price'        => $pairSalePrice,
+            'pair_mrp'               => $pairMrp,
+            'type'                   => $newType,
+        ]);
+
+        if ($oldType === 'variable' && $newType === 'normal') {
+            $product->variants()->delete();
+        }
+
+        if ($newType === 'variable' && !empty($group['dimensions'] ?? [])) {
+            $this->createVariants($group, $product, $purchasePrice, $salePrice);
+        }
+    }
+
     /**
      * Finds an existing Attribute by name (or creates it), finds an existing
      * AttributeValue under that attribute (or creates it), then finds an
@@ -236,47 +322,46 @@ class ProductCreationService
             throw new \RuntimeException('Missing Variant Data');
         }
 
-        if (count($dimensions) === 1) {
-            $attributeName = $dimensions[0]['name'];
-            $attrValues = $dimensions[0]['values'];
-        } else {
-            $attributeName = implode(' / ', array_map(fn ($d) => $d['name'], $dimensions));
-            $attrValues = [''];
-            foreach ($dimensions as $dim) {
-                $next = [];
-                foreach ($attrValues as $existing) {
-                    foreach ($dim['values'] as $val) {
-                        $next[] = $existing === '' ? $val : $existing . ' - ' . $val;
-                    }
+        foreach ($dimensions as $dim) {
+            $attributeName = $dim['name'];
+            $attrValues = $dim['values'];
+
+            $attribute = Attribute::withTrashed()->firstOrCreate(
+                ['name' => $attributeName],
+                ['slug' => generate_slug(Attribute::class, $attributeName), 'status' => Attribute::STATUS_ACTIVE, 'created_by' => $product->created_by, 'sort_order' => ((int) Attribute::max('sort_order')) + 1]
+            );
+            if ($attribute->trashed()) {
+                $attribute->restore();
+            }
+
+            foreach ($attrValues as $val) {
+                $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
+                    'attribute_id' => $attribute->id,
+                    'value'        => $val,
+                ]);
+                if ($attributeValue->trashed()) {
+                    $attributeValue->restore();
                 }
-                $attrValues = $next;
+
+                $variant = ProductVariant::withTrashed()->firstOrCreate(
+                    [
+                        'product_id'         => $product->id,
+                        'attribute_value_id' => $attributeValue->id,
+                    ],
+                    [
+                        'purchase_price'     => $purchasePrice,
+                        'sale_price'         => $salePrice,
+                        'status'             => ProductVariant::STATUS_ACTIVE,
+                    ]
+                );
+                if ($variant->trashed()) {
+                    $variant->restore();
+                }
+                $variant->update([
+                    'purchase_price' => $purchasePrice,
+                    'sale_price'     => $salePrice,
+                ]);
             }
-        }
-
-        $attribute = Attribute::withTrashed()->firstOrCreate(
-            ['name' => $attributeName],
-            ['slug' => generate_slug(Attribute::class, $attributeName), 'status' => Attribute::STATUS_ACTIVE, 'created_by' => $product->created_by, 'sort_order' => ((int) Attribute::max('sort_order')) + 1]
-        );
-        if ($attribute->trashed()) {
-            $attribute->restore();
-        }
-
-        foreach ($attrValues as $val) {
-            $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
-                'attribute_id' => $attribute->id,
-                'value'        => $val,
-            ]);
-            if ($attributeValue->trashed()) {
-                $attributeValue->restore();
-            }
-
-            ProductVariant::create([
-                'product_id'         => $product->id,
-                'attribute_value_id' => $attributeValue->id,
-                'purchase_price'     => $purchasePrice,
-                'sale_price'         => $salePrice,
-                'status'             => ProductVariant::STATUS_ACTIVE,
-            ]);
         }
     }
 

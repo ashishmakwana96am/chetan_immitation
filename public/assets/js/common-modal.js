@@ -310,7 +310,16 @@ $(document).ready(function () {
                     },
                     error : function (xhr) {
                         if (xhr.status === 422 && xhr.responseJSON?.message) {
-                            toastr.error(xhr.responseJSON.message);
+                            Swal.fire({
+                                title: 'Cannot Delete',
+                                html: xhr.responseJSON.message,
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                customClass: {
+                                    confirmButton: 'btn btn-primary'
+                                },
+                                buttonsStyling: false
+                            });
                         } else {
                             toastr.error('Something went wrong. Please try again.');
                         }

@@ -1177,7 +1177,7 @@ window.addEventListener('resize', function () {
     </script>
 
     <!-- Custom Delete Confirmation Modal -->
-    <div id="deleteConfirmModal" class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto">
+    <div id="deleteConfirmModal" class="fixed inset-0 z-[200] hidden bg-black/50 p-4 !mt-0 overflow-y-auto">
         <div class="min-h-full flex items-center justify-center !mt-0">
             <div class="relative w-full max-w-[500px] bg-white rounded-[8px] p-6 sm:p-8 border border-[#D5D5D5] shadow-lg text-center">
                 <!-- Close Button -->

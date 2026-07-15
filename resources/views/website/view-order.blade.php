@@ -542,7 +542,7 @@
                 <button type="button" class="cancel-order-close h-[46px] px-6 border border-[#D5D5D5] text-[#131615] font-medium rounded-md transition-all duration-300 ease-in-out hover:border-[#131615] hover:bg-[#131615] hover:text-white hover:shadow-md active:scale-[0.98]">
                     Keep Order
                 </button>
-                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 bg-red-600 text-white font-medium  rounded-md  transition-all duration-300 ease-in-out hover:bg-white hover:border-[#C0392B] hover:text-[#C0392B] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="submit" id="confirmCancelOrderBtn" class="h-[46px] px-6 border border-red-600 bg-red-600 text-white font-medium rounded-md transition-all duration-300 ease-in-out hover:bg-white hover:text-red-600 hover:border-red-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60">
                     Confirm Cancellation
                 </button>
             </div>

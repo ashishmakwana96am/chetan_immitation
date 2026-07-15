@@ -808,37 +808,211 @@ if (minusBtn) {
 </script>
 
 {{-- ══ BUY NOW — Address Modal ══ --}}
+@php
+    $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
+@endphp
 <div id="buyNowAddressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
     <div class="min-h-full flex items-center justify-center py-5">
-        <div class="relative w-full max-w-[560px] bg-white rounded-[8px] p-5 md:p-7 max-h-[90vh] overflow-y-auto border border-[#D5D5D5]">
+        <div class="relative w-full max-w-[560px] bg-white rounded-[8px] p-5 md:p-7 border border-[#D5D5D5] overflow-visible">
             <button onclick="closeBuyNowAddressModal()" class="absolute top-4 right-4 text-[32px] leading-none text-[#131615]">&times;</button>
-            <h2 class="text-xl md:text-[24px] font-medium text-[#131615] mb-5">Select Delivery Address</h2>
+            
+            <div class="flex justify-between items-center mb-5 mr-6">
+                <h2 class="text-xl md:text-[24px] font-medium text-[#131615] mb-0">Select Delivery Address</h2>
+                <button class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-xs sm:text-sm font-medium px-3 py-1.5 transition flex gap-2 items-center rounded-sm" onclick="openAddAddressModal()">
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 1.16663V12.8333M1.16663 7H12.8333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    New Address
+                </button>
+            </div>
 
-            {{-- No addresses --}}
-            @if(auth('customer')->check() && \App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->count() === 0)
-            <p class="text-[#757575] text-base mb-5">No saved addresses. Please <a href="{{ route('customer.profile') }}#addresses" class="text-[#B4771E] underline">add an address</a> first.</p>
-            @else
+            @php
+                $addressesCount = auth('customer')->check() ? \App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->count() : 0;
+            @endphp
+
             <div id="buyNowAddressList" class="space-y-3 mb-6">
+                @if($addressesCount === 0)
+                <p class="text-[#757575] text-base mb-5" id="noAddressesPlaceholder">No saved addresses. Please click "New Address" to add one.</p>
+                @else
                 @if(auth('customer')->check())
                 @foreach(\App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->orderByDesc('is_default')->get() as $addr)
-                <label class="flex items-start gap-3 border border-[#D5D5D5] p-4 cursor-pointer rounded has-[:checked]:border-[#B4771E] has-[:checked]:bg-[#B4771E0A]">
-                    <input type="radio" name="buynow_address" value="{{ $addr->id }}" class="mt-1 accent-[#B4771E]" {{ $addr->is_default ? 'checked' : '' }}>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-[#131615] text-base">{{ $addr->name }} — {{ $addr->phone }}</p>
-                        <p class="text-[#757575] text-sm mt-1">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}</p>
-                        @if($addr->is_default)
-                        <span class="inline-block mt-1 bg-[#B4771E29] text-[#B4771E] text-xs px-2 py-0.5">Default</span>
-                        @endif
+                <div class="address-card border border-[#D5D5D5] p-4 rounded relative hover:border-[#B4771E] has-[:checked]:border-[#B4771E] has-[:checked]:bg-[#B4771E0A]" data-address-id="{{ $addr->id }}">
+                    <div class="flex justify-between items-start">
+                        <label class="flex-1 flex items-start gap-3 cursor-pointer min-w-0">
+                            <input type="radio" name="buynow_address" value="{{ $addr->id }}" class="mt-1 accent-[#B4771E] address-radio" {{ $addr->is_default ? 'checked' : '' }}>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-[#131615] text-base customer-name-phone">{{ $addr->name }} — {{ $addr->phone }}</p>
+                                <p class="text-[#757575] text-sm mt-1 address-text">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->state }}{{ $addr->pincode ? ' - ' . $addr->pincode : '' }}</p>
+                                @if($addr->is_default)
+                                <span class="inline-block mt-1 bg-[#B4771E29] text-[#B4771E] text-xs px-2 py-0.5 default-badge">Default</span>
+                                @endif
+                            </div>
+                        </label>
+                        {{-- Dropdown options --}}
+                        <div class="relative address-menu-container">
+                            <button class="w-6 h-6 flex justify-center items-center address-menu-btn p-2 hover:bg-black/5 rounded-full transition focus:outline-none" onclick="toggleAddressDropdown({{ $addr->id }}, event)">
+                                <i class="fa-solid fa-ellipsis-vertical text-[#3D403F]"></i>
+                            </button>
+                            <div id="dropdown-{{ $addr->id }}" class="absolute right-0 top-full mt-2 w-[150px] bg-white border border-[#D5D5D5] rounded-[8px] shadow-[0_4px_20px_rgba(0,0,0,0.12)] overflow-hidden z-20 hidden address-dropdown">
+                                <button onclick="editAddress({{ $addr->id }}, event)" class="w-full flex items-center gap-3 p-3 text-sm text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                                    <svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12.1767 2.48937L13.5825 1.08271C13.8756 0.789642 14.273 0.625 14.6875 0.625C15.102 0.625 15.4994 0.789642 15.7925 1.08271C16.0856 1.37577 16.2502 1.77325 16.2502 2.18771C16.2502 2.60216 16.0856 2.99964 15.7925 3.29271L6.94333 12.1419C6.50277 12.5822 5.95947 12.9058 5.3625 13.0835L3.125 13.7502L3.79167 11.5127C3.9694 10.9157 4.29303 10.3724 4.73333 9.93187L12.1767 2.48937ZM12.1767 2.48937L14.375 4.68771M13.125 10.4169V14.3752C13.125 14.8725 12.9275 15.3494 12.5758 15.701C12.2242 16.0527 11.7473 16.2502 11.25 16.2502H2.5C2.00272 16.2502 1.52581 16.0527 1.17417 15.701C0.822544 15.3494 0.625 14.8725 0.625 14.3752V5.62521C0.625 5.12793 0.822544 4.65101 1.17417 4.29938C1.52581 3.94775 2.00272 3.75021 2.5 3.75021H6.45833" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Edit
+                                </button>
+                                <div class="mx-3 border-t border-[#D5D5D5]"></div>
+                                <button onclick="deleteAddress({{ $addr->id }}, event)" class="w-full flex items-center gap-3 p-3 text-sm text-red-600 hover:bg-[#FFF7F7] transition">
+                                    <svg width="13" height="15" viewBox="0 0 15 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M9.78345 6.25043L9.49512 13.7504M5.50512 13.7504L5.21679 6.25043M10.6251 3.2446C11.5949 3.31968 12.5617 3.43003 13.5235 3.57543C13.8085 3.61877 14.0918 3.6646 14.3751 3.71377M13.5235 3.57543L12.6335 15.1446C12.5971 15.6156 12.3843 16.0556 12.0376 16.3765C11.6909 16.6974 11.2359 16.8756 10.7635 16.8754H4.23679C3.76437 16.8756 3.30931 16.6974 2.9626 16.3765C2.6159 16.0556 2.40311 15.6156 2.36679 15.1446L1.47679 3.57543M1.47679 3.57543C1.19179 3.61793 0.908455 3.66377 0.625122 3.71293M1.47679 3.57543C2.43857 3.43003 3.40532 3.31968 4.37512 3.2446M10.6251 3.2446V2.48127C10.6251 1.49793 9.86679 0.677934 8.88346 0.647101C7.96147 0.617633 7.03878 0.617633 6.11679 0.647101C5.13346 0.677934 4.37512 1.49877 4.37512 2.48127V3.2446M10.6251 3.2446C8.54489 3.08383 6.45535 3.08383 4.37512 3.2446" stroke="#ea5455" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Remove
+                                </button>
+                                @if(!$addr->is_default)
+                                <div class="mx-3 border-t border-[#D5D5D5]"></div>
+                                <button onclick="setAddressAsDefault({{ $addr->id }}, event)" class="w-full flex items-center gap-3 p-3 text-sm text-[#4A4A4A] hover:bg-[#FAFAFA] transition">
+                                    <svg width="14" height="14" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M5.625 8.75L7.5 10.625L10.625 6.25M15.625 8.125C15.625 9.10991 15.431 10.0852 15.0541 10.9951C14.6772 11.9051 14.1247 12.7319 13.4283 13.4283C12.7319 14.1247 11.9051 14.6772 10.9951 15.0541C10.0852 15.431 9.10991 15.625 8.125 15.625C7.14009 15.625 6.16482 15.431 5.25487 15.0541C4.34493 14.6772 3.51814 14.1247 2.8217 13.4283C2.12526 12.7319 1.57281 11.9051 1.1959 10.9951C0.818993 10.0852 0.625 9.10991 0.625 8.125C0.625 6.13588 1.41518 4.22822 2.8217 2.8217C4.22822 1.41518 6.13588 0.625 8.125 0.625C10.1141 0.625 12.0218 1.41518 13.4283 2.8217C14.8348 4.22822 15.625 6.13588 15.625 8.125Z" stroke="#3D403F" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Set Default
+                                </button>
+                                @endif
+                            </div>
+                        </div>
                     </div>
-                </label>
+                </div>
                 @endforeach
                 @endif
+                @endif
             </div>
+            
             <button onclick="startBuyNowPayment()" id="buyNowProceedBtn"
-                class="w-full h-[50px] bg-[#B4771E] hover:bg-[#9d6719] text-white text-lg font-medium transition rounded-sm">
+                class="w-full h-[50px] bg-[#B4771E] hover:bg-[#9d6719] text-white text-lg font-medium transition rounded-sm {{ $addressesCount === 0 ? 'hidden' : '' }}">
                 Proceed to Pay
             </button>
-            @endif
+        </div>
+    </div>
+</div>
+
+{{-- ══ ADDRESS DETAILS MODAL (Add/Edit) ══ --}}
+<div id="addressModal"
+   class="fixed inset-0 z-[100] hidden bg-black/50 overflow-hidden p-4 !mt-0">
+    <div class="min-h-full flex items-center justify-center !mt-0 py-5">
+        <div class="relative w-full max-w-[750px] bg-white rounded-[8px] p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5] overflow-y-auto scrollbar-hide">
+            <button onclick="closeModal()" class="absolute top-4 right-4 md:top-6 md:right-6 text-[35px] leading-none text-[#131615]">&times;</button>
+            
+            <h2 id="addrModalTitle" class="text-xl lg:text-[22px] lg:leading-[24px] font-medium text-[#131615] mb-4">
+                Deliver To
+            </h2>
+
+            <div class="mb-4">
+                <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                    Full Name <span class="text-red-600">*</span>
+                </label>
+                <input type="text" id="addr_name" name="name" placeholder="Enter Your Full Name" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                <p class="addr-error mt-2 text-sm text-red-600" data-error-for="name"></p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Mobile Number <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="addr_phone" name="phone" placeholder="Enter Your Mobile Number" maxlength="10" inputmode="numeric" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="phone"></p>
+                </div>
+                <div>
+                     <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Alternate Phone Number
+                    </label>
+                    <input type="text" id="addr_alternate_phone" name="alternate_phone" placeholder="Enter Your Mobile Number" maxlength="10" inputmode="numeric" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="alternate_phone"></p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                 <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                    Email address
+                </label>
+                <input type="email" id="addr_email" name="email" placeholder="Enter Email address" value="{{ auth('customer')->user()->email ?? '' }}" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                <p class="addr-error mt-2 text-sm text-red-600" data-error-for="email"></p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                    Flat/House/Building Name <span class="text-red-600">*</span>
+                </label>
+                <textarea id="addr_address" name="address" rows="3" placeholder="Enter Flat/House/Building Name" class="addr-input w-full text-[#757575] text-base min-h-28 placeholder:text-base border border-[#D5D5D5] px-4 outline-none py-3 focus:border-[#B4771E] resize-y rounded-sm"></textarea>
+                <p class="addr-error mt-2 text-sm text-red-600" data-error-for="address"></p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Town / City <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="addr_city" name="city" placeholder="Town / City" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="city"></p>
+                </div>
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        State <span class="text-red-600">*</span>
+                    </label>
+                    <select id="addr_state" name="state" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                        <option value="">Select an Option...</option>
+                        @foreach($states as $stateOption)
+                            <option value="{{ $stateOption->name }}">{{ $stateOption->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="state"></p>
+                </div>
+                <div>
+                    <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                        Pincode <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="addr_pincode" name="pincode" placeholder="Pincode" maxlength="6" inputmode="numeric" class="addr-input w-full h-[48px] md:h-[50px] text-[#757575] text-base placeholder:text-base border border-[#D5D5D5] px-4 outline-none focus:border-[#B4771E] rounded-sm">
+                    <p class="addr-error mt-2 text-sm text-red-600" data-error-for="pincode"></p>
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-base md:text-lg text-[#131615] mb-2 font-semibold">
+                    Type Of Address
+                </label>
+                <div class="flex flex-wrap gap-4">
+                    <input type="radio" name="addressType" id="home" value="home" class="hidden peer/home" checked>
+                    <label for="home" class="cursor-pointer py-[6px] px-4 border border-[#D5D5D5] rounded flex items-center gap-[8px] text-base text-[#131615] peer-checked/home:bg-[#B4771E1A] peer-checked/home:border-[#B4771E1A] peer-checked/home:text-[#B4771E] transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                        </svg>
+                        Home
+                    </label>
+
+                    <input type="radio" name="addressType" id="work" value="work" class="hidden peer/work">
+                    <label for="work" class="cursor-pointer py-[6px] px-4 border border-[#D5D5D5] rounded flex items-center gap-[8px] text-base text-[#131615] peer-checked/work:bg-[#B4771E1A] peer-checked/work:border-[#B4771E1A] peer-checked/work:text-[#B4771E] transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+                        </svg>
+                        Work
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-5 flex items-center gap-[10px]">
+                <div class="relative flex items-center justify-center w-[22px] h-[22px] shrink-0 rounded-[5px] border-2 border-[#B4771E] bg-white transition-colors duration-200">
+                    <input type="checkbox" id="addr_is_default" name="is_default" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10 peer">
+                    <svg class="w-[13px] h-[13px] text-[#B4771E] opacity-0 peer-checked:opacity-100 transition-opacity duration-200" viewBox="0 0 12 10" fill="none">
+                        <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <label for="addr_is_default" class="text-base text-[#3D403F] cursor-pointer select-none">Set as default address</label>
+            </div>
+            
+            <div id="addressSuccess" class="hidden mb-5 border border-green-200 bg-green-50 px-4 py-3 text-green-700"></div>
+            <div id="addressFailure" class="hidden mb-5 border border-red-200 bg-red-50 px-4 py-3 text-red-700"></div>
+            
+            <button id="saveAddressBtn" onclick="saveCustomerAddress(event)" class="common-btn w-full h-[52px] rounded-sm">
+                Save Address
+            </button>
         </div>
     </div>
 </div>
@@ -1247,5 +1421,397 @@ Order Amount
         if (!document.getElementById('buyNowAddressModal').classList.contains('hidden')) { closeBuyNowAddressModal(); return; }
     });
 }());
+</script>
+
+<script>
+(function() {
+    const checkoutAddresses = [
+        @if(auth('customer')->check())
+        @foreach(\App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->get() as $addr)
+        {
+            id: {{ $addr->id }},
+            name: @json($addr->name),
+            phone: @json($addr->phone),
+            alternate_phone: @json($addr->alternate_phone ?? ''),
+            email: @json($addr->email ?? ''),
+            address: @json($addr->address),
+            city: @json($addr->city),
+            state: @json($addr->state),
+            pincode: @json($addr->pincode ?? ''),
+            type: @json($addr->type),
+            is_default: {{ $addr->is_default ? 'true' : 'false' }}
+        },
+        @endforeach
+        @endif
+    ];
+
+    const activeStates = @json($states->pluck('name'));
+    let editingAddressId = null;
+
+    window.toggleAddressDropdown = function(addressId, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        const dropdown = document.getElementById('dropdown-' + addressId);
+        const wasHidden = dropdown.classList.contains('hidden');
+        document.querySelectorAll('.address-dropdown').forEach(d => d.classList.add('hidden'));
+        if (wasHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    // Close dropdowns on clicking outside
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('.address-dropdown').forEach(dropdown => {
+            const btn = dropdown.previousElementSibling;
+            if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    });
+
+    window.openModal = function() {
+        document.getElementById('addressModal').classList.remove("hidden");
+        document.documentElement.classList.add("modal-open");
+        document.body.classList.add("modal-open");
+    };
+
+    window.closeModal = function() {
+        document.getElementById('addressModal').classList.add("hidden");
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+        editingAddressId = null;
+        document.getElementById('addrModalTitle').textContent = 'Deliver To';
+        document.getElementById('saveAddressBtn').innerText = 'Save Address';
+    };
+
+    window.openAddAddressModal = function() {
+        editingAddressId = null;
+        document.getElementById('addrModalTitle').textContent = 'Deliver To';
+        resetAddressForm();
+        document.getElementById('saveAddressBtn').innerText = 'Save Address';
+        openModal();
+    };
+
+    function resetAddressForm() {
+        document.getElementById('addr_name').value = '';
+        document.getElementById('addr_phone').value = '';
+        document.getElementById('addr_alternate_phone').value = '';
+        document.getElementById('addr_email').value = '{{ auth('customer')->user()->email ?? '' }}';
+        document.getElementById('addr_address').value = '';
+        document.getElementById('addr_city').value = '';
+        document.getElementById('addr_state').value = '';
+        document.getElementById('addr_pincode').value = '';
+        document.getElementById('home').checked = true;
+        document.getElementById('addr_is_default').checked = false;
+        clearAddrErrors();
+    }
+
+    window.editAddress = function(addressId, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        document.querySelectorAll('.address-dropdown').forEach(dropdown => dropdown.classList.add('hidden'));
+
+        const addr = checkoutAddresses.find(a => a.id === addressId);
+        if (!addr) return;
+
+        editingAddressId = addressId;
+        document.getElementById('addrModalTitle').textContent = 'Edit Address';
+        document.getElementById('addr_name').value = addr.name;
+        document.getElementById('addr_phone').value = addr.phone;
+        document.getElementById('addr_alternate_phone').value = addr.alternate_phone || '';
+        document.getElementById('addr_email').value = addr.email || '';
+        document.getElementById('addr_address').value = addr.address;
+        document.getElementById('addr_city').value = addr.city;
+        document.getElementById('addr_state').value = addr.state;
+        document.getElementById('addr_pincode').value = addr.pincode || '';
+        document.getElementById('addr_is_default').checked = !!addr.is_default;
+
+        if (addr.type === 'work') {
+            document.getElementById('work').checked = true;
+        } else {
+            document.getElementById('home').checked = true;
+        }
+
+        document.getElementById('saveAddressBtn').innerText = 'Update Address';
+        clearAddrErrors();
+        openModal();
+    };
+
+    window.deleteAddress = function(addressId, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        document.querySelectorAll('.address-dropdown').forEach(dropdown => dropdown.classList.add('hidden'));
+
+        if (typeof window.showDeleteConfirm === 'function') {
+            window.showDeleteConfirm(() => {
+                doDeleteAddress(addressId);
+            });
+        } else {
+            if (confirm('Are you sure you want to delete this address?')) {
+                doDeleteAddress(addressId);
+            }
+        }
+    };
+
+    function doDeleteAddress(addressId) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        fetch('{{ route('checkout.address.delete') }}', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ address_id: addressId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                sessionStorage.setItem('checkout_address_success', data.message || 'Address deleted.');
+                sessionStorage.setItem('buynow_open_modal', 'true');
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to delete address.');
+            }
+        })
+        .catch(err => console.error(err));
+    }
+
+    window.setAddressAsDefault = function(addressId, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        document.querySelectorAll('.address-dropdown').forEach(dropdown => dropdown.classList.add('hidden'));
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        fetch('{{ route('checkout.address.set-default') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ address_id: addressId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                sessionStorage.setItem('checkout_address_success', data.message || 'Address set as default.');
+                sessionStorage.setItem('buynow_open_modal', 'true');
+                window.location.reload();
+            } else {
+                alert(data.message || 'Failed to set default address.');
+            }
+        })
+        .catch(err => console.error(err));
+    };
+
+    window.saveCustomerAddress = function(e) {
+        e.preventDefault();
+        clearAddrErrors();
+
+        if (!validateAddressForm()) {
+            return;
+        }
+
+        const btn = document.getElementById('saveAddressBtn');
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+
+        const name = document.getElementById('addr_name').value.trim();
+        const phone = document.getElementById('addr_phone').value.trim();
+        const alternate_phone = document.getElementById('addr_alternate_phone').value.trim();
+        const email = document.getElementById('addr_email').value.trim();
+        const address = document.getElementById('addr_address').value.trim();
+        const city = document.getElementById('addr_city').value.trim();
+        const state = document.getElementById('addr_state').value;
+        const pincode = document.getElementById('addr_pincode').value.trim();
+        const type = document.querySelector('input[name="addressType"]:checked').value;
+        const is_default = document.getElementById('addr_is_default').checked ? 1 : 0;
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        const payload = {
+            name,
+            phone,
+            alternate_phone,
+            email,
+            address,
+            city,
+            state,
+            pincode,
+            type,
+            is_default
+        };
+
+        let url = '{{ route('checkout.address.save') }}';
+        let method = 'POST';
+
+        if (editingAddressId) {
+            payload.address_id = editingAddressId;
+            url = '{{ route('checkout.address.update') }}';
+            method = 'PATCH';
+        }
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = editingAddressId ? 'Update Address' : 'Save Address';
+            if (data.status === 'success') {
+                sessionStorage.setItem('checkout_address_success', data.message || 'Address saved.');
+                sessionStorage.setItem('buynow_open_modal', 'true');
+                window.location.reload();
+            } else if (data.status === 'error' && data.message) {
+                if (typeof data.message === 'object') {
+                    Object.keys(data.message).forEach(field => {
+                        setAddrFieldError(field, data.message[field][0]);
+                    });
+                } else {
+                    document.getElementById('addressFailure').textContent = data.message;
+                    document.getElementById('addressFailure').classList.remove('hidden');
+                }
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = editingAddressId ? 'Update Address' : 'Save Address';
+            console.error(err);
+        });
+    };
+
+    function setAddrFieldError(field, message) {
+        const input = document.querySelector(`.addr-input[name="${field}"]`);
+        const error = document.querySelector(`.addr-error[data-error-for="${field}"]`);
+        if (input) {
+            if (message) {
+                input.classList.add('border-red-500');
+            } else {
+                input.classList.remove('border-red-500');
+            }
+        }
+        if (error) {
+            error.textContent = message || '';
+        }
+    }
+
+    function clearAddrErrors() {
+        document.querySelectorAll('.addr-error').forEach(el => el.textContent = '');
+        document.querySelectorAll('.addr-input').forEach(el => el.classList.remove('border-red-500'));
+        const successBox = document.getElementById('addressSuccess');
+        const failureBox = document.getElementById('addressFailure');
+        if (successBox) successBox.classList.add('hidden');
+        if (failureBox) failureBox.classList.add('hidden');
+    }
+
+    function validateAddressForm() {
+        const errors = {};
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const phoneRegex = /^[0-9]{10}$/;
+
+        const name = document.getElementById('addr_name').value.trim();
+        const phone = document.getElementById('addr_phone').value.trim();
+        const alternatePhone = document.getElementById('addr_alternate_phone').value.trim();
+        const email = document.getElementById('addr_email').value.trim();
+        const address = document.getElementById('addr_address').value.trim();
+        const city = document.getElementById('addr_city').value.trim();
+        const state = document.getElementById('addr_state').value;
+
+        if (!name) errors.name = 'Please enter your full name.';
+        if (!phone) errors.phone = 'Please enter your mobile number.';
+        else if (!phoneRegex.test(phone)) errors.phone = 'Please enter a valid 10 digit mobile number.';
+
+        if (alternatePhone && !phoneRegex.test(alternatePhone)) {
+            errors.alternate_phone = 'Please enter a valid 10 digit alternate mobile number.';
+        }
+
+        if (email && !emailRegex.test(email)) {
+            errors.email = 'Please enter a valid email address.';
+        }
+
+        if (!address) errors.address = 'Please enter Flat/House/Building Name.';
+        if (!city) errors.city = 'Please enter town / city.';
+        if (!state) errors.state = 'Please select state.';
+
+        const pincode = document.getElementById('addr_pincode').value.trim();
+        if (!pincode) {
+            errors.pincode = 'Please enter pincode.';
+        } else if (!/^[0-9]{6}$/.test(pincode)) {
+            errors.pincode = 'Please enter a valid 6 digit pincode.';
+        }
+
+        Object.keys(errors).forEach(field => {
+            setAddrFieldError(field, errors[field]);
+        });
+
+        return Object.keys(errors).length === 0;
+    }
+
+    // Modal overlay click / keypress close
+    const addressModalEl = document.getElementById("addressModal");
+    addressModalEl.addEventListener("click", (e) => {
+        if (e.target === addressModalEl) {
+            closeModal();
+        }
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !addressModalEl.classList.contains("hidden")) {
+            closeModal();
+        }
+    });
+
+    // Check for success alerts and modal reopen
+    document.addEventListener('DOMContentLoaded', () => {
+        const successMsg = sessionStorage.getItem('checkout_address_success');
+        if (successMsg && window.showWishlistToast) {
+            window.showWishlistToast(successMsg, true);
+            sessionStorage.removeItem('checkout_address_success');
+        }
+
+        if (sessionStorage.getItem('buynow_open_modal') === 'true') {
+            sessionStorage.removeItem('buynow_open_modal');
+            setTimeout(() => {
+                if (typeof window.openBuyNowAddressModal === 'function') {
+                    window.openBuyNowAddressModal();
+                }
+            }, 300);
+        }
+
+        // Limit inputs to numbers
+        const phoneInputs = ['addr_phone', 'addr_alternate_phone'];
+        phoneInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', function() {
+                    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+                });
+            }
+        });
+        const pincodeEl = document.getElementById('addr_pincode');
+        if (pincodeEl) {
+            pincodeEl.addEventListener('input', function() {
+                this.value = this.value.replace(/\D/g, '').slice(0, 6);
+            });
+        }
+    });
+})();
 </script>
 @endsection

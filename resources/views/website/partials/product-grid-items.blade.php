@@ -88,30 +88,29 @@
                                 : collect();
                         @endphp
         
-                        @if($product->variants->isNotEmpty())
+                        @php
+                            $variantGroups = $product->variants
+                                ->filter(fn ($variant) => $variant->attributeValue && $variant->attributeValue->attribute)
+                                ->groupBy(fn ($variant) => $variant->attributeValue->attribute->id);
+                            $firstGroup = $variantGroups->first();
+                        @endphp
+                        
+                        @if($firstGroup)
+                        @php
+                            $attribute = $firstGroup->first()->attributeValue->attribute;
+                            $attributeValues = $firstGroup->unique('attribute_value_id');
+                        @endphp
                         <div class="mt-1 relative w-full max-w-[90px] sm:max-w-[100px]">
                             <select
                               class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
-                                data-product-id="{{ $product->id }}">
-        
-                                @php
-                                    $firstVariant = $product->variants->first();
-                                    $attributeName = $firstVariant && $firstVariant->attributeValue && $firstVariant->attributeValue->attribute
-                                        ? $firstVariant->attributeValue->attribute->name
-                                        : 'Attribute';
-                                @endphp
-                                <option value="">{{ $attributeName }}</option>
-        
-                                @foreach($product->variants as $variant)
-                                    @if($variant->attributeValue)
-                                        <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
-                                            {{ $variant->attributeValue->value }}
-                                        </option>
-                                    @endif
+                              data-product-id="{{ $product->id }}">
+                                <option value="">{{ $attribute->name }}</option>
+                                @foreach($attributeValues as $variant)
+                                    <option value="{{ $variant->id }}" {{ $wishlistVariantId == $variant->id ? 'selected' : '' }}>
+                                        {{ $variant->attributeValue->value }}
+                                    </option>
                                 @endforeach
-        
                             </select>
-        
                             <svg
                                 class="absolute right-2 top-1/2 -translate-y-[50%] w-4 h-4 pointer-events-none"
                                 xmlns="http://www.w3.org/2000/svg"

@@ -713,6 +713,15 @@
             $('#productForm').on('submit', function (e) {
                 e.preventDefault();
 
+                if ($('#productType').val() === 'variable') {
+                    if ($('.attribute-select:checked').length === 0 || !variantsData || variantsData.length === 0) {
+                        $('#variantsJson').addClass('is-invalid');
+                        $('#variantsJson').siblings('.invalid-feedback').text('Please add at least one attribute & variant.');
+                        toastr.error('Please add at least one attribute & variant.');
+                        return;
+                    }
+                }
+
                 const form     = $(this);
                 const formData = new FormData(this);
 
@@ -785,6 +794,35 @@
             const existingVariants = @json($product->variants);
             let variantsData = [];
             const removedValueIds = {};
+
+            (function() {
+                const activeAttributeIds = {};
+                const existingValueIds = {};
+                existingVariants.forEach(function (v) {
+                    const valId = parseInt(v.attribute_value_id);
+                    existingValueIds[valId] = true;
+                    for (let a = 0; a < allAttributes.length; a++) {
+                        const attr = allAttributes[a];
+                        const hasVal = attr.values.some(function (val) { return parseInt(val.id) === valId; });
+                        if (hasVal) {
+                            activeAttributeIds[parseInt(attr.id)] = true;
+                            break;
+                        }
+                    }
+                });
+
+                allAttributes.forEach(function (attr) {
+                    const attrId = parseInt(attr.id);
+                    if (activeAttributeIds[attrId]) {
+                        attr.values.forEach(function (val) {
+                            const valId = parseInt(val.id);
+                            if (!existingValueIds[valId]) {
+                                removedValueIds[valId] = true;
+                            }
+                        });
+                    }
+                });
+            })();
 
             function buildExistingMap() {
                 const map = {};
@@ -1022,13 +1060,7 @@
                 generateVariants();
             }
 
-            $('#productForm').on('submit', function () {
-                if ($('#productType').val() === 'variable') {
-                    if ($('.attribute-select:checked').length === 0) {
-                        $('#variantsJson').val('[]');
-                    }
-                }
-            });
+
 
             window.buildBarcodeLabelsHtml = function(items) {
                 const esc = function(str) {
