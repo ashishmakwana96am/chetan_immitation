@@ -285,6 +285,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/bank/detail', [LedgerController::class, 'bankLedgerDetail'])->name('ledgers.bank.detail');
         Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
         Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
+        Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');
