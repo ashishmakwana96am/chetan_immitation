@@ -18,21 +18,41 @@ class LedgerController extends Controller
 
     public function supplierLedger()
     {
-        $this->guardSuperAdmin('view supplier ledger');
+        $this->authorizeLedger('view supplier ledger');
 
-        return view('ledgers.supplier');
+        [$locations, $isRestricted] = $this->resolveLocations();
+
+        return view('ledgers.supplier', compact('locations', 'isRestricted'));
     }
 
     public function supplierLedgerData(Request $request)
     {
-        $this->guardSuperAdmin('view supplier ledger');
+        $this->authorizeLedger('view supplier ledger');
 
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
-        $purchases = Purchase::with('supplier')
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = Purchase::with('supplier')
             ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
-            ->get();
+            ->whereDate('created_at', '<=', $endDate);
+
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+        } else {
+            if ($request->filled('location_id')) {
+                $locationId = (int) $request->location_id;
+                $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        }
+
+        $purchases = $purchasesQuery->get();
 
         // Group by Date portion and Supplier ID
         $grouped = $purchases->groupBy(function ($purchase) {
@@ -78,30 +98,27 @@ class LedgerController extends Controller
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
-        $statusLabels = [
-            Purchase::PAYMENT_STATUS_PENDING => '<span class="badge bg-label-danger">Pending</span>',
-            Purchase::PAYMENT_STATUS_PAID    => '<span class="badge bg-label-success">Paid</span>',
-            Purchase::PAYMENT_STATUS_PARTIAL => '<span class="badge bg-label-warning">Partially Paid</span>',
-        ];
-
         $totalPurchase = 0.0;
         $totalPayment  = 0.0;
         $totalOutstanding = 0.0;
 
-        $mappedRows = $sortedRows->map(function ($row, $index) use ($statusLabels, &$totalPurchase, &$totalPayment, &$totalOutstanding) {
+        $mappedRows = $sortedRows->map(function ($row, $index) use (&$totalPurchase, &$totalPayment, &$totalOutstanding) {
             $totalPurchase += $row['total_amount'];
             $totalPayment  += $row['paid_amount'];
             $totalOutstanding += $row['due_amount'];
 
+            $dateObj = \Carbon\Carbon::parse($row['date_raw']);
+
             return [
                 'index'          => $index + 1,
+                'supplier_id'    => $row['supplier_id'],
                 'supplier'       => e($row['supplier_name']),
                 'date'           => $row['date_formatted'],
-                'date_raw'       => $row['date_raw'],
                 'total_amount'   => format_price($row['total_amount']),
                 'paid_amount'    => format_price($row['paid_amount']),
                 'due_amount'     => format_price($row['due_amount']),
-                'payment_status' => $statusLabels[$row['payment_status']] ?? '-',
+                'date_group'     => format_date($dateObj, 'd M Y'),
+                'date_sort'      => $row['date_raw'],
             ];
         });
 
@@ -114,6 +131,54 @@ class LedgerController extends Controller
                 'outstanding' => format_price($totalOutstanding),
             ],
         ]);
+    }
+
+    public function supplierLedgerDetail(Request $request)
+    {
+        $this->authorizeLedger('view supplier ledger');
+
+        $request->validate([
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+            'date'        => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $supplier = \App\Models\Supplier::findOrFail($request->supplier_id);
+        $date = \Carbon\Carbon::parse($request->date);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = Purchase::where('supplier_id', $request->supplier_id)
+            ->whereDate('created_at', $request->date);
+
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+        } else {
+            if ($request->filled('location_id')) {
+                $locationId = (int) $request->location_id;
+                $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        }
+
+        $purchases = $purchasesQuery->get();
+
+        $totalPurchase = $purchases->sum('total_amount');
+        $totalPayment = $purchases->sum('paid_amount');
+        $totalOutstanding = max(0.0, $totalPurchase - $totalPayment);
+
+        return view('ledgers.supplier-detail', compact(
+            'supplier',
+            'date',
+            'purchases',
+            'totalPurchase',
+            'totalPayment',
+            'totalOutstanding'
+        ));
     }
 
     // -----------------------------------------------------------------

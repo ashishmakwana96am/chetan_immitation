@@ -6,6 +6,40 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #supplierLedgerTable tbody tr:not(.group-header) {
+            cursor: pointer;
+        }
+        #supplierLedgerTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #supplierLedgerTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #supplierLedgerTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #supplierLedgerTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -30,6 +64,17 @@
                     <label class="form-label">End Date</label>
                     <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
+                @if(!$isRestricted)
+                <div class="col-md-3">
+                    <label class="form-label">Location</label>
+                    <select id="filter-location" class="form-select">
+                        <option value="">All Locations</option>
+                        @foreach($locations as $loc)
+                            <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
@@ -76,16 +121,18 @@
                     <tr>
                         <th>#</th>
                         <th>Supplier</th>
-                        <th>Date</th>
                         <th>Total Amount</th>
                         <th>Paid Amount</th>
                         <th>Due Amount</th>
-                        <th>Payment Status</th>
+                        <th>Action</th>
+                        <th>Date Group</th>
+                        <th>Date Sort</th>
                     </tr>
                 </thead>
             </table>
         </div>
     </div>
+
 @endsection
 
 @section('page-js')
@@ -124,6 +171,7 @@
                 return {
                     start_date: $('#filter-start-date').val(),
                     end_date: $('#filter-end-date').val(),
+                    location_id: $('#filter-location').val() || '',
                 };
             }
 
@@ -131,13 +179,13 @@
                 responsive: false,
                 order: [[7, 'desc']],
                 columnDefs: [
-                    { targets: [7], visible: false }
+                    { targets: [6, 7], visible: false }
                 ],
                 rowGroup: {
-                    dataSrc: 'date',
+                    dataSrc: 'date_group',
                     startRender: function (rows, group) {
-                        return $('<tr class="group-header table-light"/>')
-                            .append('<td colspan="7"><div class="group-header-inner d-flex align-items-center py-2 px-3 fw-bold text-heading"><i class="ti ti-calendar me-2"></i><span>' + group + '</span></div></td>');
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
                     }
                 },
                 ajax: {
@@ -156,12 +204,36 @@
                 columns: [
                     { data: 'index', orderable: false, width: '5%' },
                     { data: 'supplier' },
-                    { data: 'date' },
                     { data: 'total_amount' },
                     { data: 'paid_amount' },
-                    { data: 'due_amount' },
-                    { data: 'payment_status', orderable: false },
-                    { data: 'date_raw' },
+                    { 
+                        data: 'due_amount',
+                        render: function (data, type, row) {
+                            return `<span class="text-danger fw-semibold">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: null, 
+                        orderable: false, 
+                        render: function (data, type, row) {
+                            const locationVal = $('#filter-location').val() || '';
+                            const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
+                            return `
+                                <div class="dropdown table-action-dropdown">
+                                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                        <span>Actions</span>
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                        <a href="${window.location.origin}/admin/ledgers/supplier/detail?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
+                                            <i class="ti ti-eye me-2"></i>View Details
+                                        </a>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    },
+                    { data: 'date_group' },
+                    { data: 'date_sort' },
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -191,8 +263,22 @@
                 endPicker.clear();
                 startPicker.set('maxDate', 'today');
                 endPicker.set('minDate', null);
+                $('#filter-location').val('');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            // Double click anywhere on row to navigate to details page
+            $('#supplierLedgerTable tbody').on('dblclick', 'tr:not(.group-header)', function (e) {
+                if ($(e.target).closest('.dropdown').length || $(e.target).closest('button').length || $(e.target).closest('a').length) {
+                    return;
+                }
+                const data = table.row(this).data();
+                if (data) {
+                    const locationVal = $('#filter-location').val() || '';
+                    const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
+                    window.location.href = `${window.location.origin}/admin/ledgers/supplier/detail?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
+                }
             });
         });
     </script>
