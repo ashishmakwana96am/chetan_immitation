@@ -206,6 +206,37 @@ class AttributeController extends Controller
     {
         $this->authorize('delete attributes');
 
+        $variants = \App\Models\ProductVariant::whereHas('attributeValue', function ($q) use ($attribute) {
+            $q->where('attribute_id', $attribute->id);
+        })->whereHas('product')->with('product')->get();
+
+        if ($variants->count() > 0) {
+            $products = $variants->pluck('product')->unique('id');
+            $totalProducts = $products->count();
+            $visibleProducts = $products->take(10);
+
+            $productListHtml = '<div class="text-start mt-3" style="font-size: 15px; color: #5d596c; padding-left: 15px;">';
+            $productListHtml .= '<p class="mb-2 fw-bold text-dark" style="font-size: 15px;">Used in products:</p>';
+            $index = 1;
+            foreach ($visibleProducts as $prod) {
+                $url = route('admin.products.show', $prod);
+                $productListHtml .= '<div style="margin-bottom: 6px; display: flex; align-items: start; gap: 8px; font-size: 15px; line-height: 1.4;">';
+                $productListHtml .= '<span style="font-weight: bold; color: #5d596c; min-width: 20px;">' . $index . '.</span>';
+                $productListHtml .= '<a href="' . $url . '" target="_blank" style="color: #2f2b3d; text-decoration: none; font-weight: 500;">' . e($prod->name) . '</a>';
+                $productListHtml .= '</div>';
+                $index++;
+            }
+            if ($totalProducts > 10) {
+                $productListHtml .= '<div class="text-muted mt-2" style="font-size: 13.5px; padding-left: 28px;"><em>+ ' . ($totalProducts - 10) . ' more products</em></div>';
+            }
+            $productListHtml .= '</div>';
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => "This attribute cannot be deleted because it is in use. First remove it from the products below: " . $productListHtml,
+            ], 422);
+        }
+
         $attribute->delete();
 
         return response()->json([

@@ -265,16 +265,31 @@ class ProductImportService
 
         if (isset($productsByBarcode[$barcode])) {
             $product = $productsByBarcode[$barcode];
-            $this->productCreation->restoreTrashedProduct($product);
-            // Product already exists — reuse it, never create a duplicate.
-            $summary['existing_products_used']++;
-            $history[] = [
-                'barcode' => $barcode,
-                'product' => $group['product_name'],
-                'status'  => 'Success',
-                'reason'  => 'Reused',
-                'details' => "Product with barcode {$barcode} already exists. Reused existing."
-            ];
+            try {
+                DB::transaction(function () use ($product, $group, &$summary, $userId) {
+                    $this->productCreation->restoreTrashedProduct($product);
+                    $this->productCreation->updateExistingProduct($product, $group, $summary, $userId);
+                });
+                $summary['existing_products_used']++;
+                $history[] = [
+                    'barcode' => $barcode,
+                    'product' => $group['product_name'],
+                    'status'  => 'Success',
+                    'reason'  => 'Updated',
+                    'details' => "Product with barcode {$barcode} already exists. Updated details."
+                ];
+            } catch (\Throwable $e) {
+                Log::error('Product import: product update failed for barcode ' . $barcode . ': ' . $e->getMessage());
+                $summary['failed_rows']++;
+                $failures[] = $this->failureRow($group['first_row_num'], $group['product_name'], $barcode, $e->getMessage());
+                $history[] = [
+                    'barcode' => $barcode,
+                    'product' => $group['product_name'],
+                    'status'  => 'Failed',
+                    'reason'  => 'Update Failed',
+                    'details' => $e->getMessage()
+                ];
+            }
 
             return;
         }

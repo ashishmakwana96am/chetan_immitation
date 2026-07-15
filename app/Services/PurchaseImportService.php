@@ -345,8 +345,27 @@ class PurchaseImportService
         $product = $productsByBarcode[$barcode] ?? null;
 
         if ($product) {
-            $this->productCreation->restoreTrashedProduct($product);
-            $summary['existing_products_used']++;
+            try {
+                DB::transaction(function () use ($product, $group, &$summary, $userId) {
+                    $this->productCreation->restoreTrashedProduct($product);
+                    $this->productCreation->updateExistingProduct($product, $group, $summary, $userId);
+                });
+                $summary['existing_products_used']++;
+            } catch (\Throwable $e) {
+                Log::error('Purchase import: product update failed for barcode ' . $barcode . ': ' . $e->getMessage());
+                foreach ($group['rows'] as $row) {
+                    $summary['failed_rows']++;
+                    $failures[] = $this->failureRow($row['row_num'], $group['product_name'], $barcode, 'Product Update Failed: ' . $e->getMessage());
+                }
+                $history[] = [
+                    'barcode' => $barcode,
+                    'product' => $group['product_name'],
+                    'status'  => 'Failed',
+                    'reason'  => 'Product Update Failed',
+                    'details' => $e->getMessage()
+                ];
+                return;
+            }
         } else {
             try {
                 $product = $this->productCreation->create($group, $summary, $userId);

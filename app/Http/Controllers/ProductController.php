@@ -287,7 +287,16 @@ class ProductController extends Controller
         $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
-            $rules['variants_json'] = ['required', 'json'];
+            $rules['variants_json'] = [
+                'required',
+                'json',
+                function ($attribute, $value, $fail) {
+                    $decoded = json_decode($value, true);
+                    if (!is_array($decoded) || empty($decoded)) {
+                        $fail('Please add at least one attribute & variant.');
+                    }
+                }
+            ];
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -467,7 +476,16 @@ class ProductController extends Controller
         $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
 
         if ($request->type === 'variable') {
-            $rules['variants_json'] = ['required', 'json'];
+            $rules['variants_json'] = [
+                'required',
+                'json',
+                function ($attribute, $value, $fail) {
+                    $decoded = json_decode($value, true);
+                    if (!is_array($decoded) || empty($decoded)) {
+                        $fail('Please add at least one attribute & variant.');
+                    }
+                }
+            ];
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -575,6 +593,14 @@ class ProductController extends Controller
 
             // Update variants for variable products
             if ($request->type === 'variable' && $request->filled('variants_json')) {
+                
+                $duplicates = $product->variants()
+                    ->select('attribute_value_id', DB::raw('MIN(id) as keep_id'))
+                    ->groupBy('attribute_value_id')
+                    ->get();
+                $keepIds = $duplicates->pluck('keep_id')->toArray();
+                $product->variants()->whereNotIn('id', $keepIds)->delete();
+
                 $variants = json_decode($request->variants_json, true);
                 $existingVariants = $product->variants()->get()->keyBy('attribute_value_id');
                 $keptAttributeValueIds = [];
