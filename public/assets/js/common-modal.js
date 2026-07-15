@@ -306,13 +306,29 @@ $(document).ready(function () {
                             } else if (rowId) {
                                 $('#' + rowId).fadeOut(400, function () { $(this).remove(); });
                             }
+                        } else if (res.status === 'error') {
+                            Swal.fire({
+                                title: 'Cannot Delete',
+                                html: res.message,
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                customClass: {
+                                    confirmButton: 'btn btn-primary'
+                                },
+                                buttonsStyling: false
+                            });
                         }
                     },
                     error : function (xhr) {
-                        if (xhr.status === 422 && xhr.responseJSON?.message) {
+                        const json = xhr.responseJSON;
+                        if (xhr.status === 422 && json) {
+                            
+                            const htmlMsg = (typeof json.message === 'string')
+                                ? json.message
+                                : (json.errors ? Object.values(json.errors).flat().join('<br>') : 'Cannot delete this record.');
                             Swal.fire({
                                 title: 'Cannot Delete',
-                                html: xhr.responseJSON.message,
+                                html: htmlMsg,
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 customClass: {
