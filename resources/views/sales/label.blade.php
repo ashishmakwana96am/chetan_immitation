@@ -100,6 +100,30 @@
             padding-bottom: 8px;
         }
 
+        /* TO section - bigger for delivery boy */
+        .to-section-title {
+            font-size: 15px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .to-person-name {
+            font-size: 19px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+        .to-address-text {
+            font-size: 16px;
+            line-height: 1.4;
+            font-weight: bold;
+        }
+        .to-phone-text {
+            font-size: 15px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
         .product-title {
             font-size: 13px;
             font-weight: bold;
@@ -163,9 +187,9 @@
     <div class="divider-solid"></div>
 
     <div class="address-block">
-        <div class="section-title">To</div>
-        <div class="person-name">{{ $custName }}</div>
-        <div class="address-text">
+        <div class="to-section-title">TO</div>
+        <div class="to-person-name">{{ $custName }}</div>
+        <div class="to-address-text">
             @if($order->customerAddress)
                 {{ $addr->address }}<br>
                 {{ $addr->city }}, {{ $addr->state }}, {{ $addr->pincode }}
@@ -173,7 +197,7 @@
                 No shipping address provided.
             @endif
         </div>
-        <div class="phone-text">
+        <div class="to-phone-text">
             Phone: {{ $addr->phone ?? ($order->customer->phone ?? '-') }}
             @if(!empty($addr->alternate_phone))
                 / {{ $addr->alternate_phone }}
