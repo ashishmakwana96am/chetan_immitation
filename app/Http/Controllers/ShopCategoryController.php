@@ -166,7 +166,9 @@ class ShopCategoryController extends Controller
                 $q->where('status', SubCategory::STATUS_ACTIVE)->orderBy('sort_order');
             }])
             ->withCount(['products' => function ($q) {
-                $q->whereNull('products.deleted_at');
+                $q->whereNull('products.deleted_at')
+                  ->where('products.status', Product::STATUS_ACTIVE)
+                  ->has('images');
             }])
             ->orderBy('sort_order')
             ->get();
@@ -204,6 +206,11 @@ class ShopCategoryController extends Controller
                     GROUP BY product_id
                 ) as pv'), 'pv.product_id', '=', 'products.id')
                 ->where('products.status', Product::STATUS_ACTIVE)
+                ->whereExists(function ($q) {
+                    $q->select(\DB::raw(1))
+                      ->from('product_images')
+                      ->whereColumn('product_images.product_id', 'products.id');
+                })
                 ->selectRaw('
                     MIN(COALESCE(pv.variant_min, products.sale_price)) as min_price,
                     MAX(COALESCE(pv.variant_max, products.sale_price)) as max_price
@@ -285,7 +292,7 @@ class ShopCategoryController extends Controller
 
     private function buildFilteredQuery($slug = null, bool $applyPriceFilter = true)
     {
-        $query = Product::where('status', Product::STATUS_ACTIVE);
+        $query = Product::where('status', Product::STATUS_ACTIVE)->hasImages();
 
         $filters = session('shop_filters', []);
 

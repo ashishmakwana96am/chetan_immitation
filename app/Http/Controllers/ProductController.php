@@ -184,7 +184,7 @@ class ProductController extends Controller
                 $totalQty += $qty;
                 
                 // Generate inline base64 SVG to prevent loopback deadlocks in single-threaded dev server
-                $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128);
+                $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_39, 1, 30);
                 $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
                 
                 $printItems[] = [
@@ -202,8 +202,7 @@ class ProductController extends Controller
             abort(404, 'No products to print.');
         }
 
-        // 35pt per label + 30pt base safety margin to prevent DomPDF page break overflow
-        $pdfHeight = ($totalQty * 35) + 30;
+        $pdfHeight = ($totalQty * 34.02) + 15;
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems', 'pdfHeight'))
             ->setPaper([0, 0, 232.44, $pdfHeight], 'portrait');

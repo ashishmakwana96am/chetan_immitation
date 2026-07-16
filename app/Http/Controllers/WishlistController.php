@@ -34,6 +34,7 @@ class WishlistController extends Controller
         $wishlistProductIds = $wishlists->pluck('product_id')->toArray();
 
         $relatedProducts = \App\Models\Product::where('status', 1)
+            ->hasImages()
             ->whereNotIn('id', $wishlistProductIds)
             ->with(['primaryImage', 'variants.attributeValue'])
             ->withSum('inventories', 'quantity')
