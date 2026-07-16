@@ -25,31 +25,37 @@
             overflow: hidden !important;
         }
         .labels-container-table {
-            width: 187.08pt !important; /* 37mm + 29mm = 66mm = 187.08pt */
-            border-collapse: separate !important;
-            border-spacing: 0 2pt !important;
+            width: 232.44pt !important; /* 2.7cm + 2.7cm + 2.8cm = 8.2cm = 232.44pt */
+            border-collapse: collapse !important;
+            table-layout: fixed !important;
             margin: 0 auto !important;
             padding: 0 !important;
         }
         .label-row {
-            height: 28.35pt !important; /* 10mm height */
-            max-height: 28.35pt !important;
+            height: 34.02pt !important; /* 1.2cm height */
+            max-height: 34.02pt !important;
             margin: 0 !important;
             padding: 0 !important;
         }
         .zone-front-td {
-            width: 104.88pt !important; /* 37mm */
-            height: 28.35pt !important;
+            width: 76.54pt !important; /* 2.7cm */
+            height: 34.02pt !important;
             padding: 1pt 3pt !important;
             vertical-align: middle;
             border: none !important;
         }
         .zone-back-td {
-            width: 82.2pt !important; /* 29mm */
-            height: 28.35pt !important;
+            width: 76.54pt !important; /* 2.7cm */
+            height: 34.02pt !important;
             padding: 1pt 2pt !important;
             text-align: center;
             vertical-align: middle;
+            border: none !important;
+        }
+        .zone-tail-td {
+            width: 79.38pt !important; /* 2.8cm */
+            height: 34.02pt !important;
+            padding: 0 !important;
             border: none !important;
         }
         .mrp-line {
@@ -105,18 +111,22 @@
         @foreach($printItems as $item)
             @for($i = 0; $i < $item['qty']; $i++)
                 <tr class="label-row">
-                    <td class="zone-front-td">
-                        <div class="mrp-line">MRP : {!! $item['salePrice'] !!}</div>
-                        <div class="code-line">{{ $item['barcodeText'] }}</div>
+                    <td class="zone-front-td" style="text-align: left;">
+                        <div class="code-line" style="text-align: left; margin-bottom: 2pt; padding-left: 2pt;">{{ $item['barcodeText'] }}</div>
+                        <div class="barcode-container" style="text-align: left;">
+                            <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" style="margin: 0;" />
+                        </div>
+                        <div class="category-line" style="text-align: left; margin-top: 2pt; padding-left: 2pt;">{{ $item['category'] }}</div>
                     </td>
                     <td class="zone-back-td">
-                        <div class="variations-line">{!! !empty($item['variations']) ? e($item['variations']) : '&nbsp;' !!}</div>
-                        <div class="barcode-container">
-                            <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" />
-                        </div>
-                        <div class="category-line">{{ $item['category'] }}</div>
+                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 4pt;">MRP : {!! $item['salePrice'] !!}</div>
+                    </td>
+                    <td class="zone-tail-td">
+                        <!-- Tail section -->
                     </td>
                 </tr>
             @endfor
         @endforeach
-    </table></body></html>
+    </table>
+</body>
+</html>
