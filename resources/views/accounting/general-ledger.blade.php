@@ -172,7 +172,6 @@
         </div>
     </div>
 
-    {{-- ─── Source Legend ───────────────────────────────── --}}
     <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
         <small class="text-muted fw-semibold me-1">Legend:</small>
         <span class="source-badge source-expense align-badge"><i class="ti ti-receipt me-1"></i>Expense</span>
@@ -181,7 +180,6 @@
         <span class="source-badge source-purchase_bill align-badge"><i class="ti ti-file-invoice me-1"></i>Purchase Bill</span>
     </div>
 
-    {{-- ─── Main Table ──────────────────────────────────── --}}
     <div class="card">
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="generalLedgerTable">
@@ -192,7 +190,6 @@
                         @if(!$isRestricted)
                             <th>Location</th>
                         @endif
-                        <th>Ref #</th>
                         <th>Particulars / Details</th>
                         <th>Credit (+)</th>
                         <th>Debit (−)</th>
@@ -211,8 +208,6 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
     $(document).ready(function () {
-
-        // ── Flatpickr Date Pickers ───────────────────────────────────────
         let flatpickrOpen = false;
 
         const startPicker = $('#filter-start-date').flatpickr({
@@ -235,7 +230,6 @@
             }
         });
 
-        // ── Filter Button Visibility ─────────────────────────────────────
         let isFiltered = false;
 
         function updateFilterButtons() {
@@ -256,7 +250,6 @@
 
         updateFilterButtons();
 
-        // ── Source Badge Renderer ────────────────────────────────────────
         const sourceIcons = {
             cash:         'ti ti-cash',
             bank:         'ti ti-building-bank',
@@ -280,8 +273,8 @@
             $isAdmin = !$isRestricted;
         @endphp
         const hasLocation = {{ $isRestricted ? 'false' : 'true' }};
-        const dateGroupCol = hasLocation ? 8 : 7;
-        const dateSortCol  = hasLocation ? 9 : 8;
+        const dateGroupCol = hasLocation ? 7 : 6;
+        const dateSortCol  = hasLocation ? 8 : 7;
 
         const table = $('#generalLedgerTable').DataTable({
             responsive: false,
@@ -293,7 +286,7 @@
             rowGroup: {
                 dataSrc: 'date_group',
                 startRender: function (rows, group) {
-                    const colspan = hasLocation ? 9 : 8;
+                    const colspan = hasLocation ? 8 : 7;
                     return $('<tr class="group-header"/>')
                         .append(
                             '<td colspan="' + colspan + '">' +
@@ -331,31 +324,17 @@
                 }
             },
             columns: [
-                // #
                 { data: 'index', orderable: false, width: '4%' },
-                // Source badge
                 { data: 'source_type', orderable: false,
                   render: function (data) { return sourceBadge(data); }
                 },
                 @if(!$isRestricted)
-                // Location
                 { data: 'location' },
                 @endif
-                // Ref
-                { data: 'ref', orderable: false,
-                  render: function (data) {
-                      return '<code class="text-muted" style="font-size:0.78rem;">' + data + '</code>';
-                  }
-                },
-                // Particulars
                 { data: 'particulars' },
-                // Credit
                 { data: 'credit', orderable: false, className: 'text-success fw-bold' },
-                // Debit
                 { data: 'debit', orderable: false, className: 'text-danger fw-bold' },
-                // Done By
                 { data: 'done_by' },
-                // Hidden date columns
                 { data: 'date_group', visible: false },
                 { data: 'date_sort',  visible: false },
             ],
@@ -367,7 +346,6 @@
             }
         });
 
-        // ── Refresh Helper ───────────────────────────────────────────────
         window.refreshTable = function () {
             window.showAjaxLoader && window.showAjaxLoader();
             table.ajax.reload(function () {
@@ -375,14 +353,12 @@
             }, false);
         };
 
-        // ── Apply Filters ────────────────────────────────────────────────
         $(document).on('click', '#applyFiltersBtn', function (e) {
             e.preventDefault();
             isFiltered = true;
             window.refreshTable();
         });
 
-        // ── Clear Filters ────────────────────────────────────────────────
         $(document).on('click', '#clearFiltersBtn', function (e) {
             e.preventDefault();
             isFiltered = false;
