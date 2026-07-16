@@ -88,6 +88,8 @@
                                                     General Ledger
                                                 @elseif($permission->name === 'view customer ledger')
                                                     Customer Ledger
+                                                @elseif($permission->name === 'view outstanding payables')
+                                                    Outstanding Payables
                                                 @elseif($permission->name === 'view bank ledger')
                                                     Bank Ledger
                                                 @elseif($permission->name === 'view branch ledger')

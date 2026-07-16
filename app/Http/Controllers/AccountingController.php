@@ -314,4 +314,209 @@ class AccountingController extends Controller
             ],
         ]);
     }
+
+    public function outstandingPayables(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $locations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.outstanding-payables', compact('locations', 'isRestricted'));
+    }
+
+    public function outstandingPayablesData(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = \App\Models\Purchase::with('supplier');
+
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+        } else {
+            if ($request->filled('location_id')) {
+                $locationId = (int) $request->location_id;
+                $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        }
+
+        if ($request->filled('start_date')) {
+            $purchasesQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $purchasesQuery->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $purchases = $purchasesQuery->get();
+
+        // Group by Date and Supplier
+        $grouped = $purchases->groupBy(function ($purchase) {
+            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($purchase->supplier_id ?? 0);
+        });
+
+        $rows = collect();
+        $totalPurchase = 0.0;
+        $totalPayment = 0.0;
+        $totalOutstanding = 0.0;
+
+        foreach ($grouped as $key => $items) {
+            $first = $items->first();
+            $supplierName = $first->supplier->name ?? 'Unknown';
+            
+            $sumTotal = 0.0;
+            $sumPaid = 0.0;
+
+            foreach ($items as $purchase) {
+                $sumTotal += (float) $purchase->total_amount;
+                if ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID) {
+                    $sumPaid += (float) $purchase->total_amount;
+                } elseif ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING) {
+                    $sumPaid += 0.0;
+                } else {
+                    $sumPaid += (float) $purchase->paid_amount;
+                }
+            }
+
+            $due = max(0.0, $sumTotal - $sumPaid);
+
+            if ($due <= 0) {
+                continue;
+            }
+
+            $totalPurchase += $sumTotal;
+            $totalPayment += $sumPaid;
+            $totalOutstanding += $due;
+
+            $dateObj = $first->created_at ?? now();
+
+            $rows->push([
+                'supplier_id'    => $first->supplier_id,
+                'supplier_name'  => $supplierName,
+                'date_raw'       => $dateObj->format('Y-m-d'),
+                'date_formatted' => format_date($dateObj),
+                'total_amount'   => $sumTotal,
+                'paid_amount'    => $sumPaid,
+                'due_amount'     => $due,
+            ]);
+        }
+
+        // Sort by date desc, then supplier name asc
+        $sortedRows = $rows->sort(function ($a, $b) {
+            if ($a['date_raw'] !== $b['date_raw']) {
+                return strcmp($b['date_raw'], $a['date_raw']);
+            }
+            return strcmp($a['supplier_name'], $b['supplier_name']);
+        })->values();
+
+        $mappedRows = $sortedRows->map(function ($row, $index) {
+            $dateObj = \Carbon\Carbon::parse($row['date_raw']);
+            return [
+                'index'          => $index + 1,
+                'supplier_id'    => $row['supplier_id'],
+                'supplier'       => e($row['supplier_name']),
+                'date'           => $row['date_formatted'],
+                'total_amount'   => format_price($row['total_amount']),
+                'paid_amount'    => format_price($row['paid_amount']),
+                'due_amount'     => format_price($row['due_amount']),
+                'date_group'     => format_date($dateObj, 'd M Y'),
+                'date_sort'      => $row['date_raw'],
+            ];
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $mappedRows,
+            'summary' => [
+                'purchase'    => format_price($totalPurchase),
+                'payment'     => format_price($totalPayment),
+                'outstanding' => format_price($totalOutstanding),
+            ],
+        ]);
+    }
+
+    public function outstandingPayablesDetail(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $request->validate([
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+            'date'        => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $supplier = \App\Models\Supplier::findOrFail($request->supplier_id);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = \App\Models\Purchase::where('supplier_id', $request->supplier_id);
+
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+        } else {
+            if ($request->filled('location_id')) {
+                $locationId = (int) $request->location_id;
+                $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        }
+
+        if ($request->filled('date')) {
+            $purchasesQuery->whereDate('created_at', $request->date);
+            $date = \Carbon\Carbon::parse($request->date);
+        } else {
+            if ($request->filled('start_date')) {
+                $purchasesQuery->whereDate('created_at', '>=', $request->start_date);
+            }
+            if ($request->filled('end_date')) {
+                $purchasesQuery->whereDate('created_at', '<=', $request->end_date);
+            }
+            $date = null;
+        }
+
+        $allPurchases = $purchasesQuery->get();
+
+        $purchases = $allPurchases->map(function($p) {
+            if ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID) {
+                $p->calculated_paid = (float) $p->total_amount;
+            } elseif ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING) {
+                $p->calculated_paid = 0.0;
+            } else {
+                $p->calculated_paid = (float) $p->paid_amount;
+            }
+            $p->calculated_due = max(0.0, (float) $p->total_amount - $p->calculated_paid);
+            return $p;
+        })->filter(function($p) {
+            return $p->calculated_due > 0;
+        })->values();
+
+        $totalPurchase = $purchases->sum('total_amount');
+        $totalPayment = $purchases->sum('calculated_paid');
+        $totalOutstanding = max(0.0, $totalPurchase - $totalPayment);
+
+        return view('accounting.outstanding-payables-detail', compact(
+            'supplier',
+            'purchases',
+            'totalPurchase',
+            'totalPayment',
+            'totalOutstanding',
+            'date'
+        ));
+    }
 }

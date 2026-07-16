@@ -297,6 +297,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounting/bankbook/data', [\App\Http\Controllers\AccountingController::class, 'bankBookData'])->name('accounting.bankbook.data');
         Route::get('accounting/general-ledger', [\App\Http\Controllers\AccountingController::class, 'generalLedger'])->name('accounting.general-ledger');
         Route::get('accounting/general-ledger/data', [\App\Http\Controllers\AccountingController::class, 'generalLedgerData'])->name('accounting.general-ledger.data');
+        Route::get('accounting/outstanding-payables', [\App\Http\Controllers\AccountingController::class, 'outstandingPayables'])->name('accounting.outstanding-payables');
+        Route::get('accounting/outstanding-payables/data', [\App\Http\Controllers\AccountingController::class, 'outstandingPayablesData'])->name('accounting.outstanding-payables.data');
+        Route::get('accounting/outstanding-payables/detail', [\App\Http\Controllers\AccountingController::class, 'outstandingPayablesDetail'])->name('accounting.outstanding-payables.detail');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');
