@@ -95,13 +95,13 @@
         }
         .barcode-container {
             width: 100% !important;
-            height: 8pt !important;
+            height: 16pt !important;
             overflow: hidden;
             text-align: center;
         }
         .barcode-img {
             width: 100% !important;
-            height: 8pt !important;
+            height: 16pt !important;
             display: block;
         }
     </style>
