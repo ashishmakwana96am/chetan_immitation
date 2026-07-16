@@ -115,7 +115,7 @@
                 </div>
             </div>
 
-            @can('import purchases')
+            @can('create purchases')
                 <button type="button" class="btn btn-outline-primary" id="purchaseImportBtn">
                     <i class="ti ti-file-spreadsheet me-1"></i> Import
                 </button>
@@ -128,7 +128,7 @@
         </div>
     </div>
 
-    @can('import purchases')
+    @can('create purchases')
         <div class="offcanvas offcanvas-end" id="purchaseImportOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 600px; max-width: 100vw;">
             <div class="offcanvas-header border-bottom">
                 <h5 class="offcanvas-title">Import Purchases</h5>

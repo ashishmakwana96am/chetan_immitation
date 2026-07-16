@@ -74,6 +74,20 @@
                                                     Edit Payment Status
                                                 @elseif(str_contains($permission->name, 'status'))
                                                     Edit Status
+                                                @elseif($permission->name === 'manage branch balances')
+                                                    Manage Balances
+                                                @elseif($permission->name === 'view supplier ledger')
+                                                    Supplier Ledger
+                                                @elseif($permission->name === 'view cash ledger')
+                                                    Cash Ledger
+                                                @elseif($permission->name === 'view bank ledger')
+                                                    Bank Ledger
+                                                @elseif($permission->name === 'view branch ledger')
+                                                    Branch Ledger
+                                                @elseif($permission->name === 'bulk upload product images')
+                                                    Bulk Upload Images
+                                                @elseif($permission->name === 'clone products')
+                                                    Clone
                                                 @else
                                                     {{ explode(' ', $permission->name)[0] }}
                                                 @endif

@@ -290,9 +290,12 @@ class LedgerController extends Controller
                     </div>'
             ]);
 
+        $currentBalance = Location::whereIn('id', $locationIds)->sum('cash_balance');
+
         return response()->json([
             'status'  => 'success',
             'data'    => $rows,
+            'current_balance' => format_price($currentBalance),
             'summary' => [
                 'opening' => format_price($todayNode['opening']),
                 'sale'    => format_price($todayNode['in']),
@@ -359,9 +362,12 @@ class LedgerController extends Controller
                     </div>'
             ]);
 
+        $currentBalance = Location::whereIn('id', $locationIds)->sum('bank_balance');
+
         return response()->json([
             'status'  => 'success',
             'data'    => $rows,
+            'current_balance' => format_price($currentBalance),
             'summary' => [
                 'opening' => format_price($todayNode['opening']),
                 'receipt' => format_price($todayNode['in']),

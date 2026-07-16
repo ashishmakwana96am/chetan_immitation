@@ -42,6 +42,7 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Cash Ledger</h4>
+        <div id="current-balance-container"></div>
     </div>
 
     <div class="card mb-4" id="filterReportCard">
@@ -220,6 +221,11 @@
                             $('#summarySale').text(json.summary.sale);
                             $('#summaryExpense').text(json.summary.expense);
                             $('#summaryClosing').text(json.summary.closing);
+                        }
+                        if (json.current_balance !== undefined) {
+                            $('#current-balance-container').html(
+                                '<span class="badge bg-label-success fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-cash me-1"></i> Current Cash Balance: ' + json.current_balance + '</span>'
+                            );
                         }
                         return json.data;
                     },

@@ -310,6 +310,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
         $supplierId = $request->query('supplier_id');
+        $isGst = $request->query('is_gst');
 
         $user = auth()->user();
         $query = Purchase::with(['supplier', 'items.product'])
@@ -328,6 +329,9 @@ class ReportController extends Controller
         }
         if ($supplierId) {
             $query->where('supplier_id', $supplierId);
+        }
+        if ($isGst !== null && $isGst !== '') {
+            $query->where('is_gst', (bool)$isGst);
         }
 
         $invoices = $query->latest()->get();
@@ -375,7 +379,8 @@ class ReportController extends Controller
             'productPurchases',
             'startDate',
             'endDate',
-            'supplierId'
+            'supplierId',
+            'isGst'
         ));
     }
 
@@ -397,6 +402,7 @@ class ReportController extends Controller
         $endDate   = $request->query('end_date');
         $paymentStatus = $request->query('payment_status');
         $paymentMethod = $request->query('payment_method');
+        $isGst = $request->query('is_gst');
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
@@ -417,6 +423,9 @@ class ReportController extends Controller
         }
         if ($paymentMethod) {
             $query->where('payment_method', $paymentMethod);
+        }
+        if ($isGst !== null && $isGst !== '') {
+            $query->where('is_gst', (bool)$isGst);
         }
 
         $orders = $query->latest()->get();
@@ -469,7 +478,8 @@ class ReportController extends Controller
             'endDate',
             'locationId',
             'paymentStatus',
-            'paymentMethod'
+            'paymentMethod',
+            'isGst'
         ));
     }
 
@@ -852,6 +862,7 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
         $supplierId = $request->query('supplier_id');
+        $isGst = $request->query('is_gst');
 
         $user = auth()->user();
         $query = Purchase::with(['supplier', 'items.product'])
@@ -870,6 +881,9 @@ class ReportController extends Controller
         }
         if ($supplierId) {
             $query->where('supplier_id', $supplierId);
+        }
+        if ($isGst !== null && $isGst !== '') {
+            $query->where('is_gst', (bool)$isGst);
         }
 
         $invoices = $query->latest()->get();
@@ -911,6 +925,7 @@ class ReportController extends Controller
         $endDate   = $request->query('end_date');
         $paymentStatus = $request->query('payment_status');
         $paymentMethod = $request->query('payment_method');
+        $isGst = $request->query('is_gst');
 
         $query = Order::with(['customer', 'location', 'user'])
             ->where('order_type', 'sale')
@@ -931,6 +946,9 @@ class ReportController extends Controller
         }
         if ($paymentMethod) {
             $query->where('payment_method', $paymentMethod);
+        }
+        if ($isGst !== null && $isGst !== '') {
+            $query->where('is_gst', (bool)$isGst);
         }
 
         $orders = $query->latest()->get();

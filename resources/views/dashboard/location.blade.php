@@ -18,15 +18,36 @@
                 @endif
             </small>
         </div>
-        @can('create sales')
-            <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
-                <i class="ti ti-plus me-1"></i> Add Sale
-            </a>
-        @endcan
     </div>
 
-    <!-- Sales Stats -->
+    <!-- Stats Cards Row -->
     <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Cash Balance</span>
+                            <h4 class="mb-0 mt-1 text-success">{{ format_price($location->cash_balance ?? 0) }}</h4>
+                        </div>
+                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted">Bank Balance</span>
+                            <h4 class="mb-0 mt-1 text-primary">{{ format_price($location->bank_balance ?? 0) }}</h4>
+                        </div>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
@@ -79,10 +100,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Stock Stats -->
-    <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
@@ -109,6 +126,7 @@
                 </div>
             </div>
         </div>
+
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
