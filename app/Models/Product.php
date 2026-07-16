@@ -277,6 +277,11 @@ class Product extends Model
         return $this->type === 'variable';
     }
 
+    public function scopeHasImages($query)
+    {
+        return $query->has('images');
+    }
+
     public static function generateUniqueBarcode($categoryId = null)
     {
         $prefix = 'PRD';

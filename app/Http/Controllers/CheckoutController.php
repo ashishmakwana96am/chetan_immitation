@@ -122,6 +122,7 @@ class CheckoutController extends Controller
         $productIds = $cartItems->pluck('product_id')->unique()->toArray();
 
         $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->hasImages()
             ->whereNotIn('id', $productIds ?: [0])
             ->with(['primaryImage', 'variants.attributeValue'])
             ->withSum('inventories', 'quantity')

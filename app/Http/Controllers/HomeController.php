@@ -16,6 +16,7 @@ class HomeController extends Controller
             ->get();
 
         $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->hasImages()
             ->whereHas('inventories', function($q) {
                 $q->where('quantity', '>', 0);
             })
@@ -28,6 +29,7 @@ class HomeController extends Controller
             ->get();
 
         $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->hasImages()
             ->whereHas('inventories', function($q) {
                 $q->where('quantity', '>', 0);
             })
@@ -90,8 +92,6 @@ class HomeController extends Controller
 
     public function login()
     {
-        // If an intended URL is passed as a query param (e.g. from wishlist JS redirect),
-        // store it in the session so redirect()->intended() will use it after login.
         if (request()->query('intended')) {
             session()->put('url.intended', request()->query('intended'));
         }
@@ -108,7 +108,6 @@ class HomeController extends Controller
     {
         $email = session('otp_pending_email');
 
-        // No pending OTP session → redirect back to forgot-password
         if (!$email) {
             return redirect()->route('forgot-password');
         }
@@ -137,6 +136,7 @@ class HomeController extends Controller
             ->get();
 
         $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+            ->hasImages()
             ->where('id', '!=', $product->id)
             ->where(function ($q) use ($product) {
                 if ($product->category_id) {
