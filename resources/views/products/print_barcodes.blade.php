@@ -12,7 +12,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: Arial, Helvetica, sans-serif !important;
+            font-family: 'Lucida Console', Monaco, monospace !important;
             color: #000;
             line-height: 1 !important;
         }
@@ -71,9 +71,10 @@
             font-weight: normal !important;
         }
         .code-line {
-            font-size: 5pt !important;
-            font-weight: normal !important;
+            font-size: 7.5pt !important;
+            font-weight: bold !important;
             line-height: 1 !important;
+            text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
         }
@@ -86,9 +87,10 @@
             margin-bottom: 1.5pt !important;
         }
         .category-line {
-            font-size: 5pt !important;
+            font-size: 7pt !important;
             font-weight: normal !important;
             line-height: 1 !important;
+            text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             margin-top: 1.5pt !important;
@@ -119,7 +121,7 @@
                         <div class="category-line" style="text-align: left; margin-top: 2pt; padding-left: 2pt;">{{ $item['category'] }}</div>
                     </td>
                     <td class="zone-back-td">
-                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 15pt;">MRP : {!! $item['salePrice'] !!}</div>
+                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 5pt;">MRP : {!! $item['salePrice'] !!}</div>
                     </td>
                     <td class="zone-tail-td">
                         <!-- Tail section -->
