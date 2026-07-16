@@ -447,7 +447,9 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        $transferQty = fn ($transfer) => $transfer->items->sum('quantity');
+        $transferQty = fn ($transfer) => $transfer->items->sum(
+            fn ($item) => ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity
+        );
 
         $transferIn = PurchaseBill::with('items')
             ->whereIn('to_location_id', $locationIds)
@@ -567,9 +569,12 @@ class LedgerController extends Controller
             ->orderBy('accepted_at')
             ->get();
 
-        $transferQty = fn ($transfer) => $transfer->items->sum('quantity');
+        $transferQty = fn ($transfer) => $transfer->items->sum(
+            fn ($item) => ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity
+        );
         $totalIn = $transferIn->sum($transferQty);
         $totalOut = $transferOut->sum($transferQty);
+        $outstanding = $this->locationStockQty($locationIds);
 
         return view('ledgers.branch-detail', compact(
             'location',
@@ -578,7 +583,8 @@ class LedgerController extends Controller
             'transferOut',
             'totalIn',
             'totalOut',
-            'transferQty'
+            'transferQty',
+            'outstanding'
         ));
     }
 

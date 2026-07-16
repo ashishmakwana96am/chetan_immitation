@@ -91,6 +91,10 @@
                         <span class="ledger-info-label">Transfer Out</span>
                         <span class="ledger-info-value text-danger">{{ number_format($totalOut) }}</span>
                     </div>
+                    <div class="ledger-info-row">
+                        <span class="ledger-info-label">Outstanding</span>
+                        <span class="ledger-info-value">{{ number_format($outstanding) }}</span>
+                    </div>
                 </div>
             </div>
         </div>
