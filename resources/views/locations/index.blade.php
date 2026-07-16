@@ -47,6 +47,45 @@
         </div>
     </div>
 
+    @if(auth()->user()->hasRole('super-admin'))
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-lg-4 col-xl-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="content-left">
+                                <span class="text-muted fw-semibold d-block mb-1">Total Cash Balance</span>
+                                <div class="d-flex align-items-center">
+                                    <h4 class="mb-0 me-2 text-success fw-bold" id="summaryTotalCash">₹0.00</h4>
+                                </div>
+                            </div>
+                            <span class="badge bg-label-success p-2 rounded">
+                                <i class="ti ti-cash ti-sm"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 col-xl-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="content-left">
+                                <span class="text-muted fw-semibold d-block mb-1">Total Bank Balance</span>
+                                <div class="d-flex align-items-center">
+                                    <h4 class="mb-0 me-2 text-primary fw-bold" id="summaryTotalBank">₹0.00</h4>
+                                </div>
+                            </div>
+                            <span class="badge bg-label-primary p-2 rounded">
+                                <i class="ti ti-building-bank ti-sm"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="card">
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="locationsTable">
@@ -54,11 +93,13 @@
                     <tr>
                         <th>#</th>
                         <th>Name</th>
-                        <th>Slug</th>
                         <th>Address</th>
                         <th>Phone</th>
                         <th>GST Number</th>
-                        <th>Default</th>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <th>Cash Balance</th>
+                            <th>Bank Balance</th>
+                        @endif
                         <th>Status</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                             <th>Actions</th>
@@ -80,7 +121,13 @@
                 order       : [],
                 ajax        : {
                     url     : '{{ route('admin.locations.data') }}',
-                    dataSrc : 'data',
+                    dataSrc : function (json) {
+                        if (json.summary) {
+                            $('#summaryTotalCash').text(json.summary.total_cash);
+                            $('#summaryTotalBank').text(json.summary.total_bank);
+                        }
+                        return json.data;
+                    },
                     cache   : false,
                     data    : function(d) {
                         d.status     = $('#filter-status').val();
@@ -90,11 +137,13 @@
                 columns     : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'name' },
-                    { data: 'slug' },
                     { data: 'address' },
                     { data: 'phone' },
                     { data: 'gst_number' },
-                    { data: 'is_default' },
+                    @if(auth()->user()->hasRole('super-admin'))
+                        { data: 'cash_balance' },
+                        { data: 'bank_balance' },
+                    @endif
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                         { data: 'actions', orderable: false },

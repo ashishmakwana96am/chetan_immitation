@@ -60,22 +60,32 @@ class LocationController extends Controller
                 $actions .= '</div></div>';
             }
 
+            $nameDisplay = $location->name . ($location->is_default ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">Default</span>' : '');
+
             return [
-                'index'      => $index + 1,
-                'name'       => $location->name,
-                'slug'       => '<code>' . $location->slug . '</code>',
-                'address'    => $location->address ?? '-',
-                'phone'      => $location->phone ?? '-',
-                'gst_number' => $location->gst_number ?? '-',
-                'is_default' => $location->is_default
-                    ? '<span class="badge bg-label-success">Default</span>'
-                    : '<span class="badge bg-label-secondary">No</span>',
-                'status'     => $status,
-                'actions'    => $actions,
+                'index'        => $index + 1,
+                'name'         => $nameDisplay,
+                'address'      => $location->address ?? '-',
+                'phone'        => $location->phone ?? '-',
+                'gst_number'   => $location->gst_number ?? '-',
+                'cash_balance' => format_price($location->cash_balance),
+                'bank_balance' => format_price($location->bank_balance),
+                'status'       => $status,
+                'actions'      => $actions,
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        $totalCash = $locations->sum('cash_balance');
+        $totalBank = $locations->sum('bank_balance');
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $data,
+            'summary' => [
+                'total_cash' => format_price($totalCash),
+                'total_bank' => format_price($totalBank),
+            ]
+        ]);
     }
 
     public function create()
