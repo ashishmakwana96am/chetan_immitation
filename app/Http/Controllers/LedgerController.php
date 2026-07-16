@@ -803,4 +803,193 @@ class LedgerController extends Controller
 
         return $totalQty;
     }
+
+    // -----------------------------------------------------------------
+    // Customer Ledger
+    // -----------------------------------------------------------------
+
+    public function customerLedger()
+    {
+        $this->authorizeLedger('view customer ledger');
+
+        [$locations, $isRestricted] = $this->resolveLocations();
+
+        return view('ledgers.customer', compact('locations', 'isRestricted'));
+    }
+
+    public function customerLedgerData(Request $request)
+    {
+        $this->authorizeLedger('view customer ledger');
+
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $ordersQuery = \App\Models\Order::with('customer')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate);
+
+        if ($isRestricted) {
+            $ordersQuery->where('location_id', $user->location_id);
+        } else {
+            if ($request->filled('location_id')) {
+                $ordersQuery->where('location_id', (int) $request->location_id);
+            }
+        }
+
+        $orders = $ordersQuery->get();
+
+        // Group by Date portion and Customer ID
+        $grouped = $orders->groupBy(function ($order) {
+            $date = $order->created_at ? $order->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($order->customer_id ?? 0);
+        });
+
+        $rows = collect();
+        foreach ($grouped as $key => $items) {
+            $first = $items->first();
+            $totalAmount = 0.0;
+            $paidAmount  = 0.0;
+
+            foreach ($items as $order) {
+                $totalAmount += (float) $order->final_amount;
+                if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                    $paidAmount += (float) $order->final_amount;
+                } else {
+                    $paidAmount += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                }
+            }
+
+            $dueAmount = max(0.0, $totalAmount - $paidAmount);
+
+            // Determine aggregate status
+            if ($dueAmount <= 0) {
+                $status = \App\Models\Order::PAYMENT_STATUS_PAID;
+            } elseif ($paidAmount <= 0) {
+                $status = \App\Models\Order::PAYMENT_STATUS_PENDING;
+            } else {
+                $status = 3; // Partial
+            }
+
+            $dateObj = $first->created_at ?? now();
+
+            $rows->push([
+                'customer_id'    => $first->customer_id ?? 0,
+                'customer_name'  => $first->customer->name ?? 'Walk-in',
+                'date_raw'       => $dateObj->format('Y-m-d'),
+                'date_formatted' => format_date($dateObj),
+                'total_amount'   => $totalAmount,
+                'paid_amount'    => $paidAmount,
+                'due_amount'     => $dueAmount,
+                'payment_status' => $status,
+            ]);
+        }
+
+        $sortedRows = $rows->sort(function ($a, $b) {
+            if ($a['date_raw'] !== $b['date_raw']) {
+                return strcmp($b['date_raw'], $a['date_raw']);
+            }
+            return strcmp($a['customer_name'], $b['customer_name']);
+        })->values();
+
+        $totalSales = 0.0;
+        $totalPayment  = 0.0;
+        $totalOutstanding = 0.0;
+
+        $mappedRows = $sortedRows->map(function ($row, $index) use (&$totalSales, &$totalPayment, &$totalOutstanding) {
+            $totalSales += $row['total_amount'];
+            $totalPayment  += $row['paid_amount'];
+            $totalOutstanding += $row['due_amount'];
+
+            $dateObj = \Carbon\Carbon::parse($row['date_raw']);
+
+            return [
+                'index'          => $index + 1,
+                'customer_id'    => $row['customer_id'],
+                'customer'       => e($row['customer_name']),
+                'date'           => $row['date_formatted'],
+                'total_amount'   => format_price($row['total_amount']),
+                'paid_amount'    => format_price($row['paid_amount']),
+                'due_amount'     => format_price($row['due_amount']),
+                'date_group'     => format_date($dateObj, 'd M Y'),
+                'date_sort'      => $row['date_raw'],
+            ];
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $mappedRows,
+            'summary' => [
+                'sales'       => format_price($totalSales),
+                'payment'     => format_price($totalPayment),
+                'outstanding' => format_price($totalOutstanding),
+            ],
+        ]);
+    }
+
+    public function customerLedgerDetail(Request $request)
+    {
+        $this->authorizeLedger('view customer ledger');
+
+        $request->validate([
+            'customer_id' => ['required', 'integer'],
+            'date'        => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $customerId = (int) $request->customer_id;
+        $date = \Carbon\Carbon::parse($request->date);
+
+        if ($customerId === 0) {
+            $customer = new \App\Models\Customer();
+            $customer->name = 'Walk-in';
+            $customer->phone = '-';
+        } else {
+            $customer = \App\Models\Customer::findOrFail($customerId);
+        }
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $ordersQuery = \App\Models\Order::whereDate('created_at', $request->date);
+
+        if ($customerId === 0) {
+            $ordersQuery->whereNull('customer_id');
+        } else {
+            $ordersQuery->where('customer_id', $customerId);
+        }
+
+        if ($isRestricted) {
+            $ordersQuery->where('location_id', $user->location_id);
+        } else {
+            if ($request->filled('location_id')) {
+                $ordersQuery->where('location_id', (int) $request->location_id);
+            }
+        }
+
+        $orders = $ordersQuery->get();
+
+        $totalSales = 0.0;
+        $totalPayment = 0.0;
+
+        foreach ($orders as $order) {
+            $totalSales += (float) $order->final_amount;
+            if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                $totalPayment += (float) $order->final_amount;
+            } else {
+                $totalPayment += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+            }
+        }
+
+        $totalOutstanding = max(0.0, $totalSales - $totalPayment);
+
+        return view('ledgers.customer-detail', compact(
+            'customer',
+            'date',
+            'orders',
+            'totalSales',
+            'totalPayment',
+            'totalOutstanding'
+        ));
+    }
 }

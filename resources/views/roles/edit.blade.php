@@ -84,6 +84,10 @@
                                                     Cash Book
                                                 @elseif($permission->name === 'view bank book')
                                                     Bank Book
+                                                @elseif($permission->name === 'view general ledger')
+                                                    General Ledger
+                                                @elseif($permission->name === 'view customer ledger')
+                                                    Customer Ledger
                                                 @elseif($permission->name === 'view bank ledger')
                                                     Bank Ledger
                                                 @elseif($permission->name === 'view branch ledger')

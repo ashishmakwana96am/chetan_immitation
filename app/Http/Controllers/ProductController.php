@@ -183,7 +183,6 @@ class ProductController extends Controller
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
-                // Generate inline base64 SVG to prevent loopback deadlocks in single-threaded dev server
                 $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_39, 1, 30);
                 $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
                 
