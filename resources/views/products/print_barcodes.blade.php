@@ -95,9 +95,9 @@
             padding-left: 2pt;
         }
         .barcode-img {
-            max-width: 100% !important;
+            width: 100% !important;
             height: 14pt !important;
-            display: inline-block;
+            display: block;
         }
     </style>
 </head>
@@ -108,15 +108,15 @@
                 <tr class="label-row">
                     <!-- Zone 1: Code + Barcode + Category (Left Section) -->
                     <td class="zone-front-td" style="text-align: left;">
-                        <div class="code-line" style="text-align: left; margin-bottom: 2pt; padding-left: 2pt;">{{ $item['barcodeText'] }}</div>
-                        <div class="barcode-container" style="text-align: left;">
+                        <div class="code-line" style="text-align: left !important; margin-bottom: 2pt !important; padding-left: 2pt !important;">{{ trim($item['barcodeText']) }}</div>
+                        <div class="barcode-container" style="text-align: left !important;">
                             <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" style="margin: 0;" />
                         </div>
-                        <div class="category-line" style="text-align: left; margin-top: 2pt; padding-left: 2pt;">{{ $item['category'] }}</div>
+                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important;">{{ trim($item['category']) }}</div>
                     </td>
                     <!-- Zone 2: MRP (Center Section) -->
                     <td class="zone-back-td">
-                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 5pt;">MRP : {!! $item['salePrice'] !!}</div>
+                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 20pt;">MRP:<span class="rupee-symbol">&#8377;</span>{{ $item['salePrice'] }}</div>
                     </td>
                     <!-- Zone 3: Blank Tail Area (Right Section) -->
                     <td class="zone-tail-td">

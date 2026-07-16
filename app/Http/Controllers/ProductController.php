@@ -179,7 +179,7 @@ class ProductController extends Controller
                 $barcodeVal = $product->barcode;
                 $category = $product->category->name ?? '';
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
-                $salePrice = str_replace('₹', '<span class="rupee-symbol">&#8377;</span>', format_price($product->sale_price));
+                $salePrice = number_format($product->sale_price, 2);
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
