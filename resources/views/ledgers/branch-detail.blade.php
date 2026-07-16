@@ -85,11 +85,11 @@
                 <div class="card-body">
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Transfer In</span>
-                        <span class="ledger-info-value text-success">{{ format_price($totalIn) }}</span>
+                        <span class="ledger-info-value text-success">{{ number_format($totalIn) }}</span>
                     </div>
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Transfer Out</span>
-                        <span class="ledger-info-value text-danger">{{ format_price($totalOut) }}</span>
+                        <span class="ledger-info-value text-danger">{{ number_format($totalOut) }}</span>
                     </div>
                 </div>
             </div>
@@ -110,8 +110,7 @@
                                     <th style="width: 5%">#</th>
                                     <th>Transfer No</th>
                                     <th>From Branch</th>
-                                    <th>Items</th>
-                                    <th class="text-end">Value</th>
+                                    <th class="text-end">Quantity</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -124,16 +123,11 @@
                                             </a>
                                         </td>
                                         <td>{{ $transfer->fromLocation->name ?? '-' }}</td>
-                                        <td>
-                                            @foreach($transfer->items as $item)
-                                                <div>{{ $item->product->name ?? '-' }}@if($item->variant) ({{ $item->variant->attributeValue->value ?? '' }})@endif &times; {{ $item->quantity }}</div>
-                                            @endforeach
-                                        </td>
-                                        <td class="text-end fw-semibold text-success">+ {{ format_price(($transferValue)($transfer)) }}</td>
+                                        <td class="text-end fw-semibold text-success">{{ ($transferQty)($transfer) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
+                                        <td colspan="4" class="text-center py-4 text-muted">
                                             No incoming transfers for this date.
                                         </td>
                                     </tr>
@@ -157,8 +151,7 @@
                                     <th style="width: 5%">#</th>
                                     <th>Transfer No</th>
                                     <th>To Branch</th>
-                                    <th>Items</th>
-                                    <th class="text-end">Value</th>
+                                    <th class="text-end">Quantity</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -171,16 +164,11 @@
                                             </a>
                                         </td>
                                         <td>{{ $transfer->toLocation->name ?? '-' }}</td>
-                                        <td>
-                                            @foreach($transfer->items as $item)
-                                                <div>{{ $item->product->name ?? '-' }}@if($item->variant) ({{ $item->variant->attributeValue->value ?? '' }})@endif &times; {{ $item->quantity }}</div>
-                                            @endforeach
-                                        </td>
-                                        <td class="text-end fw-semibold text-danger">- {{ format_price(($transferValue)($transfer)) }}</td>
+                                        <td class="text-end fw-semibold text-danger">{{ ($transferQty)($transfer) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
+                                        <td colspan="4" class="text-center py-4 text-muted">
                                             No outgoing transfers for this date.
                                         </td>
                                     </tr>

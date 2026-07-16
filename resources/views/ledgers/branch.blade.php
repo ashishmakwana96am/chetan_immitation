@@ -116,6 +116,7 @@
                         <th>#</th>
                         <th>Transfer In</th>
                         <th>Transfer Out</th>
+                        <th>Outstanding</th>
                         <th>Action</th>
                         <th class="d-none">date_group</th>
                         <th class="d-none">date_sort</th>
@@ -168,16 +169,16 @@
 
             const table = $('#branchLedgerTable').DataTable({
                 responsive: false,
-                order: [[5, 'desc']],
+                order: [[6, 'desc']],
                 columnDefs: [
-                    { targets: [3], orderable: false },
-                    { targets: [4, 5], visible: false }
+                    { targets: [4], orderable: false },
+                    { targets: [5, 6], visible: false }
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="4"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
+                            .append('<td colspan="5"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
                     }
                 },
                 ajax: {
@@ -197,6 +198,7 @@
                     { data: 'index',        orderable: false, width: '5%' },
                     { data: 'transfer_in',  orderable: false },
                     { data: 'transfer_out', orderable: false },
+                    { data: 'outstanding',  orderable: false },
                     { data: 'actions',      orderable: false },
                     { data: 'date_group',   visible: false },
                     { data: 'date_sort',    visible: false },

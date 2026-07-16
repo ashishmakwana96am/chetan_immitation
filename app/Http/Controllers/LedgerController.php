@@ -447,11 +447,9 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        $transferValue = fn ($transfer) => $transfer->items->sum(
-            fn ($item) => ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0) * $item->quantity
-        );
+        $transferQty = fn ($transfer) => $transfer->items->sum('quantity');
 
-        $transferIn = PurchaseBill::with('items.product', 'items.variant')
+        $transferIn = PurchaseBill::with('items')
             ->whereIn('to_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
@@ -459,7 +457,7 @@ class LedgerController extends Controller
             ->get()
             ->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
 
-        $transferOut = PurchaseBill::with('items.product', 'items.variant')
+        $transferOut = PurchaseBill::with('items')
             ->whereIn('from_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
@@ -469,13 +467,13 @@ class LedgerController extends Controller
 
         $days = $transferIn->keys()->concat($transferOut->keys())->unique()->sort()->values();
 
-        $totalIn  = 0.0;
-        $totalOut = 0.0;
+        $totalIn  = 0;
+        $totalOut = 0;
 
-        $rows = $days
-            ->map(function ($day) use (&$totalIn, &$totalOut, $transferIn, $transferOut, $transferValue) {
-                $dayIn  = (float) ($transferIn->get($day)?->sum($transferValue) ?? 0);
-                $dayOut = (float) ($transferOut->get($day)?->sum($transferValue) ?? 0);
+        $dayNodes = $days
+            ->map(function ($day) use (&$totalIn, &$totalOut, $transferIn, $transferOut, $transferQty) {
+                $dayIn  = (int) ($transferIn->get($day)?->sum($transferQty) ?? 0);
+                $dayOut = (int) ($transferOut->get($day)?->sum($transferQty) ?? 0);
                 $totalIn  += $dayIn;
                 $totalOut += $dayOut;
 
@@ -483,35 +481,44 @@ class LedgerController extends Controller
             })
             ->sortByDesc('date')
             ->values()
-            ->map(fn ($node, $index) => [
-                'index'        => $index + 1,
-                'date'         => format_date($node['date']),
-                'date_sort'    => $node['date'],
-                'date_group'   => format_date($node['date']),
-                'transfer_in'  => format_price($node['in']),
-                'transfer_out' => format_price($node['out']),
-                'actions'      => '
-                    <div class="dropdown table-action-dropdown">
-                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                            <span>Actions</span>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                            <a href="' . route('admin.ledgers.branch.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
-                                <i class="ti ti-eye me-2"></i>View
-                            </a>
-                        </div>
-                    </div>'
-            ]);
+            ->all();
 
-        $outstandingValue = $this->locationStockValue($locationIds);
+        $currentStock = $this->locationStockQty($locationIds);
+        $runningStock = $currentStock;
+
+        foreach ($dayNodes as $key => $node) {
+            $dayNodes[$key]['outstanding'] = $runningStock;
+            $runningStock = $runningStock - $node['in'] + $node['out'];
+        }
+
+        $rows = collect($dayNodes)->map(fn ($node, $index) => [
+            'index'        => $index + 1,
+            'date'         => format_date($node['date']),
+            'date_sort'    => $node['date'],
+            'date_group'   => format_date($node['date']),
+            'transfer_in'  => number_format($node['in']),
+            'transfer_out' => number_format($node['out']),
+            'outstanding'  => number_format($node['outstanding']),
+            'actions'      => '
+                <div class="dropdown table-action-dropdown">
+                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                        <span>Actions</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                        <a href="' . route('admin.ledgers.branch.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
+                            <i class="ti ti-eye me-2"></i>View
+                        </a>
+                    </div>
+                </div>'
+        ]);
 
         return response()->json([
             'status'  => 'success',
             'data'    => $rows,
             'summary' => [
-                'transfer_in'  => format_price($totalIn),
-                'transfer_out' => format_price($totalOut),
-                'outstanding'  => format_price($outstandingValue),
+                'transfer_in'  => number_format($totalIn),
+                'transfer_out' => number_format($totalOut),
+                'outstanding'  => number_format($currentStock),
             ],
         ]);
     }
@@ -560,8 +567,9 @@ class LedgerController extends Controller
             ->orderBy('accepted_at')
             ->get();
 
-        $totalIn = $transferIn->sum($transferValue);
-        $totalOut = $transferOut->sum($transferValue);
+        $transferQty = fn ($transfer) => $transfer->items->sum('quantity');
+        $totalIn = $transferIn->sum($transferQty);
+        $totalOut = $transferOut->sum($transferQty);
 
         return view('ledgers.branch-detail', compact(
             'location',
@@ -570,7 +578,7 @@ class LedgerController extends Controller
             'transferOut',
             'totalIn',
             'totalOut',
-            'transferValue'
+            'transferQty'
         ));
     }
 
@@ -752,5 +760,35 @@ class LedgerController extends Controller
         }
 
         return $value;
+    }
+
+    private function locationStockQty(array $locationIds): int
+    {
+        $totalQty = 0;
+
+        $products = Product::with('variants')->get();
+
+        $simpleQuantities = Inventory::whereIn('location_id', $locationIds)
+            ->selectRaw('product_id, sum(quantity) as qty')
+            ->groupBy('product_id')
+            ->pluck('qty', 'product_id');
+
+        foreach ($products as $product) {
+            if ($product->is_variable) {
+                $stockByLocation = $product->getVariantStock();
+
+                foreach ($product->variants as $variant) {
+                    foreach ($locationIds as $locId) {
+                        $qty = (int) ($stockByLocation[$locId]['variants'][$variant->id] ?? 0);
+                        $totalQty += $qty;
+                    }
+                }
+            } else {
+                $qty = (int) ($simpleQuantities[$product->id] ?? 0);
+                $totalQty += $qty;
+            }
+        }
+
+        return $totalQty;
     }
 }
