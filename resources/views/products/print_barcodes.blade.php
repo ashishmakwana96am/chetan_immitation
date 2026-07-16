@@ -97,10 +97,10 @@
             width: 100% !important;
             height: 16pt !important;
             overflow: hidden;
-            text-align: center;
+            text-align: left;
         }
         .barcode-img {
-            width: 100% !important;
+            max-width: 100% !important;
             height: 16pt !important;
             display: block;
         }
@@ -119,7 +119,7 @@
                         <div class="category-line" style="text-align: left; margin-top: 2pt; padding-left: 2pt;">{{ $item['category'] }}</div>
                     </td>
                     <td class="zone-back-td">
-                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 18pt;">MRP : {!! $item['salePrice'] !!}</div>
+                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 4pt;">MRP : {!! $item['salePrice'] !!}</div>
                     </td>
                     <td class="zone-tail-td">
                         <!-- Tail section -->
