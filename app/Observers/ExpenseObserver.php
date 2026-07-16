@@ -69,7 +69,7 @@ class ExpenseObserver
         DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $expense) {
             $location = Location::where('id', $locationId)->lockForUpdate()->firstOrFail();
 
-            $newBalance = max(0, (float) $location->{$balanceCol} - $amount);
+            $newBalance = (float) $location->{$balanceCol} - $amount;
             $location->update([$balanceCol => $newBalance]);
 
             LocationBalanceTransaction::create([

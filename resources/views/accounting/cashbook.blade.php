@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Bank Ledger')
+@section('title', 'Cash Book')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <style>
-        #bankLedgerTable tbody tr.group-header td {
+        #cashBookTable tbody tr.group-header td {
             background-color: #f0f2f5;
             font-weight: 600;
             font-size: 0.85rem;
@@ -17,20 +17,20 @@
             text-align: center;
             vertical-align: middle;
         }
-        #bankLedgerTable tbody tr.group-header td .group-header-inner {
+        #cashBookTable tbody tr.group-header td .group-header-inner {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
             line-height: 1;
         }
-        #bankLedgerTable tbody tr.group-header td .group-header-inner i {
+        #cashBookTable tbody tr.group-header td .group-header-inner i {
             font-size: 1rem;
             line-height: 1;
             display: flex;
             align-items: center;
         }
-        #bankLedgerTable tbody tr.group-header td .group-header-inner span {
+        #cashBookTable tbody tr.group-header td .group-header-inner span {
             line-height: 1;
             display: flex;
             align-items: center;
@@ -41,8 +41,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">Bank Ledger</h4>
-        <div id="current-balance-container"></div>
+        <h4 class="fw-semibold mb-0">Cash Book</h4>
     </div>
 
     <div class="card mb-4" id="filterReportCard">
@@ -59,7 +58,7 @@
                     <label class="form-label">End Date</label>
                     <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
-                @if(!$isRestricted)
+                @if(auth()->user()->hasRole('super-admin'))
                 <div class="col-md-3">
                     <label class="form-label">Location</label>
                     <select id="filter-location" class="form-select">
@@ -83,54 +82,41 @@
     </div>
 
     <div class="row g-4 mb-4">
-        <div class="col-md-3 col-6">
+        <div class="col-md-6 col-lg-4 col-xl-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Opening</span>
-                            <h4 class="mb-0 mt-1" id="summaryOpening">-</h4>
-                        </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Receipt</span>
-                            <h4 class="mb-0 mt-1 text-success" id="summaryReceipt">-</h4>
+                            <span class="text-muted d-block mb-1">Total Cash In (Receipts)</span>
+                            <h4 class="mb-0 mt-1 text-success" id="summaryTotalCredit">₹0.00</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6">
+        <div class="col-md-6 col-lg-4 col-xl-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Payment</span>
-                            <h4 class="mb-0 mt-1 text-danger" id="summaryPayment">-</h4>
+                            <span class="text-muted d-block mb-1">Total Cash Out (Payments)</span>
+                            <h4 class="mb-0 mt-1 text-danger" id="summaryTotalDebit">₹0.00</h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-trending-down ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3 col-6">
+        <div class="col-md-6 col-lg-4 col-xl-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Closing</span>
-                            <h4 class="mb-0 mt-1" id="summaryClosing">-</h4>
+                            <span class="text-muted d-block mb-1">Cash Balance</span>
+                            <h4 class="mb-0 mt-1 text-primary" id="summaryCurrentBalance">₹0.00</h4>
                         </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -139,17 +125,18 @@
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top" id="bankLedgerTable">
+            <table class="table border-top" id="cashBookTable">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Opening</th>
-                        <th>Receipt</th>
-                        <th>Payment</th>
-                        <th>Closing</th>
-                        <th>Action</th>
-                        <th class="d-none">date_group</th>
-                        <th class="d-none">date_sort</th>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <th>Location</th>
+                        @endif
+                        <th>Particulars / Details</th>
+                        <th>Credit (+)</th>
+                        <th>Debit (-)</th>
+                        <th>Balance After</th>
+                        <th>Done By</th>
                     </tr>
                 </thead>
             </table>
@@ -161,23 +148,47 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
+            // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
+            let flatpickrOpen = false;
+
+            // Initialize Flatpickr for date filters
             const startPicker = $('#filter-start-date').flatpickr({
-                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
-                onChange: function (selectedDates) { endPicker.set('minDate', selectedDates.length ? selectedDates[0] : null); }
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                maxDate    : 'today',
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        endPicker.set('minDate', selectedDates[0]);
+                    }
+                }
             });
+
             const endPicker = $('#filter-end-date').flatpickr({
-                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
-                onChange: function (selectedDates) { startPicker.set('maxDate', selectedDates.length ? selectedDates[0] : 'today'); }
+                altInput   : true,
+                altFormat  : 'd-m-Y',
+                dateFormat : 'Y-m-d',
+                allowInput : false,
+                maxDate    : 'today',
+                onOpen     : function () { flatpickrOpen = true; },
+                onClose    : function (selectedDates) {
+                    flatpickrOpen = false;
+                    if (selectedDates.length) {
+                        startPicker.set('maxDate', selectedDates[0]);
+                    }
+                }
             });
 
             let isFiltered = false;
 
             function updateFilterButtonsVisibility() {
                 const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
-                    return $(el).val();
+                    return $(el).val() !== '';
                 });
                 $('#filterActionButtons').toggleClass('d-none', !hasValue);
-
                 if (!hasValue && isFiltered) {
                     isFiltered = false;
                     window.refreshTable();
@@ -187,64 +198,59 @@
             $(document).on('input change', '#filterForm', function () {
                 updateFilterButtonsVisibility();
             });
+
             updateFilterButtonsVisibility();
 
-            function currentFilters() {
-                return {
-                    location_id: $('#filter-location').val() || '',
-                    start_date:  $('#filter-start-date').val(),
-                    end_date:    $('#filter-end-date').val(),
-                };
-            }
-
-            const table = $('#bankLedgerTable').DataTable({
-                responsive: false,
-                order: [[7, 'desc']],
-                columnDefs: [
-                    { targets: [5], orderable: false },
-                    { targets: [6, 7], visible: false }
+            const table = $('#cashBookTable').DataTable({
+                responsive : false,
+                order      : [[{{ auth()->user()->hasRole('super-admin') ? 8 : 7 }}, 'desc']],
+                orderFixed : { pre: [[{{ auth()->user()->hasRole('super-admin') ? 8 : 7 }}, 'desc']] },
+                columnDefs : [
+                    { targets: {{ auth()->user()->hasRole('super-admin') ? '[7, 8]' : '[6, 7]' }}, visible: false }
                 ],
-                rowGroup: {
+                rowGroup   : {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
+                            .append('<td colspan="{{ auth()->user()->hasRole('super-admin') ? 7 : 6 }}"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
-                ajax: {
-                    url: '{{ route('admin.ledgers.bank.data') }}',
-                    cache: false,
-                    data: function (d) { Object.assign(d, currentFilters()); },
-                    dataSrc: function (json) {
+                ajax        : {
+                    url     : '{{ route('admin.accounting.cashbook.data') }}',
+                    dataSrc : function (json) {
                         if (json.summary) {
-                            $('#summaryOpening').text(json.summary.opening).toggleClass('text-danger fw-bold', json.summary.opening.includes('-'));
-                            $('#summaryReceipt').text(json.summary.receipt);
-                            $('#summaryPayment').text(json.summary.payment);
-                            $('#summaryClosing').text(json.summary.closing).toggleClass('text-danger fw-bold', json.summary.closing.includes('-'));
-                        }
-                        if (json.current_balance !== undefined) {
-                            const isNeg = json.current_balance.includes('-');
-                            $('#current-balance-container').html(
-                                '<span class="badge ' + (isNeg ? 'bg-label-danger' : 'bg-label-primary') + ' fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-building-bank me-1"></i> Current Bank Balance: ' + json.current_balance + '</span>'
-                            );
+                            $('#summaryTotalCredit').text(json.summary.total_credit);
+                            $('#summaryTotalDebit').text(json.summary.total_debit);
+                            $('#summaryCurrentBalance').text(json.summary.current_balance)
+                                .toggleClass('text-danger', json.summary.current_balance.includes('-'))
+                                .toggleClass('text-primary', !json.summary.current_balance.includes('-'));
                         }
                         return json.data;
                     },
+                    cache   : false,
+                    data    : function(d) {
+                        d.start_date  = $('#filter-start-date').val();
+                        d.end_date    = $('#filter-end-date').val();
+                        d.location_id = $('#filter-location').val() || '';
+                    }
                 },
-                columns: [
-                    { data: 'index',     orderable: false, width: '5%' },
-                    { data: 'opening',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
-                    { data: 'receipt',   orderable: false },
-                    { data: 'payment',   orderable: false },
-                    { data: 'closing',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
-                    { data: 'actions',   orderable: false },
+                columns     : [
+                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                    @if(auth()->user()->hasRole('super-admin'))
+                        { data: 'location' },
+                    @endif
+                    { data: 'particulars' },
+                    { data: 'credit', className: 'text-success fw-bold' },
+                    { data: 'debit', className: 'text-danger fw-bold' },
+                    { data: 'balance_after', className: 'fw-bold', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
+                    { data: 'done_by' },
                     { data: 'date_group', visible: false },
-                    { data: 'date_sort',  visible: false },
+                    { data: 'date_sort', visible: false },
                 ],
                 drawCallback: function () {
                     const api = this.api();
                     api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
-                        cell.innerHTML = i + 1;
+                        cell.innerHTML = api.page.info().start + i + 1;
                     });
                 }
             });
@@ -256,20 +262,20 @@
                 }, false);
             };
 
+            // Apply Filters
             $(document).on('click', '#applyFiltersBtn', function (e) {
                 e.preventDefault();
                 isFiltered = true;
                 window.refreshTable();
             });
 
+            // Clear Filters
             $(document).on('click', '#clearFiltersBtn', function (e) {
                 e.preventDefault();
                 isFiltered = false;
                 startPicker.clear();
                 endPicker.clear();
-                startPicker.set('maxDate', 'today');
-                endPicker.set('minDate', null);
-                $('#filter-location').val(null).trigger('change');
+                $('#filter-location').val('').trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
             });

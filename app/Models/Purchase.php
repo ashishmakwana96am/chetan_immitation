@@ -56,6 +56,11 @@ class Purchase extends Model
         ];
     }
 
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
+
     public function supplier()
     {
         return $this->belongsTo(Supplier::class)->withTrashed();

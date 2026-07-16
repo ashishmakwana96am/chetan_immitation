@@ -70,7 +70,7 @@
                       }
                     @endphp
                     @if($pendingSalesCount > 0)
-                      <div class="pending-sales-counter-badge notranslate" translate="no" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingSalesCount }}</div>
+                      <span class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $pendingSalesCount }}</span>
                     @endif
                   @endif
                   @if($child->route === 'admin.contact-inquiries.index')
@@ -82,7 +82,7 @@
                       }
                     @endphp
                     @if($todayInquiriesCount > 0)
-                      <div class="pending-sales-counter-badge notranslate" translate="no" style="display: inline-flex !important; align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $todayInquiriesCount }}</div>
+                      <span class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; display: inline-flex !important; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $todayInquiriesCount }}</span>
                     @endif
                   @endif
                   @if($child->route === 'admin.purchase-bills.index')
@@ -102,7 +102,7 @@
                           $pendingTransfersCount = 0;
                       }
                     @endphp
-                    <div id="purchase-bill-pending-badge" class="pending-sales-counter-badge notranslate" translate="no" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} align-items: center; justify-content: center; width: 20px; height: 20px; background: #B78326; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; margin-left: auto; flex-shrink: 0;">{{ $pendingTransfersCount }}</div>
+                    <span id="purchase-bill-pending-badge" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $pendingTransfersCount }}</span>
                   @endif
                 </a>
               </li>

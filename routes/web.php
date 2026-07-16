@@ -287,6 +287,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
         Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
 
+        // Accounting
+        Route::get('accounting/cashbook', [\App\Http\Controllers\AccountingController::class, 'cashBook'])->name('accounting.cashbook');
+        Route::get('accounting/cashbook/data', [\App\Http\Controllers\AccountingController::class, 'cashBookData'])->name('accounting.cashbook.data');
+        Route::get('accounting/bankbook', [\App\Http\Controllers\AccountingController::class, 'bankBook'])->name('accounting.bankbook');
+        Route::get('accounting/bankbook/data', [\App\Http\Controllers\AccountingController::class, 'bankBookData'])->name('accounting.bankbook.data');
+        Route::get('accounting/general-ledger', [\App\Http\Controllers\AccountingController::class, 'generalLedger'])->name('accounting.general-ledger');
+        Route::get('accounting/general-ledger/data', [\App\Http\Controllers\AccountingController::class, 'generalLedgerData'])->name('accounting.general-ledger.data');
+
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');
         Route::resource('states', StateController::class)->except('show');

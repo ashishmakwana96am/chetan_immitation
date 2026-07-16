@@ -211,7 +211,7 @@ class LedgerController extends Controller
             ->whereIn('location_id', $locationIds)
             ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_CASH)
             ->whereDate('created_at', $request->date)
-            ->orderBy('id', 'asc')
+            ->orderBy('id', 'desc')
             ->get();
 
         $openingBalance = collect($locationIds)->sum(
@@ -407,7 +407,7 @@ class LedgerController extends Controller
             ->whereIn('location_id', $locationIds)
             ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_BANK)
             ->whereDate('created_at', $request->date)
-            ->orderBy('id', 'asc')
+            ->orderBy('id', 'desc')
             ->get();
 
         $openingBalance = collect($locationIds)->sum(

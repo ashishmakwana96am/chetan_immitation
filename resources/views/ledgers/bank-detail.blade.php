@@ -81,7 +81,7 @@
                 <div class="card-body">
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Opening Balance</span>
-                        <span class="ledger-info-value">{{ format_price($openingBalance) }}</span>
+                        <span class="ledger-info-value {{ $openingBalance < 0 ? 'text-danger fw-bold' : '' }}">{{ format_price($openingBalance) }}</span>
                     </div>
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Total Credit</span>
@@ -93,7 +93,7 @@
                     </div>
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Closing Balance</span>
-                        <span class="ledger-info-value text-primary">{{ format_price($closingBalance) }}</span>
+                        <span class="ledger-info-value {{ $closingBalance < 0 ? 'text-danger fw-bold' : 'text-primary' }}">{{ format_price($closingBalance) }}</span>
                     </div>
                 </div>
             </div>
@@ -142,7 +142,7 @@
                                         <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}">
                                             {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? '+' : '-' }} {{ format_price($transaction->amount) }}
                                         </td>
-                                        <td class="text-end text-heading">{{ format_price($transaction->balance_after) }}</td>
+                                        <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
                                         <td>{{ $transaction->createdBy->name ?? '-' }}</td>
                                     </tr>
                                 @empty

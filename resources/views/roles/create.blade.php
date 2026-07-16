@@ -73,6 +73,10 @@
                                                     Supplier Ledger
                                                 @elseif($permission->name === 'view cash ledger')
                                                     Cash Ledger
+                                                @elseif($permission->name === 'view cash book')
+                                                    Cash Book
+                                                @elseif($permission->name === 'view bank book')
+                                                    Bank Book
                                                 @elseif($permission->name === 'view bank ledger')
                                                     Bank Ledger
                                                 @elseif($permission->name === 'view branch ledger')

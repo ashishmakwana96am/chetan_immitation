@@ -217,14 +217,15 @@
                     data: function (d) { Object.assign(d, currentFilters()); },
                     dataSrc: function (json) {
                         if (json.summary) {
-                            $('#summaryOpening').text(json.summary.opening);
+                            $('#summaryOpening').text(json.summary.opening).toggleClass('text-danger fw-bold', json.summary.opening.includes('-'));
                             $('#summarySale').text(json.summary.sale);
                             $('#summaryExpense').text(json.summary.expense);
-                            $('#summaryClosing').text(json.summary.closing);
+                            $('#summaryClosing').text(json.summary.closing).toggleClass('text-danger fw-bold', json.summary.closing.includes('-'));
                         }
                         if (json.current_balance !== undefined) {
+                            const isNeg = json.current_balance.includes('-');
                             $('#current-balance-container').html(
-                                '<span class="badge bg-label-success fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-cash me-1"></i> Current Cash Balance: ' + json.current_balance + '</span>'
+                                '<span class="badge ' + (isNeg ? 'bg-label-danger' : 'bg-label-success') + ' fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-cash me-1"></i> Current Cash Balance: ' + json.current_balance + '</span>'
                             );
                         }
                         return json.data;
@@ -232,10 +233,10 @@
                 },
                 columns: [
                     { data: 'index',     orderable: false, width: '5%' },
-                    { data: 'opening',   orderable: false },
+                    { data: 'opening',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
                     { data: 'sale',      orderable: false },
                     { data: 'expense',   orderable: false },
-                    { data: 'closing',   orderable: false },
+                    { data: 'closing',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
                     { data: 'actions',   orderable: false },
                     { data: 'date_group', visible: false },
                     { data: 'date_sort',  visible: false },

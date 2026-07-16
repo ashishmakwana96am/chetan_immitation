@@ -331,7 +331,7 @@ class PurchaseBillController extends Controller
                 ]);
 
                 $toLocation = Location::where('id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
-                $newToBalance = max(0, (float) $toLocation->{$balanceCol} - $totalAmount);
+                $newToBalance = (float) $toLocation->{$balanceCol} - $totalAmount;
                 $toLocation->update([$balanceCol => $newToBalance]);
 
                 \App\Models\LocationBalanceTransaction::create([

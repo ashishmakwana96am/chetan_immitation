@@ -54,9 +54,9 @@
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div class="content-left">
-                                <span class="text-muted fw-semibold d-block mb-1">Total Cash Balance</span>
+                                <span class="text-muted d-block mb-1">Total Cash Balance</span>
                                 <div class="d-flex align-items-center">
-                                    <h4 class="mb-0 me-2 text-success fw-bold" id="summaryTotalCash">₹0.00</h4>
+                                    <h4 class="mb-0 me-2 text-success" id="summaryTotalCash">₹0.00</h4>
                                 </div>
                             </div>
                             <span class="badge bg-label-success p-2 rounded">
@@ -71,9 +71,9 @@
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div class="content-left">
-                                <span class="text-muted fw-semibold d-block mb-1">Total Bank Balance</span>
+                                <span class="text-muted d-block mb-1">Total Bank Balance</span>
                                 <div class="d-flex align-items-center">
-                                    <h4 class="mb-0 me-2 text-primary fw-bold" id="summaryTotalBank">₹0.00</h4>
+                                    <h4 class="mb-0 me-2 text-primary" id="summaryTotalBank">₹0.00</h4>
                                 </div>
                             </div>
                             <span class="badge bg-label-primary p-2 rounded">
