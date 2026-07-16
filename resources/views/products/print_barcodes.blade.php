@@ -61,7 +61,7 @@
         .mrp-line {
             font-size: 7.5pt !important;
             font-weight: bold !important;
-            line-height: 1 !important;
+            line-height: 1.1 !important;
             white-space: nowrap;
             overflow: hidden;
             margin-bottom: 2pt !important;
@@ -73,38 +73,31 @@
         .code-line {
             font-size: 7.5pt !important;
             font-weight: bold !important;
-            line-height: 1 !important;
+            line-height: 1.1 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
-        }
-        .variations-line {
-            font-size: 5pt !important;
-            font-weight: normal !important;
-            line-height: 1 !important;
-            white-space: nowrap;
-            overflow: hidden;
-            margin-bottom: 1.5pt !important;
         }
         .category-line {
-            font-size: 7pt !important;
-            font-weight: normal !important;
-            line-height: 1 !important;
+            font-size: 7.5pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
-            margin-top: 1.5pt !important;
+            margin-top: 2pt !important;
         }
         .barcode-container {
             width: 100% !important;
-            height: 16pt !important;
+            height: 14pt !important;
             overflow: hidden;
-            text-align: center;
+            text-align: left;
+            padding-left: 2pt;
         }
         .barcode-img {
-            width: 100% !important;
-            height: 16pt !important;
-            display: block;
+            max-width: 100% !important;
+            height: 14pt !important;
+            display: inline-block;
         }
     </style>
 </head>
@@ -113,6 +106,7 @@
         @foreach($printItems as $item)
             @for($i = 0; $i < $item['qty']; $i++)
                 <tr class="label-row">
+                    <!-- Zone 1: Code + Barcode + Category (Left Section) -->
                     <td class="zone-front-td" style="text-align: left;">
                         <div class="code-line" style="text-align: left; margin-bottom: 2pt; padding-left: 2pt;">{{ $item['barcodeText'] }}</div>
                         <div class="barcode-container" style="text-align: left;">
@@ -120,11 +114,13 @@
                         </div>
                         <div class="category-line" style="text-align: left; margin-top: 2pt; padding-left: 2pt;">{{ $item['category'] }}</div>
                     </td>
+                    <!-- Zone 2: MRP (Center Section) -->
                     <td class="zone-back-td">
                         <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 5pt;">MRP : {!! $item['salePrice'] !!}</div>
                     </td>
+                    <!-- Zone 3: Blank Tail Area (Right Section) -->
                     <td class="zone-tail-td">
-                        <!-- Tail section -->
+                        <!-- Tail section is completely blank -->
                     </td>
                 </tr>
             @endfor
