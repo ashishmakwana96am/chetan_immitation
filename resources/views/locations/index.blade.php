@@ -47,6 +47,7 @@
         </div>
     </div>
 
+    {{--
     @if(auth()->user()->hasRole('super-admin'))
         <div class="row g-4 mb-4">
             <div class="col-md-6 col-lg-4 col-xl-3">
@@ -85,6 +86,7 @@
             </div>
         </div>
     @endif
+    --}}
 
     <div class="card">
         <div class="card-datatable table-responsive">
@@ -96,10 +98,12 @@
                         <th>Address</th>
                         <th>Phone</th>
                         <th>GST Number</th>
+                        {{--
                         @if(auth()->user()->hasRole('super-admin'))
                             <th>Cash Balance</th>
                             <th>Bank Balance</th>
                         @endif
+                        --}}
                         <th>Status</th>
                         @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                             <th>Actions</th>
@@ -122,6 +126,7 @@
                 ajax        : {
                     url     : '{{ route('admin.locations.data') }}',
                     dataSrc : function (json) {
+                        /*
                         if (json.summary) {
                             const cashText = json.summary.total_cash;
                             const bankText = json.summary.total_bank;
@@ -132,6 +137,7 @@
                                 .toggleClass('text-danger', bankText.includes('-'))
                                 .toggleClass('text-primary', !bankText.includes('-'));
                         }
+                        */
                         return json.data;
                     },
                     cache   : false,
@@ -146,10 +152,12 @@
                     { data: 'address' },
                     { data: 'phone' },
                     { data: 'gst_number' },
+                    {{--
                     @if(auth()->user()->hasRole('super-admin'))
                         { data: 'cash_balance' },
                         { data: 'bank_balance' },
                     @endif
+                    --}}
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
                         { data: 'actions', orderable: false },
