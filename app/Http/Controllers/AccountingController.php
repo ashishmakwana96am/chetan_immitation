@@ -275,7 +275,7 @@ class AccountingController extends Controller
                 'source'      => $sourceLabels[$detectedSource] ?? $detectedSource,
                 'source_type' => $detectedSource,
                 'location'    => $tx->location->name ?? '-',
-                'particulars' => $notes,
+                'particulars' => !empty($notes) ? $notes : 'Manual Balance Adjustment',
                 'credit'      => $isCredit ? format_price($tx->amount) : '-',
                 'debit'       => !$isCredit ? format_price($tx->amount) : '-',
                 'done_by'     => $tx->createdBy->name ?? '-',
