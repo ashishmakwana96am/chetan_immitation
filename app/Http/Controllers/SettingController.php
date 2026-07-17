@@ -187,13 +187,17 @@ class SettingController extends Controller
 
             // Fetch the user's email to show on settings page
             $oauth2 = new \Google\Service\Oauth2($client);
+            $email = 'Connected Account';
             try {
                 $userInfo = $oauth2->userinfo->get();
-                Setting::setValue('google_drive_connected_email', $userInfo->email);
+                $email = $userInfo->email;
+                Setting::setValue('google_drive_connected_email', $email);
             } catch (\Throwable $e) {
                 // In case API fails or scope isn't granted, set default placeholder
-                Setting::setValue('google_drive_connected_email', 'Connected Account');
+                Setting::setValue('google_drive_connected_email', $email);
             }
+
+            ActivityLogger::log('Settings', 'update', null, null, null, 'Google Drive account connected: ' . $email);
 
             return redirect()->route('admin.settings.index')->with('success', 'Google Drive connected successfully!');
         } catch (\Throwable $e) {
@@ -206,8 +210,12 @@ class SettingController extends Controller
     {
         $this->authorize('edit settings');
 
+        $email = Setting::getValue('google_drive_connected_email', 'Connected Account');
+
         Setting::setValue('google_drive_oauth_token', null);
         Setting::setValue('google_drive_connected_email', null);
+
+        ActivityLogger::log('Settings', 'update', null, null, null, 'Google Drive account disconnected (was: ' . $email . ')');
 
         return redirect()->route('admin.settings.index')->with('success', 'Google Drive disconnected successfully.');
     }
