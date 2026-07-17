@@ -44,6 +44,35 @@
         <h4 class="fw-semibold mb-0">Bank Book</h4>
     </div>
 
+    <div class="row g-4 mb-4">
+        @foreach($locations as $loc)
+            <div class="col-md-6 col-lg-4 branch-card-col" data-location-id="{{ $loc->id }}">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="badge rounded bg-label-primary p-2 me-2">
+                                <i class="ti ti-building ti-sm text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Bank In</span>
+                            <span class="fw-semibold text-success" id="credit-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Bank Out</span>
+                            <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Bank Balance</span>
+                            <span class="fw-semibold text-primary" id="balance-{{ $loc->id }}">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     <div class="card mb-4" id="filterReportCard">
         <div class="card-header">
             <h5 class="mb-0">Filter</h5>
@@ -78,48 +107,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-4">
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted d-block mb-1">Total Bank In (Receipts)</span>
-                            <h4 class="mb-0 mt-1 text-success" id="summaryTotalCredit">₹0.00</h4>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted d-block mb-1">Total Bank Out (Payments)</span>
-                            <h4 class="mb-0 mt-1 text-danger" id="summaryTotalDebit">₹0.00</h4>
-                        </div>
-                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-trending-down ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted d-block mb-1">Bank Balance</span>
-                            <h4 class="mb-0 mt-1 text-primary" id="summaryCurrentBalance">₹0.00</h4>
-                        </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -218,12 +205,14 @@
                 ajax        : {
                     url     : '{{ route('admin.accounting.bankbook.data') }}',
                     dataSrc : function (json) {
-                        if (json.summary) {
-                            $('#summaryTotalCredit').text(json.summary.total_credit);
-                            $('#summaryTotalDebit').text(json.summary.total_debit);
-                            $('#summaryCurrentBalance').text(json.summary.current_balance)
-                                .toggleClass('text-danger', json.summary.current_balance.includes('-'))
-                                .toggleClass('text-primary', !json.summary.current_balance.includes('-'));
+                        if (json.branch_summary) {
+                            $.each(json.branch_summary, function (locId, s) {
+                                $('#credit-' + locId).text(s.credit);
+                                $('#debit-' + locId).text(s.debit);
+                                $('#balance-' + locId).text(s.balance)
+                                    .toggleClass('text-danger', s.balance.includes('-'))
+                                    .toggleClass('text-primary', !s.balance.includes('-'));
+                            });
                         }
                         return json.data;
                     },
@@ -255,8 +244,21 @@
                 }
             });
 
+            function updateCardVisibility() {
+                const selectedLocId = $('#filter-location').val();
+                if (selectedLocId) {
+                    $('.branch-card-col').hide();
+                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+                } else {
+                    $('.branch-card-col').show();
+                }
+            }
+
+            updateCardVisibility();
+
             window.refreshTable = function () {
                 window.showAjaxLoader && window.showAjaxLoader();
+                updateCardVisibility();
                 table.ajax.reload(function () {
                     window.hideAjaxLoader && window.hideAjaxLoader();
                 }, false);

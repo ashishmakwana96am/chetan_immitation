@@ -69,6 +69,40 @@
         </div>
     </div>
 
+    {{-- ─── Branch-wise Summary Cards ───────────────────────────────── --}}
+    <div class="row g-4 mb-4">
+        @foreach($locations as $loc)
+            <div class="col-md-6 col-lg-4 branch-card-col" data-location-id="{{ $loc->id }}">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="badge rounded bg-label-primary p-2 me-2">
+                                <i class="ti ti-building ti-sm text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Total In</span>
+                            <span class="fw-semibold text-success" id="credit-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Total Out</span>
+                            <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Cash Balance</span>
+                            <span class="fw-semibold text-warning" id="cash-balance-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Bank Balance</span>
+                            <span class="fw-semibold text-info" id="bank-balance-{{ $loc->id }}">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     <div class="card mb-4" id="filterReportCard">
         <div class="card-header">
             <h5 class="mb-0">Filter</h5>
@@ -113,62 +147,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    {{-- ─── Summary Cards ───────────────────────────────── --}}
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4 col-xl">
-            <div class="card gl-summary-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <p class="label">Total In (Credit)</p>
-                            <p class="value text-success" id="summaryTotalCredit">₹0.00</p>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl">
-            <div class="card gl-summary-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <p class="label">Total Out (Debit)</p>
-                            <p class="value text-danger" id="summaryTotalDebit">₹0.00</p>
-                        </div>
-                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-trending-down ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl">
-            <div class="card gl-summary-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <p class="label">Cash Balance</p>
-                            <p class="value text-warning" id="summaryCashBalance">₹0.00</p>
-                        </div>
-                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl">
-            <div class="card gl-summary-card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <p class="label">Bank Balance</p>
-                            <p class="value text-info" id="summaryBankBalance">₹0.00</p>
-                        </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -300,17 +278,17 @@
                     d.source      = $('#filter-source').val() || 'all';
                 },
                 dataSrc: function (json) {
-                    if (json.summary) {
-                        $('#summaryTotalCredit').text(json.summary.total_credit);
-                        $('#summaryTotalDebit').text(json.summary.total_debit);
-                        
-                        $('#summaryCashBalance').text(json.summary.cash_balance)
-                            .toggleClass('text-danger', json.summary.cash_balance.includes('-'))
-                            .toggleClass('text-warning', !json.summary.cash_balance.includes('-'));
-                            
-                        $('#summaryBankBalance').text(json.summary.bank_balance)
-                            .toggleClass('text-danger', json.summary.bank_balance.includes('-'))
-                            .toggleClass('text-info', !json.summary.bank_balance.includes('-'));
+                    if (json.branch_summary) {
+                        $.each(json.branch_summary, function (locId, s) {
+                            $('#credit-' + locId).text(s.credit);
+                            $('#debit-' + locId).text(s.debit);
+                            $('#cash-balance-' + locId).text(s.cash_balance)
+                                .toggleClass('text-danger', s.cash_balance.includes('-'))
+                                .toggleClass('text-warning', !s.cash_balance.includes('-'));
+                            $('#bank-balance-' + locId).text(s.bank_balance)
+                                .toggleClass('text-danger', s.bank_balance.includes('-'))
+                                .toggleClass('text-info', !s.bank_balance.includes('-'));
+                        });
                     }
                     return json.data;
                 }
@@ -338,8 +316,21 @@
             }
         });
 
+        function updateCardVisibility() {
+            const selectedLocId = $('#filter-location').val();
+            if (selectedLocId) {
+                $('.branch-card-col').hide();
+                $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+            } else {
+                $('.branch-card-col').show();
+            }
+        }
+
+        updateCardVisibility();
+
         window.refreshTable = function () {
             window.showAjaxLoader && window.showAjaxLoader();
+            updateCardVisibility();
             table.ajax.reload(function () {
                 window.hideAjaxLoader && window.hideAjaxLoader();
             }, false);

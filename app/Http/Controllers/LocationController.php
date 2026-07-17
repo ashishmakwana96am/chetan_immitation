@@ -11,7 +11,7 @@ class LocationController extends Controller
     public function index()
     {
         $this->authorize('view locations');
-        $locations = Location::with('createdBy')->orderBy('id', 'desc')->get();
+        $locations = Location::with(['createdBy', 'balance'])->orderBy('id', 'desc')->get();
         return view('locations.index', compact('locations'));
     }
 
@@ -19,7 +19,7 @@ class LocationController extends Controller
     {
         $this->authorize('view locations');
 
-        $query = Location::with('createdBy')->orderBy('id', 'desc');
+        $query = Location::with(['createdBy', 'balance'])->orderBy('id', 'desc');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);

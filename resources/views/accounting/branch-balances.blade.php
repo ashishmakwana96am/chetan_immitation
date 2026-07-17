@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Cash Book')
+@section('title', 'Opening Balance')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <style>
-        #cashBookTable tbody tr.group-header td {
+        #branchBalancesTable tbody tr.group-header td {
             background-color: #f0f2f5;
             font-weight: 600;
             font-size: 0.85rem;
@@ -17,20 +17,20 @@
             text-align: center;
             vertical-align: middle;
         }
-        #cashBookTable tbody tr.group-header td .group-header-inner {
+        #branchBalancesTable tbody tr.group-header td .group-header-inner {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
             line-height: 1;
         }
-        #cashBookTable tbody tr.group-header td .group-header-inner i {
+        #branchBalancesTable tbody tr.group-header td .group-header-inner i {
             font-size: 1rem;
             line-height: 1;
             display: flex;
             align-items: center;
         }
-        #cashBookTable tbody tr.group-header td .group-header-inner span {
+        #branchBalancesTable tbody tr.group-header td .group-header-inner span {
             line-height: 1;
             display: flex;
             align-items: center;
@@ -41,7 +41,13 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">Cash Book</h4>
+        <div>
+            <h4 class="fw-semibold mb-0">Opening Balance</h4>
+            <small class="text-muted">Overview of balance adjustments for all locations</small>
+        </div>
+        <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.opening-balances.create') }}">
+            <i class="ti ti-plus me-1"></i> Add Opening Balance
+        </button>
     </div>
 
     <div class="row g-4 mb-4">
@@ -56,16 +62,12 @@
                             <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small">Cash In</span>
-                            <span class="fw-semibold text-success" id="credit-{{ $loc->id }}">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small">Cash Out</span>
-                            <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}">-</span>
+                            <span class="text-muted small">Cash Balance</span>
+                            <span class="fw-semibold text-success" id="cash-balance-{{ $loc->id }}">{{ format_price($loc->cash_balance) }}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Cash Balance</span>
-                            <span class="fw-semibold text-primary" id="balance-{{ $loc->id }}">-</span>
+                            <span class="text-muted small">Bank Balance</span>
+                            <span class="fw-semibold text-primary" id="bank-balance-{{ $loc->id }}">{{ format_price($loc->bank_balance) }}</span>
                         </div>
                     </div>
                 </div>
@@ -73,6 +75,7 @@
         @endforeach
     </div>
 
+    {{-- Standard Accounting Filters Card --}}
     <div class="card mb-4" id="filterReportCard">
         <div class="card-header">
             <h5 class="mb-0">Filter</h5>
@@ -87,17 +90,15 @@
                     <label class="form-label">End Date</label>
                     <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
-                @if(auth()->user()->hasRole('super-admin'))
                 <div class="col-md-3">
                     <label class="form-label">Location</label>
                     <select id="filter-location" class="form-select">
                         <option value="">All Locations</option>
-                        @foreach($locations as $location)
-                            <option value="{{ $location->id }}">{{ $location->name }}</option>
+                        @foreach($locations as $loc)
+                            <option value="{{ $loc->id }}">{{ $loc->name }}</option>
                         @endforeach
                     </select>
                 </div>
-                @endif
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
@@ -112,18 +113,20 @@
 
     <div class="card">
         <div class="card-datatable table-responsive">
-            <table class="table border-top" id="cashBookTable">
+            <table class="table border-top" id="branchBalancesTable">
                 <thead>
                     <tr>
                         <th>#</th>
-                        @if(auth()->user()->hasRole('super-admin'))
-                            <th>Location</th>
-                        @endif
-                        <th>Particulars / Details</th>
-                        <th>Credit (+)</th>
-                        <th>Debit (-)</th>
+                        <th>Time</th>
+                        <th>Branch</th>
+                        <th>Balance Type</th>
+                        <th>Type</th>
+                        <th>Amount</th>
                         <th>Balance After</th>
+                        <th>Notes</th>
                         <th>Done By</th>
+                        <th>Date Group</th>
+                        <th>Date Sort</th>
                     </tr>
                 </thead>
             </table>
@@ -135,36 +138,32 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
-            let flatpickrOpen = false;
 
-            // Initialize Flatpickr for date filters
-            const startPicker = $('#filter-start-date').flatpickr({
-                altInput   : true,
-                altFormat  : 'd-m-Y',
-                dateFormat : 'Y-m-d',
-                allowInput : false,
-                maxDate    : 'today',
-                onOpen     : function () { flatpickrOpen = true; },
-                onClose    : function (selectedDates) {
-                    flatpickrOpen = false;
-                    if (selectedDates.length) {
+            // Initialize Flatpickr
+            const startPicker = flatpickr("#filter-start-date", {
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d-m-Y",
+                allowInput: false,
+                maxDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates[0]) {
                         endPicker.set('minDate', selectedDates[0]);
                     }
                 }
             });
 
-            const endPicker = $('#filter-end-date').flatpickr({
-                altInput   : true,
-                altFormat  : 'd-m-Y',
-                dateFormat : 'Y-m-d',
-                allowInput : false,
-                maxDate    : 'today',
-                onOpen     : function () { flatpickrOpen = true; },
-                onClose    : function (selectedDates) {
-                    flatpickrOpen = false;
-                    if (selectedDates.length) {
+            const endPicker = flatpickr("#filter-end-date", {
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d-m-Y",
+                allowInput: false,
+                maxDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates[0]) {
                         startPicker.set('maxDate', selectedDates[0]);
+                    } else {
+                        startPicker.set('maxDate', 'today');
                     }
                 }
             });
@@ -188,30 +187,31 @@
 
             updateFilterButtonsVisibility();
 
-            const table = $('#cashBookTable').DataTable({
+            const table = $('#branchBalancesTable').DataTable({
                 responsive : false,
-                order      : [[{{ auth()->user()->hasRole('super-admin') ? 8 : 7 }}, 'desc']],
-                orderFixed : { pre: [[{{ auth()->user()->hasRole('super-admin') ? 8 : 7 }}, 'desc']] },
+                order      : [[10, 'desc']],
+                orderFixed : { pre: [[10, 'desc']] },
                 columnDefs : [
-                    { targets: {{ auth()->user()->hasRole('super-admin') ? '[7, 8]' : '[6, 7]' }}, visible: false }
+                    { targets: [9, 10], visible: false }
                 ],
                 rowGroup   : {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="{{ auth()->user()->hasRole('super-admin') ? 7 : 6 }}"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="9"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
                 ajax        : {
-                    url     : '{{ route('admin.accounting.cashbook.data') }}',
+                    url     : '{{ route('admin.accounting.opening-balances.data') }}',
                     dataSrc : function (json) {
-                        if (json.branch_summary) {
-                            $.each(json.branch_summary, function (locId, s) {
-                                $('#credit-' + locId).text(s.credit);
-                                $('#debit-' + locId).text(s.debit);
-                                $('#balance-' + locId).text(s.balance)
-                                    .toggleClass('text-danger', s.balance.includes('-'))
-                                    .toggleClass('text-primary', !s.balance.includes('-'));
+                        if (json.branch_balances) {
+                            $.each(json.branch_balances, function (locId, balances) {
+                                $('#cash-balance-' + locId).text(balances.cash)
+                                    .toggleClass('text-danger', balances.cash.includes('-'))
+                                    .toggleClass('text-success', !balances.cash.includes('-'));
+                                $('#bank-balance-' + locId).text(balances.bank)
+                                    .toggleClass('text-danger', balances.bank.includes('-'))
+                                    .toggleClass('text-primary', !balances.bank.includes('-'));
                             });
                         }
                         return json.data;
@@ -225,23 +225,17 @@
                 },
                 columns     : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                    @if(auth()->user()->hasRole('super-admin'))
-                        { data: 'location' },
-                    @endif
-                    { data: 'particulars' },
-                    { data: 'credit', className: 'text-success fw-bold' },
-                    { data: 'debit', className: 'text-danger fw-bold' },
-                    { data: 'balance_after', className: 'fw-bold', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
-                    { data: 'done_by' },
+                    { data: 'time' },
+                    { data: 'branch_name' },
+                    { data: 'balance_type', orderable: false },
+                    { data: 'type', orderable: false },
+                    { data: 'amount', className: 'fw-semibold' },
+                    { data: 'balance_after', className: 'fw-semibold', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
+                    { data: 'notes' },
+                    { data: 'created_by' },
                     { data: 'date_group', visible: false },
                     { data: 'date_sort', visible: false },
                 ],
-                drawCallback: function () {
-                    const api = this.api();
-                    api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
-                        cell.innerHTML = api.page.info().start + i + 1;
-                    });
-                }
             });
 
             function updateCardVisibility() {
@@ -274,13 +268,16 @@
             // Clear Filters
             $(document).on('click', '#clearFiltersBtn', function (e) {
                 e.preventDefault();
-                isFiltered = false;
-                startPicker.clear();
-                endPicker.clear();
+                $('#filter-start-date').val('');
+                $('#filter-end-date').val('');
                 $('#filter-location').val('').trigger('change');
+                if (startPicker) startPicker.clear();
+                if (endPicker) endPicker.clear();
                 updateFilterButtonsVisibility();
+                isFiltered = false;
                 window.refreshTable();
             });
+
         });
     </script>
 @endsection

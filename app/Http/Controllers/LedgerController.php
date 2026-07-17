@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\Location;
+use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -98,15 +99,7 @@ class LedgerController extends Controller
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
-        $totalPurchase = 0.0;
-        $totalPayment  = 0.0;
-        $totalOutstanding = 0.0;
-
-        $mappedRows = $sortedRows->map(function ($row, $index) use (&$totalPurchase, &$totalPayment, &$totalOutstanding) {
-            $totalPurchase += $row['total_amount'];
-            $totalPayment  += $row['paid_amount'];
-            $totalOutstanding += $row['due_amount'];
-
+        $mappedRows = $sortedRows->map(function ($row, $index) {
             $dateObj = \Carbon\Carbon::parse($row['date_raw']);
 
             return [
@@ -122,14 +115,29 @@ class LedgerController extends Controller
             ];
         });
 
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $purchasesByLocation = $purchases->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locPurchases = $purchasesByLocation->get($loc->id, collect());
+            $locTotal = (float) $locPurchases->sum('total_amount');
+            $locPaid  = (float) $locPurchases->sum('paid_amount');
+
+            $branchSummary[$loc->id] = [
+                'purchase'    => format_price($locTotal),
+                'payment'     => format_price($locPaid),
+                'outstanding' => format_price(max(0.0, $locTotal - $locPaid)),
+            ];
+        }
+
         return response()->json([
-            'status'  => 'success',
-            'data'    => $mappedRows,
-            'summary' => [
-                'purchase'    => format_price($totalPurchase),
-                'payment'     => format_price($totalPayment),
-                'outstanding' => format_price($totalOutstanding),
-            ],
+            'status'         => 'success',
+            'data'           => $mappedRows,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -290,18 +298,35 @@ class LedgerController extends Controller
                     </div>'
             ]);
 
-        $currentBalance = Location::whereIn('id', $locationIds)->sum('cash_balance');
+        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('cash_balance');
+
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locChain = $this->buildLedgerChain([$loc->id], LocationBalanceTransaction::BALANCE_TYPE_CASH, $today);
+            $locTodayNode = $locChain->firstWhere('date', $today);
+
+            $branchSummary[$loc->id] = [
+                'opening' => format_price($locTodayNode['opening']),
+                'sale'    => format_price($locTodayNode['in']),
+                'expense' => format_price($locTodayNode['out']),
+                'closing' => format_price($locTodayNode['closing']),
+            ];
+        }
 
         return response()->json([
             'status'  => 'success',
             'data'    => $rows,
             'current_balance' => format_price($currentBalance),
-            'summary' => [
-                'opening' => format_price($todayNode['opening']),
-                'sale'    => format_price($todayNode['in']),
-                'expense' => format_price($todayNode['out']),
-                'closing' => format_price($todayNode['closing']),
-            ],
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -362,18 +387,35 @@ class LedgerController extends Controller
                     </div>'
             ]);
 
-        $currentBalance = Location::whereIn('id', $locationIds)->sum('bank_balance');
+        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('bank_balance');
+
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locChain = $this->buildLedgerChain([$loc->id], LocationBalanceTransaction::BALANCE_TYPE_BANK, $today);
+            $locTodayNode = $locChain->firstWhere('date', $today);
+
+            $branchSummary[$loc->id] = [
+                'opening' => format_price($locTodayNode['opening']),
+                'receipt' => format_price($locTodayNode['in']),
+                'payment' => format_price($locTodayNode['out']),
+                'closing' => format_price($locTodayNode['closing']),
+            ];
+        }
 
         return response()->json([
             'status'  => 'success',
             'data'    => $rows,
             'current_balance' => format_price($currentBalance),
-            'summary' => [
-                'opening' => format_price($todayNode['opening']),
-                'receipt' => format_price($todayNode['in']),
-                'payment' => format_price($todayNode['out']),
-                'closing' => format_price($todayNode['closing']),
-            ],
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -457,21 +499,22 @@ class LedgerController extends Controller
             fn ($item) => ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity
         );
 
-        $transferIn = PurchaseBill::with('items')
+        $transferInRaw = PurchaseBill::with('items')
             ->whereIn('to_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
-            ->get()
-            ->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
+            ->get();
 
-        $transferOut = PurchaseBill::with('items')
+        $transferOutRaw = PurchaseBill::with('items')
             ->whereIn('from_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
-            ->get()
-            ->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
+            ->get();
+
+        $transferIn = $transferInRaw->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
+        $transferOut = $transferOutRaw->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
 
         $days = $transferIn->keys()->concat($transferOut->keys())->unique()->sort()->values();
 
@@ -520,14 +563,31 @@ class LedgerController extends Controller
                 </div>'
         ]);
 
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $transferInByLocation = $transferInRaw->groupBy('to_location_id');
+        $transferOutByLocation = $transferOutRaw->groupBy('from_location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $branchSummary[$loc->id] = [
+                'transfer_in'  => number_format((int) $transferInByLocation->get($loc->id, collect())->sum($transferQty)),
+                'transfer_out' => number_format((int) $transferOutByLocation->get($loc->id, collect())->sum($transferQty)),
+                'outstanding'  => number_format($this->locationStockQty([$loc->id])),
+            ];
+        }
+
         return response()->json([
-            'status'  => 'success',
-            'data'    => $rows,
-            'summary' => [
-                'transfer_in'  => number_format($totalIn),
-                'transfer_out' => number_format($totalOut),
-                'outstanding'  => number_format($currentStock),
-            ],
+            'status'         => 'success',
+            'data'           => $rows,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -615,8 +675,8 @@ class LedgerController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $locations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+            ? Location::with('balance')->where('id', $user->location_id)->get()
+            : Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
         return [$locations, $isRestricted];
     }
@@ -893,15 +953,7 @@ class LedgerController extends Controller
             return strcmp($a['customer_name'], $b['customer_name']);
         })->values();
 
-        $totalSales = 0.0;
-        $totalPayment  = 0.0;
-        $totalOutstanding = 0.0;
-
-        $mappedRows = $sortedRows->map(function ($row, $index) use (&$totalSales, &$totalPayment, &$totalOutstanding) {
-            $totalSales += $row['total_amount'];
-            $totalPayment  += $row['paid_amount'];
-            $totalOutstanding += $row['due_amount'];
-
+        $mappedRows = $sortedRows->map(function ($row, $index) {
             $dateObj = \Carbon\Carbon::parse($row['date_raw']);
 
             return [
@@ -917,14 +969,41 @@ class LedgerController extends Controller
             ];
         });
 
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $ordersByLocation = $orders->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locOrders = $ordersByLocation->get($loc->id, collect());
+
+            $locSales = 0.0;
+            $locPaid  = 0.0;
+            foreach ($locOrders as $order) {
+                $locSales += (float) $order->final_amount;
+                if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                    $locPaid += (float) $order->final_amount;
+                } else {
+                    $locPaid += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                }
+            }
+
+            $branchSummary[$loc->id] = [
+                'sales'       => format_price($locSales),
+                'payment'     => format_price($locPaid),
+                'outstanding' => format_price(max(0.0, $locSales - $locPaid)),
+            ];
+        }
+
         return response()->json([
-            'status'  => 'success',
-            'data'    => $mappedRows,
-            'summary' => [
-                'sales'       => format_price($totalSales),
-                'payment'     => format_price($totalPayment),
-                'outstanding' => format_price($totalOutstanding),
-            ],
+            'status'         => 'success',
+            'data'           => $mappedRows,
+            'branch_summary' => $branchSummary,
         ]);
     }
 

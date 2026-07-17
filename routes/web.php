@@ -19,6 +19,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\LocationBalanceController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MemberRegisterController;
@@ -291,15 +292,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
 
         // Accounting
-        Route::get('accounting/cashbook', [\App\Http\Controllers\AccountingController::class, 'cashBook'])->name('accounting.cashbook');
-        Route::get('accounting/cashbook/data', [\App\Http\Controllers\AccountingController::class, 'cashBookData'])->name('accounting.cashbook.data');
-        Route::get('accounting/bankbook', [\App\Http\Controllers\AccountingController::class, 'bankBook'])->name('accounting.bankbook');
-        Route::get('accounting/bankbook/data', [\App\Http\Controllers\AccountingController::class, 'bankBookData'])->name('accounting.bankbook.data');
-        Route::get('accounting/general-ledger', [\App\Http\Controllers\AccountingController::class, 'generalLedger'])->name('accounting.general-ledger');
-        Route::get('accounting/general-ledger/data', [\App\Http\Controllers\AccountingController::class, 'generalLedgerData'])->name('accounting.general-ledger.data');
-        Route::get('accounting/outstanding-payables', [\App\Http\Controllers\AccountingController::class, 'outstandingPayables'])->name('accounting.outstanding-payables');
-        Route::get('accounting/outstanding-payables/data', [\App\Http\Controllers\AccountingController::class, 'outstandingPayablesData'])->name('accounting.outstanding-payables.data');
-        Route::get('accounting/outstanding-payables/detail', [\App\Http\Controllers\AccountingController::class, 'outstandingPayablesDetail'])->name('accounting.outstanding-payables.detail');
+        Route::get('accounting/cashbook', [AccountingController::class, 'cashBook'])->name('accounting.cashbook');
+        Route::get('accounting/cashbook/data', [AccountingController::class, 'cashBookData'])->name('accounting.cashbook.data');
+        Route::get('accounting/bankbook', [AccountingController::class, 'bankBook'])->name('accounting.bankbook');
+        Route::get('accounting/bankbook/data', [AccountingController::class, 'bankBookData'])->name('accounting.bankbook.data');
+        Route::get('accounting/general-ledger', [AccountingController::class, 'generalLedger'])->name('accounting.general-ledger');
+        Route::get('accounting/general-ledger/data', [AccountingController::class, 'generalLedgerData'])->name('accounting.general-ledger.data');
+        Route::get('accounting/outstanding-payables', [AccountingController::class, 'outstandingPayables'])->name('accounting.outstanding-payables');
+        Route::get('accounting/outstanding-payables/data', [AccountingController::class, 'outstandingPayablesData'])->name('accounting.outstanding-payables.data');
+        Route::get('accounting/outstanding-payables/detail', [AccountingController::class, 'outstandingPayablesDetail'])->name('accounting.outstanding-payables.detail');
+        Route::get('accounting/opening-balances', [AccountingController::class, 'branchBalances'])->name('accounting.opening-balances');
+        Route::get('accounting/opening-balances/data', [AccountingController::class, 'branchBalancesData'])->name('accounting.opening-balances.data');
+        Route::get('accounting/opening-balances/create', [AccountingController::class, 'branchBalancesCreate'])->name('accounting.opening-balances.create');
+        Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');

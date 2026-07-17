@@ -52,6 +52,35 @@
         </div>
     </div>
 
+    <div class="row g-4 mb-4">
+        @foreach($locations as $loc)
+            <div class="col-md-6 col-lg-4 branch-card-col" data-location-id="{{ $loc->id }}">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="badge rounded bg-label-primary p-2 me-2">
+                                <i class="ti ti-building ti-sm text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Total Purchases</span>
+                            <span class="fw-semibold" id="purchase-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Total Paid</span>
+                            <span class="fw-semibold text-success" id="payment-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Outstanding</span>
+                            <span class="fw-semibold text-danger" id="outstanding-{{ $loc->id }}">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     <div class="card mb-4" id="filterReportCard">
         <div class="card-header">
             <h5 class="mb-0">Filter</h5>
@@ -86,48 +115,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-4">
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Purchases</span>
-                            <h4 class="mb-0 mt-1" id="summaryPurchase">-</h4>
-                        </div>
-                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Total Paid</span>
-                            <h4 class="mb-0 mt-1 text-success" id="summaryPayment">-</h4>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-credit-card ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Outstanding <small class="text-muted">(Accounts Payable)</small></span>
-                            <h4 class="mb-0 mt-1 text-danger" id="summaryOutstanding">-</h4>
-                        </div>
-                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-circle ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -210,10 +197,12 @@
                     cache: false,
                     data: function (d) { Object.assign(d, currentFilters()); },
                     dataSrc: function (json) {
-                        if (json.summary) {
-                            $('#summaryPurchase').text(json.summary.purchase);
-                            $('#summaryPayment').text(json.summary.payment);
-                            $('#summaryOutstanding').text(json.summary.outstanding);
+                        if (json.branch_summary) {
+                            $.each(json.branch_summary, function (locId, s) {
+                                $('#purchase-' + locId).text(s.purchase);
+                                $('#payment-' + locId).text(s.payment);
+                                $('#outstanding-' + locId).text(s.outstanding);
+                            });
                         }
                         return json.data;
                     },
@@ -261,8 +250,21 @@
                 }
             });
 
+            function updateCardVisibility() {
+                const selectedLocId = $('#filter-location').val();
+                if (selectedLocId) {
+                    $('.branch-card-col').hide();
+                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+                } else {
+                    $('.branch-card-col').show();
+                }
+            }
+
+            updateCardVisibility();
+
             window.refreshTable = function () {
                 window.showAjaxLoader && window.showAjaxLoader();
+                updateCardVisibility();
                 table.ajax.reload(function () {
                     window.hideAjaxLoader && window.hideAjaxLoader();
                 }, false);

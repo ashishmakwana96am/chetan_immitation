@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Expense;
 use App\Models\Location;
+use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class AccountingController extends Controller
 {
@@ -20,8 +23,8 @@ class AccountingController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $locations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+            ? Location::with('balance')->where('id', $user->location_id)->get()
+            : Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
         return view('accounting.cashbook', compact('locations', 'isRestricted'));
     }
@@ -67,26 +70,30 @@ class AccountingController extends Controller
         });
 
         // Compute total credit and debit for summary cards
-        $totalCredit = $transactions->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount');
-        $totalDebit  = $transactions->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount');
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
 
-        // Compute current cash balance based on filters/role
-        if ($isRestricted) {
-            $currentBalance = \App\Models\Location::where('id', $user->location_id)->value('cash_balance') ?? 0;
-        } elseif ($request->filled('location_id')) {
-            $currentBalance = \App\Models\Location::where('id', $request->location_id)->value('cash_balance') ?? 0;
-        } else {
-            $currentBalance = \App\Models\Location::where('status', 1)->sum('cash_balance');
+        $transactionsByLocation = $transactions->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locTx = $transactionsByLocation->get($loc->id, collect());
+
+            $branchSummary[$loc->id] = [
+                'credit'  => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
+                'debit'   => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
+                'balance' => format_price($loc->cash_balance),
+            ];
         }
 
         return response()->json([
-            'status'  => 'success',
-            'data'    => $data,
-            'summary' => [
-                'total_credit'    => format_price($totalCredit),
-                'total_debit'     => format_price($totalDebit),
-                'current_balance' => format_price($currentBalance),
-            ]
+            'status'         => 'success',
+            'data'           => $data,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -98,8 +105,8 @@ class AccountingController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $locations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+            ? Location::with('balance')->where('id', $user->location_id)->get()
+            : Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
         return view('accounting.bankbook', compact('locations', 'isRestricted'));
     }
@@ -144,25 +151,30 @@ class AccountingController extends Controller
             ];
         });
 
-        $totalCredit = $transactions->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount');
-        $totalDebit  = $transactions->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount');
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
 
-        if ($isRestricted) {
-            $currentBalance = \App\Models\Location::where('id', $user->location_id)->value('bank_balance') ?? 0;
-        } elseif ($request->filled('location_id')) {
-            $currentBalance = \App\Models\Location::where('id', $request->location_id)->value('bank_balance') ?? 0;
-        } else {
-            $currentBalance = \App\Models\Location::where('status', 1)->sum('bank_balance');
+        $transactionsByLocation = $transactions->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locTx = $transactionsByLocation->get($loc->id, collect());
+
+            $branchSummary[$loc->id] = [
+                'credit'  => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
+                'debit'   => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
+                'balance' => format_price($loc->bank_balance),
+            ];
         }
 
         return response()->json([
-            'status'  => 'success',
-            'data'    => $data,
-            'summary' => [
-                'total_credit'    => format_price($totalCredit),
-                'total_debit'     => format_price($totalDebit),
-                'current_balance' => format_price($currentBalance),
-            ]
+            'status'         => 'success',
+            'data'           => $data,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -178,8 +190,8 @@ class AccountingController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $locations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+            ? Location::with('balance')->where('id', $user->location_id)->get()
+            : Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
         return view('accounting.general-ledger', compact('locations', 'isRestricted'));
     }
@@ -194,11 +206,8 @@ class AccountingController extends Controller
         $filterLocationId = $isRestricted ? $user->location_id : ($request->filled('location_id') ? $request->location_id : null);
         $startDate        = $request->filled('start_date') ? $request->start_date : null;
         $endDate          = $request->filled('end_date') ? $request->end_date : null;
-        $sourceFilter     = $request->filled('source') ? $request->source : 'all'; // all, cash, bank, expense, sale, purchase, purchase_bill
+        $sourceFilter     = $request->filled('source') ? $request->source : 'all';
 
-        // We fetch ALL transactions from LocationBalanceTransaction
-        // Since every entry (sale, purchase, expense, transfer, direct cash/bank) creates a transaction,
-        // this guarantees no double counting while capturing everything.
         $txQuery = LocationBalanceTransaction::with(['location', 'createdBy']);
 
         if ($filterLocationId) {
@@ -275,6 +284,7 @@ class AccountingController extends Controller
                 'source'      => $sourceLabels[$detectedSource] ?? $detectedSource,
                 'source_type' => $detectedSource,
                 'location'    => $tx->location->name ?? '-',
+                'location_id' => $tx->location_id,
                 'particulars' => !empty($notes) ? $notes : 'Manual Balance Adjustment',
                 'credit'      => $isCredit ? format_price($tx->amount) : '-',
                 'debit'       => !$isCredit ? format_price($tx->amount) : '-',
@@ -290,28 +300,31 @@ class AccountingController extends Controller
             return $item;
         });
 
-        $totalCredit = $entries->sum('raw_credit');
-        $totalDebit  = $entries->sum('raw_debit');
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
 
-        if ($filterLocationId) {
-            $loc         = Location::find($filterLocationId);
-            $cashBalance = $loc ? (float) $loc->cash_balance : 0;
-            $bankBalance = $loc ? (float) $loc->bank_balance : 0;
-        } else {
-            $cashBalance = Location::where('status', 1)->sum('cash_balance');
-            $bankBalance = Location::where('status', 1)->sum('bank_balance');
+        $entriesByLocation = $entries->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locEntries = $entriesByLocation->get($loc->id, collect());
+
+            $branchSummary[$loc->id] = [
+                'credit'       => format_price($locEntries->sum('raw_credit')),
+                'debit'        => format_price($locEntries->sum('raw_debit')),
+                'cash_balance' => format_price($loc->cash_balance),
+                'bank_balance' => format_price($loc->bank_balance),
+            ];
         }
 
         return response()->json([
-            'status' => 'success',
-            'data'   => $data,
-            'summary' => [
-                'total_credit' => format_price($totalCredit),
-                'total_debit'  => format_price($totalDebit),
-                'cash_balance' => format_price($cashBalance),
-                'bank_balance' => format_price($bankBalance),
-                'net'          => format_price($totalCredit - $totalDebit),
-            ],
+            'status'         => 'success',
+            'data'           => $data,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -362,10 +375,12 @@ class AccountingController extends Controller
         $purchases = $purchasesQuery->get();
 
         // Group by Date and Supplier
-        $grouped = $purchases->groupBy(function ($purchase) {
+        $groupByDateSupplier = fn ($items) => $items->groupBy(function ($purchase) {
             $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
             return $date . '_' . ($purchase->supplier_id ?? 0);
         });
+
+        $grouped = $groupByDateSupplier($purchases);
 
         $rows = collect();
         $totalPurchase = 0.0;
@@ -375,7 +390,7 @@ class AccountingController extends Controller
         foreach ($grouped as $key => $items) {
             $first = $items->first();
             $supplierName = $first->supplier->name ?? 'Unknown';
-            
+
             $sumTotal = 0.0;
             $sumPaid = 0.0;
 
@@ -436,14 +451,58 @@ class AccountingController extends Controller
             ];
         });
 
+        // Branch-wise summary cards: restricted users only ever get their own
+        // branch; super-admins get every active branch, narrowed to the
+        // filtered one if selected.
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $purchasesByLocation = $purchases->groupBy('location_id');
+
+        $branchSummary = [];
+        foreach ($branchLocations as $loc) {
+            $locPurchase = 0.0;
+            $locPayment = 0.0;
+            $locOutstanding = 0.0;
+
+            $locGrouped = $groupByDateSupplier($purchasesByLocation->get($loc->id, collect()));
+            foreach ($locGrouped as $items) {
+                $sumTotal = 0.0;
+                $sumPaid = 0.0;
+
+                foreach ($items as $purchase) {
+                    $sumTotal += (float) $purchase->total_amount;
+                    if ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID) {
+                        $sumPaid += (float) $purchase->total_amount;
+                    } elseif ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING) {
+                        $sumPaid += 0.0;
+                    } else {
+                        $sumPaid += (float) $purchase->paid_amount;
+                    }
+                }
+
+                $due = max(0.0, $sumTotal - $sumPaid);
+                if ($due <= 0) {
+                    continue;
+                }
+
+                $locPurchase += $sumTotal;
+                $locPayment += $sumPaid;
+                $locOutstanding += $due;
+            }
+
+            $branchSummary[$loc->id] = [
+                'purchase'    => format_price($locPurchase),
+                'payment'     => format_price($locPayment),
+                'outstanding' => format_price($locOutstanding),
+            ];
+        }
+
         return response()->json([
-            'status'  => 'success',
-            'data'    => $mappedRows,
-            'summary' => [
-                'purchase'    => format_price($totalPurchase),
-                'payment'     => format_price($totalPayment),
-                'outstanding' => format_price($totalOutstanding),
-            ],
+            'status'         => 'success',
+            'data'           => $mappedRows,
+            'branch_summary' => $branchSummary,
         ]);
     }
 
@@ -518,5 +577,164 @@ class AccountingController extends Controller
             'totalOutstanding',
             'date'
         ));
+    }
+
+    public function branchBalances()
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $locations = \App\Models\Location::with('balance')->where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.branch-balances', compact('locations'));
+    }
+
+    public function branchBalancesData(Request $request)
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $query = \App\Models\LocationBalanceTransaction::with(['location', 'createdBy']);
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+        if ($request->filled('location_id')) {
+            $query->where('location_id', $request->location_id);
+        }
+
+        $transactions = $query->orderBy('id', 'desc')->get();
+
+        $data = $transactions->map(function ($tx, $index) {
+            $isCredit = $tx->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT;
+            $typeBadge = $isCredit
+                ? '<span class="badge bg-label-success">Credit</span>'
+                : '<span class="badge bg-label-danger">Debit</span>';
+
+            $balanceTypeBadge = $tx->balance_type === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+                ? '<span class="badge bg-label-info">Bank</span>'
+                : '<span class="badge bg-label-secondary">Cash</span>';
+
+            $amountFormatted = ($isCredit ? '+ ' : '- ') . format_price($tx->amount);
+            $amountSpan = '<span class="' . ($isCredit ? 'text-success' : 'text-danger') . '">' . $amountFormatted . '</span>';
+
+            return [
+                'index'         => $index + 1,
+                'time'          => $tx->created_at->format('h:i A'),
+                'branch_name'   => $tx->location->name ?? '-',
+                'balance_type'  => $balanceTypeBadge,
+                'type'          => $typeBadge,
+                'amount'        => $amountSpan,
+                'balance_after' => format_price($tx->balance_after),
+                'notes'         => !empty($tx->notes) ? e($tx->notes) : 'Manual Account Balance Adjustment',
+                'created_by'    => e($tx->createdBy->name ?? '-'),
+                'date_group'    => $tx->created_at->format('d M Y'),
+                'date_sort'     => $tx->created_at->format('YmdHis'),
+            ];
+        });
+
+        $totalCash = LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
+        $totalBank = LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
+
+        $locations = \App\Models\Location::with('balance')->where('status', 1)->orderBy('name')->get();
+        $branchBalances = [];
+        foreach ($locations as $loc) {
+            $branchBalances[$loc->id] = [
+                'cash' => format_price($loc->cash_balance),
+                'bank' => format_price($loc->bank_balance),
+            ];
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $data,
+            'summary' => [
+                'total_cash' => format_price($totalCash),
+                'total_bank' => format_price($totalBank),
+            ],
+            'branch_balances' => $branchBalances,
+        ]);
+    }
+
+    public function branchBalancesCreate()
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $locations = \App\Models\Location::where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.branch-balances-create', compact('locations'));
+    }
+
+    public function branchBalancesStore(Request $request)
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $validator = Validator::make($request->all(), [
+            'location_id'  => ['required', 'integer', 'exists:locations,id'],
+            'balance_type' => ['required', 'string', 'in:' . \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH . ',' . \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK],
+            'type'         => ['required', 'string', 'in:' . \App\Models\LocationBalanceTransaction::TYPE_CREDIT . ',' . \App\Models\LocationBalanceTransaction::TYPE_DEBIT],
+            'amount'       => ['required', 'numeric', 'min:0.01'],
+            'notes'        => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $locationId = (int) $request->location_id;
+        $balanceColumn = $request->balance_type === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+            ? 'bank_balance'
+            : 'cash_balance';
+
+        try {
+            DB::transaction(function () use ($request, $locationId, $balanceColumn) {
+                $location = \App\Models\Location::where('id', $locationId)->lockForUpdate()->firstOrFail();
+
+                $currentBalance = (float) $location->{$balanceColumn};
+                $amount = (float) $request->amount;
+
+                $newBalance = $request->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT
+                    ? $currentBalance + $amount
+                    : $currentBalance - $amount;
+
+                if ($request->type === \App\Models\LocationBalanceTransaction::TYPE_DEBIT && $newBalance < 0) {
+                    throw new \RuntimeException('insufficient_balance');
+                }
+
+                $location->update([$balanceColumn => $newBalance]);
+
+                \App\Models\LocationBalanceTransaction::create([
+                    'location_id'   => $locationId,
+                    'balance_type'  => $request->balance_type,
+                    'type'          => $request->type,
+                    'amount'        => $amount,
+                    'balance_after' => $newBalance,
+                    'notes'         => !empty($request->notes) ? $request->notes : 'Manual Account Balance Adjustment',
+                    'created_by'    => auth()->id(),
+                ]);
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_balance') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient balance.']],
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Balance entry recorded successfully.',
+        ]);
     }
 }

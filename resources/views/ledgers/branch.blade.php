@@ -44,6 +44,35 @@
         <h4 class="fw-semibold mb-0">Branch Ledger</h4>
     </div>
 
+    <div class="row g-4 mb-4">
+        @foreach($locations as $loc)
+            <div class="col-md-6 col-lg-4 branch-card-col" data-location-id="{{ $loc->id }}">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="badge rounded bg-label-primary p-2 me-2">
+                                <i class="ti ti-building ti-sm text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Transfer In</span>
+                            <span class="fw-semibold text-success" id="transfer-in-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Transfer Out</span>
+                            <span class="fw-semibold text-danger" id="transfer-out-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Outstanding <small class="text-muted">(stock)</small></span>
+                            <span class="fw-semibold" id="outstanding-{{ $loc->id }}">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     <div class="card mb-4" id="filterReportCard">
         <div class="card-header">
             <h5 class="mb-0">Filter</h5>
@@ -78,33 +107,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-4">
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <p class="text-muted mb-1">Transfer In</p>
-                    <h5 class="mb-0 text-success" id="summaryTransferIn">-</h5>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <p class="text-muted mb-1">Transfer Out</p>
-                    <h5 class="mb-0 text-danger" id="summaryTransferOut">-</h5>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 col-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <p class="text-muted mb-1">Outstanding <small class="text-muted">(current stock)</small></p>
-                    <h5 class="mb-0" id="summaryOutstanding">-</h5>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -186,10 +188,12 @@
                     cache: false,
                     data: function (d) { Object.assign(d, currentFilters()); },
                     dataSrc: function (json) {
-                        if (json.summary) {
-                            $('#summaryTransferIn').text(json.summary.transfer_in);
-                            $('#summaryTransferOut').text(json.summary.transfer_out);
-                            $('#summaryOutstanding').text(json.summary.outstanding);
+                        if (json.branch_summary) {
+                            $.each(json.branch_summary, function (locId, s) {
+                                $('#transfer-in-' + locId).text(s.transfer_in);
+                                $('#transfer-out-' + locId).text(s.transfer_out);
+                                $('#outstanding-' + locId).text(s.outstanding);
+                            });
                         }
                         return json.data;
                     },
@@ -211,8 +215,21 @@
                 }
             });
 
+            function updateCardVisibility() {
+                const selectedLocId = $('#filter-location').val();
+                if (selectedLocId) {
+                    $('.branch-card-col').hide();
+                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+                } else {
+                    $('.branch-card-col').show();
+                }
+            }
+
+            updateCardVisibility();
+
             window.refreshTable = function () {
                 window.showAjaxLoader && window.showAjaxLoader();
+                updateCardVisibility();
                 table.ajax.reload(function () {
                     window.hideAjaxLoader && window.hideAjaxLoader();
                 }, false);

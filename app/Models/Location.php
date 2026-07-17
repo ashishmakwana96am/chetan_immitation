@@ -31,9 +31,44 @@ class Location extends Model
     {
         return [
             'is_default'   => 'boolean',
-            'cash_balance' => 'decimal:2',
-            'bank_balance' => 'decimal:2',
         ];
+    }
+
+    public static function boot()
+    {
+        parent::boot();
+        self::created(function ($model) {
+            $model->balance()->create(['cash_balance' => 0.00, 'bank_balance' => 0.00]);
+        });
+    }
+
+    public function balance()
+    {
+        return $this->hasOne(LocationBalance::class);
+    }
+
+    public function getCashBalanceAttribute()
+    {
+        $balance = $this->balance()->first();
+        return $balance ? (float) $balance->cash_balance : 0.00;
+    }
+
+    public function getBankBalanceAttribute()
+    {
+        $balance = $this->balance()->first();
+        return $balance ? (float) $balance->bank_balance : 0.00;
+    }
+
+    public function setCashBalanceAttribute($value)
+    {
+        $balance = $this->balance()->firstOrCreate([], ['cash_balance' => 0.00, 'bank_balance' => 0.00]);
+        $balance->update(['cash_balance' => $value]);
+    }
+
+    public function setBankBalanceAttribute($value)
+    {
+        $balance = $this->balance()->firstOrCreate([], ['cash_balance' => 0.00, 'bank_balance' => 0.00]);
+        $balance->update(['bank_balance' => $value]);
     }
 
     public function createdBy()

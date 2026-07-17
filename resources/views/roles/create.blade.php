@@ -68,7 +68,7 @@
                                                 @elseif(str_contains($permission->name, 'status'))
                                                     Edit Status
                                                 @elseif($permission->name === 'manage branch balances')
-                                                    Manage Balances
+                                                    Manage Opening Balances
                                                 @elseif($permission->name === 'view supplier ledger')
                                                     Supplier Ledger
                                                 @elseif($permission->name === 'view cash ledger')
