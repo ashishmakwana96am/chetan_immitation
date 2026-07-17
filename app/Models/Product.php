@@ -38,6 +38,8 @@ class Product extends Model
         'pair_product',
         'pair_sale_price',
         'pair_mrp',
+        'pair_mode',
+        'custom_sizes',
         'bypass_min_price',
     ];
 
@@ -54,6 +56,7 @@ class Product extends Model
             'pair_sale_price' => 'decimal:2',
             'pair_mrp'        => 'decimal:2',
             'pair_product'    => 'boolean',
+            'custom_sizes'    => 'array',
             'bypass_min_price' => 'boolean',
         ];
     }

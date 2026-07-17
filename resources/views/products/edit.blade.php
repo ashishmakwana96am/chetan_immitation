@@ -92,7 +92,7 @@
                                   <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ $product->mrp_multiplier }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
-                              <div class="col-md-6">
+                              <div class="col-md-6" id="purchasePriceCol">
                                   <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
@@ -101,7 +101,7 @@
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
-                              <div class="col-md-6">
+                              <div class="col-md-6 base-price-field">
                                   <label class="form-label" id="salePriceLabel">Sale Price <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
@@ -110,7 +110,7 @@
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
-                              <div class="col-md-6">
+                              <div class="col-md-6 base-price-field">
                                   <label class="form-label" id="mrpLabel">MRP <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
@@ -121,7 +121,10 @@
                               </div>
 
                               {{-- Pair Product pricing fields (shown only when pair_product is enabled) --}}
-                              <div class="col-md-6 pair-pricing-field {{ $product->pair_product ? '' : 'd-none' }}">
+                              @php
+                                  $productPairMode = $product->pair_mode ?: 'pieces_pair';
+                              @endphp
+                              <div class="col-md-6 pair-pricing-field pair-mode-pieces-field {{ $product->pair_product && $productPairMode !== 'custom_size' ? '' : 'd-none' }}">
                                   <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
@@ -130,7 +133,7 @@
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
-                              <div class="col-md-6 pair-pricing-field {{ $product->pair_product ? '' : 'd-none' }}">
+                              <div class="col-md-6 pair-pricing-field pair-mode-pieces-field {{ $product->pair_product && $productPairMode !== 'custom_size' ? '' : 'd-none' }}">
                                   <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
                                       <span class="input-group-text">{{ currency_symbol() }}</span>
@@ -139,7 +142,10 @@
                                       <div class="invalid-feedback"></div>
                                   </div>
                               </div>
-                             <div class="col-md-6">
+                              <div class="col-12 pair-pricing-field pair-mode-custom-field {{ $product->pair_product && $productPairMode === 'custom_size' ? '' : 'd-none' }}" id="customSizeSection">
+                                  <div class="row g-3" id="customSizeRows"></div>
+                              </div>
+                             <div class="col-md-6" id="productTypeCol">
                                  <label class="form-label">Product Type <span class="text-danger">*</span></label>
                                  <select name="type" id="productType" class="form-select no-select2">
                                      <option value="normal" {{ $product->type === 'variable' ? '' : 'selected' }}>Normal Product</option>
@@ -234,11 +240,31 @@
                                 {{ $product->sale == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productSale">Sale</label>
                         </div>
-                        <div class="form-check form-switch @if(auth()->user()->hasRole('super-admin')) mb-3 @endif">
+                        <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" id="productPair" name="pair_product" value="1"
                                 {{ $product->pair_product == 1 ? 'checked' : '' }} />
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
+
+                        <div class="pair-pricing-field mb-3 {{ $product->pair_product ? '' : 'd-none' }}">
+                            <label class="form-label d-block">Pair Pricing Mode</label>
+                            <div class="pair-mode-toggle" id="pairModeToggle">
+                                <button type="button" class="pair-mode-btn {{ $productPairMode === 'custom_size' ? '' : 'active' }}" data-value="pieces_pair">Pieces + Pair</button>
+                                <button type="button" class="pair-mode-btn {{ $productPairMode === 'custom_size' ? 'active' : '' }}" data-value="custom_size">Custom Size</button>
+                            </div>
+                            <input type="hidden" name="pair_mode" id="pairModeInput" value="{{ $productPairMode }}" />
+                        </div>
+
+                        <div class="pair-pricing-field pair-mode-custom-field mb-3 {{ $product->pair_product && $productPairMode === 'custom_size' ? '' : 'd-none' }}">
+                            <label class="form-label">Custom Sizes <span class="text-danger">*</span></label>
+                            <div class="custom-sizes-tag-input form-control d-flex flex-wrap align-items-center gap-1" id="customSizesTagWrapper" style="cursor: text;">
+                                <div id="customSizeBadges" class="d-flex flex-wrap gap-1"></div>
+                                <input type="text" id="customSizesInput" class="border-0 flex-grow-1 p-0" style="outline: none; min-width: 60px; box-shadow: none;" placeholder="Type size & press Enter" />
+                            </div>
+                            <input type="hidden" name="custom_sizes_json" id="customSizesJson" />
+                            <div class="invalid-feedback d-block" id="customSizesError"></div>
+                        </div>
+
                         @if(auth()->user()->hasRole('super-admin'))
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1"
@@ -363,6 +389,15 @@
         .attribute-chip { background:#f5f5f5; border:1px solid #e0e0e0; border-radius:20px; font-size:.82rem; }
         .attribute-chip:hover { border-color:#B4771E; background:#fcf6ed; }
         .attribute-chip.active { background:#B4771E !important; border-color:#B4771E !important; color:#fff !important; box-shadow:0 2px 6px rgba(180,119,30,.3); }
+
+        /* Pair pricing mode toggle */
+        .pair-mode-toggle { display: flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
+        .pair-mode-toggle .pair-mode-btn {
+            flex: 1; padding: 6px 14px; font-size: .85rem; font-weight: 600; border: none; cursor: pointer;
+            background: #fff; color: #B4771E; transition: background .15s, color .15s;
+        }
+        .pair-mode-toggle .pair-mode-btn + .pair-mode-btn { border-left: 1.5px solid #B4771E; }
+        .pair-mode-toggle .pair-mode-btn.active { background: #B4771E; color: #fff; }
     </style>
 @endsection
 
@@ -956,8 +991,22 @@
                 const mult = getMultipliers();
                 const purchasePrice = (code * mult.purchase).toFixed(2);
                 const isPair = $('#productPair').is(':checked');
+                const mode = currentPairMode();
 
-                if (isPair) {
+                if (isPair && mode === 'custom_size') {
+                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
+
+                    const firstSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const firstMrp = roundToNearest5(code * mult.mrp).toFixed(2);
+                    const $saleFirst = $('#customSizeRows .custom-size-sale-field[data-index="0"] .custom-size-sale-price');
+                    const $mrpFirst = $('#customSizeRows .custom-size-mrp-field[data-index="0"] .custom-size-mrp');
+                    if ($saleFirst.length) {
+                        $saleFirst.val(firstSalePrice).trigger('input');
+                    }
+                    if ($mrpFirst.length) {
+                        $mrpFirst.val(firstMrp).trigger('input');
+                    }
+                } else if (isPair) {
                     const pairSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
                     const pairMrp = roundToNearest5(code * mult.mrp).toFixed(2);
                     const singleSalePrice = roundToNearest5((code / 2) * mult.sale).toFixed(2);
@@ -992,6 +1041,32 @@
                 $('#mrpLabel').html(isPair ? 'MRP (Piece) <span class="text-danger">*</span>' : 'MRP <span class="text-danger">*</span>');
             }
 
+            function currentPairMode() {
+                return $('#pairModeInput').val() || 'pieces_pair';
+            }
+
+            $(document).on('click', '.pair-mode-btn', function () {
+                const $toggle = $(this).closest('.pair-mode-toggle');
+                $toggle.find('.pair-mode-btn').removeClass('active');
+                $(this).addClass('active');
+                $('#pairModeInput').val($(this).data('value')).trigger('change');
+            });
+
+            function updatePairModeUI() {
+                const isPair = $('#productPair').is(':checked');
+                const mode = currentPairMode();
+                const hideBasePrice = isPair && mode === 'custom_size';
+                $('.pair-mode-pieces-field').toggleClass('d-none', !(isPair && mode !== 'custom_size'));
+                $('.pair-mode-custom-field').toggleClass('d-none', !hideBasePrice);
+                $('.base-price-field').toggleClass('d-none', hideBasePrice);
+
+                if (hideBasePrice) {
+                    $('#productTypeCol').insertAfter('#purchasePriceCol');
+                } else {
+                    $('#productTypeCol').insertAfter('#customSizeSection');
+                }
+            }
+
             $('#productPair').on('change', function () {
                 const isPair = $(this).is(':checked');
                 updatePairPricingLabels(isPair);
@@ -1001,12 +1076,34 @@
                     $('.pair-pricing-field').addClass('d-none');
                     $('#pairSalePriceInput').val('');
                     $('#pairMrpInput').val('');
+                    customSizesList = [];
+                    renderCustomSizeBadges();
+                    $('#customSizeRows').empty();
+                    $('#customSizesJson').val('');
                 }
+                updatePairModeUI();
                 // Recalculate prices based on current code
                 $('#productCodeInput').trigger('change');
             });
 
             updatePairPricingLabels($('#productPair').is(':checked'));
+
+            $('#pairModeInput').on('change', function () {
+                updatePairModeUI();
+                if (currentPairMode() === 'custom_size') {
+                    $('#pairSalePriceInput').val('');
+                    $('#pairMrpInput').val('');
+                    renderCustomSizeRows(true);
+                    $('#productCodeInput').trigger('change');
+                } else {
+                    customSizesList = [];
+                    renderCustomSizeBadges();
+                    $('#customSizeRows').empty();
+                    $('#customSizesJson').val('');
+                    // Restore the normal calculated piece price now that these fields are visible again
+                    $('#productCodeInput').trigger('change');
+                }
+            });
 
             $('#salePriceInput').on('input', function () {
                 const mult = getMultipliers();
@@ -1019,6 +1116,197 @@
                 const ratio = mult.sale > 0 ? (mult.mrp / mult.sale) : 0;
                 $('#pairMrpInput').val(roundToNearest5((parseFloat($(this).val()) || 0) * ratio).toFixed(2));
             });
+
+            // ---- Custom Size pair pricing ----
+            const currencySymbol = "{{ currency_symbol() }}";
+
+            let customSizesList = @json($product->custom_sizes ? collect($product->custom_sizes)->pluck('size')->map(fn($s) => (float) $s)->sort()->values() : []);
+
+            function buildCustomSizeRowHtml(index, size) {
+                return '<div class="col-md-6 custom-size-sale-field" data-index="' + index + '" data-size="' + size + '">' +
+                        '<label class="form-label">Sale Price <span>(' + size + ' pcs)</span> <span class="text-danger">*</span></label>' +
+                        '<div class="input-group has-validation">' +
+                            '<span class="input-group-text">' + currencySymbol + '</span>' +
+                            '<input type="number" class="form-control custom-size-sale-price" step="0.01" min="0">' +
+                            '<div class="invalid-feedback"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="col-md-6 custom-size-mrp-field" data-index="' + index + '" data-size="' + size + '">' +
+                        '<label class="form-label">MRP <span>(' + size + ' pcs)</span> <span class="text-danger">*</span></label>' +
+                        '<div class="input-group has-validation">' +
+                            '<span class="input-group-text">' + currencySymbol + '</span>' +
+                            '<input type="number" class="form-control custom-size-mrp" step="0.01" min="0">' +
+                            '<div class="invalid-feedback"></div>' +
+                        '</div>' +
+                    '</div>';
+            }
+
+            function renderCustomSizeBadges() {
+                const $container = $('#customSizeBadges');
+                $container.empty();
+                customSizesList.forEach(function (size) {
+                    $container.append(
+                        $('<span>', { class: 'badge bg-label-primary d-inline-flex align-items-center gap-1 custom-size-badge', 'data-size': size })
+                            .append($('<span>').text(size + ' pcs'))
+                            .append($('<i>', { class: 'ti ti-x remove-custom-size-badge', style: 'font-size:0.7rem;cursor:pointer;' }))
+                    );
+                });
+            }
+
+            function addCustomSize(rawVal) {
+                const size = parseFloat(rawVal);
+                if (isNaN(size) || size <= 0) {
+                    return;
+                }
+                const wasEmpty = customSizesList.length === 0;
+                if (!customSizesList.includes(size)) {
+                    customSizesList.push(size);
+                    customSizesList.sort(function (a, b) { return a - b; });
+                }
+                renderCustomSizeBadges();
+                renderCustomSizeRows(true);
+                if (wasEmpty) {
+                    $('#productCodeInput').trigger('change');
+                }
+            }
+
+            function removeCustomSize(size) {
+                customSizesList = customSizesList.filter(function (s) { return s !== size; });
+                renderCustomSizeBadges();
+                renderCustomSizeRows(true);
+            }
+
+            $('#customSizesTagWrapper').on('click', function (e) {
+                if (!$(e.target).is('input')) {
+                    $('#customSizesInput').trigger('focus');
+                }
+            });
+
+            $('#customSizesInput').on('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    addCustomSize($(this).val());
+                    $(this).val('');
+                }
+            });
+
+            $('#customSizesInput').on('blur', function () {
+                if ($(this).val().trim() !== '') {
+                    addCustomSize($(this).val());
+                    $(this).val('');
+                }
+            });
+
+            $(document).on('click', '.remove-custom-size-badge', function () {
+                const size = parseFloat($(this).closest('.custom-size-badge').data('size'));
+                removeCustomSize(size);
+            });
+
+            function renderCustomSizeRows(preserveValues) {
+                const sizes = customSizesList.slice().sort(function (a, b) { return a - b; });
+                const $container = $('#customSizeRows');
+
+                const existingValues = {};
+                if (preserveValues) {
+                    $container.find('.custom-size-sale-field').each(function () {
+                        const size = parseFloat($(this).data('size'));
+                        existingValues[size] = existingValues[size] || {};
+                        existingValues[size].sale = $(this).find('.custom-size-sale-price').val();
+                    });
+                    $container.find('.custom-size-mrp-field').each(function () {
+                        const size = parseFloat($(this).data('size'));
+                        existingValues[size] = existingValues[size] || {};
+                        existingValues[size].mrp = $(this).find('.custom-size-mrp').val();
+                    });
+                }
+
+                $container.empty();
+                sizes.forEach(function (size, index) {
+                    $container.append(buildCustomSizeRowHtml(index, size));
+                    if (preserveValues && existingValues[size]) {
+                        $container.find('.custom-size-sale-field[data-index="' + index + '"] .custom-size-sale-price').val(existingValues[size].sale);
+                        $container.find('.custom-size-mrp-field[data-index="' + index + '"] .custom-size-mrp').val(existingValues[size].mrp);
+                    }
+                });
+
+                syncCustomSizesJson();
+                cascadeFromFirstCustomSize();
+            }
+
+            function cascadeFromFirstCustomSize() {
+                const $saleFirst = $('#customSizeRows .custom-size-sale-field[data-index="0"] .custom-size-sale-price');
+                const $mrpFirst = $('#customSizeRows .custom-size-mrp-field[data-index="0"] .custom-size-mrp');
+                if ($saleFirst.length && parseFloat($saleFirst.val()) > 0) {
+                    $saleFirst.trigger('input');
+                }
+                if ($mrpFirst.length && parseFloat($mrpFirst.val()) > 0) {
+                    $mrpFirst.trigger('input');
+                }
+            }
+
+            function syncBasePriceFromCustomSizes() {
+                if (currentPairMode() !== 'custom_size') {
+                    return;
+                }
+                const $saleFirst = $('#customSizeRows .custom-size-sale-field[data-index="0"]');
+                const $mrpFirst = $('#customSizeRows .custom-size-mrp-field[data-index="0"]');
+                if ($saleFirst.length) {
+                    $('#salePriceInput').val($saleFirst.find('.custom-size-sale-price').val() || '');
+                }
+                if ($mrpFirst.length) {
+                    $('#mrpInput').val($mrpFirst.find('.custom-size-mrp').val() || '');
+                }
+            }
+
+            function syncCustomSizesJson() {
+                const rows = [];
+                $('#customSizeRows .custom-size-sale-field').each(function () {
+                    const index = $(this).data('index');
+                    const size = parseFloat($(this).data('size'));
+                    const salePrice = parseFloat($(this).find('.custom-size-sale-price').val()) || 0;
+                    const mrp = parseFloat($('#customSizeRows .custom-size-mrp-field[data-index="' + index + '"]').find('.custom-size-mrp').val()) || 0;
+                    rows.push({ size: size, sale_price: salePrice, mrp: mrp });
+                });
+                $('#customSizesJson').val(JSON.stringify(rows));
+                syncBasePriceFromCustomSizes();
+            }
+
+            $(document).on('input', '.custom-size-sale-price, .custom-size-mrp', function () {
+                const $field = $(this).closest('[data-index]');
+                const index = parseInt($field.data('index'));
+
+                if (index === 0) {
+                    const firstSize = parseFloat($field.data('size')) || 0;
+                    const isSale = $(this).hasClass('custom-size-sale-price');
+                    const baseVal = parseFloat($(this).val()) || 0;
+                    const targetFieldClass = isSale ? '.custom-size-sale-field' : '.custom-size-mrp-field';
+                    const targetInputClass = isSale ? '.custom-size-sale-price' : '.custom-size-mrp';
+
+                    $('#customSizeRows ' + targetFieldClass).each(function () {
+                        if (parseInt($(this).data('index')) === 0) {
+                            return;
+                        }
+                        const size = parseFloat($(this).data('size'));
+                        const scaled = firstSize > 0 && baseVal > 0
+                            ? roundToNearest5(baseVal * (size / firstSize)).toFixed(2)
+                            : '';
+                        $(this).find(targetInputClass).val(scaled);
+                    });
+                }
+
+                syncCustomSizesJson();
+            });
+
+            updatePairModeUI();
+            renderCustomSizeBadges();
+            @if($product->pair_product && $productPairMode === 'custom_size')
+                renderCustomSizeRows(false);
+                @foreach(collect($product->custom_sizes ?? [])->values() as $i => $row)
+                    $('#customSizeRows .custom-size-sale-field[data-index="{{ $i }}"] .custom-size-sale-price').val({{ (float) ($row['sale_price'] ?? 0) }});
+                    $('#customSizeRows .custom-size-mrp-field[data-index="{{ $i }}"] .custom-size-mrp').val({{ (float) ($row['mrp'] ?? 0) }});
+                @endforeach
+                syncCustomSizesJson();
+            @endif
 
             $(document).on('change', 'input[name="purchase_price"], input[name="sale_price"]', function () {
                 if ($('#variableSection').is(':visible') && variantsData.length > 0) {

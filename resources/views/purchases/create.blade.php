@@ -340,8 +340,10 @@
                         <div class="d-flex align-items-center gap-2 flex-nowrap">
                             <small class="product-sku-display text-muted"></small>
                             <span class="badge stock-info-display text-nowrap"></span>
+                            <span class="badge bg-label-warning pair-product-badge text-nowrap d-none">Pair Product</span>
                         </div>
                         <div class="variant-select-container"></div>
+                        <div class="size-select-container"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -412,6 +414,9 @@ $(document).ready(function () {
                 'type' => $p->type,
                 'purchase_price' => $p->purchase_price,
                 'image' => $p->primary_image_url,
+                'pair_product' => (bool) $p->pair_product,
+                'pair_mode' => $p->pair_mode,
+                'custom_sizes' => $p->custom_sizes ?? [],
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -583,7 +588,7 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -598,6 +603,22 @@ $(document).ready(function () {
 
         row.data('product', product);
         row.data('index', itemIndex);
+
+        if (product.pair_product) {
+            row.find('.pair-product-badge').removeClass('d-none');
+        }
+
+        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            let sizeHtml = `<select class="form-select form-select-sm custom-size-select mt-2 no-select2">`;
+            sizeHtml += `<option value="">Select Size</option>`;
+            product.custom_sizes.forEach(cs => {
+                const selected = selectedCustomSize && selectedCustomSize == cs.size ? 'selected' : '';
+                sizeHtml += `<option value="${cs.size}" ${selected}>${cs.size} pcs</option>`;
+            });
+            sizeHtml += `</select>`;
+            row.find('.size-select-container').html(sizeHtml);
+            row.data('custom-size-value', row.find('.custom-size-select').val() || '');
+        }
 
         if (product.type === 'variable') {
             // Build variant select dropdown
@@ -656,6 +677,11 @@ $(document).ready(function () {
         updateRowTotal(row);
         updateStockInfo(row);
         updateGrandTotal();
+    });
+
+    $(document).on('change', '.custom-size-select', function () {
+        const row = $(this).closest('.item-row');
+        row.data('custom-size-value', $(this).val() || '');
     });
 
     // Remove Item Row
@@ -945,6 +971,22 @@ $(document).ready(function () {
             return;
         }
 
+        let sizeMissing = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const qty = parseInt(row.find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+            const product = row.data('product');
+            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.find('.custom-size-select').val()) {
+                sizeMissing = true;
+            }
+        });
+
+        if (sizeMissing) {
+            toastr.error('Please select a size for every custom-size pair product.');
+            return;
+        }
+
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.select2-container .select2-selection').css('border-color', '');
@@ -970,12 +1012,14 @@ $(document).ready(function () {
             if (qty <= 0) return; // skip rows with 0 qty
 
             const variantId = row.data('variant-id') || '';
+            const customSizeValue = row.find('.custom-size-select').val() || '';
             const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);

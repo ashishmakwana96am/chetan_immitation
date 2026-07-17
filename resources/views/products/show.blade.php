@@ -250,7 +250,24 @@
                         <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
                     </div>
 
-                    @if($product->pair_product)
+                    @if($product->pair_product && $product->pair_mode === 'custom_size' && $product->custom_sizes)
+                        {{-- Custom size prices --}}
+                        @foreach(collect($product->custom_sizes)->sortBy('size') as $sizeRow)
+                            <div>
+                                <p class="card-section-title mb-2">{{ rtrim(rtrim(number_format((float) ($sizeRow['size'] ?? 0), 2), '0'), '.') }} pcs</p>
+                                <div class="d-flex gap-2">
+                                    <div class="price-chip">
+                                        <span class="p-lbl">Sale Price</span>
+                                        <span class="p-val text-success">{{ format_price($sizeRow['sale_price'] ?? 0) }}</span>
+                                    </div>
+                                    <div class="price-chip">
+                                        <span class="p-lbl">MRP</span>
+                                        <span class="p-val text-danger">{{ format_price($sizeRow['mrp'] ?? 0) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @elseif($product->pair_product)
                         {{-- Piece prices --}}
                         <div>
                             <p class="card-section-title mb-2">Piece</p>

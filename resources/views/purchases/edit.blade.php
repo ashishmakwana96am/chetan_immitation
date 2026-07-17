@@ -347,8 +347,10 @@
                         <div class="d-flex align-items-center gap-2 flex-nowrap">
                             <small class="product-sku-display text-muted"></small>
                             <span class="badge stock-info-display text-nowrap"></span>
+                            <span class="badge bg-label-warning pair-product-badge text-nowrap d-none">Pair Product</span>
                         </div>
                         <div class="variant-select-container"></div>
+                        <div class="size-select-container"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">

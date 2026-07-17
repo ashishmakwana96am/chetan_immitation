@@ -280,8 +280,39 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
-        $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
-        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_sale_price'] = ['nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['nullable', 'numeric', 'min:0'];
+        $rules['pair_mode'] = ['nullable', 'in:pieces_pair,custom_size'];
+
+        $pairMode = $request->input('pair_mode', 'pieces_pair');
+
+        if ($request->has('pair_product')) {
+            if ($pairMode === 'custom_size') {
+                $rules['custom_sizes_json'] = [
+                    'required',
+                    'json',
+                    function ($attribute, $value, $fail) {
+                        $decoded = json_decode($value, true);
+                        if (!is_array($decoded) || empty($decoded)) {
+                            $fail('Please add at least one custom size with pricing.');
+                            return;
+                        }
+                        foreach ($decoded as $row) {
+                            if (!isset($row['size'], $row['sale_price'], $row['mrp']) ||
+                                !is_numeric($row['size']) || $row['size'] <= 0 ||
+                                !is_numeric($row['sale_price']) || $row['sale_price'] < 0 ||
+                                !is_numeric($row['mrp']) || $row['mrp'] < 0) {
+                                $fail('Each custom size must have a valid size, sale price and MRP.');
+                                return;
+                            }
+                        }
+                    },
+                ];
+            } else {
+                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0'];
+                $rules['pair_mrp'] = ['required', 'numeric', 'min:0'];
+            }
+        }
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = [
@@ -305,7 +336,7 @@ class ProductController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($request, $pairMode) {
             $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
             $productData = [
@@ -333,13 +364,25 @@ class ProductController extends Controller
             $productData['purchase_price'] = $request->purchase_price;
 
             if ($request->has('pair_product')) {
-                $productData['pair_sale_price'] = $request->pair_sale_price;
-                $productData['pair_mrp']        = $request->pair_mrp;
+                $productData['pair_mode'] = $pairMode;
+
+                if ($pairMode === 'custom_size') {
+                    $productData['pair_sale_price'] = null;
+                    $productData['pair_mrp']        = null;
+                    $productData['custom_sizes']    = json_decode($request->custom_sizes_json, true);
+                } else {
+                    $productData['pair_sale_price'] = $request->pair_sale_price;
+                    $productData['pair_mrp']        = $request->pair_mrp;
+                    $productData['custom_sizes']    = null;
+                }
+
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             } else {
+                $productData['pair_mode']       = null;
                 $productData['pair_sale_price'] = null;
                 $productData['pair_mrp']        = null;
+                $productData['custom_sizes']    = null;
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             }
@@ -467,8 +510,39 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
-        $rules['pair_sale_price'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
-        $rules['pair_mrp'] = ['required_if:pair_product,1', 'nullable', 'numeric', 'min:0'];
+        $rules['pair_sale_price'] = ['nullable', 'numeric', 'min:0'];
+        $rules['pair_mrp'] = ['nullable', 'numeric', 'min:0'];
+        $rules['pair_mode'] = ['nullable', 'in:pieces_pair,custom_size'];
+
+        $pairMode = $request->input('pair_mode', 'pieces_pair');
+
+        if ($request->has('pair_product')) {
+            if ($pairMode === 'custom_size') {
+                $rules['custom_sizes_json'] = [
+                    'required',
+                    'json',
+                    function ($attribute, $value, $fail) {
+                        $decoded = json_decode($value, true);
+                        if (!is_array($decoded) || empty($decoded)) {
+                            $fail('Please add at least one custom size with pricing.');
+                            return;
+                        }
+                        foreach ($decoded as $row) {
+                            if (!isset($row['size'], $row['sale_price'], $row['mrp']) ||
+                                !is_numeric($row['size']) || $row['size'] <= 0 ||
+                                !is_numeric($row['sale_price']) || $row['sale_price'] < 0 ||
+                                !is_numeric($row['mrp']) || $row['mrp'] < 0) {
+                                $fail('Each custom size must have a valid size, sale price and MRP.');
+                                return;
+                            }
+                        }
+                    },
+                ];
+            } else {
+                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0'];
+                $rules['pair_mrp'] = ['required', 'numeric', 'min:0'];
+            }
+        }
 
         if ($request->type === 'variable') {
             $rules['variants_json'] = [
@@ -492,7 +566,7 @@ class ProductController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($request, $product) {
+        DB::transaction(function () use ($request, $product, $pairMode) {
             $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
             $productData = [
@@ -522,13 +596,25 @@ class ProductController extends Controller
             $productData['purchase_price'] = $request->purchase_price;
 
             if ($request->has('pair_product')) {
-                $productData['pair_sale_price'] = $request->pair_sale_price;
-                $productData['pair_mrp']        = $request->pair_mrp;
+                $productData['pair_mode'] = $pairMode;
+
+                if ($pairMode === 'custom_size') {
+                    $productData['pair_sale_price'] = null;
+                    $productData['pair_mrp']        = null;
+                    $productData['custom_sizes']    = json_decode($request->custom_sizes_json, true);
+                } else {
+                    $productData['pair_sale_price'] = $request->pair_sale_price;
+                    $productData['pair_mrp']        = $request->pair_mrp;
+                    $productData['custom_sizes']    = null;
+                }
+
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             } else {
+                $productData['pair_mode']       = null;
                 $productData['pair_sale_price'] = null;
                 $productData['pair_mrp']        = null;
+                $productData['custom_sizes']    = null;
                 $productData['sale_price']      = $request->sale_price;
                 $productData['mrp']             = $request->mrp;
             }

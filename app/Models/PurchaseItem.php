@@ -12,6 +12,7 @@ class PurchaseItem extends Model
         'purchase_id',
         'product_id',
         'product_variant_id',
+        'custom_size_value',
         'purchase_price',
         'discount_type',
         'discount_value',
@@ -26,6 +27,7 @@ class PurchaseItem extends Model
             'purchase_price' => 'decimal:2',
             'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'custom_size_value' => 'decimal:2',
             'total' => 'decimal:2',
         ];
     }

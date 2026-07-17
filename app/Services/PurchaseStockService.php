@@ -15,9 +15,9 @@ class PurchaseStockService
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
-            $isPair = $item->product && $item->product->pair_product;
+            $multiplier = self::multiplierFor($item);
             foreach ($item->allocations as $allocation) {
-                $qtyToAdd = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
+                $qtyToAdd = (int) round($allocation->quantity * $multiplier);
 
                 $inventory = Inventory::firstOrCreate(
                     [
@@ -46,7 +46,7 @@ class PurchaseStockService
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
-            $isPair = $item->product && $item->product->pair_product;
+            $multiplier = self::multiplierFor($item);
             foreach ($item->allocations as $allocation) {
                 $inventory = Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $allocation->location_id)
@@ -54,7 +54,7 @@ class PurchaseStockService
 
                 if ($inventory) {
                     $oldQty = $inventory->quantity;
-                    $qtyToSubtract = $isPair ? $allocation->quantity * 2 : $allocation->quantity;
+                    $qtyToSubtract = (int) round($allocation->quantity * $multiplier);
                     $newQty = max(0, $inventory->quantity - $qtyToSubtract);
                     $inventory->update(['quantity' => $newQty]);
 
@@ -62,5 +62,25 @@ class PurchaseStockService
                 }
             }
         }
+    }
+
+    /**
+     * How many stock units one purchased "quantity" unit represents:
+     * a chosen custom size (e.g. 4 pcs) for custom_size-mode pair products,
+     * 2 for plain pair products, or 1 otherwise.
+     */
+    private static function multiplierFor(\App\Models\PurchaseItem $item): float
+    {
+        $product = $item->product;
+
+        if (!$product || !$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($product->pair_mode === 'custom_size' && $item->custom_size_value) {
+            return (float) $item->custom_size_value;
+        }
+
+        return 2.0;
     }
 }

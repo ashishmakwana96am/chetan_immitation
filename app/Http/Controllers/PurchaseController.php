@@ -171,6 +171,7 @@ class PurchaseController extends Controller
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
@@ -221,9 +222,13 @@ class PurchaseController extends Controller
                 $itemTotal = $subtotal - $discAmount;
                 $itemsTotal += $itemTotal;
 
+                $product = Product::find($itemData['product_id']);
+                $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
+
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'custom_size_value'  => $customSizeValue,
                     'purchase_price'     => $price,
                     'discount_type'      => $discType,
                     'discount_value'     => $discVal,
@@ -299,6 +304,7 @@ class PurchaseController extends Controller
                     'purchase_id'        => $invoice->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'custom_size_value'  => $item['custom_size_value'],
                     'purchase_price'     => $item['purchase_price'],
                     'discount_type'      => $item['discount_type'],
                     'discount_value'     => $item['discount_value'],
@@ -351,6 +357,7 @@ class PurchaseController extends Controller
             return [
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
+                'custom_size_value'  => $item->custom_size_value,
                 'purchase_price'     => $item->purchase_price,
                 'discount_type'      => $item->discount_type ?? 'flat',
                 'discount_value'     => $item->discount_value ?? 0,
@@ -372,6 +379,7 @@ class PurchaseController extends Controller
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.purchase_price' => ['required', 'numeric', 'min:0.01'],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.discount_type'  => ['nullable', 'string', 'in:flat,percentage'],
             'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
             'discount_type'          => ['nullable', 'string', 'in:flat,percentage'],
@@ -422,9 +430,13 @@ class PurchaseController extends Controller
                 $itemTotal = $subtotal - $discAmount;
                 $itemsTotal += $itemTotal;
 
+                $product = Product::find($itemData['product_id']);
+                $customSizeValue = $this->resolveCustomSizeValue($product, $itemData);
+
                 $itemsData[] = [
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'custom_size_value'  => $customSizeValue,
                     'purchase_price'     => $price,
                     'discount_type'      => $discType,
                     'discount_value'     => $discVal,
@@ -515,6 +527,7 @@ class PurchaseController extends Controller
                     'purchase_id'        => $purchase->id,
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'custom_size_value'  => $item['custom_size_value'],
                     'purchase_price'     => $item['purchase_price'],
                     'discount_type'      => $item['discount_type'],
                     'discount_value'     => $item['discount_value'],
@@ -682,6 +695,28 @@ class PurchaseController extends Controller
         }
 
         return $location;
+    }
+
+    /**
+     * For a custom_size-mode pair product, resolve and validate the size the
+     * purchase line item picked (must match one of the product's configured
+     * custom sizes). Returns null for products that aren't in that mode.
+     */
+    private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
+    {
+        if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+            return null;
+        }
+
+        $value = isset($itemData['custom_size_value']) ? (float) $itemData['custom_size_value'] : null;
+
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+
+        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            throw new \RuntimeException('Please select a valid size for "' . $product->name . '".');
+        }
+
+        return $value;
     }
 
     public function paymentHistory(Purchase $purchase)
