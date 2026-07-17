@@ -14,7 +14,7 @@ class PurchaseImportController extends Controller
 {
     public function store(Request $request, PurchaseImportService $service)
     {
-        $this->authorize('import purchases');
+        $this->authorize('create purchases');
 
         $request->validate([
             'excel_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:10240'],
@@ -49,7 +49,7 @@ class PurchaseImportController extends Controller
 
     public function sample()
     {
-        $this->authorize('import purchases');
+        $this->authorize('create purchases');
 
         $columns = [
             'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',

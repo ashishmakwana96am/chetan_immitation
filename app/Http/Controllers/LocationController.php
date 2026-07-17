@@ -30,10 +30,11 @@ class LocationController extends Controller
 
         $locations = $query->get();
 
-        $canEdit   = auth()->user()->can('edit locations');
-        $canDelete = auth()->user()->can('delete locations');
+        $canEdit          = auth()->user()->can('edit locations');
+        $canDelete        = auth()->user()->can('delete locations');
+        $canManageBalance = auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances');
 
-        $data = $locations->map(function ($location, $index) use ($canEdit, $canDelete) {
+        $data = $locations->map(function ($location, $index) use ($canEdit, $canDelete, $canManageBalance) {
             $status = $canEdit
                 ? '<div class="form-check form-switch mb-0">
                     <input class="form-check-input location-status-toggle" type="checkbox" role="switch"
@@ -43,10 +44,13 @@ class LocationController extends Controller
                 : '<span class="badge ' . ($location->status == 1 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($location->status == 1 ? 'Active' : 'Inactive') . '</span>';
 
             $actions = '';
-            if ($canEdit || $canDelete) {
+            if ($canEdit || $canDelete || $canManageBalance) {
                 $actions = '<div class="dropdown table-action-dropdown">';
                 $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
+                if ($canManageBalance) {
+                    $actions .= '<a class="dropdown-item" href="' . route('admin.locations.balance.show', $location) . '"><i class="ti ti-cash me-2"></i>Manage Balance</a>';
+                }
                 if ($canEdit) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.locations.edit', $location) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }
@@ -56,22 +60,32 @@ class LocationController extends Controller
                 $actions .= '</div></div>';
             }
 
+            $nameDisplay = $location->name . ($location->is_default ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">Default</span>' : '');
+
             return [
-                'index'      => $index + 1,
-                'name'       => $location->name,
-                'slug'       => '<code>' . $location->slug . '</code>',
-                'address'    => $location->address ?? '-',
-                'phone'      => $location->phone ?? '-',
-                'gst_number' => $location->gst_number ?? '-',
-                'is_default' => $location->is_default
-                    ? '<span class="badge bg-label-success">Default</span>'
-                    : '<span class="badge bg-label-secondary">No</span>',
-                'status'     => $status,
-                'actions'    => $actions,
+                'index'        => $index + 1,
+                'name'         => $nameDisplay,
+                'address'      => $location->address ?? '-',
+                'phone'        => $location->phone ?? '-',
+                'gst_number'   => $location->gst_number ?? '-',
+                'cash_balance' => format_price($location->cash_balance),
+                'bank_balance' => format_price($location->bank_balance),
+                'status'       => $status,
+                'actions'      => $actions,
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        $totalCash = $locations->sum('cash_balance');
+        $totalBank = $locations->sum('bank_balance');
+
+        return response()->json([
+            'status'  => 'success',
+            'data'    => $data,
+            'summary' => [
+                'total_cash' => format_price($totalCash),
+                'total_bank' => format_price($totalBank),
+            ]
+        ]);
     }
 
     public function create()

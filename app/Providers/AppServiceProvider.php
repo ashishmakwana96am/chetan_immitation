@@ -5,8 +5,15 @@ namespace App\Providers;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Category;
+use App\Models\Order;
+use App\Models\Purchase;
+use App\Models\Expense;
 use App\Models\SubCategory;
 use App\Models\Product;
+use App\Observers\OrderObserver;
+use App\Observers\PurchaseObserver;
+use App\Observers\ExpenseObserver;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,7 +24,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        \Illuminate\Cookie\Middleware\EncryptCookies::except('guest_cart');
+        EncryptCookies::except('guest_cart');
+
+        Order::observe(OrderObserver::class);
+        Purchase::observe(PurchaseObserver::class);
+        Expense::observe(ExpenseObserver::class);
 
         Gate::before(function ($user, $ability) {
             if ($user->hasRole('super-admin')) {

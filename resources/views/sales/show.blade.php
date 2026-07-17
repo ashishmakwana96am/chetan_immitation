@@ -94,7 +94,7 @@
     {{-- ── Page header ────────────────────────────────────────── --}}
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
         <div>
-            <h4 class="fw-semibold mb-0">Sale <code>{{ $order->order_no }}</code></h4>
+            <h4 class="fw-semibold mb-0">Sale <code>{{ $order->order_no }}</code> @if($order->is_gst) <span class="badge bg-label-success ms-1" style="font-size: 0.8rem;">GST</span> @endif</h4>
             <small class="text-muted">{{ format_date($order->created_at) }}</small>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">

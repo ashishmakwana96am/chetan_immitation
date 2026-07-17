@@ -67,12 +67,20 @@
                     <div class="card-header"><h5 class="mb-0">Transfer Details</h5></div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label">Bill No</label>
                                 <input type="text" class="form-control" value="{{ $transferNo }}" disabled>
                                 <small class="text-muted">Auto-generated on save</small>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select name="payment_method" id="paymentMethodSelect" class="form-select no-select2">
+                                    <option value="cash">Cash</option>
+                                    <option value="online">Online</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Source Location <span class="text-danger">*</span></label>
                                 @if($canChooseSource)
                                     <select name="from_location_id" id="fromLocation" class="form-select">
@@ -86,7 +94,7 @@
                                 @endif
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label">Destination Location <span class="text-danger">*</span></label>
                                 <select name="to_location_id" id="toLocation" class="form-select">
                                     <option value="">Select Destination</option>

@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\SubCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SubCategoryController extends Controller
 {
@@ -83,7 +84,7 @@ class SubCategoryController extends Controller
 
         $validator = Validator::make($request->all(), [
             'category_id' => ['required', 'exists:categories,id'],
-            'name'        => ['required', 'string', 'max:100', 'unique:sub_categories,name'],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->whereNull('deleted_at')],
         ]);
 
         if ($validator->fails()) {
@@ -121,7 +122,7 @@ class SubCategoryController extends Controller
 
         $validator = Validator::make($request->all(), [
             'category_id' => ['required', 'exists:categories,id'],
-            'name'        => ['required', 'string', 'max:100', 'unique:sub_categories,name,' . $subCategory->id],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('sub_categories', 'name')->ignore($subCategory->id)->whereNull('deleted_at')],
         ]);
 
         if ($validator->fails()) {

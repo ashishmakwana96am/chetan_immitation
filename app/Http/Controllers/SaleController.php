@@ -232,7 +232,7 @@ class SaleController extends Controller
                 'index'          => $index + 1,
                 'is_default'     => (bool) $order->is_default,
                 'stock_warning'  => $stockWarningHtml,
-                'order_no'       => '<code>' . $order->order_no . '</code>',
+                'order_no'       => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
                 'customer'       => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
                 'location'       => $order->location->name ?? '-',
                 'source'         => $sourceBadge,

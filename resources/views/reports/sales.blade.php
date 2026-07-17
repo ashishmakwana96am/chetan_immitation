@@ -177,6 +177,14 @@
                         <option value="online" {{ $paymentMethod === 'online' ? 'selected' : '' }}>Online</option>
                     </select>
                 </div>
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Sale Type</label>
+                    <select name="is_gst" class="form-select no-select2">
+                        <option value="">All Sales</option>
+                        <option value="1" {{ (string)$isGst === '1' ? 'selected' : '' }}>GST Sales</option>
+                        <option value="0" {{ (string)$isGst === '0' ? 'selected' : '' }}>Non GST Sales</option>
+                    </select>
+                </div>
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear

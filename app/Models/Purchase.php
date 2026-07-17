@@ -29,6 +29,7 @@ class Purchase extends Model
 
     protected $fillable = [
         'supplier_id',
+        'location_id',
         'invoice_no',
         'is_gst',
         'total_amount',
@@ -38,6 +39,7 @@ class Purchase extends Model
         'tax_amount',
         'status',
         'payment_status',
+        'payment_method',
         'paid_amount',
         'created_by',
     ];
@@ -52,6 +54,11 @@ class Purchase extends Model
             'tax_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
         ];
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function supplier()

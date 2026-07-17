@@ -86,7 +86,6 @@ class PermissionSeeder extends Seeder
             'delete purchases' => 'Purchases',
             'edit purchases status' => 'Purchases',
             'edit purchases payment status' => 'Purchases',
-            'import purchases' => 'Purchases',
 
             // Purchase Bills
             'view purchase bills' => 'Purchase Bill',

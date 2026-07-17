@@ -23,6 +23,7 @@ class PurchaseBill extends Model
         'from_location_id',
         'to_location_id',
         'status',
+        'payment_method',
         'remarks',
         'created_by',
         'accepted_by',
