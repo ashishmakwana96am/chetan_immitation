@@ -13,7 +13,7 @@ class HomeController extends Controller
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
             ->whereHas('products', function ($q) {
-                $q->where('status', Product::STATUS_ACTIVE);
+                $q->where('status', Product::STATUS_ACTIVE)->has('images');
             })
             ->orderBy('sort_order')
             ->get();
