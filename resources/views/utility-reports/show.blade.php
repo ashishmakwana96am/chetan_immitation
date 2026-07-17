@@ -107,7 +107,7 @@
                 ];
                 return $statusMap[$val] ?? "Status #$val";
             }
-            if (in_array($log->module, ['Purchase Bill', 'Stock Transfer'], true)) {
+            if ($log->module === 'Purchase Bill') {
                 $statusMap = [
                     1 => 'Pending',
                     2 => 'Accepted',

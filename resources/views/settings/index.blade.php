@@ -197,7 +197,7 @@
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label font-semibold" for="prefix_stock_transfer">Stock Transfer Prefix</label>
+                            <label class="form-label font-semibold" for="prefix_stock_transfer">Purchase Bill (Transfer) Prefix</label>
                             <input type="text" name="prefix_stock_transfer" id="prefix_stock_transfer" class="form-control" value="{{ $prefixStockTransfer }}" placeholder="e.g. ST" />
                             <div class="invalid-feedback"></div>
                         </div>

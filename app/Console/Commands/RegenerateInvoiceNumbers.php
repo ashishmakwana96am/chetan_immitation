@@ -93,10 +93,10 @@ class RegenerateInvoiceNumbers extends Command
             $purchase->update(['invoice_no' => $newNo]);
         }
 
-        // 5. Stock Transfers / Purchase Bills (ST-xx)
+        // 5. Purchase Bills (ST-xx)
         $transferPrefix = strtoupper(Setting::getValue('prefix_stock_transfer', 'ST'));
         $transfers = PurchaseBill::orderBy('id', 'asc')->get();
-        $this->info("Found {$transfers->count()} Stock Transfers/Purchase Bills to update with prefix: {$transferPrefix}");
+        $this->info("Found {$transfers->count()} Purchase Bills to update with prefix: {$transferPrefix}");
         foreach ($transfers as $index => $transfer) {
             $newNo = $transferPrefix . '-' . str_pad($index + 1, 2, '0', STR_PAD_LEFT);
             $transfer->update(['transfer_no' => $newNo]);

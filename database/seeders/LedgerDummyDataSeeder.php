@@ -228,8 +228,8 @@ class LedgerDummyDataSeeder extends Seeder
 
             // Mirrors PurchaseBillController::accept(): the sending branch is
             // paid (credit) for the stock, the receiving branch pays (debit).
-            $this->addEvent($from->id, $date, $balanceType, LocationBalanceTransaction::TYPE_CREDIT, $value, 'Stock Transfer Out #' . $transferNo);
-            $this->addEvent($to->id, $date, $balanceType, LocationBalanceTransaction::TYPE_DEBIT, $value, 'Stock Transfer In #' . $transferNo);
+            $this->addEvent($from->id, $date, $balanceType, LocationBalanceTransaction::TYPE_CREDIT, $value, 'Purchase Bill Out #' . $transferNo);
+            $this->addEvent($to->id, $date, $balanceType, LocationBalanceTransaction::TYPE_DEBIT, $value, 'Purchase Bill In #' . $transferNo);
         }
     }
 

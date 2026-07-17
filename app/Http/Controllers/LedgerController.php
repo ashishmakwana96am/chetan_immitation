@@ -683,7 +683,7 @@ class LedgerController extends Controller
     /**
      * Build a day-by-day opening/in/out/closing chain for a set of locations,
      * sourced directly from LocationBalanceTransaction so every kind of movement
-     * (sales, expenses, purchases, accepted stock transfers, manual adjustments)
+     * (sales, expenses, purchases, accepted purchase bills, manual adjustments)
      * is reflected — not just sales/expenses. Aggregates across locations when
      * more than one is given.
      *

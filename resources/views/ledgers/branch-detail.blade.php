@@ -48,7 +48,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Branch Ledger Details</h4>
-            <small class="text-muted">Stock transfers for <strong>{{ $location->name ?? 'All Locations' }}</strong> on <strong>{{ format_date($date) }}</strong></small>
+            <small class="text-muted">Purchase Bills (Transfers) for <strong>{{ $location->name ?? 'All Locations' }}</strong> on <strong>{{ format_date($date) }}</strong></small>
         </div>
         <div>
             <a href="{{ route('admin.ledgers.branch') }}" class="btn btn-label-secondary">

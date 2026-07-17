@@ -19,23 +19,23 @@ return new class extends Migration
         DB::statement('ALTER TABLE purchase_bill_items ADD CONSTRAINT purchase_bill_items_purchase_bill_id_foreign FOREIGN KEY (purchase_bill_id) REFERENCES purchase_bills (id) ON DELETE CASCADE');
 
         $permissionMap = [
-            'view stock transfers' => 'view purchase bills',
-            'create stock transfers' => 'create purchase bills',
-            'accept stock transfers' => 'accept purchase bills',
-            'reject stock transfers' => 'reject purchase bills',
+            'view purchase bills' => 'view purchase bills',
+            'create purchase bills' => 'create purchase bills',
+            'accept purchase bills' => 'accept purchase bills',
+            'reject purchase bills' => 'reject purchase bills',
         ];
         foreach ($permissionMap as $old => $new) {
             DB::table('permissions')->where('name', $old)->update(['name' => $new]);
         }
 
-        DB::table('modules')->where('route', 'admin.stock-transfers.index')->update([
+        DB::table('modules')->where('route', 'admin.purchase-bills.index')->update([
             'name' => 'Purchase Bill',
             'route' => 'admin.purchase-bills.index',
             'active_pattern' => 'admin/purchase-bills*',
             'permission' => 'view purchase bills',
         ]);
-        DB::table('modules')->where('active_pattern', 'like', '%admin/stock-transfers*%')->update([
-            'active_pattern' => DB::raw("REPLACE(active_pattern, 'admin/stock-transfers*', 'admin/purchase-bills*')"),
+        DB::table('modules')->where('active_pattern', 'like', '%admin/purchase-bills*%')->update([
+            'active_pattern' => DB::raw("REPLACE(active_pattern, 'admin/purchase-bills*', 'admin/purchase-bills*')"),
         ]);
     }
 
@@ -45,23 +45,23 @@ return new class extends Migration
     public function down(): void
     {
         $permissionMap = [
-            'view purchase bills' => 'view stock transfers',
-            'create purchase bills' => 'create stock transfers',
-            'accept purchase bills' => 'accept stock transfers',
-            'reject purchase bills' => 'reject stock transfers',
+            'view purchase bills' => 'view purchase bills',
+            'create purchase bills' => 'create purchase bills',
+            'accept purchase bills' => 'accept purchase bills',
+            'reject purchase bills' => 'reject purchase bills',
         ];
         foreach ($permissionMap as $old => $new) {
             DB::table('permissions')->where('name', $old)->update(['name' => $new]);
         }
 
         DB::table('modules')->where('route', 'admin.purchase-bills.index')->update([
-            'name' => 'Stock Transfers',
-            'route' => 'admin.stock-transfers.index',
-            'active_pattern' => 'admin/stock-transfers*',
-            'permission' => 'view stock transfers',
+            'name' => 'Purchase Bills',
+            'route' => 'admin.purchase-bills.index',
+            'active_pattern' => 'admin/purchase-bills*',
+            'permission' => 'view purchase bills',
         ]);
         DB::table('modules')->where('active_pattern', 'like', '%admin/purchase-bills*%')->update([
-            'active_pattern' => DB::raw("REPLACE(active_pattern, 'admin/purchase-bills*', 'admin/stock-transfers*')"),
+            'active_pattern' => DB::raw("REPLACE(active_pattern, 'admin/purchase-bills*', 'admin/purchase-bills*')"),
         ]);
 
         DB::statement('ALTER TABLE purchase_bill_items DROP FOREIGN KEY purchase_bill_items_purchase_bill_id_foreign');

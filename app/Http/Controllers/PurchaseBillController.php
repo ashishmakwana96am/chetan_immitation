@@ -288,7 +288,7 @@ class PurchaseBillController extends Controller
                 if ($source) {
                     $oldQty = $source->quantity;
                     $source->decrement('quantity', $stockQty);
-                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock transferred out for purchase bill #' . $purchaseBill->transfer_no);
+                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock issued/moved out for purchase bill #' . $purchaseBill->transfer_no);
                 }
 
                 $destination = Inventory::firstOrCreate(
@@ -303,7 +303,7 @@ class PurchaseBillController extends Controller
                 );
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock transferred in for purchase bill #' . $purchaseBill->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock received/moved in for purchase bill #' . $purchaseBill->transfer_no);
             }
 
             if ($totalAmount > 0) {
@@ -326,7 +326,7 @@ class PurchaseBillController extends Controller
                     'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
                     'amount'        => $totalAmount,
                     'balance_after' => $newFromBalance,
-                    'notes'         => 'Stock Transfer Out #' . $purchaseBill->transfer_no,
+                    'notes'         => 'Purchase Bill Out #' . $purchaseBill->transfer_no,
                     'created_by'    => auth()->id(),
                 ]);
 
@@ -340,7 +340,7 @@ class PurchaseBillController extends Controller
                     'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'        => $totalAmount,
                     'balance_after' => $newToBalance,
-                    'notes'         => 'Stock Transfer In #' . $purchaseBill->transfer_no,
+                    'notes'         => 'Purchase Bill In #' . $purchaseBill->transfer_no,
                     'created_by'    => auth()->id(),
                 ]);
             }

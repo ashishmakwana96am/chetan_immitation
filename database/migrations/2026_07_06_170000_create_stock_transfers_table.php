@@ -41,7 +41,7 @@ return new class extends Migration
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
         });
 
-        // Insert Stock Transfers module into modules table
+        // Insert Purchase Bills module into modules table
         $inventoryModuleId = DB::table('modules')
             ->where('name', 'Inventory & Procurement')
             ->whereNull('parent_id')
@@ -51,10 +51,10 @@ return new class extends Migration
             'route' => 'admin.stock-transfers.index',
         ], [
             'parent_id' => $inventoryModuleId,
-            'name' => 'Stock Transfers',
+            'name' => 'Purchase Bills',
             'route' => 'admin.stock-transfers.index',
             'active_pattern' => 'admin/stock-transfers*',
-            'permission' => 'view stock transfers',
+            'permission' => 'view purchase bills',
             'icon' => 'ti ti-transfer-out',
             'sort_order' => 3,
             'created_at' => now(),
@@ -63,10 +63,10 @@ return new class extends Migration
 
         // Create Spatie Permissions
         $permissions = [
-            'view stock transfers',
-            'create stock transfers',
-            'accept stock transfers',
-            'reject stock transfers'
+            'view purchase bills',
+            'create purchase bills',
+            'accept purchase bills',
+            'reject purchase bills'
         ];
 
         foreach ($permissions as $p) {
@@ -87,10 +87,10 @@ return new class extends Migration
 
         // Remove Spatie Permissions
         $permissions = [
-            'view stock transfers',
-            'create stock transfers',
-            'accept stock transfers',
-            'reject stock transfers'
+            'view purchase bills',
+            'create purchase bills',
+            'accept purchase bills',
+            'reject purchase bills'
         ];
 
         foreach ($permissions as $p) {
