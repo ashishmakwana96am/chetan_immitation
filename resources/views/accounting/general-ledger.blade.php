@@ -172,14 +172,6 @@
         </div>
     </div>
 
-    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
-        <small class="text-muted fw-semibold me-1">Legend:</small>
-        <span class="source-badge source-expense align-badge"><i class="ti ti-receipt me-1"></i>Expense</span>
-        <span class="source-badge source-sale align-badge"><i class="ti ti-shopping-cart me-1"></i>Sale</span>
-        <span class="source-badge source-purchase align-badge"><i class="ti ti-truck-delivery me-1"></i>Purchase</span>
-        <span class="source-badge source-purchase_bill align-badge"><i class="ti ti-file-invoice me-1"></i>Purchase Bill</span>
-    </div>
-
     <div class="card">
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="generalLedgerTable">
