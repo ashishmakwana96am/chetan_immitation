@@ -239,7 +239,7 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="${window.location.origin}/admin/ledgers/supplier/detail?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
+                                        <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
                                             <i class="ti ti-eye me-2"></i>View
                                         </a>
                                     </div>
@@ -292,7 +292,7 @@
                 if (data) {
                     const locationVal = $('#filter-location').val() || '';
                     const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                    window.location.href = `${window.location.origin}/admin/ledgers/supplier/detail?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
+                    window.location.href = `{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
                 }
             });
         });
