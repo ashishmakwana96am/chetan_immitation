@@ -28,7 +28,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Cash Balance</span>
-                            <h4 class="mb-0 mt-1 text-success">{{ format_price($location->cash_balance ?? 0) }}</h4>
+                            <h4 class="mb-0 mt-1 {{ ($location->cash_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($location->cash_balance ?? 0) }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
                     </div>
@@ -41,7 +41,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Bank Balance</span>
-                            <h4 class="mb-0 mt-1 text-primary">{{ format_price($location->bank_balance ?? 0) }}</h4>
+                            <h4 class="mb-0 mt-1 {{ ($location->bank_balance ?? 0) < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($location->bank_balance ?? 0) }}</h4>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
                     </div>

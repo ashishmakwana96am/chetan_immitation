@@ -123,8 +123,14 @@
                     url     : '{{ route('admin.locations.data') }}',
                     dataSrc : function (json) {
                         if (json.summary) {
-                            $('#summaryTotalCash').text(json.summary.total_cash);
-                            $('#summaryTotalBank').text(json.summary.total_bank);
+                            const cashText = json.summary.total_cash;
+                            const bankText = json.summary.total_bank;
+                            $('#summaryTotalCash').text(cashText)
+                                .toggleClass('text-danger', cashText.includes('-'))
+                                .toggleClass('text-success', !cashText.includes('-'));
+                            $('#summaryTotalBank').text(bankText)
+                                .toggleClass('text-danger', bankText.includes('-'))
+                                .toggleClass('text-primary', !bankText.includes('-'));
                         }
                         return json.data;
                     },

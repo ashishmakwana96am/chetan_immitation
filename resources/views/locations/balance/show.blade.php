@@ -29,7 +29,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <p class="text-muted mb-1">Cash Balance</p>
-                        <h4 class="mb-0" id="cashBalanceValue">{{ format_price($location->cash_balance) }}</h4>
+                        <h4 class="mb-0 {{ $location->cash_balance < 0 ? 'text-danger' : '' }}" id="cashBalanceValue">{{ format_price($location->cash_balance) }}</h4>
                     </div>
                     <div class="rounded-circle bg-label-secondary d-flex align-items-center justify-content-center" style="width:48px;height:48px;">
                         <i class="ti ti-cash fs-4"></i>
@@ -42,7 +42,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <p class="text-muted mb-1">Bank Balance</p>
-                        <h4 class="mb-0" id="bankBalanceValue">{{ format_price($location->bank_balance) }}</h4>
+                        <h4 class="mb-0 {{ $location->bank_balance < 0 ? 'text-danger' : '' }}" id="bankBalanceValue">{{ format_price($location->bank_balance) }}</h4>
                     </div>
                     <div class="rounded-circle bg-label-info d-flex align-items-center justify-content-center" style="width:48px;height:48px;">
                         <i class="ti ti-building-bank fs-4"></i>
@@ -99,10 +99,12 @@
             window.refreshTable = function (res) {
                 table.ajax.reload(null, false);
                 if (res && res.cash_balance) {
-                    $('#cashBalanceValue').text(res.cash_balance);
+                    $('#cashBalanceValue').text(res.cash_balance)
+                        .toggleClass('text-danger', res.cash_balance.includes('-'));
                 }
                 if (res && res.bank_balance) {
-                    $('#bankBalanceValue').text(res.bank_balance);
+                    $('#bankBalanceValue').text(res.bank_balance)
+                        .toggleClass('text-danger', res.bank_balance.includes('-'));
                 }
             };
         });

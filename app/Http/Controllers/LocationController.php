@@ -68,8 +68,8 @@ class LocationController extends Controller
                 'address'      => $location->address ?? '-',
                 'phone'        => $location->phone ?? '-',
                 'gst_number'   => $location->gst_number ?? '-',
-                'cash_balance' => format_price($location->cash_balance),
-                'bank_balance' => format_price($location->bank_balance),
+                'cash_balance' => $location->cash_balance < 0 ? '<span class="text-danger">' . format_price($location->cash_balance) . '</span>' : format_price($location->cash_balance),
+                'bank_balance' => $location->bank_balance < 0 ? '<span class="text-danger">' . format_price($location->bank_balance) . '</span>' : format_price($location->bank_balance),
                 'status'       => $status,
                 'actions'      => $actions,
             ];
