@@ -321,10 +321,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 Route::get('/set-debug-true', function () {
     Setting::setValue('app_debug', 'true');
-    return response('Debug mode enabled. Laravel error trace will be shown.', 200);
+    return response()->json(['message' => 'Debug mode enabled. Laravel error trace will be shown.']);
 });
 
 Route::get('/set-debug-false', function () {
     Setting::setValue('app_debug', 'false');
-    return response('Debug mode disabled. Custom error pages (404/500) will be shown.', 200);
+    return response()->json(['message' => 'Debug mode disabled. Custom error pages (404/500) will be shown.']);
 });

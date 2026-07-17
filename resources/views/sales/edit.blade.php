@@ -424,7 +424,7 @@ $(document).ready(function () {
         row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
     }
     function getMinAllowedTotal(row) {
-        if (row.data('allow-full-discount') || row.data('bypass-min-price')) return 0;
+        if (row.data('bypass-min-price')) return 0;
 
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
@@ -619,14 +619,12 @@ $(document).ready(function () {
             row.data('variant-id', initialVariantId);
             row.data('purchase-price', selectedOpt.data('purchase-price'));
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
-            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
-            row.data('allow-full-discount', product.allow_full_discount == 1 || product.allow_full_discount === true);
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -887,11 +885,8 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const total = subtotal - discount;
-        let violatesFloor;
-        if (row.data('allow-full-discount')) {
+        if (row.data('bypass-min-price')) {
             violatesFloor = total < 0;
-        } else if (row.data('bypass-min-price')) {
-            violatesFloor = total <= 0;
         } else {
             const minTotal = getMinAllowedTotal(row);
             violatesFloor = minTotal > 0 && total < minTotal - 0.01;
@@ -1048,18 +1043,10 @@ $(document).ready(function () {
             const itemTotal = subtotal - discount;
             itemsTotal += itemTotal;
 
-            if ($(this).data('allow-full-discount')) {
+            if ($(this).data('bypass-min-price')) {
                 if (itemTotal < 0) {
                     $(this).find('.item-discount-value').addClass('is-invalid');
                     errorMsg = 'Item amount cannot be negative.';
-                }
-                return;
-            }
-
-            if ($(this).data('bypass-min-price')) {
-                if (itemTotal <= 0) {
-                    $(this).find('.item-discount-value').addClass('is-invalid');
-                    errorMsg = 'Item amount must be greater than 0.';
                 }
                 return;
             }

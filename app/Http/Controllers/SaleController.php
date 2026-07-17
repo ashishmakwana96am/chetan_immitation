@@ -279,7 +279,6 @@ class SaleController extends Controller
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
-                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -694,7 +693,6 @@ class SaleController extends Controller
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
-                'allow_full_discount' => (bool) $p->allow_full_discount,
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -1342,20 +1340,10 @@ class SaleController extends Controller
             }
 
             $bypass = (bool) ($product->bypass_min_price ?? false);
-            $allowFullDiscount = (bool) ($product->allow_full_discount ?? false);
 
-            if ($allowFullDiscount) {
+            if ($bypass) {
                 if ($itemTotal < 0) {
                     return 'Item amount cannot be negative.';
-                }
-                continue;
-            }
-
-            // Product-level bypass (set on the Product record): the purchase-price+10% floor
-            // doesn't apply to this item, but its own total must still be a positive amount.
-            if ($bypass) {
-                if ($itemTotal <= 0) {
-                    return 'Item amount must be greater than 0.';
                 }
                 continue;
             }
