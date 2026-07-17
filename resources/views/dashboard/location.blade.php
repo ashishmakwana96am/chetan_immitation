@@ -105,7 +105,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Products in Stock</span>
+                            <span class="text-muted">Products</span>
                             <h4 class="mb-0 mt-1">{{ $stockStats['total_products'] }}</h4>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-box ti-sm"></i></span>
