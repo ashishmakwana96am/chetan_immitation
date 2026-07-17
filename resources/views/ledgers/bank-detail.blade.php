@@ -131,7 +131,7 @@
                                         @if(!$location)
                                             <td>{{ $transaction->location->name ?? '-' }}</td>
                                         @endif
-                                        <td>{{ $transaction->notes ?? '-' }}</td>
+                                        <td>{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}</td>
                                         <td>
                                             @if($transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT)
                                                 <span class="badge bg-label-success">Credit</span>
