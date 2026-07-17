@@ -12,6 +12,9 @@ class HomeController extends Controller
     public function index()
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
+            ->whereHas('products', function ($q) {
+                $q->where('status', Product::STATUS_ACTIVE);
+            })
             ->orderBy('sort_order')
             ->get();
 

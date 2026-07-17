@@ -49,13 +49,15 @@
             </div>
             <div class="owl-carousel collection-slider mt-10">
                 @foreach($categories as $category)
+                @if($category->image)
                 <a href="{{ route('shop-by-category', $category->slug) }}" class="group text-center cursor-pointer block">
                     <div class="mx-auto rounded-[999px] overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] w-[207px] h-[270px]">
-                        <img src="{{ $category->image_url ?? asset('website/assets/images/collection_1.png') }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
+                        <img src="{{ $category->image_url }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
                     </div>
                     <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
                     <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
                 </a>
+                @endif
                 @endforeach
             </div>
         </div>

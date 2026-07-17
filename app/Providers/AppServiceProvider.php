@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Category;
 use App\Models\SubCategory;
+use App\Models\Product;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,8 +27,14 @@ class AppServiceProvider extends ServiceProvider
 
         view()->composer('layouts.website', function ($view) {
             $categories = Category::where('status', Category::STATUS_ACTIVE)
+                ->whereHas('products', function ($q) {
+                    $q->where('status', Product::STATUS_ACTIVE);
+                })
                 ->with(['subCategories' => function ($q) {
                     $q->where('status', SubCategory::STATUS_ACTIVE)
+                      ->whereHas('products', function ($pq) {
+                          $pq->where('status', Product::STATUS_ACTIVE);
+                      })
                       ->orderBy('sort_order');
                 }])
                 ->orderBy('sort_order')

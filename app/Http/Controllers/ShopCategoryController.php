@@ -162,8 +162,15 @@ class ShopCategoryController extends Controller
     private function getFilteredProducts($slug = null)
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
+            ->whereHas('products', function ($q) {
+                $q->where('status', Product::STATUS_ACTIVE)->has('images');
+            })
             ->with(['subCategories' => function ($q) {
-                $q->where('status', SubCategory::STATUS_ACTIVE)->orderBy('sort_order');
+                $q->where('status', SubCategory::STATUS_ACTIVE)
+                  ->whereHas('products', function ($pq) {
+                      $pq->where('status', Product::STATUS_ACTIVE)->has('images');
+                  })
+                  ->orderBy('sort_order');
             }])
             ->withCount(['products' => function ($q) {
                 $q->whereNull('products.deleted_at')
