@@ -120,14 +120,19 @@ class PurchaseImportService
                         $paymentStatus = Purchase::PAYMENT_STATUS_PARTIAL;
                     }
 
+                    $paymentMethod = $items[0]['payment_method'] ?? 'cash';
+                    $defaultLocation = $this->defaultPurchaseLocation();
+
                     $purchase = Purchase::create([
                         'supplier_id'    => $supplier->id,
+                        'location_id'    => $defaultLocation->id,
                         'invoice_no'     => generate_invoice_no('PS', Purchase::class),
                         'is_gst'         => false,
                         'tax_amount'     => 0.00,
                         'total_amount'   => $totalAmount,
                         'status'         => $status,
                         'payment_status' => $paymentStatus,
+                        'payment_method' => $paymentMethod,
                         'paid_amount'    => $paidAmount,
                         'created_by'     => $userId,
                     ]);
@@ -155,7 +160,7 @@ class PurchaseImportService
 
                         PurchaseAllocation::create([
                             'purchase_item_id' => $item->id,
-                            'location_id'      => $this->defaultPurchaseLocation()->id,
+                            'location_id'      => $defaultLocation->id,
                             'quantity'          => $itemData['quantity'],
                         ]);
                     }
@@ -228,6 +233,7 @@ class PurchaseImportService
             'quantity'               => 'quantity',
             'purchasestatus'         => 'purchase_status',
             'paymentstatus'          => 'payment_status',
+            'paymentmethod'          => 'payment_method',
             'paidamount'             => 'paid_amount',
             'barcode'                => 'barcode',
             'category'               => 'category',
@@ -308,6 +314,7 @@ class PurchaseImportService
                 'quantity'        => trim($row['quantity'] ?? ''),
                 'purchase_status' => trim($row['purchase_status'] ?? ''),
                 'payment_status'  => trim($row['payment_status'] ?? ''),
+                'payment_method'  => trim($row['payment_method'] ?? ''),
                 'paid_amount'     => trim($row['paid_amount'] ?? ''),
             ];
         }
@@ -516,6 +523,7 @@ class PurchaseImportService
 
         $status = $this->mapPurchaseStatus($row['purchase_status']);
         $paymentStatus = $this->mapPaymentStatus($row['payment_status']);
+        $paymentMethod = $this->mapPaymentMethod($row['payment_method']);
 
         $total = round($quantity * $price, 2);
         $paidAmount = 0.0;
@@ -547,6 +555,7 @@ class PurchaseImportService
             'quantity'           => $quantity,
             'status'             => $status,
             'payment_status'     => $paymentStatus,
+            'payment_method'     => $paymentMethod,
             'total'              => $total,
             'paid_amount'        => $paidAmount,
         ];
@@ -591,6 +600,14 @@ class PurchaseImportService
             'paid' => Purchase::PAYMENT_STATUS_PAID,
             'partial', 'partially paid' => Purchase::PAYMENT_STATUS_PARTIAL,
             default => Purchase::PAYMENT_STATUS_PENDING,
+        };
+    }
+
+    private function mapPaymentMethod(string $value): string
+    {
+        return match (strtolower(trim($value))) {
+            'online', 'upi', 'bank', 'bank transfer', 'bank_transfer', 'razorpay' => 'online',
+            default => 'cash',
         };
     }
 

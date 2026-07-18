@@ -185,7 +185,9 @@ class SaleController extends Controller
                     $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
                 }
             }
-            $isEditable = ($order->source ?? 'POS') === 'POS' && $order->status == 1;
+            $isEditable = ($order->source ?? 'POS') === 'POS'
+                && in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)
+                && !$cancellationRequested;
             if ($canEdit && $isEditable) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
@@ -664,9 +666,14 @@ class SaleController extends Controller
                 ->with('error', 'Online orders cannot be edited from sales.');
         }
 
-        if ($sale->status != 1) {
+        if (!in_array((int) $sale->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)) {
             return redirect()->route('admin.sales.show', $sale)
-                ->with('error', 'Only pending sales can be edited.');
+                ->with('error', 'Only pending or approved sales can be edited.');
+        }
+
+        if ($sale->cancellationRequest && $sale->cancellationRequest->status === 'pending') {
+            return redirect()->route('admin.sales.show', $sale)
+                ->with('error', 'This sale has a pending cancellation request and cannot be edited.');
         }
 
         $customers   = Customer::where('status', 1)->orderBy('name')->get();
@@ -761,8 +768,12 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Online orders cannot be edited from sales.'], 422);
         }
 
-        if ($sale->status != 1) {
-            return response()->json(['status' => 'error', 'message' => 'Only pending sales can be edited.'], 422);
+        if (!in_array((int) $sale->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)) {
+            return response()->json(['status' => 'error', 'message' => 'Only pending or approved sales can be edited.'], 422);
+        }
+
+        if ($sale->cancellationRequest && $sale->cancellationRequest->status === 'pending') {
+            return response()->json(['status' => 'error', 'message' => 'This sale has a pending cancellation request and cannot be edited.'], 422);
         }
 
         $validator = Validator::make($request->all(), [
@@ -803,6 +814,7 @@ class SaleController extends Controller
         }
 
         $isApprove = ($request->status ?? 2) == 2;
+        $isCancelled = ($request->status ?? 2) == 6;
 
         $minPriceError = $this->getMinPriceError(
             $request->items,
@@ -816,25 +828,35 @@ class SaleController extends Controller
             ], 422);
         }
 
-        if ($isApprove) {
-            $stockError = $this->getStockError($request->items, (int) $request->location_id);
-            if ($stockError) {
-                return response()->json([
-                    'status'  => 'error',
-                    'message' => ['items' => [$stockError]],
-                ], 422);
-            }
-        }
+        try {
+            DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale) {
+            $wasApproved = ((int) $sale->status === Order::STATUS_APPROVE);
+            $oldLocationId = (int) $sale->location_id;
 
-        DB::transaction(function () use ($request, $isApprove, $sale) {
             $oldItemsSnapshot = $sale->items->map(function ($item) {
                 return [
                     'product_id'         => $item->product_id,
                     'product_variant_id' => $item->product_variant_id,
+                    'pair_type'          => $item->pair_type ?? 'single',
                     'quantity'           => $item->quantity,
                     'price'              => (float) $item->price,
                 ];
             })->values()->all();
+
+            // Sale was already approved (stock deducted) — restore it before applying the edited items.
+            if ($wasApproved) {
+                foreach ($oldItemsSnapshot as $old) {
+                    $stockRestore = ($old['pair_type'] === 'pair') ? $old['quantity'] * 2 : $old['quantity'];
+                    $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                }
+            }
+
+            if ($isApprove) {
+                $stockError = $this->getStockError($request->items, (int) $request->location_id);
+                if ($stockError) {
+                    throw new \RuntimeException($stockError);
+                }
+            }
 
             $sale->items()->delete();
 
@@ -915,7 +937,7 @@ class SaleController extends Controller
                 'location_id'          => $request->location_id,
                 'payment_method'       => $request->payment_method,
                 'status'               => $request->status ?? 2,
-                'payment_status'       => $request->payment_status ?? $sale->payment_status ?? 1,
+                'payment_status'       => $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1),
                 'is_gst'               => $isGst,
                 'tax_amount'           => $taxAmount,
                 'final_amount'         => $grandTotal,
@@ -924,6 +946,10 @@ class SaleController extends Controller
                 'order_discount_value' => $discVal,
                 'coupon_id'            => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
             ];
+
+            if ($isCancelled && $request->filled('cancellation_reason')) {
+                $updateData['cancellation_reason'] = $request->cancellation_reason;
+            }
 
             if ($sale->is_gst !== $isGst) {
                 $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
@@ -968,7 +994,13 @@ class SaleController extends Controller
                 ['items' => $newItemsSnapshot],
                 'Order #' . $sale->order_no . ' items modified'
             );
-        });
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['items' => [$e->getMessage()]],
+            ], 422);
+        }
 
         return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.']);
     }
