@@ -66,10 +66,6 @@
             overflow: hidden;
             margin-bottom: 2pt !important;
         }
-        .rupee-symbol {
-            font-family: "DejaVu Sans", sans-serif !important;
-            font-weight: normal !important;
-        }
         .code-line {
             font-size: 7.5pt !important;
             font-weight: bold !important;
@@ -77,6 +73,15 @@
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
+        }
+        .mrp-code-line {
+            font-size: 7pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            margin-top: 2pt !important;
         }
         .category-line {
             font-size: 7.5pt !important;
@@ -112,11 +117,12 @@
                         <div class="barcode-container" style="text-align: left !important;">
                             <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" style="margin: 0;" />
                         </div>
-                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important;">{{ trim($item['category']) }}</div>
+                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important; font-size: {{ $item['categoryFontSize'] ?? 7.5 }}pt !important;">{{ trim($item['category']) }}</div>
                     </td>
                     <!-- Zone 2: MRP (Center Section) -->
                     <td class="zone-back-td">
-                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 20pt;">MRP:<span class="rupee-symbol">&#8377;</span>{{ $item['salePrice'] }}</div>
+                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 6pt;">MRP:{{ $item['salePrice'] }}</div>
+                        <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt;">{{ $item['productCode'] }}</div>
                     </td>
                     <!-- Zone 3: Blank Tail Area (Right Section) -->
                     <td class="zone-tail-td">

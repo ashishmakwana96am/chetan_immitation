@@ -146,7 +146,13 @@
             </div>
             <div class="offcanvas-body p-4" style="overflow-y: auto;">
                 <h6 class="fw-semibold mb-3">Import Summary</h6>
-                <div class="row g-3 mb-4" id="purchaseImportHistorySummaryCards"></div>
+                <div class="row g-3 mb-3" id="purchaseImportHistorySummaryCards"></div>
+
+                <div class="d-flex justify-content-end mb-4 d-none" id="purchaseImportPrintBarcodeWrapper">
+                    <button type="button" id="purchaseImportPrintBarcodeBtn" class="btn btn-label-primary btn-sm">
+                        <i class="ti ti-printer me-1"></i> Print Barcode
+                    </button>
+                </div>
 
                 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                     <h6 class="mb-0 fw-semibold">Barcode-wise Report</h6>
@@ -199,6 +205,114 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
+        // ─── Purchase Barcode Print (reuses admin.products.print-barcodes as-is) ──
+        const purchaseBarcodeItemsUrlTemplate = '{{ route("admin.purchases.barcode-items", ["purchase" => "__ID__"]) }}';
+
+        window.openPurchaseBarcodeModal = function (purchaseIds) {
+            const ids = Array.isArray(purchaseIds) ? purchaseIds : [purchaseIds];
+            if (!ids.length) return;
+
+            Promise.all(ids.map(function (id) {
+                return $.get(purchaseBarcodeItemsUrlTemplate.replace('__ID__', id));
+            })).then(function (responses) {
+                let items = [];
+                responses.forEach(function (res) {
+                    if (res && res.status === 'success') {
+                        items = items.concat(res.items);
+                    }
+                });
+
+                if (items.length === 0) {
+                    toastr.warning('No barcoded products found for this purchase.');
+                    return;
+                }
+
+                $('#purchaseBarcodeModal').remove();
+
+                let listHtml = '';
+                items.forEach(function (item) {
+                    listHtml += `
+                        <tr class="purchase-bulk-item-row" data-id="${item.id}" data-barcode="${item.barcode}">
+                            <td><div class="fw-semibold text-dark">${item.name}</div></td>
+                            <td><code>${item.barcode}</code></td>
+                            <td><input type="number" class="form-control form-control-sm purchase-bulk-item-qty" value="${item.quantity}" min="1" max="1000"></td>
+                        </tr>
+                    `;
+                });
+
+                const modalHtml = `
+                    <div class="modal fade" id="purchaseBarcodeModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-bottom">
+                                    <h5 class="modal-title fw-semibold">Print Barcode</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3 d-flex align-items-center gap-2 bg-light p-2 rounded">
+                                        <label for="purchaseBulkDefaultQty" class="form-label mb-0 fw-medium small text-secondary">Set Qty for All:</label>
+                                        <input type="number" id="purchaseBulkDefaultQty" class="form-control form-control-sm w-25" value="1" min="1">
+                                        <button type="button" id="applyPurchaseBulkDefaultQty" class="btn btn-sm btn-primary">Apply</button>
+                                    </div>
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Product</th>
+                                                    <th>Barcode</th>
+                                                    <th style="width: 100px;">Qty</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>${listHtml}</tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-top-0 pt-0">
+                                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="startPurchaseBarcodePrintBtn">
+                                        <i class="ti ti-printer me-1"></i> Print Barcodes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                $('body').append(modalHtml);
+                new bootstrap.Modal(document.getElementById('purchaseBarcodeModal')).show();
+            }).catch(function () {
+                toastr.error('Failed to load purchase items for barcode printing.');
+            });
+        };
+
+        $(document).on('click', '.purchase-print-barcode-btn', function () {
+            const ids = String($(this).data('purchase-ids')).split(',').map(Number).filter(Boolean);
+            window.openPurchaseBarcodeModal(ids);
+        });
+
+        $(document).on('click', '#applyPurchaseBulkDefaultQty', function () {
+            const val = parseInt($('#purchaseBulkDefaultQty').val()) || 1;
+            $('.purchase-bulk-item-qty').val(val);
+        });
+
+        $(document).on('click', '#startPurchaseBarcodePrintBtn', function () {
+            let url = '{{ route("admin.products.print-barcodes") }}?';
+            let idx = 0;
+            $('.purchase-bulk-item-row').each(function () {
+                const id = $(this).data('id');
+                const qty = parseInt($(this).find('.purchase-bulk-item-qty').val()) || 1;
+                url += `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}&`;
+                idx++;
+            });
+
+            if (idx === 0) return;
+
+            url = url.replace(/&$/, '');
+            window.open(url, '_blank');
+
+            bootstrap.Modal.getInstance(document.getElementById('purchaseBarcodeModal')).hide();
+        });
+
         $(document).ready(function () {
             // Track if any flatpickr calendar is open — prevent Bootstrap dropdown from closing
             let flatpickrOpen = false;

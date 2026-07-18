@@ -53,16 +53,16 @@ class OrderObserver
 
         // Transition 2: PAID -> Unpaid (e.g. status set back to pending)
         if ($oldStatus == \App\Models\Order::PAYMENT_STATUS_PAID && $newStatus != \App\Models\Order::PAYMENT_STATUS_PAID) {
-            $this->reverseBalance($order->location_id, $order->getOriginal('payment_method'), (float) $order->getOriginal('final_amount'), $order->order_no);
+            $this->reverseBalance((int) $order->getOriginal('location_id'), $order->getOriginal('payment_method'), (float) $order->getOriginal('final_amount'), $order->order_no);
             return;
         }
 
-        // Transition 3: Was PAID, remains PAID, but method or amount changed
+        // Transition 3: Was PAID, remains PAID, but method, amount, or location changed
         if ($oldStatus == \App\Models\Order::PAYMENT_STATUS_PAID && $newStatus == \App\Models\Order::PAYMENT_STATUS_PAID) {
-            if ($order->wasChanged('payment_method') || $order->wasChanged('final_amount')) {
+            if ($order->wasChanged('payment_method') || $order->wasChanged('final_amount') || $order->wasChanged('location_id')) {
                 $oldMethod = $order->getOriginal('payment_method');
                 $oldAmount = (float) $order->getOriginal('final_amount');
-                $this->reverseBalance($order->location_id, $oldMethod, $oldAmount, $order->order_no);
+                $this->reverseBalance((int) $order->getOriginal('location_id'), $oldMethod, $oldAmount, $order->order_no);
                 $this->creditBalance($order);
             }
         }

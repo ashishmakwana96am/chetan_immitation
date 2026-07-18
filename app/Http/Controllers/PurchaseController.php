@@ -92,6 +92,7 @@ class PurchaseController extends Controller
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
+            $actions .= '<button class="dropdown-item purchase-print-barcode-btn" data-purchase-ids="' . $invoice->id . '"><i class="ti ti-printer me-2"></i>Print Barcode</button>';
             // if ($canDownloadPurchases) {
             //     $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             // }
@@ -740,6 +741,23 @@ class PurchaseController extends Controller
                 'payments'     => $payments,
             ],
         ]);
+    }
+
+    public function barcodeItems(Purchase $purchase)
+    {
+        $this->authorize('view purchases');
+
+        $items = $purchase->items()->with('product')->get()
+            ->filter(fn ($item) => $item->product && !empty($item->product->barcode))
+            ->map(fn ($item) => [
+                'id'       => $item->product->id,
+                'name'     => $item->product->name,
+                'barcode'  => $item->product->barcode,
+                'quantity' => (int) $item->quantity,
+            ])
+            ->values();
+
+        return response()->json(['status' => 'success', 'items' => $items]);
     }
 
     public function updatePaymentStatus(Request $request, Purchase $purchase)

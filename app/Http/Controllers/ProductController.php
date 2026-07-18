@@ -179,17 +179,27 @@ class ProductController extends Controller
                 $barcodeVal = $product->barcode;
                 $category = $product->category->name ?? '';
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
-                $salePrice = number_format($product->sale_price, 2);
+                $salePrice = number_format($product->sale_price, 0);
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
                 $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 1, 30);
                 $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
-                
+
+                $categoryLength = strlen($category);
+                $categoryFontSize = match (true) {
+                    $categoryLength > 18 => 5.0,
+                    $categoryLength > 14 => 5.5,
+                    $categoryLength > 10 => 6.5,
+                    default => 7.5,
+                };
+
                 $printItems[] = [
                     'barcodeBase64' => $barcodeBase64,
                     'barcodeText' => $barcodeVal,
+                    'productCode' => $product->product_code !== null ? number_format($product->product_code, 0) : '',
                     'category' => $category,
+                    'categoryFontSize' => $categoryFontSize,
                     'variations' => $variations,
                     'salePrice' => $salePrice,
                     'qty' => $qty
