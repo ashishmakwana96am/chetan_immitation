@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Models\Location;
+use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
@@ -84,10 +84,10 @@ class OrderObserver
             : 'cash_balance';
 
         DB::transaction(function () use ($order, $balanceType, $balanceCol) {
-            $location = Location::where('id', $order->location_id)->lockForUpdate()->firstOrFail();
+            $balance = LocationBalance::where('location_id', $order->location_id)->lockForUpdate()->firstOrFail();
 
-            $newBalance = (float) $location->{$balanceCol} + (float) $order->final_amount;
-            $location->update([$balanceCol => $newBalance]);
+            $newBalance = (float) $balance->{$balanceCol} + (float) $order->final_amount;
+            $balance->update([$balanceCol => $newBalance]);
 
             LocationBalanceTransaction::create([
                 'location_id'  => $order->location_id,
@@ -113,10 +113,10 @@ class OrderObserver
             : 'cash_balance';
 
         DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $orderNo) {
-            $location = Location::where('id', $locationId)->lockForUpdate()->firstOrFail();
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
 
-            $newBalance = (float) $location->{$balanceCol} - $amount;
-            $location->update([$balanceCol => $newBalance]);
+            $newBalance = (float) $balance->{$balanceCol} - $amount;
+            $balance->update([$balanceCol => $newBalance]);
 
             LocationBalanceTransaction::create([
                 'location_id'  => $locationId,
