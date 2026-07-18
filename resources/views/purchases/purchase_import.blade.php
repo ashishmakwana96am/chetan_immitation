@@ -274,6 +274,16 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#purchaseImportHistorySearchInput').val('');
         renderPurchaseImportHistoryTable(window.purchaseImportHistory);
 
+        const purchaseIds = res.summary.purchase_ids || [];
+        if (purchaseIds.length > 0) {
+            $('#purchaseImportPrintBarcodeWrapper').removeClass('d-none');
+            $('#purchaseImportPrintBarcodeBtn').off('click').on('click', function () {
+                window.openPurchaseBarcodeModal(purchaseIds);
+            });
+        } else {
+            $('#purchaseImportPrintBarcodeWrapper').addClass('d-none');
+        }
+
         const historyEl = document.getElementById('purchaseImportHistoryOffcanvas');
         bootstrap.Offcanvas.getOrCreateInstance(historyEl).show();
     }

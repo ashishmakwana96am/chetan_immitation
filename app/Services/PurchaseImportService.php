@@ -36,6 +36,7 @@ class PurchaseImportService
             'purchases_created'      => 0,
             'failed_rows'            => 0,
             'skipped_rows'           => 0,
+            'purchase_ids'           => [],
         ];
         $failures = [];
 
@@ -164,6 +165,7 @@ class PurchaseImportService
                     }
 
                     $summary['purchases_created']++;
+                    $summary['purchase_ids'][] = $purchase->id;
                 });
             }
         }
