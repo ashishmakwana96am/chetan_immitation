@@ -9,6 +9,7 @@ use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -711,7 +712,7 @@ class AccountingController extends Controller
 
                 $balance->update([$balanceColumn => $newBalance]);
 
-                \App\Models\LocationBalanceTransaction::create([
+                $transaction = \App\Models\LocationBalanceTransaction::create([
                     'location_id'   => $locationId,
                     'balance_type'  => $request->balance_type,
                     'type'          => $request->type,
@@ -720,6 +721,15 @@ class AccountingController extends Controller
                     'notes'         => !empty($request->notes) ? $request->notes : 'Manual Account Balance Adjustment',
                     'created_by'    => auth()->id(),
                 ]);
+
+                ActivityLogger::log(
+                    'Opening Balance',
+                    'create',
+                    $transaction,
+                    [$balanceColumn => $currentBalance],
+                    [$balanceColumn => $newBalance],
+                    'Opening balance entry recorded for "' . ($transaction->location->name ?? $locationId) . '" (' . $request->balance_type . ', ' . $request->type . ' ' . format_price($amount) . ')'
+                );
             });
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'insufficient_balance') {
