@@ -11,9 +11,16 @@
     </a>
   </div>
 
+  <div class="menu-sidebar-search px-3 py-2">
+    <div class="input-group input-group-merge">
+      <span class="input-group-text"><i class="ti ti-search"></i></span>
+      <input type="text" id="menuSearchInput" class="form-control" placeholder="Search menu..." autocomplete="off">
+    </div>
+  </div>
+
   <div class="menu-inner-shadow"></div>
 
-  <ul class="menu-inner py-1">
+  <ul class="menu-inner py-1" id="menuInnerList">
 
     @php
       try {
@@ -122,6 +129,44 @@
 
   </ul>
 </aside>
+
+<script>
+    (function () {
+        const searchInput = document.getElementById('menuSearchInput');
+        const menuList = document.getElementById('menuInnerList');
+        if (!searchInput || !menuList) return;
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.trim().toLowerCase();
+            const items = Array.from(menuList.children);
+            let currentHeader = null;
+            let headerHasVisibleChild = false;
+
+            items.forEach((item) => {
+                if (item.classList.contains('menu-header')) {
+                    if (currentHeader) {
+                        currentHeader.style.display = headerHasVisibleChild ? '' : 'none';
+                    }
+                    currentHeader = item;
+                    headerHasVisibleChild = false;
+                    return;
+                }
+
+                if (item.classList.contains('menu-item')) {
+                    const label = item.querySelector('.menu-link div');
+                    const text = label ? label.textContent.trim().toLowerCase() : '';
+                    const matches = query === '' || text.includes(query);
+                    item.style.display = matches ? '' : 'none';
+                    if (matches) headerHasVisibleChild = true;
+                }
+            });
+
+            if (currentHeader) {
+                currentHeader.style.display = headerHasVisibleChild ? '' : 'none';
+            }
+        });
+    })();
+</script>
 
 @if(Route::has('admin.purchase-bills.pending-count'))
 <script>
