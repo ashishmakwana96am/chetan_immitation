@@ -419,11 +419,11 @@
                                 <tr>
                                     <td class="fw-bold text-dark">{{ $renameKey($key) }}</td>
                                     
-                                    @if($key === 'permissions' || (is_array($oldVal) || is_array($newVal)))
+                                    @if($key === 'permissions')
                                         @php
-                                            $oldPermissions = is_array($oldVal) ? $oldVal : [];
-                                            $newPermissions = is_array($newVal) ? $newVal : [];
-                                            
+                                            $oldPermissions = is_array($oldVal) ? array_filter($oldVal, 'is_scalar') : [];
+                                            $newPermissions = is_array($newVal) ? array_filter($newVal, 'is_scalar') : [];
+
                                             $addedPerms = array_diff($newPermissions, $oldPermissions);
                                             $removedPerms = array_diff($oldPermissions, $newPermissions);
                                             
@@ -490,6 +490,10 @@
                                                 <span class="text-muted small">-</span>
                                             @endif
                                         </td>
+                                    @elseif(is_array($oldVal) || is_array($newVal))
+                                        <!-- Generic array/JSON attribute fields -->
+                                        <td class="text-danger fw-semibold"><pre class="mb-0 small text-danger">{{ is_array($oldVal) ? json_encode($oldVal, JSON_PRETTY_PRINT) : ($oldVal ?? '-') }}</pre></td>
+                                        <td class="text-success fw-semibold"><pre class="mb-0 small text-success">{{ is_array($newVal) ? json_encode($newVal, JSON_PRETTY_PRINT) : ($newVal ?? '-') }}</pre></td>
                                     @else
                                         <!-- Standard single attribute fields with resolved names -->
                                         <td class="text-danger fw-semibold">{{ $resolveValue($key, $oldVal, $log) }}</td>
