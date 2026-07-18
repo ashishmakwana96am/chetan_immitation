@@ -696,9 +696,9 @@ class AccountingController extends Controller
 
         try {
             DB::transaction(function () use ($request, $locationId, $balanceColumn) {
-                $location = \App\Models\Location::where('id', $locationId)->lockForUpdate()->firstOrFail();
+                $balance = \App\Models\LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
 
-                $currentBalance = (float) $location->{$balanceColumn};
+                $currentBalance = (float) $balance->{$balanceColumn};
                 $amount = (float) $request->amount;
 
                 $newBalance = $request->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT
@@ -709,7 +709,7 @@ class AccountingController extends Controller
                     throw new \RuntimeException('insufficient_balance');
                 }
 
-                $location->update([$balanceColumn => $newBalance]);
+                $balance->update([$balanceColumn => $newBalance]);
 
                 \App\Models\LocationBalanceTransaction::create([
                     'location_id'   => $locationId,

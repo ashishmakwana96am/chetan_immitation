@@ -551,22 +551,24 @@ const orders = [
       $totalMrp = $o->items->sum(function($item) {
           $product = $item->product;
           $pairType = $item->pair_type ?? 'single';
-          
+
           if (!$product) {
               return (float)$item->price * $item->quantity;
           }
-          
-          // Check pair_type to get correct MRP
-          if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
+
+          if ($product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value) {
+              $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - (float) $item->custom_size_value) < 0.001);
+              $mrp = (float) ($sizeRow['mrp'] ?? $product->mrp);
+          } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
               $mrp = (float)$product->pair_mrp;
           } else {
               $mrp = (float)$product->mrp;
           }
-          
+
           if ($mrp <= 0) {
               $mrp = (float)$item->price;
           }
-          
+
           return round($mrp) * $item->quantity;
       });
     @endphp

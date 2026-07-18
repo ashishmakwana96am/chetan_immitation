@@ -222,8 +222,12 @@
                                     @php
                                         $pairType = $item->pair_type ?? 'single';
                                         $product = $item->product;
+                                        $itemIsCustomSize = $product && $product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value;
                                         if ($product) {
-                                            if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
+                                            if ($itemIsCustomSize) {
+                                                $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - (float) $item->custom_size_value) < 0.001);
+                                                $mrp = (float) ($sizeRow['mrp'] ?? $product->mrp);
+                                            } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
                                                 $mrp = (float) $product->pair_mrp;
                                             } else {
                                                 $mrp = (float) $product->mrp;
@@ -254,7 +258,16 @@
                                         <span class="font-medium text-[#131615] w-[120px]">Quantity:</span>
                                         <span class="text-[#757575] ml-2">
                                             {{ $item->quantity }}
-                                            <span class="font-medium ml-1 {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : '' }}">{{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</span>
+                                            @if($itemIsCustomSize)
+                                                &times;
+                                            @endif
+                                            <span class="font-medium ml-1 {{ ($item->pair_type ?? 'single') === 'pair' || $itemIsCustomSize ? 'text-[#B4771E]' : '' }}">
+                                                @if($itemIsCustomSize)
+                                                    {{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }} pcs Pair
+                                                @else
+                                                    {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                                                @endif
+                                            </span>
                                         </span>
                                     </p>
 

@@ -1022,7 +1022,7 @@ window.addEventListener('resize', function () {
         var csrfToken = '{{ csrf_token() }}';
 
         // ── Global Add to Cart function ──────────────────────────────────────────
-        window.addToCart = function (productId, variantId, qty, btn, loginUrl, pairType) {
+        window.addToCart = function (productId, variantId, qty, btn, loginUrl, pairType, customSizeValue) {
             var cartAddUrl = '{{ route('cart.add') }}';
             var cartLoginUrl = loginUrl || ('{{ route('login') }}?intended={{ urlencode(route('cart')) }}');
             var isLoggedIn = {{ auth('customer')->check() ? 'true' : 'false' }};
@@ -1047,6 +1047,7 @@ window.addEventListener('resize', function () {
                     variant_id: variantId || null,
                     qty: qty || 1,
                     pair_type: pairType || 'single',
+                    custom_size_value: customSizeValue || null,
                 }),
             })
             .then(function (r) { return r.json(); })

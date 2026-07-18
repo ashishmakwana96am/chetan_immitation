@@ -125,8 +125,20 @@
                     if ($queryVariantId && $product->variants->isNotEmpty()) {
                         $activeVariant = $product->variants->firstWhere('id', $queryVariantId);
                     }
-                    $salePriceDisplay = $activeVariant ? $activeVariant->sale_price : $product->sale_price;
-                    $mrpDisplay = $activeVariant ? ($activeVariant->product->mrp ?? $product->mrp) : $product->mrp;
+                    $firstCustomSize = ($product->pair_product && $product->pair_mode === 'custom_size')
+                        ? ($product->custom_sizes[0] ?? null)
+                        : null;
+
+                    if ($activeVariant) {
+                        $salePriceDisplay = $activeVariant->sale_price;
+                        $mrpDisplay = $activeVariant->product->mrp ?? $product->mrp;
+                    } elseif ($firstCustomSize) {
+                        $salePriceDisplay = $firstCustomSize['sale_price'];
+                        $mrpDisplay = $firstCustomSize['mrp'];
+                    } else {
+                        $salePriceDisplay = $product->sale_price;
+                        $mrpDisplay = $product->mrp;
+                    }
                 @endphp
                 <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
                     <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
@@ -143,7 +155,25 @@
                     Inclusive of all taxes
                 </p>
 
-                @if($product->pair_product)
+                @if($product->pair_product && $product->pair_mode === 'custom_size')
+                <div class="flex items-center gap-4 mt-5 flex-wrap">
+                    <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">Pair:</span>
+                    <div id="customSizeToggle" class="flex flex-wrap gap-2">
+                        @foreach($product->custom_sizes ?? [] as $index => $sizeRow)
+                        <button type="button"
+                            data-value="{{ $sizeRow['size'] }}"
+                            data-price="{{ $sizeRow['sale_price'] }}"
+                            data-mrp="{{ $sizeRow['mrp'] }}"
+                            class="custom-size-btn px-4 py-1 text-sm font-semibold border"
+                            style="{{ $index === 0 ? 'background:#B4771E; color:#fff; border-color:#B4771E;' : 'background:#fff; color:#B4771E; border-color:#B4771E;' }} border-radius:6px; cursor:pointer;">
+                            {{ rtrim(rtrim(number_format((float) $sizeRow['size'], 2), '0'), '.') }} pcs
+                        </button>
+                        @endforeach
+                    </div>
+                    <input type="hidden" id="selectedPairType" value="single">
+                    <input type="hidden" id="selectedCustomSize" value="{{ $product->custom_sizes[0]['size'] ?? '' }}">
+                </div>
+                @elseif($product->pair_product)
                 @php
                     $singlePrice = (float) $product->sale_price;
                     $pairPrice   = (float) ($product->pair_sale_price ?? ($product->sale_price * 2));
@@ -459,6 +489,10 @@ function getMaxAllowedStock() {
         return stock;
     }
     let stock = parseInt('{{ $product->totalAvailableStock() }}') || 0;
+    const selectedCustomSize = document.getElementById('selectedCustomSize');
+    if (selectedCustomSize && parseFloat(selectedCustomSize.value) > 0) {
+        return Math.floor(stock / parseFloat(selectedCustomSize.value));
+    }
     const selectedPairType = document.getElementById('selectedPairType');
     if (selectedPairType && selectedPairType.value === 'pair') {
         return Math.floor(stock / 2);
@@ -777,6 +811,68 @@ if (minusBtn) {
 </script>
 
 <script>
+// ─── Detail page custom size toggle ──────────────────────────────────────────
+(function () {
+    var toggle = document.getElementById('customSizeToggle');
+    if (!toggle) return;
+
+    toggle.addEventListener('click', function (e) {
+        var btn = e.target.closest('.custom-size-btn');
+        if (!btn) return;
+
+        var value = btn.dataset.value;
+        var price = parseFloat(btn.dataset.price) || 0;
+        var mrp   = parseFloat(btn.dataset.mrp) || 0;
+
+        // Update hidden input
+        document.getElementById('selectedCustomSize').value = value;
+
+        // Check if current count exceeds stock
+        if (typeof window.getMaxAllowedStock === 'function') {
+            const maxStock = window.getMaxAllowedStock();
+            if (maxStock <= 0) {
+                window.setQtyCount(0);
+            } else {
+                const currentCount = window.getQtyCount();
+                if (currentCount <= 0) {
+                    window.setQtyCount(1);
+                } else if (currentCount > maxStock) {
+                    window.setQtyCount(maxStock);
+                }
+            }
+        }
+        if (typeof window.updateSoldOutState === 'function') {
+            window.updateSoldOutState();
+        }
+
+        // Update button styles
+        toggle.querySelectorAll('.custom-size-btn').forEach(function (b) {
+            if (b.dataset.value === value) {
+                b.style.background = '#B4771E';
+                b.style.color      = '#fff';
+            } else {
+                b.style.background = '#fff';
+                b.style.color      = '#B4771E';
+            }
+        });
+
+        // Update displayed price
+        var priceEl = document.getElementById('productSalePrice');
+        var mrpEl   = document.getElementById('productMrp');
+        if (priceEl) priceEl.textContent = fmtPrice(price);
+        if (mrpEl) {
+            if (mrp && mrp > price) {
+                mrpEl.textContent = fmtPrice(mrp);
+                mrpEl.style.display = '';
+            } else {
+                mrpEl.style.display = 'none';
+            }
+        }
+    });
+}());
+</script>
+
+<script>
 // ─── Detail page Add to Cart ──────────────────────────────────────────────────
 (function () {
     var addBtn = document.getElementById('addToCartBtn');
@@ -801,8 +897,10 @@ if (minusBtn) {
         var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
         var pairTypeInput = document.getElementById('selectedPairType');
         var pairType = pairTypeInput ? pairTypeInput.value : 'single';
+        var customSizeInput = document.getElementById('selectedCustomSize');
+        var customSizeValue = customSizeInput ? customSizeInput.value : null;
 
-        window.addToCart(productId, variantId, qty, addBtn, loginUrl, pairType);
+        window.addToCart(productId, variantId, qty, addBtn, loginUrl, pairType, customSizeValue);
     });
 }());
 </script>
@@ -1274,6 +1372,7 @@ Order Amount
         var qty       = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
         var addressId = selectedAddr.value;
         var pairType  = document.getElementById('selectedPairType')?.value || 'single';
+        var customSizeValue = document.getElementById('selectedCustomSize')?.value || null;
 
         var proceedBtn = document.getElementById('buyNowProceedBtn');
         proceedBtn.disabled = true;
@@ -1294,7 +1393,8 @@ Order Amount
                 product_id: productId,
                 variant_id: variantId || null,
                 qty: qty,
-                pair_type: pairType
+                pair_type: pairType,
+                custom_size_value: customSizeValue
             })
         })
         .then(function (r) {

@@ -78,6 +78,7 @@ class CartController extends Controller
                         'product_id'         => $productId,
                         'product_variant_id' => $variantId,
                         'pair_type'          => $itemData['pair_type'] ?? 'single',
+                        'custom_size_value'  => $itemData['custom_size_value'] ?? null,
                         'qty'                => $qty
                     ]);
                     $item->id = $index; // Use array index as item ID for guest actions
@@ -115,10 +116,11 @@ class CartController extends Controller
     public function add(Request $request)
     {
         $request->validate([
-            'product_id' => ['required', 'integer', 'exists:products,id'],
-            'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
-            'qty'        => ['nullable', 'integer', 'min:1'],
-            'pair_type'  => ['nullable', 'string', 'in:single,pair'],
+            'product_id'        => ['required', 'integer', 'exists:products,id'],
+            'variant_id'        => ['nullable', 'integer', 'exists:product_variants,id'],
+            'qty'               => ['nullable', 'integer', 'min:1'],
+            'pair_type'         => ['nullable', 'string', 'in:single,pair'],
+            'custom_size_value' => ['nullable', 'numeric'],
         ]);
 
         $customer  = $this->customer();
@@ -137,6 +139,14 @@ class CartController extends Controller
 
         // If not a pair product, force single
         if (!$product->pair_product) {
+            $pairType = 'single';
+        }
+
+        [$customSizeValue, $sizeError] = $this->resolveCustomSizeValue($product, $request->custom_size_value);
+        if ($sizeError) {
+            return response()->json(['status' => 'error', 'message' => $sizeError], 422);
+        }
+        if ($customSizeValue) {
             $pairType = 'single';
         }
 
@@ -159,31 +169,24 @@ class CartController extends Controller
                 ->where('product_variant_id', $variantId)
                 ->get();
             foreach ($cartItems as $cItem) {
-                $cartPcs += ($cItem->pair_type === 'pair') ? $cItem->qty * 2 : $cItem->qty;
+                $cartPcs += $this->stockMultiplier($product, $cItem->pair_type, $cItem->custom_size_value) * $cItem->qty;
             }
         } else {
             $guestCart = $this->getGuestCart($request);
             foreach ($guestCart as $cItem) {
                 if ($cItem['product_id'] === $productId && $cItem['variant_id'] === $variantId) {
-                    $cartPcs += (($cItem['pair_type'] ?? 'single') === 'pair') ? $cItem['qty'] * 2 : $cItem['qty'];
+                    $cartPcs += $this->stockMultiplier($product, $cItem['pair_type'] ?? 'single', $cItem['custom_size_value'] ?? null) * $cItem['qty'];
                 }
             }
         }
 
         // The proposed new addition Pcs
-        $newPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+        $unitPcs = $this->stockMultiplier($product, $pairType, $customSizeValue);
+        $newPcs  = $unitPcs * $qty;
 
         if (($cartPcs + $newPcs) > $availableStock) {
             $allowedPcs = $availableStock - $cartPcs;
-            if ($allowedPcs > 0) {
-                if ($pairType === 'pair') {
-                    $qty = (int) floor($allowedPcs / 2);
-                } else {
-                    $qty = $allowedPcs;
-                }
-            } else {
-                $qty = 0;
-            }
+            $qty = $allowedPcs > 0 ? (int) floor($allowedPcs / $unitPcs) : 0;
         }
 
         // Verify variant belongs to product
@@ -201,6 +204,7 @@ class CartController extends Controller
                     ->where('product_id', $productId)
                     ->where('product_variant_id', $variantId)
                     ->where('pair_type', $pairType)
+                    ->where('custom_size_value', $customSizeValue)
                     ->first();
 
                 if ($existing) {
@@ -216,6 +220,7 @@ class CartController extends Controller
                         'product_id'         => $productId,
                         'product_variant_id' => $variantId,
                         'pair_type'          => $pairType,
+                        'custom_size_value'  => $customSizeValue,
                         'qty'                => $qty,
                     ]);
                 }
@@ -225,7 +230,7 @@ class CartController extends Controller
 
                 $found = false;
                 foreach ($guestCart as &$item) {
-                    if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType) {
+                    if ($item['product_id'] === $productId && $item['variant_id'] === $variantId && ($item['pair_type'] ?? 'single') === $pairType && $this->sameSize($item['custom_size_value'] ?? null, $customSizeValue)) {
                         $item['qty'] += $qty;
                         $found = true;
                         break;
@@ -234,10 +239,11 @@ class CartController extends Controller
 
                 if (!$found) {
                     $guestCart[] = [
-                        'product_id' => $productId,
-                        'variant_id' => $variantId,
-                        'pair_type'  => $pairType,
-                        'qty'        => $qty,
+                        'product_id'        => $productId,
+                        'variant_id'        => $variantId,
+                        'pair_type'         => $pairType,
+                        'custom_size_value' => $customSizeValue,
+                        'qty'               => $qty,
                     ];
                 }
 
@@ -281,6 +287,7 @@ class CartController extends Controller
             $productId = $product->id;
             $variantId = $variant ? $variant->id : null;
             $pairType = $item->pair_type ?? 'single';
+            $customSizeValue = $item->custom_size_value;
 
             $availableStock = $product->totalAvailableStock($variantId);
 
@@ -292,22 +299,15 @@ class CartController extends Controller
                 ->get();
             foreach ($cartItems as $cItem) {
                 if ($cItem->id !== $item->id) {
-                    $otherCartPcs += ($cItem->pair_type === 'pair') ? $cItem->qty * 2 : $cItem->qty;
+                    $otherCartPcs += $this->stockMultiplier($product, $cItem->pair_type, $cItem->custom_size_value) * $cItem->qty;
                 }
             }
 
-            $proposedPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+            $unitPcs = $this->stockMultiplier($product, $pairType, $customSizeValue);
+            $proposedPcs = $unitPcs * $qty;
             if (($otherCartPcs + $proposedPcs) > $availableStock) {
                 $allowedPcs = $availableStock - $otherCartPcs;
-                if ($allowedPcs <= 0) {
-                    $qty = 0;
-                } else {
-                    if ($pairType === 'pair') {
-                        $qty = (int) floor($allowedPcs / 2);
-                    } else {
-                        $qty = $allowedPcs;
-                    }
-                }
+                $qty = $allowedPcs > 0 ? (int) floor($allowedPcs / $unitPcs) : 0;
             }
 
             if ($qty > 0) {
@@ -322,7 +322,9 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                    $price = $item->getPrice();
+                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                     $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
@@ -349,6 +351,7 @@ class CartController extends Controller
             $productId = $itemData['product_id'];
             $variantId = isset($itemData['variant_id']) && $itemData['variant_id'] !== '' ? (int) $itemData['variant_id'] : null;
             $pairType = $itemData['pair_type'] ?? 'single';
+            $customSizeValue = $itemData['custom_size_value'] ?? null;
 
             $product = Product::find($productId);
             $availableStock = $product->totalAvailableStock($variantId);
@@ -357,22 +360,15 @@ class CartController extends Controller
             $otherCartPcs = 0;
             foreach ($guestCart as $idx => $cItem) {
                 if ($idx !== $cartItemId && $cItem['product_id'] === $productId && $cItem['variant_id'] === $variantId) {
-                    $otherCartPcs += (($cItem['pair_type'] ?? 'single') === 'pair') ? $cItem['qty'] * 2 : $cItem['qty'];
+                    $otherCartPcs += $this->stockMultiplier($product, $cItem['pair_type'] ?? 'single', $cItem['custom_size_value'] ?? null) * $cItem['qty'];
                 }
             }
 
-            $proposedPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
+            $unitPcs = $this->stockMultiplier($product, $pairType, $customSizeValue);
+            $proposedPcs = $unitPcs * $qty;
             if (($otherCartPcs + $proposedPcs) > $availableStock) {
                 $allowedPcs = $availableStock - $otherCartPcs;
-                if ($allowedPcs <= 0) {
-                    $qty = 0;
-                } else {
-                    if ($pairType === 'pair') {
-                        $qty = (int) floor($allowedPcs / 2);
-                    } else {
-                        $qty = $allowedPcs;
-                    }
-                }
+                $qty = $allowedPcs > 0 ? (int) floor($allowedPcs / $unitPcs) : 0;
             }
 
             if ($qty > 0) {
@@ -390,7 +386,12 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                    $price = (new CartItem([
+                        'pair_type'         => $pairType,
+                        'custom_size_value' => $customSizeValue,
+                    ]))->setRelation('product', $product)->getPrice();
+                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                     $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
@@ -484,7 +485,9 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                if ($product->pair_mode === 'custom_size' && $item->custom_size_value) {
+                    $price = $item->getPrice();
+                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                     $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
@@ -516,13 +519,19 @@ class CartController extends Controller
             $variantId = isset($item['variant_id']) && $item['variant_id'] !== '' ? (int) $item['variant_id'] : null;
             $qty       = (int) ($item['qty'] ?? 1);
             $pairType  = $item['pair_type'] ?? 'single';
+            $customSizeValue = $item['custom_size_value'] ?? null;
 
             $product = Product::find($productId);
             if ($product) {
                 if ($variantId) {
                     $price = (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price;
                 } else {
-                    if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                    if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                        $price = (new CartItem([
+                            'pair_type'         => $pairType,
+                            'custom_size_value' => $customSizeValue,
+                        ]))->setRelation('product', $product)->getPrice();
+                    } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                         $price = (float) $product->pair_sale_price;
                     } else {
                         $price = (float) $product->sale_price;
@@ -548,5 +557,60 @@ class CartController extends Controller
             'shipping_label' => '₹0',
             'total'          => $total,
         ];
+    }
+
+    /**
+     * How many stock units one cart "qty" unit represents: a chosen custom
+     * size (e.g. 6 pcs) for custom_size-mode pair products, 2 for plain pair
+     * products bought as a pair, or 1 otherwise. Mirrors SaleController::stockMultiplierFor().
+     */
+    private function stockMultiplier(Product $product, ?string $pairType, $customSizeValue): float
+    {
+        if (!$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+            return (float) $customSizeValue;
+        }
+
+        return $pairType === 'pair' ? 2.0 : 1.0;
+    }
+
+    /**
+     * For custom_size-mode pair products, make sure the requested size
+     * matches one of the product's configured custom sizes. Mirrors
+     * SaleController::getCustomSizeError(). Returns [value, error].
+     */
+    private function resolveCustomSizeValue(Product $product, $requested): array
+    {
+        if (!$product->pair_product || $product->pair_mode !== 'custom_size') {
+            return [null, null];
+        }
+
+        $value = ($requested !== null && $requested !== '') ? (float) $requested : null;
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+
+        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            return [null, 'Please select a valid pair option for "' . $product->name . '".'];
+        }
+
+        return [$value, null];
+    }
+
+    /**
+     * Null-safe, float-tolerant comparison of two custom size values coming
+     * from session-stored guest cart data (which may be strings).
+     */
+    private function sameSize($a, $b): bool
+    {
+        if ($a === null || $a === '') {
+            return $b === null || $b === '';
+        }
+        if ($b === null || $b === '') {
+            return false;
+        }
+
+        return abs((float) $a - (float) $b) < 0.001;
     }
 }

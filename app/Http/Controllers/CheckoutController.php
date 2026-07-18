@@ -448,6 +448,7 @@ class CheckoutController extends Controller
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
             'pair_type'  => $item->pair_type ?? 'single',
+            'custom_size_value' => $item->custom_size_value,
         ])->all());
 
         $location = $fulfillment['location'];
@@ -507,6 +508,7 @@ class CheckoutController extends Controller
                         'product_id' => $item->product_id,
                         'variant_id' => $item->product_variant_id,
                         'pair_type'  => $item->pair_type ?? 'single',
+                        'custom_size_value' => $item->custom_size_value,
                         'quantity' => $item->qty,
                         'price' => $price,
                         'total' => $price * $item->qty,
@@ -609,6 +611,7 @@ class CheckoutController extends Controller
                         'product_id'         => $item['product_id'],
                         'product_variant_id' => $item['variant_id'] ?? null,
                         'pair_type'          => $item['pair_type'] ?? 'single',
+                        'custom_size_value'  => $item['custom_size_value'] ?? null,
                         'quantity'           => $item['quantity'],
                         'price'              => $item['price'],
                         'discount'           => 0.0,
@@ -616,7 +619,8 @@ class CheckoutController extends Controller
                     ]);
 
                     if ($isDefault) {
-                        $deductQty = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                        $itemProduct = Product::find($item['product_id']);
+                        $deductQty = $this->stockMultiplier($itemProduct, $item['pair_type'] ?? 'single', $item['custom_size_value'] ?? null) * $item['quantity'];
                         Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
@@ -687,6 +691,7 @@ class CheckoutController extends Controller
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'qty' => ['nullable', 'integer', 'min:1'],
             'pair_type' => ['nullable', 'string', 'in:single,pair'],
+            'custom_size_value' => ['nullable', 'numeric'],
         ]);
 
         if (! (bool) Setting::getValue('payment_method_razorpay', true)) {
@@ -734,20 +739,26 @@ class CheckoutController extends Controller
             $pairType = 'single';
         }
 
-        $neededPcs = ($pairType === 'pair') ? $qty * 2 : $qty;
-        if ($neededPcs > $availableStock) {
-            if ($pairType === 'pair') {
-                $allowedQty = (int) floor($availableStock / 2);
-                if ($allowedQty <= 0) {
-                    return response()->json(['status' => 'error', 'message' => 'Only ' . $availableStock . ' Pc(s) left in stock. Cannot purchase as a pair.'], 422);
-                }
-                return response()->json(['status' => 'error', 'message' => 'Only ' . $allowedQty . ' pair(s) are available in stock.'], 422);
-            } else {
-                return response()->json(['status' => 'error', 'message' => 'Only ' . $availableStock . ' Pc(s) are available in stock.'], 422);
-            }
+        [$customSizeValue, $sizeError] = $this->resolveCustomSizeValue($product, $request->custom_size_value);
+        if ($sizeError) {
+            return response()->json(['status' => 'error', 'message' => $sizeError], 422);
+        }
+        if ($customSizeValue) {
+            $pairType = 'single';
         }
 
-        // Calculate price based on pair_type
+        $unitPcs = $this->stockMultiplier($product, $pairType, $customSizeValue);
+        $neededPcs = $unitPcs * $qty;
+        if ($neededPcs > $availableStock) {
+            $allowedQty = (int) floor($availableStock / $unitPcs);
+            if ($allowedQty <= 0) {
+                return response()->json(['status' => 'error', 'message' => 'Only ' . $availableStock . ' Pc(s) left in stock.'], 422);
+            }
+            $unitLabel = $customSizeValue ? 'set(s)' : ($pairType === 'pair' ? 'pair(s)' : 'Pc(s)');
+            return response()->json(['status' => 'error', 'message' => 'Only ' . $allowedQty . ' ' . $unitLabel . ' are available in stock.'], 422);
+        }
+
+        // Calculate price based on pair_type / custom size
         if ($request->filled('variant_id')) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('status', 1)
@@ -757,8 +768,10 @@ class CheckoutController extends Controller
             }
             $price = $variant->sale_price;
         } else {
-            // Regular product: check pair_type
-            if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+            if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - $customSizeValue) < 0.001);
+                $price = $sizeRow['sale_price'] ?? $product->sale_price;
+            } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                 $price = $product->pair_sale_price;
             } else {
                 $price = $product->sale_price;
@@ -774,6 +787,7 @@ class CheckoutController extends Controller
             'variant_id' => $request->filled('variant_id') ? (int) $request->variant_id : null,
             'quantity'   => $qty,
             'pair_type'  => $pairType,
+            'custom_size_value' => $customSizeValue,
         ]]);
 
         $location = $fulfillment['location'];
@@ -826,6 +840,7 @@ class CheckoutController extends Controller
                     'product_id' => $product->id,
                     'variant_id' => $variantId,
                     'pair_type' => $pairType,
+                    'custom_size_value' => $customSizeValue,
                     'quantity' => $qty,
                     'price' => $price,
                     'total' => $price * $qty,
@@ -889,7 +904,7 @@ class CheckoutController extends Controller
             }
 
             $pairType = $item['pair_type'] ?? 'single';
-            $neededQty = ($pairType === 'pair') ? ((int) $item['quantity']) * 2 : (int) $item['quantity'];
+            $neededQty = $this->stockMultiplier($product, $pairType, $item['custom_size_value'] ?? null) * (int) $item['quantity'];
 
             if ($item['variant_id']) {
                 $stockData = $product->getVariantStock($locationId);
@@ -1168,6 +1183,7 @@ class CheckoutController extends Controller
             'variant_id' => $item->product_variant_id,
             'quantity'   => $item->qty,
             'pair_type'  => $item->pair_type ?? 'single',
+            'custom_size_value' => $item->custom_size_value,
         ])->all());
 
         $location = $fulfillment['location'];
@@ -1214,6 +1230,7 @@ class CheckoutController extends Controller
                         'product_id'         => $item->product_id,
                         'product_variant_id' => $item->product_variant_id,
                         'pair_type'          => $item->pair_type ?? 'single',
+                        'custom_size_value'  => $item->custom_size_value,
                         'quantity'           => $item->qty,
                         'price'              => $price,
                         'discount'           => 0.0,
@@ -1221,7 +1238,7 @@ class CheckoutController extends Controller
                     ]);
 
                     if ($hasStock) {
-                        $deductQty = ($item->pair_type === 'pair') ? $item->qty * 2 : $item->qty;
+                        $deductQty = $this->stockMultiplier($item->product, $item->pair_type ?? 'single', $item->custom_size_value) * $item->qty;
                         Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
@@ -1291,43 +1308,32 @@ class CheckoutController extends Controller
             $availableStock = $product->totalAvailableStock($variantId);
             $totalPcsNeeded = 0;
             foreach ($items as $item) {
-                $totalPcsNeeded += ($item->pair_type === 'pair') ? $item->qty * 2 : $item->qty;
+                $totalPcsNeeded += $this->stockMultiplier($product, $item->pair_type, $item->custom_size_value) * $item->qty;
             }
 
             if ($totalPcsNeeded > $availableStock) {
                 $adjusted = true;
                 $remainingStock = $availableStock;
 
-                // Sort items: let's loop and adjust
                 foreach ($items as $item) {
-                    $isPair = ($item->pair_type === 'pair');
-                    if ($isPair) {
-                        $allowedPairs = (int) floor($remainingStock / 2);
-                        if ($allowedPairs < $item->qty) {
-                            $oldQty = $item->qty;
-                            if ($allowedPairs > 0) {
-                                $item->update(['qty' => $allowedPairs]);
-                                $messages[] = "Quantity of '" . $product->name . "' (Pair) was reduced from " . $oldQty . " to " . $allowedPairs . " due to limited stock.";
-                            } else {
-                                $item->delete();
-                                $messages[] = "'" . $product->name . "' (Pair) was removed from your cart as it is out of stock.";
-                            }
+                    $unitPcs = $this->stockMultiplier($product, $item->pair_type, $item->custom_size_value);
+                    $allowedQty = $unitPcs > 0 ? (int) floor($remainingStock / $unitPcs) : $remainingStock;
+
+                    $label = $item->custom_size_value
+                        ? (rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') . ' pcs set')
+                        : (($item->pair_type === 'pair') ? 'Pair' : 'Pcs');
+
+                    if ($allowedQty < $item->qty) {
+                        $oldQty = $item->qty;
+                        if ($allowedQty > 0) {
+                            $item->update(['qty' => $allowedQty]);
+                            $messages[] = "Quantity of '" . $product->name . "' (" . $label . ") was reduced from " . $oldQty . " to " . $allowedQty . " due to limited stock.";
+                        } else {
+                            $item->delete();
+                            $messages[] = "'" . $product->name . "' (" . $label . ") was removed from your cart as it is out of stock.";
                         }
-                        $remainingStock -= ($item->qty * 2);
-                    } else {
-                        $allowedSingles = $remainingStock;
-                        if ($allowedSingles < $item->qty) {
-                            $oldQty = $item->qty;
-                            if ($allowedSingles > 0) {
-                                $item->update(['qty' => $allowedSingles]);
-                                $messages[] = "Quantity of '" . $product->name . "' (Pcs) was reduced from " . $oldQty . " to " . $allowedSingles . " due to limited stock.";
-                            } else {
-                                $item->delete();
-                                $messages[] = "'" . $product->name . "' (Pcs) was removed from your cart as it is out of stock.";
-                            }
-                        }
-                        $remainingStock -= $item->qty;
                     }
+                    $remainingStock -= $unitPcs * $item->qty;
                 }
             }
         }
@@ -1336,5 +1342,45 @@ class CheckoutController extends Controller
             'adjusted' => $adjusted,
             'messages' => $messages,
         ];
+    }
+
+    /**
+     * How many stock units one order "quantity" unit represents: a chosen
+     * custom size (e.g. 6 pcs) for custom_size-mode pair products, 2 for
+     * plain pair products bought as a pair, or 1 otherwise. Mirrors
+     * SaleController::stockMultiplierFor() / CartController::stockMultiplier().
+     */
+    private function stockMultiplier(Product $product, ?string $pairType, $customSizeValue): float
+    {
+        if (!$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+            return (float) $customSizeValue;
+        }
+
+        return $pairType === 'pair' ? 2.0 : 1.0;
+    }
+
+    /**
+     * For custom_size-mode pair products, make sure the requested size
+     * matches one of the product's configured custom sizes. Mirrors
+     * SaleController::getCustomSizeError(). Returns [value, error].
+     */
+    private function resolveCustomSizeValue(Product $product, $requested): array
+    {
+        if (!$product->pair_product || $product->pair_mode !== 'custom_size') {
+            return [null, null];
+        }
+
+        $value = ($requested !== null && $requested !== '') ? (float) $requested : null;
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+
+        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            return [null, 'Please select a valid pair option for "' . $product->name . '".'];
+        }
+
+        return [$value, null];
     }
 }

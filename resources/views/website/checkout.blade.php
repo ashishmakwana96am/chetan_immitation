@@ -457,20 +457,24 @@
                                     $product  = $item->product;
                                     $variant  = $item->productVariant;
                                     $pairType = $item->pair_type ?? 'single';
-                                    
+                                    $isCustomSize = $product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value;
+
                                     if ($variant) {
                                         $price = (float) $variant->sale_price;
                                         $mrp = (float) $product->mrp;
                                     } else {
-                                        if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
+                                        if ($isCustomSize) {
+                                            $price = $item->getPrice();
+                                            $mrp = $item->getMrp();
+                                        } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
                                             $price = (float) $product->pair_sale_price;
                                             $mrp = (float) ($product->pair_mrp ?: $product->mrp);
-                                    } else {
-                                        $price = (float) $product->sale_price;
-                                        $mrp = (float) $product->mrp;
+                                        } else {
+                                            $price = (float) $product->sale_price;
+                                            $mrp = (float) $product->mrp;
                                         }
                                     }
-                                    
+
                                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
                                     $detailUrl = route('product.detail', $product->slug);
                                     if ($variant) {
@@ -555,7 +559,12 @@
                                                             <span class="text-[#757575] ml-2">{{ $labelVal }}</span>
                                                         </p>
                                                         @endif
-                                                        @if($product->pair_product)
+                                                        @if($isCustomSize)
+                                                        <p class="text-base flex flex-wrap">
+                                                            <span class="font-medium text-[#131615] w-[120px]">Pair:</span>
+                                                            <span class="text-[#757575] ml-2">{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }} pcs</span>
+                                                        </p>
+                                                        @elseif($product->pair_product)
                                                         <p class="text-base flex flex-wrap">
                                                             <span class="font-medium text-[#131615] w-[120px]">Type:</span>
                                                             <span class="text-[#757575] ml-2">{{ $pairType === 'pair' ? 'Pairs' : 'Pcs' }}</span>
@@ -577,8 +586,12 @@
                                                                 {{ $item->qty }}
                                                             </span>
                                                         </div>
-                                                        <span class="text-sm font-medium {{ ($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : 'text-[#757575]' }}">
-                                                            {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                                                        <span class="text-sm font-medium {{ $isCustomSize ? 'text-[#B4771E]' : (($item->pair_type ?? 'single') === 'pair' ? 'text-[#B4771E]' : 'text-[#757575]') }}">
+                                                            @if($isCustomSize)
+                                                                Pair
+                                                            @else
+                                                                {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                                                            @endif
                                                         </span>
                                                     </div>
                                                 </div>

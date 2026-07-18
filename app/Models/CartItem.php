@@ -13,8 +13,16 @@ class CartItem extends Model
         'product_id',
         'product_variant_id',
         'pair_type',
+        'custom_size_value',
         'qty',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'custom_size_value' => 'decimal:2',
+        ];
+    }
 
     public function customer()
     {
@@ -51,6 +59,13 @@ class CartItem extends Model
             return (float) $variant->sale_price;
         }
 
+        if ($product->pair_product && $product->pair_mode === 'custom_size' && $this->custom_size_value) {
+            $sizeRow = $this->matchingCustomSize($product);
+            if ($sizeRow) {
+                return (float) $sizeRow['sale_price'];
+            }
+        }
+
         // Regular product: check if pair_type is 'pair' and pair pricing exists
         if ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
             return (float) $product->pair_sale_price;
@@ -79,11 +94,35 @@ class CartItem extends Model
             return (float) $product->mrp;
         }
 
+        if ($product->pair_product && $product->pair_mode === 'custom_size' && $this->custom_size_value) {
+            $sizeRow = $this->matchingCustomSize($product);
+            if ($sizeRow) {
+                return (float) $sizeRow['mrp'];
+            }
+        }
+
         // Regular product: check if pair_type is 'pair' and pair MRP exists
         if ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {
             return (float) $product->pair_mrp;
         }
 
         return (float) $product->mrp;
+    }
+
+    /**
+     * Find the configured custom-size row (size/sale_price/mrp) matching this
+     * cart item's chosen size, using the same 0.001 tolerance as SaleController.
+     */
+    private function matchingCustomSize(Product $product): ?array
+    {
+        $value = (float) $this->custom_size_value;
+
+        foreach ($product->custom_sizes ?? [] as $row) {
+            if (abs((float) ($row['size'] ?? 0) - $value) < 0.001) {
+                return $row;
+            }
+        }
+
+        return null;
     }
 }

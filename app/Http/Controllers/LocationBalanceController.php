@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Location;
+use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,9 +85,9 @@ class LocationBalanceController extends Controller
 
         try {
             $newBalance = DB::transaction(function () use ($request, $location, $balanceColumn) {
-                $locked = Location::where('id', $location->id)->lockForUpdate()->firstOrFail();
+                $lockedBalance = LocationBalance::where('location_id', $location->id)->lockForUpdate()->firstOrFail();
 
-                $currentBalance = (float) $locked->{$balanceColumn};
+                $currentBalance = (float) $lockedBalance->{$balanceColumn};
                 $amount = (float) $request->amount;
 
                 $newBalance = $request->type === LocationBalanceTransaction::TYPE_CREDIT
@@ -97,7 +98,7 @@ class LocationBalanceController extends Controller
                     throw new \RuntimeException('insufficient_balance');
                 }
 
-                $locked->update([$balanceColumn => $newBalance]);
+                $lockedBalance->update([$balanceColumn => $newBalance]);
 
                 LocationBalanceTransaction::create([
                     'location_id'   => $location->id,

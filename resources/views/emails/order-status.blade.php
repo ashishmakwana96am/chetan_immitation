@@ -117,7 +117,14 @@
                 @foreach($order->items as $item)
                 <tr style="border-bottom:1px solid #e8e8e8;background:#ffffff;">
                     <td style="padding:12px 12px;font-size:14px;color:#131615;">{{ $item->product->name }}</td>
-                    <td style="padding:12px 12px;text-align:center;font-size:14px;color:#3D403F;">{{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</td>
+                    <td style="padding:12px 12px;text-align:center;font-size:14px;color:#3D403F;">
+                        {{ $item->quantity }}
+                        @if($item->product && $item->product->pair_product && $item->product->pair_mode === 'custom_size' && $item->custom_size_value)
+                            {{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }} pcs Pair
+                        @else
+                            {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                        @endif
+                    </td>
                     <td style="padding:12px 12px;text-align:right;font-size:14px;font-weight:600;color:#131615;">₹{{ number_format($item->total, 0) }}</td>
                 </tr>
                 @endforeach

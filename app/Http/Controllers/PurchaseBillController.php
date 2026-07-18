@@ -316,9 +316,9 @@ class PurchaseBillController extends Controller
                     ? 'bank_balance'
                     : 'cash_balance';
 
-                $fromLocation = Location::where('id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
-                $newFromBalance = (float) $fromLocation->{$balanceCol} + $totalAmount;
-                $fromLocation->update([$balanceCol => $newFromBalance]);
+                $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
+                $newFromBalance = (float) $fromBalance->{$balanceCol} + $totalAmount;
+                $fromBalance->update([$balanceCol => $newFromBalance]);
 
                 \App\Models\LocationBalanceTransaction::create([
                     'location_id'   => $purchaseBill->from_location_id,
@@ -330,9 +330,9 @@ class PurchaseBillController extends Controller
                     'created_by'    => auth()->id(),
                 ]);
 
-                $toLocation = Location::where('id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
-                $newToBalance = (float) $toLocation->{$balanceCol} - $totalAmount;
-                $toLocation->update([$balanceCol => $newToBalance]);
+                $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
+                $newToBalance = (float) $toBalance->{$balanceCol} - $totalAmount;
+                $toBalance->update([$balanceCol => $newToBalance]);
 
                 \App\Models\LocationBalanceTransaction::create([
                     'location_id'   => $purchaseBill->to_location_id,
