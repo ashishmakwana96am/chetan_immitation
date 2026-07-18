@@ -103,6 +103,15 @@
         text-align: right;
         flex: 1 1 auto;
     }
+
+    /* Custom size selector */
+    .size-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; margin-top: .35rem; }
+    .size-toggle .size-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
+    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -421,6 +430,9 @@ $(document).ready(function () {
                 'type' => $p->type,
                 'purchase_price' => $p->purchase_price,
                 'image' => $p->primary_image_url,
+                'pair_product' => (bool) $p->pair_product,
+                'pair_mode' => $p->pair_mode,
+                'custom_sizes' => $p->custom_sizes ?? [],
             ];
             if ($p->type === 'variable') {
                 $data['variants'] = $p->variants->filter(function($v) {
@@ -592,7 +604,7 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -607,6 +619,21 @@ $(document).ready(function () {
 
         row.data('product', product);
         row.data('index', itemIndex);
+
+        if (product.pair_product) {
+            row.find('.pair-product-badge').removeClass('d-none');
+        }
+
+        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            let sizeHtml = `<div class="size-toggle" data-selected="${selectedCustomSize || ''}">`;
+            product.custom_sizes.forEach(cs => {
+                const active = selectedCustomSize && selectedCustomSize == cs.size ? 'active' : '';
+                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
+            });
+            sizeHtml += `</div>`;
+            row.find('.size-select-container').html(sizeHtml);
+            row.data('custom-size-value', selectedCustomSize || '');
+        }
 
         if (product.type === 'variable') {
             // Build variant select dropdown
@@ -667,6 +694,14 @@ $(document).ready(function () {
         updateGrandTotal();
     });
 
+    $(document).on('click', '.size-btn', function () {
+        const row = $(this).closest('.item-row');
+        const toggle = $(this).closest('.size-toggle');
+        toggle.find('.size-btn').removeClass('active');
+        $(this).addClass('active');
+        row.data('custom-size-value', $(this).data('value'));
+    });
+
     // Remove Item Row
     $(document).on('click', '.remove-item-btn', function () {
         const row = $(this).closest('.item-row');
@@ -706,10 +741,10 @@ $(document).ready(function () {
                 }
 
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal);
+                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value);
             }
         });
     }
@@ -970,6 +1005,22 @@ $(document).ready(function () {
             return;
         }
 
+        let sizeMissing = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const qty = parseInt(row.find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+            const product = row.data('product');
+            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.data('custom-size-value')) {
+                sizeMissing = true;
+            }
+        });
+
+        if (sizeMissing) {
+            toastr.error('Please select a size for each pair product before saving.');
+            return;
+        }
+
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.select2-container .select2-selection').css('border-color', '');
@@ -995,12 +1046,14 @@ $(document).ready(function () {
             if (qty <= 0) return; // skip rows with 0 qty
 
             const variantId = row.data('variant-id') || '';
+            const customSizeValue = row.data('custom-size-value') || '';
             const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);

@@ -552,9 +552,9 @@
         <thead>
             <tr>
                 <th style="width:4%;">#</th>
-                <th style="width:50%;">Product</th>
+                <th style="width:44%;">Product</th>
                 <th class="text-right" style="width:12%;">Price</th>
-                <th class="text-right" style="width:8%;">Qty</th>
+                <th class="text-right" style="width:14%;">Qty</th>
                 <th class="text-right" style="width:14%;">Discount</th>
                 <th class="text-right" style="width:12%;">Total</th>
             </tr>
@@ -573,9 +573,13 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_price($item->price) }}</td>
-                    <td class="text-right">
+                    <td class="text-right" style="white-space: nowrap;">
                         {{ $item->quantity }}
-                        {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                        @if($item->custom_size_value)
+                            &times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs
+                        @else
+                            {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                        @endif
                     </td>
                     <td class="text-right">
                         @if($item->discount_amount > 0)

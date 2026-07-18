@@ -13,6 +13,7 @@ class OrderItem extends Model
         'product_id',
         'product_variant_id',
         'pair_type',
+        'custom_size_value',
         'quantity',
         'price',
         'discount_type',
@@ -27,6 +28,7 @@ class OrderItem extends Model
             'price' => 'decimal:2',
             'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'custom_size_value' => 'decimal:2',
             'total' => 'decimal:2',
         ];
     }

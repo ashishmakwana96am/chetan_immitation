@@ -103,6 +103,15 @@
         text-align: right;
         flex: 1 1 auto;
     }
+
+    /* Custom size selector */
+    .size-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; margin-top: .35rem; }
+    .size-toggle .size-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
+    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -609,15 +618,14 @@ $(document).ready(function () {
         }
 
         if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
-            let sizeHtml = `<select class="form-select form-select-sm custom-size-select mt-2 no-select2">`;
-            sizeHtml += `<option value="">Select Size</option>`;
+            let sizeHtml = `<div class="size-toggle" data-selected="${selectedCustomSize || ''}">`;
             product.custom_sizes.forEach(cs => {
-                const selected = selectedCustomSize && selectedCustomSize == cs.size ? 'selected' : '';
-                sizeHtml += `<option value="${cs.size}" ${selected}>${cs.size} pcs</option>`;
+                const active = selectedCustomSize && selectedCustomSize == cs.size ? 'active' : '';
+                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
             });
-            sizeHtml += `</select>`;
+            sizeHtml += `</div>`;
             row.find('.size-select-container').html(sizeHtml);
-            row.data('custom-size-value', row.find('.custom-size-select').val() || '');
+            row.data('custom-size-value', selectedCustomSize || '');
         }
 
         if (product.type === 'variable') {
@@ -679,9 +687,12 @@ $(document).ready(function () {
         updateGrandTotal();
     });
 
-    $(document).on('change', '.custom-size-select', function () {
+    $(document).on('click', '.size-btn', function () {
         const row = $(this).closest('.item-row');
-        row.data('custom-size-value', $(this).val() || '');
+        const toggle = $(this).closest('.size-toggle');
+        toggle.find('.size-btn').removeClass('active');
+        $(this).addClass('active');
+        row.data('custom-size-value', $(this).data('value'));
     });
 
     // Remove Item Row
@@ -825,7 +836,6 @@ $(document).ready(function () {
         const finalAmount = itemsTotal - orderDiscountAmount;
         const totalDiscount = discountSum + orderDiscountAmount;
 
-        // GST Calculation
         const isGst = $('#is_gst_switch').is(':checked');
         const storeState = @json(strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat'))));
         const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
@@ -953,9 +963,6 @@ $(document).ready(function () {
             .show();
     }
 
-    // -------------------------------------------------------
-    // Submit
-    // -------------------------------------------------------
     $('#purchaseForm').on('submit', function (e) {
         e.preventDefault();
 
@@ -977,13 +984,13 @@ $(document).ready(function () {
             const qty = parseInt(row.find('.item-qty').val()) || 0;
             if (qty <= 0) return;
             const product = row.data('product');
-            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.find('.custom-size-select').val()) {
+            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.data('custom-size-value')) {
                 sizeMissing = true;
             }
         });
 
         if (sizeMissing) {
-            toastr.error('Please select a size for every custom-size pair product.');
+            toastr.error('Please select a size for each pair product before saving.');
             return;
         }
 
@@ -992,27 +999,23 @@ $(document).ready(function () {
         form.find('.select2-container .select2-selection').css('border-color', '');
         form.find('.invalid-feedback').text('').hide();
 
-        // Remove any previously appended hidden mapping container
         $('#hiddenSubmitContainer').remove();
 
-        // Create a container for our mapped inputs
         const hiddenContainer = $('<div id="hiddenSubmitContainer" style="display: none;"></div>');
         form.append(hiddenContainer);
 
-        // Disable all inputs in the visible table so they are NOT serialized
         const visibleInputs = $('#itemsTable').find('input, select');
         visibleInputs.prop('disabled', true);
 
-        // Submit each visible row separately so variant quantities and allocations stay independent.
         let submitIdx = 0;
         $('.item-row').each(function() {
             const row = $(this);
             const product = row.data('product');
             const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return; // skip rows with 0 qty
+            if (qty <= 0) return;
 
             const variantId = row.data('variant-id') || '';
-            const customSizeValue = row.find('.custom-size-select').val() || '';
+            const customSizeValue = row.data('custom-size-value') || '';
             const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;

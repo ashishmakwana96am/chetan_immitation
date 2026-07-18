@@ -109,6 +109,15 @@
     }
     .pair-type-toggle .pair-btn + .pair-btn { border-left: 1.5px solid #B4771E; }
     .pair-type-toggle .pair-btn.active { background: #B4771E; color: #fff; }
+
+    /* Custom size selector */
+    .size-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; }
+    .size-toggle .size-btn {
+        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
+        background: #fff; color: #B4771E; transition: background .15s, color .15s;
+    }
+    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
+    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -367,6 +376,7 @@
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
                 <input type="hidden" name="items[__INDEX__][pair_type]" class="pair-type-input" value="single">
+                <input type="hidden" name="items[__INDEX__][custom_size_value]" class="custom-size-value-input" value="">
                 <div class="invalid-feedback"></div>
             </td>
             <td class="align-middle">
@@ -426,7 +436,7 @@ $(document).ready(function () {
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
 
-        if (product && product.pair_product && !isPair) {
+        if (product && product.pair_product && product.pair_mode !== 'custom_size' && !isPair) {
             purchasePrice = purchasePrice / 2;
         }
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
@@ -576,7 +586,7 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single') {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single', customSizeValue = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -622,8 +632,21 @@ $(document).ready(function () {
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
-        // Pair product selector
-        if (product.pair_product) {
+        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            let sizeHtml = `<div class="size-toggle mt-1">`;
+            product.custom_sizes.forEach(cs => {
+                const active = customSizeValue && customSizeValue == cs.size ? 'active' : '';
+                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}">${cs.size} pcs</button>`;
+            });
+            sizeHtml += `</div>`;
+            row.find('.pair-type-container').html(sizeHtml);
+            row.find('.custom-size-value-input').val(customSizeValue || '');
+
+            const matchedSize = customSizeValue ? product.custom_sizes.find(cs => cs.size == customSizeValue) : null;
+            if (matchedSize && price == null) {
+                setItemPrice(row, matchedSize.sale_price);
+            }
+        } else if (product.pair_product) {
             const singlePrice = product.single_price != null ? product.single_price : 0;
             const pairPrice   = product.pair_price != null ? product.pair_price : 0;
             const pairHtml = `
@@ -634,7 +657,7 @@ $(document).ready(function () {
             row.find('.pair-type-container').html(pairHtml);
             row.find('.pair-type-input').val(pairType);
             // Set correct price immediately
-            row.find('.item-price').val(pairType === 'pair' ? pairPrice : singlePrice);
+            setItemPrice(row, pairType === 'pair' ? pairPrice : singlePrice);
         }
 
         row.find('.item-qty').val(qty);
@@ -675,7 +698,20 @@ $(document).ready(function () {
         const price = selected === 'pair'
             ? parseFloat(toggle.data('pair-price'))
             : parseFloat(toggle.data('single-price'));
-        row.find('.item-price').val(price);
+        setItemPrice(row, price);
+        updateRowTotal(row);
+        updateStockInfo(row);
+        updateSummary();
+    });
+
+    // Custom size toggle
+    $(document).on('click', '.size-btn', function () {
+        const toggle = $(this).closest('.size-toggle');
+        const row = $(this).closest('.item-row');
+        toggle.find('.size-btn').removeClass('active');
+        $(this).addClass('active');
+        row.find('.custom-size-value-input').val($(this).data('value'));
+        setItemPrice(row, parseFloat($(this).data('price')) || 0);
         updateRowTotal(row);
         updateStockInfo(row);
         updateSummary();
@@ -714,6 +750,7 @@ $(document).ready(function () {
         const variantId = row.attr('data-variant-id') || row.data('variant-id');
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
+        const customSizeValue = parseFloat(row.find('.custom-size-value-input').val()) || 0;
 
         if (!productId || !product) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').hide();
@@ -732,6 +769,9 @@ $(document).ready(function () {
         }
         function displayQtyAt(locId) {
             const raw = rawQtyAt(locId);
+            if (product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+                return Math.floor(raw / customSizeValue);
+            }
             return (product.pair_product && isPair) ? Math.floor(raw / 2) : raw;
         }
 
@@ -1025,6 +1065,22 @@ $(document).ready(function () {
             return;
         }
 
+        let sizeMissing = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const qty = parseInt(row.find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+            const product = row.data('product');
+            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.find('.custom-size-value-input').val()) {
+                sizeMissing = true;
+            }
+        });
+
+        if (sizeMissing) {
+            toastr.error('Please select a size for each pair product before saving.');
+            return;
+        }
+
         const discountError = validateDiscounts();
         if (discountError) {
             toastr.error(discountError);
@@ -1059,6 +1115,7 @@ $(document).ready(function () {
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${row.find('.custom-size-value-input').val() || ''}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${price}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);

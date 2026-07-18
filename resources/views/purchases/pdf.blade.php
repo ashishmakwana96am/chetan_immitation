@@ -243,9 +243,13 @@
                         @endif
                     </td>
                     <td class="text-right">{{ format_price($item->purchase_price) }}</td>
-                    <td class="text-right">
+                    <td class="text-right" style="white-space: nowrap;">
                         {{ $item->quantity }}
-                        {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                        @if($item->custom_size_value)
+                            &times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs
+                        @else
+                            {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                        @endif
                     </td>
                     <td class="text-right">
                         @if($item->discount_value > 0)

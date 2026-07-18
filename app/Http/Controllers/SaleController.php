@@ -275,6 +275,8 @@ class SaleController extends Controller
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'pair_product'    => (bool) $p->pair_product,
+                'pair_mode'       => $p->pair_mode,
+                'custom_sizes'    => $p->custom_sizes ?? [],
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
@@ -346,6 +348,7 @@ class SaleController extends Controller
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value'  => ['nullable', 'numeric', 'min:0.01'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
             'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
@@ -372,6 +375,14 @@ class SaleController extends Controller
         }
 
         $isApprove = ($request->status ?? 2) == 2;
+
+        $customSizeError = $this->getCustomSizeError($request->items);
+        if ($customSizeError) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['items' => [$customSizeError]],
+            ], 422);
+        }
 
         $minPriceError = $this->getMinPriceError(
             $request->items,
@@ -425,6 +436,7 @@ class SaleController extends Controller
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
                     'pair_type'          => $itemData['pair_type'] ?? 'single',
+                    'custom_size_value'  => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -493,6 +505,7 @@ class SaleController extends Controller
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
                     'pair_type'          => $item['pair_type'],
+                    'custom_size_value'  => $item['custom_size_value'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -502,7 +515,7 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                    $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                     $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
                 }
             }
@@ -689,6 +702,8 @@ class SaleController extends Controller
                 'type'            => $p->type,
                 'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
                 'pair_product'    => (bool) $p->pair_product,
+                'pair_mode'       => $p->pair_mode,
+                'custom_sizes'    => $p->custom_sizes ?? [],
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
                 'pair_price'      => $p->pair_sale_price,
@@ -734,6 +749,7 @@ class SaleController extends Controller
                 'product_id'         => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'pair_type'          => $item->pair_type ?? 'single',
+                'custom_size_value'  => $item->custom_size_value,
                 'price'              => $item->price,
                 'quantity'           => $item->quantity,
                 'discount_type'      => $item->discount_type ?? 'flat',
@@ -780,6 +796,7 @@ class SaleController extends Controller
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value'  => ['nullable', 'numeric', 'min:0.01'],
             'items.*.quantity'           => ['required', 'integer', 'min:1'],
             'items.*.price'              => ['required', 'numeric', 'min:0.01'],
             'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
@@ -803,6 +820,14 @@ class SaleController extends Controller
         }
 
         $isApprove = ($request->status ?? 2) == 2;
+
+        $customSizeError = $this->getCustomSizeError($request->items);
+        if ($customSizeError) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => ['items' => [$customSizeError]],
+            ], 422);
+        }
 
         $minPriceError = $this->getMinPriceError(
             $request->items,
@@ -867,6 +892,7 @@ class SaleController extends Controller
                     'product_id'         => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
                     'pair_type'          => $itemData['pair_type'] ?? 'single',
+                    'custom_size_value'  => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                     'quantity'           => $qty,
                     'price'              => $price,
                     'discount_type'      => $discType,
@@ -937,6 +963,7 @@ class SaleController extends Controller
                     'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
                     'pair_type'          => $item['pair_type'],
+                    'custom_size_value'  => $item['custom_size_value'],
                     'quantity'           => $item['quantity'],
                     'price'              => $item['price'],
                     'discount_type'      => $item['discount_type'],
@@ -946,7 +973,7 @@ class SaleController extends Controller
                 ]);
 
                 if ($isApprove) {
-                    $stockDeduct = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+                    $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                     $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
                 }
             }
@@ -1072,7 +1099,7 @@ class SaleController extends Controller
 
                             // Deduct stock
                             foreach ($sale->items as $item) {
-                                $stockDeduct = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                                $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
                             }
                         }
@@ -1080,7 +1107,7 @@ class SaleController extends Controller
                         elseif ($oldInDeducted && !$newInDeducted) {
                             // Restore stock
                             foreach ($sale->items as $item) {
-                                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                                $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
                             }
                         }
@@ -1232,6 +1259,52 @@ class SaleController extends Controller
         ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $description);
     }
 
+    /**
+     * How many stock units one sold "quantity" unit represents: a chosen
+     * custom size (e.g. 6 pcs) for custom_size-mode pair products, 2 for
+     * plain pair products sold as a pair, or 1 otherwise.
+     */
+    private function stockMultiplierFor(int $productId, ?string $pairType, ?float $customSizeValue): float
+    {
+        $product = Product::find($productId);
+
+        if (!$product || !$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+            return $customSizeValue;
+        }
+
+        return $pairType === 'pair' ? 2.0 : 1.0;
+    }
+
+    /**
+     * For custom_size-mode pair products, make sure the sale line picked a
+     * size that matches one of the product's configured custom sizes.
+     */
+    private function getCustomSizeError(iterable $items): ?string
+    {
+        foreach ($items as $itemData) {
+            $productId = is_array($itemData) ? $itemData['product_id'] : $itemData->product_id;
+            $customSizeValue = is_array($itemData) ? ($itemData['custom_size_value'] ?? null) : ($itemData->custom_size_value ?? null);
+
+            $product = Product::find($productId);
+            if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+                continue;
+            }
+
+            $value = ($customSizeValue !== null && $customSizeValue !== '') ? (float) $customSizeValue : null;
+            $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+
+            if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+                return 'Please select a valid size for "' . $product->name . '".';
+            }
+        }
+
+        return null;
+    }
+
     private function getStockError(iterable $items, int $locationId): ?string
     {
         $requested = [];
@@ -1244,9 +1317,9 @@ class SaleController extends Controller
             $variantId = $variantId ? (int) $variantId : null;
             $quantity  = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
             $pairType  = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
+            $customSizeValue = is_array($item) ? ($item['custom_size_value'] ?? null) : ($item->custom_size_value ?? null);
 
-            // pair items consume 2× stock
-            $stockQty = ($pairType === 'pair') ? $quantity * 2 : $quantity;
+            $stockQty = (int) round($quantity * $this->stockMultiplierFor($productId, $pairType, $customSizeValue ? (float) $customSizeValue : null));
 
             $key = $productId . ':' . ($variantId ?? 0);
 
@@ -1353,7 +1426,7 @@ class SaleController extends Controller
             }
 
             $pairType = is_array($itemData) ? ($itemData['pair_type'] ?? 'single') : ($itemData->pair_type ?? 'single');
-            if ($product && $product->pair_product && $pairType === 'single') {
+            if ($product && $product->pair_product && $product->pair_mode !== 'custom_size' && $pairType === 'single') {
                 $purchasePrice = $purchasePrice / 2;
             }
 
@@ -1471,7 +1544,7 @@ class SaleController extends Controller
 
             // Restore Stock/Inventory
             foreach ($sale->items as $item) {
-                $stockRestore = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                 Inventory::where('product_id', $item->product_id)
                     ->where('location_id', $sale->location_id)
                     ->increment('quantity', $stockRestore);

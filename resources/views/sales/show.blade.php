@@ -456,7 +456,9 @@
                                     <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
                                     <td class="text-end text-nowrap small">
                                         {{ $item->quantity }}
-                                        @if($item->pair_type === 'pair')
+                                        @if($item->custom_size_value)
+                                            <small class="text-muted">&times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs</small>
+                                        @elseif($item->pair_type === 'pair')
                                             <small class="text-muted">Pairs</small>
                                         @else
                                             <small class="text-muted">Pcs</small>
@@ -478,6 +480,10 @@
                             @endforeach
                         </tbody>
                         <tfoot>
+                            <tr class="table-light">
+                                <td colspan="5" class="text-end tfoot-label">Total Items</td>
+                                <td class="text-end tfoot-amount">{{ $order->items->sum('quantity') }}</td>
+                            </tr>
                             <tr class="table-light">
                                 <td colspan="5" class="text-end tfoot-label">Subtotal</td>
                                 <td class="text-end tfoot-amount">{{ format_price($subtotal) }}</td>

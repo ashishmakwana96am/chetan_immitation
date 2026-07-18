@@ -234,9 +234,9 @@
             <thead>
                 <tr style="border-bottom: 1px solid #000;">
                     <th style="text-align: left; padding-bottom: 3px; font-weight: bold; border: none;">ITEM NAME</th>
-                    <th style="text-align: center; padding-bottom: 3px; font-weight: bold; width: 12%; border: none;">Qty</th>
-                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 22%; border: none;">Rate</th>
-                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 22%; border: none;">Amount</th>
+                    <th style="text-align: center; padding-bottom: 3px; font-weight: bold; width: 24%; border: none;">Qty</th>
+                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 20%; border: none;">Rate</th>
+                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 20%; border: none;">Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -245,8 +245,13 @@
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
                             {{ $item->product?->category?->name ?? '-' }}
                         </td>
-                        <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none;">
-                            {{ $item->quantity }} {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                        <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none; white-space: nowrap;">
+                            {{ $item->quantity }}
+                            @if($item->custom_size_value)
+                                &times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs
+                            @else
+                                {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                            @endif
                         </td>
                         <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
                             {{ number_format($item->price, 2) }}

@@ -278,7 +278,9 @@
                                     <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
                                     <td class="text-end text-nowrap small">
                                         {{ $displayQty }}
-                                        @if($item->product?->pair_product)
+                                        @if($item->custom_size_value)
+                                            <small class="text-muted">&times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs</small>
+                                        @elseif($item->product?->pair_product)
                                             <small class="text-muted">Pairs</small>
                                         @else
                                             <small class="text-muted">Pcs</small>
@@ -310,6 +312,7 @@
                             @php
                                 $totalSubtotal = 0;
                                 $totalItemDiscount = 0;
+                                $totalQty = 0;
                                 foreach($purchase->items as $item) {
                                     if ($isRestricted && $locationId) {
                                         $myAlloc = $item->allocations->firstWhere('location_id', $locationId);
@@ -317,6 +320,7 @@
                                     } else {
                                         $dq = $item->quantity;
                                     }
+                                    $totalQty += $dq;
                                     $sub = $item->purchase_price * $dq;
                                     $totalSubtotal += $sub;
 
@@ -353,6 +357,11 @@
                                 $grandTotal = $taxableAmount + $taxAmount;
                             @endphp
 
+                            <tr>
+                                <td colspan="5" class="text-end fw-semibold text-muted">Total Items</td>
+                                <td class="text-end fw-semibold text-muted">{{ $totalQty }}</td>
+                                <td></td>
+                            </tr>
                             @if($totalItemDiscount > 0 || $overallDiscAmount > 0)
                                 <tr>
                                     <td colspan="5" class="text-end fw-semibold text-muted">Subtotal</td>
