@@ -1181,8 +1181,10 @@ $(document).ready(function () {
                         } else {
                             window.open(printUrl, '_blank');
                         }
+                        window.location.href = '{{ route('admin.sales.index') }}';
+                    } else {
+                        setTimeout(() => window.location.href = '{{ route('admin.sales.index') }}', 800);
                     }
-                    setTimeout(() => window.location.href = '{{ route('admin.sales.index') }}', 800);
                 }
             },
             error   : function (xhr) {
