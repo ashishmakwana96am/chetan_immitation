@@ -202,6 +202,7 @@ class PurchaseBillController extends Controller
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
             'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
 
@@ -226,11 +227,15 @@ class PurchaseBillController extends Controller
             ]);
 
             foreach ($this->normalizeItems($request->items) as $item) {
+                $product = Product::find($item['product_id']);
+                $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+
                 PurchaseBillItem::create([
                     'purchase_bill_id' => $transfer->id,
                     'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
                     'pair_type' => $item['pair_type'] ?? 'single',
+                    'custom_size_value' => $customSizeVal,
                     'quantity' => $item['quantity'],
                 ]);
             }
@@ -283,7 +288,8 @@ class PurchaseBillController extends Controller
                     ->where('location_id', $purchaseBill->from_location_id)
                     ->first();
 
-                $stockQty = ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity;
+                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+                $stockQty = (int) round($item->quantity * $multiplier);
 
                 if ($source) {
                     $oldQty = $source->quantity;
@@ -383,14 +389,16 @@ class PurchaseBillController extends Controller
             $variantId = $variantId ? (int) $variantId : null;
             $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
             $pairType = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
+            $customSizeValue = is_array($item) ? ($item['custom_size_value'] ?? null) : ($item->custom_size_value ?? null);
 
-            $key = $productId . ':' . ($variantId ?? 0) . ':' . $pairType;
+            $key = $productId . ':' . ($variantId ?? 0) . ':' . $pairType . ':' . ($customSizeValue ?? '');
 
             if (!isset($normalized[$key])) {
                 $normalized[$key] = [
                     'product_id' => $productId,
                     'product_variant_id' => $variantId,
                     'pair_type' => $pairType,
+                    'custom_size_value' => $customSizeValue,
                     'quantity' => 0,
                 ];
             }
@@ -425,10 +433,14 @@ class PurchaseBillController extends Controller
                     ->value('quantity');
             }
 
-            $neededQty = ($item['pair_type'] === 'pair') ? $item['quantity'] * 2 : $item['quantity'];
+            $multiplier = $this->stockMultiplierFor($product, $item['pair_type'], $item['custom_size_value']);
+            $neededQty = (int) round($item['quantity'] * $multiplier);
 
             if ($available < $neededQty) {
                 $requestedText = ($item['pair_type'] === 'pair') ? ($item['quantity'] . ' Pairs') : ($item['quantity'] . ' Pcs');
+                if ($product->pair_mode === 'custom_size' && $item['custom_size_value']) {
+                    $requestedText = $item['quantity'] . ' Packs (' . rtrim(rtrim(number_format((float)$item['custom_size_value'], 2), '0'), '.') . ' pcs)';
+                }
                 return 'Product "' . $label . '" only has ' . $available . ' units in source stock; ' . $requestedText . ' requested.';
             }
         }
@@ -466,10 +478,7 @@ class PurchaseBillController extends Controller
     private function resolveSourceLocation($requestedId = null): Location
     {
         $user = auth()->user();
-
-        // Dropdown (choosable source) is super-admin only. Every other user
-        // is always pinned to their own branch, falling back to the system
-        // default only if they have no location assigned - never to a choice.
+        
         if (!$user->hasRole('super-admin')) {
             if ($user->location_id) {
                 $location = Location::where('id', $user->location_id)->where('status', 1)->first();
@@ -508,5 +517,35 @@ class PurchaseBillController extends Controller
         ];
 
         return '<span class="badge ' . ($colors[$status] ?? 'bg-label-secondary') . '">' . ($labels[$status] ?? 'Pending') . '</span>';
+    }
+
+    private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
+    {
+        if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+            return null;
+        }
+
+        $value = isset($itemData['custom_size_value']) ? (float) $itemData['custom_size_value'] : null;
+
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+
+        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            throw new \RuntimeException('Please select a valid size for "' . $product->name . '".');
+        }
+
+        return $value;
+    }
+
+    private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
+    {
+        if (!$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+            return (float) $customSizeValue;
+        }
+
+        return $pairType === 'pair' ? 2.0 : 1.0;
     }
 }

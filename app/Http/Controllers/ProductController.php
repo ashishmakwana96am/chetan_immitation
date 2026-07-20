@@ -772,6 +772,17 @@ class ProductController extends Controller
                     }
                 }
 
+                $deletedVariantIds = $product->variants()
+                    ->whereNotIn('attribute_value_id', $keptAttributeValueIds)
+                    ->pluck('id')
+                    ->toArray();
+
+                if (!empty($deletedVariantIds)) {
+                    \App\Models\PurchaseItem::whereIn('product_variant_id', $deletedVariantIds)->update(['product_variant_id' => null]);
+                    \App\Models\OrderItem::whereIn('product_variant_id', $deletedVariantIds)->update(['product_variant_id' => null]);
+                    \App\Models\PurchaseBillItem::whereIn('product_variant_id', $deletedVariantIds)->update(['product_variant_id' => null]);
+                }
+
                 $product->variants()->whereNotIn('attribute_value_id', $keptAttributeValueIds)->delete();
 
                 // Stock migration from Normal Product to multiple selected Variants
@@ -899,6 +910,10 @@ class ProductController extends Controller
                 }
             } elseif ($request->type === 'normal') {
                 $product->variants()->delete();
+
+                \App\Models\PurchaseItem::where('product_id', $product->id)->update(['product_variant_id' => null]);
+                \App\Models\OrderItem::where('product_id', $product->id)->update(['product_variant_id' => null]);
+                \App\Models\PurchaseBillItem::where('product_id', $product->id)->update(['product_variant_id' => null]);
             }
         });
 

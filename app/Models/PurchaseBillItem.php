@@ -11,6 +11,7 @@ class PurchaseBillItem extends Model
         'product_id',
         'product_variant_id',
         'pair_type',
+        'custom_size_value',
         'quantity',
     ];
 
@@ -18,6 +19,7 @@ class PurchaseBillItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'custom_size_value' => 'decimal:2',
         ];
     }
 

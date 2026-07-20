@@ -160,12 +160,23 @@
                                                 @if($item->product?->barcode)
                                                     <br><small class="text-muted">{{ $item->product->barcode }}</small>
                                                 @endif
+                                                @if($item->custom_size_value)
+                                                    <br><small class="text-muted">Size: {{ rtrim(rtrim(number_format((float)$item->custom_size_value, 2), '0'), '.') }} pcs</small>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
                                     <td class="text-end fw-semibold">
                                         {{ $item->quantity }}
-                                        <small class="text-muted">{{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}</small>
+                                        <small class="text-muted">
+                                            @if($item->custom_size_value)
+                                                Packs
+                                            @elseif(($item->pair_type ?? 'single') === 'pair')
+                                                Pairs
+                                            @else
+                                                Pcs
+                                            @endif
+                                        </small>
                                     </td>
                                     <td class="text-end">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
                                     <td class="text-end fw-semibold">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>

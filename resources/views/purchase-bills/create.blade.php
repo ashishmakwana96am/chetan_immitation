@@ -48,6 +48,27 @@
     }
     .pair-type-toggle .pair-btn + .pair-btn { border-left: 1.5px solid #B4771E; }
     .pair-type-toggle .pair-btn.active { background: #B4771E; color: #fff; }
+
+    /* Size toggle styles */
+    .size-toggle {
+        display: inline-flex;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1.5px solid #B4771E;
+        margin-top: 5px;
+    }
+    .size-toggle .size-btn {
+        background: #fff;
+        border: none;
+        color: #B4771E;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
+    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -188,6 +209,7 @@
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
                         <div class="variant-select-container mt-2"></div>
+                        <div class="size-select-container mt-2"></div>
                     </div>
                 </div>
             </td>
@@ -224,6 +246,8 @@ $(document).ready(function () {
                 'barcode' => $p->barcode,
                 'type' => $p->type,
                 'pair_product' => $p->pair_product,
+                'pair_mode' => $p->pair_mode,
+                'custom_sizes' => $p->custom_sizes ?? [],
                 'purchase_price' => $p->purchase_price,
                 'image' => $p->primary_image_url,
             ];
@@ -296,7 +320,7 @@ $(document).ready(function () {
     function addItemRow(product, selectedVariantId = null) {
         let initialVariantId = null;
 
-        if (product.type !== 'variable' && hasDuplicate(product.id, null)) {
+        if (product.type !== 'variable' && !(product.pair_product && product.pair_mode === 'custom_size') && hasDuplicate(product.id, null)) {
             toastr.warning('Product is already in the list.');
             return;
         }
@@ -333,7 +357,7 @@ $(document).ready(function () {
         updateRowPrice(row);
 
         // Pair product selector
-        if (product.pair_product) {
+        if (product.pair_product && product.pair_mode !== 'custom_size') {
             const pairHtml = `
                 <div class="pair-type-toggle" data-index="${idx}">
                     <button type="button" class="pair-btn active" data-value="single">Piece</button>
@@ -341,10 +365,24 @@ $(document).ready(function () {
                 </div>
                 <input type="hidden" class="pair-type-input" value="single">`;
             row.find('.pair-type-container').html(pairHtml);
+        } else if (product.pair_product && product.pair_mode === 'custom_size') {
+            row.find('.pair-type-container').html(`
+                <span class="badge bg-label-info">Custom Size</span>
+                <input type="hidden" class="pair-type-input" value="single">`);
         } else {
             row.find('.pair-type-container').html(`
                 <span class="text-muted">Piece</span>
                 <input type="hidden" class="pair-type-input" value="single">`);
+        }
+
+        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            let sizeHtml = `<div class="size-toggle" data-selected="">`;
+            product.custom_sizes.forEach(function (cs) {
+                sizeHtml += `<button type="button" class="size-btn" data-value="${cs.size}">${cs.size} pcs</button>`;
+            });
+            sizeHtml += `</div>`;
+            row.find('.size-select-container').html(sizeHtml);
+            row.data('custom-size-value', '');
         }
 
         $('#itemsBody').append(row);
@@ -393,11 +431,16 @@ $(document).ready(function () {
     function updateRowAvailableStockDisplay(row) {
         const qtyPcs = parseInt(row.data('available-pcs') || 0);
         const pairType = row.find('.pair-type-input').val() || 'single';
+        const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
+        const product = row.data('product');
         
         let displayQty = qtyPcs;
         let unitLabel = 'Pcs';
         
-        if (pairType === 'pair') {
+        if (product && product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+            displayQty = Math.floor(qtyPcs / customSizeValue);
+            unitLabel = 'Packs';
+        } else if (pairType === 'pair') {
             displayQty = Math.floor(qtyPcs / 2);
             unitLabel = 'Pairs';
         }
@@ -531,6 +574,23 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('click', '.size-btn', function () {
+        const row = $(this).closest('.item-row');
+        const toggle = $(this).closest('.size-toggle');
+        toggle.find('.size-btn').removeClass('active');
+        $(this).addClass('active');
+        row.data('custom-size-value', $(this).data('value'));
+        updateRowAvailableStockDisplay(row);
+        
+        const qty = parseInt(row.find('.item-qty').val()) || 0;
+        const available = parseInt(row.data('available') || 0);
+        if (qty > available) {
+            row.find('.item-qty').addClass('is-invalid');
+        } else {
+            row.find('.item-qty').removeClass('is-invalid');
+        }
+    });
+
     $(document).on('click', '.pair-type-toggle .pair-btn', function () {
         const btn = $(this);
         const toggle = btn.closest('.pair-type-toggle');
@@ -619,6 +679,16 @@ $(document).ready(function () {
                 toastr.error('Transfer quantity cannot be greater than available source stock.');
                 valid = false;
                 return false;
+            }
+
+            if (product.pair_product && product.pair_mode === 'custom_size') {
+                const customSizeValue = row.data('custom-size-value');
+                if (!customSizeValue) {
+                    toastr.error('Please select a size for each custom size product before saving.');
+                    valid = false;
+                    return false;
+                }
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
             }
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
