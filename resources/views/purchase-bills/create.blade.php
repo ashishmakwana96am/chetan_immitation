@@ -354,6 +354,18 @@ $(document).ready(function () {
             row.data('variant-id', row.find('.variant-select').val() || null);
         }
 
+        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            const firstSizeVal = product.custom_sizes[0].size;
+            let sizeHtml = `<div class="size-toggle" data-selected="${firstSizeVal}">`;
+            product.custom_sizes.forEach(function (cs, idx) {
+                const active = idx === 0 ? 'active' : '';
+                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
+            });
+            sizeHtml += `</div>`;
+            row.find('.size-select-container').html(sizeHtml);
+            row.data('custom-size-value', firstSizeVal);
+        }
+
         updateRowPrice(row);
 
         // Pair product selector
@@ -373,16 +385,6 @@ $(document).ready(function () {
             row.find('.pair-type-container').html(`
                 <span class="text-muted">Piece</span>
                 <input type="hidden" class="pair-type-input" value="single">`);
-        }
-
-        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
-            let sizeHtml = `<div class="size-toggle" data-selected="">`;
-            product.custom_sizes.forEach(function (cs) {
-                sizeHtml += `<button type="button" class="size-btn" data-value="${cs.size}">${cs.size} pcs</button>`;
-            });
-            sizeHtml += `</div>`;
-            row.find('.size-select-container').html(sizeHtml);
-            row.data('custom-size-value', '');
         }
 
         $('#itemsBody').append(row);

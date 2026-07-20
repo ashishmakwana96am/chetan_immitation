@@ -636,14 +636,15 @@ $(document).ready(function () {
         }
 
         if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
-            let sizeHtml = `<div class="size-toggle" data-selected="${selectedCustomSize || ''}">`;
+            const defSize = selectedCustomSize || product.custom_sizes[0].size;
+            let sizeHtml = `<div class="size-toggle" data-selected="${defSize}">`;
             product.custom_sizes.forEach(cs => {
-                const active = selectedCustomSize && selectedCustomSize == cs.size ? 'active' : '';
+                const active = defSize && defSize == cs.size ? 'active' : '';
                 sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
             });
             sizeHtml += `</div>`;
             row.find('.size-select-container').html(sizeHtml);
-            row.data('custom-size-value', selectedCustomSize || '');
+            row.data('custom-size-value', defSize);
         }
 
         if (product.type === 'variable') {

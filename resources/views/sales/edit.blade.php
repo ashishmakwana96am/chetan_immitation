@@ -644,16 +644,17 @@ $(document).ready(function () {
         }
 
         if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+            const defSize = customSizeValue || product.custom_sizes[0].size;
             let sizeHtml = `<div class="size-toggle mt-1">`;
             product.custom_sizes.forEach(cs => {
-                const active = customSizeValue && customSizeValue == cs.size ? 'active' : '';
+                const active = defSize && defSize == cs.size ? 'active' : '';
                 sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}">${cs.size} pcs</button>`;
             });
             sizeHtml += `</div>`;
             row.find('.pair-type-container').html(sizeHtml);
-            row.find('.custom-size-value-input').val(customSizeValue || '');
+            row.find('.custom-size-value-input').val(defSize);
 
-            const matchedSize = customSizeValue ? product.custom_sizes.find(cs => cs.size == customSizeValue) : null;
+            const matchedSize = defSize ? product.custom_sizes.find(cs => cs.size == defSize) : null;
             if (matchedSize && price == null) {
                 setItemPrice(row, matchedSize.sale_price);
             }
