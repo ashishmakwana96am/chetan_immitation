@@ -55,9 +55,7 @@ class CartItem extends Model
         $pairType = $this->pair_type ?? 'single';
 
         if ($variant) {
-            if ($pairType === 'pair' && $product->pair_product && $variant->pair_sale_price) {
-                return (float) $variant->pair_sale_price;
-            }
+            // Variant products don't have separate pair pricing
             return (float) $variant->sale_price;
         }
 
@@ -92,9 +90,7 @@ class CartItem extends Model
         $pairType = $this->pair_type ?? 'single';
 
         if ($variant) {
-            if ($pairType === 'pair' && $product->pair_product && $variant->pair_mrp) {
-                return (float) $variant->pair_mrp;
-            }
+            // Variants use product's MRP
             return (float) $product->mrp;
         }
 

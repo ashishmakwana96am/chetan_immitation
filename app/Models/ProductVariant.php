@@ -17,8 +17,6 @@ class ProductVariant extends Model
         'attribute_value_id',
         'purchase_price',
         'sale_price',
-        'pair_sale_price',
-        'pair_mrp',
         'status',
     ];
 
@@ -26,9 +24,7 @@ class ProductVariant extends Model
     {
         return [
             'purchase_price' => 'decimal:2',
-            'sale_price'     => 'decimal:2',
-            'pair_sale_price'=> 'decimal:2',
-            'pair_mrp'       => 'decimal:2',
+            'sale_price' => 'decimal:2',
         ];
     }
 
