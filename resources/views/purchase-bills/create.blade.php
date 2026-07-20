@@ -209,7 +209,7 @@
                         <span class="product-name-display fw-semibold text-heading"></span>
                         <small class="product-sku-display text-muted"></small>
                         <div class="variant-select-container mt-2"></div>
-                        <div class="size-select-container mt-2"></div>
+                        <div class="size-select-container"></div>
                     </div>
                 </div>
             </td>
