@@ -636,7 +636,7 @@ class ProductController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $product, $wasNormal) {
+        DB::transaction(function () use ($request, $product, $wasNormal, $pairMode) {
             $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
             $productData = [
