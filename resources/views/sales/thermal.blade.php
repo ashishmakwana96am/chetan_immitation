@@ -163,7 +163,7 @@
             <tr>
                 {{-- Left side: Logo --}}
                 <td style="width: 65px; vertical-align: middle; border: none; padding: 0;">
-                    <img src="{{ public_path('assets/img/thurmal-logo.png') }}" style="width: 58px; height: 58px; object-fit: contain;" alt="Logo" />
+                    <img src="{{ public_path('assets/img/thermal-logo.png') }}" style="width: 58px; height: 58px; object-fit: contain;" alt="Logo" />
                 </td>
                 {{-- Right side: Branches sorted by current order's branch first, limited to 3 --}}
                 <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 9.5px; font-weight: bold; line-height: 1.35;">
@@ -243,7 +243,7 @@
                 @foreach($order->items as $item)
                     <tr>
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
-                            {{ $item->product?->category?->name ?? '-' }}
+                            {{ $item->product?->subCategory?->name ?? $item->product?->category?->name ?? '-' }}
                         </td>
                         <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none; white-space: nowrap;">
                             {{ $item->quantity }}

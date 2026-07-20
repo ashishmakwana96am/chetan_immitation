@@ -410,7 +410,9 @@ class SaleController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $isApprove) {
+        $order = null;
+
+        DB::transaction(function () use ($request, $isApprove, &$order) {
             $totalAmount = 0.0;
             $itemsData = [];
 
@@ -525,7 +527,7 @@ class SaleController extends Controller
             }
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Sale created successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Sale created successfully.', 'id' => $order->id]);
     }
 
     public function show(Order $sale)
@@ -571,7 +573,7 @@ class SaleController extends Controller
             abort(403, 'Thermal print is only available for POS orders.');
         }
 
-        $sale->load(['customer', 'location', 'customerAddress', 'items.product']);
+        $sale->load(['customer', 'location', 'customerAddress', 'items.product.subCategory', 'items.product.category']);
 
         $height = $this->measureThermalHeight($sale);
 
@@ -1033,7 +1035,7 @@ class SaleController extends Controller
             ], 422);
         }
 
-        return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Sale updated successfully.', 'id' => $sale->id]);
     }
 
     public function updateStatus(Request $request, Order $sale)

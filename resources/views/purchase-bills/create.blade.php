@@ -339,12 +339,12 @@ $(document).ready(function () {
                     <button type="button" class="pair-btn active" data-value="single">Piece</button>
                     <button type="button" class="pair-btn" data-value="pair">Pair</button>
                 </div>
-                <input type="hidden" name="items[${idx}][pair_type]" class="pair-type-input" value="single">`;
+                <input type="hidden" class="pair-type-input" value="single">`;
             row.find('.pair-type-container').html(pairHtml);
         } else {
             row.find('.pair-type-container').html(`
                 <span class="text-muted">Piece</span>
-                <input type="hidden" name="items[${idx}][pair_type]" class="pair-type-input" value="single">`);
+                <input type="hidden" class="pair-type-input" value="single">`);
         }
 
         $('#itemsBody').append(row);
@@ -651,15 +651,35 @@ $(document).ready(function () {
                         toastr.error(errors);
                         return;
                     }
+                    const itemFieldLabels = {
+                        product_id: 'Product',
+                        product_variant_id: 'Variant',
+                        pair_type: 'Pair Type',
+                        quantity: 'Quantity',
+                    };
+                    let shownToastr = false;
                     $.each(errors, function (field, messages) {
+                        const itemMatch = field.match(/^items\.(\d+)\.(.+)$/);
+                        if (itemMatch) {
+                            const itemNo = parseInt(itemMatch[1], 10) + 1;
+                            const label = itemFieldLabels[itemMatch[2]] || itemMatch[2];
+                            const friendly = String(messages[0]).replace(field, label);
+                            toastr.error('Item ' + itemNo + ': ' + friendly);
+                            shownToastr = true;
+                            return;
+                        }
                         const input = form.find('[name="' + field + '"]');
                         if (input.length) {
                             input.addClass('is-invalid');
                             input.siblings('.invalid-feedback').text(messages[0]).show();
                         } else {
                             toastr.error(messages[0]);
+                            shownToastr = true;
                         }
                     });
+                    if (!shownToastr && Object.keys(errors).length === 0) {
+                        toastr.error('Something went wrong. Please try again.');
+                    }
                 } else {
                     toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
                 }
