@@ -55,24 +55,28 @@ class DummyDataSeeder extends Seeder
 
         $attributesData = [
             [
-                'name' => 'Color',
-                'values' => ['Red', 'Blue', 'Green', 'Gold', 'Silver'],
+                'name' => 'SIZE',
+                'values' => [
+                    '2.2', '2.4', '2.6', '2.8', '2.10', '2.12',
+                    '6"', '7"', '8"', '9"', '10"', '11"', '12"', '16"', '18"', '20"', '22"', '24"', '26"', '30"',
+                    'ADJSTABLE', 'OPENABLE',
+                ],
             ],
             [
-                'name' => 'Size',
-                'values' => ['Small', 'Medium', 'Large', 'XL', 'XXL'],
+                'name' => 'COLOUR',
+                'values' => ['PINK', 'GREEN', 'DARK GREEN', 'LIGHT GREEN', 'MARRUN', 'RED', 'BLUE', 'BLACK'],
             ],
             [
-                'name' => 'Material',
-                'values' => ['Gold Plated', 'Silver Plated', 'Copper', 'Alloy', 'Stainless Steel'],
+                'name' => 'SIZE/COLOUR',
+                'values' => ['2.2-PINK', '2.4-PINK', '2.4-GREEN', '2.6-PEACH', '2.6-PINK'],
             ],
             [
-                'name' => 'Stone Type',
-                'values' => ['Kundan', 'American Diamond', 'Pearl', 'Meenakari', 'Polki'],
+                'name' => 'POLISH',
+                'values' => ['GOLD', 'ROSE GOLD', 'SILWER', 'MEHNDI POLISH'],
             ],
             [
-                'name' => 'Occasion',
-                'values' => ['Casual', 'Formal', 'Bridal', 'Festival', 'Party'],
+                'name' => 'DIAL/COLOUR',
+                'values' => ['GREEN+WHITE', 'WHITE+GREEN', 'GREEN + GREEN', 'GOLD+PINK'],
             ],
         ];
 

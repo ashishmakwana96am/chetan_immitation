@@ -24,13 +24,13 @@ class VariableProductSeeder extends Seeder
         $earringsSub = SubCategory::where('name', 'Traditional Jhumkas')->first() ?? SubCategory::first();
 
         // Find attribute values
-        $colorGold = AttributeValue::where('value', 'Gold')->first();
-        $colorSilver = AttributeValue::where('value', 'Silver')->first();
-        $colorGreen = AttributeValue::where('value', 'Green')->first();
+        $colorGold = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'POLISH'))->where('value', 'GOLD')->first();
+        $colorSilver = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'POLISH'))->where('value', 'SILWER')->first();
+        $colorGreen = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'COLOUR'))->where('value', 'GREEN')->first();
 
-        $sizeSmall = AttributeValue::where('value', 'Small')->first();
-        $sizeMedium = AttributeValue::where('value', 'Medium')->first();
-        $sizeLarge = AttributeValue::where('value', 'Large')->first();
+        $sizeSmall = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'SIZE'))->where('value', '2.2')->first();
+        $sizeMedium = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'SIZE'))->where('value', '2.4')->first();
+        $sizeLarge = AttributeValue::whereHas('attribute', fn ($q) => $q->where('name', 'SIZE'))->where('value', '2.6')->first();
 
         if ($colorGold && $colorSilver) {
             // 1. Premium Designer Kada

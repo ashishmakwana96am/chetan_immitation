@@ -1080,7 +1080,7 @@
                         '<label class="form-label">Sale Price <span>(' + size + ' pcs)</span> <span class="text-danger">*</span></label>' +
                         '<div class="input-group has-validation">' +
                             '<span class="input-group-text">' + currencySymbol + '</span>' +
-                            '<input type="number" class="form-control custom-size-sale-price" step="0.01" min="0">' +
+                            '<input type="number" class="form-control custom-size-sale-price" step="0.01" min="0" placeholder="0.00">' +
                             '<div class="invalid-feedback"></div>' +
                         '</div>' +
                     '</div>' +
@@ -1088,7 +1088,7 @@
                         '<label class="form-label">MRP <span>(' + size + ' pcs)</span> <span class="text-danger">*</span></label>' +
                         '<div class="input-group has-validation">' +
                             '<span class="input-group-text">' + currencySymbol + '</span>' +
-                            '<input type="number" class="form-control custom-size-mrp" step="0.01" min="0">' +
+                            '<input type="number" class="form-control custom-size-mrp" step="0.01" min="0" placeholder="0.00">' +
                             '<div class="invalid-feedback"></div>' +
                         '</div>' +
                     '</div>';

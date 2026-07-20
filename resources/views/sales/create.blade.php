@@ -1066,25 +1066,15 @@ $(document).ready(function () {
         }
     }
 
-    $('#submitBtnPrint, #submitBtnNoPrint').on('click', function () {
-        printAfterSave = $(this).data('print') == 1;
-        printWindowRef = printAfterSave ? window.open('', '_blank') : null;
-    });
-
-    $('#orderForm').on('submit', function (e) {
-        e.preventDefault();
-
+    function getClientValidationError() {
         let activeCount = 0;
         $('.item-row').each(function () {
             if ((parseInt($(this).find('.item-qty').val()) || 0) > 0) {
                 activeCount++;
             }
         });
-
         if (activeCount === 0) {
-            toastr.error('Please add at least one item with quantity greater than 0.');
-            closePendingPrintTab();
-            return;
+            return 'Please add at least one item with quantity greater than 0.';
         }
 
         let sizeMissing = false;
@@ -1097,16 +1087,32 @@ $(document).ready(function () {
                 sizeMissing = true;
             }
         });
-
         if (sizeMissing) {
-            toastr.error('Please select a size for each pair product before saving.');
-            closePendingPrintTab();
+            return 'Please select a size for each pair product before saving.';
+        }
+
+        return validateDiscounts();
+    }
+
+    $('#submitBtnPrint, #submitBtnNoPrint').on('click', function (e) {
+        printAfterSave = $(this).data('print') == 1;
+
+        const validationError = getClientValidationError();
+        if (validationError) {
+            e.preventDefault();
+            toastr.error(validationError);
             return;
         }
 
-        const discountError = validateDiscounts();
-        if (discountError) {
-            toastr.error(discountError);
+        printWindowRef = printAfterSave ? window.open('', '_blank') : null;
+    });
+
+    $('#orderForm').on('submit', function (e) {
+        e.preventDefault();
+
+        const validationError = getClientValidationError();
+        if (validationError) {
+            toastr.error(validationError);
             closePendingPrintTab();
             return;
         }
