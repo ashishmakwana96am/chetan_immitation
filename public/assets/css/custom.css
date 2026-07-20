@@ -492,4 +492,89 @@ input[readonly].flatpickr,
   color: #B4771E !important;
 }
 
+.menu-sidebar-search {
+  position: relative;
+  z-index: 5;
+  background-color: #fff;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
 
+.dark-style .menu-sidebar-search {
+  background-color: #2f3349;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.menu-sidebar-search .input-group-merge {
+  border: 1px solid #dbdade;
+  border-radius: 0.375rem;
+  background-color: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.dark-style .menu-sidebar-search .input-group-merge {
+  border-color: #434968;
+  background-color: #2f3349;
+}
+
+.menu-sidebar-search .input-group-merge .input-group-text {
+  border: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  color: #a1b0cb;
+  padding-left: 0.75rem;
+  padding-right: 0.35rem;
+}
+
+.menu-sidebar-search .input-group-merge .form-control {
+  border: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  padding-left: 0.35rem;
+  font-size: 0.875rem;
+  height: auto;
+}
+
+.menu-sidebar-search .input-group-merge:focus-within {
+  border-color: #B4771E !important;
+}
+
+.menu-sidebar-search .input-group-merge:focus-within .input-group-text {
+  color: #B4771E !important;
+}
+
+.layout-menu-collapsed:not(.layout-menu-hover) .menu-sidebar-search {
+  display: none !important;
+}
+
+.layout-menu .menu-inner {
+  flex-grow: 1;
+}
+
+.form-control.is-invalid,
+.form-control.is-invalid:focus,
+.form-select.is-invalid,
+.form-select.is-invalid:focus,
+.input-group.is-invalid,
+.input-group:has(.is-invalid),
+.input-group:has(.is-invalid) .form-control,
+.input-group:has(.is-invalid) .input-group-text,
+.is-invalid {
+  box-shadow: none !important;
+}
+
+/*
+* Prevent main window double scrollbar when Offcanvas sidebar is open
+******************************************************************************/
+html:has(.offcanvas.show),
+body:has(.offcanvas.show),
+body.offcanvas-open {
+  overflow: hidden !important;
+}
+
+.offcanvas-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}

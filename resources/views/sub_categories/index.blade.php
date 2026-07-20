@@ -58,7 +58,6 @@
                         <th>#</th>
                         <th>Name</th>
                         <th>Category</th>
-                        <th>Slug</th>
                         <th>Status</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit sub categories') || auth()->user()->can('delete sub categories'))
@@ -80,7 +79,6 @@
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'name' },
                 { data: 'category' },
-                { data: 'slug' },
                 { data: 'status',     orderable: false },
                 { data: 'created_at' },
                 @if(auth()->user()->can('edit sub categories') || auth()->user()->can('delete sub categories'))

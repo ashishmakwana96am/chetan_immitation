@@ -71,9 +71,7 @@ class CategoryController extends Controller
                 'slug'                 => '<code>' . $category->slug . '</code>',
                 'is_featured'          => $featured,
                 'status'               => $status,
-                'low_stock_threshold'  => $category->low_stock_threshold !== null
-                    ? (string) $category->low_stock_threshold
-                    : '<span class="text-muted">Default (' . Category::DEFAULT_LOW_STOCK_THRESHOLD . ')</span>',
+                'low_stock_threshold'  => (string) ($category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD),
                 'created_at'           => format_date($category->created_at),
                 'actions'              => $actions,
             ];

@@ -490,6 +490,84 @@
                                                 <span class="text-muted small">-</span>
                                             @endif
                                         </td>
+                                    @elseif($key === 'items' && (is_array($oldVal) || is_array($newVal)))
+                                        @php
+                                            $formatItemsList = function($items) {
+                                                if (!is_array($items)) {
+                                                    return [];
+                                                }
+                                                return array_map(function($item) {
+                                                    $item = (array) $item;
+                                                    $productId = $item['product_id'] ?? null;
+                                                    $productName = $productId
+                                                        ? (\App\Models\Product::withTrashed()->find($productId)?->name ?? "Product #$productId")
+                                                        : '-';
+
+                                                    if (!empty($item['product_variant_id'])) {
+                                                        $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
+                                                        if ($variant) {
+                                                            $productName .= ' (' . $variant->name . ')';
+                                                        }
+                                                    }
+
+                                                    return [
+                                                        'name' => $productName,
+                                                        'quantity' => $item['quantity'] ?? $item['qty'] ?? '-',
+                                                        'price' => isset($item['price']) ? number_format((float) $item['price'], 2) : '-',
+                                                    ];
+                                                }, $items);
+                                            };
+                                            $oldItemsList = $formatItemsList($oldVal);
+                                            $newItemsList = $formatItemsList($newVal);
+                                        @endphp
+                                        <td class="text-danger fw-semibold">
+                                            @if(!empty($oldItemsList))
+                                                <table class="table table-sm table-borderless mb-0">
+                                                    <thead>
+                                                        <tr class="text-uppercase fs-tiny text-muted">
+                                                            <th>Product</th>
+                                                            <th class="text-center">Qty</th>
+                                                            <th class="text-end">Price</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($oldItemsList as $it)
+                                                            <tr>
+                                                                <td>{{ $it['name'] }}</td>
+                                                                <td class="text-center">{{ $it['quantity'] }}</td>
+                                                                <td class="text-end">{{ $it['price'] }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            @else
+                                                <span class="text-muted small">-</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-success fw-semibold">
+                                            @if(!empty($newItemsList))
+                                                <table class="table table-sm table-borderless mb-0">
+                                                    <thead>
+                                                        <tr class="text-uppercase fs-tiny text-muted">
+                                                            <th>Product</th>
+                                                            <th class="text-center">Qty</th>
+                                                            <th class="text-end">Price</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($newItemsList as $it)
+                                                            <tr>
+                                                                <td>{{ $it['name'] }}</td>
+                                                                <td class="text-center">{{ $it['quantity'] }}</td>
+                                                                <td class="text-end">{{ $it['price'] }}</td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            @else
+                                                <span class="text-muted small">-</span>
+                                            @endif
+                                        </td>
                                     @elseif(is_array($oldVal) || is_array($newVal))
                                         <!-- Generic array/JSON attribute fields -->
                                         <td class="text-danger fw-semibold"><pre class="mb-0 small text-danger">{{ is_array($oldVal) ? json_encode($oldVal, JSON_PRETTY_PRINT) : ($oldVal ?? '-') }}</pre></td>

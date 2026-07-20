@@ -48,6 +48,7 @@ class ProductController extends Controller
 
         $query = Product::with([
             'category',
+            'subCategory',
             'primaryImage',
             'variants.attributeValue',
             'inventories' => function($q) use ($locationId) {
@@ -150,7 +151,7 @@ class ProductController extends Controller
                 'barcode'        => $barcode,
                 'raw_barcode'    => $product->barcode,
                 'product_code'   => $product->product_code,
-                'category'       => $product->category->name ?? '-',
+                'category'       => !empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '-'),
                 'variations'     => $variationsStr,
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
@@ -174,10 +175,13 @@ class ProductController extends Controller
         $generator = new BarcodeGeneratorSVG();
         
         foreach ($itemsInput as $item) {
-            $product = Product::with(['category', 'variants.attributeValue'])->find($item['id'] ?? null);
+            $product = Product::with(['category', 'subCategory', 'variants.attributeValue'])->find($item['id'] ?? null);
             if ($product) {
                 $barcodeVal = $product->barcode;
-                $category = $product->category->name ?? '';
+                $categoryDisplay = !empty($product->subCategory?->name)
+                    ? $product->subCategory->name
+                    : ($product->category?->name ?? '');
+
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
                 $salePrice = number_format($product->sale_price, 0);
                 $qty = (int)($item['qty'] ?? 1);
@@ -186,7 +190,7 @@ class ProductController extends Controller
                 $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 1, 30);
                 $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
 
-                $categoryLength = strlen($category);
+                $categoryLength = strlen($categoryDisplay);
                 $categoryFontSize = match (true) {
                     $categoryLength > 18 => 5.0,
                     $categoryLength > 14 => 5.5,
@@ -195,14 +199,15 @@ class ProductController extends Controller
                 };
 
                 $printItems[] = [
-                    'barcodeBase64' => $barcodeBase64,
-                    'barcodeText' => $barcodeVal,
-                    'productCode' => $product->product_code !== null ? number_format($product->product_code, 0) : '',
-                    'category' => $category,
+                    'barcodeBase64'    => $barcodeBase64,
+                    'barcodeText'      => $barcodeVal,
+                    'productCode'      => $product->product_code !== null ? number_format($product->product_code, 0) : '',
+                    'isPair'           => (bool) $product->pair_product,
+                    'category'         => $categoryDisplay,
                     'categoryFontSize' => $categoryFontSize,
-                    'variations' => $variations,
-                    'salePrice' => $salePrice,
-                    'qty' => $qty
+                    'variations'       => $variations,
+                    'salePrice'        => $salePrice,
+                    'qty'              => $qty
                 ];
             }
         }
@@ -337,7 +342,12 @@ class ProductController extends Controller
             ];
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $messages = [
+            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
+            'pair_mrp.required_if'        => 'Pair MRP is required.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([
@@ -567,7 +577,12 @@ class ProductController extends Controller
             ];
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $messages = [
+            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
+            'pair_mrp.required_if'        => 'Pair MRP is required.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([

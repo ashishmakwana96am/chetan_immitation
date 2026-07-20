@@ -301,7 +301,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         window.bulkUploadHistory = res.history || [];
-        $('#historySearchInput').val('');
         renderHistoryTable(window.bulkUploadHistory);
 
         const historyEl = document.getElementById('bulkImageHistoryOffcanvas');
@@ -309,39 +308,41 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderHistoryTable(items) {
-        const tbody = $('#historyTableBody').empty();
-        if (items.length === 0) {
-            tbody.append(`<tr><td colspan="3" class="text-center text-muted py-3">No history details available.</td></tr>`);
-            return;
+        if ($.fn.DataTable.isDataTable('#bulkImageHistoryTable')) {
+            $('#bulkImageHistoryTable').DataTable().destroy();
         }
 
-        items.forEach(function (item) {
-            let badgeColor = 'secondary';
-            if (item.status === 'Success') badgeColor = 'success';
-            else if (item.status === 'Warning') badgeColor = 'warning';
-            else if (item.status === 'Failed') badgeColor = 'danger';
+        const tbody = $('#historyTableBody').empty();
 
-            tbody.append(`
-                <tr>
-                    <td class="fw-semibold">${item.barcode}</td>
-                    <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
-                    <td>
-                        <span class="text-dark d-block fw-medium">${item.reason}</span>
-                        <small class="text-muted">${item.details}</small>
-                    </td>
-                </tr>
-            `);
+        if (items && items.length > 0) {
+            items.forEach(function (item) {
+                let badgeColor = 'secondary';
+                if (item.status === 'Success') badgeColor = 'success';
+                else if (item.status === 'Warning') badgeColor = 'warning';
+                else if (item.status === 'Failed') badgeColor = 'danger';
+
+                tbody.append(`
+                    <tr>
+                        <td class="fw-semibold">${item.barcode}</td>
+                        <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
+                        <td>
+                            <span class="text-dark d-block fw-medium">${item.reason}</span>
+                            <small class="text-muted">${item.details}</small>
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+
+        $('#bulkImageHistoryTable').DataTable({
+            responsive: false,
+            pageLength: 10,
+            order: [],
+            language: {
+                search: "",
+                searchPlaceholder: "Search Barcode..."
+            }
         });
     }
-
-    $(document).on('input', '#historySearchInput', function () {
-        const query = $(this).val().toLowerCase().trim();
-        if (!window.bulkUploadHistory) return;
-        const filtered = window.bulkUploadHistory.filter(function (item) {
-            const barcode = item.barcode ? String(item.barcode).toLowerCase() : '';
-            return barcode.includes(query);
-        });
-        renderHistoryTable(filtered);
-    });
 });
 </script>

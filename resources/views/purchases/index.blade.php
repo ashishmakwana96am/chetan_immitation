@@ -139,31 +139,26 @@
             </div>
         </div>
 
-        <div class="offcanvas offcanvas-end" id="purchaseImportHistoryOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 50vw; max-width: 100vw;">
+        <div class="offcanvas offcanvas-end" id="purchaseImportHistoryOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 55vw; max-width: 100vw;">
             <div class="offcanvas-header border-bottom">
                 <h5 class="offcanvas-title">Purchase Import Details & History</h5>
                 <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
-            <div class="offcanvas-body p-4" style="overflow-y: auto;">
+            <div class="offcanvas-body p-4" style="overflow-y: auto; overflow-x: hidden;">
                 <h6 class="fw-semibold mb-3">Import Summary</h6>
                 <div class="row g-3 mb-3" id="purchaseImportHistorySummaryCards"></div>
 
-                <div class="d-flex justify-content-end mb-4 d-none" id="purchaseImportPrintBarcodeWrapper">
-                    <button type="button" id="purchaseImportPrintBarcodeBtn" class="btn btn-label-primary btn-sm">
-                        <i class="ti ti-printer me-1"></i> Print Barcode
-                    </button>
-                </div>
-
                 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-                    <h6 class="mb-0 fw-semibold">Barcode-wise Report</h6>
-                    <div style="width: 250px; max-width: 100%;">
-                        <input type="text" id="purchaseImportHistorySearchInput" class="form-control" placeholder="Search Barcode or Product..." />
+                    <h6 class="fw-semibold mb-0">Barcode-wise Report</h6>
+                    <div id="purchaseImportPrintBarcodeWrapper" class="d-none">
+                        <button type="button" id="purchaseImportPrintBarcodeBtn" class="btn btn-label-primary btn-sm">
+                            <i class="ti ti-printer me-1"></i> Print Barcode
+                        </button>
                     </div>
                 </div>
-
-                <div class="table-responsive border rounded-3" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light position-sticky top-0" style="z-index: 1;">
+                <div class="card-datatable table-responsive">
+                    <table class="table table-hover border-top" id="purchaseImportHistoryTable" style="width: 100%;">
+                        <thead>
                             <tr>
                                 <th>Barcode</th>
                                 <th>Product</th>
@@ -171,9 +166,7 @@
                                 <th>Details</th>
                             </tr>
                         </thead>
-                        <tbody id="purchaseImportHistoryTableBody">
-                            <!-- Populated dynamically -->
-                        </tbody>
+                        <tbody id="purchaseImportHistoryTableBody"></tbody>
                     </table>
                 </div>
             </div>

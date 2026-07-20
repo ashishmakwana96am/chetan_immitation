@@ -93,18 +93,22 @@ class AttributeController extends Controller
         }
 
         $attribute = Attribute::create([
-            'name'       => $request->name,
-            'slug'       => Str::slug($request->name),
+            'name'       => trim($request->name),
+            'slug'       => Str::slug(trim($request->name)),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
 
-        $values = json_decode($request->values_json, true);
+        $values = json_decode($request->values_json, true) ?: [];
+        $seen = [];
         foreach ($values as $item) {
-            if (!empty($item['value'])) {
+            $val = trim($item['value'] ?? '');
+            $lower = mb_strtolower($val);
+            if ($val !== '' && !isset($seen[$lower])) {
+                $seen[$lower] = true;
                 AttributeValue::create([
                     'attribute_id' => $attribute->id,
-                    'value'        => trim($item['value']),
+                    'value'        => $val,
                 ]);
             }
         }
@@ -135,11 +139,13 @@ class AttributeController extends Controller
         $validator->after(function ($validator) use ($request, $attribute) {
             $submittedValues = collect(json_decode($request->values_json, true) ?: [])
                 ->pluck('value')
-                ->map(fn ($v) => trim($v))
+                ->map(fn ($v) => mb_strtolower(trim($v)))
+                ->filter()
+                ->unique()
                 ->all();
 
             $removedValues = $attribute->values()->get()
-                ->filter(fn ($v) => !in_array($v->value, $submittedValues, true));
+                ->filter(fn ($v) => !in_array(mb_strtolower(trim($v->value)), $submittedValues, true));
 
             foreach ($removedValues as $value) {
                 $productNames = ProductVariant::where('attribute_value_id', $value->id)
@@ -166,22 +172,43 @@ class AttributeController extends Controller
         }
 
         $attribute->update([
-            'name'   => $request->name,
-            'slug'   => Str::slug($request->name),
+            'name'   => trim($request->name),
+            'slug'   => Str::slug(trim($request->name)),
             'status' => $request->has('status') ? 1 : 2,
         ]);
 
-        $attribute->values()->delete();
+        $submittedValues = json_decode($request->values_json, true) ?: [];
+        $seen = [];
+        $keptIds = [];
 
-        $values = json_decode($request->values_json, true);
-        foreach ($values as $item) {
-            if (!empty($item['value'])) {
-                AttributeValue::create([
+        foreach ($submittedValues as $item) {
+            $val = trim($item['value'] ?? '');
+            $lower = mb_strtolower($val);
+            if ($val === '' || isset($seen[$lower])) {
+                continue;
+            }
+            $seen[$lower] = true;
+
+            $attrVal = AttributeValue::withTrashed()
+                ->where('attribute_id', $attribute->id)
+                ->whereRaw('LOWER(TRIM(value)) = ?', [$lower])
+                ->first();
+
+            if ($attrVal) {
+                if ($attrVal->trashed()) {
+                    $attrVal->restore();
+                }
+                $attrVal->update(['value' => $val]);
+            } else {
+                $attrVal = AttributeValue::create([
                     'attribute_id' => $attribute->id,
-                    'value'        => trim($item['value']),
+                    'value'        => $val,
                 ]);
             }
+            $keptIds[] = $attrVal->id;
         }
+
+        $attribute->values()->whereNotIn('id', $keptIds)->delete();
 
         return response()->json([
             'status'  => 'success',
@@ -269,10 +296,23 @@ class AttributeController extends Controller
             ], 422);
         }
 
-        $attrValue = AttributeValue::create([
-            'attribute_id' => $request->attribute_id,
-            'value'        => trim($request->value),
-        ]);
+        $val = trim($request->value);
+        $attrValue = AttributeValue::withTrashed()
+            ->where('attribute_id', $request->attribute_id)
+            ->whereRaw('LOWER(TRIM(value)) = ?', [mb_strtolower($val)])
+            ->first();
+
+        if ($attrValue) {
+            if ($attrValue->trashed()) {
+                $attrValue->restore();
+            }
+            $attrValue->update(['value' => $val]);
+        } else {
+            $attrValue = AttributeValue::create([
+                'attribute_id' => $request->attribute_id,
+                'value'        => $val,
+            ]);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -297,19 +337,25 @@ class AttributeController extends Controller
             ], 422);
         }
 
+        $name = trim($request->name);
         $attribute = Attribute::create([
-            'name'       => $request->name,
-            'slug'       => Str::slug($request->name),
+            'name'       => $name,
+            'slug'       => Str::slug($name),
             'status'     => 1,
             'created_by' => auth()->id(),
         ]);
 
         $valueLines = array_filter(array_map('trim', explode("\n", $request->values)));
+        $seen = [];
         foreach ($valueLines as $val) {
-            AttributeValue::create([
-                'attribute_id' => $attribute->id,
-                'value'        => $val,
-            ]);
+            $lower = mb_strtolower($val);
+            if ($val !== '' && !isset($seen[$lower])) {
+                $seen[$lower] = true;
+                AttributeValue::create([
+                    'attribute_id' => $attribute->id,
+                    'value'        => $val,
+                ]);
+            }
         }
 
         $attribute->load('values');

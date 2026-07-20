@@ -38,7 +38,7 @@
                                     <input type="text" name="barcode" class="form-control"
                                         placeholder="Enter Barcode" value="{{ $product->barcode ?? '' }}" />
                                      @if($product->barcode)
-                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
+                                    <button type="button" onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes(!empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '')) }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-icon btn-label-secondary" title="View Barcode">
                                         <i class="ti ti-barcode"></i>
                                     </button>
                                     @endif
@@ -1086,7 +1086,11 @@
                 $('#productCodeInput').trigger('change');
             });
 
-            updatePairPricingLabels($('#productPair').is(':checked'));
+            const isPairChecked = $('#productPair').is(':checked');
+            updatePairPricingLabels(isPairChecked);
+            if (isPairChecked && (!$('#pairSalePriceInput').val() || !$('#pairMrpInput').val())) {
+                $('#productCodeInput').trigger('change');
+            }
 
             $('#pairModeInput').on('change', function () {
                 updatePairModeUI();
