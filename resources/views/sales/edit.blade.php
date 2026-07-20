@@ -569,7 +569,7 @@ $(document).ready(function () {
             searchResults.append(item);
         });
 
-        searchResults.show();
+        searchResults.show().scrollTop(0);
     });
 
     $(document).on('click', function(e) {

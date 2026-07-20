@@ -135,6 +135,25 @@
         const menuList = document.getElementById('menuInnerList');
         if (!searchInput || !menuList) return;
 
+        function resetMenuScroll() {
+            if (menuList) menuList.scrollTop = 0;
+            const layoutMenu = document.getElementById('layout-menu');
+            if (layoutMenu) layoutMenu.scrollTop = 0;
+            if (menuList && menuList.parentElement) menuList.parentElement.scrollTop = 0;
+
+            const menuInnerShadow = document.querySelector('.menu-inner-shadow');
+            if (menuInnerShadow) {
+                menuInnerShadow.style.display = 'none';
+            }
+
+            if (menuList && menuList._ps) {
+                try { menuList._ps.update(); } catch (e) {}
+            }
+            if (layoutMenu && layoutMenu._ps) {
+                try { layoutMenu._ps.update(); } catch (e) {}
+            }
+        }
+
         searchInput.addEventListener('input', function () {
             const query = this.value.trim().toLowerCase();
             const items = Array.from(menuList.children);
@@ -163,6 +182,12 @@
             if (currentHeader) {
                 currentHeader.style.display = headerHasVisibleChild ? '' : 'none';
             }
+
+            resetMenuScroll();
+        });
+
+        searchInput.addEventListener('focus', function () {
+            resetMenuScroll();
         });
     })();
 </script>
