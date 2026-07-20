@@ -205,7 +205,7 @@
                         if (json.current_balance !== undefined) {
                             const isNeg = json.current_balance.includes('-');
                             $('#current-balance-container').html(
-                                '<span class="badge ' + (isNeg ? 'bg-label-danger' : 'bg-label-primary') + ' fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-building-bank me-1"></i> Current Bank Balance: ' + json.current_balance + '</span>'
+                                '<span class="badge ' + (isNeg ? 'bg-label-danger' : 'bg-label-primary') + ' fs-6 fw-bold" style="display: flex; justify-content: center; align-items: center;"><i class="ti ti-building-bank me-1"></i> Bank Balance: ' + json.current_balance + '</span>'
                             );
                         }
                         return json.data;
