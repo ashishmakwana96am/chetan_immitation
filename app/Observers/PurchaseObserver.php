@@ -76,7 +76,7 @@ class PurchaseObserver
                 'amount'       => $amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Purchase #' . $purchase->invoice_no,
-                'created_by'   => $purchase->created_by ?? auth()->id(),
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
             ]);
         });
      }
@@ -116,7 +116,7 @@ class PurchaseObserver
                 'amount'       => $amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Refund/Correction: Purchase #' . $purchase->invoice_no,
-                'created_by'   => auth()->id() ?? $purchase->created_by,
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
             ]);
         });
     }

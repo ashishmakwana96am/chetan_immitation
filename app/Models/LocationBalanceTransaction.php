@@ -41,4 +41,17 @@ class LocationBalanceTransaction extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public static function getFallbackUserId(?int $preferredUserId = null): int
+    {
+        if ($preferredUserId) {
+            return $preferredUserId;
+        }
+        if (auth()->check() && auth()->id()) {
+            return auth()->id();
+        }
+        return User::whereHas('roles', function ($q) {
+            $q->where('name', 'super-admin');
+        })->value('id') ?? 1;
+    }
 }

@@ -96,7 +96,7 @@ class OrderObserver
                 'amount'       => $order->final_amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Sale #' . $order->order_no,
-                'created_by'   => $order->user_id,
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId($order->user_id ?? $order->created_by),
             ]);
         });
     }
@@ -125,7 +125,7 @@ class OrderObserver
                 'amount'       => $amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Reversal: Sale #' . $orderNo,
-                'created_by'   => auth()->id(),
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId(),
             ]);
         });
     }

@@ -79,7 +79,7 @@ class ExpenseObserver
                 'amount'       => $amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Expense: ' . ($expense->title ?: $expense->category),
-                'created_by'   => $expense->created_by ?? auth()->id(),
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
             ]);
         });
     }
@@ -104,7 +104,7 @@ class ExpenseObserver
                 'amount'       => $amount,
                 'balance_after'=> $newBalance,
                 'notes'        => 'Reversal: Expense ' . ($expense->title ?: $expense->category),
-                'created_by'   => auth()->id(),
+                'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
             ]);
         });
     }
