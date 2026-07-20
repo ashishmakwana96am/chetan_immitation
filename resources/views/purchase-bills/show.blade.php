@@ -170,7 +170,7 @@
                                         {{ $item->quantity }}
                                         <small class="text-muted">
                                             @if($item->custom_size_value)
-                                                Packs
+                                                Pairs
                                             @elseif(($item->pair_type ?? 'single') === 'pair')
                                                 Pairs
                                             @else

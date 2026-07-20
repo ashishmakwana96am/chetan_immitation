@@ -439,7 +439,7 @@ $(document).ready(function () {
         
         if (product && product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
             displayQty = Math.floor(qtyPcs / customSizeValue);
-            unitLabel = 'Packs';
+            unitLabel = 'Pairs';
         } else if (pairType === 'pair') {
             displayQty = Math.floor(qtyPcs / 2);
             unitLabel = 'Pairs';
