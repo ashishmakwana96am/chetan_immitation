@@ -1135,6 +1135,13 @@ $(document).ready(function () {
     let printAfterSave = false;
     let printWindowRef = null;
 
+    function closePendingPrintTab() {
+        if (printWindowRef) {
+            printWindowRef.close();
+            printWindowRef = null;
+        }
+    }
+
     $('#submitBtnPrint, #submitBtnNoPrint').on('click', function () {
         printAfterSave = $(this).data('print') == 1;
         // Open the tab synchronously on click so popup blockers don't block it
@@ -1154,6 +1161,7 @@ $(document).ready(function () {
 
         if (activeCount === 0) {
             toastr.error('Please add at least one item with quantity greater than 0.');
+            closePendingPrintTab();
             return;
         }
 
@@ -1170,12 +1178,14 @@ $(document).ready(function () {
 
         if (sizeMissing) {
             toastr.error('Please select a size for each pair product before saving.');
+            closePendingPrintTab();
             return;
         }
 
         const discountError = validateDiscounts();
         if (discountError) {
             toastr.error(discountError);
+            closePendingPrintTab();
             return;
         }
 
@@ -1249,10 +1259,7 @@ $(document).ready(function () {
                 hiddenContainer.remove();
                 submitBtnPrint.prop('disabled', false).html('<i class="ti ti-printer me-1"></i> Save with Print');
                 submitBtnNoPrint.prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save without Print');
-                if (printWindowRef) {
-                    printWindowRef.close();
-                    printWindowRef = null;
-                }
+                closePendingPrintTab();
 
                 const responseJSON = xhr.responseJSON;
                 const errors = responseJSON?.errors || responseJSON?.message;
