@@ -271,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         window.purchaseImportHistory = res.history || [];
-        $('#purchaseImportHistorySearchInput').val('');
         renderPurchaseImportHistoryTable(window.purchaseImportHistory);
 
         const purchaseIds = res.summary.purchase_ids || [];
@@ -289,41 +288,42 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderPurchaseImportHistoryTable(items) {
-        const tbody = $('#purchaseImportHistoryTableBody').empty();
-        if (items.length === 0) {
-            tbody.append(`<tr><td colspan="4" class="text-center text-muted py-3">No history details available.</td></tr>`);
-            return;
+        if ($.fn.DataTable.isDataTable('#purchaseImportHistoryTable')) {
+            $('#purchaseImportHistoryTable').DataTable().destroy();
         }
 
-        items.forEach(function (item) {
-            let badgeColor = 'secondary';
-            if (item.status === 'Success') badgeColor = 'success';
-            else if (item.status === 'Warning') badgeColor = 'warning';
-            else if (item.status === 'Failed') badgeColor = 'danger';
+        const tbody = $('#purchaseImportHistoryTableBody').empty();
 
-            tbody.append(`
-                <tr>
-                    <td class="fw-semibold">${item.barcode || 'N/A'}</td>
-                    <td>${item.product || 'N/A'}</td>
-                    <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
-                    <td>
-                        <span class="text-dark d-block fw-medium">${item.reason}</span>
-                        <small class="text-muted">${item.details}</small>
-                    </td>
-                </tr>
-            `);
+        if (items && items.length > 0) {
+            items.forEach(function (item) {
+                let badgeColor = 'secondary';
+                if (item.status === 'Success') badgeColor = 'success';
+                else if (item.status === 'Warning') badgeColor = 'warning';
+                else if (item.status === 'Failed') badgeColor = 'danger';
+
+                tbody.append(`
+                    <tr>
+                        <td class="fw-semibold">${item.barcode || 'N/A'}</td>
+                        <td>${item.product || 'N/A'}</td>
+                        <td><span class="badge bg-label-${badgeColor}">${item.status}</span></td>
+                        <td>
+                            <span class="text-dark d-block fw-medium">${item.reason}</span>
+                            <small class="text-muted">${item.details}</small>
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+
+        $('#purchaseImportHistoryTable').DataTable({
+            responsive: false,
+            pageLength: 10,
+            order: [],
+            language: {
+                search: "",
+                searchPlaceholder: "Search Barcode or Product..."
+            }
         });
     }
-
-    $(document).on('input', '#purchaseImportHistorySearchInput', function () {
-        const query = $(this).val().toLowerCase().trim();
-        if (!window.purchaseImportHistory) return;
-        const filtered = window.purchaseImportHistory.filter(function (item) {
-            const barcode = item.barcode ? String(item.barcode).toLowerCase() : '';
-            const product = item.product ? String(item.product).toLowerCase() : '';
-            return barcode.includes(query) || product.includes(query);
-        });
-        renderPurchaseImportHistoryTable(filtered);
-    });
 });
 </script>

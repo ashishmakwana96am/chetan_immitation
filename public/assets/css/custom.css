@@ -552,3 +552,29 @@ input[readonly].flatpickr,
 .layout-menu .menu-inner {
   flex-grow: 1;
 }
+
+.form-control.is-invalid,
+.form-control.is-invalid:focus,
+.form-select.is-invalid,
+.form-select.is-invalid:focus,
+.input-group.is-invalid,
+.input-group:has(.is-invalid),
+.input-group:has(.is-invalid) .form-control,
+.input-group:has(.is-invalid) .input-group-text,
+.is-invalid {
+  box-shadow: none !important;
+}
+
+/*
+* Prevent main window double scrollbar when Offcanvas sidebar is open
+******************************************************************************/
+html:has(.offcanvas.show),
+body:has(.offcanvas.show),
+body.offcanvas-open {
+  overflow: hidden !important;
+}
+
+.offcanvas-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}

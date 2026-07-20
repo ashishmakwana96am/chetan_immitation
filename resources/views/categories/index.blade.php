@@ -64,7 +64,6 @@
                         <th>#</th>
                         <th>Image</th>
                         <th>Name</th>
-                        <th>Slug</th>
                         <th>Featured</th>
                         <th>Status</th>
                         <th>Low Stock Threshold</th>
@@ -90,7 +89,6 @@
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image',      orderable: false },
                 { data: 'name' },
-                { data: 'slug' },
                 { data: 'is_featured', orderable: false },
                 { data: 'status',     orderable: false },
                 { data: 'low_stock_threshold', orderable: false },

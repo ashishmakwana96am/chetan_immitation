@@ -918,7 +918,11 @@
                 $('#productCodeInput').trigger('change');
             });
 
-            updatePairPricingLabels($('#productPair').is(':checked'));
+            const isPairChecked = $('#productPair').is(':checked');
+            updatePairPricingLabels(isPairChecked);
+            if (isPairChecked && (!$('#pairSalePriceInput').val() || !$('#pairMrpInput').val())) {
+                $('#productCodeInput').trigger('change');
+            }
 
             $('#salePriceInput').on('input', function () {
                 const mult = getMultipliers();

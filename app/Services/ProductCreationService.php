@@ -278,6 +278,48 @@ class ProductCreationService
         }
     }
 
+    public function findOrCreateAttribute(string $name, ?int $userId): Attribute
+    {
+        $name = trim($name);
+        $attribute = Attribute::withTrashed()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if (!$attribute) {
+            $attribute = Attribute::create([
+                'name'       => $name,
+                'slug'       => generate_slug(Attribute::class, $name),
+                'status'     => Attribute::STATUS_ACTIVE,
+                'created_by' => $userId,
+                'sort_order' => ((int) Attribute::max('sort_order')) + 1,
+            ]);
+        } elseif ($attribute->trashed()) {
+            $attribute->restore();
+        }
+
+        return $attribute;
+    }
+
+    public function findOrCreateAttributeValue(int $attributeId, string $value): AttributeValue
+    {
+        $value = trim($value);
+        $attrValue = AttributeValue::withTrashed()
+            ->where('attribute_id', $attributeId)
+            ->whereRaw('LOWER(TRIM(value)) = ?', [mb_strtolower($value)])
+            ->first();
+
+        if (!$attrValue) {
+            $attrValue = AttributeValue::create([
+                'attribute_id' => $attributeId,
+                'value'        => $value,
+            ]);
+        } elseif ($attrValue->trashed()) {
+            $attrValue->restore();
+        }
+
+        return $attrValue;
+    }
+
     /**
      * Finds an existing Attribute by name (or creates it), finds an existing
      * AttributeValue under that attribute (or creates it), then finds an
@@ -287,21 +329,8 @@ class ProductCreationService
      */
     public function findOrCreateVariant(Product $product, string $attributeName, string $valueName, ?int $userId): ProductVariant
     {
-        $attribute = Attribute::withTrashed()->firstOrCreate(
-            ['name' => $attributeName],
-            ['slug' => generate_slug(Attribute::class, $attributeName), 'status' => Attribute::STATUS_ACTIVE, 'created_by' => $userId, 'sort_order' => ((int) Attribute::max('sort_order')) + 1]
-        );
-        if ($attribute->trashed()) {
-            $attribute->restore();
-        }
-
-        $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
-            'attribute_id' => $attribute->id,
-            'value'        => $valueName,
-        ]);
-        if ($attributeValue->trashed()) {
-            $attributeValue->restore();
-        }
+        $attribute = $this->findOrCreateAttribute($attributeName, $userId);
+        $attributeValue = $this->findOrCreateAttributeValue($attribute->id, $valueName);
 
         $variant = ProductVariant::withTrashed()->firstOrCreate(
             ['product_id' => $product->id, 'attribute_value_id' => $attributeValue->id],
@@ -326,22 +355,10 @@ class ProductCreationService
             $attributeName = $dim['name'];
             $attrValues = $dim['values'];
 
-            $attribute = Attribute::withTrashed()->firstOrCreate(
-                ['name' => $attributeName],
-                ['slug' => generate_slug(Attribute::class, $attributeName), 'status' => Attribute::STATUS_ACTIVE, 'created_by' => $product->created_by, 'sort_order' => ((int) Attribute::max('sort_order')) + 1]
-            );
-            if ($attribute->trashed()) {
-                $attribute->restore();
-            }
+            $attribute = $this->findOrCreateAttribute($attributeName, $product->created_by);
 
             foreach ($attrValues as $val) {
-                $attributeValue = AttributeValue::withTrashed()->firstOrCreate([
-                    'attribute_id' => $attribute->id,
-                    'value'        => $val,
-                ]);
-                if ($attributeValue->trashed()) {
-                    $attributeValue->restore();
-                }
+                $attributeValue = $this->findOrCreateAttributeValue($attribute->id, $val);
 
                 $variant = ProductVariant::withTrashed()->firstOrCreate(
                     [

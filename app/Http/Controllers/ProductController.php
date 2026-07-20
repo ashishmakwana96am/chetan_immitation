@@ -306,7 +306,12 @@ class ProductController extends Controller
             ];
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $messages = [
+            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
+            'pair_mrp.required_if'        => 'Pair MRP is required.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([
@@ -493,7 +498,12 @@ class ProductController extends Controller
             ];
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $messages = [
+            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
+            'pair_mrp.required_if'        => 'Pair MRP is required.',
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([
