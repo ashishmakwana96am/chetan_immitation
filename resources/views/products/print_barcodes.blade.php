@@ -123,6 +123,9 @@
                     <td class="zone-back-td">
                         <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 6pt;">MRP:{{ $item['salePrice'] }}</div>
                         <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt;">{{ $item['productCode'] }}</div>
+                        @if(!empty($item['isPair']))
+                            <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt; margin-top: 1pt !important;">Pair</div>
+                        @endif
                     </td>
                     <!-- Zone 3: Blank Tail Area (Right Section) -->
                     <td class="zone-tail-td">

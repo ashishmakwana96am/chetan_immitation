@@ -200,7 +200,7 @@
                         <div class="info-value d-flex gap-2 align-items-center">
                             <code>{{ $product->barcode ?? '-' }}</code>
                              @if($product->barcode)
-                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes($product->category->name ?? '') }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
+                                <button onclick="viewBarcode('{{ $product->barcode }}', {{ $product->id }}, '{{ addslashes(!empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '')) }}', '{{ addslashes($product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ')) }}', '{{ addslashes(format_price($product->sale_price)) }}')" class="btn btn-sm btn-icon btn-label-secondary" title="Print Barcode">
                                     <i class="ti ti-printer"></i>
                                 </button>
                             @endif
