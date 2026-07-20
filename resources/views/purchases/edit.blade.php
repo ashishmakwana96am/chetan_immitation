@@ -397,6 +397,26 @@ $(document).ready(function () {
 
     let itemIndex = 0;
     const symbol    = '{{ currency_symbol() }}';
+    const supplierEditUrlTemplate = '{{ route('admin.suppliers.edit', ['supplier' => '__ID__']) }}';
+    let pendingGstFixSupplierId = null;
+
+    // After the supplier edit modal (opened to add a missing GST No) is saved,
+    // sync the new GST No locally and automatically retry the purchase save.
+    window.refreshTable = function (res) {
+        if (!pendingGstFixSupplierId || !res || !res.data) return;
+        pendingGstFixSupplierId = null;
+
+        if (res.data.gst_no) {
+            $('#is_gst_switch').prop('checked', true).removeClass('is-invalid');
+            $('#purchaseForm').trigger('submit');
+        }
+    };
+
+    // If the supplier modal is closed without saving, don't auto-retry on some later unrelated save.
+    $('#commonModal').on('hidden.bs.offcanvas', function () {
+        pendingGstFixSupplierId = null;
+    });
+
     function formatPrice(val) {
         return parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -1030,10 +1050,20 @@ $(document).ready(function () {
                         toastr.error(errors);
                     } else {
                         $.each(errors, function (field, messages) {
+                            if (field === 'is_gst') {
+                                $('#is_gst_switch').prop('checked', false).addClass('is-invalid');
+                                toastr.error(messages[0]);
+                                const supplierId = $('#supplier_select').val();
+                                if (supplierId) {
+                                    pendingGstFixSupplierId = supplierId;
+                                    window.openCommonModal(supplierEditUrlTemplate.replace('__ID__', supplierId));
+                                }
+                                return;
+                            }
                             let input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
                             if (input.length > 0) {
                                 input.addClass('is-invalid');
-                                
+
                                 if (input.hasClass('select2-hidden-accessible')) {
                                     input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
                                 }

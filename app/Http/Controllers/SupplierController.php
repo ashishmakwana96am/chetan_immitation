@@ -55,6 +55,7 @@ class SupplierController extends Controller
                 'name'       => $supplier->name,
                 'phone'      => $supplier->phone ?? '-',
                 'state'      => $supplier->state ?? '-',
+                'gst_no'     => $supplier->gst_no ?? '-',
                 'address'    => $supplier->address ?? '-',
                 'status'     => $status,
                 'created_at' => format_date($supplier->created_at),
@@ -81,6 +82,7 @@ class SupplierController extends Controller
             'phone'   => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
             'state'   => ['nullable', 'string', 'max:100'],
+            'gst_no'  => ['nullable', 'string', 'max:20'],
         ]);
 
         if ($validator->fails()) {
@@ -95,6 +97,7 @@ class SupplierController extends Controller
             'phone'      => $request->phone,
             'address'    => $request->address,
             'state'      => $request->state,
+            'gst_no'     => $request->gst_no,
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
         ]);
@@ -121,6 +124,7 @@ class SupplierController extends Controller
             'phone'   => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
             'state'   => ['nullable', 'string', 'max:100'],
+            'gst_no'  => ['nullable', 'string', 'max:20'],
         ]);
 
         if ($validator->fails()) {
@@ -135,12 +139,14 @@ class SupplierController extends Controller
             'phone'   => $request->phone,
             'address' => $request->address,
             'state'   => $request->state,
+            'gst_no'  => $request->gst_no,
             'status'  => $request->has('status') ? 1 : 2,
         ]);
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Supplier updated successfully.',
+            'data'    => $supplier->only(['id', 'name', 'gst_no']),
         ]);
     }
 

@@ -19,6 +19,7 @@ class Supplier extends Model
         'phone',
         'address',
         'state',
+        'gst_no',
         'status',
         'created_by',
     ];
