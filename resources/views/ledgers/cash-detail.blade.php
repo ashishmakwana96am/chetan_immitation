@@ -140,7 +140,7 @@
                                             @endif
                                         </td>
                                         <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}">
-                                            {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? '+' : '-' }} {{ format_price($transaction->amount) }}
+                                            {{ format_price($transaction->amount) }}
                                         </td>
                                         <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
                                         <td>{{ $transaction->createdBy->name ?? '-' }}</td>

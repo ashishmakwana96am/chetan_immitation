@@ -617,7 +617,26 @@ class ProductController extends Controller
             ], 422);
         }
 
-        DB::transaction(function () use ($request, $product, $pairMode) {
+        $wasNormal   = ($product->type === 'normal');
+        $normalStock = $wasNormal ? (int)$product->totalAvailableStock() : 0;
+
+        if ($wasNormal && $normalStock > 0 && $request->type === 'variable') {
+            $stockMigrationInput = $request->input('stock_migration', []);
+            $totalAllocated      = array_sum(array_map('intval', $stockMigrationInput));
+
+            if ($totalAllocated !== $normalStock) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => [
+                        'stock_migration' => [
+                            "Please allocate all {$normalStock} Pcs of existing stock across variations before updating. (Currently allocated: {$totalAllocated} Pcs)."
+                        ]
+                    ],
+                ], 422);
+            }
+        }
+
+        DB::transaction(function () use ($request, $product, $wasNormal) {
             $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
             $productData = [
@@ -638,8 +657,6 @@ class ProductController extends Controller
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
             ];
 
-            // Only a super-admin's submission can change this — for anyone else the field
-            // is simply omitted so the product's existing flag is left untouched.
             if ($isSuperAdmin) {
                 $productData['bypass_min_price'] = $request->has('bypass_min_price') ? 1 : 0;
             }
@@ -672,7 +689,6 @@ class ProductController extends Controller
 
             $product->update($productData);
 
-            // Replace primary image
             if ($request->filled('primary_image_base64')) {
                 $existing = $product->images()->where('is_primary', true)->first();
                 if ($existing) {
@@ -693,7 +709,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Additional images
             if ($request->filled('additional_images_base64')) {
                 foreach ($request->additional_images_base64 as $base64) {
                     $imagePath = $this->saveBase64Image($base64);
@@ -758,6 +773,130 @@ class ProductController extends Controller
                 }
 
                 $product->variants()->whereNotIn('attribute_value_id', $keptAttributeValueIds)->delete();
+
+                // Stock migration from Normal Product to multiple selected Variants
+                $stockMigrationInput = array_filter($request->input('stock_migration', []), fn($q) => (int)$q > 0);
+
+                if ($wasNormal && !empty($stockMigrationInput)) {
+                    $requestedAllocations = [];
+                    foreach ($stockMigrationInput as $attrValId => $qty) {
+                        $qtyNeeded = (int) $qty;
+                        if ($qtyNeeded > 0) {
+                            $variant = $product->variants()->where('attribute_value_id', $attrValId)->first();
+                            if ($variant) {
+                                $requestedAllocations[$variant->id] = $qtyNeeded;
+                            }
+                        }
+                    }
+
+                    if (!empty($requestedAllocations)) {
+                        // 1. Process unassigned PurchaseItems for this product
+                        $unassignedPurchaseItems = \App\Models\PurchaseItem::with('allocations')
+                            ->where('product_id', $product->id)
+                            ->whereNull('product_variant_id')
+                            ->get();
+
+                        foreach ($unassignedPurchaseItems as $pItem) {
+                            $itemQty = (int)$pItem->quantity;
+                            if ($itemQty <= 0) continue;
+
+                            foreach ($requestedAllocations as $variantId => &$neededQty) {
+                                if ($neededQty <= 0) continue;
+
+                                $assignQty = min($itemQty, $neededQty);
+                                if ($assignQty <= 0) continue;
+
+                                if ($assignQty == $itemQty) {
+                                    $pItem->update(['product_variant_id' => $variantId]);
+                                } else {
+                                    $newItem = \App\Models\PurchaseItem::create([
+                                        'purchase_id'        => $pItem->purchase_id,
+                                        'product_id'         => $product->id,
+                                        'product_variant_id' => $variantId,
+                                        'quantity'           => $assignQty,
+                                        'purchase_price'     => $pItem->purchase_price,
+                                        'subtotal'           => $assignQty * $pItem->purchase_price,
+                                    ]);
+
+                                    foreach ($pItem->allocations as $alloc) {
+                                        $allocRatioQty = min($alloc->quantity, $assignQty);
+                                        if ($allocRatioQty > 0) {
+                                            \App\Models\PurchaseAllocation::create([
+                                                'purchase_item_id' => $newItem->id,
+                                                'location_id'      => $alloc->location_id,
+                                                'quantity'         => $allocRatioQty,
+                                            ]);
+                                            $alloc->decrement('quantity', $allocRatioQty);
+                                        }
+                                    }
+                                    $pItem->decrement('quantity', $assignQty);
+                                    $pItem->update(['subtotal' => $pItem->quantity * $pItem->purchase_price]);
+                                }
+
+                                $neededQty -= $assignQty;
+                                $itemQty -= $assignQty;
+
+                                if ($itemQty <= 0) break;
+                            }
+                        }
+                        unset($neededQty);
+
+                        // 2. Handle any remaining requested quantities where no purchase allocations exist
+                        $remainingRequested = array_filter($requestedAllocations, fn($q) => $q > 0);
+                        if (!empty($remainingRequested)) {
+                            $inventories = \App\Models\Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->get();
+                            foreach ($inventories as $inv) {
+                                $hasAllocations = \App\Models\PurchaseAllocation::where('location_id', $inv->location_id)
+                                    ->whereHas('purchaseItem', function ($q) use ($product) {
+                                        $q->where('product_id', $product->id);
+                                    })->exists();
+
+                                if (!$hasAllocations) {
+                                    $supplierId = \App\Models\Supplier::first()?->id;
+                                    if (!$supplierId) {
+                                        $supplier   = \App\Models\Supplier::create(['name' => 'Default Supplier', 'status' => 1]);
+                                        $supplierId = $supplier->id;
+                                    }
+
+                                    $dummyPurchase = \App\Models\Purchase::create([
+                                        'invoice_no'    => 'MIG-' . $product->id . '-' . time(),
+                                        'supplier_id'   => $supplierId,
+                                        'purchase_date' => now(),
+                                        'status'        => 2, // Approved
+                                        'notes'         => 'Stock migration from Normal product to Variants',
+                                        'created_by'    => auth()->id(),
+                                    ]);
+
+                                    $invQtyAvailable = (int)$inv->quantity;
+                                    foreach ($remainingRequested as $variantId => &$reqQty) {
+                                        if ($reqQty <= 0 || $invQtyAvailable <= 0) continue;
+
+                                        $migQty = min($invQtyAvailable, $reqQty);
+
+                                        $pItem = \App\Models\PurchaseItem::create([
+                                            'purchase_id'        => $dummyPurchase->id,
+                                            'product_id'         => $product->id,
+                                            'product_variant_id' => $variantId,
+                                            'quantity'           => $migQty,
+                                            'purchase_price'     => $product->purchase_price,
+                                            'subtotal'           => $migQty * $product->purchase_price,
+                                        ]);
+
+                                        \App\Models\PurchaseAllocation::create([
+                                            'purchase_item_id' => $pItem->id,
+                                            'location_id'      => $inv->location_id,
+                                            'quantity'         => $migQty,
+                                        ]);
+
+                                        $reqQty -= $migQty;
+                                        $invQtyAvailable -= $migQty;
+                                    }
+                                    unset($reqQty);
+                                }
+                            }
+                        }
+                    }
+                }
             } elseif ($request->type === 'normal') {
                 $product->variants()->delete();
             }
