@@ -35,6 +35,12 @@
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">
+            <label class="form-label" for="supplierGstNo">GST No</label>
+            <input type="text" id="supplierGstNo" name="gst_no"
+                class="form-control" placeholder="Enter GST Number" />
+            <div class="invalid-feedback"></div>
+        </div>
+        <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
                 <input class="form-check-input" type="checkbox" id="supplierStatus" name="status" value="1" checked />

@@ -190,6 +190,16 @@ class PurchaseController extends Controller
             ], 422);
         }
 
+        if ($request->boolean('is_gst')) {
+            $supplier = Supplier::find($request->supplier_id);
+            if (!$supplier || !$supplier->gst_no) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['is_gst' => ['Selected supplier has no GST No. Please add a GST No to the supplier before creating a GST bill.']],
+                ], 422);
+            }
+        }
+
         try {
             $defaultLocation = $this->defaultPurchaseLocation();
         } catch (\RuntimeException $e) {
@@ -396,6 +406,16 @@ class PurchaseController extends Controller
                 'status'  => 'error',
                 'message' => $validator->errors(),
             ], 422);
+        }
+
+        if ($request->boolean('is_gst')) {
+            $supplier = Supplier::find($request->supplier_id);
+            if (!$supplier || !$supplier->gst_no) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['is_gst' => ['Selected supplier has no GST No. Please add a GST No to the supplier before creating a GST bill.']],
+                ], 422);
+            }
         }
 
         try {

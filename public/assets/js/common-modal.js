@@ -128,12 +128,7 @@ $(document).ready(function () {
     // Trigger : [data-common-modal="url"]
     // Optional: [data-size="modal-lg|modal-xl|modal-sm"]
     // -------------------------------------------------------
-    $(document).on('click', '[data-common-modal]', function (e) {
-        e.preventDefault();
-
-        const url  = $(this).attr('data-common-modal');
-        const size = $(this).attr('data-size') || '';
-
+    window.openCommonModal = function (url, size) {
         $('#commonModalBody').html(showSpinner());
         $('#commonModal').offcanvas('show');
 
@@ -216,6 +211,11 @@ $(document).ready(function () {
             .fail(function () {
                 $('#commonModalBody').html('<p class="text-center text-danger p-4">Failed to load content.</p>');
             });
+    };
+
+    $(document).on('click', '[data-common-modal]', function (e) {
+        e.preventDefault();
+        window.openCommonModal($(this).attr('data-common-modal'), $(this).attr('data-size') || '');
     });
 
     // Reset offcanvas on close

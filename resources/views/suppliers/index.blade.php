@@ -50,6 +50,7 @@
                         <th>Name</th>
                         <th>Phone</th>
                         <th>State</th>
+                        <th>GST No</th>
                         <th>Address</th>
                         <th>Status</th>
                         <th>Created Date</th>
@@ -83,6 +84,7 @@
                     { data: 'name' },
                     { data: 'phone' },
                     { data: 'state' },
+                    { data: 'gst_no' },
                     { data: 'address' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },
