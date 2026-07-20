@@ -606,6 +606,9 @@ class AccountingController extends Controller
         if ($request->filled('location_id')) {
             $query->where('location_id', $request->location_id);
         }
+        if ($request->filled('balance_type')) {
+            $query->where('balance_type', $request->balance_type);
+        }
 
         $transactions = $query->orderBy('id', 'desc')->get();
 
@@ -630,7 +633,7 @@ class AccountingController extends Controller
                 'type'          => $typeBadge,
                 'amount'        => $amountSpan,
                 'balance_after' => format_price($tx->balance_after),
-                'notes'         => !empty($tx->notes) ? e($tx->notes) : 'Manual Account Balance Adjustment',
+                'notes'         => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
                 'created_by'    => e($tx->createdBy->name ?? '-'),
                 'date_group'    => $tx->created_at->format('d M Y'),
                 'date_sort'     => $tx->created_at->format('YmdHis'),
@@ -718,7 +721,7 @@ class AccountingController extends Controller
                     'type'          => $request->type,
                     'amount'        => $amount,
                     'balance_after' => $newBalance,
-                    'notes'         => !empty($request->notes) ? $request->notes : 'Manual Account Balance Adjustment',
+                    'notes'         => !empty($request->notes) ? $request->notes : 'Opening Balance Added',
                     'created_by'    => auth()->id(),
                 ]);
 

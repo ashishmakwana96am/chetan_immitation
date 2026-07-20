@@ -106,7 +106,7 @@ class LocationBalanceController extends Controller
                     'type'          => $request->type,
                     'amount'        => $amount,
                     'balance_after' => $newBalance,
-                    'notes'         => !empty($request->notes) ? $request->notes : 'Manual Account Balance Adjustment',
+                    'notes'         => !empty($request->notes) ? $request->notes : 'Opening Balance Added',
                     'created_by'    => auth()->id(),
                 ]);
 

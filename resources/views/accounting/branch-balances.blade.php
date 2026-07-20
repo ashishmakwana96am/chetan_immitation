@@ -99,6 +99,14 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Balance Type</label>
+                    <select id="filter-balance-type" class="form-select">
+                        <option value="">All Balance Types</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank</option>
+                    </select>
+                </div>
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
@@ -218,9 +226,10 @@
                     },
                     cache   : false,
                     data    : function(d) {
-                        d.start_date  = $('#filter-start-date').val();
-                        d.end_date    = $('#filter-end-date').val();
-                        d.location_id = $('#filter-location').val() || '';
+                        d.start_date   = $('#filter-start-date').val();
+                        d.end_date     = $('#filter-end-date').val();
+                        d.location_id  = $('#filter-location').val() || '';
+                        d.balance_type = $('#filter-balance-type').val() || '';
                     }
                 },
                 columns     : [
@@ -271,6 +280,7 @@
                 $('#filter-start-date').val('');
                 $('#filter-end-date').val('');
                 $('#filter-location').val('').trigger('change');
+                $('#filter-balance-type').val('').trigger('change');
                 if (startPicker) startPicker.clear();
                 if (endPicker) endPicker.clear();
                 updateFilterButtonsVisibility();
