@@ -613,9 +613,10 @@ $(document).ready(function () {
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
             product.variants.forEach(v => {
                 const optPrice = v.sale_price != null ? v.sale_price : 0;
+                const optPairPrice = v.pair_price != null ? v.pair_price : (product.pair_price != null ? product.pair_price : 0);
                 const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = (selectedVariantId && selectedVariantId == v.id) || (!selectedVariantId && product.variants[0].id == v.id) ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-pair-price="${optPairPrice}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -653,8 +654,9 @@ $(document).ready(function () {
                 setItemPrice(row, matchedSize.sale_price);
             }
         } else if (product.pair_product) {
-            const singlePrice = product.single_price != null ? product.single_price : 0;
-            const pairPrice   = product.pair_price != null ? product.pair_price : 0;
+            const selectedOpt = row.find('.variant-select option:selected');
+            const singlePrice = selectedOpt.length && selectedOpt.data('price') != null ? selectedOpt.data('price') : (product.single_price != null ? product.single_price : 0);
+            const pairPrice   = selectedOpt.length && selectedOpt.data('pair-price') != null ? selectedOpt.data('pair-price') : (product.pair_price != null ? product.pair_price : 0);
             const pairHtml = `
                 <div class="pair-type-toggle mt-1" data-single-price="${singlePrice}" data-pair-price="${pairPrice}">
                     <button type="button" class="pair-btn ${pairType !== 'pair' ? 'active' : ''}" data-value="single">Piece</button>
@@ -663,7 +665,9 @@ $(document).ready(function () {
             row.find('.pair-type-container').html(pairHtml);
             row.find('.pair-type-input').val(pairType);
             // Set correct price immediately
-            setItemPrice(row, pairType === 'pair' ? pairPrice : singlePrice);
+            if (price == null) {
+                setItemPrice(row, pairType === 'pair' ? pairPrice : singlePrice);
+            }
         }
 
         row.find('.item-qty').val(qty);
@@ -682,11 +686,22 @@ $(document).ready(function () {
         const selectedOpt = $(this).find('option:selected');
         const variantId = selectedOpt.val();
         const price = selectedOpt.data('price');
+        const pairPrice = selectedOpt.data('pair-price');
         
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
         row.data('purchase-price', selectedOpt.data('purchase-price'));
-        setItemPrice(row, price);
+
+        const toggle = row.find('.pair-type-toggle');
+        if (toggle.length) {
+            if (price != null) toggle.data('single-price', price);
+            if (pairPrice != null) toggle.data('pair-price', pairPrice);
+            const pairType = row.find('.pair-type-input').val();
+            const activePrice = (pairType === 'pair') ? parseFloat(toggle.data('pair-price')) : parseFloat(toggle.data('single-price'));
+            setItemPrice(row, activePrice);
+        } else {
+            setItemPrice(row, price);
+        }
 
         updateRowTotal(row);
         updateStockInfo(row);

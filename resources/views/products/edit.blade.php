@@ -935,7 +935,7 @@
             function buildExistingMap() {
                 const map = {};
                 existingVariants.forEach(function (v) {
-                    map[v.attribute_value_id] = { purchase_price: v.purchase_price, sale_price: v.sale_price, status: v.status };
+                    map[v.attribute_value_id] = { purchase_price: v.purchase_price, sale_price: v.sale_price, pair_sale_price: v.pair_sale_price, pair_mrp: v.pair_mrp, status: v.status };
                 });
                 return map;
             }
@@ -978,9 +978,16 @@
             });
 
             function renderVariantsTable() {
+                const isPair = $('#productPair').is(':checked');
+                const mode = currentPairMode();
+                const isPairPieces = isPair && mode === 'pieces_pair';
+
                 let headerHtml = '<th style="width:50px">#</th><th>Attribute</th><th>Value</th>';
-                headerHtml += '<th style="width:200px">Purchase Price <span class="text-danger">*</span></th>';
-                headerHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
+                headerHtml += '<th style="width:170px">Purchase Price <span class="text-danger">*</span></th>';
+                headerHtml += '<th style="width:170px">Sale Price (Piece) <span class="text-danger">*</span></th>';
+                if (isPairPieces) {
+                    headerHtml += '<th style="width:170px">Pair Sale Price <span class="text-danger">*</span></th>';
+                }
                 headerHtml += '<th style="width:60px">Action</th>';
                 $('#variantsHeader').html(headerHtml);
 
@@ -1020,13 +1027,17 @@
                 let bodyHtml = '';
                 variantsData.forEach(function (v, idx) {
                     const info = findAttrValue(v.attribute_value_id);
+                    const pairVal = (v.pair_sale_price !== undefined && v.pair_sale_price !== null) ? v.pair_sale_price : '';
                     bodyHtml += '<tr>' +
                         '<td>' + (idx + 1) + '</td>' +
                         '<td>' + info.attrName + '</td>' +
                         '<td>' + info.valName + '</td>' +
-                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-purchase" value="' + v.purchase_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
-                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + v.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
-                        '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
+                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-purchase" value="' + (v.purchase_price ?? '') + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
+                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + (v.sale_price ?? '') + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>';
+                    if (isPairPieces) {
+                        bodyHtml += '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-pair-sale" value="' + pairVal + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>';
+                    }
+                    bodyHtml += '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
                         '</tr>';
                 });
                 $('#variantsBody').html(bodyHtml);
@@ -1046,6 +1057,7 @@
 
                 const defaultPurchase = parseFloat($('input[name="purchase_price"]').val()) || 0;
                 const defaultSale = parseFloat($('input[name="sale_price"]').val()) || 0;
+                const defaultPairSale = parseFloat($('#pairSalePriceInput').val()) || (defaultSale * 2);
 
                 const newData = [];
                 $checked.each(function () {
@@ -1062,6 +1074,7 @@
                                     attribute_value_id: val.id,
                                     purchase_price: defaultPurchase,
                                     sale_price: defaultSale,
+                                    pair_sale_price: defaultPairSale,
                                     status: 1
                                 });
                             }
@@ -1084,6 +1097,14 @@
                 const idx = $(this).data('index');
                 if (variantsData[idx]) {
                     variantsData[idx].sale_price = parseFloat($(this).val()) || 0;
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                }
+            });
+
+            $(document).on('input', '.variant-pair-sale', function () {
+                const idx = $(this).data('index');
+                if (variantsData[idx]) {
+                    variantsData[idx].pair_sale_price = parseFloat($(this).val()) || 0;
                     $('#variantsJson').val(JSON.stringify(variantsData));
                 }
             });
@@ -1192,9 +1213,13 @@
 
             function updatePairModeUI() {
                 const isPair = $('#productPair').is(':checked');
+                const isVariable = $('#productType').val() === 'variable';
                 const mode = currentPairMode();
                 const hideBasePrice = isPair && mode === 'custom_size';
-                $('.pair-mode-pieces-field').toggleClass('d-none', !(isPair && mode !== 'custom_size'));
+
+                const showGlobalPairFields = isPair && mode !== 'custom_size' && !isVariable;
+
+                $('.pair-mode-pieces-field').toggleClass('d-none', !showGlobalPairFields);
                 $('.pair-mode-custom-field').toggleClass('d-none', !hideBasePrice);
                 $('.base-price-field').toggleClass('d-none', hideBasePrice);
 
@@ -1202,6 +1227,10 @@
                     $('#productTypeCol').insertAfter('#purchasePriceCol');
                 } else {
                     $('#productTypeCol').insertAfter('#customSizeSection');
+                }
+
+                if (typeof renderVariantsTable === 'function') {
+                    renderVariantsTable();
                 }
             }
 
@@ -1470,6 +1499,7 @@
                 } else {
                     $('#variableSection').addClass('d-none');
                 }
+                updatePairModeUI();
             });
 
             if ($('#productType').val() === 'variable') {

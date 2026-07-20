@@ -348,8 +348,10 @@ class ProductController extends Controller
                     },
                 ];
             } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
-                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
+                if ($request->type !== 'variable') {
+                    $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
+                    $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
+                }
             }
         }
 
@@ -357,10 +359,19 @@ class ProductController extends Controller
             $rules['variants_json'] = [
                 'required',
                 'json',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($request, $pairMode) {
                     $decoded = json_decode($value, true);
                     if (!is_array($decoded) || empty($decoded)) {
                         $fail('Please add at least one attribute & variant.');
+                        return;
+                    }
+                    if ($request->has('pair_product') && $pairMode === 'pieces_pair') {
+                        foreach ($decoded as $vRow) {
+                            if (!isset($vRow['pair_sale_price']) || $vRow['pair_sale_price'] === null || $vRow['pair_sale_price'] === '' || !is_numeric($vRow['pair_sale_price']) || (float)$vRow['pair_sale_price'] <= 0) {
+                                $fail('Pair Sale Price is required for all variants.');
+                                return;
+                            }
+                        }
                     }
                 }
             ];
@@ -501,6 +512,8 @@ class ProductController extends Controller
                         'attribute_value_id' => $item['attribute_value_id'],
                         'purchase_price'     => $item['purchase_price'] ?? 0,
                         'sale_price'         => $item['sale_price'] ?? 0,
+                        'pair_sale_price'    => isset($item['pair_sale_price']) && is_numeric($item['pair_sale_price']) ? $item['pair_sale_price'] : null,
+                        'pair_mrp'           => isset($item['pair_mrp']) && is_numeric($item['pair_mrp']) ? $item['pair_mrp'] : null,
                         'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
                     ]);
                 }
@@ -585,8 +598,10 @@ class ProductController extends Controller
                     },
                 ];
             } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
-                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
+                if ($request->type !== 'variable') {
+                    $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
+                    $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
+                }
             }
         }
 
@@ -594,10 +609,19 @@ class ProductController extends Controller
             $rules['variants_json'] = [
                 'required',
                 'json',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($request, $pairMode) {
                     $decoded = json_decode($value, true);
                     if (!is_array($decoded) || empty($decoded)) {
                         $fail('Please add at least one attribute & variant.');
+                        return;
+                    }
+                    if ($request->has('pair_product') && $pairMode === 'pieces_pair') {
+                        foreach ($decoded as $vRow) {
+                            if (!isset($vRow['pair_sale_price']) || $vRow['pair_sale_price'] === null || $vRow['pair_sale_price'] === '' || !is_numeric($vRow['pair_sale_price']) || (float)$vRow['pair_sale_price'] <= 0) {
+                                $fail('Pair Sale Price is required for all variants.');
+                                return;
+                            }
+                        }
                     }
                 }
             ];
@@ -636,7 +660,7 @@ class ProductController extends Controller
             }
         }
 
-        DB::transaction(function () use ($request, $product, $wasNormal) {
+        DB::transaction(function () use ($request, $product, $wasNormal, $pairMode) {
             $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
             $productData = [
@@ -756,9 +780,11 @@ class ProductController extends Controller
                     $keptAttributeValueIds[] = $attributeValueId;
 
                     $variantData = [
-                        'purchase_price' => $item['purchase_price'] ?? 0,
-                        'sale_price'     => $item['sale_price'] ?? 0,
-                        'status'         => ($item['status'] ?? 1) == 1 ? 1 : 2,
+                        'purchase_price'  => $item['purchase_price'] ?? 0,
+                        'sale_price'      => $item['sale_price'] ?? 0,
+                        'pair_sale_price' => isset($item['pair_sale_price']) && is_numeric($item['pair_sale_price']) ? $item['pair_sale_price'] : null,
+                        'pair_mrp'        => isset($item['pair_mrp']) && is_numeric($item['pair_mrp']) ? $item['pair_mrp'] : null,
+                        'status'          => ($item['status'] ?? 1) == 1 ? 1 : 2,
                     ];
 
                     if ($existingVariant = $existingVariants->get($attributeValueId)) {
