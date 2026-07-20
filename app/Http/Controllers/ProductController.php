@@ -151,6 +151,9 @@ class ProductController extends Controller
                 'barcode'        => $barcode,
                 'raw_barcode'    => $product->barcode,
                 'product_code'   => $product->product_code,
+                'pair_product'   => (bool) $product->pair_product,
+                'pair_mode'      => $product->pair_mode,
+                'custom_sizes'   => $product->custom_sizes,
                 'category'       => !empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '-'),
                 'variations'     => $variationsStr,
                 'stock'          => $stock,
@@ -198,11 +201,30 @@ class ProductController extends Controller
                     default => 7.5,
                 };
 
+                $isPair = (bool) $product->pair_product && ($product->pair_mode !== 'custom_size');
+                $customSizeLabel = null;
+
+                if ($product->pair_product && $product->pair_mode === 'custom_size' && !empty($product->custom_sizes)) {
+                    $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
+                    if ($selectedSizeVal) {
+                        $customSizeLabel = str_contains((string)$selectedSizeVal, 'pcs') ? $selectedSizeVal : $selectedSizeVal . ' pcs';
+                    } else {
+                        $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
+                        $firstSize = $sizesList->first();
+                        if ($firstSize && isset($firstSize['size'])) {
+                            $rawSize = $firstSize['size'];
+                            $sizeStr = is_numeric($rawSize) ? rtrim(rtrim(number_format((float)$rawSize, 2), '0'), '.') : $rawSize;
+                            $customSizeLabel = str_contains((string)$sizeStr, 'pcs') ? $sizeStr : $sizeStr . ' pcs';
+                        }
+                    }
+                }
+
                 $printItems[] = [
                     'barcodeBase64'    => $barcodeBase64,
                     'barcodeText'      => $barcodeVal,
                     'productCode'      => $product->product_code !== null ? number_format($product->product_code, 0) : '',
-                    'isPair'           => (bool) $product->pair_product,
+                    'isPair'           => $isPair,
+                    'customSizeLabel'  => $customSizeLabel,
                     'category'         => $categoryDisplay,
                     'categoryFontSize' => $categoryFontSize,
                     'variations'       => $variations,
@@ -313,19 +335,21 @@ class ProductController extends Controller
                             return;
                         }
                         foreach ($decoded as $row) {
-                            if (!isset($row['size'], $row['sale_price'], $row['mrp']) ||
-                                !is_numeric($row['size']) || $row['size'] <= 0 ||
-                                !is_numeric($row['sale_price']) || $row['sale_price'] < 0 ||
-                                !is_numeric($row['mrp']) || $row['mrp'] < 0) {
-                                $fail('Each custom size must have a valid size, sale price and MRP.');
+                            $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'custom size';
+                            if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
+                                $fail("Sale Price ({$sizeText}) is required.");
+                                return;
+                            }
+                            if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
+                                $fail("MRP ({$sizeText}) is required.");
                                 return;
                             }
                         }
                     },
                 ];
             } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0'];
-                $rules['pair_mrp'] = ['required', 'numeric', 'min:0'];
+                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
+                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
             }
         }
 
@@ -548,19 +572,21 @@ class ProductController extends Controller
                             return;
                         }
                         foreach ($decoded as $row) {
-                            if (!isset($row['size'], $row['sale_price'], $row['mrp']) ||
-                                !is_numeric($row['size']) || $row['size'] <= 0 ||
-                                !is_numeric($row['sale_price']) || $row['sale_price'] < 0 ||
-                                !is_numeric($row['mrp']) || $row['mrp'] < 0) {
-                                $fail('Each custom size must have a valid size, sale price and MRP.');
+                            $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'custom size';
+                            if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
+                                $fail("Sale Price ({$sizeText}) is required.");
+                                return;
+                            }
+                            if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
+                                $fail("MRP ({$sizeText}) is required.");
                                 return;
                             }
                         }
                     },
                 ];
             } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0'];
-                $rules['pair_mrp'] = ['required', 'numeric', 'min:0'];
+                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
+                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
             }
         }
 

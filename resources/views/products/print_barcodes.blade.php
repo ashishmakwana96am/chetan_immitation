@@ -125,6 +125,8 @@
                         <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt;">{{ $item['productCode'] }}</div>
                         @if(!empty($item['isPair']))
                             <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt; margin-top: 1pt !important;">Pair</div>
+                        @elseif(!empty($item['customSizeLabel']))
+                            <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt; margin-top: 1pt !important;">{{ $item['customSizeLabel'] }}</div>
                         @endif
                     </td>
                     <!-- Zone 3: Blank Tail Area (Right Section) -->

@@ -694,6 +694,42 @@
                     }
                 }
 
+                if ($('#productPair').is(':checked') && currentPairMode() === 'custom_size') {
+                    let customSizeError = false;
+                    if (!customSizesList || customSizesList.length === 0) {
+                        toastr.error('Please add at least one custom size with pricing.');
+                        return;
+                    }
+                    $('#customSizeRows .custom-size-sale-field').each(function () {
+                        const index = $(this).data('index');
+                        const size = $(this).data('size');
+                        const $saleInput = $(this).find('.custom-size-sale-price');
+                        const $mrpInput = $('#customSizeRows .custom-size-mrp-field[data-index="' + index + '"]').find('.custom-size-mrp');
+                        const saleVal = parseFloat($saleInput.val());
+                        const mrpVal = parseFloat($mrpInput.val());
+
+                        $saleInput.removeClass('is-invalid');
+                        $saleInput.siblings('.invalid-feedback').text('');
+                        $mrpInput.removeClass('is-invalid');
+                        $mrpInput.siblings('.invalid-feedback').text('');
+
+                        if (isNaN(saleVal) || saleVal <= 0) {
+                            $saleInput.addClass('is-invalid');
+                            $saleInput.siblings('.invalid-feedback').text('Sale Price (' + size + ' pcs) is required.');
+                            customSizeError = true;
+                        }
+                        if (isNaN(mrpVal) || mrpVal <= 0) {
+                            $mrpInput.addClass('is-invalid');
+                            $mrpInput.siblings('.invalid-feedback').text('MRP (' + size + ' pcs) is required.');
+                            customSizeError = true;
+                        }
+                    });
+                    if (customSizeError) {
+                        toastr.error('Please fill in valid Sale Price and MRP for all custom sizes.');
+                        return;
+                    }
+                }
+
                 const form     = $(this);
                 const formData = new FormData(this);
 
@@ -728,6 +764,8 @@
                                     $('#additionalDropZone').css('border-color', '#ea5455');
                                 } else if (field === 'variants_json') {
                                     $('#variantsJson').siblings('.invalid-feedback').text('Please add at least one attribute & variant.');
+                                } else if (field === 'custom_sizes_json') {
+                                    toastr.error(messages[0]);
                                 } else {
                                     const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
                                     let feedback = input.siblings('.invalid-feedback');
@@ -1164,8 +1202,10 @@
                 $('#customSizeRows .custom-size-sale-field').each(function () {
                     const index = $(this).data('index');
                     const size = parseFloat($(this).data('size'));
-                    const salePrice = parseFloat($(this).find('.custom-size-sale-price').val()) || 0;
-                    const mrp = parseFloat($('#customSizeRows .custom-size-mrp-field[data-index="' + index + '"]').find('.custom-size-mrp').val()) || 0;
+                    const rawSale = $(this).find('.custom-size-sale-price').val();
+                    const rawMrp = $('#customSizeRows .custom-size-mrp-field[data-index="' + index + '"]').find('.custom-size-mrp').val();
+                    const salePrice = (rawSale !== undefined && rawSale !== null && rawSale.trim() !== '') ? parseFloat(rawSale) : null;
+                    const mrp = (rawMrp !== undefined && rawMrp !== null && rawMrp.trim() !== '') ? parseFloat(rawMrp) : null;
                     rows.push({ size: size, sale_price: salePrice, mrp: mrp });
                 });
                 $('#customSizesJson').val(JSON.stringify(rows));

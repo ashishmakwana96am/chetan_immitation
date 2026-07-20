@@ -343,6 +343,21 @@
                 const rowSalePrice = rowData.sale_price ?? '';
                 const rowRawBarcode = rowData.raw_barcode ?? '';
 
+                const customSizes = rowData.custom_sizes || null;
+                let customSizeSelectHtml = '';
+                if (rowData.pair_product && rowData.pair_mode === 'custom_size' && customSizes && customSizes.length > 0) {
+                    customSizeSelectHtml += '<div class="form-group mb-3 text-start">';
+                    customSizeSelectHtml += '  <label for="printCustomSize" class="form-label fw-medium text-secondary small">Select Custom Size</label>';
+                    customSizeSelectHtml += '  <select id="printCustomSize" class="form-select">';
+                    customSizes.forEach(function(sz) {
+                        const sizeVal = typeof sz === 'object' && sz !== null ? sz.size : sz;
+                        const formattedSize = String(sizeVal).includes('pcs') ? sizeVal : sizeVal + ' pcs';
+                        customSizeSelectHtml += `<option value="${formattedSize}">${formattedSize}</option>`;
+                    });
+                    customSizeSelectHtml += '  </select>';
+                    customSizeSelectHtml += '</div>';
+                }
+
                 const modal = `
                     <div class="modal fade" id="barcodeModal" tabindex="-1">
                         <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -369,6 +384,8 @@
                                             <p class="fw-bold mb-0 text-dark font-monospace fs-5">${barcode}</p>
                                         </div>
                                         
+                                        ${customSizeSelectHtml}
+
                                         <div class="form-group mb-3 text-start">
                                             <label for="printQty" class="form-label fw-medium text-secondary small">Print Quantity</label>
                                             <input type="number" id="printQty" class="form-control" value="1" min="1" max="100">
@@ -405,7 +422,10 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    const url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    let url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    if ($('#printCustomSize').length > 0) {
+                        url += '&items[0][selected_size]=' + encodeURIComponent($('#printCustomSize').val());
+                    }
                     window.open(url, '_blank');
                 });
                 
