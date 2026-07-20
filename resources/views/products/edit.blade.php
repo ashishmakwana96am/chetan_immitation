@@ -147,7 +147,33 @@
                                  </select>
                                 <div class="invalid-feedback"></div>
                               </div>
-                             <div id="variableSection" class="{{ $product->type === 'variable' ? '' : 'd-none' }}">
+                              <div id="variableSection" class="{{ $product->type === 'variable' ? '' : 'd-none' }}">
+                                @php
+                                    $normalStock = $product->type === 'normal' ? (int)$product->totalAvailableStock() : 0;
+                                @endphp
+                                @if($product->type === 'normal' && $normalStock > 0)
+                                    <div id="stockMigrationCard" class="card border border-warning shadow-sm mb-3" style="border-left: 3px solid #ffab00 !important; background-color: #fffdf5;">
+                                        <div class="card-body py-3">
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="ti ti-box text-warning fs-4"></i>
+                                                    <h6 class="mb-0 text-warning fw-bold">Distribute Existing Normal Product Stock</h6>
+                                                </div>
+                                                <span class="badge bg-warning text-dark fs-6" id="stockMigrationTotalBadge" data-total="{{ $normalStock }}">Total Available: {{ $normalStock }} Pcs</span>
+                                            </div>
+                                            <p class="small text-muted mb-2">
+                                                This Normal Product currently has <strong>{{ $normalStock }} Pcs</strong> of stock. Enter how much stock to allocate to each variation below:
+                                            </p>
+                                            <div id="stockMigrationInputsContainer" class="row g-2 pt-1">
+                                                <div class="text-muted small">Select attributes below to display variants for stock allocation.</div>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                                <span class="small fw-semibold text-secondary" id="stockMigrationAllocatedSummary">Allocated: 0 / {{ $normalStock }} Pcs</span>
+                                                <span class="small fw-semibold text-success" id="stockMigrationRemainingSummary">Remaining: {{ $normalStock }} Pcs</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="card border shadow-sm mb-3" style="border-left: 3px solid #B4771E !important;">
                                     <div class="card-header py-3 bg-white">
                                         <div class="d-flex align-items-center justify-content-between">
@@ -705,6 +731,25 @@
                         toastr.error('Please add at least one attribute & variant.');
                         return;
                     }
+
+                    if ($('#stockMigrationTotalBadge').length > 0) {
+                        const totalAvailable = parseInt($('#stockMigrationTotalBadge').data('total')) || 0;
+                        if (totalAvailable > 0) {
+                            let totalAllocated = 0;
+                            $('.stock-migration-input').each(function () {
+                                totalAllocated += parseInt($(this).val()) || 0;
+                            });
+
+                            if (totalAllocated !== totalAvailable) {
+                                const msg = 'Please allocate all ' + totalAvailable + ' Pcs of existing stock across variations before updating. (Currently allocated: ' + totalAllocated + ' Pcs)';
+                                toastr.error(msg);
+                                $('html, body').animate({
+                                    scrollTop: $("#stockMigrationCard").offset().top - 100
+                                }, 500);
+                                return false;
+                            }
+                        }
+                    }
                 }
 
                 const form     = $(this);
@@ -733,7 +778,12 @@
                         if (xhr.status === 422) {
                             const errors = xhr.responseJSON?.message || {};
                             $.each(errors, function (field, messages) {
-                                if (field === 'primary_image_base64') {
+                                if (field === 'stock_migration') {
+                                    toastr.error(messages[0]);
+                                    $('html, body').animate({
+                                        scrollTop: $("#stockMigrationCard").offset().top - 100
+                                    }, 500);
+                                } else if (field === 'primary_image_base64') {
                                     $('#primaryImageError').text(messages[0]);
                                     $('#primaryDropZone').css('border-color', '#ea5455');
                                 } else if (field === 'additional_images_base64') {
@@ -831,12 +881,62 @@
                 return { attrName: '', valName: '' };
             }
 
+            function updateStockMigrationSummary() {
+                if ($('#stockMigrationTotalBadge').length === 0) return;
+                const totalAvailable = parseInt($('#stockMigrationTotalBadge').data('total')) || 0;
+                let totalAllocated = 0;
+                $('.stock-migration-input').each(function () {
+                    const val = parseInt($(this).val()) || 0;
+                    totalAllocated += val;
+                });
+                const remaining = totalAvailable - totalAllocated;
+                
+                $('#stockMigrationAllocatedSummary').text('Allocated: ' + totalAllocated + ' / ' + totalAvailable + ' Pcs');
+                
+                if (remaining < 0) {
+                    $('#stockMigrationRemainingSummary').html('<span class="text-danger fw-bold"><i class="ti ti-alert-triangle me-1"></i>Exceeded by ' + Math.abs(remaining) + ' Pcs!</span>');
+                } else {
+                    $('#stockMigrationRemainingSummary').html('<span class="text-success fw-semibold">Remaining: ' + remaining + ' Pcs</span>');
+                }
+            }
+
+            $(document).on('input change', '.stock-migration-input', function () {
+                updateStockMigrationSummary();
+            });
+
             function renderVariantsTable() {
                 let headerHtml = '<th style="width:50px">#</th><th>Attribute</th><th>Value</th>';
                 headerHtml += '<th style="width:200px">Purchase Price <span class="text-danger">*</span></th>';
                 headerHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
                 headerHtml += '<th style="width:60px">Action</th>';
                 $('#variantsHeader').html(headerHtml);
+
+                if ($('#stockMigrationInputsContainer').length > 0) {
+                    const totalAvailable = parseInt($('#stockMigrationTotalBadge').data('total')) || 0;
+                    let inputsHtml = '';
+                    if (variantsData && variantsData.length > 0) {
+                        variantsData.forEach(function (v) {
+                            const info = findAttrValue(v.attribute_value_id);
+                            const label = (info.attrName ? info.attrName + ': ' : '') + info.valName;
+                            const existingVal = $('#stock_migration_' + v.attribute_value_id).val() || '';
+                            inputsHtml += `
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="form-group mb-1">
+                                        <label class="form-label mb-1 small text-dark fw-semibold" title="${label}">${label}</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" name="stock_migration[${v.attribute_value_id}]" id="stock_migration_${v.attribute_value_id}" class="form-control form-control-sm stock-migration-input" data-attr-val-id="${v.attribute_value_id}" value="${existingVal}" min="0" max="${totalAvailable}" placeholder="0 Pcs" />
+                                            <span class="input-group-text">Pcs</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        inputsHtml = '<div class="text-muted small">Select attributes below to display variants for stock allocation.</div>';
+                    }
+                    $('#stockMigrationInputsContainer').html(inputsHtml);
+                    updateStockMigrationSummary();
+                }
 
                 if (!variantsData || variantsData.length === 0) {
                     $('#variantsBody').empty();

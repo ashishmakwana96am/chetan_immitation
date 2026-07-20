@@ -44,7 +44,7 @@ class LocationBalanceController extends Controller
                 ? '<span class="badge bg-label-success">Credit</span>'
                 : '<span class="badge bg-label-danger">Debit</span>';
 
-            $amount = ($isCredit ? '+ ' : '- ') . format_price($transaction->amount);
+            $amount = format_price($transaction->amount);
 
             return [
                 'index'         => $index + 1,

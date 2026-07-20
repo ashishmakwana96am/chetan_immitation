@@ -161,8 +161,8 @@
                             <th>Location</th>
                         @endif
                         <th>Particulars / Details</th>
-                        <th>Credit (+)</th>
-                        <th>Debit (−)</th>
+                        <th>Type</th>
+                        <th>Amount</th>
                         <th>Done By</th>
                         {{-- Hidden sort columns --}}
                         <th class="d-none">date_group</th>
@@ -256,7 +256,7 @@
             rowGroup: {
                 dataSrc: 'date_group',
                 startRender: function (rows, group) {
-                    const colspan = hasLocation ? 8 : 7;
+                    const colspan = hasLocation ? 7 : 6;
                     return $('<tr class="group-header"/>')
                         .append(
                             '<td colspan="' + colspan + '">' +
@@ -302,8 +302,10 @@
                 { data: 'location' },
                 @endif
                 { data: 'particulars' },
-                { data: 'credit', orderable: false, className: 'text-success fw-bold' },
-                { data: 'debit', orderable: false, className: 'text-danger fw-bold' },
+                { data: 'type_badge', orderable: false },
+                { data: 'amount', orderable: false, className: 'fw-bold', render: function (data, type, row) {
+                    return row.is_credit ? '<span class="text-success">' + data + '</span>' : '<span class="text-danger">' + data + '</span>';
+                } },
                 { data: 'done_by' },
                 { data: 'date_group', visible: false },
                 { data: 'date_sort',  visible: false },

@@ -584,9 +584,16 @@ class PurchaseController extends Controller
             }
         });
 
+        $statusLabels = [
+            1 => 'Pending',
+            2 => 'Approved',
+            3 => 'Declined',
+        ];
+        $statusName = $statusLabels[$newStatus] ?? $newStatus;
+
         return response()->json([
             'status'  => 'success',
-            'message' => 'Purchase status updated to ' . $newStatus . '.',
+            'message' => 'Purchase status updated to ' . $statusName . '.',
         ]);
     }
 

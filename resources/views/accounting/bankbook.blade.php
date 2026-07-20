@@ -120,8 +120,8 @@
                             <th>Location</th>
                         @endif
                         <th>Particulars / Details</th>
-                        <th>Credit (+)</th>
-                        <th>Debit (-)</th>
+                        <th>Type</th>
+                        <th>Amount</th>
                         <th>Balance After</th>
                         <th>Done By</th>
                     </tr>
@@ -229,8 +229,10 @@
                         { data: 'location' },
                     @endif
                     { data: 'particulars' },
-                    { data: 'credit', className: 'text-success fw-bold' },
-                    { data: 'debit', className: 'text-danger fw-bold' },
+                    { data: 'type_badge', orderable: false },
+                    { data: 'amount', className: 'fw-bold', render: function (data, type, row) {
+                        return row.is_credit ? '<span class="text-success">' + data + '</span>' : '<span class="text-danger">' + data + '</span>';
+                    } },
                     { data: 'balance_after', className: 'fw-bold', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
                     { data: 'done_by' },
                     { data: 'date_group', visible: false },

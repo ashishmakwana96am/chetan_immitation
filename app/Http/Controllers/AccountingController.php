@@ -56,6 +56,7 @@ class AccountingController extends Controller
         $transactions = $query->orderBy('id', 'desc')->get();
 
         $data = $transactions->map(function ($tx, $index) {
+            $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             return [
                 'index'         => $index + 1,
                 'date'          => format_date($tx->created_at),
@@ -63,8 +64,12 @@ class AccountingController extends Controller
                 'date_sort'     => $tx->created_at->format('Ymd'),
                 'location'      => $tx->location->name ?? '-',
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
-                'credit'        => $tx->type === LocationBalanceTransaction::TYPE_CREDIT ? format_price($tx->amount) : '-',
-                'debit'         => $tx->type === LocationBalanceTransaction::TYPE_DEBIT ? format_price($tx->amount) : '-',
+                'type'          => $isCredit ? 'credit' : 'debit',
+                'type_badge'    => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
+                'amount'        => format_price($tx->amount),
+                'is_credit'     => $isCredit,
+                'credit'        => $isCredit ? format_price($tx->amount) : '-',
+                'debit'         => !$isCredit ? format_price($tx->amount) : '-',
                 'balance_after' => format_price($tx->balance_after),
                 'done_by'       => $tx->createdBy->name ?? '-',
             ];
@@ -138,6 +143,7 @@ class AccountingController extends Controller
         $transactions = $query->orderBy('id', 'desc')->get();
 
         $data = $transactions->map(function ($tx, $index) {
+            $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             return [
                 'index'         => $index + 1,
                 'date'          => format_date($tx->created_at),
@@ -145,8 +151,12 @@ class AccountingController extends Controller
                 'date_sort'     => $tx->created_at->format('Ymd'),
                 'location'      => $tx->location->name ?? '-',
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
-                'credit'        => $tx->type === LocationBalanceTransaction::TYPE_CREDIT ? format_price($tx->amount) : '-',
-                'debit'         => $tx->type === LocationBalanceTransaction::TYPE_DEBIT ? format_price($tx->amount) : '-',
+                'type'          => $isCredit ? 'credit' : 'debit',
+                'type_badge'    => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
+                'amount'        => format_price($tx->amount),
+                'is_credit'     => $isCredit,
+                'credit'        => $isCredit ? format_price($tx->amount) : '-',
+                'debit'         => !$isCredit ? format_price($tx->amount) : '-',
                 'balance_after' => format_price($tx->balance_after),
                 'done_by'       => $tx->createdBy->name ?? '-',
             ];
@@ -287,6 +297,10 @@ class AccountingController extends Controller
                 'location'    => $tx->location->name ?? '-',
                 'location_id' => $tx->location_id,
                 'particulars' => !empty($notes) ? $notes : 'Manual Balance Adjustment',
+                'type'        => $isCredit ? 'credit' : 'debit',
+                'type_badge'  => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
+                'amount'      => format_price($tx->amount),
+                'is_credit'   => $isCredit,
                 'credit'      => $isCredit ? format_price($tx->amount) : '-',
                 'debit'       => !$isCredit ? format_price($tx->amount) : '-',
                 'done_by'     => $tx->createdBy->name ?? '-',
