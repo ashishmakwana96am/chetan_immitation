@@ -186,7 +186,36 @@ class ProductController extends Controller
                     : ($product->category?->name ?? '');
 
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
-                $salePrice = number_format($product->sale_price, 0);
+                
+                $salePriceVal = $product->sale_price;
+
+                if ($product->pair_product) {
+                    if ($product->pair_mode === 'custom_size' && !empty($product->custom_sizes)) {
+                        $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
+                        $selectedSizeNum = null;
+                        if ($selectedSizeVal) {
+                            $selectedSizeNum = (float) filter_var($selectedSizeVal, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        }
+
+                        $matchedSizeRow = null;
+                        if ($selectedSizeNum) {
+                            $matchedSizeRow = collect($product->custom_sizes)->first(fn($s) => abs((float)$s['size'] - $selectedSizeNum) < 0.001);
+                        }
+
+                        if (!$matchedSizeRow) {
+                            $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
+                            $matchedSizeRow = $sizesList->first();
+                        }
+
+                        if ($matchedSizeRow && isset($matchedSizeRow['sale_price'])) {
+                            $salePriceVal = $matchedSizeRow['sale_price'];
+                        }
+                    } else {
+                        $salePriceVal = $product->pair_sale_price ?? $product->sale_price;
+                    }
+                }
+
+                $salePrice = number_format($salePriceVal, 0);
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 

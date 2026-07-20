@@ -147,6 +147,13 @@
                                         $displayName .= ' (' . ($item->variant->attributeValue->attribute->name ?? 'Variant') . ': ' . ($item->variant->attributeValue->value ?? '') . ')';
                                     }
                                     $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+                                    $multiplier = 1.0;
+                                    if ($item->custom_size_value) {
+                                        $multiplier = (float) $item->custom_size_value;
+                                    } elseif (($item->pair_type ?? 'single') === 'pair') {
+                                        $multiplier = 2.0;
+                                    }
+                                    $price = $price * $multiplier;
                                     $lineTotal = $price * $item->quantity;
                                     $grandTotal += $lineTotal;
                                 @endphp

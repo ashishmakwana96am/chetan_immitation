@@ -455,12 +455,26 @@ $(document).ready(function () {
     function getRowPrice(row) {
         const product = row.data('product');
         if (!product) return 0;
+        let basePrice = 0;
         const variantId = row.find('.variant-select').val() || null;
         if (variantId && product.variants) {
             const variant = product.variants.find(v => String(v.id) === String(variantId));
-            if (variant) return parseFloat(variant.purchase_price || 0);
+            if (variant) basePrice = parseFloat(variant.purchase_price || 0);
+        } else {
+            basePrice = parseFloat(product.purchase_price || 0);
         }
-        return parseFloat(product.purchase_price || 0);
+        
+        let multiplier = 1.0;
+        const pairType = row.find('.pair-type-input').val() || 'single';
+        const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
+        
+        if (product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+            multiplier = customSizeValue;
+        } else if (pairType === 'pair') {
+            multiplier = 2.0;
+        }
+        
+        return basePrice * multiplier;
     }
 
     function updateRowPrice(row) {
@@ -581,6 +595,8 @@ $(document).ready(function () {
         $(this).addClass('active');
         row.data('custom-size-value', $(this).data('value'));
         updateRowAvailableStockDisplay(row);
+        updateRowPrice(row);
+        updateSummary();
         
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         const available = parseInt(row.data('available') || 0);
@@ -603,6 +619,8 @@ $(document).ready(function () {
         row.find('.pair-type-input').val(val);
         
         updateRowAvailableStockDisplay(row);
+        updateRowPrice(row);
+        updateSummary();
         
         // Also trigger check validation
         const qty = parseInt(row.find('.item-qty').val()) || 0;

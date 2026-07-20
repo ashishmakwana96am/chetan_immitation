@@ -84,7 +84,8 @@ class PurchaseBillController extends Controller
 
             $totalAmount = $transfer->items->sum(function ($item) {
                 $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                return $price * $item->quantity;
+                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+                return $price * $multiplier * $item->quantity;
             });
 
             $actions = '<div class="dropdown table-action-dropdown">';
@@ -280,7 +281,8 @@ class PurchaseBillController extends Controller
         DB::transaction(function () use ($purchaseBill) {
             $totalAmount = $purchaseBill->items->sum(function ($item) {
                 $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                return $price * $item->quantity;
+                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+                return $price * $multiplier * $item->quantity;
             });
 
             foreach ($purchaseBill->items as $item) {
