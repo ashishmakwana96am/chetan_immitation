@@ -334,8 +334,13 @@
             <div class="col-12">
                 <div class="row g-3">
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary w-100" id="submitBtn">
-                            <i class="ti ti-device-floppy me-1"></i> Save Sale
+                        <button type="submit" class="btn btn-primary w-100" id="submitBtnPrint" data-print="1">
+                            <i class="ti ti-printer me-1"></i> Save with Print
+                        </button>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-label-primary w-100" id="submitBtnNoPrint" data-print="0">
+                            <i class="ti ti-device-floppy me-1"></i> Save without Print
                         </button>
                     </div>
                     <div class="col-12">
@@ -1010,6 +1015,16 @@ $(document).ready(function () {
     // -------------------------------------------------------
     // Submit
     // -------------------------------------------------------
+    const thermalUrlTemplate = '{{ route('admin.sales.thermal', ['sale' => '__ID__']) }}';
+    let printAfterSave = false;
+    let printWindowRef = null;
+
+    $('#submitBtnPrint, #submitBtnNoPrint').on('click', function () {
+        printAfterSave = $(this).data('print') == 1;
+        
+        printWindowRef = printAfterSave ? window.open('', '_blank') : null;
+    });
+
     $('#orderForm').on('submit', function (e) {
         e.preventDefault();
 
@@ -1066,7 +1081,12 @@ $(document).ready(function () {
             submitIdx++;
         });
 
-        $('#submitBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+        const submitBtnPrint = $('#submitBtnPrint');
+        const submitBtnNoPrint = $('#submitBtnNoPrint');
+        submitBtnPrint.prop('disabled', true);
+        submitBtnNoPrint.prop('disabled', true);
+        (printAfterSave ? submitBtnPrint : submitBtnNoPrint)
+            .html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
 
         $.ajax({
             url     : form.attr('action'),
@@ -1077,14 +1097,27 @@ $(document).ready(function () {
                 hiddenContainer.remove();
                 if (res.status === 'success') {
                     toastr.success(res.message);
+                    if (printAfterSave && res.id) {
+                        const printUrl = thermalUrlTemplate.replace('__ID__', res.id);
+                        if (printWindowRef) {
+                            printWindowRef.location.href = printUrl;
+                        } else {
+                            window.open(printUrl, '_blank');
+                        }
+                    }
                     setTimeout(() => window.location.href = '{{ route('admin.sales.index') }}', 800);
                 }
             },
             error   : function (xhr) {
                 visibleInputs.prop('disabled', false);
                 hiddenContainer.remove();
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Sale');
-                
+                submitBtnPrint.prop('disabled', false).html('<i class="ti ti-printer me-1"></i> Save with Print');
+                submitBtnNoPrint.prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save without Print');
+                if (printWindowRef) {
+                    printWindowRef.close();
+                    printWindowRef = null;
+                }
+
                 const responseJSON = xhr.responseJSON;
                 const errors = responseJSON?.errors || responseJSON?.message;
 
