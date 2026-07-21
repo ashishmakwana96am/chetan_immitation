@@ -1300,22 +1300,20 @@
                 if (isNaN(size) || size <= 0) {
                     return;
                 }
-                const wasEmpty = customSizesList.length === 0;
                 if (!customSizesList.includes(size)) {
                     customSizesList.push(size);
                     customSizesList.sort(function (a, b) { return a - b; });
                 }
                 renderCustomSizeBadges();
-                renderCustomSizeRows(true);
-                if (wasEmpty) {
-                    $('#productCodeInput').trigger('change');
-                }
+                renderCustomSizeRows(false);
+                $('#productCodeInput').trigger('change');
             }
 
             function removeCustomSize(size) {
                 customSizesList = customSizesList.filter(function (s) { return s !== size; });
                 renderCustomSizeBadges();
-                renderCustomSizeRows(true);
+                renderCustomSizeRows(false);
+                $('#productCodeInput').trigger('change');
             }
 
             $('#customSizesTagWrapper').on('click', function (e) {
@@ -1376,14 +1374,20 @@
             }
 
             function cascadeFromFirstCustomSize() {
-                const $saleFirst = $('#customSizeRows .custom-size-sale-field[data-index="0"] .custom-size-sale-price');
-                const $mrpFirst = $('#customSizeRows .custom-size-mrp-field[data-index="0"] .custom-size-mrp');
-                if ($saleFirst.length && parseFloat($saleFirst.val()) > 0) {
-                    $saleFirst.trigger('input');
-                }
-                if ($mrpFirst.length && parseFloat($mrpFirst.val()) > 0) {
-                    $mrpFirst.trigger('input');
-                }
+                $('#customSizeRows .custom-size-sale-field').each(function () {
+                    const $input = $(this).find('.custom-size-sale-price');
+                    if (parseFloat($input.val()) > 0) {
+                        $input.trigger('input');
+                        return false;
+                    }
+                });
+                $('#customSizeRows .custom-size-mrp-field').each(function () {
+                    const $input = $(this).find('.custom-size-mrp');
+                    if (parseFloat($input.val()) > 0) {
+                        $input.trigger('input');
+                        return false;
+                    }
+                });
             }
 
             function syncBasePriceFromCustomSizes() {
@@ -1417,23 +1421,20 @@
 
             $(document).on('input', '.custom-size-sale-price, .custom-size-mrp', function () {
                 const $field = $(this).closest('[data-index]');
-                const index = parseInt($field.data('index'));
+                const currentIndex = parseInt($field.data('index'));
+                const currentSize = parseFloat($field.data('size')) || 0;
+                const isSale = $(this).hasClass('custom-size-sale-price');
+                const baseVal = parseFloat($(this).val()) || 0;
+                const targetFieldClass = isSale ? '.custom-size-sale-field' : '.custom-size-mrp-field';
+                const targetInputClass = isSale ? '.custom-size-sale-price' : '.custom-size-mrp';
 
-                if (index === 0) {
-                    const firstSize = parseFloat($field.data('size')) || 0;
-                    const isSale = $(this).hasClass('custom-size-sale-price');
-                    const baseVal = parseFloat($(this).val()) || 0;
-                    const targetFieldClass = isSale ? '.custom-size-sale-field' : '.custom-size-mrp-field';
-                    const targetInputClass = isSale ? '.custom-size-sale-price' : '.custom-size-mrp';
-
+                if (currentSize > 0 && baseVal > 0) {
                     $('#customSizeRows ' + targetFieldClass).each(function () {
-                        if (parseInt($(this).data('index')) === 0) {
+                        if (parseInt($(this).data('index')) === currentIndex) {
                             return;
                         }
                         const size = parseFloat($(this).data('size'));
-                        const scaled = firstSize > 0 && baseVal > 0
-                            ? roundToNearest5(baseVal * (size / firstSize)).toFixed(2)
-                            : '';
+                        const scaled = roundToNearest5(baseVal * (size / currentSize)).toFixed(2);
                         $(this).find(targetInputClass).val(scaled);
                     });
                 }

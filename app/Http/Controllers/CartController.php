@@ -592,6 +592,11 @@ class CartController extends Controller
         $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
 
         if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            $firstSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
+            if ($firstSize && isset($firstSize['size'])) {
+                return [(float) $firstSize['size'], null];
+            }
+
             return [null, 'Please select a valid pair option for "' . $product->name . '".'];
         }
 
