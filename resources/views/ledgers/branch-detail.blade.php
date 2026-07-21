@@ -85,15 +85,15 @@
                 <div class="card-body">
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Transfer In</span>
-                        <span class="ledger-info-value text-success">{{ number_format($totalIn) }}</span>
+                        <span class="ledger-info-value text-success">{{ format_price($totalInAmount) }} ({{ number_format($totalInQty) }} pcs)</span>
                     </div>
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Transfer Out</span>
-                        <span class="ledger-info-value text-danger">{{ number_format($totalOut) }}</span>
+                        <span class="ledger-info-value text-danger">{{ format_price($totalOutAmount) }} ({{ number_format($totalOutQty) }} pcs)</span>
                     </div>
                     <div class="ledger-info-row">
                         <span class="ledger-info-label">Outstanding</span>
-                        <span class="ledger-info-value">{{ number_format($outstanding) }}</span>
+                        <span class="ledger-info-value">{{ format_price($outstandingValue) }} ({{ number_format($outstandingQty) }} pcs)</span>
                     </div>
                 </div>
             </div>
@@ -114,7 +114,7 @@
                                     <th style="width: 5%">#</th>
                                     <th>Transfer No</th>
                                     <th>From Branch</th>
-                                    <th class="text-end">Quantity</th>
+                                    <th class="text-end">Amount (Qty)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -127,7 +127,9 @@
                                             </a>
                                         </td>
                                         <td>{{ $transfer->fromLocation->name ?? '-' }}</td>
-                                        <td class="text-end fw-semibold text-success">{{ ($transferQty)($transfer) }}</td>
+                                        <td class="text-end fw-semibold text-success">
+                                            {{ format_price(($transferAmount)($transfer)) }} ({{ ($transferQty)($transfer) }} pcs)
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -155,7 +157,7 @@
                                     <th style="width: 5%">#</th>
                                     <th>Transfer No</th>
                                     <th>To Branch</th>
-                                    <th class="text-end">Quantity</th>
+                                    <th class="text-end">Amount (Qty)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -168,7 +170,9 @@
                                             </a>
                                         </td>
                                         <td>{{ $transfer->toLocation->name ?? '-' }}</td>
-                                        <td class="text-end fw-semibold text-danger">{{ ($transferQty)($transfer) }}</td>
+                                        <td class="text-end fw-semibold text-danger">
+                                            {{ format_price(($transferAmount)($transfer)) }} ({{ ($transferQty)($transfer) }} pcs)
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>

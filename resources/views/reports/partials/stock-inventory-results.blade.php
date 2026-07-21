@@ -1,13 +1,19 @@
 <script type="application/json" id="reportProductsData">@json($products->values())</script>
 
+@php
+    $totalStockUnits    = $products->where('is_parent', true)->sum('total');
+    $totalPurchaseValue = $products->where('is_parent', true)->sum('purchase_value');
+    $totalSalesValue    = $products->where('is_parent', true)->sum('sale_value');
+@endphp
+
 <!-- Stats Cards -->
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        <span class="text-muted">Total Products</span>
+                        <span class="text-muted small">Total Products</span>
                         <h4 class="mb-0 mt-1">{{ $activeProductCount }}</h4>
                     </div>
                     <span class="badge bg-label-primary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
@@ -16,28 +22,51 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        <span class="text-muted">Total Stock Units</span>
-                        @php
-                            $totalStockUnits = $products->where('is_parent', true)->sum('total');
-                        @endphp
-                        <h4 class="mb-0 mt-1">{{ number_format($totalStockUnits) }}</h4>
+                        <span class="text-muted small">Total Stock Units</span>
+                        <h4 class="mb-0 mt-1">{{ number_format($totalStockUnits) }} <small class="fs-6 text-muted">pcs</small></h4>
                     </div>
-                    <span class="badge bg-label-success rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
+                    <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        <span class="text-muted">SOLD OUT</span>
-                        <h4 class="mb-0 mt-1">{{ $soldoutProductCount }}</h4>
+                        <span class="text-muted small">Total Purchase Value</span>
+                        <h4 class="mb-0 mt-1 text-primary">{{ format_price($totalPurchaseValue) }}</h4>
+                    </div>
+                    <span class="badge bg-label-warning rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <span class="text-muted small">Total Sales Value</span>
+                        <h4 class="mb-0 mt-1 text-success">{{ format_price($totalSalesValue) }}</h4>
+                    </div>
+                    <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-dots ti-sm"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div>
+                        <span class="text-muted small">SOLD OUT</span>
+                        <h4 class="mb-0 mt-1 text-danger">{{ $soldoutProductCount }}</h4>
                     </div>
                     <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
                 </div>
@@ -45,14 +74,14 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
-                        <span class="text-muted">Locations</span>
+                        <span class="text-muted small">Locations / Branches</span>
                         <h4 class="mb-0 mt-1">{{ $locations->count() }}</h4>
                     </div>
-                    <span class="badge bg-label-info rounded p-2"><i class="ti ti-map-pin ti-sm"></i></span>
+                    <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-map-pin ti-sm"></i></span>
                 </div>
             </div>
         </div>
@@ -175,8 +204,9 @@
                     @foreach($locations as $location)
                         <th class="text-center">{{ $location->name }}</th>
                     @endforeach
-                    <th class="text-center">Total</th>
-                    <th class="text-end">Stock Value</th>
+                    <th class="text-center">Total Qty</th>
+                    <th class="text-end">Purchase Value</th>
+                    <th class="text-end">Sales Value</th>
                     <th class="text-center">Inventory Age</th>
                 </tr>
             </thead>
@@ -226,7 +256,8 @@
                                 {{ $product['total'] }}
                             </span>
                         </td>
-                        <td class="text-end">{{ format_price($product['stock_value']) }}</td>
+                        <td class="text-end fw-semibold">{{ format_price($product['purchase_value']) }}</td>
+                        <td class="text-end fw-semibold text-success">{{ format_price($product['sale_value']) }}</td>
                         <td class="text-center" data-order="{{ $product['age_sort'] }}">
                             @if(is_null($product['age_days']))
                                 <span class="badge bg-label-secondary">{{ $product['age_display'] }}</span>
@@ -241,6 +272,15 @@
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td colspan="{{ 5 + $locations->count() }}" class="text-end">Total:</td>
+                    <td class="text-center text-primary">{{ number_format($totalStockUnits) }} pcs</td>
+                    <td class="text-end text-primary">{{ format_price($totalPurchaseValue) }}</td>
+                    <td class="text-end text-success">{{ format_price($totalSalesValue) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>

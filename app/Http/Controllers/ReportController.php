@@ -205,6 +205,7 @@ class ReportController extends Controller
         $productsList = collect();
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
+            $salePrice     = (float) $product->sale_price;
 
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
@@ -214,46 +215,68 @@ class ReportController extends Controller
                     $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
                 }
                 $parentTotal = array_sum($parentLocStock);
-                $productsList->push(array_merge([
-                    'id'          => $product->id,
-                    'name'        => $product->name,
-                    'barcode'     => $product->barcode,
-                    'category'    => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'stock'       => $parentLocStock,
-                    'total'       => $parentTotal,  // matches Dashboard
-                    'stock_value' => $parentTotal * $purchasePrice,
-                    'status'      => $product->status,
-                    'is_parent'   => true,
-                    'variant_name'=> null,
-                    'image_url'   => $product->primary_image_url,
-                ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
 
+                $parentPurchaseVal = 0.0;
+                $parentSaleVal     = 0.0;
+
+                $variantRows = [];
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
                     foreach ($locations as $location) {
                         $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
                     }
-                    $attrName = $v->attributeValue->attribute->name ?? '';
-                    $valName = $v->attributeValue->value ?? '';
-                    $vTotal = array_sum($vLocStock);
-                    $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
+                    $attrName   = $v->attributeValue->attribute->name ?? '';
+                    $valName    = $v->attributeValue->value ?? '';
+                    $vTotal     = array_sum($vLocStock);
+                    $vPrice     = (float) ($v->purchase_price ?? $purchasePrice);
+                    $vSale      = (float) ($v->sale_price ?? $salePrice);
+                    $vPurchVal  = $vTotal * $vPrice;
+                    $vSaleVal   = $vTotal * $vSale;
+
+                    $parentPurchaseVal += $vPurchVal;
+                    $parentSaleVal     += $vSaleVal;
+
                     $variantKey = $product->id . ':' . $v->id;
 
-                    $productsList->push(array_merge([
-                        'id'          => $product->id,
-                        'name'        => $product->name,
-                        'barcode'     => $product->barcode,
-                        'category'    => $product->category->name ?? '-',
-                        'category_id' => $product->category_id,
-                        'stock'       => $vLocStock,
-                        'total'       => $vTotal,
-                        'stock_value' => $vTotal * $vPrice,
-                        'status'      => $v->status,
-                        'is_parent'   => false,
-                        'variant_name'=> "{$attrName}: {$valName}",
-                        'image_url'   => $product->primary_image_url,
-                    ], $buildAgeInfo($variantLastPurchase[$variantKey] ?? null)));
+                    $variantRows[] = array_merge([
+                        'id'             => $product->id,
+                        'name'           => $product->name,
+                        'barcode'        => $product->barcode,
+                        'category'       => $product->category->name ?? '-',
+                        'category_id'    => $product->category_id,
+                        'stock'          => $vLocStock,
+                        'total'          => $vTotal,
+                        'purchase_value' => $vPurchVal,
+                        'sale_value'     => $vSaleVal,
+                        'mrp_value'      => $vSaleVal,
+                        'stock_value'    => $vPurchVal,
+                        'status'         => $v->status,
+                        'is_parent'      => false,
+                        'variant_name'   => "{$attrName}: {$valName}",
+                        'image_url'      => $product->primary_image_url,
+                    ], $buildAgeInfo($variantLastPurchase[$variantKey] ?? null));
+                }
+
+                $productsList->push(array_merge([
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'stock'          => $parentLocStock,
+                    'total'          => $parentTotal,
+                    'purchase_value' => $parentPurchaseVal,
+                    'sale_value'     => $parentSaleVal,
+                    'mrp_value'      => $parentSaleVal,
+                    'stock_value'    => $parentPurchaseVal,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                    'image_url'      => $product->primary_image_url,
+                ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
+
+                foreach ($variantRows as $vRow) {
+                    $productsList->push($vRow);
                 }
             } else {
                 $stock = [];
@@ -261,20 +284,26 @@ class ReportController extends Controller
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
-                $total = array_sum($stock);
+                $total       = array_sum($stock);
+                $purchaseVal = $total * $purchasePrice;
+                $saleVal     = $total * $salePrice;
+
                 $productsList->push(array_merge([
-                    'id'          => $product->id,
-                    'name'        => $product->name,
-                    'barcode'     => $product->barcode,
-                    'category'    => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'stock'       => $stock,
-                    'total'       => $total,
-                    'stock_value' => $total * $purchasePrice,
-                    'status'      => $product->status,
-                    'is_parent'   => true,
-                    'variant_name'=> null,
-                    'image_url'   => $product->primary_image_url,
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'stock'          => $stock,
+                    'total'          => $total,
+                    'purchase_value' => $purchaseVal,
+                    'sale_value'     => $saleVal,
+                    'mrp_value'      => $saleVal,
+                    'stock_value'    => $purchaseVal,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                    'image_url'      => $product->primary_image_url,
                 ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
             }
         }

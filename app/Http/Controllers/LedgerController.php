@@ -9,6 +9,7 @@ use App\Models\LocationBalanceTransaction;
 use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
+use App\Models\PurchaseBillItem;
 use Illuminate\Http\Request;
 
 class LedgerController extends Controller
@@ -495,18 +496,37 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        $transferQty = fn ($transfer) => $transfer->items->sum(
-            fn ($item) => ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity
-        );
+        $stockMultiplierFor = function ($item) {
+            if ($item->custom_size_value !== null && (float)$item->custom_size_value > 0) {
+                return (float) $item->custom_size_value;
+            }
+            if ($item->product && !$item->product->pair_product) {
+                return 1.0;
+            }
+            return ($item->pair_type === 'pair') ? 2.0 : 1.0;
+        };
 
-        $transferInRaw = PurchaseBill::with('items')
+        $transferQty = function ($transfer) use ($stockMultiplierFor) {
+            return (int) round($transfer->items->sum(function ($item) use ($stockMultiplierFor) {
+                return $item->quantity * $stockMultiplierFor($item);
+            }));
+        };
+
+        $transferAmount = function ($transfer) use ($stockMultiplierFor) {
+            return (float) $transfer->items->sum(function ($item) use ($stockMultiplierFor) {
+                $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
+                return $price * $stockMultiplierFor($item) * $item->quantity;
+            });
+        };
+
+        $transferInRaw = PurchaseBill::with(['items.product', 'items.variant'])
             ->whereIn('to_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
             ->get();
 
-        $transferOutRaw = PurchaseBill::with('items')
+        $transferOutRaw = PurchaseBill::with(['items.product', 'items.variant'])
             ->whereIn('from_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
@@ -518,28 +538,46 @@ class LedgerController extends Controller
 
         $days = $transferIn->keys()->concat($transferOut->keys())->unique()->sort()->values();
 
-        $totalIn  = 0;
-        $totalOut = 0;
-
         $dayNodes = $days
-            ->map(function ($day) use (&$totalIn, &$totalOut, $transferIn, $transferOut, $transferQty) {
-                $dayIn  = (int) ($transferIn->get($day)?->sum($transferQty) ?? 0);
-                $dayOut = (int) ($transferOut->get($day)?->sum($transferQty) ?? 0);
-                $totalIn  += $dayIn;
-                $totalOut += $dayOut;
+            ->map(function ($day) use ($transferIn, $transferOut, $transferQty, $transferAmount) {
+                $dayInQty      = (int) ($transferIn->get($day)?->sum($transferQty) ?? 0);
+                $dayInAmount   = (float) ($transferIn->get($day)?->sum($transferAmount) ?? 0);
+                $dayOutQty     = (int) ($transferOut->get($day)?->sum($transferQty) ?? 0);
+                $dayOutAmount  = (float) ($transferOut->get($day)?->sum($transferAmount) ?? 0);
 
-                return ['date' => $day, 'in' => $dayIn, 'out' => $dayOut];
+                return [
+                    'date'       => $day,
+                    'in_qty'     => $dayInQty,
+                    'in_amount'  => $dayInAmount,
+                    'out_qty'    => $dayOutQty,
+                    'out_amount' => $dayOutAmount,
+                ];
             })
             ->sortByDesc('date')
             ->values()
             ->all();
 
-        $currentStock = $this->locationStockQty($locationIds);
-        $runningStock = $currentStock;
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $branchLocations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        $allLocIds = array_unique(array_merge($locationIds, $branchLocations->pluck('id')->all()));
+        $stockData = $this->getAllStockData($allLocIds);
+
+        $currentStockQty   = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['qty'] ?? 0, $locationIds));
+        $currentStockValue = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['value'] ?? 0.0, $locationIds));
+
+        $runningStockQty   = $currentStockQty;
+        $runningStockValue = $currentStockValue;
 
         foreach ($dayNodes as $key => $node) {
-            $dayNodes[$key]['outstanding'] = $runningStock;
-            $runningStock = $runningStock - $node['in'] + $node['out'];
+            $dayNodes[$key]['outstanding_qty']    = $runningStockQty;
+            $dayNodes[$key]['outstanding_amount'] = $runningStockValue;
+
+            $runningStockQty   = $runningStockQty - $node['in_qty'] + $node['out_qty'];
+            $runningStockValue = $runningStockValue - $node['in_amount'] + $node['out_amount'];
         }
 
         $rows = collect($dayNodes)->map(fn ($node, $index) => [
@@ -547,9 +585,9 @@ class LedgerController extends Controller
             'date'         => format_date($node['date']),
             'date_sort'    => $node['date'],
             'date_group'   => format_date($node['date']),
-            'transfer_in'  => number_format($node['in']),
-            'transfer_out' => number_format($node['out']),
-            'outstanding'  => number_format($node['outstanding']),
+            'transfer_in'  => format_price($node['in_amount']) . ' (' . number_format($node['in_qty']) . ' pcs)',
+            'transfer_out' => format_price($node['out_amount']) . ' (' . number_format($node['out_qty']) . ' pcs)',
+            'outstanding'  => format_price($node['outstanding_amount']) . ' (' . number_format($node['outstanding_qty']) . ' pcs)',
             'actions'      => '
                 <div class="dropdown table-action-dropdown">
                     <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
@@ -563,24 +601,25 @@ class LedgerController extends Controller
                 </div>'
         ]);
 
-        // Branch-wise summary cards: restricted users only ever get their own
-        // branch; super-admins get every active branch, narrowed to the
-        // filtered one if selected.
-        $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $branchLocations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
-
         $transferInByLocation = $transferInRaw->groupBy('to_location_id');
         $transferOutByLocation = $transferOutRaw->groupBy('from_location_id');
 
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
+            $locInTransfers  = $transferInByLocation->get($loc->id, collect());
+            $locOutTransfers = $transferOutByLocation->get($loc->id, collect());
+
+            $locInQty      = (int) $locInTransfers->sum($transferQty);
+            $locInAmount   = (float) $locInTransfers->sum($transferAmount);
+            $locOutQty     = (int) $locOutTransfers->sum($transferQty);
+            $locOutAmount  = (float) $locOutTransfers->sum($transferAmount);
+            $locStockQty   = $stockData['by_location'][$loc->id]['qty'] ?? 0;
+            $locStockValue = $stockData['by_location'][$loc->id]['value'] ?? 0.0;
+
             $branchSummary[$loc->id] = [
-                'transfer_in'  => number_format((int) $transferInByLocation->get($loc->id, collect())->sum($transferQty)),
-                'transfer_out' => number_format((int) $transferOutByLocation->get($loc->id, collect())->sum($transferQty)),
-                'outstanding'  => number_format($this->locationStockQty([$loc->id])),
+                'transfer_in'  => format_price($locInAmount) . ' (' . number_format($locInQty) . ' pcs)',
+                'transfer_out' => format_price($locOutAmount) . ' (' . number_format($locOutQty) . ' pcs)',
+                'outstanding'  => format_price($locStockValue) . ' (' . number_format($locStockQty) . ' pcs)',
             ];
         }
 
@@ -617,10 +656,6 @@ class LedgerController extends Controller
         $location = count($locationIds) === 1 ? Location::find($locationIds[0]) : null;
         $date = \Carbon\Carbon::parse($request->date);
 
-        $transferValue = fn ($transfer) => $transfer->items->sum(
-            fn ($item) => ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0) * $item->quantity
-        );
-
         $transferIn = PurchaseBill::with('items.product', 'items.variant', 'fromLocation', 'toLocation')
             ->whereIn('to_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
@@ -635,22 +670,51 @@ class LedgerController extends Controller
             ->orderBy('accepted_at')
             ->get();
 
-        $transferQty = fn ($transfer) => $transfer->items->sum(
-            fn ($item) => ($item->pair_type === 'pair') ? $item->quantity * 2 : $item->quantity
-        );
-        $totalIn = $transferIn->sum($transferQty);
-        $totalOut = $transferOut->sum($transferQty);
-        $outstanding = $this->locationStockQty($locationIds);
+        $stockMultiplierFor = function ($item) {
+            if ($item->custom_size_value !== null && (float)$item->custom_size_value > 0) {
+                return (float) $item->custom_size_value;
+            }
+            if ($item->product && !$item->product->pair_product) {
+                return 1.0;
+            }
+            return ($item->pair_type === 'pair') ? 2.0 : 1.0;
+        };
+
+        $transferQty = function ($transfer) use ($stockMultiplierFor) {
+            return (int) round($transfer->items->sum(function ($item) use ($stockMultiplierFor) {
+                return $item->quantity * $stockMultiplierFor($item);
+            }));
+        };
+
+        $transferAmount = function ($transfer) use ($stockMultiplierFor) {
+            return (float) $transfer->items->sum(function ($item) use ($stockMultiplierFor) {
+                $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
+                return $price * $stockMultiplierFor($item) * $item->quantity;
+            });
+        };
+
+        $totalInQty       = $transferIn->sum($transferQty);
+        $totalInAmount    = $transferIn->sum($transferAmount);
+        $totalOutQty      = $transferOut->sum($transferQty);
+        $totalOutAmount   = $transferOut->sum($transferAmount);
+        
+        $stockData        = $this->getAllStockData($locationIds);
+        $outstandingQty   = $stockData['total_qty'];
+        $outstandingValue = $stockData['total_value'];
 
         return view('ledgers.branch-detail', compact(
             'location',
             'date',
             'transferIn',
             'transferOut',
-            'totalIn',
-            'totalOut',
+            'totalInQty',
+            'totalInAmount',
+            'totalOutQty',
+            'totalOutAmount',
             'transferQty',
-            'outstanding'
+            'transferAmount',
+            'outstandingQty',
+            'outstandingValue'
         ));
     }
 
@@ -793,75 +857,155 @@ class LedgerController extends Controller
     }
 
     /**
-     * Current stock value held across the given locations right now: for simple
-     * products from the materialized Inventory table, for variable products
-     * from the live purchased/sold/transferred ledger (Product::getVariantStock())
-     * — mirrors the calculation used by ReportController::stockInventory.
+     * Efficiently batch-calculate stock quantity and monetary value (using purchase price)
+     * across specified location IDs for both simple and variable products in a single pass.
      *
-     * @param  array<int>  $locationIds
+     * @param array<int> $locationIds
+     * @return array{by_location: array<int, array{qty: int, value: float}>, total_qty: int, total_value: float}
      */
-    private function locationStockValue(array $locationIds): float
+    private function getAllStockData(array $locationIds): array
     {
-        $value = 0.0;
+        $locationIds = array_map('intval', array_values(array_unique($locationIds)));
+
+        $byLocation = [];
+        foreach ($locationIds as $locId) {
+            $byLocation[$locId] = ['qty' => 0, 'value' => 0.0];
+        }
+
+        if (empty($locationIds)) {
+            return ['by_location' => $byLocation, 'total_qty' => 0, 'total_value' => 0.0];
+        }
 
         $products = Product::with('variants')->get();
+        $variableProducts = $products->where('type', 'variable');
+        $variableIds = $variableProducts->pluck('id')->all();
 
-        $simpleQuantities = Inventory::whereIn('location_id', $locationIds)
-            ->selectRaw('product_id, sum(quantity) as qty')
-            ->groupBy('product_id')
-            ->pluck('qty', 'product_id');
+        // 1. Simple products: read from materialized Inventory table
+        $simpleInventory = Inventory::whereIn('location_id', $locationIds)
+            ->selectRaw('location_id, product_id, sum(quantity) as qty')
+            ->groupBy('location_id', 'product_id')
+            ->get()
+            ->groupBy('location_id');
+
+        // 2. Batch fetch for variable products across all locations in single queries
+        $purchasedByLocVar = [];
+        $soldByLocVar      = [];
+        $transInByLocVar   = [];
+        $transOutByLocVar  = [];
+
+        if (!empty($variableIds)) {
+            $allocations = \App\Models\PurchaseAllocation::whereIn('location_id', $locationIds)
+                ->whereHas('purchaseItem', function ($q) use ($variableIds) {
+                    $q->whereIn('product_id', $variableIds)
+                      ->whereHas('invoice', fn ($sub) => $sub->where('status', 2));
+                })
+                ->with('purchaseItem')
+                ->get();
+
+            foreach ($allocations as $alloc) {
+                $locId = $alloc->location_id;
+                $pId   = $alloc->purchaseItem->product_id;
+                $vId   = $alloc->purchaseItem->product_variant_id;
+                $qty   = (int) $alloc->quantity;
+
+                if ($vId) {
+                    $purchasedByLocVar[$locId][$pId][$vId] = ($purchasedByLocVar[$locId][$pId][$vId] ?? 0) + $qty;
+                }
+            }
+
+            $orderItems = \App\Models\OrderItem::whereHas('order', function ($q) use ($locationIds) {
+                    $q->whereIn('location_id', $locationIds)
+                      ->where('status', \App\Models\Order::STATUS_APPROVE);
+                })
+                ->whereIn('product_id', $variableIds)
+                ->with('order')
+                ->get();
+
+            foreach ($orderItems as $item) {
+                $locId = $item->order->location_id;
+                $pId   = $item->product_id;
+                $vId   = $item->product_variant_id;
+                $qty   = (int) $item->quantity;
+
+                if ($vId) {
+                    $soldByLocVar[$locId][$pId][$vId] = ($soldByLocVar[$locId][$pId][$vId] ?? 0) + $qty;
+                }
+            }
+
+            $transferItems = PurchaseBillItem::whereIn('product_id', $variableIds)
+                ->whereHas('transfer', function ($q) {
+                    $q->where('status', PurchaseBill::STATUS_ACCEPTED);
+                })
+                ->with('transfer')
+                ->get();
+
+            foreach ($transferItems as $item) {
+                $pId       = $item->product_id;
+                $vId       = $item->product_variant_id;
+                $fromLocId = $item->transfer->from_location_id;
+                $toLocId   = $item->transfer->to_location_id;
+                $qty       = (int) $item->quantity;
+
+                if (in_array($fromLocId, $locationIds, true) && $vId) {
+                    $transOutByLocVar[$fromLocId][$pId][$vId] = ($transOutByLocVar[$fromLocId][$pId][$vId] ?? 0) + $qty;
+                }
+
+                if (in_array($toLocId, $locationIds, true) && $vId) {
+                    $transInByLocVar[$toLocId][$pId][$vId] = ($transInByLocVar[$toLocId][$pId][$vId] ?? 0) + $qty;
+                }
+            }
+        }
 
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
 
-            if ($product->is_variable) {
-                $stockByLocation = $product->getVariantStock();
-
+            if ($product->type === 'variable') {
                 foreach ($product->variants as $variant) {
-                    $price = (float) ($variant->purchase_price ?? $purchasePrice);
+                    $variantPrice = (float) ($variant->purchase_price ?? $purchasePrice);
 
                     foreach ($locationIds as $locId) {
-                        $qty = $stockByLocation[$locId]['variants'][$variant->id] ?? 0;
-                        $value += $qty * $price;
+                        $pQty  = $purchasedByLocVar[$locId][$product->id][$variant->id] ?? 0;
+                        $sQty  = $soldByLocVar[$locId][$product->id][$variant->id] ?? 0;
+                        $tiQty = $transInByLocVar[$locId][$product->id][$variant->id] ?? 0;
+                        $toQty = $transOutByLocVar[$locId][$product->id][$variant->id] ?? 0;
+
+                        $vStock = $pQty - $sQty + $tiQty - $toQty;
+                        if ($vStock > 0) {
+                            $byLocation[$locId]['qty']   += $vStock;
+                            $byLocation[$locId]['value'] += $vStock * $variantPrice;
+                        }
                     }
                 }
             } else {
-                $qty = (int) ($simpleQuantities[$product->id] ?? 0);
-                $value += $qty * $purchasePrice;
+                foreach ($locationIds as $locId) {
+                    $locInvData = $simpleInventory->get($locId);
+                    $qty = (int) ($locInvData?->firstWhere('product_id', $product->id)?->qty ?? 0);
+                    if ($qty > 0) {
+                        $byLocation[$locId]['qty']   += $qty;
+                        $byLocation[$locId]['value'] += $qty * $purchasePrice;
+                    }
+                }
             }
         }
 
-        return $value;
+        $totalQty = array_sum(array_column($byLocation, 'qty'));
+        $totalValue = array_sum(array_column($byLocation, 'value'));
+
+        return [
+            'by_location' => $byLocation,
+            'total_qty'   => $totalQty,
+            'total_value' => $totalValue,
+        ];
+    }
+
+    private function locationStockValue(array $locationIds): float
+    {
+        return $this->getAllStockData($locationIds)['total_value'];
     }
 
     private function locationStockQty(array $locationIds): int
     {
-        $totalQty = 0;
-
-        $products = Product::with('variants')->get();
-
-        $simpleQuantities = Inventory::whereIn('location_id', $locationIds)
-            ->selectRaw('product_id, sum(quantity) as qty')
-            ->groupBy('product_id')
-            ->pluck('qty', 'product_id');
-
-        foreach ($products as $product) {
-            if ($product->is_variable) {
-                $stockByLocation = $product->getVariantStock();
-
-                foreach ($product->variants as $variant) {
-                    foreach ($locationIds as $locId) {
-                        $qty = (int) ($stockByLocation[$locId]['variants'][$variant->id] ?? 0);
-                        $totalQty += $qty;
-                    }
-                }
-            } else {
-                $qty = (int) ($simpleQuantities[$product->id] ?? 0);
-                $totalQty += $qty;
-            }
-        }
-
-        return $totalQty;
+        return $this->getAllStockData($locationIds)['total_qty'];
     }
 
     // -----------------------------------------------------------------

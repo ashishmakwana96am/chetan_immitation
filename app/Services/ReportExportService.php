@@ -214,7 +214,9 @@ class ReportExportService
         foreach ($locations as $loc) {
             $headers[] = $loc->name;
         }
-        $headers[] = 'Total';
+        $headers[] = 'Total Qty';
+        $headers[] = 'Purchase Value';
+        $headers[] = 'Sales Value';
 
         $sheet->fromArray($headers, null, 'A1');
         $sheet->getRowDimension(1)->setRowHeight(28);
@@ -223,12 +225,12 @@ class ReportExportService
         $row = 2;
         foreach ($products as $index => $product) {
             $productName = $product['name'];
-            $barcode = $product['barcode'];
-            $category = $product['category'];
+            $barcode     = $product['barcode'];
+            $category    = $product['category'];
             if (isset($product['is_parent']) && !$product['is_parent']) {
                 $productName = "    ↳ " . $product['variant_name'];
-                $barcode = "-";
-                $category = "-";
+                $barcode     = "-";
+                $category    = "-";
             }
 
             $sheet->setCellValue('A' . $row, $index + 1);
@@ -244,23 +246,42 @@ class ReportExportService
                 $colIdx++;
             }
 
-            // Total column
-            $colLetter = Coordinate::stringFromColumnIndex($colIdx);
-            $sheet->setCellValue($colLetter . $row, (int) $product['total']);
+            // Total Qty column
+            $colLetterQty = Coordinate::stringFromColumnIndex($colIdx);
+            $sheet->setCellValue($colLetterQty . $row, (int) $product['total']);
+
+            // Purchase Value column
+            $colIdx++;
+            $colLetterPurch = Coordinate::stringFromColumnIndex($colIdx);
+            $sheet->setCellValue($colLetterPurch . $row, (float) ($product['purchase_value'] ?? 0));
+
+            // Sales Value column
+            $colIdx++;
+            $colLetterSale = Coordinate::stringFromColumnIndex($colIdx);
+            $sheet->setCellValue($colLetterSale . $row, (float) ($product['sale_value'] ?? 0));
+
             $row++;
         }
 
         // Totals Row
         $totalRow = $row;
-        $sheet->setCellValue('A' . $totalRow, 'Total Stock');
-        
-        $lastColLetter = Coordinate::stringFromColumnIndex(count($locations) + 5);
-        
-        // Dynamic location sums
+        $sheet->setCellValue('A' . $totalRow, 'Total');
+
+        $totalCols = count($locations) + 7;
+        $lastColLetter = Coordinate::stringFromColumnIndex($totalCols);
+
+        // Dynamic location & qty sums
         for ($i = 0; $i < count($locations) + 1; $i++) {
             $colLetter = Coordinate::stringFromColumnIndex(5 + $i);
             $sheet->setCellValue($colLetter . $totalRow, "=SUM(" . $colLetter . "2:" . $colLetter . ($totalRow - 1) . ")");
         }
+
+        // Purchase Value sum & MRP Value sum
+        $purchColLetter = Coordinate::stringFromColumnIndex(5 + count($locations) + 1);
+        $mrpColLetter   = Coordinate::stringFromColumnIndex(5 + count($locations) + 2);
+
+        $sheet->setCellValue($purchColLetter . $totalRow, "=SUM(" . $purchColLetter . "2:" . $purchColLetter . ($totalRow - 1) . ")");
+        $sheet->setCellValue($mrpColLetter . $totalRow, "=SUM(" . $mrpColLetter . "2:" . $mrpColLetter . ($totalRow - 1) . ")");
 
         // Apply Styles
         $sheet->getStyle('A1:' . $lastColLetter . '1')->applyFromArray($this->getHeaderStyle());
@@ -271,13 +292,16 @@ class ReportExportService
         $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('C2:C' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('D2:D' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        
-        // Stock columns align center & number format
+
         for ($i = 0; $i < count($locations) + 1; $i++) {
-            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(5 + $i);
+            $colLetter = Coordinate::stringFromColumnIndex(5 + $i);
             $sheet->getStyle($colLetter . '2:' . $colLetter . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle($colLetter . '2:' . $colLetter . $totalRow)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
         }
+
+        $currencyCode = $this->getCurrencyFormatCode();
+        $sheet->getStyle($purchColLetter . '2:' . $purchColLetter . $totalRow)->getNumberFormat()->setFormatCode($currencyCode);
+        $sheet->getStyle($mrpColLetter . '2:' . $mrpColLetter . $totalRow)->getNumberFormat()->setFormatCode($currencyCode);
 
         $this->autoFitColumns($sheet);
 
