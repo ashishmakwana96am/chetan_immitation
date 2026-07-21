@@ -104,14 +104,6 @@
         flex: 1 1 auto;
     }
 
-    /* Custom size selector */
-    .size-toggle { display: inline-flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #B4771E; margin-top: .35rem; }
-    .size-toggle .size-btn {
-        padding: 3px 14px; font-size: .8rem; font-weight: 600; border: none; cursor: pointer;
-        background: #fff; color: #B4771E; transition: background .15s, color .15s;
-    }
-    .size-toggle .size-btn + .size-btn { border-left: 1.5px solid #B4771E; }
-    .size-toggle .size-btn.active { background: #B4771E; color: #fff; }
 </style>
 @endsection
 
@@ -352,7 +344,6 @@
                             <span class="badge bg-label-warning pair-product-badge text-nowrap d-none">Pair Product</span>
                         </div>
                         <div class="variant-select-container"></div>
-                        <div class="size-select-container"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -636,15 +627,8 @@ $(document).ready(function () {
         }
 
         if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
-            const defSize = selectedCustomSize || product.custom_sizes[0].size;
-            let sizeHtml = `<div class="size-toggle" data-selected="${defSize}">`;
-            product.custom_sizes.forEach(cs => {
-                const active = defSize && defSize == cs.size ? 'active' : '';
-                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
-            });
-            sizeHtml += `</div>`;
-            row.find('.size-select-container').html(sizeHtml);
-            row.data('custom-size-value', defSize);
+            const maxSize = product.custom_sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), product.custom_sizes[0].size);
+            row.data('custom-size-value', selectedCustomSize || maxSize);
         }
 
         if (product.type === 'variable') {
@@ -704,14 +688,6 @@ $(document).ready(function () {
         updateRowTotal(row);
         updateStockInfo(row);
         updateGrandTotal();
-    });
-
-    $(document).on('click', '.size-btn', function () {
-        const row = $(this).closest('.item-row');
-        const toggle = $(this).closest('.size-toggle');
-        toggle.find('.size-btn').removeClass('active');
-        $(this).addClass('active');
-        row.data('custom-size-value', $(this).data('value'));
     });
 
     // Remove Item Row
