@@ -336,7 +336,7 @@ class ProductController extends Controller
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Approved', 3 => 'Declined'];
 
-        $data = $this->groupHistoryItems($items, 'purchase_id', $product->pair_product)
+        $data = $this->groupHistoryItems($items, 'purchase_id', $product)
             ->map(function ($row) use ($statusColors, $statusLabels) {
                 $item    = $row->item;
                 $invoice = $item->invoice;
@@ -376,7 +376,7 @@ class ProductController extends Controller
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
 
-        $data = $this->groupHistoryItems($items, 'purchase_bill_id', $product->pair_product)
+        $data = $this->groupHistoryItems($items, 'purchase_bill_id', $product)
             ->map(function ($row) use ($statusColors, $statusLabels) {
                 $item     = $row->item;
                 $transfer = $item->transfer;
@@ -414,7 +414,7 @@ class ProductController extends Controller
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-info', 4 => 'bg-label-warning', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Shipped', 4 => 'Out for delivery', 5 => 'Delivered', 6 => 'Cancelled'];
 
-        $data = $this->groupHistoryItems($items, 'order_id', $product->pair_product)
+        $data = $this->groupHistoryItems($items, 'order_id', $product)
             ->map(function ($row) use ($statusColors, $statusLabels) {
                 $item  = $row->item;
                 $order = $item->order;
@@ -485,20 +485,24 @@ class ProductController extends Controller
             ->count();
     }
 
-    private function groupHistoryItems($items, string $transactionKey, bool $isPairProduct)
+    private function groupHistoryItems($items, string $transactionKey, Product $product)
     {
+        $isPairProduct = (bool) $product->pair_product;
+
+        $fallbackSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+
         return $items
             ->groupBy(fn($item) => $item->{$transactionKey} . '-' . ($item->product_variant_id ?? 0))
-            ->map(function ($group) use ($isPairProduct) {
+            ->map(function ($group) use ($isPairProduct, $fallbackSize) {
                 $first = $group->first();
 
-                $totalQty = $group->sum(function ($item) use ($isPairProduct) {
-                    return $isPairProduct ? ($item->quantity * (float) ($item->custom_size_value ?: 1)) : $item->quantity;
+                $totalQty = $group->sum(function ($item) use ($isPairProduct, $fallbackSize) {
+                    return $isPairProduct ? ($item->quantity * (float) ($item->custom_size_value ?: $fallbackSize)) : $item->quantity;
                 });
 
                 $breakdown = null;
                 if ($isPairProduct) {
-                    $breakdown = $group->groupBy(fn($item) => (float) ($item->custom_size_value ?: 0))
+                    $breakdown = $group->groupBy(fn($item) => (float) ($item->custom_size_value ?: $fallbackSize))
                         ->sortKeys()
                         ->map(function ($sizeGroup, $size) {
                             $sizeLabel = rtrim(rtrim(number_format((float) $size, 2), '0'), '.');
