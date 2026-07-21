@@ -137,6 +137,11 @@ class Product extends Model
         return $this->hasMany(ProductReview::class);
     }
 
+    public function purchaseItems()
+    {
+        return $this->hasMany(PurchaseItem::class);
+    }
+
     public function scopeWithReviewStats($query)
     {
         return $query->withCount('reviews')->withAvg('reviews', 'rating');

@@ -51,6 +51,7 @@ class ProductController extends Controller
             'subCategory',
             'primaryImage',
             'variants.attributeValue',
+            'purchaseItems.invoice',
             'inventories' => function($q) use ($locationId) {
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             }
@@ -110,10 +111,69 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
+            $tooltipAttr = '';
+            /*
+            $isCustomSizePair = $product->pair_product && $product->pair_mode === 'custom_size';
+
+            if ($isCustomSizePair) {
+                $purchaseQtyMap = $product->purchaseItems
+                    ->filter(function ($item) {
+                        return $item->custom_size_value !== null && (!$item->invoice || $item->invoice->status != \App\Models\Purchase::STATUS_DECLINE);
+                    })
+                    ->groupBy(function ($item) {
+                        return (string) ((int) $item->custom_size_value);
+                    })
+                    ->map(function ($group) {
+                        return $group->sum('quantity');
+                    });
+
+                $definedSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (int) $s);
+                $purchasedSizes = $purchaseQtyMap->keys()->map(fn($s) => (int) $s);
+                $allSizes = $definedSizes->concat($purchasedSizes)->unique()->sort()->values();
+
+                if ($allSizes->count() > 0) {
+                    $totalPairs = 0;
+                    $totalPieces = 0;
+
+                    $tooltipHtml = '<div class="text-start p-1" style="min-width:165px;">';
+                    $tooltipHtml .= '<div class="fw-bold border-bottom pb-1 mb-2 text-center d-flex align-items-center justify-content-center" style="font-size:12px; letter-spacing:0.3px;">';
+                    $tooltipHtml .= '<i class="ti ti-boxes me-1 text-warning" style="font-size:14px;"></i> Size Breakdown';
+                    $tooltipHtml .= '</div>';
+
+                    foreach ($allSizes as $sz) {
+                        $pairs = (int) $purchaseQtyMap->get((string) $sz, 0);
+                        $totalPairs += $pairs;
+                        $totalPieces += ($sz * $pairs);
+
+                        $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap mb-1" style="font-size:11px;">';
+                        $tooltipHtml .= '<span style="color:#cbd5e1;">' . $sz . ' Pcs Pair</span>';
+                        $tooltipHtml .= '<span class="badge bg-warning text-dark rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($pairs) . ' Pairs</span>';
+                        $tooltipHtml .= '</div>';
+                    }
+
+                    $tooltipHtml .= '<div class="border-top pt-2 mt-1">';
+                    $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap mb-1" style="font-size:11px;">';
+                    $tooltipHtml .= '<span class="fw-semibold text-white">Total Pairs</span>';
+                    $tooltipHtml .= '<span class="badge bg-info text-white rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($totalPairs) . '</span>';
+                    $tooltipHtml .= '</div>';
+
+                    $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap" style="font-size:11px;">';
+                    $tooltipHtml .= '<span class="fw-semibold text-white">Total Pieces</span>';
+                    $tooltipHtml .= '<span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($totalPieces) . '</span>';
+                    $tooltipHtml .= '</div>';
+                    $tooltipHtml .= '</div>';
+
+                    $tooltipHtml .= '</div>';
+
+                    $tooltipAttr = ' data-bs-toggle="tooltip" data-bs-html="true" data-bs-custom-class="custom-size-stock-tooltip" data-bs-placement="top" title="' . e($tooltipHtml) . '" style="cursor:pointer;"';
+                }
+            }
+            */
+
             $stockSum = $computeStock($product);
             $stock = $stockSum > 0
-                ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSum) . '</span>'
-                : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
+                ? '<span class="badge bg-label-success fw-bold"' . $tooltipAttr . '>' . number_format($stockSum) . '</span>'
+                : '<span class="badge bg-label-danger fw-bold"' . $tooltipAttr . '>SOLD OUT</span>';
 
             $barcodeVal = $product->barcode;
             $barcode = $barcodeVal

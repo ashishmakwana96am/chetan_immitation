@@ -11,6 +11,15 @@
         @media (max-width: 991.98px) {
             #bulkImageOffcanvas, #bulkImageHistoryOffcanvas, #productImportHistoryOffcanvas { width: 100vw !important; }
         }
+        .custom-size-stock-tooltip .tooltip-inner {
+            background-color: #0f172a;
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            font-size: 0.75rem;
+        }
     </style>
 @endsection
 
@@ -256,6 +265,14 @@
                     }
                 },
                 columns    : columns,
+                /*
+                drawCallback: function () {
+                    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl, { html: true });
+                    });
+                }
+                */
             });
 
             window.refreshTable = function () {

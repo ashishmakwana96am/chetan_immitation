@@ -285,7 +285,7 @@
                             <label class="form-label">Custom Sizes <span class="text-danger">*</span></label>
                             <div class="custom-sizes-tag-input form-control d-flex flex-wrap align-items-center gap-1" id="customSizesTagWrapper" style="cursor: text;">
                                 <div id="customSizeBadges" class="d-flex flex-wrap gap-1"></div>
-                                <input type="text" id="customSizesInput" class="border-0 flex-grow-1 p-0" style="outline: none; min-width: 60px; box-shadow: none;" placeholder="Type size & press Enter" />
+                                <input type="text" id="customSizesInput" inputmode="numeric" class="border-0 flex-grow-1 p-0" style="outline: none; min-width: 60px; box-shadow: none;" placeholder="Type size & press Enter" />
                             </div>
                             <input type="hidden" name="custom_sizes_json" id="customSizesJson" />
                             <div class="invalid-feedback d-block" id="customSizesError"></div>
@@ -1262,7 +1262,7 @@
             // ---- Custom Size pair pricing ----
             const currencySymbol = "{{ currency_symbol() }}";
 
-            let customSizesList = @json($product->custom_sizes ? collect($product->custom_sizes)->pluck('size')->map(fn($s) => (float) $s)->sort()->values() : []);
+            let customSizesList = @json($product->custom_sizes ? collect($product->custom_sizes)->pluck('size')->map(fn($s) => (int) $s)->sort()->values() : []);
 
             function buildCustomSizeRowHtml(index, size) {
                 return '<div class="col-md-6 custom-size-sale-field" data-index="' + index + '" data-size="' + size + '">' +
@@ -1296,8 +1296,11 @@
             }
 
             function addCustomSize(rawVal) {
-                const size = parseFloat(rawVal);
-                if (isNaN(size) || size <= 0) {
+                if (typeof rawVal === 'string' && rawVal.includes('.')) {
+                    return;
+                }
+                const size = parseInt(rawVal, 10);
+                if (isNaN(size) || size <= 0 || size > 20) {
                     return;
                 }
                 if (!customSizesList.includes(size)) {
@@ -1322,8 +1325,27 @@
                 }
             });
 
+            $('#customSizesInput').on('input', function () {
+                let val = $(this).val().replace(/[^0-9]/g, '');
+                if (val !== '') {
+                    let num = parseInt(val, 10);
+                    if (num > 20) {
+                        num = 20;
+                    }
+                    val = num > 0 ? num.toString() : '';
+                }
+                $(this).val(val);
+            });
+
             $('#customSizesInput').on('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ',') {
+                if (e.key === 'Backspace' && $(this).val() === '') {
+                    if (customSizesList.length > 0) {
+                        customSizesList.pop();
+                        renderCustomSizeBadges();
+                        renderCustomSizeRows(false);
+                        $('#productCodeInput').trigger('change');
+                    }
+                } else if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
                     addCustomSize($(this).val());
                     $(this).val('');
@@ -1338,7 +1360,7 @@
             });
 
             $(document).on('click', '.remove-custom-size-badge', function () {
-                const size = parseFloat($(this).closest('.custom-size-badge').data('size'));
+                const size = parseInt($(this).closest('.custom-size-badge').data('size'), 10);
                 removeCustomSize(size);
             });
 
