@@ -267,7 +267,7 @@ class ProductController extends Controller
             abort(404, 'No products to print.');
         }
 
-        $pdfHeight = ($totalQty * 34.02) + 15;
+        $pdfHeight = ($totalQty * 35.5) + 10;
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems', 'pdfHeight'))
             ->setPaper([0, 0, 232.44, $pdfHeight], 'portrait');

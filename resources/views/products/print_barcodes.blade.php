@@ -24,11 +24,17 @@
             background: #fff;
             overflow: hidden !important;
         }
+        table, tr, td {
+            page-break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            break-inside: avoid !important;
+        }
         .labels-container-table {
             width: 232.44pt !important; /* 2.7cm + 2.7cm + 2.8cm = 8.2cm = 232.44pt */
             border-collapse: collapse !important;
             table-layout: fixed !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             padding: 0 !important;
         }
         .label-row {
@@ -36,27 +42,33 @@
             max-height: 34.02pt !important;
             margin: 0 !important;
             padding: 0 !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            overflow: hidden !important;
         }
         .zone-front-td {
             width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 1pt 3pt !important;
+            padding: 0.5pt 3pt !important;
             vertical-align: middle;
             border: none !important;
+            overflow: hidden !important;
         }
         .zone-back-td {
             width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 1pt 2pt !important;
+            padding: 0.5pt 2pt !important;
             text-align: center;
             vertical-align: middle;
             border: none !important;
+            overflow: hidden !important;
         }
         .zone-tail-td {
             width: 79.38pt !important; /* 2.8cm */
             height: 34.02pt !important;
             padding: 0 !important;
             border: none !important;
+            overflow: hidden !important;
         }
         .mrp-line {
             font-size: 7.5pt !important;
