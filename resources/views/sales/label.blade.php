@@ -27,7 +27,7 @@
 
         body {
             padding: 8pt;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
         }
 
@@ -62,7 +62,7 @@
         }
 
         .doc-title {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: bold;
             text-align: center;
             text-transform: uppercase;
@@ -70,26 +70,26 @@
         }
 
         .section-title {
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 3px;
         }
 
         .person-name {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
             margin-bottom: 3px;
         }
 
         .address-text {
-            font-size: 12px;
+            font-size: 13.5px;
             line-height: 1.35;
             font-weight: bold;
         }
 
         .phone-text {
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: bold;
             margin-top: 4px;
         }
@@ -102,36 +102,36 @@
 
         /* TO section - bigger for delivery boy */
         .to-section-title {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 4px;
         }
         .to-person-name {
-            font-size: 19px;
+            font-size: 21px;
             font-weight: bold;
             margin-bottom: 4px;
             line-height: 1.2;
         }
         .to-address-text {
-            font-size: 16px;
+            font-size: 18px;
             line-height: 1.4;
             font-weight: bold;
         }
         .to-phone-text {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: bold;
             margin-top: 5px;
         }
 
         .product-title {
-            font-size: 13px;
+            font-size: 14.5px;
             font-weight: bold;
             margin-bottom: 4px;
         }
 
         .product-table {
-            font-size: 11px;
+            font-size: 12.5px;
             line-height: 1.3;
             font-weight: bold;
         }

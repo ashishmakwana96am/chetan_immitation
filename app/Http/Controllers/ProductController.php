@@ -7,8 +7,11 @@ use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Location;
+use App\Models\OrderItem;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\PurchaseBillItem;
+use App\Models\PurchaseItem;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -243,10 +246,10 @@ class ProductController extends Controller
 
                 $categoryLength = strlen($categoryDisplay);
                 $categoryFontSize = match (true) {
-                    $categoryLength > 18 => 5.0,
-                    $categoryLength > 14 => 5.5,
-                    $categoryLength > 10 => 6.5,
-                    default => 7.5,
+                    $categoryLength > 18 => 6.0,
+                    $categoryLength > 14 => 6.5,
+                    $categoryLength > 10 => 7.5,
+                    default => 8.5,
                 };
 
                 $isPair = false;
@@ -298,21 +301,221 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
 
-        $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId   = $isRestricted ? $user->location_id : null;
+        $locationId   = $this->restrictedLocationId();
+        $isRestricted = (bool) $locationId;
 
         $product->load([
-            'category', 
-            'images', 
-            'createdBy', 
+            'category',
+            'images',
+            'createdBy',
             'variants.attributeValue',
             'inventories' => function($q) use ($locationId) {
                 $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
             },
             'inventories.location'
         ]);
-        return view('products.show', compact('product', 'locationId', 'isRestricted'));
+
+        $purchaseCount = $this->countDistinctGroups($this->purchaseHistoryQuery($product, $locationId), 'purchase_id');
+        $transferCount = $this->countDistinctGroups($this->transferHistoryQuery($product, $locationId), 'purchase_bill_id');
+        $saleCount     = $this->countDistinctGroups($this->saleHistoryQuery($product, $locationId), 'order_id');
+
+        return view('products.show', compact(
+            'product', 'locationId', 'isRestricted', 'purchaseCount', 'transferCount', 'saleCount'
+        ));
+    }
+
+    public function purchaseHistoryData(Request $request, Product $product)
+    {
+        $this->authorize('view products');
+        $locationId = $this->restrictedLocationId();
+
+        $items = $this->purchaseHistoryQuery($product, $locationId)
+            ->with(['invoice.supplier', 'invoice.location', 'variant.attributeValue'])
+            ->get();
+
+        $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+        $statusLabels = [1 => 'Pending', 2 => 'Approved', 3 => 'Declined'];
+
+        $data = $this->groupHistoryItems($items, 'purchase_id', $product->pair_product)
+            ->map(function ($row) use ($statusColors, $statusLabels) {
+                $item    = $row->item;
+                $invoice = $item->invoice;
+                return [
+                    'invoice_no' => $invoice
+                        ? '<a href="' . route('admin.purchases.show', $item->purchase_id) . '" class="fw-semibold">' . e($invoice->invoice_no) . '</a>'
+                        : '-',
+                    'supplier'   => e($invoice->supplier->name ?? '-'),
+                    'location'   => e($invoice->location->name ?? '-'),
+                    'variant'    => e($item->variant->attributeValue->value ?? '-'),
+                    'breakdown'  => $row->breakdown ?: '-',
+                    'qty'        => number_format($row->total_qty),
+                    'qty_raw'    => (float) $row->total_qty,
+                    'amount'     => format_price($row->total_amount),
+                    'amount_raw' => (float) $row->total_amount,
+                    'status'     => $invoice
+                        ? '<span class="badge ' . ($statusColors[$invoice->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$invoice->status] ?? 'Pending') . '</span>'
+                        : '',
+                    'date_group' => $invoice && $invoice->created_at ? $invoice->created_at->format('d M Y') : '-',
+                    'date_sort'  => $invoice && $invoice->created_at ? $invoice->created_at->format('Ymd') : '00000000',
+                ];
+            })
+            ->values();
+
+        return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    public function transferHistoryData(Request $request, Product $product)
+    {
+        $this->authorize('view products');
+        $locationId = $this->restrictedLocationId();
+
+        $items = $this->transferHistoryQuery($product, $locationId)
+            ->with(['transfer.fromLocation', 'transfer.toLocation', 'variant.attributeValue'])
+            ->get();
+
+        $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+        $statusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
+
+        $data = $this->groupHistoryItems($items, 'purchase_bill_id', $product->pair_product)
+            ->map(function ($row) use ($statusColors, $statusLabels) {
+                $item     = $row->item;
+                $transfer = $item->transfer;
+                return [
+                    'transfer_no' => $transfer
+                        ? '<a href="' . route('admin.purchase-bills.show', $item->purchase_bill_id) . '" class="fw-semibold">' . e($transfer->transfer_no) . '</a>'
+                        : '-',
+                    'from_branch'  => e($transfer->fromLocation->name ?? '-'),
+                    'to_branch'    => e($transfer->toLocation->name ?? '-'),
+                    'variant'      => e($item->variant->attributeValue->value ?? '-'),
+                    'breakdown'    => $row->breakdown ?: '-',
+                    'qty'          => number_format($row->total_qty),
+                    'qty_raw'      => (float) $row->total_qty,
+                    'status'       => $transfer
+                        ? '<span class="badge ' . ($statusColors[$transfer->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$transfer->status] ?? 'Pending') . '</span>'
+                        : '',
+                    'date_group'   => ($transfer && ($transfer->accepted_at ?? $transfer->created_at)) ? ($transfer->accepted_at ?? $transfer->created_at)->format('d M Y') : '-',
+                    'date_sort'    => ($transfer && ($transfer->accepted_at ?? $transfer->created_at)) ? ($transfer->accepted_at ?? $transfer->created_at)->format('Ymd') : '00000000',
+                ];
+            })
+            ->values();
+
+        return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    public function saleHistoryData(Request $request, Product $product)
+    {
+        $this->authorize('view products');
+        $locationId = $this->restrictedLocationId();
+
+        $items = $this->saleHistoryQuery($product, $locationId)
+            ->with(['order.customer', 'order.location', 'variant.attributeValue'])
+            ->get();
+
+        $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-info', 4 => 'bg-label-warning', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
+        $statusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Shipped', 4 => 'Out for delivery', 5 => 'Delivered', 6 => 'Cancelled'];
+
+        $data = $this->groupHistoryItems($items, 'order_id', $product->pair_product)
+            ->map(function ($row) use ($statusColors, $statusLabels) {
+                $item  = $row->item;
+                $order = $item->order;
+                return [
+                    'order_no' => $order
+                        ? '<a href="' . route('admin.sales.show', $item->order_id) . '" class="fw-semibold">' . e($order->order_no) . '</a>'
+                        : '-',
+                    'customer'   => e($order->customer->name ?? 'Walk-in Customer'),
+                    'location'   => e($order->location->name ?? '-'),
+                    'variant'    => e($item->variant->attributeValue->value ?? '-'),
+                    'breakdown'  => $row->breakdown ?: '-',
+                    'qty'        => number_format($row->total_qty),
+                    'qty_raw'    => (float) $row->total_qty,
+                    'amount'     => format_price($row->total_amount),
+                    'amount_raw' => (float) $row->total_amount,
+                    'status'     => $order
+                        ? '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$order->status] ?? 'Pending') . '</span>'
+                        : '',
+                    'date_group' => $order && $order->created_at ? $order->created_at->format('d M Y') : '-',
+                    'date_sort'  => $order && $order->created_at ? $order->created_at->format('Ymd') : '00000000',
+                ];
+            })
+            ->values();
+
+        return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    private function restrictedLocationId(): ?int
+    {
+        $user = auth()->user();
+        return ($user->location_id && !$user->hasRole('super-admin')) ? $user->location_id : null;
+    }
+
+    private function purchaseHistoryQuery(Product $product, ?int $locationId)
+    {
+        return PurchaseItem::where('product_id', $product->id)
+            ->whereHas('invoice', function ($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+            })
+            ->latest();
+    }
+
+    private function transferHistoryQuery(Product $product, ?int $locationId)
+    {
+        return PurchaseBillItem::where('product_id', $product->id)
+            ->whereHas('transfer', function ($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where(function ($w) use ($locationId) {
+                    $w->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
+                }));
+            })
+            ->latest();
+    }
+
+    private function saleHistoryQuery(Product $product, ?int $locationId)
+    {
+        return OrderItem::where('product_id', $product->id)
+            ->whereHas('order', function ($q) use ($locationId) {
+                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+            })
+            ->latest();
+    }
+
+    private function countDistinctGroups($query, string $transactionKey): int
+    {
+        return $query->select($transactionKey, 'product_variant_id')
+            ->get()
+            ->unique(fn($item) => $item->{$transactionKey} . '-' . ($item->product_variant_id ?? 0))
+            ->count();
+    }
+
+    private function groupHistoryItems($items, string $transactionKey, bool $isPairProduct)
+    {
+        return $items
+            ->groupBy(fn($item) => $item->{$transactionKey} . '-' . ($item->product_variant_id ?? 0))
+            ->map(function ($group) use ($isPairProduct) {
+                $first = $group->first();
+
+                $totalQty = $group->sum(function ($item) use ($isPairProduct) {
+                    return $isPairProduct ? ($item->quantity * (float) ($item->custom_size_value ?: 1)) : $item->quantity;
+                });
+
+                $breakdown = null;
+                if ($isPairProduct) {
+                    $breakdown = $group->groupBy(fn($item) => (float) ($item->custom_size_value ?: 0))
+                        ->sortKeys()
+                        ->map(function ($sizeGroup, $size) {
+                            $sizeLabel = rtrim(rtrim(number_format((float) $size, 2), '0'), '.');
+                            $packCount = $sizeGroup->sum('quantity');
+                            return $packCount . ' Pair' . ($packCount > 1 ? 's' : '') . ' × ' . $sizeLabel . 'pcs';
+                        })
+                        ->implode(', ');
+                }
+
+                return (object) [
+                    'item'         => $first,
+                    'total_qty'    => $totalQty,
+                    'total_amount' => $group->sum('total'),
+                    'breakdown'    => $breakdown,
+                ];
+            })
+            ->values();
     }
 
     public function create(Request $request)

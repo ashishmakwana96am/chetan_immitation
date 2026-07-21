@@ -8,7 +8,7 @@
 
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
+            font-size: 12.5px;
             color: #2d2d2d;
             background: #fff;
         }
@@ -45,13 +45,13 @@
             vertical-align: middle;
         }
         .brand-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             color: #B4771E;
             letter-spacing: 0.3px;
         }
         .brand-tagline {
-            font-size: 9.5px;
+            font-size: 11px;
             color: #888;
             margin-top: 2px;
         }
@@ -60,14 +60,14 @@
             vertical-align: middle;
         }
         .invoice-label {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: bold;
             color: #B4771E;
             letter-spacing: 1px;
             text-transform: uppercase;
         }
         .invoice-no {
-            font-size: 12px;
+            font-size: 13.5px;
             font-weight: bold;
             color: #444;
             margin-top: 4px;
@@ -92,7 +92,7 @@
             display: inline-block;
             padding: 3px 10px;
             border-radius: 3px;
-            font-size: 9px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -132,7 +132,7 @@
             text-align: right;
         }
         .info-section-title {
-            font-size: 8.5px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -143,12 +143,12 @@
         }
         .info-row {
             margin-bottom: 5px;
-            font-size: 10.5px;
+            font-size: 12px;
             line-height: 1.5;
         }
         .info-label {
             color: #888;
-            font-size: 9.5px;
+            font-size: 11px;
         }
         .info-value {
             font-weight: bold;
@@ -167,7 +167,7 @@
         .items-table thead th {
             padding: 8px 10px;
             color: #fff;
-            font-size: 9.5px;
+            font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -177,7 +177,7 @@
         .items-table tbody td {
             padding: 8px 10px;
             border-bottom: 1px solid #f0ebe2;
-            font-size: 10.5px;
+            font-size: 12px;
             color: #2d2d2d;
             vertical-align: middle;
         }
@@ -188,7 +188,7 @@
         .items-table tfoot td {
             padding: 7px 10px;
             border: none;
-            font-size: 10.5px;
+            font-size: 12px;
         }
         .items-table tfoot td.text-right { text-align: right; }
         .items-table tfoot tr.subtotal-row td { border-top: 1px solid #e8e0d2; }
@@ -196,7 +196,7 @@
         .items-table tfoot tr.coupon-row td   { color: #2e7d32; }
         .items-table tfoot tr.total-row td {
             border-top: 2px solid #B4771E;
-            font-size: 13px;
+            font-size: 15px;
             font-weight: bold;
             color: #B4771E;
             padding-top: 10px;
@@ -211,7 +211,7 @@
             margin-bottom: 24px;
         }
         .address-box-title {
-            font-size: 8.5px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.8px;
@@ -219,7 +219,7 @@
             margin-bottom: 7px;
         }
         .address-row {
-            font-size: 10.5px;
+            font-size: 12px;
             margin-bottom: 3px;
             color: #2d2d2d;
             line-height: 1.5;
@@ -233,11 +233,11 @@
             text-align: center;
         }
         .footer-text {
-            font-size: 9px;
+            font-size: 10px;
             color: #aaa;
         }
         .footer-thank {
-            font-size: 10.5px;
+            font-size: 12px;
             color: #B4771E;
             font-weight: bold;
             margin-bottom: 5px;
@@ -467,7 +467,7 @@
                     @if($isOnline && $order->payment?->gateway_payment_id)
                     <div class="info-row">
                         <span class="info-label">Razorpay ID: </span>
-                        <span class="info-value" style="font-size:9.5px;">{{ $order->payment->gateway_payment_id }}</span>
+                        <span class="info-value" style="font-size:11px;">{{ $order->payment->gateway_payment_id }}</span>
                     </div>
                     @endif
                 </div>
@@ -533,11 +533,11 @@
                     </td>
                     <td style="width:45%; border:none; padding:0; vertical-align:top; text-align:right;">
                         @if($order->cancellationRequest->status === 'approved')
-                            <div class="address-row"><strong>Refunded Amount:</strong> <strong style="color:#2e7d32; font-size:12px;">₹{{ number_format($order->cancellationRequest->refund_amount, 2) }}</strong></div>
+                            <div class="address-row"><strong>Refunded Amount:</strong> <strong style="color:#2e7d32; font-size:13.5px;">₹{{ number_format($order->cancellationRequest->refund_amount, 2) }}</strong></div>
                             @if($order->cancellationRequest->refund_gateway_id)
-                                <div class="address-row"><strong>Refund Transaction ID:</strong> <span style="font-family:monospace; font-size:9px; background:#f5ecec; padding:1px 3px; border-radius:2px;">{{ $order->cancellationRequest->refund_gateway_id }}</span></div>
+                                <div class="address-row"><strong>Refund Transaction ID:</strong> <span style="font-family:monospace; font-size:10.5px; background:#f5ecec; padding:1px 3px; border-radius:2px;">{{ $order->cancellationRequest->refund_gateway_id }}</span></div>
                             @endif
-                            <div class="address-row" style="color:#666; font-size:9px; margin-top:4px;">Processed via Online Gateway (credited in 5-7 business days)</div>
+                            <div class="address-row" style="color:#666; font-size:10.5px; margin-top:4px;">Processed via Online Gateway (credited in 5-7 business days)</div>
                         @else
                             <div class="address-row" style="color:#b4771e; font-weight:bold; margin-top:4px;">Refund is pending approval</div>
                         @endif
@@ -565,9 +565,9 @@
                     <td>{{ $index + 1 }}</td>
                     <td @if(!$item->is_parent) style="padding-left:0;" @endif>
                         @if(!$item->is_parent)
-                            <strong style="font-size:10.5px;">{{ $item->product->name ?? '-' }}</strong>
+                            <strong style="font-size:12px;">{{ $item->product->name ?? '-' }}</strong>
                             <span style="color:#B4771E; font-weight:bold; margin:0 4px;">&#8627;</span>
-                            <span style="font-size:10px; color:#666;">{{ $item->resolved_variant_name ?? '-' }}</span>
+                            <span style="font-size:11.5px; color:#666;">{{ $item->resolved_variant_name ?? '-' }}</span>
                         @else
                             <strong>{{ $item->product->name ?? '-' }}</strong>
                         @endif

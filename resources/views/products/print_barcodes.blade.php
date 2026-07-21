@@ -71,7 +71,7 @@
             overflow: hidden !important;
         }
         .mrp-line {
-            font-size: 7.5pt !important;
+            font-size: 9pt !important;
             font-weight: bold !important;
             line-height: 1.1 !important;
             white-space: nowrap;
@@ -79,7 +79,7 @@
             margin-bottom: 2pt !important;
         }
         .code-line {
-            font-size: 7.5pt !important;
+            font-size: 8.5pt !important;
             font-weight: bold !important;
             line-height: 1.1 !important;
             text-transform: uppercase;
@@ -87,7 +87,7 @@
             overflow: hidden;
         }
         .mrp-code-line {
-            font-size: 7pt !important;
+            font-size: 8.5pt !important;
             font-weight: bold !important;
             line-height: 1.1 !important;
             text-transform: uppercase;
@@ -96,7 +96,7 @@
             margin-top: 2pt !important;
         }
         .category-line {
-            font-size: 7.5pt !important;
+            font-size: 8.5pt !important;
             font-weight: bold !important;
             line-height: 1.1 !important;
             text-transform: uppercase;
@@ -129,7 +129,7 @@
                         <div class="barcode-container" style="text-align: left !important;">
                             <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" style="margin: 0;" />
                         </div>
-                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important; font-size: {{ $item['categoryFontSize'] ?? 7.5 }}pt !important;">{{ trim($item['category']) }}</div>
+                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important; font-size: {{ $item['categoryFontSize'] ?? 8.5 }}pt !important;">{{ trim($item['category']) }}</div>
                     </td>
                     <!-- Zone 2: MRP (Center Section) -->
                     <td class="zone-back-td">

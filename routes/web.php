@@ -164,6 +164,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('products/print-barcodes', [ProductController::class, 'printBarcodes'])->name('products.print-barcodes');
         Route::resource('products', ProductController::class)->except('show');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::get('products/{product}/purchase-history', [ProductController::class, 'purchaseHistoryData'])->name('products.purchase-history');
+        Route::get('products/{product}/transfer-history', [ProductController::class, 'transferHistoryData'])->name('products.transfer-history');
+        Route::get('products/{product}/sale-history', [ProductController::class, 'saleHistoryData'])->name('products.sale-history');
         Route::get('products/{product}/barcode', [ProductController::class, 'generateBarcodeImage'])->name('products.barcode');
         Route::patch('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
         Route::delete('products/images/{image}', [ProductController::class, 'destroyImage'])->name('products.images.destroy');

@@ -44,14 +44,14 @@
         .fw-bold     { font-weight: bold; }
 
         .store-title {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .gstin-label {
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: bold;
             margin-top: 2px;
         }
@@ -166,7 +166,7 @@
                     <img src="{{ public_path('assets/img/thermal-logo.png') }}" style="width: 58px; height: 58px; object-fit: contain;" alt="Logo" />
                 </td>
                 {{-- Right side: Branches sorted by current order's branch first, limited to 3 --}}
-                <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 9.5px; font-weight: bold; line-height: 1.35;">
+                <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 11px; font-weight: bold; line-height: 1.35;">
                     @php
                         $locations = \App\Models\Location::orderByRaw('id = ? DESC', [$order->location_id ?? 0])->limit(3)->get();
                     @endphp
@@ -180,9 +180,9 @@
         <div class="divider-dotted" style="margin-top: 3px; margin-bottom: 3px;"></div>
 
         {{-- Invoice Title Row --}}
-        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 10.5px;">
+        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 12px;">
             <tr>
-                <td style="text-align: left; width: 50%; font-size: 11.5px; border: none; padding: 0;">
+                <td style="text-align: left; width: 50%; font-size: 13px; border: none; padding: 0;">
                     INVOICE
                 </td>
                 <td style="text-align: right; width: 50%; border: none; padding: 0;">
@@ -194,7 +194,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Customer & Bill Details Block --}}
-        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 11.5px; font-weight: bold; margin-bottom: 2px;">
             <tr>
                 <td style="width: 52%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
                     @php
@@ -230,7 +230,7 @@
         <div class="divider-solid"></div>
 
         {{-- Items Table --}}
-        <table style="width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 10px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             <thead>
                 <tr style="border-bottom: 1px solid #000;">
                     <th style="text-align: left; padding-bottom: 3px; font-weight: bold; border: none;">ITEM NAME</th>
@@ -270,7 +270,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Totals Block --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             @if($totalDiscount > 0)
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Subtotal</td>
@@ -299,7 +299,7 @@
         <div class="divider-dotted"></div>
 
         {{-- Payment Detail block --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
             <!-- Header Row with solid borders -->
             <tr style="border-bottom: 1px solid #000;">
                 <td colspan="2" style="text-align: left; padding-bottom: 3px; border: none;">PAYMENT DETAIL</td>
@@ -320,9 +320,9 @@
         </table>
 
         {{-- Terms & Conditions Footer --}}
-        @php $arrow = '<span style="font-family: DejaVu Sans, sans-serif; font-weight: bold; font-size: 11px;">&#8594;</span>'; @endphp
-        <div style="text-align: left; font-size: 9px; font-weight: bold; line-height: 1.3;">
-            <div style="font-size: 9.5px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
+        @php $arrow = '<span style="font-family: DejaVu Sans, sans-serif; font-weight: bold; font-size: 12.5px;">&#8594;</span>'; @endphp
+        <div style="text-align: left; font-size: 10.5px; font-weight: bold; line-height: 1.3;">
+            <div style="font-size: 11px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
             <div>{!! $arrow !!} KEEP THE PRODUCT AWAY FROM PERFUME, WATER AND CHEMICALS.</div>
             <div>{!! $arrow !!} ITEM THAT CAN BE REPAIRED WILL BE REPAIRED, CHARGEABLE.</div>
             <div>{!! $arrow !!} NO RETURN, NO EXCHANGE.</div>
@@ -332,7 +332,7 @@
         <div class="divider-dotted" style="margin-top: 5px; margin-bottom: 5px;"></div>
 
         {{-- Monospaced Thank You Note --}}
-        <div style="text-align: center; font-family: Arial, sans-serif; font-size: 9.5px; font-weight: bold; line-height: 1.4;">
+        <div style="text-align: center; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; line-height: 1.4;">
             <div>Thank you for shopping by chetan imitation!</div>
         </div>
 

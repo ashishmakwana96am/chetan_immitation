@@ -246,7 +246,6 @@ $(document).ready(function () {
                 'barcode' => $p->barcode,
                 'type' => $p->type,
                 'pair_product' => $p->pair_product,
-                'pair_mode' => $p->pair_mode,
                 'custom_sizes' => $p->custom_sizes ?? [],
                 'purchase_price' => $p->purchase_price,
                 'image' => $p->primary_image_url,
@@ -320,7 +319,7 @@ $(document).ready(function () {
     function addItemRow(product, selectedVariantId = null) {
         let initialVariantId = null;
 
-        if (product.type !== 'variable' && !(product.pair_product && product.pair_mode === 'custom_size') && hasDuplicate(product.id, null)) {
+        if (product.type !== 'variable' && !(product.pair_product && product.custom_sizes && product.custom_sizes.length) && hasDuplicate(product.id, null)) {
             toastr.warning('Product is already in the list.');
             return;
         }
@@ -354,7 +353,7 @@ $(document).ready(function () {
             row.data('variant-id', row.find('.variant-select').val() || null);
         }
 
-        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
             const firstSizeVal = product.custom_sizes[0].size;
             let sizeHtml = `<div class="size-toggle" data-selected="${firstSizeVal}">`;
             product.custom_sizes.forEach(function (cs, idx) {
@@ -431,7 +430,7 @@ $(document).ready(function () {
         let displayQty = qtyPcs;
         let unitLabel = 'Pcs';
         
-        if (product && product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+        if (product && product.pair_product && customSizeValue > 0) {
             displayQty = Math.floor(qtyPcs / customSizeValue);
             unitLabel = 'Pairs';
         } else if (pairType === 'pair') {
@@ -462,7 +461,7 @@ $(document).ready(function () {
         const pairType = row.find('.pair-type-input').val() || 'single';
         const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
         
-        if (product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+        if (product.pair_product && customSizeValue > 0) {
             multiplier = customSizeValue;
         } else if (pairType === 'pair') {
             multiplier = 2.0;
@@ -693,7 +692,7 @@ $(document).ready(function () {
                 return false;
             }
 
-            if (product.pair_product && product.pair_mode === 'custom_size') {
+            if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
                 const customSizeValue = row.data('custom-size-value');
                 if (!customSizeValue) {
                     toastr.error('Please select a size for each custom size product before saving.');

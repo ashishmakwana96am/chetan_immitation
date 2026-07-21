@@ -4,6 +4,48 @@
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/swiper/swiper.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #purchaseHistoryTable tbody tr.group-header td,
+        #transferHistoryTable tbody tr.group-header td,
+        #saleHistoryTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #purchaseHistoryTable tbody tr.group-header td .group-header-inner,
+        #transferHistoryTable tbody tr.group-header td .group-header-inner,
+        #saleHistoryTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #purchaseHistoryTable tbody tr.group-header td .group-header-inner i,
+        #transferHistoryTable tbody tr.group-header td .group-header-inner i,
+        #saleHistoryTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #purchaseHistoryTable tbody tr.group-header td .group-header-inner span,
+        #transferHistoryTable tbody tr.group-header td .group-header-inner span,
+        #saleHistoryTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
     <style>
         .info-row {
             display: flex;
@@ -244,15 +286,56 @@
                 </div>
                 <div class="card-body p-3 d-flex flex-column gap-3">
 
-                    {{-- Purchase Price --}}
-                    <div class="info-row">
-                        <span class="info-label">Purchase Price</span>
-                        <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
-                    </div>
+                    @if($product->is_variable && $product->variants->count())
+                        {{-- Per-variant prices &amp; profit --}}
+                        @foreach($product->variants as $variant)
+                            @php
+                                $vPurchase = (float) $variant->purchase_price;
+                                $vSale     = (float) $variant->sale_price;
+                                $vProfit   = $vSale - $vPurchase;
+                                $vMargin   = $vSale > 0 ? round(($vProfit / $vSale) * 100, 1) : 0;
+                            @endphp
+                            <div>
+                                <p class="card-section-title mb-2">{{ $variant->attributeValue->value ?? '-' }}</p>
+                                <div class="d-flex gap-2">
+                                    <div class="price-chip">
+                                        <span class="p-lbl">Purchase</span>
+                                        <span class="p-val text-info">{{ format_price($vPurchase) }}</span>
+                                    </div>
+                                    <div class="price-chip">
+                                        <span class="p-lbl">Sale Price</span>
+                                        <span class="p-val text-success">{{ format_price($vSale) }}</span>
+                                    </div>
+                                </div>
+                                <div class="info-row" style="padding-top:6px;">
+                                    <span class="info-label">Profit</span>
+                                    <span class="info-value fw-bold {{ $vProfit > 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ format_price($vProfit) }}
+                                        <small class="text-muted">({{ $vMargin }}%)</small>
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    @elseif($product->pair_product && $product->custom_sizes)
+                        @php
+                            $maxSize = (float) (collect($product->custom_sizes)->pluck('size')->max() ?: 1);
+                            $maxSizeLabel = rtrim(rtrim(number_format($maxSize, 2), '0'), '.');
+                        @endphp
+                        {{-- Purchase Price (configured for the largest pack size) --}}
+                        <div class="info-row">
+                            <span class="info-label">Purchase Price <small class="text-muted">({{ $maxSizeLabel }} pcs)</small></span>
+                            <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
+                        </div>
 
-                    @if($product->pair_product && $product->custom_sizes)
-                        {{-- Custom size prices --}}
+                        {{-- Custom size prices & per-size profit --}}
                         @foreach(collect($product->custom_sizes)->sortBy('size') as $sizeRow)
+                            @php
+                                $sSale     = (float) ($sizeRow['sale_price'] ?? 0);
+                                $sSize     = (float) ($sizeRow['size'] ?? 0);
+                                $sPurchase = $maxSize > 0 ? ((float) $product->purchase_price * ($sSize / $maxSize)) : (float) $product->purchase_price;
+                                $sProfit   = $sSale - $sPurchase;
+                                $sMargin   = $sSale > 0 ? round(($sProfit / $sSale) * 100, 1) : 0;
+                            @endphp
                             <div>
                                 <p class="card-section-title mb-2">{{ rtrim(rtrim(number_format((float) ($sizeRow['size'] ?? 0), 2), '0'), '.') }} pcs</p>
                                 <div class="d-flex gap-2">
@@ -265,9 +348,22 @@
                                         <span class="p-val text-danger">{{ format_price($sizeRow['mrp'] ?? 0) }}</span>
                                     </div>
                                 </div>
+                                <div class="info-row" style="padding-top:6px;">
+                                    <span class="info-label">Profit</span>
+                                    <span class="info-value fw-bold {{ $sProfit > 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ format_price($sProfit) }}
+                                        <small class="text-muted">({{ $sMargin }}%)</small>
+                                    </span>
+                                </div>
                             </div>
                         @endforeach
                     @else
+                        {{-- Purchase Price --}}
+                        <div class="info-row">
+                            <span class="info-label">Purchase Price</span>
+                            <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
+                        </div>
+
                         <div class="d-flex gap-2">
                             <div class="price-chip">
                                 <span class="p-lbl">Sale Price</span>
@@ -278,16 +374,16 @@
                                 <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
                             </div>
                         </div>
-                    @endif
 
-                    {{-- Profit --}}
-                    <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">
-                        <span class="info-label">Profit</span>
-                        <span class="info-value fw-bold {{ $profit > 0 ? 'text-success' : 'text-danger' }}">
-                            {{ format_price($profit) }}
-                            <small class="text-muted">({{ $margin }}%)</small>
-                        </span>
-                    </div>
+                        {{-- Profit --}}
+                        <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">
+                            <span class="info-label">Profit</span>
+                            <span class="info-value fw-bold {{ $profit > 0 ? 'text-success' : 'text-danger' }}">
+                                {{ format_price($profit) }}
+                                <small class="text-muted">({{ $margin }}%)</small>
+                            </span>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -469,7 +565,138 @@
                 </div>
             </div>
         </div>
-    </div>{{-- end row 2 --}}
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card card-tabs">
+                <div class="card-header">
+                    <div class="d-flex align-items-center gap-2 card-title-row">
+                        <span class="card-title-icon"><i class="ti ti-history"></i></span>
+                        <h6 class="mb-0 fw-semibold">Product History</h6>
+                    </div>
+                    <ul class="nav nav-tabs" style="margin-right: 0px; margin-left: 0px;" role="tablist">
+                        <li class="nav-item">
+                            <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#purchase-history-tab" role="tab">
+                                Purchase History <span class="badge bg-label-secondary ms-1">{{ $purchaseCount }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#transfer-history-tab" role="tab">
+                                Purchase Bill <span class="badge bg-label-secondary ms-1">{{ $transferCount }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#sale-history-tab" role="tab">
+                                Sales History <span class="badge bg-label-secondary ms-1">{{ $saleCount }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="tab-divider"></div>
+                <div class="card-body p-0">
+                    <div class="tab-content">
+                        {{-- ── Purchase History (from suppliers) ── --}}
+                        <div class="tab-pane fade show active" id="purchase-history-tab" role="tabpanel">
+                            <div class="card-datatable table-responsive">
+                                <table class="table border-top" id="purchaseHistoryTable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Invoice No</th>
+                                            <th>Supplier</th>
+                                            <th>Location</th>
+                                            <th>Variant</th>
+                                            @if($product->pair_product)<th>Pair Breakdown</th>@endif
+                                            <th class="text-end">Qty (Pcs)</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Status</th>
+                                            <th class="d-none">Date Group</th>
+                                            <th class="d-none">Date Sort</th>
+                                        </tr>
+                                    </thead>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="{{ $product->pair_product ? 6 : 5 }}" class="text-end tfoot-label">Total Purchased</th>
+                                            <th class="text-end text-primary" id="purchaseTotalQty">0</th>
+                                            <th class="text-end text-primary" id="purchaseTotalAmount">{{ format_price(0) }}</th>
+                                            <th></th>
+                                            <th class="d-none"></th>
+                                            <th class="d-none"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- ── Purchase Bill (branch transfer) History ── --}}
+                        <div class="tab-pane fade" id="transfer-history-tab" role="tabpanel">
+                            <div class="card-datatable table-responsive">
+                                <table class="table border-top" id="transferHistoryTable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Transfer No</th>
+                                            <th>From Branch</th>
+                                            <th>To Branch</th>
+                                            <th>Variant</th>
+                                            @if($product->pair_product)<th>Pair Breakdown</th>@endif
+                                            <th class="text-end">Qty (Pcs)</th>
+                                            <th class="text-center">Status</th>
+                                            <th class="d-none">Date Group</th>
+                                            <th class="d-none">Date Sort</th>
+                                        </tr>
+                                    </thead>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="{{ $product->pair_product ? 6 : 5 }}" class="text-end tfoot-label">Total Transferred</th>
+                                            <th class="text-end text-primary" id="transferTotalQty">0</th>
+                                            <th></th>
+                                            <th class="d-none"></th>
+                                            <th class="d-none"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- ── Sales History (to customers) ── --}}
+                        <div class="tab-pane fade" id="sale-history-tab" role="tabpanel">
+                            <div class="card-datatable table-responsive">
+                                <table class="table border-top" id="saleHistoryTable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Order No</th>
+                                            <th>Customer</th>
+                                            <th>Location</th>
+                                            <th>Variant</th>
+                                            @if($product->pair_product)<th>Pair Breakdown</th>@endif
+                                            <th class="text-end">Qty (Pcs)</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Status</th>
+                                            <th class="d-none">Date Group</th>
+                                            <th class="d-none">Date Sort</th>
+                                        </tr>
+                                    </thead>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="{{ $product->pair_product ? 6 : 5 }}" class="text-end tfoot-label">Total Sold</th>
+                                            <th class="text-end text-primary" id="saleTotalQty">0</th>
+                                            <th class="text-end text-primary" id="saleTotalAmount">{{ format_price(0) }}</th>
+                                            <th></th>
+                                            <th class="d-none"></th>
+                                            <th class="d-none"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>{{-- end row 2b --}}
 
     {{-- ══ ROW 3: Variants Table + Description side by side ══ --}}
     @if($product->is_variable && $product->variants->count())
@@ -653,6 +880,150 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/swiper/swiper.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            const rowNumberColumn = {
+                data: null, orderable: false, searchable: false, width: '3%',
+                render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; }
+            };
+
+            function formatMoney(n) {
+                return '{{ currency_symbol() }} ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function sumField(api, field) {
+                return api.rows({ search: 'applied' }).data().toArray().reduce(function (sum, row) {
+                    return sum + Number(row[field] || 0);
+                }, 0);
+            }
+
+            @php
+                $purchaseDateSortIdx = $product->pair_product ? 10 : 9;
+                $transferDateSortIdx = $product->pair_product ? 9 : 8;
+                $saleDateSortIdx     = $product->pair_product ? 10 : 9;
+                $purchaseVisibleCols = $product->pair_product ? 9 : 8;
+                $transferVisibleCols = $product->pair_product ? 8 : 7;
+                $saleVisibleCols     = $product->pair_product ? 9 : 8;
+            @endphp
+
+            const purchaseColumns = [
+                rowNumberColumn,
+                { data: 'invoice_no' },
+                { data: 'supplier' },
+                { data: 'location' },
+                { data: 'variant' },
+                @if($product->pair_product)
+                { data: 'breakdown' },
+                @endif
+                { data: 'qty', className: 'text-end fw-bold' },
+                { data: 'amount', className: 'text-end fw-semibold' },
+                { data: 'status', orderable: false, className: 'text-center' },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false },
+            ];
+            const purchaseTable = $('#purchaseHistoryTable').DataTable({
+                responsive: false,
+                order: [[{{ $purchaseDateSortIdx }}, 'desc']],
+                orderFixed: { pre: [[{{ $purchaseDateSortIdx }}, 'desc']] },
+                language: { emptyTable: 'No purchase history found for this product.' },
+                ajax: { url: '{{ route('admin.products.purchase-history', $product) }}', dataSrc: 'data', cache: false },
+                columns: purchaseColumns,
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="{{ $purchaseVisibleCols }}"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' invoice' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
+                footerCallback: function () {
+                    const api = this.api();
+                    $('#purchaseTotalQty').text(sumField(api, 'qty_raw').toLocaleString('en-IN'));
+                    $('#purchaseTotalAmount').text(formatMoney(sumField(api, 'amount_raw')));
+                }
+            });
+
+            const transferColumns = [
+                rowNumberColumn,
+                { data: 'transfer_no' },
+                { data: 'from_branch' },
+                { data: 'to_branch' },
+                { data: 'variant' },
+                @if($product->pair_product)
+                { data: 'breakdown' },
+                @endif
+                { data: 'qty', className: 'text-end fw-bold' },
+                { data: 'status', orderable: false, className: 'text-center' },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false },
+            ];
+            const transferTable = $('#transferHistoryTable').DataTable({
+                responsive: false,
+                order: [[{{ $transferDateSortIdx }}, 'desc']],
+                orderFixed: { pre: [[{{ $transferDateSortIdx }}, 'desc']] },
+                language: { emptyTable: 'No purchase bill history found for this product.' },
+                ajax: { url: '{{ route('admin.products.transfer-history', $product) }}', dataSrc: 'data', cache: false },
+                columns: transferColumns,
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="{{ $transferVisibleCols }}"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transfer' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
+                footerCallback: function () {
+                    const api = this.api();
+                    $('#transferTotalQty').text(sumField(api, 'qty_raw').toLocaleString('en-IN'));
+                }
+            });
+
+            const saleColumns = [
+                rowNumberColumn,
+                { data: 'order_no' },
+                { data: 'customer' },
+                { data: 'location' },
+                { data: 'variant' },
+                @if($product->pair_product)
+                { data: 'breakdown' },
+                @endif
+                { data: 'qty', className: 'text-end fw-bold' },
+                { data: 'amount', className: 'text-end fw-semibold' },
+                { data: 'status', orderable: false, className: 'text-center' },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false },
+            ];
+            const saleTable = $('#saleHistoryTable').DataTable({
+                responsive: false,
+                order: [[{{ $saleDateSortIdx }}, 'desc']],
+                orderFixed: { pre: [[{{ $saleDateSortIdx }}, 'desc']] },
+                language: { emptyTable: 'No sales history found for this product.' },
+                ajax: { url: '{{ route('admin.products.sale-history', $product) }}', dataSrc: 'data', cache: false },
+                columns: saleColumns,
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="{{ $saleVisibleCols }}"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
+                footerCallback: function () {
+                    const api = this.api();
+                    $('#saleTotalQty').text(sumField(api, 'qty_raw').toLocaleString('en-IN'));
+                    $('#saleTotalAmount').text(formatMoney(sumField(api, 'amount_raw')));
+                }
+            });
+
+            document.querySelectorAll('[data-bs-toggle="tab"][data-bs-target^="#purchase-history-tab"], [data-bs-toggle="tab"][data-bs-target^="#transfer-history-tab"], [data-bs-toggle="tab"][data-bs-target^="#sale-history-tab"]')
+                .forEach(function (el) {
+                    el.addEventListener('shown.bs.tab', function (e) {
+                        const target = e.target.getAttribute('data-bs-target');
+                        if (target === '#transfer-history-tab') transferTable.columns.adjust();
+                        if (target === '#sale-history-tab') saleTable.columns.adjust();
+                        if (target === '#purchase-history-tab') purchaseTable.columns.adjust();
+                    });
+                });
+        });
+    </script>
     <script>
         window.buildBarcodeLabelsHtml = function(items) {
             const esc = function(str) {
@@ -687,10 +1058,10 @@
                 '.zone-front{width:37mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;padding:0.8mm 1.5mm !important;overflow:hidden !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
                 '.zone-back{width:29mm !important;height:100% !important;display:flex !important;flex-direction:column !important;justify-content:space-between !important;align-items:center !important;overflow:hidden !important;padding:0.8mm 1px !important;border:0.5px solid #000 !important;border-radius:4px !important;}' +
                 '.zone-tab{width:16mm !important;height:100% !important;}' +
-                '.mrp-line{font-size:8.5pt !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
-                '.category-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
-                '.variations-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
-                '.code-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                '.mrp-line{font-size:10pt !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                '.category-line{font-size:7pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                '.variations-line{font-size:7pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
+                '.code-line{font-size:7.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
                 '.barcode-img{width:22mm !important;height:3.5mm !important;object-fit:fill !important;margin:0 !important;display:block;}' +
                 '</style>' +
                 '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>' +

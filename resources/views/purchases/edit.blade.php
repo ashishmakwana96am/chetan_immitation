@@ -644,7 +644,7 @@ $(document).ready(function () {
             row.find('.pair-product-badge').removeClass('d-none');
         }
 
-        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
             const defSize = selectedCustomSize || product.custom_sizes[0].size;
             let sizeHtml = `<div class="size-toggle" data-selected="${defSize}">`;
             product.custom_sizes.forEach(cs => {
@@ -1032,7 +1032,7 @@ $(document).ready(function () {
             const qty = parseInt(row.find('.item-qty').val()) || 0;
             if (qty <= 0) return;
             const product = row.data('product');
-            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.data('custom-size-value')) {
+            if (product && product.pair_product && product.custom_sizes && product.custom_sizes.length && !row.data('custom-size-value')) {
                 sizeMissing = true;
             }
         });
