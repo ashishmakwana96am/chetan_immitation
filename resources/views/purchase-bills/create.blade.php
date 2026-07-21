@@ -368,18 +368,10 @@ $(document).ready(function () {
 
         updateRowPrice(row);
 
-        // Pair product selector
-        if (product.pair_product && product.pair_mode !== 'custom_size') {
-            const pairHtml = `
-                <div class="pair-type-toggle" data-index="${idx}">
-                    <button type="button" class="pair-btn active" data-value="single">Piece</button>
-                    <button type="button" class="pair-btn" data-value="pair">Pair</button>
-                </div>
-                <input type="hidden" class="pair-type-input" value="single">`;
-            row.find('.pair-type-container').html(pairHtml);
-        } else if (product.pair_product && product.pair_mode === 'custom_size') {
+        // Pair product indicator
+        if (product.pair_product) {
             row.find('.pair-type-container').html(`
-                <span class="badge bg-label-info">Custom Size</span>
+                <span class="badge bg-label-warning">Pair Size</span>
                 <input type="hidden" class="pair-type-input" value="single">`);
         } else {
             row.find('.pair-type-container').html(`

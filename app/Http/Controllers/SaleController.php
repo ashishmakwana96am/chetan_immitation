@@ -281,7 +281,6 @@ class SaleController extends Controller
                 'custom_sizes'    => $p->custom_sizes ?? [],
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
-                'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
@@ -715,7 +714,6 @@ class SaleController extends Controller
                 'custom_sizes'    => $p->custom_sizes ?? [],
                 'single_price'    => $p->sale_price,
                 'purchase_price'  => $p->purchase_price,
-                'pair_price'      => $p->pair_sale_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
@@ -1324,7 +1322,7 @@ class SaleController extends Controller
             $customSizeValue = is_array($itemData) ? ($itemData['custom_size_value'] ?? null) : ($itemData->custom_size_value ?? null);
 
             $product = Product::find($productId);
-            if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+            if (!$product || !$product->pair_product) {
                 continue;
             }
 
@@ -1459,10 +1457,7 @@ class SaleController extends Controller
                 continue;
             }
 
-            $pairType = is_array($itemData) ? ($itemData['pair_type'] ?? 'single') : ($itemData->pair_type ?? 'single');
-            if ($product && $product->pair_product && $product->pair_mode !== 'custom_size' && $pairType === 'single') {
-                $purchasePrice = $purchasePrice / 2;
-            }
+
 
             $minTotal = $qty * $purchasePrice * 1.10;
             $minFloorTotal += $minTotal;

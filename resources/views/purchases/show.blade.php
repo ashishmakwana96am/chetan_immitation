@@ -278,10 +278,11 @@
                                     <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
                                     <td class="text-end text-nowrap small">
                                         {{ $displayQty }}
-                                        @if($item->custom_size_value)
-                                            <small class="text-muted">&times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs</small>
-                                        @elseif($item->product?->pair_product)
-                                            <small class="text-muted">Pairs</small>
+                                        @php
+                                            $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
+                                        @endphp
+                                        @if($szVal)
+                                            <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
                                         @else
                                             <small class="text-muted">Pcs</small>
                                         @endif

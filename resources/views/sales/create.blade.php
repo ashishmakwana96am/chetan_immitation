@@ -637,7 +637,7 @@ $(document).ready(function () {
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
-        if (product.pair_product && product.pair_mode === 'custom_size' && product.custom_sizes && product.custom_sizes.length) {
+        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
             const defSize = customSizeValue || product.custom_sizes[0].size;
             let sizeHtml = `<div class="size-toggle mt-1">`;
             product.custom_sizes.forEach(cs => {
@@ -652,18 +652,6 @@ $(document).ready(function () {
             if (matchedSize && price == null) {
                 setItemPrice(row, matchedSize.sale_price);
             }
-        } else if (product.pair_product) {
-            const singlePrice = product.single_price != null ? product.single_price : 0;
-            const pairPrice   = product.pair_price != null ? product.pair_price : 0;
-            const pairHtml = `
-                <div class="pair-type-toggle mt-1" data-single-price="${singlePrice}" data-pair-price="${pairPrice}">
-                    <button type="button" class="pair-btn ${pairType !== 'pair' ? 'active' : ''}" data-value="single">Piece</button>
-                    <button type="button" class="pair-btn ${pairType === 'pair' ? 'active' : ''}" data-value="pair">Pair</button>
-                </div>`;
-            row.find('.pair-type-container').html(pairHtml);
-            row.find('.pair-type-input').val(pairType);
-            // Set correct price immediately
-            setItemPrice(row, pairType === 'pair' ? pairPrice : singlePrice);
         }
 
         row.find('.item-qty').val(qty);
@@ -775,10 +763,10 @@ $(document).ready(function () {
         }
         function displayQtyAt(locId) {
             const raw = rawQtyAt(locId);
-            if (product.pair_product && product.pair_mode === 'custom_size' && customSizeValue > 0) {
+            if (product.pair_product && customSizeValue > 0) {
                 return Math.floor(raw / customSizeValue);
             }
-            return (product.pair_product && isPair) ? Math.floor(raw / 2) : raw;
+            return raw;
         }
 
         let qty = 0;
@@ -1084,7 +1072,7 @@ $(document).ready(function () {
             const qty = parseInt(row.find('.item-qty').val()) || 0;
             if (qty <= 0) return;
             const product = row.data('product');
-            if (product && product.pair_product && product.pair_mode === 'custom_size' && !row.find('.custom-size-value-input').val()) {
+            if (product && product.pair_product && !row.find('.custom-size-value-input').val()) {
                 sizeMissing = true;
             }
         });

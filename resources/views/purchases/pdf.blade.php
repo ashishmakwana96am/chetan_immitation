@@ -245,10 +245,13 @@
                     <td class="text-right">{{ format_price($item->purchase_price) }}</td>
                     <td class="text-right" style="white-space: nowrap;">
                         {{ $item->quantity }}
-                        @if($item->custom_size_value)
-                            &times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs
+                        @php
+                            $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
+                        @endphp
+                        @if($szVal)
+                            &times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs
                         @else
-                            {{ $item->product?->pair_product ? 'Pairs' : 'Pcs' }}
+                            Pcs
                         @endif
                     </td>
                     <td class="text-right">

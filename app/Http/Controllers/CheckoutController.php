@@ -768,11 +768,9 @@ class CheckoutController extends Controller
             }
             $price = $variant->sale_price;
         } else {
-            if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+            if ($product->pair_product && $customSizeValue) {
                 $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - $customSizeValue) < 0.001);
                 $price = $sizeRow['sale_price'] ?? $product->sale_price;
-            } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                $price = $product->pair_sale_price;
             } else {
                 $price = $product->sale_price;
             }
@@ -1370,7 +1368,7 @@ class CheckoutController extends Controller
      */
     private function resolveCustomSizeValue(Product $product, $requested): array
     {
-        if (!$product->pair_product || $product->pair_mode !== 'custom_size') {
+        if (!$product->pair_product) {
             return [null, null];
         }
 
@@ -1378,9 +1376,9 @@ class CheckoutController extends Controller
         $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
 
         if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
-            $firstSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
-            if ($firstSize && isset($firstSize['size'])) {
-                return [(float) $firstSize['size'], null];
+            $minSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
+            if ($minSize && isset($minSize['size'])) {
+                return [(float) $minSize['size'], null];
             }
 
             return [null, 'Please select a valid pair option for "' . $product->name . '".'];

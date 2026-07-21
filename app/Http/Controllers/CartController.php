@@ -322,10 +322,8 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                if ($product->pair_product && $customSizeValue) {
                     $price = $item->getPrice();
-                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
                 }
@@ -386,13 +384,11 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                if ($product->pair_product && $customSizeValue) {
                     $price = (new CartItem([
                         'pair_type'         => $pairType,
                         'custom_size_value' => $customSizeValue,
                     ]))->setRelation('product', $product)->getPrice();
-                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
                 }
@@ -485,10 +481,8 @@ class CartController extends Controller
             if ($variant) {
                 $price = (float) $variant->sale_price;
             } else {
-                if ($product->pair_mode === 'custom_size' && $item->custom_size_value) {
+                if ($product->pair_product && $item->custom_size_value) {
                     $price = $item->getPrice();
-                } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                    $price = (float) $product->pair_sale_price;
                 } else {
                     $price = (float) $product->sale_price;
                 }
@@ -526,13 +520,11 @@ class CartController extends Controller
                 if ($variantId) {
                     $price = (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price;
                 } else {
-                    if ($product->pair_mode === 'custom_size' && $customSizeValue) {
+                    if ($product->pair_product && $customSizeValue) {
                         $price = (new CartItem([
                             'pair_type'         => $pairType,
                             'custom_size_value' => $customSizeValue,
                         ]))->setRelation('product', $product)->getPrice();
-                    } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_sale_price) {
-                        $price = (float) $product->pair_sale_price;
                     } else {
                         $price = (float) $product->sale_price;
                     }
@@ -584,7 +576,7 @@ class CartController extends Controller
      */
     private function resolveCustomSizeValue(Product $product, $requested): array
     {
-        if (!$product->pair_product || $product->pair_mode !== 'custom_size') {
+        if (!$product->pair_product) {
             return [null, null];
         }
 
@@ -592,9 +584,9 @@ class CartController extends Controller
         $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
 
         if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
-            $firstSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
-            if ($firstSize && isset($firstSize['size'])) {
-                return [(float) $firstSize['size'], null];
+            $minSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
+            if ($minSize && isset($minSize['size'])) {
+                return [(float) $minSize['size'], null];
             }
 
             return [null, 'Please select a valid pair option for "' . $product->name . '".'];

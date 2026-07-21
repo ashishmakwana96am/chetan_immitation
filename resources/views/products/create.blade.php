@@ -105,26 +105,7 @@
                                 </div>
                             </div>
 
-                            @php
-                                $clonedPairMode = isset($clonedProduct) ? ($clonedProduct->pair_mode ?: 'pieces_pair') : 'pieces_pair';
-                            @endphp
-                            <div class="col-md-6 pair-pricing-field pair-mode-pieces-field {{ isset($clonedProduct) && $clonedProduct->pair_product && $clonedPairMode !== 'custom_size' ? '' : 'd-none' }}">
-                                <label class="form-label">Sale Price (Pair) <span class="text-danger">*</span></label>
-                                <div class="input-group has-validation">
-                                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="pair_sale_price" id="pairSalePriceInput" class="form-control" placeholder="Enter Pair Sale Price" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_sale_price : '' }}" />
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 pair-pricing-field pair-mode-pieces-field {{ isset($clonedProduct) && $clonedProduct->pair_product && $clonedPairMode !== 'custom_size' ? '' : 'd-none' }}">
-                                <label class="form-label">MRP (Pair) <span class="text-danger">*</span></label>
-                                <div class="input-group has-validation">
-                                    <span class="input-group-text">{{ currency_symbol() }}</span>
-                                    <input type="number" name="pair_mrp" id="pairMrpInput" class="form-control" placeholder="MRP (Pair)" step="0.01" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->pair_mrp : '' }}" />
-                                    <div class="invalid-feedback"></div>
-                                </div>
-                            </div>
-                            <div class="col-12 pair-pricing-field pair-mode-custom-field {{ isset($clonedProduct) && $clonedProduct->pair_product && $clonedPairMode === 'custom_size' ? '' : 'd-none' }}" id="customSizeSection">
+                            <div class="col-12 pair-pricing-field pair-mode-custom-field {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}" id="customSizeSection">
                                 <div class="row g-3" id="customSizeRows"></div>
                             </div>
                             <div class="col-md-6" id="productTypeCol">
@@ -225,21 +206,13 @@
                             <label class="form-check-label" for="productPair">Pair Product</label>
                         </div>
 
-                        <div class="pair-pricing-field mb-3 {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
-                            <label class="form-label d-block">Pair Pricing Mode</label>
-                            <div class="pair-mode-toggle" id="pairModeToggle">
-                                <button type="button" class="pair-mode-btn {{ $clonedPairMode === 'custom_size' ? '' : 'active' }}" data-value="pieces_pair">Pieces + Pair</button>
-                                <button type="button" class="pair-mode-btn {{ $clonedPairMode === 'custom_size' ? 'active' : '' }}" data-value="custom_size">Custom Size</button>
-                            </div>
-                            <input type="hidden" name="pair_mode" id="pairModeInput" value="{{ $clonedPairMode }}" />
-                        </div>
-
-                        <div class="pair-pricing-field pair-mode-custom-field mb-3 {{ isset($clonedProduct) && $clonedProduct->pair_product && $clonedPairMode === 'custom_size' ? '' : 'd-none' }}">
-                            <label class="form-label">Custom Sizes <span class="text-danger">*</span></label>
+                        <div class="pair-pricing-field pair-mode-custom-field mb-3 {{ isset($clonedProduct) && $clonedProduct->pair_product ? '' : 'd-none' }}">
+                            <label class="form-label">Pair Sizes <span class="text-danger">*</span></label>
                             <div class="custom-sizes-tag-input form-control d-flex flex-wrap align-items-center gap-1" id="customSizesTagWrapper" style="cursor: text;">
                                 <div id="customSizeBadges" class="d-flex flex-wrap gap-1"></div>
                                 <input type="text" id="customSizesInput" inputmode="numeric" class="border-0 flex-grow-1 p-0" style="outline: none; min-width: 60px; box-shadow: none;" placeholder="Type size & press Enter" />
                             </div>
+                            <input type="hidden" name="pair_mode" id="pairModeInput" value="custom_size" />
                             <input type="hidden" name="custom_sizes_json" id="customSizesJson" />
                             <div class="invalid-feedback d-block" id="customSizesError"></div>
                         </div>
@@ -942,30 +915,32 @@
                 const isPair = $('#productPair').is(':checked');
                 const mode = currentPairMode();
 
-                if (isPair && mode === 'custom_size') {
+                if (isPair) {
                     $('#purchasePriceInput').val(purchasePrice).trigger('change');
 
-                    const firstSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
-                    const firstMrp = roundToNearest5(code * mult.mrp).toFixed(2);
-                    const $saleFirst = $('#customSizeRows .custom-size-sale-field[data-index="0"] .custom-size-sale-price');
-                    const $mrpFirst = $('#customSizeRows .custom-size-mrp-field[data-index="0"] .custom-size-mrp');
-                    if ($saleFirst.length) {
-                        $saleFirst.val(firstSalePrice).trigger('input');
-                    }
-                    if ($mrpFirst.length) {
-                        $mrpFirst.val(firstMrp).trigger('input');
-                    }
-                } else if (isPair) {
-                    const pairSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
-                    const pairMrp = roundToNearest5(code * mult.mrp).toFixed(2);
-                    const singleSalePrice = roundToNearest5((code / 2) * mult.sale).toFixed(2);
-                    const singleMrp = roundToNearest5((code / 2) * mult.mrp).toFixed(2);
+                    const calculatedSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
+                    const calculatedMrp = roundToNearest5(code * mult.mrp).toFixed(2);
 
-                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
-                    $('#salePriceInput').val(singleSalePrice).trigger('change');
-                    $('#mrpInput').val(singleMrp);
-                    $('#pairSalePriceInput').val(pairSalePrice);
-                    $('#pairMrpInput').val(pairMrp);
+                    let maxIndex = 0;
+                    let maxSize = -1;
+
+                    $('#customSizeRows .custom-size-sale-field').each(function () {
+                        const idx = parseInt($(this).data('index'));
+                        const sz = parseFloat($(this).data('size')) || 0;
+                        if (sz > maxSize) {
+                            maxSize = sz;
+                            maxIndex = idx;
+                        }
+                    });
+
+                    const $saleMax = $('#customSizeRows .custom-size-sale-field[data-index="' + maxIndex + '"] .custom-size-sale-price');
+                    const $mrpMax = $('#customSizeRows .custom-size-mrp-field[data-index="' + maxIndex + '"] .custom-size-mrp');
+                    if ($saleMax.length) {
+                        $saleMax.val(calculatedSalePrice).trigger('input');
+                    }
+                    if ($mrpMax.length) {
+                        $mrpMax.val(calculatedMrp).trigger('input');
+                    }
                 } else {
                     const salePrice = roundToNearest5(code * mult.sale).toFixed(2);
                     const mrp = roundToNearest5(code * mult.mrp).toFixed(2);
@@ -991,25 +966,16 @@
             }
 
             function currentPairMode() {
-                return $('#pairModeInput').val() || 'pieces_pair';
+                return 'custom_size';
             }
-
-            $(document).on('click', '.pair-mode-btn', function () {
-                const $toggle = $(this).closest('.pair-mode-toggle');
-                $toggle.find('.pair-mode-btn').removeClass('active');
-                $(this).addClass('active');
-                $('#pairModeInput').val($(this).data('value')).trigger('change');
-            });
 
             function updatePairModeUI() {
                 const isPair = $('#productPair').is(':checked');
-                const mode = currentPairMode();
-                const hideBasePrice = isPair && mode === 'custom_size';
-                $('.pair-mode-pieces-field').toggleClass('d-none', !(isPair && mode !== 'custom_size'));
-                $('.pair-mode-custom-field').toggleClass('d-none', !hideBasePrice);
-                $('.base-price-field').toggleClass('d-none', hideBasePrice);
+                $('.pair-mode-custom-field').toggleClass('d-none', !isPair);
+                $('#customSizeSection').toggleClass('d-none', !isPair);
+                $('.base-price-field').toggleClass('d-none', isPair);
 
-                if (hideBasePrice) {
+                if (isPair) {
                     $('#productTypeCol').insertAfter('#purchasePriceCol');
                 } else {
                     $('#productTypeCol').insertAfter('#customSizeSection');
@@ -1021,42 +987,23 @@
                 updatePairPricingLabels(isPair);
                 if (isPair) {
                     $('.pair-pricing-field').removeClass('d-none');
+                    renderCustomSizeRows(true);
                 } else {
                     $('.pair-pricing-field').addClass('d-none');
-                    $('#pairSalePriceInput').val('');
-                    $('#pairMrpInput').val('');
                     customSizesList = [];
                     renderCustomSizeBadges();
                     $('#customSizeRows').empty();
                     $('#customSizesJson').val('');
                 }
                 updatePairModeUI();
-                // Recalculate prices based on current code
                 $('#productCodeInput').trigger('change');
             });
 
             const isPairChecked = $('#productPair').is(':checked');
             updatePairPricingLabels(isPairChecked);
-            if (isPairChecked && (!$('#pairSalePriceInput').val() || !$('#pairMrpInput').val())) {
+            if (isPairChecked) {
                 $('#productCodeInput').trigger('change');
             }
-
-            $('#pairModeInput').on('change', function () {
-                updatePairModeUI();
-                if (currentPairMode() === 'custom_size') {
-                    $('#pairSalePriceInput').val('');
-                    $('#pairMrpInput').val('');
-                    renderCustomSizeRows(true);
-                    $('#productCodeInput').trigger('change');
-                } else {
-                    customSizesList = [];
-                    renderCustomSizeBadges();
-                    $('#customSizeRows').empty();
-                    $('#customSizesJson').val('');
-                    
-                    $('#productCodeInput').trigger('change');
-                }
-            });
 
             $('#salePriceInput').on('input', function () {
                 const mult = getMultipliers();
@@ -1111,7 +1058,7 @@
                     return;
                 }
                 const size = parseInt(rawVal, 10);
-                if (isNaN(size) || size <= 0 || size > 20) {
+                if (isNaN(size) || size <= 0 || size > 4) {
                     return;
                 }
                 if (!customSizesList.includes(size)) {
@@ -1140,8 +1087,8 @@
                 let val = $(this).val().replace(/[^0-9]/g, '');
                 if (val !== '') {
                     let num = parseInt(val, 10);
-                    if (num > 20) {
-                        num = 20;
+                    if (num > 4) {
+                        num = 4;
                     }
                     val = num > 0 ? num.toString() : '';
                 }
@@ -1277,7 +1224,7 @@
 
             updatePairModeUI();
             renderCustomSizeBadges();
-            @if(isset($clonedProduct) && $clonedProduct->pair_product && $clonedPairMode === 'custom_size')
+            @if(isset($clonedProduct) && $clonedProduct->pair_product)
                 renderCustomSizeRows(false);
                 @foreach(collect($clonedProduct->custom_sizes ?? [])->values() as $i => $row)
                     $('#customSizeRows .custom-size-sale-field[data-index="{{ $i }}"] .custom-size-sale-price').val({{ (float) ($row['sale_price'] ?? 0) }});

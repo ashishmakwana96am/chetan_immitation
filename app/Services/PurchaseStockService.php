@@ -77,8 +77,16 @@ class PurchaseStockService
             return 1.0;
         }
 
-        if ($product->pair_mode === 'custom_size' && $item->custom_size_value) {
+        if ($item->custom_size_value && (float)$item->custom_size_value > 0) {
             return (float) $item->custom_size_value;
+        }
+
+        $customSizes = $product->custom_sizes;
+        if (is_array($customSizes) && count($customSizes) > 0) {
+            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            if ($sizes->count() > 0) {
+                return (float) $sizes->max();
+            }
         }
 
         return 2.0;

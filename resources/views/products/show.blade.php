@@ -250,7 +250,7 @@
                         <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
                     </div>
 
-                    @if($product->pair_product && $product->pair_mode === 'custom_size' && $product->custom_sizes)
+                    @if($product->pair_product && $product->custom_sizes)
                         {{-- Custom size prices --}}
                         @foreach(collect($product->custom_sizes)->sortBy('size') as $sizeRow)
                             <div>
@@ -267,35 +267,6 @@
                                 </div>
                             </div>
                         @endforeach
-                    @elseif($product->pair_product)
-                        {{-- Piece prices --}}
-                        <div>
-                            <p class="card-section-title mb-2">Piece</p>
-                            <div class="d-flex gap-2">
-                                <div class="price-chip">
-                                    <span class="p-lbl">Sale Price</span>
-                                    <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
-                                </div>
-                                <div class="price-chip">
-                                    <span class="p-lbl">MRP</span>
-                                    <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {{-- Pair prices --}}
-                        <div>
-                            <p class="card-section-title mb-2">Pair</p>
-                            <div class="d-flex gap-2">
-                                <div class="price-chip">
-                                    <span class="p-lbl">Sale Price</span>
-                                    <span class="p-val text-success">{{ format_price($product->pair_sale_price) }}</span>
-                                </div>
-                                <div class="price-chip">
-                                    <span class="p-lbl">MRP</span>
-                                    <span class="p-val text-danger">{{ format_price($product->pair_mrp) }}</span>
-                                </div>
-                            </div>
-                        </div>
                     @else
                         <div class="d-flex gap-2">
                             <div class="price-chip">
@@ -436,7 +407,21 @@
                                                 <td class="fw-semibold">{{ $inventory->location->name ?? '-' }}</td>
                                                 <td class="text-end">
                                                     <span class="fw-bold {{ $inventory->quantity > 0 ? 'text-success' : 'text-danger' }}">
-                                                        {{ number_format($inventory->quantity) }}
+                                                        @if($product->pair_product)
+                                                            @php
+                                                                $pSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+                                                                $qtyPieces = (int) $inventory->quantity;
+                                                                $pCount = $pSize > 0 ? (int) floor($qtyPieces / $pSize) : 0;
+                                                                $remPcs = $pSize > 0 ? (int) ($qtyPieces % $pSize) : 0;
+                                                                $pParts = [];
+                                                                if ($pCount > 0) $pParts[] = number_format($pCount) . ' Pair' . ($pCount > 1 ? 's' : '');
+                                                                if ($remPcs > 0) $pParts[] = $remPcs . ' Pcs';
+                                                                $pText = count($pParts) > 0 ? implode(', ', $pParts) : '0';
+                                                            @endphp
+                                                            {{ $pText }} <span class="text-muted fs-7">({{ number_format($qtyPieces) }} Pcs)</span>
+                                                        @else
+                                                            {{ number_format($inventory->quantity) }}
+                                                        @endif
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
@@ -453,7 +438,21 @@
                                         <tr>
                                             <td colspan="2" class="text-end tfoot-label">Total Stock</td>
                                             <td class="text-end fw-bold text-primary" style="font-size:1rem;">
-                                                {{ number_format($product->inventories->sum('quantity')) }}
+                                                @if($product->pair_product)
+                                                    @php
+                                                        $pSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+                                                        $pTotalPieces = (int) $product->inventories->sum('quantity');
+                                                        $pCount = $pSize > 0 ? (int) floor($pTotalPieces / $pSize) : 0;
+                                                        $remPcs = $pSize > 0 ? (int) ($pTotalPieces % $pSize) : 0;
+                                                        $pParts = [];
+                                                        if ($pCount > 0) $pParts[] = number_format($pCount) . ' Pair' . ($pCount > 1 ? 's' : '');
+                                                        if ($remPcs > 0) $pParts[] = $remPcs . ' Pcs';
+                                                        $pText = count($pParts) > 0 ? implode(', ', $pParts) : '0';
+                                                    @endphp
+                                                    {{ $pText }} <span class="text-muted fs-7">({{ number_format($pTotalPieces) }} Pieces)</span>
+                                                @else
+                                                    {{ number_format($product->inventories->sum('quantity')) }}
+                                                @endif
                                             </td>
                                             <td></td>
                                         </tr>
@@ -700,7 +699,7 @@
 
         window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
             const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
-            const customSizes = @json(($product->pair_product && $product->pair_mode === 'custom_size') ? ($product->custom_sizes ?? []) : []);
+            const customSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
             
             let customSizeSelectHtml = '';
             if (customSizes && customSizes.length > 0) {

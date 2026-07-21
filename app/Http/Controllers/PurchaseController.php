@@ -732,19 +732,22 @@ class PurchaseController extends Controller
      */
     private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
     {
-        if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+        if (!$product || !$product->pair_product) {
             return null;
         }
 
         $value = isset($itemData['custom_size_value']) ? (float) $itemData['custom_size_value'] : null;
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s)->filter(fn ($s) => $s > 0);
 
-        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
-
-        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
-            throw new \RuntimeException('Please select a valid size for "' . $product->name . '".');
+        if ($value && $validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            return $value;
         }
 
-        return $value;
+        if ($validSizes->count() > 0) {
+            return (float) $validSizes->max();
+        }
+
+        return 2.0;
     }
 
     public function paymentHistory(Purchase $purchase)
@@ -782,7 +785,6 @@ class PurchaseController extends Controller
                 'barcode'           => $item->product->barcode,
                 'quantity'          => (int) $item->quantity,
                 'pair_product'      => (bool) $item->product->pair_product,
-                'pair_mode'         => $item->product->pair_mode,
                 'custom_sizes'      => $item->product->custom_sizes ?? [],
                 'custom_size_value' => $item->custom_size_value,
             ])

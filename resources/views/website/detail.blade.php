@@ -125,7 +125,7 @@
                     if ($queryVariantId && $product->variants->isNotEmpty()) {
                         $activeVariant = $product->variants->firstWhere('id', $queryVariantId);
                     }
-                    $firstCustomSize = ($product->pair_product && $product->pair_mode === 'custom_size')
+                    $firstCustomSize = $product->pair_product
                         ? ($product->custom_sizes[0] ?? null)
                         : null;
 
@@ -153,10 +153,14 @@
 
                 <p class="text-[#3D403F] mt-4 md:mt-5 text-base sm:text-xl">
                     Inclusive of all taxes
-                </p>
-
-                @if($product->pair_product && $product->pair_mode === 'custom_size')
-                <div class="flex items-center gap-4 mt-5 flex-wrap">
+                </p>                
+                
+                @if($product->pair_product && !empty($product->custom_sizes))
+                @php
+                    $minSizeRow = collect($product->custom_sizes ?? [])->sortBy(fn($s) => (float)($s['size'] ?? 0))->first();
+                    $defaultSize = $minSizeRow['size'] ?? ($product->custom_sizes[0]['size'] ?? '');
+                @endphp
+                <div class="flex items-center gap-4 mt-4">
                     <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">Pair:</span>
                     <div id="customSizeToggle" class="flex flex-wrap gap-2">
                         @foreach($product->custom_sizes ?? [] as $index => $sizeRow)
@@ -165,42 +169,13 @@
                             data-price="{{ $sizeRow['sale_price'] }}"
                             data-mrp="{{ $sizeRow['mrp'] }}"
                             class="custom-size-btn px-4 py-1 text-sm font-semibold border"
-                            style="{{ $index === 0 ? 'background:#B4771E; color:#fff; border-color:#B4771E;' : 'background:#fff; color:#B4771E; border-color:#B4771E;' }} border-radius:6px; cursor:pointer;">
+                            style="{{ (float)$sizeRow['size'] === (float)$defaultSize ? 'background:#B4771E; color:#fff; border-color:#B4771E;' : 'background:#fff; color:#B4771E; border-color:#B4771E;' }} border-radius:6px; cursor:pointer;">
                             {{ rtrim(rtrim(number_format((float) $sizeRow['size'], 2), '0'), '.') }} pcs
                         </button>
                         @endforeach
                     </div>
                     <input type="hidden" id="selectedPairType" value="single">
-                    <input type="hidden" id="selectedCustomSize" value="{{ $product->custom_sizes[0]['size'] ?? '' }}">
-                </div>
-                @elseif($product->pair_product)
-                @php
-                    $singlePrice = (float) $product->sale_price;
-                    $pairPrice   = (float) ($product->pair_sale_price ?? ($product->sale_price * 2));
-                    $singleMrp   = (float) $product->mrp;
-                    $pairMrp     = (float) ($product->pair_mrp ?? ($product->mrp * 2));
-                @endphp
-                <div class="flex items-center gap-4 mt-5">
-                    <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">Type:</span>
-                    <div id="pairTypeToggle" class="flex" style="border:1.5px solid #B4771E; border-radius:6px; overflow:hidden;">
-                        <button type="button" id="pairBtnSingle"
-                            data-value="single"
-                            data-price="{{ $singlePrice }}"
-                            data-mrp="{{ $singleMrp }}"
-                            class="pair-type-btn px-4 py-1 text-sm font-semibold"
-                            style="background:#B4771E; color:#fff; border:none; cursor:pointer;">
-                            Piece
-                        </button>
-                        <button type="button" id="pairBtnPair"
-                            data-value="pair"
-                            data-price="{{ $pairPrice }}"
-                            data-mrp="{{ $pairMrp }}"
-                            class="pair-type-btn px-4 py-1 text-sm font-semibold"
-                            style="background:#fff; color:#B4771E; border:none; cursor:pointer; border-left:1.5px solid #B4771E;">
-                            Pair
-                        </button>
-                    </div>
-                    <input type="hidden" id="selectedPairType" value="single">
+                    <input type="hidden" id="selectedCustomSize" value="{{ $defaultSize }}">
                 </div>
                 @endif
 

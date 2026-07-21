@@ -440,7 +440,7 @@ class PurchaseBillController extends Controller
 
             if ($available < $neededQty) {
                 $requestedText = ($item['pair_type'] === 'pair') ? ($item['quantity'] . ' Pairs') : ($item['quantity'] . ' Pcs');
-                if ($product->pair_mode === 'custom_size' && $item['custom_size_value']) {
+                if ($product->pair_product && $item['custom_size_value']) {
                     $requestedText = $item['quantity'] . ' Pairs (' . rtrim(rtrim(number_format((float)$item['custom_size_value'], 2), '0'), '.') . ' pcs)';
                 }
                 return 'Product "' . $label . '" only has ' . $available . ' units in source stock; ' . $requestedText . ' requested.';
@@ -523,19 +523,22 @@ class PurchaseBillController extends Controller
 
     private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
     {
-        if (!$product || !$product->pair_product || $product->pair_mode !== 'custom_size') {
+        if (!$product || !$product->pair_product) {
             return null;
         }
 
         $value = isset($itemData['custom_size_value']) ? (float) $itemData['custom_size_value'] : null;
+        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s)->filter(fn ($s) => $s > 0);
 
-        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
-
-        if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
-            throw new \RuntimeException('Please select a valid size for "' . $product->name . '".');
+        if ($value && $validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            return $value;
         }
 
-        return $value;
+        if ($validSizes->count() > 0) {
+            return (float) $validSizes->max();
+        }
+
+        return 2.0;
     }
 
     private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
@@ -548,6 +551,14 @@ class PurchaseBillController extends Controller
             return 1.0;
         }
 
-        return $pairType === 'pair' ? 2.0 : 1.0;
+        $customSizes = $product->custom_sizes;
+        if (is_array($customSizes) && count($customSizes) > 0) {
+            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            if ($sizes->count() > 0) {
+                return (float) $sizes->max();
+            }
+        }
+
+        return 2.0;
     }
 }

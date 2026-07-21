@@ -177,8 +177,6 @@ class ProductCreationService
             'sale_price'             => $salePrice,
             'mrp'                    => $mrp,
             'pair_product'           => $isPair,
-            'pair_sale_price'        => $pairSalePrice,
-            'pair_mrp'               => $pairMrp,
             'type'                   => $group['product_type'],
             'status'                 => Product::STATUS_ACTIVE,
             'created_by'             => $userId,
@@ -264,8 +262,6 @@ class ProductCreationService
             'sale_price'             => $salePrice,
             'mrp'                    => $mrp,
             'pair_product'           => $isPair,
-            'pair_sale_price'        => $pairSalePrice,
-            'pair_mrp'               => $pairMrp,
             'type'                   => $newType,
         ]);
 

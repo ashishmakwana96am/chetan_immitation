@@ -247,10 +247,13 @@
                         </td>
                         <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none; white-space: nowrap;">
                             {{ $item->quantity }}
-                            @if($item->custom_size_value)
-                                &times;{{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }}pcs
+                            @php
+                                $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
+                            @endphp
+                            @if($szVal)
+                                &times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs
                             @else
-                                {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                                Pcs
                             @endif
                         </td>
                         <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">

@@ -265,14 +265,6 @@
                     }
                 },
                 columns    : columns,
-                /*
-                drawCallback: function () {
-                    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                    tooltipTriggerList.map(function (tooltipTriggerEl) {
-                        return new bootstrap.Tooltip(tooltipTriggerEl, { html: true });
-                    });
-                }
-                */
             });
 
             window.refreshTable = function () {
@@ -367,7 +359,7 @@
 
                 const customSizes = rowData.custom_sizes || null;
                 let customSizeSelectHtml = '';
-                if (rowData.pair_product && rowData.pair_mode === 'custom_size' && customSizes && customSizes.length > 0) {
+                if (rowData.pair_product && customSizes && customSizes.length > 0) {
                     customSizeSelectHtml += '<div class="form-group mb-3 text-start">';
                     customSizeSelectHtml += '  <label for="printCustomSize" class="form-label fw-medium text-secondary small">Select Custom Size</label>';
                     customSizeSelectHtml += '  <select id="printCustomSize" class="form-select">';

@@ -111,69 +111,32 @@ class ProductController extends Controller
                 ? '<span class="badge bg-label-success">Active</span>'
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
-            $tooltipAttr = '';
-            /*
-            $isCustomSizePair = $product->pair_product && $product->pair_mode === 'custom_size';
+            $stockSumPieces = $computeStock($product);
+            $isPairProduct = (bool) $product->pair_product;
 
-            if ($isCustomSizePair) {
-                $purchaseQtyMap = $product->purchaseItems
-                    ->filter(function ($item) {
-                        return $item->custom_size_value !== null && (!$item->invoice || $item->invoice->status != \App\Models\Purchase::STATUS_DECLINE);
-                    })
-                    ->groupBy(function ($item) {
-                        return (string) ((int) $item->custom_size_value);
-                    })
-                    ->map(function ($group) {
-                        return $group->sum('quantity');
-                    });
+            if ($isPairProduct) {
+                $pairSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+                if ($stockSumPieces <= 0) {
+                    $stock = '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
+                } else {
+                    $pairsCount = $pairSize > 0 ? (int) floor($stockSumPieces / $pairSize) : 0;
+                    $remPcsCount = $pairSize > 0 ? (int) ($stockSumPieces % $pairSize) : 0;
 
-                $definedSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (int) $s);
-                $purchasedSizes = $purchaseQtyMap->keys()->map(fn($s) => (int) $s);
-                $allSizes = $definedSizes->concat($purchasedSizes)->unique()->sort()->values();
-
-                if ($allSizes->count() > 0) {
-                    $totalPairs = 0;
-                    $totalPieces = 0;
-
-                    $tooltipHtml = '<div class="text-start p-1" style="min-width:165px;">';
-                    $tooltipHtml .= '<div class="fw-bold border-bottom pb-1 mb-2 text-center d-flex align-items-center justify-content-center" style="font-size:12px; letter-spacing:0.3px;">';
-                    $tooltipHtml .= '<i class="ti ti-boxes me-1 text-warning" style="font-size:14px;"></i> Size Breakdown';
-                    $tooltipHtml .= '</div>';
-
-                    foreach ($allSizes as $sz) {
-                        $pairs = (int) $purchaseQtyMap->get((string) $sz, 0);
-                        $totalPairs += $pairs;
-                        $totalPieces += ($sz * $pairs);
-
-                        $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap mb-1" style="font-size:11px;">';
-                        $tooltipHtml .= '<span style="color:#cbd5e1;">' . $sz . ' Pcs Pair</span>';
-                        $tooltipHtml .= '<span class="badge bg-warning text-dark rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($pairs) . ' Pairs</span>';
-                        $tooltipHtml .= '</div>';
+                    $parts = [];
+                    if ($pairsCount > 0) {
+                        $parts[] = number_format($pairsCount) . ' Pair' . ($pairsCount > 1 ? 's' : '');
                     }
-
-                    $tooltipHtml .= '<div class="border-top pt-2 mt-1">';
-                    $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap mb-1" style="font-size:11px;">';
-                    $tooltipHtml .= '<span class="fw-semibold text-white">Total Pairs</span>';
-                    $tooltipHtml .= '<span class="badge bg-info text-white rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($totalPairs) . '</span>';
-                    $tooltipHtml .= '</div>';
-
-                    $tooltipHtml .= '<div class="d-flex justify-content-between align-items-center gap-3 text-nowrap" style="font-size:11px;">';
-                    $tooltipHtml .= '<span class="fw-semibold text-white">Total Pieces</span>';
-                    $tooltipHtml .= '<span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size:10px;">' . number_format($totalPieces) . '</span>';
-                    $tooltipHtml .= '</div>';
-                    $tooltipHtml .= '</div>';
-
-                    $tooltipHtml .= '</div>';
-
-                    $tooltipAttr = ' data-bs-toggle="tooltip" data-bs-html="true" data-bs-custom-class="custom-size-stock-tooltip" data-bs-placement="top" title="' . e($tooltipHtml) . '" style="cursor:pointer;"';
+                    if ($remPcsCount > 0) {
+                        $parts[] = $remPcsCount . ' Pcs';
+                    }
+                    $stockText = count($parts) > 0 ? implode(', ', $parts) : '0';
+                    $stock = '<span class="badge bg-label-success fw-bold">' . e($stockText) . '</span>';
                 }
+            } else {
+                $stock = $stockSumPieces > 0
+                    ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSumPieces) . '</span>'
+                    : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
             }
-            */
-
-            $stockSum = $computeStock($product);
-            $stock = $stockSum > 0
-                ? '<span class="badge bg-label-success fw-bold"' . $tooltipAttr . '>' . number_format($stockSum) . '</span>'
-                : '<span class="badge bg-label-danger fw-bold"' . $tooltipAttr . '>SOLD OUT</span>';
 
             $barcodeVal = $product->barcode;
             $barcode = $barcodeVal
@@ -249,29 +212,25 @@ class ProductController extends Controller
                 
                 $salePriceVal = $product->sale_price;
 
-                if ($product->pair_product) {
-                    if ($product->pair_mode === 'custom_size' && !empty($product->custom_sizes)) {
-                        $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
-                        $selectedSizeNum = null;
-                        if ($selectedSizeVal) {
-                            $selectedSizeNum = (float) filter_var($selectedSizeVal, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-                        }
+                if ($product->pair_product && !empty($product->custom_sizes)) {
+                    $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
+                    $selectedSizeNum = null;
+                    if ($selectedSizeVal) {
+                        $selectedSizeNum = (float) filter_var($selectedSizeVal, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    }
 
-                        $matchedSizeRow = null;
-                        if ($selectedSizeNum) {
-                            $matchedSizeRow = collect($product->custom_sizes)->first(fn($s) => abs((float)$s['size'] - $selectedSizeNum) < 0.001);
-                        }
+                    $matchedSizeRow = null;
+                    if ($selectedSizeNum) {
+                        $matchedSizeRow = collect($product->custom_sizes)->first(fn($s) => abs((float)$s['size'] - $selectedSizeNum) < 0.001);
+                    }
 
-                        if (!$matchedSizeRow) {
-                            $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
-                            $matchedSizeRow = $sizesList->first();
-                        }
+                    if (!$matchedSizeRow) {
+                        $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
+                        $matchedSizeRow = $sizesList->first();
+                    }
 
-                        if ($matchedSizeRow && isset($matchedSizeRow['sale_price'])) {
-                            $salePriceVal = $matchedSizeRow['sale_price'];
-                        }
-                    } else {
-                        $salePriceVal = $product->pair_sale_price ?? $product->sale_price;
+                    if ($matchedSizeRow && isset($matchedSizeRow['sale_price'])) {
+                        $salePriceVal = $matchedSizeRow['sale_price'];
                     }
                 }
 
@@ -290,15 +249,15 @@ class ProductController extends Controller
                     default => 7.5,
                 };
 
-                $isPair = (bool) $product->pair_product && ($product->pair_mode !== 'custom_size');
+                $isPair = false;
                 $customSizeLabel = null;
 
-                if ($product->pair_product && $product->pair_mode === 'custom_size' && !empty($product->custom_sizes)) {
+                if ($product->pair_product && !empty($product->custom_sizes)) {
                     $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
                     if ($selectedSizeVal) {
                         $customSizeLabel = str_contains((string)$selectedSizeVal, 'pcs') ? $selectedSizeVal : $selectedSizeVal . ' pcs';
                     } else {
-                        $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
+                        $sizesList = collect($product->custom_sizes)->sortByDesc('size')->values();
                         $firstSize = $sizesList->first();
                         if ($firstSize && isset($firstSize['size'])) {
                             $rawSize = $firstSize['size'];
@@ -406,40 +365,35 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
-        $rules['pair_sale_price'] = ['nullable', 'numeric', 'min:0'];
-        $rules['pair_mrp'] = ['nullable', 'numeric', 'min:0'];
-        $rules['pair_mode'] = ['nullable', 'in:pieces_pair,custom_size'];
-
-        $pairMode = $request->input('pair_mode', 'pieces_pair');
+        $pairMode = 'custom_size';
 
         if ($request->has('pair_product')) {
-            if ($pairMode === 'custom_size') {
-                $rules['custom_sizes_json'] = [
-                    'required',
-                    'json',
-                    function ($attribute, $value, $fail) {
-                        $decoded = json_decode($value, true);
-                        if (!is_array($decoded) || empty($decoded)) {
-                            $fail('Please add at least one custom size with pricing.');
+            $rules['custom_sizes_json'] = [
+                'required',
+                'json',
+                function ($attribute, $value, $fail) {
+                    $decoded = json_decode($value, true);
+                    if (!is_array($decoded) || empty($decoded)) {
+                        $fail('Please add at least one pair size with pricing.');
+                        return;
+                    }
+                    foreach ($decoded as $row) {
+                        $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
+                        if (isset($row['size']) && ((float)$row['size'] > 4 || (float)$row['size'] <= 0)) {
+                            $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
                             return;
                         }
-                        foreach ($decoded as $row) {
-                            $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'custom size';
-                            if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
-                                $fail("Sale Price ({$sizeText}) is required.");
-                                return;
-                            }
-                            if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
-                                $fail("MRP ({$sizeText}) is required.");
-                                return;
-                            }
+                        if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
+                            $fail("Sale Price ({$sizeText}) is required.");
+                            return;
                         }
-                    },
-                ];
-            } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
-                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
-            }
+                        if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
+                            $fail("MRP ({$sizeText}) is required.");
+                            return;
+                        }
+                    }
+                },
+            ];
         }
 
         if ($request->type === 'variable') {
@@ -455,10 +409,7 @@ class ProductController extends Controller
             ];
         }
 
-        $messages = [
-            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
-            'pair_mrp.required_if'        => 'Pair MRP is required.',
-        ];
+        $messages = [];
 
         $validator = Validator::make($request->all(), $rules, $messages);
 
@@ -497,31 +448,17 @@ class ProductController extends Controller
             $productData['purchase_price'] = $request->purchase_price;
 
             if ($request->has('pair_product')) {
-                $productData['pair_mode'] = $pairMode;
-
-                if ($pairMode === 'custom_size') {
-                    $productData['pair_sale_price'] = null;
-                    $productData['pair_mrp']        = null;
-                    $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
-                    if (is_array($customSizesArr)) {
-                        usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
-                    }
-                    $productData['custom_sizes'] = $customSizesArr;
-                } else {
-                    $productData['pair_sale_price'] = $request->pair_sale_price;
-                    $productData['pair_mrp']        = $request->pair_mrp;
-                    $productData['custom_sizes']    = null;
+                $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
+                if (is_array($customSizesArr)) {
+                    usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
                 }
-
-                $productData['sale_price']      = $request->sale_price;
-                $productData['mrp']             = $request->mrp;
+                $productData['custom_sizes'] = $customSizesArr;
+                $productData['sale_price']   = $request->sale_price;
+                $productData['mrp']          = $request->mrp;
             } else {
-                $productData['pair_mode']       = null;
-                $productData['pair_sale_price'] = null;
-                $productData['pair_mrp']        = null;
-                $productData['custom_sizes']    = null;
-                $productData['sale_price']      = $request->sale_price;
-                $productData['mrp']             = $request->mrp;
+                $productData['custom_sizes'] = null;
+                $productData['sale_price']   = $request->sale_price;
+                $productData['mrp']          = $request->mrp;
             }
 
             $product = Product::create($productData);
@@ -647,40 +584,35 @@ class ProductController extends Controller
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
-        $rules['pair_sale_price'] = ['nullable', 'numeric', 'min:0'];
-        $rules['pair_mrp'] = ['nullable', 'numeric', 'min:0'];
-        $rules['pair_mode'] = ['nullable', 'in:pieces_pair,custom_size'];
-
-        $pairMode = $request->input('pair_mode', 'pieces_pair');
+        $pairMode = 'custom_size';
 
         if ($request->has('pair_product')) {
-            if ($pairMode === 'custom_size') {
-                $rules['custom_sizes_json'] = [
-                    'required',
-                    'json',
-                    function ($attribute, $value, $fail) {
-                        $decoded = json_decode($value, true);
-                        if (!is_array($decoded) || empty($decoded)) {
-                            $fail('Please add at least one custom size with pricing.');
+            $rules['custom_sizes_json'] = [
+                'required',
+                'json',
+                function ($attribute, $value, $fail) {
+                    $decoded = json_decode($value, true);
+                    if (!is_array($decoded) || empty($decoded)) {
+                        $fail('Please add at least one pair size with pricing.');
+                        return;
+                    }
+                    foreach ($decoded as $row) {
+                        $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
+                        if (isset($row['size']) && ((float)$row['size'] > 4 || (float)$row['size'] <= 0)) {
+                            $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
                             return;
                         }
-                        foreach ($decoded as $row) {
-                            $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'custom size';
-                            if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
-                                $fail("Sale Price ({$sizeText}) is required.");
-                                return;
-                            }
-                            if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
-                                $fail("MRP ({$sizeText}) is required.");
-                                return;
-                            }
+                        if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
+                            $fail("Sale Price ({$sizeText}) is required.");
+                            return;
                         }
-                    },
-                ];
-            } else {
-                $rules['pair_sale_price'] = ['required', 'numeric', 'min:0.01'];
-                $rules['pair_mrp']        = ['required', 'numeric', 'min:0.01'];
-            }
+                        if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float)$row['mrp'] <= 0) {
+                            $fail("MRP ({$sizeText}) is required.");
+                            return;
+                        }
+                    }
+                },
+            ];
         }
 
         if ($request->type === 'variable') {
@@ -696,10 +628,7 @@ class ProductController extends Controller
             ];
         }
 
-        $messages = [
-            'pair_sale_price.required_if' => 'Pair Sale Price is required.',
-            'pair_mrp.required_if'        => 'Pair MRP is required.',
-        ];
+        $messages = [];
 
         $validator = Validator::make($request->all(), $rules, $messages);
 
@@ -757,31 +686,17 @@ class ProductController extends Controller
             $productData['purchase_price'] = $request->purchase_price;
 
             if ($request->has('pair_product')) {
-                $productData['pair_mode'] = $pairMode;
-
-                if ($pairMode === 'custom_size') {
-                    $productData['pair_sale_price'] = null;
-                    $productData['pair_mrp']        = null;
-                    $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
-                    if (is_array($customSizesArr)) {
-                        usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
-                    }
-                    $productData['custom_sizes'] = $customSizesArr;
-                } else {
-                    $productData['pair_sale_price'] = $request->pair_sale_price;
-                    $productData['pair_mrp']        = $request->pair_mrp;
-                    $productData['custom_sizes']    = null;
+                $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
+                if (is_array($customSizesArr)) {
+                    usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
                 }
-
-                $productData['sale_price']      = $request->sale_price;
-                $productData['mrp']             = $request->mrp;
+                $productData['custom_sizes'] = $customSizesArr;
+                $productData['sale_price']   = $request->sale_price;
+                $productData['mrp']          = $request->mrp;
             } else {
-                $productData['pair_mode']       = null;
-                $productData['pair_sale_price'] = null;
-                $productData['pair_mrp']        = null;
-                $productData['custom_sizes']    = null;
-                $productData['sale_price']      = $request->sale_price;
-                $productData['mrp']             = $request->mrp;
+                $productData['custom_sizes'] = null;
+                $productData['sale_price']   = $request->sale_price;
+                $productData['mrp']          = $request->mrp;
             }
 
             $product->update($productData);
