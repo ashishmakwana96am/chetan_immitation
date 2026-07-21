@@ -797,48 +797,71 @@ class ReportController extends Controller
 
         $productsList = collect();
         foreach ($products as $product) {
+            $purchasePrice = (float) $product->purchase_price;
+            $salePrice     = (float) $product->sale_price;
+
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
-                
-                // Parent Stock per location — total stock is the sum of all variant stock (the parent has no stock of its own)
+
                 $parentLocStock = [];
                 foreach ($locations as $location) {
                     $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
                 }
-                $productsList->push([
-                    'id'          => $product->id,
-                    'name'        => $product->name,
-                    'barcode'     => $product->barcode,
-                    'category'    => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'stock'       => $parentLocStock,
-                    'total'       => array_sum($parentLocStock),
-                    'status'      => $product->status,
-                    'is_parent'   => true,
-                    'variant_name'=> null,
-                ]);
+                $parentTotal = array_sum($parentLocStock);
 
-                // Variants stock per location
+                $parentPurchaseVal = 0.0;
+                $parentSaleVal     = 0.0;
+
+                $variantRows = [];
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
                     foreach ($locations as $location) {
                         $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
                     }
-                    $attrName = $v->attributeValue->attribute->name ?? '';
-                    $valName = $v->attributeValue->value ?? '';
-                    
-                    $productsList->push([
-                        'id'          => $product->id,
-                        'name'        => $product->name,
-                        'barcode'     => $product->barcode,
-                        'category'    => $product->category->name ?? '-',
-                        'category_id' => $product->category_id,
-                        'stock'       => $vLocStock,
-                        'total'       => array_sum($vLocStock),
-                        'status'      => $v->status,
-                        'is_parent'   => false,
-                        'variant_name'=> "{$attrName}: {$valName}",
-                    ]);
+                    $attrName  = $v->attributeValue->attribute->name ?? '';
+                    $valName   = $v->attributeValue->value ?? '';
+                    $vTotal    = array_sum($vLocStock);
+                    $vPrice    = (float) ($v->purchase_price ?? $purchasePrice);
+                    $vSale     = (float) ($v->sale_price ?? $salePrice);
+                    $vPurchVal = $vTotal * $vPrice;
+                    $vSaleVal  = $vTotal * $vSale;
+
+                    $parentPurchaseVal += $vPurchVal;
+                    $parentSaleVal     += $vSaleVal;
+
+                    $variantRows[] = [
+                        'id'             => $product->id,
+                        'name'           => $product->name,
+                        'barcode'        => $product->barcode,
+                        'category'       => $product->category->name ?? '-',
+                        'category_id'    => $product->category_id,
+                        'stock'          => $vLocStock,
+                        'total'          => $vTotal,
+                        'purchase_value' => $vPurchVal,
+                        'sale_value'     => $vSaleVal,
+                        'status'         => $v->status,
+                        'is_parent'      => false,
+                        'variant_name'   => "{$attrName}: {$valName}",
+                    ];
+                }
+
+                $productsList->push([
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'stock'          => $parentLocStock,
+                    'total'          => $parentTotal,
+                    'purchase_value' => $parentPurchaseVal,
+                    'sale_value'     => $parentSaleVal,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
+                ]);
+
+                foreach ($variantRows as $vRow) {
+                    $productsList->push($vRow);
                 }
             } else {
                 // Normal product
@@ -847,17 +870,23 @@ class ReportController extends Controller
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
+                $total       = array_sum($stock);
+                $purchaseVal = $total * $purchasePrice;
+                $saleVal     = $total * $salePrice;
+
                 $productsList->push([
-                    'id'          => $product->id,
-                    'name'        => $product->name,
-                    'barcode'     => $product->barcode,
-                    'category'    => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'stock'       => $stock,
-                    'total'       => array_sum($stock),
-                    'status'      => $product->status,
-                    'is_parent'   => true,
-                    'variant_name'=> null,
+                    'id'             => $product->id,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'category'       => $product->category->name ?? '-',
+                    'category_id'    => $product->category_id,
+                    'stock'          => $stock,
+                    'total'          => $total,
+                    'purchase_value' => $purchaseVal,
+                    'sale_value'     => $saleVal,
+                    'status'         => $product->status,
+                    'is_parent'      => true,
+                    'variant_name'   => null,
                 ]);
             }
         }
