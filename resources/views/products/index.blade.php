@@ -215,12 +215,17 @@
                         const variationsEscaped = (row.variations ?? '').replace(/"/g, '&quot;');
                         const categoryEscaped = (row.category ?? '').replace(/"/g, '&quot;');
                         const salePriceEscaped = (row.sale_price ?? '').replace(/"/g, '&quot;');
+                        const customSizesEscaped = (row.custom_sizes ? JSON.stringify(row.custom_sizes) : '').replace(/"/g, '&quot;');
                         return `<input type="checkbox" class="form-check-input product-select-checkbox"
                             value="${row.id}"
                             data-barcode="${row.raw_barcode}"
+                            data-name="${(row.name ?? '').replace(/"/g, '&quot;')}"
                             data-category="${categoryEscaped}"
                             data-variations="${variationsEscaped}"
-                            data-sale-price="${salePriceEscaped}">`;
+                            data-sale-price="${salePriceEscaped}"
+                            data-pair-product="${row.pair_product ? 1 : 0}"
+                            data-pair-mode="${row.pair_mode || ''}"
+                            data-custom-sizes="${customSizesEscaped}">`;
                     }
                 },
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
@@ -478,11 +483,32 @@
                     const category = $(this).data('category');
                     const variations = $(this).data('variations');
                     const salePrice = $(this).data('sale-price');
+                    const pairProduct = parseInt($(this).data('pair-product')) || 0;
+                    const pairMode = $(this).data('pair-mode') || '';
+                    const rawCustomSizes = $(this).data('custom-sizes');
+                    let customSizes = [];
+                    if (rawCustomSizes) {
+                        try {
+                            customSizes = typeof rawCustomSizes === 'string' ? JSON.parse(rawCustomSizes) : rawCustomSizes;
+                        } catch(e){}
+                    }
+
+                    let customSizeSelectHtml = '';
+                    if (pairProduct && pairMode === 'custom_size' && customSizes && customSizes.length) {
+                        customSizeSelectHtml = '<div class="mt-1 d-flex align-items-center gap-1"><small class="text-secondary fw-medium">Size:</small><select class="form-select form-select-sm bulk-item-custom-size" style="width: auto; min-width: 90px;">';
+                        customSizes.forEach(function(cs) {
+                            const sizeVal = typeof cs === 'object' && cs !== null ? cs.size : cs;
+                            const label = String(sizeVal).includes('pcs') ? sizeVal : sizeVal + ' pcs';
+                            customSizeSelectHtml += `<option value="${label}">${label}</option>`;
+                        });
+                        customSizeSelectHtml += '</select></div>';
+                    }
 
                     listHtml += `
                         <tr class="bulk-item-row" data-id="${id}" data-barcode="${barcode}" data-category="${category}" data-variations="${variations}" data-sale-price="${salePrice}">
                             <td>
                                 <div class="fw-semibold text-dark">${name}</div>
+                                ${customSizeSelectHtml}
                             </td>
                             <td><code>${barcode}</code></td>
                             <td>
@@ -550,7 +576,12 @@
                 $('.bulk-item-row').each(function() {
                     const id = $(this).data('id');
                     const qty = parseInt($(this).find('.bulk-item-qty').val()) || 1;
-                    url += `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}&`;
+                    let itemUrl = `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}`;
+                    const $sizeSelect = $(this).find('.bulk-item-custom-size');
+                    if ($sizeSelect.length > 0 && $sizeSelect.val()) {
+                        itemUrl += `&items[${idx}][selected_size]=${encodeURIComponent($sizeSelect.val())}`;
+                    }
+                    url += itemUrl + '&';
                     idx++;
                 });
 

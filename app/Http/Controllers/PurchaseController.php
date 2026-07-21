@@ -777,10 +777,14 @@ class PurchaseController extends Controller
         $items = $purchase->items()->with('product')->get()
             ->filter(fn ($item) => $item->product && !empty($item->product->barcode))
             ->map(fn ($item) => [
-                'id'       => $item->product->id,
-                'name'     => $item->product->name,
-                'barcode'  => $item->product->barcode,
-                'quantity' => (int) $item->quantity,
+                'id'                => $item->product->id,
+                'name'              => $item->product->name,
+                'barcode'           => $item->product->barcode,
+                'quantity'          => (int) $item->quantity,
+                'pair_product'      => (bool) $item->product->pair_product,
+                'pair_mode'         => $item->product->pair_mode,
+                'custom_sizes'      => $item->product->custom_sizes ?? [],
+                'custom_size_value' => $item->custom_size_value,
             ])
             ->values();
 

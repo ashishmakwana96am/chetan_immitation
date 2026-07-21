@@ -224,9 +224,25 @@
 
                 let listHtml = '';
                 items.forEach(function (item) {
+                    let customSizeSelectHtml = '';
+                    if (item.pair_product && item.pair_mode === 'custom_size' && item.custom_sizes && item.custom_sizes.length) {
+                        customSizeSelectHtml = '<div class="mt-1 d-flex align-items-center gap-1"><small class="text-secondary fw-medium">Size:</small><select class="form-select form-select-sm purchase-bulk-item-custom-size" style="width: auto; min-width: 90px;">';
+                        item.custom_sizes.forEach(function(cs) {
+                            const sizeVal = typeof cs === 'object' && cs !== null ? cs.size : cs;
+                            const sizeNum = parseFloat(sizeVal);
+                            const label = String(sizeVal).includes('pcs') ? sizeVal : sizeVal + ' pcs';
+                            const isSelected = item.custom_size_value && Math.abs(parseFloat(item.custom_size_value) - sizeNum) < 0.001;
+                            customSizeSelectHtml += `<option value="${label}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+                        });
+                        customSizeSelectHtml += '</select></div>';
+                    }
+
                     listHtml += `
                         <tr class="purchase-bulk-item-row" data-id="${item.id}" data-barcode="${item.barcode}">
-                            <td><div class="fw-semibold text-dark">${item.name}</div></td>
+                            <td>
+                                <div class="fw-semibold text-dark">${item.name}</div>
+                                ${customSizeSelectHtml}
+                            </td>
                             <td><code>${item.barcode}</code></td>
                             <td><input type="number" class="form-control form-control-sm purchase-bulk-item-qty" value="${item.quantity}" min="1" max="1000"></td>
                         </tr>
@@ -294,7 +310,12 @@
             $('.purchase-bulk-item-row').each(function () {
                 const id = $(this).data('id');
                 const qty = parseInt($(this).find('.purchase-bulk-item-qty').val()) || 1;
-                url += `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}&`;
+                let itemUrl = `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}`;
+                const $sizeSelect = $(this).find('.purchase-bulk-item-custom-size');
+                if ($sizeSelect.length > 0 && $sizeSelect.val()) {
+                    itemUrl += `&items[${idx}][selected_size]=${encodeURIComponent($sizeSelect.val())}`;
+                }
+                url += itemUrl + '&';
                 idx++;
             });
 
