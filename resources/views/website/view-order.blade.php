@@ -222,7 +222,7 @@
                                     @php
                                         $pairType = $item->pair_type ?? 'single';
                                         $product = $item->product;
-                                        $itemIsCustomSize = $product && $product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value;
+                                        $itemIsCustomSize = !empty($item->custom_size_value) && (float)$item->custom_size_value > 0;
                                         if ($product) {
                                             if ($itemIsCustomSize) {
                                                 $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - (float) $item->custom_size_value) < 0.001);
@@ -268,6 +268,11 @@
                                                     {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
                                                 @endif
                                             </span>
+                                            @if($itemIsCustomSize)
+                                                <span class="text-sm font-medium text-[#757575] ml-1">(Total {{ (int)round($item->quantity * (float)$item->custom_size_value) }} Pcs)</span>
+                                            @elseif(($item->pair_type ?? 'single') === 'pair')
+                                                <span class="text-sm font-medium text-[#757575] ml-1">(Total {{ $item->quantity * 2 }} Pcs)</span>
+                                            @endif
                                         </span>
                                     </p>
 

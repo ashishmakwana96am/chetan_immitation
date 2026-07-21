@@ -457,7 +457,7 @@
                                     $product  = $item->product;
                                     $variant  = $item->productVariant;
                                     $pairType = $item->pair_type ?? 'single';
-                                    $isCustomSize = $product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value;
+                                    $isCustomSize = !empty($item->custom_size_value) && (float)$item->custom_size_value > 0;
 
                                     if ($variant) {
                                         $price = (float) $variant->sale_price;

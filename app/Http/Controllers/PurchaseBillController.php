@@ -540,12 +540,12 @@ class PurchaseBillController extends Controller
 
     private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
     {
-        if (!$product->pair_product) {
-            return 1.0;
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+            return (float) $customSizeValue;
         }
 
-        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
-            return (float) $customSizeValue;
+        if (!$product->pair_product) {
+            return 1.0;
         }
 
         return $pairType === 'pair' ? 2.0 : 1.0;

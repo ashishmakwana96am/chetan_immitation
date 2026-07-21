@@ -64,10 +64,13 @@
                     <td style="padding:12px 12px;font-size:14px;color:#131615;">{{ $item->product->name ?? 'Product' }}</td>
                     <td style="padding:12px 12px;text-align:center;font-size:14px;color:#3D403F;">
                         {{ $item->quantity }}
-                        @if($item->product && $item->product->pair_product && $item->product->pair_mode === 'custom_size' && $item->custom_size_value)
-                            {{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }} pcs Pair
+                        @if(!empty($item->custom_size_value) && (float)$item->custom_size_value > 0)
+                            &times; {{ rtrim(rtrim(number_format((float) $item->custom_size_value, 2), '0'), '.') }} pcs Pair (Total {{ (int)round($item->quantity * (float)$item->custom_size_value) }} Pcs)
                         @else
                             {{ ($item->pair_type ?? 'single') === 'pair' ? 'Pairs' : 'Pcs' }}
+                            @if(($item->pair_type ?? 'single') === 'pair')
+                                (Total {{ $item->quantity * 2 }} Pcs)
+                            @endif
                         @endif
                     </td>
                     <td style="padding:12px 12px;text-align:right;font-size:14px;font-weight:600;color:#131615;">₹{{ number_format($item->total, 0) }}</td>

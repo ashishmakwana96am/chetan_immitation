@@ -442,7 +442,11 @@ class ProductController extends Controller
                 if ($pairMode === 'custom_size') {
                     $productData['pair_sale_price'] = null;
                     $productData['pair_mrp']        = null;
-                    $productData['custom_sizes']    = json_decode($request->custom_sizes_json, true);
+                    $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
+                    if (is_array($customSizesArr)) {
+                        usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
+                    }
+                    $productData['custom_sizes'] = $customSizesArr;
                 } else {
                     $productData['pair_sale_price'] = $request->pair_sale_price;
                     $productData['pair_mrp']        = $request->pair_mrp;
@@ -698,7 +702,11 @@ class ProductController extends Controller
                 if ($pairMode === 'custom_size') {
                     $productData['pair_sale_price'] = null;
                     $productData['pair_mrp']        = null;
-                    $productData['custom_sizes']    = json_decode($request->custom_sizes_json, true);
+                    $customSizesArr = json_decode($request->custom_sizes_json, true) ?? [];
+                    if (is_array($customSizesArr)) {
+                        usort($customSizesArr, fn ($a, $b) => (float) ($a['size'] ?? 0) <=> (float) ($b['size'] ?? 0));
+                    }
+                    $productData['custom_sizes'] = $customSizesArr;
                 } else {
                     $productData['pair_sale_price'] = $request->pair_sale_price;
                     $productData['pair_mrp']        = $request->pair_mrp;

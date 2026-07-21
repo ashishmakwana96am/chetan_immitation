@@ -556,7 +556,7 @@ const orders = [
               return (float)$item->price * $item->quantity;
           }
 
-          if ($product->pair_product && $product->pair_mode === 'custom_size' && $item->custom_size_value) {
+          if (!empty($item->custom_size_value) && (float)$item->custom_size_value > 0) {
               $sizeRow = collect($product->custom_sizes ?? [])->first(fn ($s) => abs((float) $s['size'] - (float) $item->custom_size_value) < 0.001);
               $mrp = (float) ($sizeRow['mrp'] ?? $product->mrp);
           } elseif ($pairType === 'pair' && $product->pair_product && $product->pair_mrp) {

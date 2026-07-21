@@ -1300,14 +1300,14 @@ class SaleController extends Controller
      */
     private function stockMultiplierFor(int $productId, ?string $pairType, ?float $customSizeValue): float
     {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
         $product = Product::find($productId);
 
         if (!$product || !$product->pair_product) {
             return 1.0;
-        }
-
-        if ($product->pair_mode === 'custom_size' && $customSizeValue) {
-            return $customSizeValue;
         }
 
         return $pairType === 'pair' ? 2.0 : 1.0;
