@@ -297,13 +297,13 @@
                             <label class="form-label" for="instagram_username">Instagram Username / Handle</label>
                             <div class="input-group">
                                 <span class="input-group-text">@</span>
-                                <input type="text" name="instagram_username" id="instagram_username" class="form-control" value="{{ $instagramUsername }}" placeholder="chetan_imitation" />
+                                <input type="text" name="instagram_username" id="instagram_username" class="form-control" value="{{ $instagramUsername }}" placeholder="username" />
                             </div>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="instagram_profile_url">Instagram Profile Link (Follow Button)</label>
-                            <input type="url" name="instagram_profile_url" id="instagram_profile_url" class="form-control" value="{{ $instagramProfileUrl }}" placeholder="https://www.instagram.com/chetan_imitation" />
+                            <input type="url" name="instagram_profile_url" id="instagram_profile_url" class="form-control" value="{{ $instagramProfileUrl }}" placeholder="https://www.instagram.com/your_profile" />
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="col-12">

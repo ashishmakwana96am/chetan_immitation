@@ -48,6 +48,10 @@ class HomeController extends Controller
             auth('customer')->user()->load('wishlists');
         }
 
+        Setting::setValue('instagram_username', 'chetan_imitation');
+        Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        Setting::setValue('instagram_access_token', '');
+
         $instagramPosts = $this->getInstagramPosts();
         $instagramProfileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
 

@@ -42,6 +42,10 @@ class SettingController extends Controller
         $purchaseGstRate        = Setting::getValue('purchase_gst_rate', '3');
         $storeState             = Setting::getValue('store_state', 'Gujarat');
 
+        Setting::setValue('instagram_username', 'chetan_imitation');
+        Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        Setting::setValue('instagram_access_token', '');
+
         $instagramUsername    = Setting::getValue('instagram_username', 'chetan_imitation');
         $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
         $instagramAccessToken = Setting::getValue('instagram_access_token', '');

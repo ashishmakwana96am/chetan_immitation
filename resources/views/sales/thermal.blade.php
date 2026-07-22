@@ -27,13 +27,13 @@
         }
 
         body {
-            padding: 6pt 8pt;
+            padding: 8pt;
         }
 
         .receipt-container {
             width: 200pt;
             @if(!empty($pdfHeight))
-            height: {{ $pdfHeight - 12 }}pt;
+            height: {{ $pdfHeight - 16 }}pt;
             @endif
             position: relative;
         }
@@ -44,26 +44,37 @@
         .fw-bold     { font-weight: bold; }
 
         .store-title {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .gstin-label {
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: bold;
-            margin-top: 1px;
+            margin-top: 2px;
+        }
+
+        .logo-container {
+            margin: 4px 0;
+            text-align: center;
+        }
+
+        .logo-img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
         }
 
         .divider-dotted {
             border-top: 1px dashed #000;
-            margin: 3px 0;
+            margin: 4px 0;
         }
 
         .divider-solid {
             border-top: 1px solid #000;
-            margin: 4px 0;
+            margin: 5px 0;
         }
     </style>
 </head>
@@ -92,90 +103,98 @@
 
         $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
 
-        // GST & Tax Calculations
+        $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
         $isGst = (bool)$order->is_gst;
+        
+        $totalTax = $isGst ? (float)$order->tax_amount : 0.00;
+        $taxableAmount = (float)$order->final_amount - $totalTax - (float)$order->shipping_charge;
+        
+        $sgst = 0.00;
+        $cgst = 0.00;
+        $igst = 0.00;
 
         if ($isGst) {
-            $taxableAmt = (float) $subtotal;
-            $totalTax   = max(0, (float)$order->final_amount - $taxableAmt - (float)$order->shipping_charge);
-            $taxCgst    = round($totalTax / 2, 2);
-            $taxSgst    = round($totalTax - $taxCgst, 2);
-        } else {
-            $taxableAmt = (float)$order->final_amount;
-            $totalTax   = 0.00;
-            $taxCgst    = 0.00;
-            $taxSgst    = 0.00;
+            $isPos = ($order->source ?? 'POS') === 'POS';
+            $buyerState = 'gujarat';
+            if (!$isPos && $order->customerAddress) {
+                $buyerState = strtolower(trim($order->customerAddress->state));
+            }
+            $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+            
+            if ($isPos || $buyerState === '' || $buyerState === $storeState) {
+                $sgst = $totalTax / 2;
+                $cgst = $totalTax / 2;
+            } else {
+                $igst = $totalTax;
+            }
         }
 
-        $paymentCash = 0.00;
-        $paymentUpi  = 0.00;
+        // Payment Mapping
+        $paymentCash   = 0.00;
+        $paymentUpi    = 0.00;
+        $paymentChaque = 0.00;
+        $paymentCard   = 0.00;
 
         $pm = strtolower($order->payment_method ?? '');
-        if (in_array($pm, ['upi', 'online', 'razorpay', 'qr'])) {
+        if (in_array($pm, ['upi', 'online', 'razorpay', 'bank_transfer', 'bank transfer'])) {
             $paymentUpi = (float)$order->final_amount;
+        } elseif (in_array($pm, ['cheque', 'chaque', 'check'])) {
+            $paymentChaque = (float)$order->final_amount;
+        } elseif (in_array($pm, ['card', 'debit_card', 'credit_card', 'debit card', 'credit card'])) {
+            $paymentCard = (float)$order->final_amount;
         } else {
+            // cash, cod, or any other method → show in CASH
             $paymentCash = (float)$order->final_amount;
         }
 
         $totalQty = $order->items->sum('quantity');
-
-        // Location & Phone details
-        $locations = \App\Models\Location::orderByRaw('id = ? DESC', [$order->location_id ?? 0])->limit(2)->get();
-        $loc1 = $locations[0] ?? null;
-        $loc2 = $locations[1] ?? null;
-
-        $gstinVal = $order->location?->gst_number ?? \App\Models\Setting::getValue('store_gst_number', '24SCOPS0159A1ZB');
     @endphp
 
     <div class="receipt-container">
 
-        {{-- Header Section --}}
         <div class="text-center">
-            <div class="store-title">CHETAN IMITATION</div>
-            @if($isGst || !empty($gstinVal))
-                <div class="gstin-label">GSTIN: {{ $gstinVal }}</div>
+            <div class="store-title">Chetan Imitation</div>
+            @if((($order->source ?? 'POS') !== 'ONLINE') && $order->location?->gst_number)
+                <div class="gstin-label">GSTIN: {{ $order->location->gst_number }}</div>
             @endif
         </div>
 
-        {{-- Logo --}}
-        <div class="text-center" style="margin: 3px 0;">
-            <img src="{{ public_path('assets/img/thermal-logo.png') }}" style="width: 50px; height: 50px; object-fit: contain;" alt="Logo" />
-        </div>
+        <div class="divider-dotted" style="margin-top: 3px; margin-bottom: 3px;"></div>
 
-        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 10.5px; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 2px;">
             <tr>
-                <td style="text-align: left; width: 50%; border: none; padding: 0;">
-                    {{ strtoupper($loc1->name ?? 'KATARGAM') }}
+                <td style="width: 65px; vertical-align: middle; border: none; padding: 0;">
+                    <img src="{{ public_path('assets/img/thermal-logo.png') }}" style="width: 58px; height: 58px; object-fit: contain;" alt="Logo" />
                 </td>
-                <td style="text-align: right; width: 50%; border: none; padding: 0;">
-                    {{ strtoupper($loc2->name ?? 'MOTA VRACHA') }}
+                <td style="vertical-align: middle; border: none; padding-left: 8px; text-align: left; font-size: 11px; font-weight: bold; line-height: 1.35;">
+                    @php
+                        $locations = \App\Models\Location::orderByRaw('id = ? DESC', [$order->location_id ?? 0])->limit(3)->get();
+                    @endphp
+                    @foreach($locations as $loc)
+                        <div>{{ strtoupper($loc->name) }} - {{ $loc->phone ?: '7725978871' }}</div>
+                    @endforeach
                 </td>
             </tr>
         </table>
 
-        <div class="divider-dotted"></div>
+        <div class="divider-dotted" style="margin-top: 3px; margin-bottom: 3px;"></div>
 
-        {{-- Invoice Title & Phones Row --}}
-        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 11px;">
+        <table style="width: 100%; border-collapse: collapse; font-weight: bold; font-size: 12px;">
             <tr>
-                <td style="text-align: left; width: 33%; border: none; padding: 0;">
-                    {{ $loc1->phone ?? '7725978871' }}
-                </td>
-                <td style="text-align: center; width: 34%; font-size: 11.5px; border: none; padding: 0;">
+                <td style="text-align: left; width: 50%; font-size: 13px; border: none; padding: 0;">
                     INVOICE
                 </td>
-                <td style="text-align: right; width: 33%; border: none; padding: 0;">
-                    {{ $loc2->phone ?? '8980293353' }}
+                <td style="text-align: right; width: 50%; border: none; padding: 0;">
+                    {{ $order->location?->phone ?? '7725978871' }}
                 </td>
             </tr>
         </table>
 
         <div class="divider-dotted"></div>
 
-        {{-- Customer & Bill Details Block --}}
-        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 10.5px; font-weight: bold; margin-bottom: 2px;">
+        <table style="width: 100%; border-collapse: collapse; line-height: 1.3; font-size: 11.5px; font-weight: bold; margin-bottom: 2px;">
             <tr>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
+                <td style="width: 52%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
                     @php
                         $custName = $order->customer ? $order->customer->name : 'WALK-IN';
                         if (strtoupper($custName) === 'WALK-IN CUSTOMER') {
@@ -184,23 +203,23 @@
                     @endphp
                     NAME : {{ $custName }}
                 </td>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 4px; border: none;">
+                <td style="width: 48%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 6px; border: none;">
                     BILL NO : {{ $order->order_no }}
                 </td>
             </tr>
             <tr>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
-                    ADD : {{ $order->customerAddress ? $order->customerAddress->address : '' }}
+                <td style="width: 52%; text-align: left; vertical-align: top; padding: 1px 0; text-transform: uppercase; border: none;">
+                    ADD : {{ $order->customerAddress ? $order->customerAddress->address : '-' }}
                 </td>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 4px; border: none;">
+                <td style="width: 48%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 6px; border: none;">
                     DATE : {{ $order->created_at->format('d/m/y') }}
                 </td>
             </tr>
             <tr>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; border: none;">
-                    PH : {{ $order->customer?->phone ?? ($order->customerAddress?->phone ?? '') }}
+                <td style="width: 52%; text-align: left; vertical-align: top; padding: 1px 0; border: none;">
+                    PH : {{ $order->customer?->phone ?? ($order->customerAddress?->phone ?? '-') }}
                 </td>
-                <td style="width: 50%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 4px; border: none;">
+                <td style="width: 48%; text-align: left; vertical-align: top; padding: 1px 0; padding-left: 6px; border: none;">
                     TIME : {{ $order->created_at->format('h:i:s A') }}
                 </td>
             </tr>
@@ -208,35 +227,36 @@
 
         <div class="divider-solid"></div>
 
-        {{-- Items Table --}}
-        <table style="width: 100%; border-collapse: collapse; margin: 2px 0; font-size: 10.5px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; margin: 3px 0; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             <thead>
                 <tr style="border-bottom: 1px solid #000;">
-                    <th style="text-align: left; padding-bottom: 2px; font-weight: bold; border: none;">ITEM NAME</th>
-                    <th style="text-align: center; padding-bottom: 2px; font-weight: bold; width: 20%; border: none;">Qty</th>
-                    <th style="text-align: right; padding-bottom: 2px; font-weight: bold; width: 22%; border: none;">Rate</th>
-                    <th style="text-align: right; padding-bottom: 2px; font-weight: bold; width: 22%; border: none;">Amount</th>
+                    <th style="text-align: left; padding-bottom: 3px; font-weight: bold; border: none;">ITEM NAME</th>
+                    <th style="text-align: center; padding-bottom: 3px; font-weight: bold; width: 24%; border: none;">Qty</th>
+                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 20%; border: none;">Rate</th>
+                    <th style="text-align: right; padding-bottom: 3px; font-weight: bold; width: 20%; border: none;">Amount</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($order->items as $item)
                     <tr>
-                        <td style="text-align: left; padding: 2px 0; text-transform: uppercase; vertical-align: top; border: none;">
-                            {{ $item->product?->subCategory?->name ?? $item->product?->category?->name ?? $item->product?->name ?? '-' }}
+                        <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
+                            {{ $item->product?->subCategory?->name ?? $item->product?->category?->name ?? '-' }}
                         </td>
-                        <td style="text-align: center; padding: 2px 0; vertical-align: top; border: none; white-space: nowrap;">
+                        <td style="text-align: center; padding: 3px 0; vertical-align: top; border: none; white-space: nowrap;">
                             {{ $item->quantity }}
                             @php
                                 $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
                             @endphp
                             @if($szVal)
                                 &times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs
+                            @else
+                                Pcs
                             @endif
                         </td>
-                        <td style="text-align: right; padding: 2px 0; vertical-align: top; border: none;">
+                        <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
                             {{ number_format($item->price, 2) }}
                         </td>
-                        <td style="text-align: right; padding: 2px 0; vertical-align: top; border: none;">
+                        <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
                             {{ number_format($item->total, 2) }}
                         </td>
                     </tr>
@@ -246,81 +266,98 @@
 
         <div class="divider-dotted"></div>
 
-        {{-- Totals Block --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; font-weight: bold; line-height: 1.3;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             @if($totalDiscount > 0)
             <tr>
-                <td style="text-align: left; width: 65%; border: none; padding: 1px 0;">Discount Amt :</td>
-                <td style="text-align: right; width: 35%; border: none; padding: 1px 0;">{{ number_format($totalDiscount, 2) }}</td>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Subtotal</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($subtotal, 2) }}</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Discount Amt</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">-{{ number_format($totalDiscount, 2) }}</td>
+            </tr>
+            @endif
+            @if($order->shipping_charge > 0)
+            <tr>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Shipping Charge</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($order->shipping_charge, 2) }}</td>
             </tr>
             @endif
             <tr>
-                <td style="text-align: left; width: 45%; border: none; padding-top: 2px;">TOTAL</td>
-                <td style="text-align: center; width: 20%; border: none; padding-top: 2px;">{{ $totalQty }}</td>
-                <td style="text-align: right; width: 35%; border: none; padding-top: 2px;">
-                    {{ number_format((float)$order->final_amount, 0) }}
+                <td style="text-align: left; width: 50%; border: none; padding-top: 3px;">TOTAL</td>
+                <td style="text-align: center; width: 20%; border: none; padding-top: 3px;">{{ $totalQty }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding-top: 3px;">
+                    {{ number_format((float)$order->final_amount, 2) }}
                 </td>
             </tr>
         </table>
 
         <div class="divider-dotted"></div>
 
-        @if($isGst)
-        {{-- TAX DETAIL & PAYMENT DETAIL Side-by-Side Table (For GST Bills) --}}
+        {{-- TAX DETAIL + PAYMENT DETAIL Side-by-Side --}}
         <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; font-weight: bold; line-height: 1.35; margin-bottom: 2px;">
+            {{-- Header Row --}}
             <tr style="border-bottom: 1px dashed #000;">
+                @if($isGst)
                 <td style="width: 50%; text-align: left; padding-bottom: 2px; border: none;">TAX DETAIL</td>
+                @else
+                <td style="width: 50%; text-align: left; padding-bottom: 2px; border: none;"></td>
+                @endif
                 <td style="width: 50%; text-align: right; padding-bottom: 2px; border: none;">
                     <span style="float: left;">CASH :</span> {{ number_format($paymentCash, 2) }}
                 </td>
             </tr>
+            @if($isGst)
+            {{-- AMOUNT row --}}
             <tr>
                 <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    AMOUNT : {{ number_format($taxableAmt, 2) }}
+                    AMOUNT : {{ number_format($taxableAmount, 2) }}
                 </td>
                 <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">
                     <span style="float: left;">UPI :</span> {{ number_format($paymentUpi, 2) }}
                 </td>
             </tr>
+            @if($igst > 0)
+            {{-- IGST --}}
             <tr>
                 <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    SGST : {{ number_format($taxSgst, 2) }}
+                    IGST : {{ number_format($igst, 2) }}
+                </td>
+                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
+            </tr>
+            @else
+            {{-- SGST + CGST --}}
+            <tr>
+                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
+                    SGST : {{ number_format($sgst, 2) }}
                 </td>
                 <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
             </tr>
             <tr>
                 <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    CGST : {{ number_format($taxCgst, 2) }}
+                    CGST : {{ number_format($cgst, 2) }}
                 </td>
                 <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
             </tr>
-            <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
+            @endif
+            {{-- TOTAL Tax row with top border --}}
+            <tr style="border-top: 1px dashed #000; border-bottom: 1px dashed #000;">
+                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;">
                     TOTAL : {{ number_format($totalTax, 2) }}
                 </td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
+                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;"></td>
             </tr>
-        </table>
-        @else
-        {{-- PAYMENT DETAIL Block (For Non-GST Bills) --}}
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; font-weight: bold; line-height: 1.4; margin-bottom: 2px;">
-            <tr style="border-bottom: 1px dashed #000;">
-                <td colspan="2" style="text-align: left; padding-bottom: 3px; border: none;">PAYMENT DETAIL</td>
-            </tr>
+            @else
+            {{-- Non-GST: only UPI row --}}
             <tr>
-                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;">CASH :</td>
-                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentCash, 2) }}</td>
+                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;"></td>
+                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">
+                    <span style="float: left;">UPI :</span> {{ number_format($paymentUpi, 2) }}
+                </td>
             </tr>
-            <tr>
-                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;">UPI :</td>
-                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;">{{ number_format($paymentUpi, 2) }}</td>
-            </tr>
+            @endif
         </table>
-        @endif
 
-        <div class="divider-dotted"></div>
-
-        {{-- Terms & Conditions Footer --}}
         @php $arrow = '<span style="font-family: DejaVu Sans, sans-serif; font-weight: bold; font-size: 12.5px;">&#8594;</span>'; @endphp
         <div style="text-align: left; font-size: 10.5px; font-weight: bold; line-height: 1.3;">
             <div style="font-size: 11px; font-weight: bold; margin-bottom: 2px;">TERMS & CONDITION</div>
@@ -332,7 +369,6 @@
 
         <div class="divider-dotted" style="margin-top: 5px; margin-bottom: 5px;"></div>
 
-        {{-- Monospaced Thank You Note --}}
         <div style="text-align: center; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; line-height: 1.4;">
             <div>Thank you for shopping by chetan imitation!</div>
         </div>
