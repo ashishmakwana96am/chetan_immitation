@@ -159,32 +159,30 @@
                                 @endphp
                                 <tr>
                                     <td class="text-muted small">{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            <div>
-                                                <span class="fw-semibold">{{ $displayName }}</span>
-                                                @if($item->product?->barcode)
-                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
-                                                @endif
-                                                @if($item->custom_size_value)
-                                                    <br><small class="text-muted">Size: {{ rtrim(rtrim(number_format((float)$item->custom_size_value, 2), '0'), '.') }} pcs</small>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="text-end fw-semibold">
-                                        {{ $item->quantity }}
-                                        <small class="text-muted">
-                                            @if($item->custom_size_value)
-                                                Pairs
-                                            @elseif(($item->pair_type ?? 'single') === 'pair')
-                                                Pairs
-                                            @else
-                                                Pcs
-                                            @endif
-                                        </small>
-                                    </td>
+                                     <td>
+                                         <div class="d-flex align-items-center">
+                                             <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
+                                             <div>
+                                                 <span class="fw-semibold">{{ $displayName }}</span>
+                                                 @if($item->product?->barcode)
+                                                     <br><small class="text-muted">{{ $item->product->barcode }}</small>
+                                                 @endif
+                                             </div>
+                                         </div>
+                                     </td>
+                                     <td class="text-end fw-semibold text-nowrap">
+                                         {{ $item->quantity }}
+                                         @php
+                                             $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
+                                         @endphp
+                                         @if($szVal)
+                                             <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
+                                         @elseif(($item->pair_type ?? 'single') === 'pair')
+                                             <small class="text-muted">&times; 2pcs</small>
+                                         @else
+                                             <small class="text-muted">Pcs</small>
+                                         @endif
+                                     </td>
                                     <td class="text-end">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
                                     <td class="text-end fw-semibold">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
                                 </tr>

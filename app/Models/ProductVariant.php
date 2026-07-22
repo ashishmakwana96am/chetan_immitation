@@ -18,6 +18,7 @@ class ProductVariant extends Model
         'purchase_price',
         'sale_price',
         'status',
+        'custom_sizes',
     ];
 
     protected function casts(): array
@@ -36,5 +37,25 @@ class ProductVariant extends Model
     public function attributeValue()
     {
         return $this->belongsTo(AttributeValue::class);
+    }
+
+    public function getCustomSizesAttribute($value)
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        if (is_array($decoded)) {
+            return collect($decoded)->sortBy(fn ($item) => (float) ($item['size'] ?? 0))->values()->toArray();
+        }
+        return $decoded;
+    }
+
+    public function setCustomSizesAttribute($value)
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+        if (is_array($value)) {
+            $value = collect($value)->sortBy(fn ($item) => (float) ($item['size'] ?? 0))->values()->toArray();
+        }
+        $this->attributes['custom_sizes'] = $value ? json_encode($value) : null;
     }
 }

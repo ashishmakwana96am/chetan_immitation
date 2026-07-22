@@ -566,8 +566,9 @@
                     <td @if(!$item->is_parent) style="padding-left:0;" @endif>
                         @if(!$item->is_parent)
                             <strong style="font-size:12px;">{{ $item->product->name ?? '-' }}</strong>
-                            <span style="color:#B4771E; font-weight:bold; margin:0 4px;">&#8627;</span>
-                            <span style="font-size:11.5px; color:#666;">{{ $item->resolved_variant_name ?? '-' }}</span>
+                            @if(!empty($item->resolved_variant_name))
+                                <span style="font-size:11.5px; color:#666; margin-left: 4px;">({{ $item->resolved_variant_name }})</span>
+                            @endif
                         @else
                             <strong>{{ $item->product->name ?? '-' }}</strong>
                         @endif

@@ -292,6 +292,7 @@ class SaleController extends Controller
                         'attribute_value_id' => $v->attribute_value_id,
                         'purchase_price' => $v->purchase_price,
                         'sale_price' => $v->sale_price,
+                        'custom_sizes' => $v->custom_sizes ?? [],
                         'attr_name' => $v->attributeValue->attribute->name ?? '',
                         'value_name' => $v->attributeValue->value ?? '',
                     ];
@@ -725,6 +726,7 @@ class SaleController extends Controller
                         'attribute_value_id' => $v->attribute_value_id,
                         'purchase_price' => $v->purchase_price,
                         'sale_price' => $v->sale_price,
+                        'custom_sizes' => $v->custom_sizes ?? [],
                         'attr_name' => $v->attributeValue->attribute->name ?? '',
                         'value_name' => $v->attributeValue->value ?? '',
                     ];

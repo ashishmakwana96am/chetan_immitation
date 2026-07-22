@@ -5,7 +5,7 @@
     <title>Print Labels</title>
     <style>
         @page {
-            size: 232.44pt {{ $pdfHeight }}pt;
+            size: 34.02pt 232.44pt portrait;
             margin: 0px !important;
         }
         * {
@@ -19,64 +19,58 @@
         html, body {
             margin: 0px !important;
             padding: 0px !important;
-            width: 232.44pt !important;
-            height: {{ $pdfHeight }}pt !important;
+            width: 34.02pt !important;
+            height: 232.44pt !important;
             background: #fff;
             overflow: hidden !important;
         }
-        table, tr, td {
-            page-break-inside: avoid !important;
-            page-break-before: avoid !important;
-            page-break-after: avoid !important;
-            break-inside: avoid !important;
+        .page-break {
+            page-break-before: always !important;
+            break-before: page !important;
+            clear: both !important;
         }
-        .labels-container-table {
-            width: 232.44pt !important; /* 2.7cm + 2.7cm + 2.8cm = 8.2cm = 232.44pt */
+        .page-wrapper {
+            width: 34.02pt !important;
+            height: 232.44pt !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        .label-table {
+            width: 232.44pt !important;
+            height: 34.02pt !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 34.02pt !important;
+            transform: rotate(90deg);
+            transform-origin: 0 0;
             margin: 0 !important;
             padding: 0 !important;
         }
-        .label-row {
-            height: 34.02pt !important; /* 1.2cm height */
-            max-height: 34.02pt !important;
-            margin: 0 !important;
+        .label-table td {
             padding: 0 !important;
-            page-break-inside: avoid !important;
-            page-break-after: avoid !important;
-            overflow: hidden !important;
-        }
-        .zone-front-td {
-            width: 76.54pt !important; /* 2.7cm */
-            height: 34.02pt !important;
-            padding: 0.5pt 3pt !important;
-            vertical-align: middle;
+            margin: 0 !important;
+            vertical-align: top !important;
             border: none !important;
-            overflow: hidden !important;
         }
-        .zone-back-td {
-            width: 76.54pt !important; /* 2.7cm */
+        .zone-front {
+            width: 76.50pt !important; /* 2.7cm */
             height: 34.02pt !important;
             padding: 0.5pt 2pt !important;
-            text-align: center;
-            vertical-align: middle;
-            border: none !important;
             overflow: hidden !important;
         }
-        .zone-tail-td {
-            width: 79.38pt !important; /* 2.8cm */
+        .zone-back {
+            width: 76.50pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 0 !important;
-            border: none !important;
+            padding: 0.5pt 2pt !important;
+            text-align: left !important;
             overflow: hidden !important;
         }
-        .mrp-line {
-            font-size: 9pt !important;
-            font-weight: bold !important;
-            line-height: 1.1 !important;
-            white-space: nowrap;
-            overflow: hidden;
-            margin-bottom: 2pt !important;
+        .zone-tail {
+            width: 79.44pt !important; /* 2.8cm */
+            height: 34.02pt !important;
+            overflow: hidden !important;
         }
         .code-line {
             font-size: 8.5pt !important;
@@ -85,24 +79,9 @@
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
-        }
-        .mrp-code-line {
-            font-size: 8.5pt !important;
-            font-weight: bold !important;
-            line-height: 1.1 !important;
-            text-transform: uppercase;
-            white-space: nowrap;
-            overflow: hidden;
-            margin-top: 2pt !important;
-        }
-        .category-line {
-            font-size: 8.5pt !important;
-            font-weight: bold !important;
-            line-height: 1.1 !important;
-            text-transform: uppercase;
-            white-space: nowrap;
-            overflow: hidden;
-            margin-top: 2pt !important;
+            text-align: left !important;
+            margin-bottom: 1.5pt !important;
+            padding-left: 2pt !important;
         }
         .barcode-container {
             width: 100% !important;
@@ -112,42 +91,81 @@
             padding-left: 2pt;
         }
         .barcode-img {
-            width: 100% !important;
+            width: 70pt !important;
             height: 14pt !important;
             display: block;
+        }
+        .category-line {
+            font-size: 8.5pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-align: left !important;
+            margin-top: 1.5pt !important;
+            padding-left: 2pt !important;
+        }
+        .mrp-line {
+            font-size: 9pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-align: left;
+            padding-left: 6pt;
+            margin-bottom: 1.5pt !important;
+        }
+        .mrp-code-line {
+            font-size: 8.5pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-align: left;
+            padding-left: 6pt;
+            margin-top: 1.5pt !important;
         }
     </style>
 </head>
 <body>
-    <table class="labels-container-table" cellpadding="0" cellspacing="0">
-        @foreach($printItems as $item)
-            @for($i = 0; $i < $item['qty']; $i++)
-                <tr class="label-row">
-                    <!-- Zone 1: Code + Barcode + Category (Left Section) -->
-                    <td class="zone-front-td" style="text-align: left;">
-                        <div class="code-line" style="text-align: left !important; margin-bottom: 2pt !important; padding-left: 2pt !important;">{{ trim($item['barcodeText']) }}</div>
-                        <div class="barcode-container" style="text-align: left !important;">
-                            <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" style="margin: 0;" />
-                        </div>
-                        <div class="category-line" style="text-align: left !important; margin-top: 2pt !important; padding-left: 2pt !important; font-size: {{ $item['categoryFontSize'] ?? 8.5 }}pt !important;">{{ trim($item['category']) }}</div>
-                    </td>
-                    <!-- Zone 2: MRP (Center Section) -->
-                    <td class="zone-back-td">
-                        <div class="mrp-line" style="text-align: left; margin: 0; padding-left: 6pt;">MRP:{{ $item['salePrice'] }}</div>
-                        <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt;">{{ $item['productCode'] }}</div>
-                        @if(!empty($item['isPair']))
-                            <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt; margin-top: 1pt !important;">Pair</div>
-                        @elseif(!empty($item['customSizeLabel']))
-                            <div class="mrp-code-line" style="text-align: left; margin: 0; padding-left: 6pt; margin-top: 1pt !important;">{{ $item['customSizeLabel'] }}</div>
-                        @endif
-                    </td>
-                    <!-- Zone 3: Blank Tail Area (Right Section) -->
-                    <td class="zone-tail-td">
-                        <!-- Tail section is completely blank -->
-                    </td>
-                </tr>
-            @endfor
-        @endforeach
-    </table>
+    @php
+        $counter = 0;
+    @endphp
+    @foreach($printItems as $item)
+        @for($i = 0; $i < $item['qty']; $i++)
+            @php $counter++; @endphp
+            @if($counter > 1)
+                <div class="page-break"></div>
+            @endif
+            <div class="page-wrapper">
+                <table class="label-table" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <!-- Zone 1: Code + Barcode + Category (Left Section) -->
+                        <td class="zone-front">
+                            <div class="code-line">{{ trim($item['barcodeText']) }}</div>
+                            <div class="barcode-container">
+                                <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" />
+                            </div>
+                            <div class="category-line" style="font-size: {{ $item['categoryFontSize'] ?? 8.5 }}pt !important;">{{ trim($item['category']) }}</div>
+                        </td>
+                        <!-- Zone 2: MRP (Center Section) -->
+                        <td class="zone-back">
+                            <div class="mrp-line">MRP:{{ $item['salePrice'] }}</div>
+                            <div class="mrp-code-line">{{ $item['productCode'] }}</div>
+                            @if(!empty($item['isPair']))
+                                <div class="mrp-code-line">Pair</div>
+                            @elseif(!empty($item['customSizeLabel']))
+                                <div class="mrp-code-line">{{ $item['customSizeLabel'] }}</div>
+                            @endif
+                        </td>
+                        <!-- Zone 3: Blank Tail Area (Right Section) -->
+                        <td class="zone-tail"></td>
+                    </tr>
+                </table>
+            </div>
+        @endfor
+    @endforeach
 </body>
 </html>

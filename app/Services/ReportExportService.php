@@ -421,7 +421,8 @@ class ReportExportService
         foreach ($transfers as $index => $transfer) {
             $totalAmount = $transfer->items->sum(function ($item) {
                 $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                return $price * $item->quantity;
+                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
+                return $price * $multiplier * $item->quantity;
             });
 
             $sheet->setCellValue('A' . $row, $index + 1);
@@ -642,6 +643,23 @@ class ReportExportService
         $spreadsheet->setActiveSheetIndex(0);
 
         return $spreadsheet;
+    }
+
+    protected function stockMultiplierFor($product, ?string $pairType, $customSizeValue = null): float
+    {
+        if ($customSizeValue !== null && $customSizeValue !== '' && is_numeric($customSizeValue)) {
+            $val = (float) $customSizeValue;
+            if ($val > 0) {
+                return $val;
+            }
+        }
+        if ($product && !empty($product->pair_product) && !empty($product->custom_sizes)) {
+            $maxSize = collect($product->custom_sizes)->pluck('size')->max();
+            if ($maxSize && (float)$maxSize > 0) {
+                return (float)$maxSize;
+            }
+        }
+        return ($pairType === 'pair') ? 2.0 : 1.0;
     }
 
 }

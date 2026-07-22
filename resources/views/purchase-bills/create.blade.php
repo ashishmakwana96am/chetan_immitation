@@ -255,6 +255,7 @@ $(document).ready(function () {
                     return [
                         'id' => $v->id,
                         'purchase_price' => $v->purchase_price,
+                        'custom_sizes' => $v->custom_sizes ?? [],
                         'attr_name' => $v->attributeValue->attribute->name ?? '',
                         'value_name' => $v->attributeValue->value ?? '',
                     ];
@@ -316,6 +317,26 @@ $(document).ready(function () {
         return free ? free.id : null;
     }
 
+    function getEffectiveCustomSizes(product, variantId) {
+        if (variantId && product.variants) {
+            const variant = product.variants.find(v => v.id == variantId);
+            if (variant && variant.custom_sizes && variant.custom_sizes.length) {
+                return variant.custom_sizes;
+            }
+        }
+        return product.custom_sizes || [];
+    }
+
+    function buildTransferSizeToggleHtml(sizes, defSize) {
+        let sizeHtml = `<div class="size-toggle" data-selected="${defSize}">`;
+        sizes.forEach(function (cs) {
+            const active = defSize && defSize == cs.size ? 'active' : '';
+            sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
+        });
+        sizeHtml += `</div>`;
+        return sizeHtml;
+    }
+
     function addItemRow(product, selectedVariantId = null) {
         let initialVariantId = null;
 
@@ -353,16 +374,13 @@ $(document).ready(function () {
             row.data('variant-id', row.find('.variant-select').val() || null);
         }
 
-        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
-            const firstSizeVal = product.custom_sizes[0].size;
-            let sizeHtml = `<div class="size-toggle" data-selected="${firstSizeVal}">`;
-            product.custom_sizes.forEach(function (cs, idx) {
-                const active = idx === 0 ? 'active' : '';
-                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}">${cs.size} pcs</button>`;
-            });
-            sizeHtml += `</div>`;
-            row.find('.size-select-container').html(sizeHtml);
-            row.data('custom-size-value', firstSizeVal);
+        if (product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, initialVariantId);
+            if (effectiveSizes.length) {
+                const firstSizeVal = effectiveSizes[0].size;
+                row.find('.size-select-container').html(buildTransferSizeToggleHtml(effectiveSizes, firstSizeVal));
+                row.data('custom-size-value', firstSizeVal);
+            }
         }
 
         updateRowPrice(row);
@@ -637,6 +655,20 @@ $(document).ready(function () {
             variantId = null;
         }
         row.data('variant-id', variantId);
+
+        // Pack sizes can differ per variant — rebuild the toggle for the new variant,
+        // trying to keep the same size selected if it still exists.
+        if (product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            if (effectiveSizes.length) {
+                const currentSize = parseFloat(row.data('custom-size-value'));
+                const stillValid = effectiveSizes.find(cs => cs.size == currentSize);
+                const defSize = stillValid ? currentSize : effectiveSizes[0].size;
+                row.find('.size-select-container').html(buildTransferSizeToggleHtml(effectiveSizes, defSize));
+                row.data('custom-size-value', defSize);
+            }
+        }
+
         refreshRowStock(row);
         updateRowPrice(row);
     });

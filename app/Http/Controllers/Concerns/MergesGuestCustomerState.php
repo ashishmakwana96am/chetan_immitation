@@ -57,10 +57,14 @@ trait MergesGuestCustomerState
         if ($pendingWishlist) {
             $data = json_decode($pendingWishlist, true);
             if ($data && isset($data['product_id'])) {
-                $existing = Wishlist::where('customer_id', $customer->id)
+                $existing = Wishlist::withTrashed()
+                    ->where('customer_id', $customer->id)
                     ->where('product_id', $data['product_id'])
                     ->first();
                 if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
                     $existing->update([
                         'product_variant_id' => $data['product_variant_id'] ?? null,
                     ]);

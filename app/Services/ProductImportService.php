@@ -102,6 +102,10 @@ class ProductImportService
             'salemultiplier'         => 'sale_multiplier',
             'mrpmultiplier'          => 'mrp_multiplier',
             'pairproduct'            => 'pair_product',
+            'pairsizes'              => 'pair_sizes',
+            'pairsize'               => 'pair_sizes',
+            'customsizes'            => 'pair_sizes',
+            'sizes'                  => 'pair_sizes',
             'producttype'            => 'product_type',
             'productvariant'         => 'product_variant',
             'productvarient'         => 'product_variant',
@@ -147,8 +151,6 @@ class ProductImportService
                 continue;
             }
 
-            // Merged Category cells only carry a value on their first row —
-            // every row underneath the merge reads blank, so inherit forward.
             $categoryName = trim($row['category'] ?? '');
             if ($categoryName !== '') {
                 $lastCategoryName = $categoryName;
@@ -174,6 +176,7 @@ class ProductImportService
                     'sale_multiplier'     => trim($row['sale_multiplier'] ?? ''),
                     'mrp_multiplier'      => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'        => $this->toBool($row['pair_product'] ?? ''),
+                    'pair_sizes'          => trim($row['pair_sizes'] ?? ''),
                     'product_type'        => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
                     'dimensions'          => [],
                     'dimension_error'     => null,
@@ -181,7 +184,6 @@ class ProductImportService
             }
 
             if ($current === null) {
-                // A continuation row with no product context yet — nothing to attach it to.
                 $skipped++;
                 continue;
             }
@@ -204,13 +206,6 @@ class ProductImportService
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
     }
 
-    /**
-     * Parses "Product Variant" (comma-separated attribute names, e.g. "Color,Size,Design")
-     * together with "Product Variant Value" (pipe-separated value groups matching each
-     * attribute, e.g. "Gold,Rose Gold,Pink | 2.2,2.4,2.6 | Round,Oval") and merges the
-     * parsed values into $group['dimensions']. Returns an error message if the number of
-     * attributes doesn't match the number of value groups, or null on success/no-op.
-     */
     private function applyVariantDimensions(array &$group, array $row): ?string
     {
         $variantNamesRaw = trim($row['product_variant'] ?? '');

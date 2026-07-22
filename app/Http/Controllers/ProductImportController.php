@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ProductImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -53,39 +54,91 @@ class ProductImportController extends Controller
 
         $columns = [
             'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',
-            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier', 'Pair Product',
+            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier', 'Pair Product', 'Pair Sizes',
             'Product Type', 'Product Variant', 'Product Variant Value',
         ];
 
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '2.5', '4.125', '4.575', 'F', 'N', '', ''],
-            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '2.5', '4.125', '4.575', 'F', 'N', '', ''],
-            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '2.5', '4.125', '4.575', 'T', 'V', 'Color', 'Gold,Rose Gold'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '2.5', '4.125', '4.575', 'F', 'V', 'Size', '2.6,3.2,3.5'],
-            ['Rings', 'Fancy Ring', 'Fancy Ring Combo', 'BAR005', '120', '2.5', '4.125', '4.575', 'F', 'V', 'Color,Size', 'Gold,Rose Gold|2.2,2.4'],
+            // Normal products — Pair Sizes is blank
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular',        'BAR001', '100', '2.5', '4.125', '4.575', 'F', '',    'N', '',           ''],
+            ['',         'Short Necklace (A)', 'Short Necklace Antique',         'BAR002', '110', '2.5', '4.125', '4.575', 'F', '',    'N', '',           ''],
+            // Pair product with sizes 2 & 4 — prices auto-calculated (proportional to size)
+            ['',         'Long Necklace (R)',  'Long Necklace Regular (Pair)',   'BAR003', '150', '2.5', '4.125', '4.575', 'T', '2,4', 'V', 'Color',      'Gold,Rose Gold'],
+            // Pair product with single size
+            ['',         'Long Necklace (A)',  'Long Necklace Antique (Pair)',   'BAR006', '180', '2.5', '4.125', '4.575', 'T', '2',   'N', '',           ''],
+            // Normal variable products
+            ['Bangles & Kada', 'Bangal (R)',   'Bangal Regular',                'BAR004',  '90', '2.5', '4.125', '4.575', 'F', '',    'V', 'Size',        '2.6,3.2,3.5'],
+            ['Rings',    'Fancy Ring',          'Fancy Ring Combo',              'BAR005', '120', '2.5', '4.125', '4.575', 'F', '',    'V', 'Color,Size',  'Gold,Rose Gold|2.2,2.4'],
         ];
 
         $spreadsheet = new Spreadsheet();
+
+        // ── Sheet 1: Products ──────────────────────────────────────────────
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Products');
 
         $sheet->fromArray($columns, null, 'A1');
-        $sheet->fromArray($rows, null, 'A2');
+        $sheet->fromArray($rows,    null, 'A2');
 
-        $lastColumn = chr(ord('A') + count($columns) - 1);
+        $colCount   = count($columns);
+        $lastColumn = Coordinate::stringFromColumnIndex($colCount);
         $dataEndRow = 1 + count($rows);
 
+        // Header row styling
         $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);
         $sheet->getStyle('A1:' . $lastColumn . '1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        foreach (range('A', $lastColumn) as $col) {
+
+        // Auto-size columns
+        for ($i = 1; $i <= $colCount; $i++) {
+            $col = Coordinate::stringFromColumnIndex($i);
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
+
+        // Borders
         $sheet->getStyle('A1:' . $lastColumn . $dataEndRow)
             ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
+        // ── Sheet 2: Instructions ──────────────────────────────────────────
+        $notes = $spreadsheet->createSheet();
+        $notes->setTitle('Instructions');
+
+        $instructions = [
+            ['Column',            'Required?', 'Description'],
+            ['Category',          'Yes',       'Category name. Leave blank to inherit from the row above (for merged cells).'],
+            ['Sub Category',      'No',        'Sub-category name.'],
+            ['Product Name',      'Yes',       'Full product name. A new product group starts on each row that has a name.'],
+            ['Barcode',           'Yes',       'Unique barcode/SKU.'],
+            ['Product Code',      'Yes',       'Numeric base code used to calculate prices (e.g. 100).'],
+            ['Purchase Multiplier','No',       'Default: 2.5  — purchase_price = code x multiplier.'],
+            ['Sale Multiplier',   'No',        'Default: 4.125'],
+            ['MRP Multiplier',    'No',        'Default: 4.575'],
+            ['Pair Product',      'No',        'T / TRUE / 1 / YES = pair product. Anything else = normal.'],
+            ['Pair Sizes',        'No',        'Comma-separated sizes for pair products (e.g. 2,4). Prices auto-calculated — leave blank for non-pair products.'],
+            ['Product Type',      'No',        'N = Normal, V = Variable.'],
+            ['Product Variant',   'No',        'Comma-separated attribute names (e.g. Color,Size).'],
+            ['Product Variant Value', 'No',    'Pipe-separated value groups matching each attribute (e.g. Gold,Rose Gold|2.2,2.4).'],
+        ];
+
+        $notes->fromArray($instructions, null, 'A1');
+
+        $notes->getStyle('A1:C1')->getFont()->setBold(true);
+        $notes->getStyle('A1:C1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+
+        foreach (['A', 'B', 'C'] as $col) {
+            $notes->getColumnDimension($col)->setAutoSize(true);
+        }
+        $notes->getStyle('A1:C' . count($instructions))
+            ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        // Wrap text in description column
+        $notes->getStyle('C1:C' . count($instructions))->getAlignment()->setWrapText(true);
+
+        $spreadsheet->setActiveSheetIndex(0);
+
         $headers = [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="sample_product_import.xlsx"',
         ];
 

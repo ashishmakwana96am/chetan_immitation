@@ -145,16 +145,18 @@
                                 </div>
                                 <div id="variantsContainer">
                                     <label class="form-label">Variants</label>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-sm mb-0" id="variantsTable">
+                                    <div class="table-responsive variants-table-wrap">
+                                        <table class="table table-bordered table-sm mb-0 align-middle" id="variantsTable">
                                             <thead class="table-light">
-                                                <tr id="variantsHeader">
+                                                <tr id="variantsHeaderGroup">
                                                     <th style="width:50px">#</th>
-                                                    <th>Attribute Values</th>
+                                                    <th>Attribute</th>
+                                                    <th>Value</th>
                                                     <th style="width:150px">Purchase Price <span class="text-danger">*</span></th>
                                                     <th style="width:150px">Sale Price <span class="text-danger">*</span></th>
                                                     <th style="width:60px">Action</th>
                                                 </tr>
+                                                <tr id="variantsHeader" class="d-none"></tr>
                                             </thead>
                                             <tbody id="variantsBody"></tbody>
                                         </table>
@@ -337,6 +339,17 @@
         }
         .pair-mode-toggle .pair-mode-btn + .pair-mode-btn { border-left: 1.5px solid #B4771E; }
         .pair-mode-toggle .pair-mode-btn.active { background: #B4771E; color: #fff; }
+
+        .variants-table-wrap { overflow-x: auto; }
+        .variants-table-wrap table#variantsTable { font-size: .82rem; width: auto; min-width: 100%; }
+        .variants-table-wrap table#variantsTable th, .variants-table-wrap table#variantsTable td { vertical-align: middle; padding: .45rem .5rem; white-space: nowrap; }
+        .variants-table-wrap table#variantsTable .input-group-text { padding: .25rem .5rem; font-size: .78rem; }
+        .variants-table-wrap table#variantsTable .input-group { min-width: 100px; }
+        .variants-table-wrap table#variantsTable .form-control { padding: .3rem .45rem; font-size: .8rem; min-width: 55px; }
+        .variants-table-wrap table#variantsTable th.size-group-header {
+            background: #fcf6ed; color: #8a5a15; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: .74rem;
+        }
+        .variants-table-wrap table#variantsTable .size-group-start { border-left: 2px solid #e7c98d !important; }
     </style>
 @endsection
 
@@ -703,6 +716,13 @@
                     }
                 }
 
+                if ($('#productType').val() === 'variable' && variantsData.length) {
+                    variantsData.forEach(function (v) {
+                        (v.custom_sizes || []).forEach(function (cs) { delete cs.manual; });
+                    });
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                }
+
                 const form     = $(this);
                 const formData = new FormData(this);
 
@@ -788,12 +808,71 @@
                 return { attrName: '', valName: '' };
             }
 
+            function getProductCustomSizeRow(size) {
+                try {
+                    const rows = JSON.parse($('#customSizesJson').val() || '[]');
+                    return rows.find(function (r) { return r.size === size; }) || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function ensureVariantSizesSynced() {
+                variantsData.forEach(function (v) {
+                    if (!Array.isArray(v.custom_sizes)) v.custom_sizes = [];
+                    v.custom_sizes = v.custom_sizes.filter(function (cs) { return customSizesList.includes(cs.size); });
+                    customSizesList.forEach(function (size) {
+                        const existing = v.custom_sizes.find(function (cs) { return cs.size === size; });
+                        const productRow = getProductCustomSizeRow(size);
+                        if (!existing) {
+                            v.custom_sizes.push({
+                                size: size,
+                                sale_price: productRow ? productRow.sale_price : 0,
+                                mrp: productRow ? productRow.mrp : 0,
+                                manual: false
+                            });
+                        } else if (!existing.manual && productRow) {
+                            if (productRow.sale_price !== null && productRow.sale_price !== undefined) existing.sale_price = productRow.sale_price;
+                            if (productRow.mrp !== null && productRow.mrp !== undefined) existing.mrp = productRow.mrp;
+                        }
+                    });
+                    v.custom_sizes.sort(function (a, b) { return a.size - b.size; });
+                    if (v.custom_sizes.length) {
+                        v.sale_price = v.custom_sizes[0].sale_price;
+                    }
+                });
+            }
+
             function renderVariantsTable() {
-                let headerHtml = '<th style="width:50px">#</th><th>Attribute</th><th>Value</th>';
-                headerHtml += '<th style="width:200px">Purchase Price <span class="text-danger">*</span></th>';
-                headerHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
-                headerHtml += '<th style="width:60px">Action</th>';
-                $('#variantsHeader').html(headerHtml);
+                const isPair = $('#productPair').is(':checked');
+                if (isPair) {
+                    ensureVariantSizesSynced();
+                }
+
+                let groupHtml = '';
+                let subHeaderHtml = '';
+
+                if (isPair) {
+                    groupHtml += '<th rowspan="2" style="width:40px">#</th>';
+                    groupHtml += '<th rowspan="2">Attribute</th>';
+                    groupHtml += '<th rowspan="2">Value</th>';
+                    groupHtml += '<th rowspan="2" style="width:140px">Purchase Price <span class="text-danger">*</span></th>';
+                    customSizesList.forEach(function (size, sizeIdx) {
+                        const startCls = sizeIdx > 0 ? ' size-group-start' : '';
+                        groupHtml += '<th colspan="2" class="text-center size-group-header' + startCls + '">' + size + ' PCS</th>';
+                        subHeaderHtml += '<th style="width:110px" class="text-center' + startCls + '">Sale <span class="text-danger">*</span></th>';
+                        subHeaderHtml += '<th style="width:110px" class="text-center">MRP <span class="text-danger">*</span></th>';
+                    });
+                    groupHtml += '<th rowspan="2" style="width:55px">Action</th>';
+                } else {
+                    groupHtml += '<th style="width:40px">#</th><th>Attribute</th><th>Value</th>';
+                    groupHtml += '<th style="width:180px">Purchase Price <span class="text-danger">*</span></th>';
+                    groupHtml += '<th style="width:200px">Sale Price <span class="text-danger">*</span></th>';
+                    groupHtml += '<th style="width:60px">Action</th>';
+                }
+
+                $('#variantsHeaderGroup').html(groupHtml);
+                $('#variantsHeader').html(subHeaderHtml).toggleClass('d-none', !isPair);
 
                 if (!variantsData || variantsData.length === 0) {
                     $('#variantsBody').empty();
@@ -808,9 +887,17 @@
                         '<td>' + (idx + 1) + '</td>' +
                         '<td>' + info.attrName + '</td>' +
                         '<td>' + info.valName + '</td>' +
-                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-purchase" value="' + v.purchase_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
-                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + v.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>' +
-                        '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
+                        '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-purchase" value="' + v.purchase_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>';
+                    if (isPair) {
+                        (v.custom_sizes || []).forEach(function (cs, sizeIdx) {
+                            const startCls = sizeIdx > 0 ? ' size-group-start' : '';
+                            bodyHtml += '<td class="' + startCls.trim() + '"><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-size-sale" value="' + cs.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" data-size-index="' + sizeIdx + '" /></div></td>';
+                            bodyHtml += '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-size-mrp" value="' + cs.mrp + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" data-size-index="' + sizeIdx + '" /></div></td>';
+                        });
+                    } else {
+                        bodyHtml += '<td><div class="input-group input-group-sm"><span class="input-group-text">{{ currency_symbol() }}</span><input type="number" class="form-control form-control-sm variant-sale" value="' + v.sale_price + '" placeholder="0.00" step="0.01" min="0" data-index="' + idx + '" /></div></td>';
+                    }
+                    bodyHtml += '<td><button type="button" class="btn btn-sm btn-icon text-danger remove-variant" data-index="' + idx + '"><i class="ti ti-trash"></i></button></td>' +
                         '</tr>';
                 });
                 $('#variantsBody').html(bodyHtml);
@@ -869,6 +956,31 @@
                 if (variantsData[idx]) {
                     variantsData[idx].sale_price = parseFloat($(this).val()) || 0;
                     $('#variantsJson').val(JSON.stringify(variantsData));
+                }
+            });
+
+            $(document).on('input', '.variant-size-sale', function () {
+                const idx = $(this).data('index');
+                const sizeIdx = $(this).data('size-index');
+                if (variantsData[idx] && variantsData[idx].custom_sizes && variantsData[idx].custom_sizes[sizeIdx]) {
+                    variantsData[idx].custom_sizes[sizeIdx].sale_price = parseFloat($(this).val()) || 0;
+                    variantsData[idx].custom_sizes[sizeIdx].manual = true;
+                    if (sizeIdx === 0) {
+                        variantsData[idx].sale_price = variantsData[idx].custom_sizes[0].sale_price;
+                    }
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                    // Note: does NOT sync back to top-level fields — top fields drive variants, not vice versa
+                }
+            });
+
+            $(document).on('input', '.variant-size-mrp', function () {
+                const idx = $(this).data('index');
+                const sizeIdx = $(this).data('size-index');
+                if (variantsData[idx] && variantsData[idx].custom_sizes && variantsData[idx].custom_sizes[sizeIdx]) {
+                    variantsData[idx].custom_sizes[sizeIdx].mrp = parseFloat($(this).val()) || 0;
+                    variantsData[idx].custom_sizes[sizeIdx].manual = true;
+                    $('#variantsJson').val(JSON.stringify(variantsData));
+                    // Note: does NOT sync back to top-level fields — top fields drive variants, not vice versa
                 }
             });
 
@@ -994,6 +1106,9 @@
                     renderCustomSizeBadges();
                     $('#customSizeRows').empty();
                     $('#customSizesJson').val('');
+                    if ($('#productType').val() === 'variable') {
+                        renderVariantsTable();
+                    }
                 }
                 updatePairModeUI();
                 $('#productCodeInput').trigger('change');
@@ -1151,6 +1266,10 @@
 
                 syncCustomSizesJson();
                 cascadeFromFirstCustomSize();
+
+                if ($('#productType').val() === 'variable') {
+                    renderVariantsTable();
+                }
             }
 
             function cascadeFromFirstCustomSize() {
@@ -1170,7 +1289,7 @@
                 });
             }
 
-            function syncCustomSizesJson() {
+            function syncCustomSizesJson(skipTableRender) {
                 const rows = [];
                 $('#customSizeRows .custom-size-sale-field').each(function () {
                     const index = $(this).data('index');
@@ -1183,6 +1302,10 @@
                 });
                 $('#customSizesJson').val(JSON.stringify(rows));
                 syncBasePriceFromCustomSizes();
+
+                if (!skipTableRender && $('#productType').val() === 'variable' && variantsData.length) {
+                    renderVariantsTable();
+                }
             }
 
             function syncBasePriceFromCustomSizes() {

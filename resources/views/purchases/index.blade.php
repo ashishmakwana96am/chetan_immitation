@@ -588,12 +588,13 @@
                         toggleAmount();
                         statusSelect.addEventListener('change', toggleAmount);
                     },
+                    showLoaderOnConfirm: true,
                     preConfirm: () => {
                         const status = document.getElementById('swal-payment-status').value;
                         const amount = document.getElementById('swal-payment-amount').value;
                         if (status === '3') {
                             if (!amount || parseFloat(amount) <= 0) {
-                                Swal.showValidationMessage('Please enter a valid amount paid.');
+                                Swal.showValidationMessage('The amount field must be at least 0.01.');
                                 return false;
                             }
                             const balanceDue = historyData ? parseFloat(historyData.balance_due_raw) : null;
@@ -602,34 +603,49 @@
                                 return false;
                             }
                         }
-                        return { status, amount };
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed && result.value) {
-                        window.showAjaxLoader();
-                        $.ajax({
+
+                        return $.ajax({
                             url: url,
                             type: 'PATCH',
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
-                                payment_status: result.value.status,
-                                amount: result.value.amount
-                            },
-                            success: function (res) {
-                                window.hideAjaxLoader();
-                                if (res.status === 'success') {
-                                    toastr.success(res.message);
-                                    window.refreshTable();
-                                } else {
-                                    toastr.error(res.message || 'Something went wrong.');
-                                }
-                            },
-                            error: function (xhr) {
-                                window.hideAjaxLoader();
-                                const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                                toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                                payment_status: status,
+                                amount: amount
                             }
+                        }).then(function (res) {
+                            if (res.status !== 'success') {
+                                Swal.showValidationMessage(res.message || 'Something went wrong.');
+                                return false;
+                            }
+                            return res;
+                        }).catch(function (xhr) {
+                            const resJson = xhr.responseJSON;
+                            let msg = 'Something went wrong. Please try again.';
+                            if (resJson) {
+                                if (typeof resJson.message === 'string' && resJson.message.trim() !== '') {
+                                    msg = resJson.message;
+                                } else if (resJson.message && typeof resJson.message === 'object') {
+                                    const keys = Object.keys(resJson.message);
+                                    if (keys.length) {
+                                        const val = resJson.message[keys[0]];
+                                        msg = Array.isArray(val) ? val[0] : String(val);
+                                    }
+                                } else if (resJson.errors && typeof resJson.errors === 'object') {
+                                    const keys = Object.keys(resJson.errors);
+                                    if (keys.length) {
+                                        const val = resJson.errors[keys[0]];
+                                        msg = Array.isArray(val) ? val[0] : String(val);
+                                    }
+                                }
+                            }
+                            Swal.showValidationMessage(msg);
+                            return false;
                         });
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        toastr.success(result.value.message || 'Payment status updated successfully.');
+                        window.refreshTable();
                     }
                 });
             }

@@ -109,8 +109,6 @@ document.addEventListener('DOMContentLoaded', function () {
         resetFileState();
     });
 
-    // Reset the whole panel every time it's opened, so a previous import's
-    // file/progress state never lingers into the next use.
     document.getElementById('productImportOffcanvas')?.addEventListener('show.bs.offcanvas', function () {
         fileInput.val('');
         resetFileState();

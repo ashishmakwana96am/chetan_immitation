@@ -45,14 +45,8 @@ class CartItem extends Model
     public function getPrice(): float
     {
         $product = $this->product;
-        $variant = $this->productVariant;
-        
         if (!$product) {
             return 0.0;
-        }
-
-        if ($variant) {
-            return (float) $variant->sale_price;
         }
 
         if ($product->pair_product) {
@@ -62,20 +56,20 @@ class CartItem extends Model
             }
         }
 
+        $variant = $this->productVariant;
+        if ($variant) {
+            return (float) $variant->sale_price;
+        }
+
         return (float) $product->sale_price;
     }
 
     public function getMrp(): float
     {
         $product = $this->product;
-        $variant = $this->productVariant;
-        
+
         if (!$product) {
             return 0.0;
-        }
-
-        if ($variant) {
-            return (float) $product->mrp;
         }
 
         if ($product->pair_product) {
@@ -90,16 +84,20 @@ class CartItem extends Model
 
     private function matchingCustomSize(Product $product): ?array
     {
+        // A variant with its own pack-size pricing overrides the product's shared list.
+        $variant = $this->productVariant;
+        $sizes = ($variant && !empty($variant->custom_sizes)) ? $variant->custom_sizes : ($product->custom_sizes ?? []);
+
         $value = (float) $this->custom_size_value;
 
         if ($value > 0) {
-            foreach ($product->custom_sizes ?? [] as $row) {
+            foreach ($sizes as $row) {
                 if (abs((float) ($row['size'] ?? 0) - $value) < 0.001) {
                     return $row;
                 }
             }
         }
 
-        return collect($product->custom_sizes ?? [])->sortBy(fn($r) => (float)($r['size'] ?? 0))->first();
+        return collect($sizes)->sortBy(fn($r) => (float)($r['size'] ?? 0))->first();
     }
 }

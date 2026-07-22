@@ -145,6 +145,7 @@ class Product extends Model
     public function getVariantStock($locationId = null)
     {
         $variants = $this->variants()->with('attributeValue.attribute')->get();
+        $variantsById = $variants->keyBy('id');
 
         $locations = Location::when($locationId, function ($q) use ($locationId) {
             $q->where('id', $locationId);
@@ -180,12 +181,13 @@ class Product extends Model
         foreach ($purchaseAllocations as $alloc) {
             $locId = $alloc->location_id;
             $vId = $alloc->purchaseItem->product_variant_id;
+            $qty = (int) round($alloc->quantity * $this->purchasePairMultiplier($alloc->purchaseItem->custom_size_value, $variantsById->get($vId)));
             if (isset($purchasedQty[$locId])) {
                 if ($vId && isset($purchasedQty[$locId][$vId])) {
-                    $purchasedQty[$locId][$vId] += $alloc->quantity;
-                    $purchasedQty[$locId]['parent'] += $alloc->quantity;
+                    $purchasedQty[$locId][$vId] += $qty;
+                    $purchasedQty[$locId]['parent'] += $qty;
                 } else if (!$vId) {
-                    $purchasedQty[$locId]['parent'] += $alloc->quantity;
+                    $purchasedQty[$locId]['parent'] += $qty;
                 }
             }
         }
@@ -200,12 +202,13 @@ class Product extends Model
         foreach ($orderItems as $item) {
             $locId = $item->order->location_id;
             $vId = $item->product_variant_id;
+            $qty = (int) round($item->quantity * $this->orderPairMultiplier($item->pair_type, $item->custom_size_value));
             if (isset($soldQty[$locId])) {
                 if ($vId && isset($soldQty[$locId][$vId])) {
-                    $soldQty[$locId][$vId] += $item->quantity;
-                    $soldQty[$locId]['parent'] += $item->quantity;
+                    $soldQty[$locId][$vId] += $qty;
+                    $soldQty[$locId]['parent'] += $qty;
                 } else if (!$vId) {
-                    $soldQty[$locId]['parent'] += $item->quantity;
+                    $soldQty[$locId]['parent'] += $qty;
                 }
             }
         }
@@ -221,22 +224,23 @@ class Product extends Model
             $vId = $item->product_variant_id;
             $fromLocId = $item->transfer->from_location_id;
             $toLocId = $item->transfer->to_location_id;
+            $qty = (int) round($item->quantity * $this->orderPairMultiplier($item->pair_type, $item->custom_size_value));
 
             if (isset($transferredOutQty[$fromLocId])) {
                 if ($vId && isset($transferredOutQty[$fromLocId][$vId])) {
-                    $transferredOutQty[$fromLocId][$vId] += $item->quantity;
-                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
+                    $transferredOutQty[$fromLocId][$vId] += $qty;
+                    $transferredOutQty[$fromLocId]['parent'] += $qty;
                 } else if (!$vId) {
-                    $transferredOutQty[$fromLocId]['parent'] += $item->quantity;
+                    $transferredOutQty[$fromLocId]['parent'] += $qty;
                 }
             }
 
             if (isset($transferredInQty[$toLocId])) {
                 if ($vId && isset($transferredInQty[$toLocId][$vId])) {
-                    $transferredInQty[$toLocId][$vId] += $item->quantity;
-                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
+                    $transferredInQty[$toLocId][$vId] += $qty;
+                    $transferredInQty[$toLocId]['parent'] += $qty;
                 } else if (!$vId) {
-                    $transferredInQty[$toLocId]['parent'] += $item->quantity;
+                    $transferredInQty[$toLocId]['parent'] += $qty;
                 }
             }
         }
@@ -271,6 +275,47 @@ class Product extends Model
         }
 
         return $locationId ? ($result[$locationId] ?? null) : $result;
+    }
+
+    /**
+     * Pack-size multiplier for a purchase line (mirrors PurchaseStockService::multiplierFor):
+     * an explicit custom_size_value wins, else the largest configured pack size (the
+     * variant's own list if it has one, else the product's shared list), else 2.
+     */
+    private function purchasePairMultiplier($customSizeValue, ?ProductVariant $variant = null): float
+    {
+        if (!$this->pair_product) {
+            return 1.0;
+        }
+
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
+        $sizesSource = ($variant && !empty($variant->custom_sizes)) ? $variant->custom_sizes : ($this->custom_sizes ?? []);
+        $sizes = collect($sizesSource)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+        if ($sizes->count() > 0) {
+            return (float) $sizes->max();
+        }
+
+        return 2.0;
+    }
+
+    /**
+     * Pack-size multiplier for a sale/transfer line (mirrors SaleController/PurchaseBillController
+     * stockMultiplierFor): an explicit custom_size_value wins, else pair_type='pair' means 2, else 1.
+     */
+    private function orderPairMultiplier(?string $pairType, $customSizeValue): float
+    {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
+        if (!$this->pair_product) {
+            return 1.0;
+        }
+
+        return $pairType === 'pair' ? 2.0 : 1.0;
     }
 
     public function getIsVariableAttribute()

@@ -441,7 +441,7 @@ $(document).ready(function () {
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
 
-        if (product && product.pair_product && product.pair_mode !== 'custom_size' && !isPair) {
+        if (product && product.pair_product && !(product.custom_sizes && product.custom_sizes.length) && !isPair) {
             purchasePrice = purchasePrice / 2;
         }
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
@@ -591,6 +591,27 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
+    // A variant with its own pack-size list overrides the product's shared list.
+    function getEffectiveCustomSizes(product, variantId) {
+        if (variantId && product.variants) {
+            const variant = product.variants.find(v => v.id == variantId);
+            if (variant && variant.custom_sizes && variant.custom_sizes.length) {
+                return variant.custom_sizes;
+            }
+        }
+        return product.custom_sizes || [];
+    }
+
+    function buildSizeToggleHtml(sizes, defSize) {
+        let sizeHtml = `<div class="size-toggle mt-1">`;
+        sizes.forEach(cs => {
+            const active = defSize && defSize == cs.size ? 'active' : '';
+            sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}">${cs.size} pcs</button>`;
+        });
+        sizeHtml += `</div>`;
+        return sizeHtml;
+    }
+
     function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single', customSizeValue = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
@@ -637,20 +658,17 @@ $(document).ready(function () {
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
-        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
-            const defSize = customSizeValue || product.custom_sizes[0].size;
-            let sizeHtml = `<div class="size-toggle mt-1">`;
-            product.custom_sizes.forEach(cs => {
-                const active = defSize && defSize == cs.size ? 'active' : '';
-                sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}">${cs.size} pcs</button>`;
-            });
-            sizeHtml += `</div>`;
-            row.find('.pair-type-container').html(sizeHtml);
-            row.find('.custom-size-value-input').val(defSize);
+        if (product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, row.data('variant-id'));
+            if (effectiveSizes.length) {
+                const defSize = customSizeValue || effectiveSizes[0].size;
+                row.find('.pair-type-container').html(buildSizeToggleHtml(effectiveSizes, defSize));
+                row.find('.custom-size-value-input').val(defSize);
 
-            const matchedSize = defSize ? product.custom_sizes.find(cs => cs.size == defSize) : null;
-            if (matchedSize && price == null) {
-                setItemPrice(row, matchedSize.sale_price);
+                const matchedSize = defSize ? effectiveSizes.find(cs => cs.size == defSize) : null;
+                if (matchedSize && price == null) {
+                    setItemPrice(row, matchedSize.sale_price);
+                }
             }
         }
 
@@ -667,14 +685,33 @@ $(document).ready(function () {
 
     $(document).on('change', '.variant-select', function() {
         const row = $(this).closest('.item-row');
+        const product = row.data('product');
         const selectedOpt = $(this).find('option:selected');
         const variantId = selectedOpt.val();
-        const price = selectedOpt.data('price');
-        
+        const variantPrice = selectedOpt.data('price');
+
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
         row.data('purchase-price', selectedOpt.data('purchase-price'));
-        setItemPrice(row, price);
+
+        // Pack sizes/prices can differ per variant — rebuild the toggle for the new variant,
+        // trying to keep the same size selected if it still exists.
+        if (product && product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            if (effectiveSizes.length) {
+                const currentSize = parseFloat(row.find('.custom-size-value-input').val());
+                const stillValid = effectiveSizes.find(cs => cs.size == currentSize);
+                const defSize = stillValid ? currentSize : effectiveSizes[0].size;
+                row.find('.pair-type-container').html(buildSizeToggleHtml(effectiveSizes, defSize));
+                row.find('.custom-size-value-input').val(defSize);
+                const matchedSize = effectiveSizes.find(cs => cs.size == defSize);
+                setItemPrice(row, matchedSize ? matchedSize.sale_price : variantPrice);
+            } else {
+                setItemPrice(row, variantPrice);
+            }
+        } else {
+            setItemPrice(row, variantPrice);
+        }
 
         updateRowTotal(row);
         updateStockInfo(row);

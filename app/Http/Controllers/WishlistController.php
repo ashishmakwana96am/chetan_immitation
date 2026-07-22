@@ -64,25 +64,32 @@ class WishlistController extends Controller
         $customer  = Auth::guard('customer')->user();
         $variantId = $request->input('product_variant_id') ?: null;
 
-        $rows = Wishlist::where('customer_id', $customer->id)
+        // Query all records including soft-deleted ones to avoid unique key constraint violations
+        $rows = Wishlist::withTrashed()
+            ->where('customer_id', $customer->id)
             ->where('product_id', $request->product_id)
             ->orderByDesc('id')
             ->get();
 
         if ($rows->count() > 1) {
             $keep = $rows->first();
-            Wishlist::where('customer_id', $customer->id)
+            Wishlist::withTrashed()
+                ->where('customer_id', $customer->id)
                 ->where('product_id', $request->product_id)
                 ->where('id', '!=', $keep->id)
-                ->delete();
-            $existing = $keep->fresh();
+                ->forceDelete();
+            $existing = $keep;
         } else {
             $existing = $rows->first();
         }
 
         if ($existing) {
-            if ((string) $existing->product_variant_id === (string) $variantId) {
-                $existing->delete();
+            if ($existing->trashed()) {
+                $existing->restore();
+                $existing->update(['product_variant_id' => $variantId]);
+                $status = 'added';
+            } elseif ((string) $existing->product_variant_id === (string) $variantId) {
+                $existing->forceDelete();
                 $status = 'removed';
             } else {
                 $existing->update(['product_variant_id' => $variantId]);

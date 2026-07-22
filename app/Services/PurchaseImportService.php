@@ -64,8 +64,9 @@ class PurchaseImportService
         $validRows = [];
 
         $history = [];
+        $lastSupplier = null;
         foreach ($groups as $group) {
-            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows);
+            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows, $lastSupplier);
         }
 
         if (!empty($validRows)) {
@@ -223,6 +224,10 @@ class PurchaseImportService
             'salemultiplier'         => 'sale_multiplier',
             'mrpmultiplier'          => 'mrp_multiplier',
             'pairproduct'            => 'pair_product',
+            'pairsizes'              => 'pair_sizes',
+            'pairsize'               => 'pair_sizes',
+            'customsizes'            => 'pair_sizes',
+            'sizes'                  => 'pair_sizes',
             'producttype'            => 'product_type',
             'suppliername'           => 'supplier_name',
             'variant'                => 'variant',
@@ -296,6 +301,7 @@ class PurchaseImportService
                     'sale_multiplier'    => trim($row['sale_multiplier'] ?? ''),
                     'mrp_multiplier'     => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'       => $this->toBool($row['pair_product'] ?? ''),
+                    'pair_sizes'         => trim($row['pair_sizes'] ?? ''),
                     'product_type'       => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
                     'rows'               => [],
                 ];
@@ -331,7 +337,7 @@ class PurchaseImportService
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
     }
 
-    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history, array &$validRows): void
+    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history, array &$validRows, ?string &$lastSupplier): void
     {
         $barcode = $group['barcode'];
 
@@ -398,7 +404,6 @@ class PurchaseImportService
             }
         }
 
-        $lastSupplier = null;
         $lastVariant = null;
 
         $successRows = 0;
@@ -491,10 +496,31 @@ class PurchaseImportService
         }
         $quantity = (int) $quantity;
 
+        // For pair products: purchase price = product_code × purchase_multiplier (full price for the largest size)
+        // Quantity in import = number of pairs → convert to pieces: qty × maxSize
         $price = round((float) $product->product_code * (float) $product->purchase_multiplier, 2);
+
+        if ($product->pair_product) {
+            $customSizes = $product->custom_sizes ?? [];
+            if (empty($customSizes) && !empty($group['pair_sizes'])) {
+                $sizesArray = array_filter(array_map('trim', explode(',', $group['pair_sizes'])));
+                $maxSize = !empty($sizesArray) ? (float) max($sizesArray) : 2.0;
+            } else {
+                $maxSize = !empty($customSizes)
+                    ? (float) collect($customSizes)->pluck('size')->filter()->max()
+                    : 2.0;
+            }
+            if ($maxSize <= 0) {
+                $maxSize = 2.0;
+            }
+        } else {
+            $maxSize = null;
+        }
+
         if ($price <= 0) {
             throw new RowFailureException('Invalid Price Configuration');
         }
+
 
         $productVariantId = null;
         if ($product->type === 'variable') {
@@ -525,7 +551,13 @@ class PurchaseImportService
         $paymentStatus = $this->mapPaymentStatus($row['payment_status']);
         $paymentMethod = $this->mapPaymentMethod($row['payment_method']);
 
-        $total = round($quantity * $price, 2);
+        // For pair products: quantity entered = number of pairs
+        // Stored quantity = pairs × maxSize (pieces) for stock tracking
+        // Total cost     = number_of_pairs × price  (one price per pair)
+        $pairsCount    = $quantity;                                          // how many pairs
+        $storedQty     = $maxSize !== null ? (int) ($pairsCount * $maxSize) : $quantity;
+        $total         = round($pairsCount * $price, 2);
+
         $paidAmount = 0.0;
 
         if ($paymentStatus === Purchase::PAYMENT_STATUS_PAID) {
@@ -552,7 +584,7 @@ class PurchaseImportService
             'product_variant_id' => $productVariantId,
             'supplier_name'      => $supplierName,
             'price'              => $price,
-            'quantity'           => $quantity,
+            'quantity'           => $storedQty,   // pieces stored in stock
             'status'             => $status,
             'payment_status'     => $paymentStatus,
             'payment_method'     => $paymentMethod,
@@ -560,6 +592,7 @@ class PurchaseImportService
             'paid_amount'        => $paidAmount,
         ];
     }
+
 
     private function parseDate(string $value): ?Carbon
     {

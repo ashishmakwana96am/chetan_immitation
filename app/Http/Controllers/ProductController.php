@@ -17,7 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Picqer\Barcode\BarcodeGeneratorSVG;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class ProductController extends Controller
 {
@@ -201,7 +201,7 @@ class ProductController extends Controller
         $printItems = [];
         $totalQty = 0;
         
-        $generator = new BarcodeGeneratorSVG();
+        $generator = new BarcodeGeneratorPNG();
         
         foreach ($itemsInput as $item) {
             $product = Product::with(['category', 'subCategory', 'variants.attributeValue'])->find($item['id'] ?? null);
@@ -241,8 +241,8 @@ class ProductController extends Controller
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
-                $svgCode = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 1, 30);
-                $barcodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($svgCode);
+                $pngData = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 1.5, 28);
+                $barcodeBase64 = 'data:image/png;base64,' . base64_encode($pngData);
 
                 $categoryLength = strlen($categoryDisplay);
                 $categoryFontSize = match (true) {
@@ -289,10 +289,11 @@ class ProductController extends Controller
             abort(404, 'No products to print.');
         }
 
-        $pdfHeight = ($totalQty * 35.5) + 10;
+        $labelWidth  = 34.02;  // 12mm
+        $labelHeight = 232.44; // 82mm
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems', 'pdfHeight'))
-            ->setPaper([0, 0, 232.44, $pdfHeight], 'portrait');
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems'))
+            ->setPaper([0, 0, $labelWidth, $labelHeight], 'portrait');
 
         return $pdf->stream('barcodes.pdf');
     }
@@ -488,8 +489,8 @@ class ProductController extends Controller
     private function groupHistoryItems($items, string $transactionKey, Product $product)
     {
         $isPairProduct = (bool) $product->pair_product;
-
         $fallbackSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+        $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
 
         return $items
             ->groupBy(fn($item) => $item->{$transactionKey} . '-' . ($item->product_variant_id ?? 0))
@@ -498,6 +499,21 @@ class ProductController extends Controller
 
                 $totalQty = $group->sum(function ($item) use ($isPairProduct, $fallbackSize) {
                     return $isPairProduct ? ($item->quantity * (float) ($item->custom_size_value ?: $fallbackSize)) : $item->quantity;
+                });
+
+                $totalAmount = $group->sum(function ($item) {
+                    $parent = $item->invoice ?? $item->order ?? null;
+                    if ($parent) {
+                        $parentFinal = (float) ($parent->total_amount ?? $parent->final_amount ?? 0);
+                        if ($parentFinal > 0) {
+                            $parentItemsSum = (float) $parent->items->sum('total');
+                            if ($parentItemsSum > 0) {
+                                return ($item->total / $parentItemsSum) * $parentFinal;
+                            }
+                            return $parentFinal;
+                        }
+                    }
+                    return $item->total;
                 });
 
                 $breakdown = null;
@@ -515,7 +531,7 @@ class ProductController extends Controller
                 return (object) [
                     'item'         => $first,
                     'total_qty'    => $totalQty,
-                    'total_amount' => $group->sum('total'),
+                    'total_amount' => $totalAmount,
                     'breakdown'    => $breakdown,
                 ];
             })
@@ -607,10 +623,14 @@ class ProductController extends Controller
             $rules['variants_json'] = [
                 'required',
                 'json',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($request) {
                     $decoded = json_decode($value, true);
                     if (!is_array($decoded) || empty($decoded)) {
                         $fail('Please add at least one attribute & variant.');
+                        return;
+                    }
+                    if ($request->has('pair_product')) {
+                        $this->validateVariantCustomSizes($decoded, $fail);
                     }
                 }
             ];
@@ -733,12 +753,14 @@ class ProductController extends Controller
             if ($request->type === 'variable' && $request->filled('variants_json')) {
                 $variants = json_decode($request->variants_json, true);
                 foreach ($variants as $item) {
+                    $variantSizes = $request->has('pair_product') ? ($item['custom_sizes'] ?? []) : [];
                     ProductVariant::create([
                         'product_id'         => $product->id,
                         'attribute_value_id' => $item['attribute_value_id'],
                         'purchase_price'     => $item['purchase_price'] ?? 0,
                         'sale_price'         => $item['sale_price'] ?? 0,
                         'status'             => ($item['status'] ?? 1) == 1 ? 1 : 2,
+                        'custom_sizes'       => !empty($variantSizes) ? $variantSizes : null,
                     ]);
                 }
             }
@@ -826,10 +848,14 @@ class ProductController extends Controller
             $rules['variants_json'] = [
                 'required',
                 'json',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($request) {
                     $decoded = json_decode($value, true);
                     if (!is_array($decoded) || empty($decoded)) {
                         $fail('Please add at least one attribute & variant.');
+                        return;
+                    }
+                    if ($request->has('pair_product')) {
+                        $this->validateVariantCustomSizes($decoded, $fail);
                     }
                 }
             ];
@@ -862,6 +888,42 @@ class ProductController extends Controller
                         ]
                     ],
                 ], 422);
+            }
+        }
+
+        $redistributableStock = 0;
+        if (!$wasNormal && $request->type === 'variable' && $request->filled('variants_json')) {
+            $newAttributeValueIds = collect(json_decode($request->variants_json, true) ?? [])
+                ->pluck('attribute_value_id')
+                ->map(fn ($v) => (int) $v)
+                ->toArray();
+            $deletingVariantIds = $product->variants()
+                ->whereNotIn('attribute_value_id', $newAttributeValueIds)
+                ->pluck('id')
+                ->toArray();
+
+            if (!empty($deletingVariantIds)) {
+                foreach ($product->getVariantStock() as $locData) {
+                    foreach ($deletingVariantIds as $vId) {
+                        $redistributableStock += (int) ($locData['variants'][$vId] ?? 0);
+                    }
+                }
+            }
+
+            if ($redistributableStock > 0) {
+                $stockMigrationInput = $request->input('stock_migration', []);
+                $totalAllocated = array_sum(array_map('intval', $stockMigrationInput));
+
+                if ($totalAllocated !== $redistributableStock) {
+                    return response()->json([
+                        'status'  => 'error',
+                        'message' => [
+                            'stock_migration' => [
+                                "The selected attributes changed — please allocate all {$redistributableStock} Pcs of existing variant stock across the new variations before updating. (Currently allocated: {$totalAllocated} Pcs)."
+                            ]
+                        ],
+                    ], 422);
+                }
             }
         }
 
@@ -942,7 +1004,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Delete additional images marked for removal
             if ($request->filled('deleted_additional_images')) {
                 foreach ($request->deleted_additional_images as $imageId) {
                     $image = ProductImage::find($imageId);
@@ -956,7 +1017,6 @@ class ProductController extends Controller
                 }
             }
 
-            // Update variants for variable products
             if ($request->type === 'variable' && $request->filled('variants_json')) {
                 
                 $duplicates = $product->variants()
@@ -974,14 +1034,15 @@ class ProductController extends Controller
                     $attributeValueId = $item['attribute_value_id'];
                     $keptAttributeValueIds[] = $attributeValueId;
 
+                    $variantSizes = $request->has('pair_product') ? ($item['custom_sizes'] ?? []) : [];
                     $variantData = [
                         'purchase_price' => $item['purchase_price'] ?? 0,
                         'sale_price'     => $item['sale_price'] ?? 0,
                         'status'         => ($item['status'] ?? 1) == 1 ? 1 : 2,
+                        'custom_sizes'   => !empty($variantSizes) ? $variantSizes : null,
                     ];
 
                     if ($existingVariant = $existingVariants->get($attributeValueId)) {
-                        // Preserve the existing variant's id so purchase/stock history keeps matching it
                         $existingVariant->update($variantData);
                     } else {
                         ProductVariant::create($variantData + [
@@ -996,6 +1057,24 @@ class ProductController extends Controller
                     ->pluck('id')
                     ->toArray();
 
+                $stockMigrationInput = array_filter($request->input('stock_migration', []), fn($q) => (int)$q > 0);
+
+                if (!$wasNormal && !empty($deletedVariantIds) && !empty($stockMigrationInput)) {
+                    $requestedAllocations = [];
+                    foreach ($stockMigrationInput as $attrValId => $qty) {
+                        $qtyNeeded = (int) $qty;
+                        if ($qtyNeeded > 0) {
+                            $variant = $product->variants()->where('attribute_value_id', $attrValId)->first();
+                            if ($variant) {
+                                $requestedAllocations[$variant->id] = $qtyNeeded;
+                            }
+                        }
+                    }
+                    if (!empty($requestedAllocations)) {
+                        $this->reassignVariantStock($product, $deletedVariantIds, $requestedAllocations);
+                    }
+                }
+
                 if (!empty($deletedVariantIds)) {
                     \App\Models\PurchaseItem::whereIn('product_variant_id', $deletedVariantIds)->update(['product_variant_id' => null]);
                     \App\Models\OrderItem::whereIn('product_variant_id', $deletedVariantIds)->update(['product_variant_id' => null]);
@@ -1003,9 +1082,6 @@ class ProductController extends Controller
                 }
 
                 $product->variants()->whereNotIn('attribute_value_id', $keptAttributeValueIds)->delete();
-
-                // Stock migration from Normal Product to multiple selected Variants
-                $stockMigrationInput = array_filter($request->input('stock_migration', []), fn($q) => (int)$q > 0);
 
                 if ($wasNormal && !empty($stockMigrationInput)) {
                     $requestedAllocations = [];
@@ -1020,7 +1096,6 @@ class ProductController extends Controller
                     }
 
                     if (!empty($requestedAllocations)) {
-                        // 1. Process unassigned PurchaseItems for this product
                         $unassignedPurchaseItems = \App\Models\PurchaseItem::with('allocations')
                             ->where('product_id', $product->id)
                             ->whereNull('product_variant_id')
@@ -1044,8 +1119,9 @@ class ProductController extends Controller
                                         'product_id'         => $product->id,
                                         'product_variant_id' => $variantId,
                                         'quantity'           => $assignQty,
+                                        'custom_size_value'  => $pItem->custom_size_value,
                                         'purchase_price'     => $pItem->purchase_price,
-                                        'subtotal'           => $assignQty * $pItem->purchase_price,
+                                        'total'              => $assignQty * $pItem->purchase_price,
                                     ]);
 
                                     foreach ($pItem->allocations as $alloc) {
@@ -1060,7 +1136,7 @@ class ProductController extends Controller
                                         }
                                     }
                                     $pItem->decrement('quantity', $assignQty);
-                                    $pItem->update(['subtotal' => $pItem->quantity * $pItem->purchase_price]);
+                                    $pItem->update(['total' => $pItem->quantity * $pItem->purchase_price]);
                                 }
 
                                 $neededQty -= $assignQty;
@@ -1071,7 +1147,6 @@ class ProductController extends Controller
                         }
                         unset($neededQty);
 
-                        // 2. Handle any remaining requested quantities where no purchase allocations exist
                         $remainingRequested = array_filter($requestedAllocations, fn($q) => $q > 0);
                         if (!empty($remainingRequested)) {
                             $inventories = \App\Models\Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->get();
@@ -1108,8 +1183,9 @@ class ProductController extends Controller
                                             'product_id'         => $product->id,
                                             'product_variant_id' => $variantId,
                                             'quantity'           => $migQty,
+                                            'custom_size_value'  => 1,
                                             'purchase_price'     => $product->purchase_price,
-                                            'subtotal'           => $migQty * $product->purchase_price,
+                                            'total'              => $migQty * $product->purchase_price,
                                         ]);
 
                                         \App\Models\PurchaseAllocation::create([
@@ -1240,6 +1316,212 @@ class ProductController extends Controller
         }));
     }
 
+    private function reassignVariantStock(Product $product, array $sourceVariantIds, array $requestedAllocations): void
+    {
+        $hasNullSource = in_array(null, $sourceVariantIds, true);
+        $nonNullSourceIds = array_values(array_filter($sourceVariantIds, fn($v) => $v !== null));
+        $matchSource = function ($query) use ($hasNullSource, $nonNullSourceIds) {
+            $query->where(function ($q) use ($hasNullSource, $nonNullSourceIds) {
+                if ($hasNullSource) {
+                    $q->whereNull('product_variant_id');
+                }
+                if (!empty($nonNullSourceIds)) {
+                    $hasNullSource
+                        ? $q->orWhereIn('product_variant_id', $nonNullSourceIds)
+                        : $q->whereIn('product_variant_id', $nonNullSourceIds);
+                }
+            });
+        };
+
+        $totalRequested = array_sum($requestedAllocations);
+        if ($totalRequested <= 0) {
+            return;
+        }
+
+        $ratios = [];
+        foreach ($requestedAllocations as $variantId => $qty) {
+            $ratios[$variantId] = $qty / $totalRequested;
+        }
+
+        $purchaseItems = \App\Models\PurchaseItem::with('allocations')
+            ->where('product_id', $product->id)
+            ->where($matchSource)
+            ->get();
+
+        foreach ($purchaseItems as $pItem) {
+            $itemQty = (int) $pItem->quantity;
+            if ($itemQty <= 0) {
+                continue;
+            }
+
+            // Split each allocation independently (exact, via largest-remainder rounding)
+            // and bucket the results per target variant, then rebuild allocations from
+            // scratch. Mutating/decrementing the original allocations in place while also
+            // reading them for a later variant's split previously caused stale reads that
+            // silently dropped stock (a second decrement recomputed off the pre-decrement
+            // quantity). Deleting and recreating avoids that class of bug entirely.
+            $allocations = $pItem->allocations;
+            $variantBuckets = [];
+            foreach ($allocations as $alloc) {
+                $allocSplit = $this->splitQuantityByRatio((int) $alloc->quantity, $ratios);
+                foreach ($allocSplit as $variantId => $qty) {
+                    if ($qty <= 0) {
+                        continue;
+                    }
+                    $variantBuckets[$variantId]['qty'] = ($variantBuckets[$variantId]['qty'] ?? 0) + $qty;
+                    $variantBuckets[$variantId]['locations'][$alloc->location_id]
+                        = ($variantBuckets[$variantId]['locations'][$alloc->location_id] ?? 0) + $qty;
+                }
+            }
+            if (empty($variantBuckets)) {
+                continue;
+            }
+
+            $pItem->allocations()->delete();
+
+            $variantIds = array_keys($variantBuckets);
+            $primaryVariantId = array_shift($variantIds);
+            $primary = $variantBuckets[$primaryVariantId];
+
+            $pItem->update([
+                'product_variant_id' => $primaryVariantId,
+                'quantity'           => $primary['qty'],
+                'total'              => $primary['qty'] * $pItem->purchase_price,
+            ]);
+            foreach ($primary['locations'] as $locId => $qty) {
+                \App\Models\PurchaseAllocation::create([
+                    'purchase_item_id' => $pItem->id,
+                    'location_id'      => $locId,
+                    'quantity'         => $qty,
+                ]);
+            }
+
+            foreach ($variantIds as $variantId) {
+                $bucket = $variantBuckets[$variantId];
+                $newItem = \App\Models\PurchaseItem::create([
+                    'purchase_id'        => $pItem->purchase_id,
+                    'product_id'         => $product->id,
+                    'product_variant_id' => $variantId,
+                    'quantity'           => $bucket['qty'],
+                    'custom_size_value'  => $pItem->custom_size_value,
+                    'purchase_price'     => $pItem->purchase_price,
+                    'total'              => $bucket['qty'] * $pItem->purchase_price,
+                ]);
+                foreach ($bucket['locations'] as $locId => $qty) {
+                    \App\Models\PurchaseAllocation::create([
+                        'purchase_item_id' => $newItem->id,
+                        'location_id'      => $locId,
+                        'quantity'         => $qty,
+                    ]);
+                }
+            }
+        }
+
+        $transferItems = \App\Models\PurchaseBillItem::where('product_id', $product->id)
+            ->where($matchSource)
+            ->get();
+
+        foreach ($transferItems as $tItem) {
+            $itemQty = (int) $tItem->quantity;
+            if ($itemQty <= 0) {
+                continue;
+            }
+
+            $split = $this->splitQuantityByRatio($itemQty, $ratios);
+            $lastVariantId = array_key_last($split);
+
+            foreach ($split as $variantId => $qty) {
+                if ($qty <= 0) {
+                    continue;
+                }
+                if ($variantId === $lastVariantId) {
+                    $tItem->update(['product_variant_id' => $variantId, 'quantity' => $qty]);
+                    continue;
+                }
+                \App\Models\PurchaseBillItem::create([
+                    'purchase_bill_id'   => $tItem->purchase_bill_id,
+                    'product_id'         => $product->id,
+                    'product_variant_id' => $variantId,
+                    'pair_type'          => $tItem->pair_type,
+                    'custom_size_value'  => $tItem->custom_size_value,
+                    'quantity'           => $qty,
+                ]);
+            }
+        }
+
+        $orderItems = \App\Models\OrderItem::where('product_id', $product->id)
+            ->where($matchSource)
+            ->orderByDesc('quantity')
+            ->get();
+
+        $remaining = $requestedAllocations;
+        foreach ($orderItems as $item) {
+            $itemQty = (int) $item->quantity;
+            if ($itemQty <= 0) {
+                continue;
+            }
+            foreach ($remaining as $variantId => &$neededQty) {
+                if ($neededQty >= $itemQty) {
+                    $item->update(['product_variant_id' => $variantId]);
+                    $neededQty -= $itemQty;
+                    break;
+                }
+            }
+            unset($neededQty);
+        }
+    }
+
+    private function splitQuantityByRatio(int $totalQty, array $ratios): array
+    {
+        $floors = [];
+        $remainders = [];
+        $floorSum = 0;
+        foreach ($ratios as $variantId => $ratio) {
+            $exact = $totalQty * $ratio;
+            $floor = (int) floor($exact);
+            $floors[$variantId] = $floor;
+            $remainders[$variantId] = $exact - $floor;
+            $floorSum += $floor;
+        }
+
+        $leftover = $totalQty - $floorSum;
+        arsort($remainders);
+        foreach (array_keys($remainders) as $variantId) {
+            if ($leftover <= 0) {
+                break;
+            }
+            $floors[$variantId]++;
+            $leftover--;
+        }
+
+        return array_filter($floors, fn ($q) => $q > 0);
+    }
+
+    private function validateVariantCustomSizes(array $variants, \Closure $fail): void
+    {
+        foreach ($variants as $variant) {
+            $sizes = $variant['custom_sizes'] ?? [];
+            if (!is_array($sizes) || empty($sizes)) {
+                continue;
+            }
+            foreach ($sizes as $row) {
+                $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
+                if (isset($row['size']) && ((float) $row['size'] > 4 || (float) $row['size'] <= 0)) {
+                    $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
+                    return;
+                }
+                if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float) $row['sale_price'] <= 0) {
+                    $fail("Sale Price ({$sizeText}) is required.");
+                    return;
+                }
+                if (!isset($row['mrp']) || $row['mrp'] === null || $row['mrp'] === '' || !is_numeric($row['mrp']) || (float) $row['mrp'] <= 0) {
+                    $fail("MRP ({$sizeText}) is required.");
+                    return;
+                }
+            }
+        }
+    }
+
     private function saveBase64Image($base64Data, $subDir = 'products')
     {
         if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
@@ -1295,19 +1577,22 @@ class ProductController extends Controller
         return null;
     }
 
-    public function generateBarcodeImage(Product $product)
+    public function generateBarcodeImage($id)
     {
-        $this->authorize('view products');
+        $product = Product::withTrashed()->find($id);
+        if (!$product) {
+            return response('Product Not Found', 404);
+        }
 
         $barcodeText = $product->barcode;
         if (empty($barcodeText)) {
-            return response()->json(['status' => 'error', 'message' => 'No barcode found for this product'], 404);
+            return response('No Barcode Found', 404);
         }
 
-        $generator = new BarcodeGeneratorSVG();
-        $barcode = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128);
+        $generator = new BarcodeGeneratorPNG();
+        $pngData = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128, 2, 60);
 
-        return response($barcode, 200)->header('Content-Type', 'image/svg+xml');
+        return response($pngData, 200)->header('Content-Type', 'image/png');
     }
 
 }

@@ -129,12 +129,12 @@
                         ? ($product->custom_sizes[0] ?? null)
                         : null;
 
-                    if ($activeVariant) {
-                        $salePriceDisplay = $activeVariant->sale_price;
-                        $mrpDisplay = $activeVariant->product->mrp ?? $product->mrp;
-                    } elseif ($firstCustomSize) {
+                    if ($product->pair_product && $firstCustomSize) {
                         $salePriceDisplay = $firstCustomSize['sale_price'];
                         $mrpDisplay = $firstCustomSize['mrp'];
+                    } elseif ($activeVariant) {
+                        $salePriceDisplay = $activeVariant->sale_price;
+                        $mrpDisplay = $activeVariant->product->mrp ?? $product->mrp;
                     } else {
                         $salePriceDisplay = $product->sale_price;
                         $mrpDisplay = $product->mrp;
@@ -194,6 +194,49 @@
                     </div>
                 </div>
 
+                @php
+                    $variantGroups = $product->variants
+                        ->filter(fn ($variant) => $variant->attributeValue && $variant->attributeValue->attribute)
+                        ->groupBy(fn ($variant) => $variant->attributeValue->attribute->id);
+                    $hasAdditionalInformation = filled(trim(html_entity_decode(strip_tags($product->additional_information ?? ''))));
+                    $hasProductHighlights = filled(trim(html_entity_decode(strip_tags($product->product_highlights ?? ''))));
+                @endphp
+
+                @if($variantGroups->isNotEmpty())
+                    @php
+                        $allProductVariants = $product->variants;
+                        $hasSelectedVariant = $queryVariantId && $allProductVariants->contains('id', $queryVariantId);
+                    @endphp
+                    @foreach($variantGroups as $variants)
+                    @php
+                        $attribute = $variants->first()->attributeValue->attribute;
+                        $attributeValues = $variants->unique('attribute_value_id');
+                    @endphp
+                    <div class="mt-4">
+                        <h4 class="text-base md:text-lg font-medium mb-2 text-[#131615]">
+                            {{ $attribute->name }}:
+                        </h4>
+                        <div class="flex flex-wrap gap-3 md:gap-4">
+                            @foreach($attributeValues as $variant)
+                            @php
+                                $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : false;
+                            @endphp
+                            <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
+                                data-variant-id="{{ $variant->id }}"
+                                data-sale-price="{{ $variant->sale_price }}"
+                                data-mrp="{{ $variant->product->mrp ?? '' }}"
+                                data-stock="{{ $product->totalAvailableStock($variant->id) }}"
+                                @if($product->pair_product)
+                                data-custom-sizes="{{ json_encode($variant->custom_sizes ?? []) }}"
+                                @endif>
+                                {{ $variant->attributeValue->value }}
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endforeach
+                @endif
+
                 <div class="flex gap-3 mt-6">
                     @php $detailStock = $product->totalAvailableStock(); @endphp
                     @if($detailStock < 1)
@@ -220,46 +263,6 @@
                         Buy Now
                     </button>
                 </div>
-
-                @php
-                    $variantGroups = $product->variants
-                        ->filter(fn ($variant) => $variant->attributeValue && $variant->attributeValue->attribute)
-                        ->groupBy(fn ($variant) => $variant->attributeValue->attribute->id);
-                    $hasAdditionalInformation = filled(trim(html_entity_decode(strip_tags($product->additional_information ?? ''))));
-                    $hasProductHighlights = filled(trim(html_entity_decode(strip_tags($product->product_highlights ?? ''))));
-                @endphp
-
-                @if($variantGroups->isNotEmpty())
-                    @php
-                        $allProductVariants = $product->variants;
-                        $hasSelectedVariant = $queryVariantId && $allProductVariants->contains('id', $queryVariantId);
-                    @endphp
-                    @foreach($variantGroups as $variants)
-                    @php
-                        $attribute = $variants->first()->attributeValue->attribute;
-                        $attributeValues = $variants->unique('attribute_value_id');
-                    @endphp
-                    <div class="mt-5">
-                        <h4 class="text-xl md:text-[22px] font-medium mb-[15px] text-[#131615]">
-                            {{ $attribute->name }}:
-                        </h4>
-                        <div class="flex flex-wrap gap-3 md:gap-4">
-                            @foreach($attributeValues as $variant)
-                            @php
-                                $isActive = $hasSelectedVariant ? ($variant->id == $queryVariantId) : false;
-                            @endphp
-                            <button class="variant-selector min-w-[69px] px-2 py-1 md:py-2 border text-base leading-tight whitespace-normal text-center transition-all duration-300 {{ $isActive ? 'bg-[#B4771E] text-white border-[#B4771E] active' : 'border-[#D5D5D5] text-[#131615] hover:border-[#B4771E]' }}"
-                                data-variant-id="{{ $variant->id }}"
-                                data-sale-price="{{ $variant->sale_price }}"
-                                data-mrp="{{ $variant->product->mrp ?? '' }}"
-                                data-stock="{{ $product->totalAvailableStock($variant->id) }}">
-                                {{ $variant->attributeValue->value }}
-                            </button>
-                            @endforeach
-                        </div>
-                    </div>
-                    @endforeach
-                @endif
 
                 <div class="product-detail-accordion min-w-0 max-w-full ">
                     <details class="group" open>
@@ -457,6 +460,10 @@ function getMaxAllowedStock() {
     const activeVariant = document.querySelector('.variant-selector.active');
     if (activeVariant) {
         let stock = parseInt(activeVariant.dataset.stock) || 0;
+        const selectedCustomSize = document.getElementById('selectedCustomSize');
+        if (selectedCustomSize && parseFloat(selectedCustomSize.value) > 0) {
+            return Math.floor(stock / parseFloat(selectedCustomSize.value));
+        }
         const selectedPairType = document.getElementById('selectedPairType');
         if (selectedPairType && selectedPairType.value === 'pair') {
             return Math.floor(stock / 2);
@@ -537,6 +544,8 @@ if (minusBtn) {
 </script>
 
 <script>
+window.productCustomSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
+
 // ─── Detail page wishlist handler ────────────────────────────────────────────
 (function () {
     var isLoggedIn    = {{ auth('customer')->check() ? 'true' : 'false' }};
@@ -634,9 +643,54 @@ if (minusBtn) {
             btn.classList.add('bg-[#B4771E]', 'text-white', 'border-[#B4771E]', 'active');
             btn.classList.remove('border-[#D5D5D5]', 'text-[#131615]');
 
-            // Price update
+            var sizeToggleEl = document.getElementById('customSizeToggle');
+            var selectedCustomSizeInput = document.getElementById('selectedCustomSize');
+            if (sizeToggleEl && selectedCustomSizeInput) {
+                var rawSizes = btn.dataset.customSizes;
+                var variantSizes = [];
+                try { variantSizes = rawSizes ? JSON.parse(rawSizes) : []; } catch (e) { variantSizes = []; }
+                var effectiveSizes = variantSizes.length ? variantSizes : (window.productCustomSizes || []);
+                if (effectiveSizes.length) {
+                    var currentSize = parseFloat(selectedCustomSizeInput.value);
+                    var stillValid = effectiveSizes.some(function (s) { return s.size == currentSize; });
+                    var defSize = stillValid ? currentSize : effectiveSizes[0].size;
+                    var html = '';
+                    effectiveSizes.forEach(function (s) {
+                        var isActive = s.size == defSize;
+                        var style = isActive
+                            ? 'background:#B4771E; color:#fff; border-color:#B4771E; border-radius:6px; cursor:pointer;'
+                            : 'background:#fff; color:#B4771E; border-color:#B4771E; border-radius:6px; cursor:pointer;';
+                        var label = (String(s.size).replace(/\.?0+$/, '')) + ' pcs';
+                        html += '<button type="button" data-value="' + s.size + '" data-price="' + s.sale_price + '" data-mrp="' + s.mrp + '" class="custom-size-btn px-4 py-1 text-sm font-semibold border" style="' + style + '">' + label + '</button>';
+                    });
+                    sizeToggleEl.innerHTML = html;
+                    selectedCustomSizeInput.value = defSize;
+                }
+            }
+
+            // Price update — a pack-size tier price always wins over the variant's flat price.
             var priceSpan = document.getElementById('productSalePrice');
-            if (priceSpan && btn.dataset.salePrice) {
+            var mrpSpan = document.getElementById('productMrp');
+            var activeSizeBtn = null;
+            if (selectedCustomSizeInput && selectedCustomSizeInput.value) {
+                var sizeToggle = document.getElementById('customSizeToggle');
+                if (sizeToggle) {
+                    activeSizeBtn = sizeToggle.querySelector('.custom-size-btn[data-value="' + selectedCustomSizeInput.value + '"]');
+                }
+            }
+            if (activeSizeBtn) {
+                var sizePrice = parseFloat(activeSizeBtn.dataset.price) || 0;
+                var sizeMrp = parseFloat(activeSizeBtn.dataset.mrp) || 0;
+                if (priceSpan) priceSpan.textContent = fmtPrice(sizePrice);
+                if (mrpSpan) {
+                    if (sizeMrp && sizeMrp > sizePrice) {
+                        mrpSpan.textContent = fmtPrice(sizeMrp);
+                        mrpSpan.style.display = '';
+                    } else {
+                        mrpSpan.style.display = 'none';
+                    }
+                }
+            } else if (priceSpan && btn.dataset.salePrice) {
                 priceSpan.textContent = fmtPrice(parseFloat(btn.dataset.salePrice));
             }
 

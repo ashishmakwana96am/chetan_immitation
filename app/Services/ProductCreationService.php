@@ -156,6 +156,16 @@ class ProductCreationService
             $pairMrp = null;
         }
 
+        $customSizes = null;
+        if ($isPair && !empty($group['pair_sizes'])) {
+            $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
+
+            if (!empty($customSizes)) {
+                $salePrice = $customSizes[0]['sale_price'];
+                $mrp = $customSizes[0]['mrp'];
+            }
+        }
+
         $defaultDescription = '<p>Classic Silver Tone Adjustable Tennis Bracelet crafted with premium brass and sparkling American Diamonds. Lightweight, skin-friendly and perfect for everyday wear as well as weddings, parties and festive occasions. Elegant finish with an adjustable chain ensures a comfortable fit for every wrist.</p>';
         $defaultInfo = '<ul><li>Premium Quality Brass</li><li>Silver Tone Finish</li><li>Studded with American Diamonds</li><li>Adjustable Chain</li><li>Lightweight Design</li><li>Comfortable for Daily Wear</li><li>Tarnish Resistant Finish</li><li>Elegant Party Wear Bracelet</li></ul>';
         $defaultHighlights = '<p>✓ Premium Finish</p><p>✓ Adjustable Size</p><p>✓ Lightweight</p><p>✓ Skin Friendly</p><p>✓ Anti Tarnish</p><p>✓ Sparkling American Diamonds</p><p>✓ Luxury Look</p><p>✓ Perfect Gift</p>';
@@ -177,6 +187,7 @@ class ProductCreationService
             'sale_price'             => $salePrice,
             'mrp'                    => $mrp,
             'pair_product'           => $isPair,
+            'custom_sizes'           => $customSizes,
             'type'                   => $group['product_type'],
             'status'                 => Product::STATUS_ACTIVE,
             'created_by'             => $userId,
@@ -184,7 +195,7 @@ class ProductCreationService
         ]);
 
         if ($group['product_type'] === 'variable' && !empty($group['dimensions'] ?? [])) {
-            $this->createVariants($group, $product, $purchasePrice, $salePrice);
+            $this->createVariants($group, $product, $purchasePrice, $salePrice, $customSizes);
         }
 
         return $product;
@@ -247,6 +258,15 @@ class ProductCreationService
             $pairMrp = null;
         }
 
+        $customSizes = null;
+        if ($isPair && !empty($group['pair_sizes'] ?? '')) {
+            $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
+            if (!empty($customSizes)) {
+                $salePrice = $customSizes[0]['sale_price'];
+                $mrp = $customSizes[0]['mrp'];
+            }
+        }
+
         $oldType = $product->type;
         $newType = $group['product_type'];
 
@@ -262,6 +282,7 @@ class ProductCreationService
             'sale_price'             => $salePrice,
             'mrp'                    => $mrp,
             'pair_product'           => $isPair,
+            'custom_sizes'           => $customSizes,
             'type'                   => $newType,
         ]);
 
@@ -270,7 +291,7 @@ class ProductCreationService
         }
 
         if ($newType === 'variable' && !empty($group['dimensions'] ?? [])) {
-            $this->createVariants($group, $product, $purchasePrice, $salePrice);
+            $this->createVariants($group, $product, $purchasePrice, $salePrice, $customSizes);
         }
     }
 
@@ -339,7 +360,7 @@ class ProductCreationService
         return $variant;
     }
 
-    private function createVariants(array $group, Product $product, float $purchasePrice, float $salePrice): void
+    private function createVariants(array $group, Product $product, float $purchasePrice, float $salePrice, ?array $customSizes = null): void
     {
         $dimensions = array_values($group['dimensions']);
 
@@ -373,9 +394,43 @@ class ProductCreationService
                 $variant->update([
                     'purchase_price' => $purchasePrice,
                     'sale_price'     => $salePrice,
+                    'custom_sizes'   => $customSizes ?: null,
                 ]);
             }
         }
+    }
+
+    /**
+     * Parse pair_sizes string (e.g. "2,4") and auto-calculate sale_price/mrp
+     * for each size. Largest size = full rate (code × multiplier),
+     * smaller sizes are proportionally scaled.
+     *
+     * @return array  [{size, sale_price, mrp}, ...] sorted ascending by size
+     */
+    private function buildCustomSizes(string $pairSizesRaw, float $code, float $saleMultiplier, float $mrpMultiplier): array
+    {
+        $sizes = array_values(array_filter(
+            array_map(fn ($s) => (int) trim($s), explode(',', $pairSizesRaw)),
+            fn ($s) => $s > 0
+        ));
+
+        if (empty($sizes)) {
+            return [];
+        }
+
+        sort($sizes);
+        $maxSize = max($sizes);
+
+        $result = [];
+        foreach ($sizes as $size) {
+            $result[] = [
+                'size'       => $size,
+                'sale_price' => $this->roundToNearest5($code * $saleMultiplier * ($size / $maxSize)),
+                'mrp'        => $this->roundToNearest5($code * $mrpMultiplier * ($size / $maxSize)),
+            ];
+        }
+
+        return $result;
     }
 
     private function roundToNearest5($val): float

@@ -142,7 +142,15 @@ class CartController extends Controller
             $pairType = 'single';
         }
 
-        [$customSizeValue, $sizeError] = $this->resolveCustomSizeValue($product, $request->custom_size_value);
+        $variant = null;
+        if ($variantId) {
+            $variant = ProductVariant::where('product_id', $productId)->where('status', 1)->find($variantId);
+            if (!$variant) {
+                return response()->json(['status' => 'error', 'message' => 'Variant not found.'], 422);
+            }
+        }
+
+        [$customSizeValue, $sizeError] = $this->resolveCustomSizeValue($product, $request->custom_size_value, $variant);
         if ($sizeError) {
             return response()->json(['status' => 'error', 'message' => $sizeError], 422);
         }
@@ -187,14 +195,6 @@ class CartController extends Controller
         if (($cartPcs + $newPcs) > $availableStock) {
             $allowedPcs = $availableStock - $cartPcs;
             $qty = $allowedPcs > 0 ? (int) floor($allowedPcs / $unitPcs) : 0;
-        }
-
-        // Verify variant belongs to product
-        if ($variantId) {
-            $variant = ProductVariant::where('product_id', $productId)->where('status', 1)->find($variantId);
-            if (!$variant) {
-                return response()->json(['status' => 'error', 'message' => 'Variant not found.'], 422);
-            }
         }
 
         if ($qty > 0) {
@@ -319,15 +319,7 @@ class CartController extends Controller
             $count  = CartItem::where('customer_id', $customer->id)->sum('qty');
             $totals = $this->calculateTotals($customer->id);
 
-            if ($variant) {
-                $price = (float) $variant->sale_price;
-            } else {
-                if ($product->pair_product && $customSizeValue) {
-                    $price = $item->getPrice();
-                } else {
-                    $price = (float) $product->sale_price;
-                }
-            }
+            $price = $item->getPrice();
 
             return response()->json([
                 'status'     => 'success',
@@ -381,18 +373,10 @@ class CartController extends Controller
             $count = array_sum(array_column($guestCart, 'qty'));
 
             $variant = $variantId ? ProductVariant::find($variantId) : null;
-            if ($variant) {
-                $price = (float) $variant->sale_price;
-            } else {
-                if ($product->pair_product && $customSizeValue) {
-                    $price = (new CartItem([
-                        'pair_type'         => $pairType,
-                        'custom_size_value' => $customSizeValue,
-                    ]))->setRelation('product', $product)->getPrice();
-                } else {
-                    $price = (float) $product->sale_price;
-                }
-            }
+            $price = (new CartItem([
+                'pair_type'         => $pairType,
+                'custom_size_value' => $customSizeValue,
+            ]))->setRelation('product', $product)->setRelation('productVariant', $variant)->getPrice();
 
             return response()->json([
                 'status'     => 'success',
@@ -474,21 +458,7 @@ class CartController extends Controller
         $subtotal = 0.0;
 
         foreach ($items as $item) {
-            $product = $item->product;
-            $variant = $item->productVariant;
-            $pairType = $item->pair_type ?? 'single';
-
-            if ($variant) {
-                $price = (float) $variant->sale_price;
-            } else {
-                if ($product->pair_product && $item->custom_size_value) {
-                    $price = $item->getPrice();
-                } else {
-                    $price = (float) $product->sale_price;
-                }
-            }
-
-            $subtotal += $price * $item->qty;
+            $subtotal += $item->getPrice() * $item->qty;
         }
 
         $discount = 0.0;
@@ -517,18 +487,11 @@ class CartController extends Controller
 
             $product = Product::find($productId);
             if ($product) {
-                if ($variantId) {
-                    $price = (float) ProductVariant::where('product_id', $productId)->find($variantId)?->sale_price;
-                } else {
-                    if ($product->pair_product && $customSizeValue) {
-                        $price = (new CartItem([
-                            'pair_type'         => $pairType,
-                            'custom_size_value' => $customSizeValue,
-                        ]))->setRelation('product', $product)->getPrice();
-                    } else {
-                        $price = (float) $product->sale_price;
-                    }
-                }
+                $variant = $variantId ? ProductVariant::where('product_id', $productId)->find($variantId) : null;
+                $price = (new CartItem([
+                    'pair_type'         => $pairType,
+                    'custom_size_value' => $customSizeValue,
+                ]))->setRelation('product', $product)->setRelation('productVariant', $variant)->getPrice();
 
                 if (!$price) {
                     $price = (float) $product->sale_price;
@@ -574,17 +537,19 @@ class CartController extends Controller
      * matches one of the product's configured custom sizes. Mirrors
      * SaleController::getCustomSizeError(). Returns [value, error].
      */
-    private function resolveCustomSizeValue(Product $product, $requested): array
+    private function resolveCustomSizeValue(Product $product, $requested, ?ProductVariant $variant = null): array
     {
         if (!$product->pair_product) {
             return [null, null];
         }
 
+        $sizesSource = ($variant && !empty($variant->custom_sizes)) ? $variant->custom_sizes : ($product->custom_sizes ?? []);
+
         $value = ($requested !== null && $requested !== '') ? (float) $requested : null;
-        $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+        $validSizes = collect($sizesSource)->pluck('size')->map(fn ($s) => (float) $s);
 
         if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
-            $minSize = collect($product->custom_sizes ?? [])->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
+            $minSize = collect($sizesSource)->sortBy(fn ($s) => (float) ($s['size'] ?? 0))->first();
             if ($minSize && isset($minSize['size'])) {
                 return [(float) $minSize['size'], null];
             }

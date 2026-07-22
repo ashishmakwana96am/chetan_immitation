@@ -460,13 +460,8 @@
                                     $isCustomSize = $product->pair_product || (!empty($item->custom_size_value) && (float)$item->custom_size_value > 0);
                                     $customSizeVal = $item->custom_size_value ?: (collect($product->custom_sizes ?? [])->pluck('size')->min() ?: 2);
 
-                                    if ($variant) {
-                                        $price = (float) $variant->sale_price;
-                                        $mrp = (float) $product->mrp;
-                                    } else {
-                                        $price = $item->getPrice();
-                                        $mrp = $item->getMrp();
-                                    }
+                                    $price = $item->getPrice();
+                                    $mrp = $item->getMrp();
 
                                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
                                     $detailUrl = route('product.detail', $product->slug);

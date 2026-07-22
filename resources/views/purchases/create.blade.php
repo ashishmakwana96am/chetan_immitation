@@ -445,6 +445,7 @@ $(document).ready(function () {
                         'attribute_value_id' => $v->attribute_value_id,
                         'purchase_price' => $v->purchase_price,
                         'sale_price' => $v->sale_price,
+                        'custom_sizes' => $v->custom_sizes ?? [],
                         'attr_name' => $v->attributeValue->attribute->name ?? '',
                         'value_name' => $v->attributeValue->value ?? '',
                     ];
@@ -606,6 +607,21 @@ $(document).ready(function () {
         selectSearchProduct($(this).data('product'));
     });
 
+    // A variant with its own pack-size list overrides the product's shared list.
+    function getEffectiveCustomSizes(product, variantId) {
+        if (variantId && product.variants) {
+            const variant = product.variants.find(v => v.id == variantId);
+            if (variant && variant.custom_sizes && variant.custom_sizes.length) {
+                return variant.custom_sizes;
+            }
+        }
+        return product.custom_sizes || [];
+    }
+
+    function maxSizeOf(sizes) {
+        return sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), sizes[0].size);
+    }
+
     function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
@@ -626,11 +642,6 @@ $(document).ready(function () {
             row.find('.pair-product-badge').removeClass('d-none');
         }
 
-        if (product.pair_product && product.custom_sizes && product.custom_sizes.length) {
-            const maxSize = product.custom_sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), product.custom_sizes[0].size);
-            row.data('custom-size-value', selectedCustomSize || maxSize);
-        }
-
         if (product.type === 'variable') {
             // Build variant select dropdown
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
@@ -641,12 +652,12 @@ $(document).ready(function () {
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
-            
+
             // Set initial variant
             const selectedOpt = row.find('.variant-select option:selected');
             const initialVariantId = selectedOpt.val();
             const initialPrice = price != null ? price : selectedOpt.data('price');
-            
+
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
             row.find('.purchase-price').val(initialPrice);
@@ -658,6 +669,13 @@ $(document).ready(function () {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
             row.find('.purchase-price').val(price != null ? price : (product.purchase_price != null ? product.purchase_price : 0));
             row.data('product-name', product.name);
+        }
+
+        if (product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, row.data('variant-id'));
+            if (effectiveSizes.length) {
+                row.data('custom-size-value', selectedCustomSize || maxSizeOf(effectiveSizes));
+            }
         }
 
         row.find('.item-qty').val(qty);
@@ -681,10 +699,17 @@ $(document).ready(function () {
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
         row.find('.purchase-price').val(price);
-        
+
+        if (product && product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            if (effectiveSizes.length) {
+                row.data('custom-size-value', maxSizeOf(effectiveSizes));
+            }
+        }
+
         const variantText = selectedOpt.text().split(' (')[0];
         row.data('product-name', product.name + ' (' + variantText + ')');
-        
+
         updateRowTotal(row);
         updateStockInfo(row);
         updateGrandTotal();

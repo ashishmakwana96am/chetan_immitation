@@ -287,35 +287,31 @@
                 <div class="card-body p-3 d-flex flex-column gap-3">
 
                     @if($product->is_variable && $product->variants->count())
-                        {{-- Per-variant prices &amp; profit --}}
-                        @foreach($product->variants as $variant)
-                            @php
-                                $vPurchase = (float) $variant->purchase_price;
-                                $vSale     = (float) $variant->sale_price;
-                                $vProfit   = $vSale - $vPurchase;
-                                $vMargin   = $vSale > 0 ? round(($vProfit / $vSale) * 100, 1) : 0;
-                            @endphp
-                            <div>
-                                <p class="card-section-title mb-2">{{ $variant->attributeValue->value ?? '-' }}</p>
-                                <div class="d-flex gap-2">
-                                    <div class="price-chip">
-                                        <span class="p-lbl">Purchase</span>
-                                        <span class="p-val text-info">{{ format_price($vPurchase) }}</span>
-                                    </div>
-                                    <div class="price-chip">
-                                        <span class="p-lbl">Sale Price</span>
-                                        <span class="p-val text-success">{{ format_price($vSale) }}</span>
-                                    </div>
-                                </div>
-                                <div class="info-row" style="padding-top:6px;">
-                                    <span class="info-label">Profit</span>
-                                    <span class="info-value fw-bold {{ $vProfit > 0 ? 'text-success' : 'text-danger' }}">
-                                        {{ format_price($vProfit) }}
-                                        <small class="text-muted">({{ $vMargin }}%)</small>
-                                    </span>
-                                </div>
+                        {{-- Main product pricing (base prices) --}}
+                        <div class="info-row">
+                            <span class="info-label">Purchase Price</span>
+                            <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <div class="price-chip">
+                                <span class="p-lbl">Sale Price</span>
+                                <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
                             </div>
-                        @endforeach
+                            <div class="price-chip">
+                                <span class="p-lbl">MRP</span>
+                                <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">
+                            <span class="info-label">Profit</span>
+                            <span class="info-value fw-bold {{ $profit > 0 ? 'text-success' : 'text-danger' }}">
+                                {{ format_price($profit) }}
+                                <small class="text-muted">({{ $margin }}%)</small>
+                            </span>
+                        </div>
+
                     @elseif($product->pair_product && $product->custom_sizes)
                         @php
                             $maxSize = (float) (collect($product->custom_sizes)->pluck('size')->max() ?: 1);
@@ -728,6 +724,8 @@
                                     <th>Attribute</th>
                                     <th class="text-end">Purchase Price</th>
                                     <th class="text-end">Sale Price</th>
+                                    <th class="text-end">MRP</th>
+                                    <th class="text-end">Profit</th>
                                     <th class="text-end">Total Stock</th>
                                     <th class="text-center">Status</th>
                                 </tr>
@@ -750,7 +748,16 @@
                                             <small class="text-muted">({{ $variant->attributeValue->attribute->name ?? '-' }})</small>
                                         </td>
                                         <td class="text-end text-nowrap small">{{ format_price($variant->purchase_price) }}</td>
-                                        <td class="text-end text-nowrap small">{{ format_price($variant->sale_price) }}</td>
+                                        <td class="text-end text-nowrap small text-success fw-semibold">{{ format_price($variant->sale_price) }}</td>
+                                        <td class="text-end text-nowrap small text-danger">{{ format_price($variant->mrp ?? $variant->sale_price) }}</td>
+                                        @php
+                                            $vProfit = (float)$variant->sale_price - (float)$variant->purchase_price;
+                                            $vMargin = (float)$variant->sale_price > 0 ? round(($vProfit / (float)$variant->sale_price) * 100, 1) : 0;
+                                        @endphp
+                                        <td class="text-end text-nowrap small {{ $vProfit > 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                                            {{ format_price($vProfit) }}
+                                            <small class="text-muted">({{ $vMargin }}%)</small>
+                                        </td>
                                         <td class="text-end">
                                             @if($isParentOnly)
                                                 @if($idx === 0)

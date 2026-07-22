@@ -37,13 +37,8 @@
                     $isCustomSize = $product->pair_product || (!empty($item->custom_size_value) && (float)$item->custom_size_value > 0);
                     $customSizeVal = $item->custom_size_value ?: (collect($product->custom_sizes ?? [])->pluck('size')->min() ?: 2);
 
-                    if ($variant) {
-                        $price = (float) $variant->sale_price;
-                        $mrp = (float) $product->mrp;
-                    } else {
-                        $price = $item->getPrice();
-                        $mrp = $item->getMrp();
-                    }
+                    $price = $item->getPrice();
+                    $mrp = $item->getMrp();
 
                     $imgUrl   = $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg');
                     $attrLabel = null;
@@ -204,28 +199,10 @@
             @php
                 $subtotal = 0; $mrpTotal = 0;
                 foreach($cartItems as $item) {
-                    $product = $item->product;
-                    if (!$product) continue;
+                    if (!$item->product) continue;
 
-                    $variant = $item->productVariant;
-                    $pairType = $item->pair_type ?? 'single';
-                    $itemIsCustomSize = !empty($item->custom_size_value) && (float)$item->custom_size_value > 0;
-
-                    if ($variant) {
-                        $p = (float) $variant->sale_price;
-                        $m = (float) $product->mrp;
-                    } else {
-                        if ($itemIsCustomSize) {
-                            $p = $item->getPrice();
-                            $m = $item->getMrp();
-                        } else {
-                            $p = (float) $product->sale_price;
-                            $m = (float) $product->mrp;
-                        }
-                    }
-
-                    $subtotal += $p * $item->qty;
-                    $mrpTotal += $m * $item->qty;
+                    $subtotal += $item->getPrice() * $item->qty;
+                    $mrpTotal += $item->getMrp() * $item->qty;
                 }
                 $discount = 0;
                 $shipping = 0;
