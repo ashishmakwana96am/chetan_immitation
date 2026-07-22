@@ -155,31 +155,6 @@
     @php
         $addr = $order->customerAddress;
         $custName = $addr->name ?? ($order->customer->name ?? 'Walk-in Customer');
-
-        // Find all unique attributes present in this order
-        $activeAttributes = [];
-        foreach ($order->items as $item) {
-            if ($item->variant && $item->variant->attributeValue && $item->variant->attributeValue->attribute) {
-                $attr = $item->variant->attributeValue->attribute;
-                $activeAttributes[$attr->id] = $attr->name;
-            }
-        }
-
-        // Compute dynamic column widths
-        $attrCount = count($activeAttributes);
-        if ($attrCount === 0) {
-            $barcodeWidth = '50%';
-            $qtyWidth = '15%';
-            $orderWidth = '35%';
-        } elseif ($attrCount === 1) {
-            $barcodeWidth = '35%';
-            $qtyWidth = '15%';
-            $orderWidth = '25%';
-        } else {
-            $barcodeWidth = '32%';
-            $qtyWidth = '10%';
-            $orderWidth = '26%';
-        }
     @endphp
 
     {{-- ================= SHIPPING LABEL ================= --}}
@@ -215,29 +190,15 @@
     <table class="product-table">
         <thead>
             <tr>
-                <th style="width: {{ $barcodeWidth }}; text-align: left;">Barcode</th>
-                @foreach($activeAttributes as $attrId => $attrName)
-                    <th>{{ $attrName }}</th>
-                @endforeach
-                <th style="width: {{ $qtyWidth }};">Qty</th>
-                <th style="width: {{ $orderWidth }};">Order No.</th>
+                <th style="width: 45%; text-align: left;">Barcode</th>
+                <th style="width: 20%;">Qty</th>
+                <th style="width: 35%;">Order No.</th>
             </tr>
         </thead>
         <tbody>
             @foreach($order->items as $idx => $item)
                 <tr>
                     <td style="text-align: left;">{{ $item->product->barcode ?? '-' }}</td>
-                    @foreach($activeAttributes as $attrId => $attrName)
-                        @php
-                            $itemAttrVal = '-';
-                            if ($item->variant && $item->variant->attributeValue && $item->variant->attributeValue->attribute) {
-                                if ($item->variant->attributeValue->attribute->id == $attrId) {
-                                    $itemAttrVal = $item->variant->attributeValue->value;
-                                }
-                            }
-                        @endphp
-                        <td>{{ $itemAttrVal }}</td>
-                    @endforeach
                     <td>{{ $item->quantity }}</td>
                     <td>{{ $order->order_no }}{{ count($order->items) > 1 ? '_' . ($idx + 1) : '' }}</td>
                 </tr>

@@ -731,7 +731,7 @@
                         <a href="https://www.facebook.com/" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
                             <i class="fa-brands fa-facebook-f"></i>
                         </a>
-                        <a href="https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
+                        <a href="{{ \App\Models\Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr') }}" target="_blank" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
                             <i class="fa-brands fa-instagram"></i>
                         </a>
                         <a href="https://wa.me/919876543210" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
@@ -947,12 +947,14 @@ window.addEventListener('resize', function () {
             if (btn.dataset.loading === '1') return;
             btn.dataset.loading = '1';
 
-            var card = btn.closest('.product-card');
-            var variantId = null;
-            if (card) {
-                var select = card.querySelector('.grid-variant-select');
-                if (select && select.value) {
-                    variantId = select.value;
+            var variantId = btn.dataset.variantId || null;
+            if (!variantId) {
+                var card = btn.closest('.product-card');
+                if (card) {
+                    var select = card.querySelector('.grid-variant-select');
+                    if (select && select.value) {
+                        variantId = select.value;
+                    }
                 }
             }
 
@@ -1001,7 +1003,9 @@ window.addEventListener('resize', function () {
                     }
                 });
                 
-                if (nowInWishlist) {
+                if (data.status === 'updated') {
+                    window.showWishlistToast('Wishlist updated with selected variant! ❤️');
+                } else if (nowInWishlist) {
                     window.showWishlistToast('Product added to your wishlist! ❤️');
                 } else {
                     window.showWishlistToast('Product removed from your wishlist.');

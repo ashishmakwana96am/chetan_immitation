@@ -42,6 +42,10 @@ class SettingController extends Controller
         $purchaseGstRate        = Setting::getValue('purchase_gst_rate', '3');
         $storeState             = Setting::getValue('store_state', 'Gujarat');
 
+        $instagramUsername    = Setting::getValue('instagram_username', 'chetan_imitation');
+        $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        $instagramAccessToken = Setting::getValue('instagram_access_token', '');
+
         return view('settings.index', compact(
             'razorpayPaymentMode',
             'razorpayTestKeyId',
@@ -61,7 +65,10 @@ class SettingController extends Controller
             'prefixSupplierPurchaseGst',
             'prefixStockTransfer',
             'purchaseGstRate',
-            'storeState'
+            'storeState',
+            'instagramUsername',
+            'instagramProfileUrl',
+            'instagramAccessToken'
         ));
     }
 
@@ -87,6 +94,9 @@ class SettingController extends Controller
             'prefix_stock_transfer'    => ['nullable', 'string', 'max:10'],
             'purchase_gst_rate'        => ['nullable', 'numeric', 'min:0', 'max:100'],
             'store_state'              => ['nullable', 'string', 'max:100'],
+            'instagram_username'       => ['nullable', 'string', 'max:255'],
+            'instagram_profile_url'    => ['nullable', 'url', 'max:500'],
+            'instagram_access_token'   => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($validator->fails()) {
@@ -106,7 +116,7 @@ class SettingController extends Controller
             ], 422);
         }
 
-        $sensitiveKeys = ['razorpay_test_key_id', 'razorpay_test_key_secret', 'razorpay_live_key_id', 'razorpay_live_key_secret'];
+        $sensitiveKeys = ['razorpay_test_key_id', 'razorpay_test_key_secret', 'razorpay_live_key_id', 'razorpay_live_key_secret', 'instagram_access_token'];
         $newValues = [
             'razorpay_payment_mode'   => $request->razorpay_payment_mode ?? 'test',
             'razorpay_test_key_id'    => $request->razorpay_test_key_id ?? '',
@@ -127,6 +137,16 @@ class SettingController extends Controller
             'store_state'              => $request->store_state ?? 'Gujarat',
         ];
 
+        if ($request->has('instagram_username')) {
+            $newValues['instagram_username'] = $request->instagram_username ?? '';
+        }
+        if ($request->has('instagram_profile_url')) {
+            $newValues['instagram_profile_url'] = $request->instagram_profile_url ?? '';
+        }
+        if ($request->has('instagram_access_token')) {
+            $newValues['instagram_access_token'] = $request->instagram_access_token ?? '';
+        }
+
         $old = [];
         $new = [];
         foreach ($newValues as $key => $value) {
@@ -137,6 +157,8 @@ class SettingController extends Controller
             }
             Setting::setValue($key, $value);
         }
+
+        \Illuminate\Support\Facades\Cache::forget('instagram_feed_posts');
 
         if (!empty($new)) {
             ActivityLogger::log('Settings', 'update', null, $old, $new, 'Payment/site settings updated');

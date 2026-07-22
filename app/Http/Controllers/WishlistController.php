@@ -88,12 +88,12 @@ class WishlistController extends Controller
                 $existing->restore();
                 $existing->update(['product_variant_id' => $variantId]);
                 $status = 'added';
-            } elseif ((string) $existing->product_variant_id === (string) $variantId) {
-                $existing->forceDelete();
-                $status = 'removed';
-            } else {
+            } elseif ($variantId !== null && (string) $existing->product_variant_id !== (string) $variantId) {
                 $existing->update(['product_variant_id' => $variantId]);
                 $status = 'updated';
+            } else {
+                $existing->forceDelete();
+                $status = 'removed';
             }
         } else {
             Wishlist::create([

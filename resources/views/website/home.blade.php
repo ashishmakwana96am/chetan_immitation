@@ -130,6 +130,7 @@
         </div>
     </section>
 
+    {{-- 
     <!-- Instagram Journey -->
     <section class="section-space-bottom">
         <div>
@@ -137,30 +138,21 @@
                 <h2 class="hero-title">Follow Our Jewellery Journey</h2>
             </div>
             <div class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle1.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle2.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle3.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle4.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle5.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
-                <a href="#" class="group overflow-hidden">
-                    <img src="{{ asset('website/assets/images/Rectangle6.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-                </a>
+                @foreach($instagramPosts as $post)
+                    <a href="{{ $post['link'] ?? ($instagramProfileUrl ?? '#') }}" target="_blank" class="group overflow-hidden relative block">
+                        <img src="{{ $post['image'] }}" alt="{{ $post['caption'] ?? 'Instagram Post' }}" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
+                        <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white text-2xl">
+                            <i class="fa-brands fa-instagram"></i>
+                        </div>
+                    </a>
+                @endforeach
             </div>
             <div class="text-center mt-8 lg:mt-10">
-                <a href="https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr" class="common-btn">Follow Us on Instagram</a>
+                <a href="{{ $instagramProfileUrl ?? 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr' }}" target="_blank" class="common-btn">Follow Us on Instagram</a>
             </div>
         </div>
     </section>
+    --}}
 
 @endsection
 

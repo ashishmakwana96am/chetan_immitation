@@ -278,6 +278,51 @@
             </div>
         @endcan
 
+        {{-- 
+        <!-- Instagram Settings -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h5 class="mb-0"><i class="ti ti-brand-instagram me-2 text-danger"></i>Instagram Integration & Home Feed</h5>
+                    @if(!empty($instagramAccessToken))
+                        <span class="badge bg-label-success"><i class="ti ti-circle-check me-1"></i>Connected via Token</span>
+                    @else
+                        <span class="badge bg-label-warning"><i class="ti ti-info-circle me-1"></i>Profile Link Mode</span>
+                    @endif
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Configure your official Instagram account link and Graph API Access Token to automatically fetch and display live Instagram posts in the <strong>"Follow Our Jewellery Journey"</strong> section on the home page.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="instagram_username">Instagram Username / Handle</label>
+                            <div class="input-group">
+                                <span class="input-group-text">@</span>
+                                <input type="text" name="instagram_username" id="instagram_username" class="form-control" value="{{ $instagramUsername }}" placeholder="chetan_imitation" />
+                            </div>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="instagram_profile_url">Instagram Profile Link (Follow Button)</label>
+                            <input type="url" name="instagram_profile_url" id="instagram_profile_url" class="form-control" value="{{ $instagramProfileUrl }}" placeholder="https://www.instagram.com/chetan_imitation" />
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="instagram_access_token">Instagram User Access Token (Graph API)</label>
+                            <div class="input-group input-group-merge" id="insta-token-group">
+                                <input type="password" name="instagram_access_token" id="instagram_access_token" class="form-control" value="{{ $instagramAccessToken }}" placeholder="Enter Long-lived Instagram Graph API access token" />
+                                <span class="input-group-text cursor-pointer"><i class="ti ti-eye-off"></i></span>
+                            </div>
+                            <div class="form-text">
+                                <i class="ti ti-info-circle me-1"></i> Enter a long-lived Instagram Access Token to display top live feed images automatically. If left empty, showcase images linking to your profile will be displayed.
+                            </div>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        --}}
+
         <!-- Submit -->
         <div class="col-12">
             @can('edit settings')

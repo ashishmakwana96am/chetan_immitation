@@ -48,7 +48,58 @@ class HomeController extends Controller
             auth('customer')->user()->load('wishlists');
         }
 
-        return view('website.home', compact('categories', 'lovedProducts', 'latestProducts'));
+        $instagramPosts = $this->getInstagramPosts();
+        $instagramProfileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+
+        return view('website.home', compact('categories', 'lovedProducts', 'latestProducts', 'instagramPosts', 'instagramProfileUrl'));
+    }
+
+    private function getInstagramPosts()
+    {
+        $accessToken = Setting::getValue('instagram_access_token');
+        $profileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+
+        if (!empty($accessToken)) {
+            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts', 3600, function () use ($accessToken, $profileUrl) {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://graph.instagram.com/me/media', [
+                        'fields'       => 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp',
+                        'access_token' => $accessToken,
+                        'limit'        => 6,
+                    ]);
+
+                    if ($response->successful()) {
+                        $data = $response->json('data') ?? [];
+                        if (!empty($data)) {
+                            return collect($data)->map(function ($post) use ($profileUrl) {
+                                return [
+                                    'image'   => $post['media_type'] === 'VIDEO' ? ($post['thumbnail_url'] ?? $post['media_url']) : $post['media_url'],
+                                    'link'    => $post['permalink'] ?? $profileUrl,
+                                    'caption' => $post['caption'] ?? 'Instagram Post',
+                                ];
+                            })->toArray();
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Instagram Feed Fetch Error: ' . $e->getMessage());
+                }
+                return $this->getDefaultInstagramPosts($profileUrl);
+            });
+        }
+
+        return $this->getDefaultInstagramPosts($profileUrl);
+    }
+
+    private function getDefaultInstagramPosts($profileUrl)
+    {
+        return [
+            ['image' => asset('website/assets/images/Rectangle1.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+            ['image' => asset('website/assets/images/Rectangle2.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+            ['image' => asset('website/assets/images/Rectangle3.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+            ['image' => asset('website/assets/images/Rectangle4.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+            ['image' => asset('website/assets/images/Rectangle5.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+            ['image' => asset('website/assets/images/Rectangle6.png'), 'link' => $profileUrl, 'caption' => 'Follow us on Instagram'],
+        ];
     }
 
     public function about()
