@@ -111,7 +111,7 @@
             </div>
 
             <!-- Shop By Price -->
-            <div class="sidebar-section pb-0 mb-1">
+            <div class="sidebar-section pb-0">
                 <button onclick="toggleSection('price-section','price-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
                     <span>Shop By Price</span>
