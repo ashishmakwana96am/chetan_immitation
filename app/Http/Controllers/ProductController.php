@@ -247,7 +247,7 @@ class ProductController extends Controller
                     default => 8.5,
                 };
 
-                $isPair = false;
+                $isPair = (bool) $product->pair_product;
                 $customSizeLabel = null;
 
                 if ($product->pair_product && !empty($product->custom_sizes)) {

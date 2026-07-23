@@ -49,26 +49,27 @@
         .label-table td {
             padding: 0 !important;
             margin: 0 !important;
-            vertical-align: top !important;
+            vertical-align: middle !important;
             border: none !important;
         }
-        .zone-front {
-            width: 76.50pt !important; /* 2.7cm */
+        .label-table td.zone-front {
+            width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 0.5pt 2pt !important;
+            padding: 1pt 2pt 0.8pt 2pt !important;
             overflow: hidden !important;
         }
-        .zone-back {
-            width: 76.50pt !important; /* 2.7cm */
+        .label-table td.zone-back {
+            width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 0.5pt 2pt !important;
+            padding: 1.8pt 2pt 1pt 2pt !important;
             text-align: left !important;
             overflow: hidden !important;
         }
-        .zone-tail {
-            width: 79.44pt !important; /* 2.8cm */
+        .label-table td.zone-tail {
+            width: 79.36pt !important; /* 2.8cm */
             height: 34.02pt !important;
             overflow: hidden !important;
+            vertical-align: middle !important;
         }
         .zone-tail-content {
             width: 100% !important;
@@ -76,43 +77,43 @@
             overflow: hidden !important;
         }
         .code-line {
-            font-size: 8.5pt !important;
+            font-size: 8.2pt !important;
             font-weight: bold !important;
-            line-height: 1.1 !important;
+            line-height: 1.05 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden !important;
             text-overflow: clip !important;
             max-width: 72pt !important;
             text-align: left !important;
-            margin-bottom: 1.5pt !important;
+            margin-bottom: 1pt !important;
             padding-left: 2pt !important;
         }
         .barcode-container {
             width: 100% !important;
-            height: 14pt !important;
+            height: 13.5pt !important;
             overflow: hidden;
             text-align: left;
-            padding-left: 5pt;
-            padding-right: 5pt;
+            padding-left: 5pt !important;
+            padding-right: 5pt !important;
         }
         .barcode-img {
             width: 62pt !important;
-            height: 14pt !important;
+            height: 13.5pt !important;
             display: block;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
             image-rendering: pixelated;
         }
         .category-line {
-            font-size: 8.5pt !important;
+            font-size: 8.2pt !important;
             font-weight: bold !important;
-            line-height: 1.1 !important;
+            line-height: 1.05 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-align: left !important;
-            margin-top: 1.5pt !important;
+            margin-top: 1pt !important;
             padding-left: 2pt !important;
         }
         .variant-line {
@@ -128,25 +129,25 @@
             letter-spacing: 0.2pt;
         }
         .mrp-line {
-            font-size: 9pt !important;
+            font-size: 11.5pt !important;
             font-weight: bold !important;
-            line-height: 1.1 !important;
+            line-height: 1.05 !important;
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 6pt;
-            margin-bottom: 1.5pt !important;
+            padding-left: 6pt !important;
+            margin-bottom: 1.2pt !important;
         }
         .mrp-code-line {
             font-size: 8.5pt !important;
             font-weight: bold !important;
-            line-height: 1.1 !important;
+            line-height: 1.05 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 6pt;
-            margin-top: 1.5pt !important;
+            padding-left: 6pt !important;
+            margin-top: 1pt !important;
         }
     </style>
 </head>
@@ -173,7 +174,7 @@
                         </td>
                         <!-- Zone 2: MRP (Center Section) -->
                         <td class="zone-back">
-                            <div class="mrp-line">MRP:{{ $item['mrp'] }}</div>
+                            <div class="mrp-line">MRP : {{ $item['mrp'] }}</div>
                             <div class="mrp-code-line">{{ $item['productCode'] }}</div>
                             @if(!empty($item['isPair']))
                                 <div class="mrp-code-line">Pair</div>
