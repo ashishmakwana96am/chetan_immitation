@@ -623,7 +623,7 @@ class PurchaseBillController extends Controller
             return $basePrice;
         }
 
-        return $basePrice * ($selectedSize / (float) $maxSize);
+        return round($basePrice * ($selectedSize / (float) $maxSize));
     }
 
     private function mrpForPurchaseBillItem(PurchaseBillItem $item, float $multiplier): float
