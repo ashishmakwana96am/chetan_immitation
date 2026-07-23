@@ -168,8 +168,8 @@
                     const totalMrp = api.column(14, { search: 'applied' }).data().reduce(function (a, b) {
                         return (parseFloat(a) || 0) + (parseFloat(b) || 0);
                     }, 0);
-                    $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-                    $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + totalMrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                    $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                    $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + totalMrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                 },
                 rowGroup: {
                     dataSrc: 'date_group',

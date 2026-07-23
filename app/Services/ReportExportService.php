@@ -408,7 +408,7 @@ class ReportExportService
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Purchase Bills');
 
-        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Total MRP', 'Status', 'Created By', 'Date'];
+        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Total MRP', 'Status', 'Payment Status', 'Created By', 'Date'];
         $sheet->fromArray($headers, null, 'A1');
         $sheet->getRowDimension(1)->setRowHeight(28);
 
@@ -416,6 +416,11 @@ class ReportExportService
             1 => 'Pending',
             2 => 'Accepted',
             3 => 'Rejected',
+        ];
+
+        $paymentStatusLabels = [
+            1 => 'Pending',
+            2 => 'Paid',
         ];
 
         $row = 2;
@@ -430,8 +435,9 @@ class ReportExportService
             $sheet->setCellValueExplicit('F' . $row, round((float) $totalAmount, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValueExplicit('G' . $row, round((float) $totalMrp, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValue('H' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
-            $sheet->setCellValue('I' . $row, $transfer->createdBy->name ?? '-');
-            $sheet->setCellValue('J' . $row, $transfer->created_at->format('d M Y'));
+            $sheet->setCellValue('I' . $row, $paymentStatusLabels[(int) ($transfer->payment_status ?? 1)] ?? 'Pending');
+            $sheet->setCellValue('J' . $row, $transfer->createdBy->name ?? '-');
+            $sheet->setCellValue('K' . $row, $transfer->created_at->format('d M Y'));
             $row++;
         }
 
@@ -440,15 +446,15 @@ class ReportExportService
         $sheet->setCellValue('F' . $totalRow, "=SUM(F2:F" . ($totalRow - 1) . ")");
         $sheet->setCellValue('G' . $totalRow, "=SUM(G2:G" . ($totalRow - 1) . ")");
 
-        $sheet->getStyle('A1:J1')->applyFromArray($this->getHeaderStyle());
-        $sheet->getStyle('A2:J' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
-        $sheet->getStyle('A' . $totalRow . ':J' . $totalRow)->applyFromArray($this->getTotalsStyle());
+        $sheet->getStyle('A1:K1')->applyFromArray($this->getHeaderStyle());
+        $sheet->getStyle('A2:K' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
+        $sheet->getStyle('A' . $totalRow . ':K' . $totalRow)->applyFromArray($this->getTotalsStyle());
 
         $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('B2:B' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('E2:E' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('H2:H' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('J2:J' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('H2:I' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('K2:K' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F2:G' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
 
         $this->autoFitColumns($sheet);
