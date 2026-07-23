@@ -506,27 +506,54 @@ class LedgerController extends Controller
             return ($item->pair_type === 'pair') ? 2.0 : 1.0;
         };
 
-        $transferQty = function ($transfer) use ($stockMultiplierFor) {
-            return (int) round($transfer->items->sum(function ($item) use ($stockMultiplierFor) {
-                return $item->quantity * $stockMultiplierFor($item);
-            }));
+        $formatStockQtyText = function ($pairsCount, $pcsCount) {
+            $parts = [];
+            if ($pairsCount > 0) {
+                $parts[] = number_format($pairsCount) . ' pair' . ($pairsCount > 1 ? 's' : '');
+            }
+            if ($pcsCount > 0 || empty($parts)) {
+                $parts[] = number_format($pcsCount) . ' pcs';
+            }
+            return implode(', ', $parts);
         };
 
-        $transferAmount = function ($transfer) use ($stockMultiplierFor) {
-            return (float) $transfer->items->sum(function ($item) use ($stockMultiplierFor) {
-                $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
-                return $price * $stockMultiplierFor($item) * $item->quantity;
-            });
+        $getTransferQtyBreakdown = function ($transferCollection) use ($stockMultiplierFor) {
+            $totalPairs = 0;
+            $totalPcs = 0;
+
+            foreach ($transferCollection as $transfer) {
+                foreach ($transfer->items as $item) {
+                    $multiplier = $stockMultiplierFor($item);
+                    $totalPieces = (int) round($item->quantity * $multiplier);
+                    if ($item->product && $item->product->pair_product) {
+                        $totalPairs += (int) $item->quantity;
+                    } else {
+                        $totalPcs += $totalPieces;
+                    }
+                }
+            }
+            return [$totalPairs, $totalPcs];
         };
 
-        $transferInRaw = PurchaseBill::with(['items.product', 'items.variant'])
+        $getTransferAmount = function ($transferCollection) use ($stockMultiplierFor) {
+            $total = 0.0;
+            foreach ($transferCollection as $transfer) {
+                foreach ($transfer->items as $item) {
+                    $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
+                    $total += $price * $stockMultiplierFor($item) * $item->quantity;
+                }
+            }
+            return (float) $total;
+        };
+
+        $transferInRaw = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->whereIn('to_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
             ->get();
 
-        $transferOutRaw = PurchaseBill::with(['items.product', 'items.variant'])
+        $transferOutRaw = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->whereIn('from_location_id', $locationIds)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
             ->whereDate('accepted_at', '>=', $startDate)
@@ -539,18 +566,29 @@ class LedgerController extends Controller
         $days = $transferIn->keys()->concat($transferOut->keys())->unique()->sort()->values();
 
         $dayNodes = $days
-            ->map(function ($day) use ($transferIn, $transferOut, $transferQty, $transferAmount) {
-                $dayInQty      = (int) ($transferIn->get($day)?->sum($transferQty) ?? 0);
-                $dayInAmount   = (float) ($transferIn->get($day)?->sum($transferAmount) ?? 0);
-                $dayOutQty     = (int) ($transferOut->get($day)?->sum($transferQty) ?? 0);
-                $dayOutAmount  = (float) ($transferOut->get($day)?->sum($transferAmount) ?? 0);
+            ->map(function ($day) use ($transferIn, $transferOut, $getTransferQtyBreakdown, $getTransferAmount, $formatStockQtyText) {
+                $inTransfers  = $transferIn->get($day, collect());
+                $outTransfers = $transferOut->get($day, collect());
+
+                [$inPairs, $inPcs]   = $getTransferQtyBreakdown($inTransfers);
+                $inAmount           = $getTransferAmount($inTransfers);
+                [$outPairs, $outPcs] = $getTransferQtyBreakdown($outTransfers);
+                $outAmount          = $getTransferAmount($outTransfers);
+
+                // Build source/destination branch strings
+                $fromBranches = $inTransfers->map(fn($t) => $t->fromLocation->name ?? null)->filter()->unique()->implode(', ');
+                $toBranches   = $outTransfers->map(fn($t) => $t->toLocation->name ?? null)->filter()->unique()->implode(', ');
 
                 return [
-                    'date'       => $day,
-                    'in_qty'     => $dayInQty,
-                    'in_amount'  => $dayInAmount,
-                    'out_qty'    => $dayOutQty,
-                    'out_amount' => $dayOutAmount,
+                    'date'          => $day,
+                    'in_pairs'      => $inPairs,
+                    'in_pcs'        => $inPcs,
+                    'in_amount'     => $inAmount,
+                    'out_pairs'     => $outPairs,
+                    'out_pcs'       => $outPcs,
+                    'out_amount'    => $outAmount,
+                    'from_branches' => $fromBranches,
+                    'to_branches'   => $toBranches,
                 ];
             })
             ->sortByDesc('date')
@@ -566,40 +604,53 @@ class LedgerController extends Controller
         $allLocIds = array_unique(array_merge($locationIds, $branchLocations->pluck('id')->all()));
         $stockData = $this->getAllStockData($allLocIds);
 
-        $currentStockQty   = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['qty'] ?? 0, $locationIds));
-        $currentStockValue = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['value'] ?? 0.0, $locationIds));
+        $currentStockPairs    = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['pairs'] ?? 0, $locationIds));
+        $currentStockLoosePcs = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['loose_pcs'] ?? 0, $locationIds));
+        $currentStockValue    = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['value'] ?? 0.0, $locationIds));
 
-        $runningStockQty   = $currentStockQty;
+        $runningPairs    = $currentStockPairs;
+        $runningLoosePcs = $currentStockLoosePcs;
         $runningStockValue = $currentStockValue;
 
         foreach ($dayNodes as $key => $node) {
-            $dayNodes[$key]['outstanding_qty']    = $runningStockQty;
-            $dayNodes[$key]['outstanding_amount'] = $runningStockValue;
+            $dayNodes[$key]['outstanding_pairs']    = $runningPairs;
+            $dayNodes[$key]['outstanding_loose_pcs'] = $runningLoosePcs;
+            $dayNodes[$key]['outstanding_amount']   = $runningStockValue;
 
-            $runningStockQty   = $runningStockQty - $node['in_qty'] + $node['out_qty'];
+            $runningPairs      = max(0, $runningPairs - $node['in_pairs'] + $node['out_pairs']);
+            $runningLoosePcs   = max(0, $runningLoosePcs - $node['in_pcs'] + $node['out_pcs']);
             $runningStockValue = $runningStockValue - $node['in_amount'] + $node['out_amount'];
         }
 
-        $rows = collect($dayNodes)->map(fn ($node, $index) => [
-            'index'        => $index + 1,
-            'date'         => format_date($node['date']),
-            'date_sort'    => $node['date'],
-            'date_group'   => format_date($node['date']),
-            'transfer_in'  => format_price($node['in_amount']) . ' (' . number_format($node['in_qty']) . ' pcs)',
-            'transfer_out' => format_price($node['out_amount']) . ' (' . number_format($node['out_qty']) . ' pcs)',
-            'outstanding'  => format_price($node['outstanding_amount']) . ' (' . number_format($node['outstanding_qty']) . ' pcs)',
-            'actions'      => '
-                <div class="dropdown table-action-dropdown">
-                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                        <span>Actions</span>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                        <a href="' . route('admin.ledgers.branch.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
-                            <i class="ti ti-eye me-2"></i>View
-                        </a>
-                    </div>
-                </div>'
-        ]);
+        $rows = collect($dayNodes)->map(function ($node, $index) use ($formatStockQtyText, $actionLocationId) {
+            $inQtyText          = $formatStockQtyText($node['in_pairs'], $node['in_pcs']);
+            $outQtyText         = $formatStockQtyText($node['out_pairs'], $node['out_pcs']);
+            $outstandingQtyText = $formatStockQtyText($node['outstanding_pairs'], $node['outstanding_loose_pcs']);
+
+            $inBranchSub  = !empty($node['from_branches']) ? '<div class="text-muted small">From: ' . e($node['from_branches']) . '</div>' : '';
+            $outBranchSub = !empty($node['to_branches'])   ? '<div class="text-muted small">To: ' . e($node['to_branches']) . '</div>' : '';
+
+            return [
+                'index'        => $index + 1,
+                'date'         => format_date($node['date']),
+                'date_sort'    => $node['date'],
+                'date_group'   => format_date($node['date']),
+                'transfer_in'  => format_price($node['in_amount']) . ' (' . $inQtyText . ')' . $inBranchSub,
+                'transfer_out' => format_price($node['out_amount']) . ' (' . $outQtyText . ')' . $outBranchSub,
+                'outstanding'  => format_price($node['outstanding_amount']) . ' (' . $outstandingQtyText . ')',
+                'actions'      => '
+                    <div class="dropdown table-action-dropdown">
+                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                            <span>Actions</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                            <a href="' . route('admin.ledgers.branch.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
+                                <i class="ti ti-eye me-2"></i>View
+                            </a>
+                        </div>
+                    </div>'
+            ];
+        });
 
         $transferInByLocation = $transferInRaw->groupBy('to_location_id');
         $transferOutByLocation = $transferOutRaw->groupBy('from_location_id');
@@ -609,17 +660,19 @@ class LedgerController extends Controller
             $locInTransfers  = $transferInByLocation->get($loc->id, collect());
             $locOutTransfers = $transferOutByLocation->get($loc->id, collect());
 
-            $locInQty      = (int) $locInTransfers->sum($transferQty);
-            $locInAmount   = (float) $locInTransfers->sum($transferAmount);
-            $locOutQty     = (int) $locOutTransfers->sum($transferQty);
-            $locOutAmount  = (float) $locOutTransfers->sum($transferAmount);
-            $locStockQty   = $stockData['by_location'][$loc->id]['qty'] ?? 0;
+            [$locInPairs, $locInPcs]   = $getTransferQtyBreakdown($locInTransfers);
+            $locInAmount               = $getTransferAmount($locInTransfers);
+            [$locOutPairs, $locOutPcs] = $getTransferQtyBreakdown($locOutTransfers);
+            $locOutAmount              = $getTransferAmount($locOutTransfers);
+
+            $locStockPairs = $stockData['by_location'][$loc->id]['pairs'] ?? 0;
+            $locStockPcs   = $stockData['by_location'][$loc->id]['loose_pcs'] ?? 0;
             $locStockValue = $stockData['by_location'][$loc->id]['value'] ?? 0.0;
 
             $branchSummary[$loc->id] = [
-                'transfer_in'  => format_price($locInAmount) . ' (' . number_format($locInQty) . ' pcs)',
-                'transfer_out' => format_price($locOutAmount) . ' (' . number_format($locOutQty) . ' pcs)',
-                'outstanding'  => format_price($locStockValue) . ' (' . number_format($locStockQty) . ' pcs)',
+                'transfer_in'  => format_price($locInAmount) . ' (' . $formatStockQtyText($locInPairs, $locInPcs) . ')',
+                'transfer_out' => format_price($locOutAmount) . ' (' . $formatStockQtyText($locOutPairs, $locOutPcs) . ')',
+                'outstanding'  => format_price($locStockValue) . ' (' . $formatStockQtyText($locStockPairs, $locStockPcs) . ')',
             ];
         }
 
@@ -680,10 +733,38 @@ class LedgerController extends Controller
             return ($item->pair_type === 'pair') ? 2.0 : 1.0;
         };
 
-        $transferQty = function ($transfer) use ($stockMultiplierFor) {
-            return (int) round($transfer->items->sum(function ($item) use ($stockMultiplierFor) {
-                return $item->quantity * $stockMultiplierFor($item);
-            }));
+        $formatStockQtyText = function ($pairsCount, $pcsCount) {
+            $parts = [];
+            if ($pairsCount > 0) {
+                $parts[] = number_format($pairsCount) . ' pair' . ($pairsCount > 1 ? 's' : '');
+            }
+            if ($pcsCount > 0 || empty($parts)) {
+                $parts[] = number_format($pcsCount) . ' pcs';
+            }
+            return implode(', ', $parts);
+        };
+
+        $getTransferQtyBreakdown = function ($transferCollection) use ($stockMultiplierFor) {
+            $totalPairs = 0;
+            $totalPcs = 0;
+
+            foreach ($transferCollection as $transfer) {
+                foreach ($transfer->items as $item) {
+                    $multiplier = $stockMultiplierFor($item);
+                    $totalPieces = (int) round($item->quantity * $multiplier);
+                    if ($item->product && $item->product->pair_product) {
+                        $totalPairs += (int) $item->quantity;
+                    } else {
+                        $totalPcs += $totalPieces;
+                    }
+                }
+            }
+            return [$totalPairs, $totalPcs];
+        };
+
+        $singleTransferQtyText = function ($transfer) use ($getTransferQtyBreakdown, $formatStockQtyText) {
+            [$pairs, $pcs] = $getTransferQtyBreakdown([$transfer]);
+            return $formatStockQtyText($pairs, $pcs);
         };
 
         $transferAmount = function ($transfer) use ($stockMultiplierFor) {
@@ -693,27 +774,30 @@ class LedgerController extends Controller
             });
         };
 
-        $totalInQty       = $transferIn->sum($transferQty);
-        $totalInAmount    = $transferIn->sum($transferAmount);
-        $totalOutQty      = $transferOut->sum($transferQty);
-        $totalOutAmount   = $transferOut->sum($transferAmount);
+        [$inPairs, $inPcs]   = $getTransferQtyBreakdown($transferIn);
+        $totalInQtyText     = $formatStockQtyText($inPairs, $inPcs);
+        $totalInAmount      = $transferIn->sum($transferAmount);
+
+        [$outPairs, $outPcs] = $getTransferQtyBreakdown($transferOut);
+        $totalOutQtyText    = $formatStockQtyText($outPairs, $outPcs);
+        $totalOutAmount     = $transferOut->sum($transferAmount);
         
-        $stockData        = $this->getAllStockData($locationIds);
-        $outstandingQty   = $stockData['total_qty'];
-        $outstandingValue = $stockData['total_value'];
+        $stockData          = $this->getAllStockData($locationIds);
+        $outstandingQtyText = $formatStockQtyText($stockData['total_pairs'], $stockData['total_loose_pcs']);
+        $outstandingValue   = $stockData['total_value'];
 
         return view('ledgers.branch-detail', compact(
             'location',
             'date',
             'transferIn',
             'transferOut',
-            'totalInQty',
+            'totalInQtyText',
             'totalInAmount',
-            'totalOutQty',
+            'totalOutQtyText',
             'totalOutAmount',
-            'transferQty',
+            'singleTransferQtyText',
             'transferAmount',
-            'outstandingQty',
+            'outstandingQtyText',
             'outstandingValue'
         ));
     }
@@ -869,11 +953,11 @@ class LedgerController extends Controller
 
         $byLocation = [];
         foreach ($locationIds as $locId) {
-            $byLocation[$locId] = ['qty' => 0, 'value' => 0.0];
+            $byLocation[$locId] = ['qty' => 0, 'value' => 0.0, 'pairs' => 0, 'loose_pcs' => 0];
         }
 
         if (empty($locationIds)) {
-            return ['by_location' => $byLocation, 'total_qty' => 0, 'total_value' => 0.0];
+            return ['by_location' => $byLocation, 'total_qty' => 0, 'total_value' => 0.0, 'total_pairs' => 0, 'total_loose_pcs' => 0];
         }
 
         $products = Product::with('variants')->get();
@@ -958,6 +1042,7 @@ class LedgerController extends Controller
 
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
+            $isPair = (bool) $product->pair_product;
 
             if ($product->type === 'variable') {
                 foreach ($product->variants as $variant) {
@@ -973,6 +1058,12 @@ class LedgerController extends Controller
                         if ($vStock > 0) {
                             $byLocation[$locId]['qty']   += $vStock;
                             $byLocation[$locId]['value'] += $vStock * $variantPrice;
+                            if ($isPair) {
+                                $byLocation[$locId]['pairs'] += (int) floor($vStock / 2);
+                                $byLocation[$locId]['loose_pcs'] += (int) ($vStock % 2);
+                            } else {
+                                $byLocation[$locId]['loose_pcs'] += $vStock;
+                            }
                         }
                     }
                 }
@@ -983,6 +1074,12 @@ class LedgerController extends Controller
                     if ($qty > 0) {
                         $byLocation[$locId]['qty']   += $qty;
                         $byLocation[$locId]['value'] += $qty * $purchasePrice;
+                        if ($isPair) {
+                            $byLocation[$locId]['pairs'] += (int) floor($qty / 2);
+                            $byLocation[$locId]['loose_pcs'] += (int) ($qty % 2);
+                        } else {
+                            $byLocation[$locId]['loose_pcs'] += $qty;
+                        }
                     }
                 }
             }
@@ -990,11 +1087,15 @@ class LedgerController extends Controller
 
         $totalQty = array_sum(array_column($byLocation, 'qty'));
         $totalValue = array_sum(array_column($byLocation, 'value'));
+        $totalPairs = array_sum(array_column($byLocation, 'pairs'));
+        $totalLoosePcs = array_sum(array_column($byLocation, 'loose_pcs'));
 
         return [
-            'by_location' => $byLocation,
-            'total_qty'   => $totalQty,
-            'total_value' => $totalValue,
+            'by_location'     => $byLocation,
+            'total_qty'       => $totalQty,
+            'total_value'     => $totalValue,
+            'total_pairs'     => $totalPairs,
+            'total_loose_pcs' => $totalLoosePcs,
         ];
     }
 
