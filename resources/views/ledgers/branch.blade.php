@@ -47,7 +47,6 @@
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">Pending Payments Between Branches</h5>
-            <small class="text-muted">Purchase bills already accepted (stock moved) but not yet marked Paid &mdash; matches the filter below. Double-click a row to see its bills.</small>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">

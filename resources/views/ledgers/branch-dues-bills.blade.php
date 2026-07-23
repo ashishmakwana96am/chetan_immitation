@@ -10,7 +10,7 @@
                 <span class="fw-semibold text-danger">{{ $fromLocation->name }}</span>
                 <i class="ti ti-arrow-right mx-1"></i>
                 <span class="fw-semibold text-success">{{ $toLocation->name }}</span>
-                &mdash; pending purchase bills (accepted, payment not yet marked Paid)
+                &mdash; pending purchase bills
             </small>
         </div>
         <a href="{{ route('admin.ledgers.branch') }}" class="btn btn-label-secondary">
