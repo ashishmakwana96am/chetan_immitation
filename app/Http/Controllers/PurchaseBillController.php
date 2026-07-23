@@ -73,14 +73,17 @@ class PurchaseBillController extends Controller
             ->when($request->from_location_id, fn ($q) => $q->where('from_location_id', $request->from_location_id))
             ->when($request->to_location_id, fn ($q) => $q->where('to_location_id', $request->to_location_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
+            ->when($request->payment_status, fn ($q) => $q->where('payment_status', $request->payment_status))
             ->orderByDesc('id')
             ->get();
 
         $canAccept = auth()->user()->can('accept purchase bills');
         $canReject = auth()->user()->can('reject purchase bills');
+        $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
 
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject) {
+        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus) {
             $statusBadge = $this->statusBadge($transfer->status);
+            $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
 
             [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
 
@@ -96,6 +99,9 @@ class PurchaseBillController extends Controller
                     $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.reject', $transfer) . '" data-method="PATCH" data-title="Reject Purchase Bill" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
                 }
             }
+            if ($canEditPaymentStatus && $transfer->status != PurchaseBill::STATUS_REJECTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
+                $actions .= '<button class="dropdown-item change-purchase-bill-payment-status-btn" data-url="' . route('admin.purchase-bills.update-payment-status', $transfer) . '" data-current="' . ((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING)) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+            }
             $actions .= '</div></div>';
 
             return [
@@ -109,6 +115,7 @@ class PurchaseBillController extends Controller
                 'total_mrp' => currency_symbol() . ' ' . number_format($totalMrp, 2),
                 'total_mrp_raw' => $totalMrp,
                 'status' => $statusBadge,
+                'payment_status' => $paymentStatusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
                 'date_group' => $transfer->created_at->format('d M Y'),
                 'date_sort' => $transfer->created_at->format('Ymd'),
@@ -139,6 +146,7 @@ class PurchaseBillController extends Controller
             ->when($request->from_location_id, fn ($q) => $q->where('from_location_id', $request->from_location_id))
             ->when($request->to_location_id, fn ($q) => $q->where('to_location_id', $request->to_location_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
+            ->when($request->payment_status, fn ($q) => $q->where('payment_status', $request->payment_status))
             ->orderByDesc('id')
             ->get();
 
@@ -196,6 +204,7 @@ class PurchaseBillController extends Controller
             'from_location_id' => ['required', 'exists:locations,id'],
             'to_location_id' => ['required', 'exists:locations,id', 'different:from_location_id'],
             'payment_method' => ['required', 'string', 'in:cash,online'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -221,6 +230,7 @@ class PurchaseBillController extends Controller
                 'to_location_id' => $request->to_location_id,
                 'status' => PurchaseBill::STATUS_PENDING,
                 'payment_method' => $request->payment_method,
+                'payment_status' => $request->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING,
                 'remarks' => $request->remarks,
                 'created_by' => auth()->id(),
             ]);
@@ -330,43 +340,8 @@ class PurchaseBillController extends Controller
                 ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock received/moved in for purchase bill #' . $purchaseBill->transfer_no);
             }
 
-            if ($totalAmount > 0) {
-                $onlineMethods = ['online', 'bank_transfer', 'bank transfer', 'razorpay', 'upi'];
-                $balanceType = in_array(strtolower($purchaseBill->payment_method ?? 'cash'), $onlineMethods, true)
-                    ? \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
-                    : \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH;
-
-                $balanceCol = $balanceType === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
-                    ? 'bank_balance'
-                    : 'cash_balance';
-
-                $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
-                $newFromBalance = (float) $fromBalance->{$balanceCol} + $totalAmount;
-                $fromBalance->update([$balanceCol => $newFromBalance]);
-
-                \App\Models\LocationBalanceTransaction::create([
-                    'location_id'   => $purchaseBill->from_location_id,
-                    'balance_type'  => $balanceType,
-                    'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
-                    'amount'        => $totalAmount,
-                    'balance_after' => $newFromBalance,
-                    'notes'         => 'Purchase Bill Out #' . $purchaseBill->transfer_no,
-                    'created_by'    => auth()->id(),
-                ]);
-
-                $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
-                $newToBalance = (float) $toBalance->{$balanceCol} - $totalAmount;
-                $toBalance->update([$balanceCol => $newToBalance]);
-
-                \App\Models\LocationBalanceTransaction::create([
-                    'location_id'   => $purchaseBill->to_location_id,
-                    'balance_type'  => $balanceType,
-                    'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
-                    'amount'        => $totalAmount,
-                    'balance_after' => $newToBalance,
-                    'notes'         => 'Purchase Bill In #' . $purchaseBill->transfer_no,
-                    'created_by'    => auth()->id(),
-                ]);
+            if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
+                $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount);
             }
 
             $purchaseBill->update([
@@ -377,6 +352,41 @@ class PurchaseBillController extends Controller
         });
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill accepted successfully.']);
+    }
+
+    public function updatePaymentStatus(Request $request, PurchaseBill $purchaseBill)
+    {
+        $this->authorize('edit purchase bills payment status');
+        $this->guardLocationAccess($purchaseBill);
+
+        $validator = Validator::make($request->all(), [
+            'payment_status' => ['required', 'integer', 'in:1,2'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
+        }
+
+        $newStatus = (int) $request->payment_status;
+        $currentStatus = (int) ($purchaseBill->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING);
+
+        if ($newStatus === $currentStatus) {
+            return response()->json(['status' => 'error', 'message' => 'Payment status is already updated.'], 422);
+        }
+
+        DB::transaction(function () use ($purchaseBill, $newStatus) {
+            if ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED) {
+                $purchaseBill->load(['items.product', 'items.variant']);
+                [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
+
+                $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount, $newStatus === PurchaseBill::PAYMENT_STATUS_PENDING);
+            }
+
+            $purchaseBill->update(['payment_status' => $newStatus]);
+        });
+
+        $label = $newStatus === PurchaseBill::PAYMENT_STATUS_PAID ? 'Paid' : 'Pending';
+        return response()->json(['status' => 'success', 'message' => 'Payment status updated to ' . $label . '.']);
     }
 
     public function reject(PurchaseBill $purchaseBill)
@@ -535,6 +545,69 @@ class PurchaseBillController extends Controller
         ];
 
         return '<span class="badge ' . ($colors[$status] ?? 'bg-label-secondary') . '">' . ($labels[$status] ?? 'Pending') . '</span>';
+    }
+
+    private function paymentStatusBadge(int $status): string
+    {
+        $colors = [
+            PurchaseBill::PAYMENT_STATUS_PENDING => 'bg-label-warning',
+            PurchaseBill::PAYMENT_STATUS_PAID => 'bg-label-success',
+        ];
+        $labels = [
+            PurchaseBill::PAYMENT_STATUS_PENDING => 'Pending',
+            PurchaseBill::PAYMENT_STATUS_PAID => 'Paid',
+        ];
+
+        return '<span class="badge ' . ($colors[$status] ?? 'bg-label-warning') . '">' . ($labels[$status] ?? 'Pending') . '</span>';
+    }
+
+    private function applyLocationBalanceTransfer(PurchaseBill $purchaseBill, float $totalAmount, bool $reverse = false): void
+    {
+        if ($totalAmount <= 0) {
+            return;
+        }
+
+        $balanceType = strtolower($purchaseBill->payment_method ?? 'cash') === 'online'
+            ? \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+            : \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH;
+
+        $balanceCol = $balanceType === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+            ? 'bank_balance'
+            : 'cash_balance';
+
+        $fromDelta = $reverse ? -$totalAmount : $totalAmount;
+        $toDelta = $reverse ? $totalAmount : -$totalAmount;
+        $fromType = $reverse ? \App\Models\LocationBalanceTransaction::TYPE_DEBIT : \App\Models\LocationBalanceTransaction::TYPE_CREDIT;
+        $toType = $reverse ? \App\Models\LocationBalanceTransaction::TYPE_CREDIT : \App\Models\LocationBalanceTransaction::TYPE_DEBIT;
+        $notePrefix = $reverse ? 'Purchase Bill Payment Reversed' : 'Purchase Bill';
+
+        $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
+        $newFromBalance = (float) $fromBalance->{$balanceCol} + $fromDelta;
+        $fromBalance->update([$balanceCol => $newFromBalance]);
+
+        \App\Models\LocationBalanceTransaction::create([
+            'location_id'   => $purchaseBill->from_location_id,
+            'balance_type'  => $balanceType,
+            'type'          => $fromType,
+            'amount'        => $totalAmount,
+            'balance_after' => $newFromBalance,
+            'notes'         => $notePrefix . ' Out #' . $purchaseBill->transfer_no,
+            'created_by'    => auth()->id(),
+        ]);
+
+        $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
+        $newToBalance = (float) $toBalance->{$balanceCol} + $toDelta;
+        $toBalance->update([$balanceCol => $newToBalance]);
+
+        \App\Models\LocationBalanceTransaction::create([
+            'location_id'   => $purchaseBill->to_location_id,
+            'balance_type'  => $balanceType,
+            'type'          => $toType,
+            'amount'        => $totalAmount,
+            'balance_after' => $newToBalance,
+            'notes'         => $notePrefix . ' In #' . $purchaseBill->transfer_no,
+            'created_by'    => auth()->id(),
+        ]);
     }
 
     private function resolveCustomSizeValue(?Product $product, array $itemData): ?float

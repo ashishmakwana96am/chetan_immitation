@@ -47,6 +47,14 @@
                             <option value="3">Rejected</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Payment Status</label>
+                        <select id="filter-payment-status" class="form-select">
+                            <option value="">All Payments</option>
+                            <option value="1">Pending</option>
+                            <option value="2">Paid</option>
+                        </select>
+                    </div>
                     <div class="dropdown-divider"></div>
                     <div class="d-flex gap-2 pt-2">
                         <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear</button>
@@ -82,6 +90,7 @@
                         <th>Amount</th>
                         <th>Total MRP</th>
                         <th>Status</th>
+                        <th>Payment Status</th>
                         <th>Created By</th>
                         <th>Actions</th>
                         <th class="d-none">Date Group</th>
@@ -95,7 +104,7 @@
                         <th colspan="5" class="text-end">Total</th>
                         <th id="purchaseBillsTotalAmount"></th>
                         <th id="purchaseBillsTotalMrp"></th>
-                        <th colspan="3"></th>
+                        <th colspan="4"></th>
                         <th class="d-none"></th>
                         <th class="d-none"></th>
                         <th class="d-none"></th>
@@ -113,8 +122,8 @@
         $(document).ready(function () {
             const table = $('#purchaseBillsTable').DataTable({
                 responsive: false,
-                order: [[11, 'desc']],
-                orderFixed: { pre: [[11, 'desc']] },
+                order: [[12, 'desc']],
+                orderFixed: { pre: [[12, 'desc']] },
                 ajax: {
                     url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
@@ -123,6 +132,7 @@
                         d.from_location_id = $('#filter-from-location').val();
                         d.to_location_id = $('#filter-to-location').val();
                         d.status = $('#filter-status').val();
+                        d.payment_status = $('#filter-payment-status').val();
                     }
                 },
                 columns: [
@@ -142,6 +152,7 @@
                     { data: 'total_amount' },
                     { data: 'total_mrp' },
                     { data: 'status', orderable: false },
+                    { data: 'payment_status', orderable: false },
                     { data: 'created_by' },
                     { data: 'actions', orderable: false },
                     { data: 'date_group', visible: false },
@@ -151,10 +162,10 @@
                 ],
                 footerCallback: function () {
                     const api = this.api();
-                    const total = api.column(12, { search: 'applied' }).data().reduce(function (a, b) {
+                    const total = api.column(13, { search: 'applied' }).data().reduce(function (a, b) {
                         return (parseFloat(a) || 0) + (parseFloat(b) || 0);
                     }, 0);
-                    const totalMrp = api.column(13, { search: 'applied' }).data().reduce(function (a, b) {
+                    const totalMrp = api.column(14, { search: 'applied' }).data().reduce(function (a, b) {
                         return (parseFloat(a) || 0) + (parseFloat(b) || 0);
                     }, 0);
                     $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -164,7 +175,7 @@
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="10" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
+                            .append('<td colspan="11" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
                     }
                 },
             });
@@ -178,6 +189,7 @@
                     from_location_id: $('#filter-from-location').val() || '',
                     to_location_id: $('#filter-to-location').val() || '',
                     status: $('#filter-status').val() || '',
+                    payment_status: $('#filter-payment-status').val() || '',
                 });
                 window.location.href = '{{ route('admin.purchase-bills.export') }}?' + params;
             });
@@ -188,7 +200,7 @@
             });
 
             $('#btnClearFilter').on('click', function () {
-                $('#filter-from-location, #filter-to-location, #filter-status').val('');
+                $('#filter-from-location, #filter-to-location, #filter-status, #filter-payment-status').val('');
                 window.refreshTable();
                 bootstrap.Dropdown.getOrCreateInstance(document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]')).hide();
             });
@@ -221,6 +233,57 @@
                             if (typeof window.refreshPurchaseBillBadge === 'function') {
                                 window.refreshPurchaseBillBadge();
                             }
+                        },
+                        error: function (xhr) {
+                            window.hideAjaxLoader();
+                            const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                            toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                        }
+                    });
+                });
+            });
+
+            $(document).on('click', '.change-purchase-bill-payment-status-btn', function (e) {
+                e.preventDefault();
+                const url = $(this).data('url');
+                const currentPaymentStatus = $(this).data('current');
+
+                Swal.fire({
+                    title: 'Update Payment Status',
+                    html: `
+                        <div class="mb-3 text-start">
+                            <label for="swal-purchase-bill-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
+                            <select id="swal-purchase-bill-payment-status" class="form-select form-select-lg">
+                                <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
+                                <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
+                            </select>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Update',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-primary me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false,
+                    preConfirm: () => {
+                        return document.getElementById('swal-purchase-bill-payment-status').value;
+                    }
+                }).then((result) => {
+                    if (!result.isConfirmed || !result.value) return;
+                    window.showAjaxLoader();
+                    $.ajax({
+                        url: url,
+                        type: 'PATCH',
+                        data: {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            payment_status: result.value
+                        },
+                        success: function (res) {
+                            window.hideAjaxLoader();
+                            toastr.success(res.message);
+                            window.refreshTable();
                         },
                         error: function (xhr) {
                             window.hideAjaxLoader();

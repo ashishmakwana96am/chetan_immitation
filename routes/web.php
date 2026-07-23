@@ -191,6 +191,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
         Route::patch('purchase-bills/{purchaseBill}/accept', [PurchaseBillController::class, 'accept'])->name('purchase-bills.accept');
         Route::patch('purchase-bills/{purchaseBill}/reject', [PurchaseBillController::class, 'reject'])->name('purchase-bills.reject');
+        Route::patch('purchase-bills/{purchaseBill}/payment-status', [PurchaseBillController::class, 'updatePaymentStatus'])->name('purchase-bills.update-payment-status');
         Route::resource('purchase-bills', PurchaseBillController::class)
             ->parameters(['purchase-bills' => 'purchaseBill'])
             ->only(['index', 'create', 'store', 'show']);

@@ -65,6 +65,9 @@
     @php
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
+        $paymentStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success'];
+        $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid'];
+        $currentPaymentStatus = (int) ($transfer->payment_status ?? 1);
     @endphp
 
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
@@ -91,6 +94,15 @@
                     </button>
                 @endcan
             @endif
+            @can('edit purchase bills payment status')
+                @if($transfer->status != \App\Models\PurchaseBill::STATUS_REJECTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
+                    <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
+                        data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
+                        data-current="{{ $currentPaymentStatus }}">
+                        <i class="ti ti-credit-card me-1"></i> Update Payment Status
+                    </button>
+                @endif
+            @endcan
             <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back
             </a>
@@ -124,6 +136,10 @@
                     <div class="info-row">
                         <span class="info-label">Payment Method</span>
                         <span class="info-value">{{ ucwords($transfer->payment_method ?? 'cash') }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Payment Status</span>
+                        <span class="badge {{ $paymentStatusColors[$currentPaymentStatus] ?? 'bg-label-warning' }}">{{ $paymentStatusLabels[$currentPaymentStatus] ?? 'Pending' }}</span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Created By</span>
@@ -238,6 +254,56 @@
 @section('page-js')
 <script>
 $(document).ready(function () {
+    $(document).on('click', '.change-purchase-bill-payment-status-btn', function (e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const currentPaymentStatus = $(this).data('current');
+
+        Swal.fire({
+            title: 'Update Payment Status',
+            html: `
+                <div class="mb-3 text-start">
+                    <label for="swal-purchase-bill-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
+                    <select id="swal-purchase-bill-payment-status" class="form-select form-select-lg">
+                        <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
+                        <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
+                    </select>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Update',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: 'btn btn-primary me-3',
+                cancelButton: 'btn btn-label-secondary'
+            },
+            buttonsStyling: false,
+            preConfirm: () => {
+                return document.getElementById('swal-purchase-bill-payment-status').value;
+            }
+        }).then((result) => {
+            if (!result.isConfirmed || !result.value) return;
+            window.showAjaxLoader();
+            $.ajax({
+                url: url,
+                type: 'PATCH',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    payment_status: result.value
+                },
+                success: function (res) {
+                    window.hideAjaxLoader();
+                    toastr.success(res.message);
+                    setTimeout(() => window.location.reload(), 600);
+                },
+                error: function (xhr) {
+                    window.hideAjaxLoader();
+                    toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
+                }
+            });
+        });
+    });
+
     $(document).on('click', '.purchase-bill-action', function () {
         const button = $(this);
         Swal.fire({

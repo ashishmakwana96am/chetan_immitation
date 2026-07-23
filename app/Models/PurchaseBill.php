@@ -18,12 +18,16 @@ class PurchaseBill extends Model
     const STATUS_ACCEPTED = 2;
     const STATUS_REJECTED = 3;
 
+    const PAYMENT_STATUS_PENDING = 1;
+    const PAYMENT_STATUS_PAID = 2;
+
     protected $fillable = [
         'transfer_no',
         'from_location_id',
         'to_location_id',
         'status',
         'payment_method',
+        'payment_status',
         'remarks',
         'created_by',
         'accepted_by',
@@ -34,6 +38,7 @@ class PurchaseBill extends Model
     {
         return [
             'status' => 'integer',
+            'payment_status' => 'integer',
             'accepted_at' => 'datetime',
         ];
     }

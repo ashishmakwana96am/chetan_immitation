@@ -102,6 +102,14 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label">Payment Status <span class="text-danger">*</span></label>
+                                <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
+                                    <option value="1">Pending</option>
+                                    <option value="2">Paid</option>
+                                </select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label">Source Location <span class="text-danger">*</span></label>
                                 @if($canChooseSource)
                                     <select name="from_location_id" id="fromLocation" class="form-select">
@@ -392,7 +400,7 @@ $(document).ready(function () {
                 <input type="hidden" class="pair-type-input" value="single">`);
         } else {
             row.find('.pair-type-container').html(`
-                <span class="text-muted">Piece</span>
+                <span class="badge bg-label-secondary">Piece</span>
                 <input type="hidden" class="pair-type-input" value="single">`);
         }
 
