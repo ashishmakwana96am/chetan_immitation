@@ -545,8 +545,7 @@ class LedgerController extends Controller
                     } else {
                         $pcs += (int) round($item->quantity * $multiplier);
                     }
-                    $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
-                    $amount += $price * $multiplier * $item->quantity;
+                    $amount += $this->purchasePriceForLedgerItem($item) * $item->quantity;
                 }
 
                 $bill->computed_amount = $amount;
@@ -571,51 +570,11 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        $stockMultiplierFor = function ($item) {
-            if ($item->custom_size_value !== null && (float)$item->custom_size_value > 0) {
-                return (float) $item->custom_size_value;
-            }
-            if ($item->product && !$item->product->pair_product) {
-                return 1.0;
-            }
-            return ($item->pair_type === 'pair') ? 2.0 : 1.0;
-        };
-
-        $formatStockQtyText = function ($pairsCount, $pcsCount) {
-            $parts = [];
-            if ($pairsCount > 0) {
-                $parts[] = number_format($pairsCount) . ' pair' . ($pairsCount > 1 ? 's' : '');
-            }
-            if ($pcsCount > 0 || empty($parts)) {
-                $parts[] = number_format($pcsCount) . ' pcs';
-            }
-            return implode(', ', $parts);
-        };
-
-        $getTransferQtyBreakdown = function ($transferCollection) use ($stockMultiplierFor) {
-            $totalPairs = 0;
-            $totalPcs = 0;
-
-            foreach ($transferCollection as $transfer) {
-                foreach ($transfer->items as $item) {
-                    $multiplier = $stockMultiplierFor($item);
-                    $totalPieces = (int) round($item->quantity * $multiplier);
-                    if ($item->product && $item->product->pair_product) {
-                        $totalPairs += (int) $item->quantity;
-                    } else {
-                        $totalPcs += $totalPieces;
-                    }
-                }
-            }
-            return [$totalPairs, $totalPcs];
-        };
-
-        $getTransferAmount = function ($transferCollection) use ($stockMultiplierFor) {
+        $getTransferAmount = function ($transferCollection) {
             $total = 0.0;
             foreach ($transferCollection as $transfer) {
                 foreach ($transfer->items as $item) {
-                    $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
-                    $total += $price * $stockMultiplierFor($item) * $item->quantity;
+                    $total += $this->purchasePriceForLedgerItem($item) * $item->quantity;
                 }
             }
             return (float) $total;
@@ -637,9 +596,7 @@ class LedgerController extends Controller
             ->orderByDesc('accepted_at')
             ->get();
 
-        $rows = $transfers->values()->map(function ($transfer, $index) use ($formatStockQtyText, $getTransferQtyBreakdown, $getTransferAmount) {
-            [$pairs, $pcs] = $getTransferQtyBreakdown([$transfer]);
-            $qtyText = $formatStockQtyText($pairs, $pcs);
+        $rows = $transfers->values()->map(function ($transfer, $index) use ($getTransferAmount) {
             $amount = $getTransferAmount([$transfer]);
             $date = $transfer->accepted_at->format('Y-m-d');
 
@@ -654,7 +611,7 @@ class LedgerController extends Controller
                 'date_group'  => format_date($date),
                 'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
                 'branch'      => $branchLabel,
-                'amount'      => '<span class="fw-semibold">' . format_price($amount) . '</span> <span class="text-muted small">(' . $qtyText . ')</span>',
+                'amount'      => '<span class="fw-semibold">' . format_price($amount) . '</span>',
                 'actions'     => '
                     <div class="dropdown table-action-dropdown">
                         <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
@@ -797,10 +754,9 @@ class LedgerController extends Controller
             return $formatStockQtyText($pairs, $pcs);
         };
 
-        $transferAmount = function ($transfer) use ($stockMultiplierFor) {
-            return (float) $transfer->items->sum(function ($item) use ($stockMultiplierFor) {
-                $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
-                return $price * $stockMultiplierFor($item) * $item->quantity;
+        $transferAmount = function ($transfer) {
+            return (float) $transfer->items->sum(function ($item) {
+                return $this->purchasePriceForLedgerItem($item) * $item->quantity;
             });
         };
 
@@ -845,6 +801,37 @@ class LedgerController extends Controller
     private function authorizeLedger(string $permission): void
     {
         $this->authorize($permission);
+    }
+
+    private function purchasePriceForLedgerItem(PurchaseBillItem $item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return round($basePrice * ($selectedSize / (float) $maxSize));
     }
 
     private function resolveLocations(): array

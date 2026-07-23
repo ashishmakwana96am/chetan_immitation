@@ -95,7 +95,7 @@
                 @endcan
             @endif
             @can('edit purchase bills payment status')
-                @if($transfer->status != \App\Models\PurchaseBill::STATUS_REJECTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
+                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
                     <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
                         data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
                         data-current="{{ $currentPaymentStatus }}">

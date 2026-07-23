@@ -99,7 +99,7 @@ class PurchaseBillController extends Controller
                     $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.reject', $transfer) . '" data-method="PATCH" data-title="Reject Purchase Bill" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
                 }
             }
-            if ($canEditPaymentStatus && $transfer->status != PurchaseBill::STATUS_REJECTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
+            if ($canEditPaymentStatus && $transfer->status == PurchaseBill::STATUS_ACCEPTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
                 $actions .= '<button class="dropdown-item change-purchase-bill-payment-status-btn" data-url="' . route('admin.purchase-bills.update-payment-status', $transfer) . '" data-current="' . ((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING)) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             $actions .= '</div></div>';
@@ -367,6 +367,10 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()->first()], 422);
         }
 
+        if ($purchaseBill->status != PurchaseBill::STATUS_ACCEPTED) {
+            return response()->json(['status' => 'error', 'message' => 'Only accepted purchase bills can have their payment status updated.'], 422);
+        }
+
         $newStatus = (int) $request->payment_status;
         $currentStatus = (int) ($purchaseBill->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING);
 
@@ -375,12 +379,10 @@ class PurchaseBillController extends Controller
         }
 
         DB::transaction(function () use ($purchaseBill, $newStatus) {
-            if ($purchaseBill->status == PurchaseBill::STATUS_ACCEPTED) {
-                $purchaseBill->load(['items.product', 'items.variant']);
-                [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
+            $purchaseBill->load(['items.product', 'items.variant']);
+            [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
 
-                $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount, $newStatus === PurchaseBill::PAYMENT_STATUS_PENDING);
-            }
+            $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount, $newStatus === PurchaseBill::PAYMENT_STATUS_PENDING);
 
             $purchaseBill->update(['payment_status' => $newStatus]);
         });
