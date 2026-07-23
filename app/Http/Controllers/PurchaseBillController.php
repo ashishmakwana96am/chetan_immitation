@@ -261,8 +261,7 @@ class PurchaseBillController extends Controller
         foreach ($purchaseBill->items as $item) {
             $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
             $quantity = (int) $item->quantity;
-            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $unitAmount = (float) $price;
+            $unitAmount = $this->purchasePriceForPurchaseBillItem($item);
             $unitMrp = $this->mrpForPurchaseBillItem($item, $multiplier);
 
             $item->calculated_unit_amount = $unitAmount;
@@ -299,8 +298,7 @@ class PurchaseBillController extends Controller
         DB::transaction(function () use ($purchaseBill) {
             $totalAmount = 0.0;
             foreach ($purchaseBill->items as $item) {
-                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                $totalAmount += (float) $price * $item->quantity;
+                $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $item->quantity;
             }
 
             foreach ($purchaseBill->items as $item) {
@@ -589,13 +587,43 @@ class PurchaseBillController extends Controller
             $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
             $quantity = (int) $item->quantity;
 
-            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $totalAmount += (float) $price * $quantity;
+            $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $quantity;
 
             $totalMrp += $this->mrpForPurchaseBillItem($item, $multiplier) * $quantity;
         }
 
         return [$totalAmount, $totalMrp];
+    }
+
+    private function purchasePriceForPurchaseBillItem(PurchaseBillItem $item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return $basePrice * ($selectedSize / (float) $maxSize);
     }
 
     private function mrpForPurchaseBillItem(PurchaseBillItem $item, float $multiplier): float

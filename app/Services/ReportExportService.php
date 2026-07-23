@@ -675,14 +675,44 @@ class ReportExportService
             $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
             $quantity = (int) $item->quantity;
 
-            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $totalAmount += (float) $price * $quantity;
+            $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $quantity;
 
             $mrp = $this->mrpForPurchaseBillItem($item, $multiplier);
             $totalMrp += $mrp * $quantity;
         }
 
         return [$totalAmount, $totalMrp];
+    }
+
+    protected function purchasePriceForPurchaseBillItem($item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+
+        if (!$product || empty($product->pair_product)) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return $basePrice * ($selectedSize / (float) $maxSize);
     }
 
     protected function mrpForPurchaseBillItem($item, float $multiplier): float
