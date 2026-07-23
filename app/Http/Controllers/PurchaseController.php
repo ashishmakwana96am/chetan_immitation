@@ -790,17 +790,34 @@ class PurchaseController extends Controller
 
         $items = $purchase->items()->with(['product', 'variant.attributeValue'])->get()
             ->filter(fn ($item) => $item->product && !empty($item->product->barcode))
-            ->map(fn ($item) => [
-                'id'                  => $item->product->id,
-                'name'                => $item->product->name,
-                'barcode'             => $item->product->barcode,
-                'quantity'            => (int) $item->quantity,
-                'pair_product'        => (bool) $item->product->pair_product,
-                'custom_sizes'        => $item->product->custom_sizes ?? [],
-                'custom_size_value'   => $item->custom_size_value,
-                'selected_variant_id' => $item->product_variant_id,
-                'variant_label'       => $item->variant?->attributeValue?->value,
-            ])
+            ->map(function ($item) {
+                $qty = (int) $item->quantity;
+                if ($item->product->pair_product) {
+                    $pcsPerPair = (float) ($item->custom_size_value ?? 0);
+                    if ($pcsPerPair <= 0 && !empty($item->product->custom_sizes)) {
+                        $sizes = collect($item->product->custom_sizes)->map(fn($s) => (float)(is_array($s) ? ($s['size'] ?? 0) : $s))->filter();
+                        if ($sizes->count() > 0) {
+                            $pcsPerPair = $sizes->max();
+                        }
+                    }
+                    if ($pcsPerPair > 0) {
+                        $qty = (int) round($qty / $pcsPerPair);
+                    }
+                }
+
+                return [
+                    'id'                  => $item->product->id,
+                    'name'                => $item->product->name,
+                    'barcode'             => $item->product->barcode,
+                    'quantity'            => max(1, $qty),
+                    'pair_product'        => (bool) $item->product->pair_product,
+                    'pair_mode'           => $item->product->pair_mode ?? 'custom_size',
+                    'custom_sizes'        => $item->product->custom_sizes ?? [],
+                    'custom_size_value'   => $item->custom_size_value,
+                    'selected_variant_id' => $item->product_variant_id,
+                    'variant_label'       => $item->variant?->attributeValue?->value,
+                ];
+            })
             ->values();
 
         return response()->json(['status' => 'success', 'items' => $items]);
