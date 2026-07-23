@@ -1594,7 +1594,7 @@ class ProductController extends Controller
         }
 
         $generator = new BarcodeGeneratorPNG();
-        $pngData = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128, 2, 60);
+        $pngData = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128, 3, 80);
 
         return response($pngData, 200)->header('Content-Type', 'image/png');
     }

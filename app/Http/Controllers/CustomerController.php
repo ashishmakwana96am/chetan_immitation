@@ -67,6 +67,8 @@ class CustomerController extends Controller
                 'email'      => $customer->email ?? '-',
                 'gst_no'     => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
                 'state'      => $customer->state ?: '-',
+                'gst_no_raw' => $customer->gst_no ?? '',
+                'state_raw'  => $customer->state ?? '',
                 'status'     => $status,
                 'created_at' => format_date($customer->created_at),
                 'actions'    => $actions,

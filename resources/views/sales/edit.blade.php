@@ -176,7 +176,9 @@
                                         <option value=""></option>
                                         <option value="0" {{ is_null($order->customer_id) ? 'selected' : '' }}>Walk-in Customer</option>
                                         @foreach($customers as $customer)
-                                            <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}>
+                                            <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}
+                                                data-state="{{ $customer->state ?? '' }}"
+                                                data-gst="{{ $customer->gst_no ?? '' }}">
                                                 {{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}
                                             </option>
                                         @endforeach
@@ -461,6 +463,8 @@ $(document).ready(function () {
     const allProducts = @json($allProducts);
     const locations = @json($locations);
     const existingItems = @json($existingItems);
+    const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
+    let pendingGstFixCustomerId = null;
     updateSummary();
 
     window.refreshTable = function (resData) {
@@ -474,11 +478,62 @@ $(document).ready(function () {
             select.append('<option value=""></option>');
             select.append('<option value="0">Walk-in Customer</option>');
             res.data.forEach(function (c) {
-                select.append($('<option>', { value: c.id, text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '') }));
+                const opt = $('<option>', {
+                    value: c.id,
+                    text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '')
+                });
+                opt.attr('data-state', c.state_raw || '');
+                opt.attr('data-gst', c.gst_no_raw || '');
+                select.append(opt);
             });
             select.val(current).trigger('change');
+
+            // After refresh: if GST is on and missing details, open edit modal
+            if (pendingGstFixCustomerId) {
+                const fixId = pendingGstFixCustomerId;
+                pendingGstFixCustomerId = null;
+                const opt = select.find('option[value="' + fixId + '"]');
+                if (opt.length && (!opt.attr('data-state') || !opt.attr('data-gst'))) {
+                    window.openCommonModal(customerEditUrlTemplate.replace('__ID__', fixId));
+                }
+            }
         });
     };
+
+    // Helper: check if selected customer has GST details when GST bill is enabled
+    function checkCustomerGstDetails() {
+        const isGst = $('#is_gst_switch').is(':checked');
+        if (!isGst) return true;
+
+        const customerId = $('#customerSelect').val();
+        if (!customerId || customerId === '0') return true; // walk-in, skip
+
+        const selectedOpt = $('#customerSelect').find('option:selected');
+        const state  = selectedOpt.attr('data-state') || '';
+        const gstNo  = selectedOpt.attr('data-gst')   || '';
+
+        if (!state || !gstNo) {
+            toastr.warning('This customer is missing State or GST Number. Please update them before creating a GST bill.');
+            pendingGstFixCustomerId = customerId;
+            window.openCommonModal(customerEditUrlTemplate.replace('__ID__', customerId));
+            return false;
+        }
+        return true;
+    }
+
+    // Trigger check when GST switch is toggled
+    $(document).on('change', '#is_gst_switch', function () {
+        if ($(this).is(':checked')) {
+            checkCustomerGstDetails();
+        }
+    });
+
+    // Trigger check when customer changes while GST is already on
+    $(document).on('change', '#customerSelect', function () {
+        if ($('#is_gst_switch').is(':checked')) {
+            checkCustomerGstDetails();
+        }
+    });
 
     // -------------------------------------------------------
     // Product Search and Selection
@@ -1244,6 +1299,12 @@ $(document).ready(function () {
         const validationError = getClientValidationError();
         if (validationError) {
             toastr.error(validationError);
+            closePendingPrintTab();
+            return;
+        }
+
+        // GST customer details check on submit
+        if (!checkCustomerGstDetails()) {
             closePendingPrintTab();
             return;
         }

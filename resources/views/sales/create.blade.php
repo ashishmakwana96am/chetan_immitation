@@ -171,7 +171,11 @@
                                         <option value=""></option>
                                         <option value="0" selected>Walk-in Customer</option>
                                         @foreach($customers as $customer)
-                                            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
+                                            <option value="{{ $customer->id }}"
+                                                data-state="{{ $customer->state ?? '' }}"
+                                                data-gst="{{ $customer->gst_no ?? '' }}">
+                                                {{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}
+                                            </option>
                                         @endforeach
                                     </select>
                                     <button type="button" class="btn btn-label-primary"
@@ -455,6 +459,8 @@ $(document).ready(function () {
     }
     const allProducts = @json($allProducts);
     const locations = @json($locations);
+    const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
+    let pendingGstFixCustomerId = null;
     updateSummary();
 
     window.refreshTable = function (resData) {
@@ -468,11 +474,58 @@ $(document).ready(function () {
             select.append('<option value=""></option>');
             select.append('<option value="0">Walk-in Customer</option>');
             res.data.forEach(function (c) {
-                select.append($('<option>', { value: c.id, text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '') }));
+                const opt = $('<option>', {
+                    value: c.id,
+                    text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '')
+                });
+                opt.attr('data-state', c.state_raw || '');
+                opt.attr('data-gst', c.gst_no_raw || '');
+                select.append(opt);
             });
             select.val(current).trigger('change');
+
+            if (pendingGstFixCustomerId) {
+                const fixId = pendingGstFixCustomerId;
+                pendingGstFixCustomerId = null;
+                const opt = select.find('option[value="' + fixId + '"]');
+                if (opt.length && (!opt.attr('data-state') || !opt.attr('data-gst'))) {
+                    window.openCommonModal(customerEditUrlTemplate.replace('__ID__', fixId));
+                }
+            }
         });
     };
+
+    function checkCustomerGstDetails() {
+        const isGst = $('#is_gst_switch').is(':checked');
+        if (!isGst) return true;
+
+        const customerId = $('#customerSelect').val();
+        if (!customerId || customerId === '0') return true; // walk-in, skip
+
+        const selectedOpt = $('#customerSelect').find('option:selected');
+        const state  = selectedOpt.attr('data-state') || '';
+        const gstNo  = selectedOpt.attr('data-gst')   || '';
+
+        if (!state || !gstNo) {
+            toastr.warning('This customer is missing State or GST Number. Please update them before creating a GST bill.');
+            pendingGstFixCustomerId = customerId;
+            window.openCommonModal(customerEditUrlTemplate.replace('__ID__', customerId));
+            return false;
+        }
+        return true;
+    }
+
+    $(document).on('change', '#is_gst_switch', function () {
+        if ($(this).is(':checked')) {
+            checkCustomerGstDetails();
+        }
+    });
+
+    $(document).on('change', '#customerSelect', function () {
+        if ($('#is_gst_switch').is(':checked')) {
+            checkCustomerGstDetails();
+        }
+    });
 
     // -------------------------------------------------------
     // Product Search and Selection
@@ -1168,6 +1221,12 @@ $(document).ready(function () {
         const validationError = getClientValidationError();
         if (validationError) {
             toastr.error(validationError);
+            closePendingPrintTab();
+            return;
+        }
+
+        // GST customer details check on submit
+        if (!checkCustomerGstDetails()) {
             closePendingPrintTab();
             return;
         }
