@@ -446,12 +446,12 @@
                                                         @if($useParentFallback)
                                                             <span class="badge bg-label-secondary stock-badge" title="Stock not tracked per variant">—</span>
                                                         @else
-                                                            <span class="badge bg-label-{{ $vQty > 0 ? 'success' : ($vQty < 0 ? 'danger' : 'secondary') }} stock-badge">{{ $vQty }}</span>
+                                                            {!! $product->renderStockBadge($vQty) !!}
                                                         @endif
                                                     </td>
                                                 @endforeach
                                                 <td class="text-center">
-                                                    <span class="badge bg-label-primary stock-badge fw-bold">{{ $locTotal }}</span>
+                                                    {!! $product->renderStockBadge($locTotal) !!}
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -462,11 +462,11 @@
                                             <td>Grand Total</td>
                                             @foreach($product->variants as $v)
                                                 <td class="text-center">
-                                                    <span class="badge bg-success text-white stock-badge">{{ $grandTotalVariants[$v->id] ?? 0 }}</span>
+                                                    <span class="badge bg-success text-white stock-badge">{{ $product->pair_product ? $product->formatStockDisplay($grandTotalVariants[$v->id] ?? 0) : ($grandTotalVariants[$v->id] ?? 0) }}</span>
                                                 </td>
                                             @endforeach
                                             <td class="text-center">
-                                                <span class="badge bg-primary text-white stock-badge fw-bold">{{ $grandTotalAll }}</span>
+                                                <span class="badge bg-primary text-white stock-badge fw-bold">{{ $product->pair_product ? $product->formatStockDisplay($grandTotalAll) : $grandTotalAll }}</span>
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -708,6 +708,19 @@
             if (!isset($invByLocation)) {
                 $invByLocation = $product->inventories->keyBy('location_id');
             }
+
+            $allVariantStockSum = 0;
+            $vStockMap = [];
+            foreach ($product->variants as $v) {
+                $vSum = 0;
+                foreach ($variantStock as $locId => $data) {
+                    $vSum += ($data['variants'][$v->id] ?? 0);
+                }
+                $vStockMap[$v->id] = $vSum;
+                $allVariantStockSum += $vSum;
+            }
+            $invTotal = $invByLocation->sum('quantity');
+            $isParentOnlyStock = ($allVariantStockSum === 0 && $invTotal > 0);
         @endphp
         <div class="row g-4 mb-4">
             <div class="{{ ($product->description || $product->product_highlights || $product->additional_information) ? 'col-lg-8' : 'col-12' }}">
@@ -733,13 +746,7 @@
                             <tbody>
                                 @foreach($product->variants as $idx => $variant)
                                     @php
-                                        $totalVQty   = 0;
-                                        foreach ($variantStock as $locId => $data) {
-                                            $totalVQty += ($data['variants'][$variant->id] ?? 0);
-                                        }
-                                        $invTotal     = $invByLocation->sum('quantity');
-                                        $displayQty   = ($totalVQty > 0) ? $totalVQty : $invTotal;
-                                        $isParentOnly = ($totalVQty === 0);
+                                        $vQty = $vStockMap[$variant->id] ?? 0;
                                     @endphp
                                     <tr>
                                         <td class="text-muted small">{{ $idx + 1 }}</td>
@@ -759,14 +766,22 @@
                                             <small class="text-muted">({{ $vMargin }}%)</small>
                                         </td>
                                         <td class="text-end">
-                                            @if($isParentOnly)
+                                            @if($isParentOnlyStock)
                                                 @if($idx === 0)
-                                                    <span class="badge bg-label-warning stock-badge" title="Total stock (not split per variant)">{{ $displayQty }} total</span>
+                                                    <span class="badge bg-label-warning stock-badge" title="Total stock (not split per variant)">{{ $invTotal }} total</span>
                                                 @else
-                                                    <span class="badge bg-label-secondary stock-badge" title="Stock not tracked per variant">—</span>
+                                                    <span class="badge bg-label-secondary stock-badge">—</span>
                                                 @endif
                                             @else
-                                                <span class="badge bg-label-{{ $displayQty > 0 ? 'success' : ($displayQty < 0 ? 'danger' : 'secondary') }} stock-badge">{{ $displayQty }}</span>
+                                                @if($product->pair_product && $vQty > 0)
+                                                    <span class="badge bg-label-{{ $vQty > 0 ? 'success' : 'secondary' }} stock-badge">
+                                                        {{ $product->formatStockDisplay($vQty) }}
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-label-{{ $vQty > 0 ? 'success' : ($vQty < 0 ? 'danger' : 'secondary') }} stock-badge">
+                                                        {{ number_format($vQty) }}
+                                                    </span>
+                                                @endif
                                             @endif
                                         </td>
                                         <td class="text-center">{!! status_badge($variant->status) !!}</td>
@@ -1078,6 +1093,7 @@
         window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
             const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
             const customSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
+            const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value])->values()->toArray() : []);
             
             let customSizeSelectHtml = '';
             if (customSizes && customSizes.length > 0) {
@@ -1091,6 +1107,19 @@
                 });
                 customSizeSelectHtml += '  </select>';
                 customSizeSelectHtml += '</div>';
+            }
+
+            let variantSelectHtml = '';
+            if (variantsList && variantsList.length > 0) {
+                variantSelectHtml += '<div class="form-group mb-3 text-start">';
+                variantSelectHtml += '  <label for="printVariantSelect" class="form-label fw-medium text-secondary small">Select Variant</label>';
+                variantSelectHtml += '  <select id="printVariantSelect" class="form-select">';
+                variantSelectHtml += '  <option value="">-- Select Varient --</option>';
+                variantsList.forEach(function(v) {
+                    variantSelectHtml += `<option value="${v.id}">${v.value}</option>`;
+                });
+                variantSelectHtml += '  </select>';
+                variantSelectHtml += '</div>';
             }
 
             const modal = `
@@ -1117,6 +1146,7 @@
                                     </div>
                                     
                                     ${customSizeSelectHtml}
+                                    ${variantSelectHtml}
 
                                     <div class="form-group mb-3 text-start">
                                         <label for="printQty" class="form-label fw-medium text-secondary small">Print Quantity</label>
@@ -1150,9 +1180,12 @@
 
             $printBtn.on('click', function() {
                 const qty = parseInt($printQty.val()) || 1;
-                let url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                let url = '{{ route("admin.products.print-barcodes") }}' + '?auto_print=1&items[0][id]=' + productId + '&items[0][qty]=' + qty;
                 if ($('#printCustomSize').length > 0) {
                     url += '&items[0][selected_size]=' + encodeURIComponent($('#printCustomSize').val());
+                }
+                if ($('#printVariantSelect').length > 0 && $('#printVariantSelect').val()) {
+                    url += '&items[0][selected_variant_id]=' + encodeURIComponent($('#printVariantSelect').val());
                 }
                 window.open(url, '_blank');
             });

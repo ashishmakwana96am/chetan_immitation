@@ -237,11 +237,18 @@
                         customSizeSelectHtml += '</select></div>';
                     }
 
+                    // Variant: auto-selected from purchase
+                    let variantHtml = '';
+                    if (item.variant_label) {
+                        variantHtml = `<div class="mt-1 d-flex align-items-center gap-1"><small class="text-secondary fw-medium">Variant:</small><span class="badge bg-label-info">${item.variant_label}</span></div>`;
+                    }
+
                     listHtml += `
-                        <tr class="purchase-bulk-item-row" data-id="${item.id}" data-barcode="${item.barcode}">
+                        <tr class="purchase-bulk-item-row" data-id="${item.id}" data-barcode="${item.barcode}" data-variant-id="${item.selected_variant_id || ''}">
                             <td>
                                 <div class="fw-semibold text-dark">${item.name}</div>
                                 ${customSizeSelectHtml}
+                                ${variantHtml}
                             </td>
                             <td><code>${item.barcode}</code></td>
                             <td><input type="number" class="form-control form-control-sm purchase-bulk-item-qty" value="${item.quantity}" min="1" max="1000"></td>
@@ -305,7 +312,7 @@
         });
 
         $(document).on('click', '#startPurchaseBarcodePrintBtn', function () {
-            let url = '{{ route("admin.products.print-barcodes") }}?';
+            let url = '{{ route("admin.products.print-barcodes") }}?auto_print=1&';
             let idx = 0;
             $('.purchase-bulk-item-row').each(function () {
                 const id = $(this).data('id');
@@ -314,6 +321,10 @@
                 const $sizeSelect = $(this).find('.purchase-bulk-item-custom-size');
                 if ($sizeSelect.length > 0 && $sizeSelect.val()) {
                     itemUrl += `&items[${idx}][selected_size]=${encodeURIComponent($sizeSelect.val())}`;
+                }
+                const variantId = $(this).data('variant-id');
+                if (variantId) {
+                    itemUrl += `&items[${idx}][selected_variant_id]=${encodeURIComponent(variantId)}`;
                 }
                 url += itemUrl + '&';
                 idx++;

@@ -303,12 +303,14 @@ class ProductCreationService
             ->first();
 
         if (!$attribute) {
+            $nextIndex = (int) Attribute::max('index') + 1;
             $attribute = Attribute::create([
                 'name'       => $name,
                 'slug'       => generate_slug(Attribute::class, $name),
                 'status'     => Attribute::STATUS_ACTIVE,
                 'created_by' => $userId,
                 'sort_order' => ((int) Attribute::max('sort_order')) + 1,
+                'index'      => $nextIndex,
             ]);
         } elseif ($attribute->trashed()) {
             $attribute->restore();
@@ -337,13 +339,36 @@ class ProductCreationService
         return $attrValue;
     }
 
-    /**
-     * Finds an existing Attribute by name (or creates it), finds an existing
-     * AttributeValue under that attribute (or creates it), then finds an
-     * existing ProductVariant for the pair (or creates it) — used by Purchase
-     * Import, where variants are resolved row-by-row from the "Variant" /
-     * "Variant Value" columns instead of being pre-declared up front.
-     */
+    public function findOrCreateVariantByIndexOrName(
+        Product $product,
+        string $attributeName,
+        string $valueName,
+        ?int $userId
+    ): ProductVariant {
+        $attribute = null;
+        if (preg_match('/^\d+$/', $attributeName) && (int) $attributeName > 0) {
+            $attribute = Attribute::where('index', (int) $attributeName)->first();
+        }
+
+        if (!$attribute) {
+            $attribute = $this->findOrCreateAttribute($attributeName, $userId);
+        } elseif ($attribute->trashed()) {
+            $attribute->restore();
+        }
+
+        $attributeValue = $this->findOrCreateAttributeValue($attribute->id, $valueName);
+
+        $variant = ProductVariant::withTrashed()->firstOrCreate(
+            ['product_id' => $product->id, 'attribute_value_id' => $attributeValue->id],
+            ['purchase_price' => $product->purchase_price, 'sale_price' => $product->sale_price, 'status' => ProductVariant::STATUS_ACTIVE]
+        );
+        if ($variant->trashed()) {
+            $variant->restore();
+        }
+
+        return $variant;
+    }
+
     public function findOrCreateVariant(Product $product, string $attributeName, string $valueName, ?int $userId): ProductVariant
     {
         $attribute = $this->findOrCreateAttribute($attributeName, $userId);

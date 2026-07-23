@@ -32,17 +32,29 @@
 
     @foreach($modules as $module)
       @php
+        $checkChildVisible = function($child) {
+            if (!auth()->check()) return false;
+            if ($child->permission === 'manage branch balances') {
+                return auth()->user()->hasRole('super-admin') && auth()->user()->can($child->permission);
+            }
+            return is_null($child->permission) || auth()->user()->can($child->permission);
+        };
+
         $isVisible = false;
         if (!is_null($module->permission)) {
-            if (auth()->check() && auth()->user()->can($module->permission)) {
-                $isVisible = true;
+            if (auth()->check()) {
+                if ($module->permission === 'manage branch balances') {
+                    $isVisible = auth()->user()->hasRole('super-admin') && auth()->user()->can($module->permission);
+                } else {
+                    $isVisible = auth()->user()->can($module->permission);
+                }
             }
         } else {
             if ($module->children->count() === 0) {
                 $isVisible = true;
             } else {
                 foreach ($module->children as $child) {
-                    if (is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission))) {
+                    if ($checkChildVisible($child)) {
                         $isVisible = true;
                         break;
                     }
@@ -57,7 +69,7 @@
             <span class="menu-header-text">{{ $module->name }}</span>
           </li>
           @foreach($module->children as $child)
-            @if(is_null($child->permission) || (auth()->check() && auth()->user()->can($child->permission)))
+            @if($checkChildVisible($child))
               <li class="menu-item {{ active_menu($child->active_pattern) }}">
                 <a href="{{ Route::has($child->route) ? route($child->route) : 'javascript:void(0);' }}" class="menu-link">
                   <i class="menu-icon tf-icons {{ $child->icon ?? 'ti ti-circle' }}"></i>

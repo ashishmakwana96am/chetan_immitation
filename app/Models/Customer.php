@@ -20,6 +20,9 @@ class Customer extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'gst_no',
+        'state',
+        'address',
         'password',
         'avatar',
         'is_website',

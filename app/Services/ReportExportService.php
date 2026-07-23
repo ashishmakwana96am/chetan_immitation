@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -216,7 +217,7 @@ class ReportExportService
         }
         $headers[] = 'Total Qty';
         $headers[] = 'Purchase Value';
-        $headers[] = 'Sales Value';
+        $headers[] = 'MRP Value';
 
         $sheet->fromArray($headers, null, 'A1');
         $sheet->getRowDimension(1)->setRowHeight(28);
@@ -255,10 +256,10 @@ class ReportExportService
             $colLetterPurch = Coordinate::stringFromColumnIndex($colIdx);
             $sheet->setCellValue($colLetterPurch . $row, (float) ($product['purchase_value'] ?? 0));
 
-            // Sales Value column
+            // MRP Value column
             $colIdx++;
             $colLetterSale = Coordinate::stringFromColumnIndex($colIdx);
-            $sheet->setCellValue($colLetterSale . $row, (float) ($product['sale_value'] ?? 0));
+            $sheet->setCellValue($colLetterSale . $row, (float) ($product['mrp_value'] ?? 0));
 
             $row++;
         }
@@ -407,7 +408,7 @@ class ReportExportService
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Purchase Bills');
 
-        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Status', 'Created By', 'Date'];
+        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Total MRP', 'Status', 'Created By', 'Date'];
         $sheet->fromArray($headers, null, 'A1');
         $sheet->getRowDimension(1)->setRowHeight(28);
 
@@ -419,38 +420,36 @@ class ReportExportService
 
         $row = 2;
         foreach ($transfers as $index => $transfer) {
-            $totalAmount = $transfer->items->sum(function ($item) {
-                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
-                return $price * $multiplier * $item->quantity;
-            });
+            [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
 
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $transfer->transfer_no);
             $sheet->setCellValue('C' . $row, $transfer->fromLocation->name ?? '-');
             $sheet->setCellValue('D' . $row, $transfer->toLocation->name ?? '-');
             $sheet->setCellValue('E' . $row, $transfer->items_count);
-            $sheet->setCellValue('F' . $row, (float) $totalAmount);
-            $sheet->setCellValue('G' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
-            $sheet->setCellValue('H' . $row, $transfer->createdBy->name ?? '-');
-            $sheet->setCellValue('I' . $row, $transfer->created_at->format('d M Y'));
+            $sheet->setCellValueExplicit('F' . $row, round((float) $totalAmount, 2), DataType::TYPE_NUMERIC);
+            $sheet->setCellValueExplicit('G' . $row, round((float) $totalMrp, 2), DataType::TYPE_NUMERIC);
+            $sheet->setCellValue('H' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
+            $sheet->setCellValue('I' . $row, $transfer->createdBy->name ?? '-');
+            $sheet->setCellValue('J' . $row, $transfer->created_at->format('d M Y'));
             $row++;
         }
 
         $totalRow = $row;
         $sheet->setCellValue('A' . $totalRow, 'Total');
         $sheet->setCellValue('F' . $totalRow, "=SUM(F2:F" . ($totalRow - 1) . ")");
+        $sheet->setCellValue('G' . $totalRow, "=SUM(G2:G" . ($totalRow - 1) . ")");
 
-        $sheet->getStyle('A1:I1')->applyFromArray($this->getHeaderStyle());
-        $sheet->getStyle('A2:I' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
-        $sheet->getStyle('A' . $totalRow . ':I' . $totalRow)->applyFromArray($this->getTotalsStyle());
+        $sheet->getStyle('A1:J1')->applyFromArray($this->getHeaderStyle());
+        $sheet->getStyle('A2:J' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
+        $sheet->getStyle('A' . $totalRow . ':J' . $totalRow)->applyFromArray($this->getTotalsStyle());
 
         $sheet->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('B2:B' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('E2:E' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('G2:G' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('I2:I' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('F2:F' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
+        $sheet->getStyle('H2:H' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('J2:J' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F2:G' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
 
         $this->autoFitColumns($sheet);
 
@@ -659,7 +658,62 @@ class ReportExportService
                 return (float)$maxSize;
             }
         }
-        return ($pairType === 'pair') ? 2.0 : 1.0;
+
+        if ($product && !empty($product->pair_product)) {
+            return 2.0;
+        }
+
+        return 1.0;
+    }
+
+    protected function purchaseBillTotals($transfer): array
+    {
+        $totalAmount = 0.0;
+        $totalMrp = 0.0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
+            $quantity = (int) $item->quantity;
+
+            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+            $totalAmount += (float) $price * $multiplier * $quantity;
+
+            $mrp = $this->mrpForPurchaseBillItem($item, $multiplier);
+            $totalMrp += $mrp * $quantity;
+        }
+
+        return [$totalAmount, $totalMrp];
+    }
+
+    protected function mrpForPurchaseBillItem($item, float $multiplier): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0.0;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        if (!empty($sizes)) {
+            $value = (float) $item->custom_size_value;
+            $matched = null;
+
+            if ($value > 0) {
+                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+            }
+
+            if (!$matched) {
+                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+            }
+
+            if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
+                return (float) $matched['mrp'];
+            }
+        }
+
+        return (float) ($product->mrp ?? 0) * $multiplier;
     }
 
 }

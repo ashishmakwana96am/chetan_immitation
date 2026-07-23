@@ -441,26 +441,31 @@ $(document).ready(function () {
 
     function updateRowAvailableStockDisplay(row) {
         const qtyPcs = parseInt(row.data('available-pcs') || 0);
-        const pairType = row.find('.pair-type-input').val() || 'single';
-        const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
         const product = row.data('product');
         
+        let stockText = qtyPcs + ' Pcs';
         let displayQty = qtyPcs;
-        let unitLabel = 'Pcs';
         
-        if (product && product.pair_product && customSizeValue > 0) {
-            displayQty = Math.floor(qtyPcs / customSizeValue);
-            unitLabel = 'Pairs';
-        } else if (pairType === 'pair') {
-            displayQty = Math.floor(qtyPcs / 2);
-            unitLabel = 'Pairs';
+        if (product && product.pair_product) {
+            let pairSize = 2;
+            if (product.custom_sizes && Array.isArray(product.custom_sizes) && product.custom_sizes.length > 0) {
+                const sizes = product.custom_sizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(Boolean);
+                if (sizes.length > 0) pairSize = Math.max(...sizes);
+            }
+            const pairsCount = Math.floor(qtyPcs / pairSize);
+            const remPcs = qtyPcs % pairSize;
+            let parts = [];
+            if (pairsCount > 0) parts.push(pairsCount + (pairsCount > 1 ? ' Pairs' : ' Pair'));
+            if (remPcs > 0) parts.push(remPcs + ' Pcs');
+            stockText = parts.length > 0 ? parts.join(', ') : '0';
+            displayQty = pairsCount;
         }
         
         row.data('available', displayQty);
         row.find('.stock-info-display')
-            .text(displayQty + ' ' + unitLabel)
+            .text('Stock: ' + stockText)
             .removeClass('bg-label-secondary bg-label-warning bg-label-danger bg-label-success')
-            .addClass(displayQty > 0 ? 'bg-label-success' : 'bg-label-danger');
+            .addClass(qtyPcs > 0 ? 'bg-label-success' : 'bg-label-danger');
     }
 
     function getRowPrice(row) {

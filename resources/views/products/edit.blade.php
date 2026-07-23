@@ -1655,6 +1655,7 @@
             window.viewBarcode = function(barcodeText, productId, category, variations, salePrice) {
                 const barcodeUrl = '{{ route('admin.products.barcode', ':id') }}'.replace(':id', productId);
                 const customSizes = @json($product->pair_product ? ($product->custom_sizes ?? []) : []);
+                const variantsList = @json($product->type === 'variable' ? $product->variants->filter(fn($v) => $v->attributeValue)->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value])->values()->toArray() : []);
                 
                 let customSizeSelectHtml = '';
                 if (customSizes && customSizes.length > 0) {
@@ -1668,6 +1669,19 @@
                     });
                     customSizeSelectHtml += '  </select>';
                     customSizeSelectHtml += '</div>';
+                }
+
+                let variantSelectHtml = '';
+                if (variantsList && variantsList.length > 0) {
+                    variantSelectHtml += '<div class="form-group mb-3 text-start">';
+                    variantSelectHtml += '  <label for="printVariantSelect" class="form-label fw-medium text-secondary small">Select Variant</label>';
+                    variantSelectHtml += '  <select id="printVariantSelect" class="form-select">';
+                    variantSelectHtml += '  <option value="">-- Select Varient --</option>';
+                    variantsList.forEach(function(v) {
+                        variantSelectHtml += `<option value="${v.id}">${v.value}</option>`;
+                    });
+                    variantSelectHtml += '  </select>';
+                    variantSelectHtml += '</div>';
                 }
 
                 const modal = `
@@ -1697,6 +1711,7 @@
                                         </div>
                                         
                                         ${customSizeSelectHtml}
+                                        ${variantSelectHtml}
 
                                         <div class="form-group mb-3 text-start">
                                             <label for="printQty" class="form-label fw-medium text-secondary small">Print Quantity</label>
@@ -1734,9 +1749,12 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    let url = '{{ route("admin.products.print-barcodes") }}' + '?items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    let url = '{{ route("admin.products.print-barcodes") }}' + '?auto_print=1&items[0][id]=' + productId + '&items[0][qty]=' + qty;
                     if ($('#printCustomSize').length > 0) {
                         url += '&items[0][selected_size]=' + encodeURIComponent($('#printCustomSize').val());
+                    }
+                    if ($('#printVariantSelect').length > 0 && $('#printVariantSelect').val()) {
+                        url += '&items[0][selected_variant_id]=' + encodeURIComponent($('#printVariantSelect').val());
                     }
                     window.open(url, '_blank');
                 });

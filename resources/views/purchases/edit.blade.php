@@ -1002,8 +1002,30 @@ $(document).ready(function () {
             breakdownText += 'No stock in any branch';
         }
 
+        let stockLabelText = 'Out of Stock';
+        if (qty > 0) {
+            let formattedQty = qty;
+            if (product && product.pair_product) {
+                const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                let pairSize = 0;
+                if (effectiveSizes && effectiveSizes.length > 0) {
+                    const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
+                    if (sizes.length > 0) pairSize = Math.max(...sizes);
+                }
+                if (!pairSize) pairSize = 1;
+
+                const pairsCount = Math.floor(qty / pairSize);
+                const remPcs = qty % pairSize;
+                let parts = [];
+                if (pairsCount > 0) parts.push(pairsCount + (pairsCount > 1 ? ' Pairs' : ' Pair'));
+                if (remPcs > 0) parts.push(remPcs + ' Pcs');
+                formattedQty = parts.length > 0 ? parts.join(', ') : '0';
+            }
+            stockLabelText = 'Stock: ' + formattedQty;
+        }
+
         stockDisplay
-            .text(qty === 0 ? 'Out of Stock' : 'Stock: ' + qty)
+            .text(stockLabelText)
             .attr('title', breakdownText.trim())
             .css('cursor', 'help')
             .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')

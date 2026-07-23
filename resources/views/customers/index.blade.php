@@ -58,6 +58,8 @@
                         <th>Name</th>
                         <th>Phone</th>
                         <th>Email</th>
+                        <th>GST No</th>
+                        <th>State</th>
                         <th>Status</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
@@ -92,6 +94,8 @@
                     { data: 'name' },
                     { data: 'phone' },
                     { data: 'email' },
+                    { data: 'gst_no' },
+                    { data: 'state' },
                     { data: 'status',     orderable: false },
                     { data: 'created_at' },
                     @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))

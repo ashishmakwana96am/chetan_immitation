@@ -82,11 +82,7 @@ class PurchaseBillController extends Controller
         $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject) {
             $statusBadge = $this->statusBadge($transfer->status);
 
-            $totalAmount = $transfer->items->sum(function ($item) {
-                $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
-                return $price * $multiplier * $item->quantity;
-            });
+            [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
@@ -110,6 +106,8 @@ class PurchaseBillController extends Controller
                 'items_count' => $transfer->items_count,
                 'total_amount' => currency_symbol() . ' ' . number_format($totalAmount, 2),
                 'total_amount_raw' => $totalAmount,
+                'total_mrp' => currency_symbol() . ' ' . number_format($totalMrp, 2),
+                'total_mrp_raw' => $totalMrp,
                 'status' => $statusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
                 'date_group' => $transfer->created_at->format('d M Y'),
@@ -260,7 +258,27 @@ class PurchaseBillController extends Controller
             'items.variant.attributeValue.attribute',
         ]);
 
-        return view('purchase-bills.show', ['transfer' => $purchaseBill]);
+        foreach ($purchaseBill->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+            $quantity = (int) $item->quantity;
+            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+            $unitAmount = (float) $price * $multiplier;
+            $unitMrp = $this->mrpForPurchaseBillItem($item, $multiplier);
+
+            $item->calculated_unit_amount = $unitAmount;
+            $item->calculated_line_amount = $unitAmount * $quantity;
+            $item->calculated_unit_mrp = $unitMrp;
+            $item->calculated_line_mrp = $unitMrp * $quantity;
+            $item->calculated_multiplier = $multiplier;
+        }
+
+        [$totalAmount, $totalMrp] = $this->purchaseBillTotals($purchaseBill);
+
+        return view('purchase-bills.show', [
+            'transfer' => $purchaseBill,
+            'totalAmount' => $totalAmount,
+            'totalMrp' => $totalMrp,
+        ]);
     }
 
     public function accept(PurchaseBill $purchaseBill)
@@ -560,5 +578,54 @@ class PurchaseBillController extends Controller
         }
 
         return 2.0;
+    }
+
+    private function purchaseBillTotals(PurchaseBill $transfer): array
+    {
+        $totalAmount = 0.0;
+        $totalMrp = 0.0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+            $quantity = (int) $item->quantity;
+
+            $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
+            $totalAmount += (float) $price * $multiplier * $quantity;
+
+            $totalMrp += $this->mrpForPurchaseBillItem($item, $multiplier) * $quantity;
+        }
+
+        return [$totalAmount, $totalMrp];
+    }
+
+    private function mrpForPurchaseBillItem(PurchaseBillItem $item, float $multiplier): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0.0;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        if (!empty($sizes)) {
+            $value = (float) $item->custom_size_value;
+            $matched = null;
+
+            if ($value > 0) {
+                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+            }
+
+            if (!$matched) {
+                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+            }
+
+            if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
+                return (float) $matched['mrp'];
+            }
+        }
+
+        return (float) ($product->mrp ?? 0) * $multiplier;
     }
 }

@@ -20,14 +20,14 @@
         </div>
     </div>
 
-    <!-- Stats Cards Row -->
+    <!-- Stats Cards Row 1 — Sales & Balances -->
     <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Cash Balance</span>
+                            <span class="text-muted small text-nowrap">Cash Balance</span>
                             <h4 class="mb-0 mt-1 {{ ($location->cash_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($location->cash_balance ?? 0) }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
@@ -40,7 +40,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Bank Balance</span>
+                            <span class="text-muted small text-nowrap">Bank Balance</span>
                             <h4 class="mb-0 mt-1 {{ ($location->bank_balance ?? 0) < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($location->bank_balance ?? 0) }}</h4>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
@@ -53,7 +53,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Today's Sales</span>
+                            <span class="text-muted small text-nowrap">Today's Sales</span>
                             <h4 class="mb-0 mt-1 text-primary">{{ format_price($salesStats['today']) }}</h4>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
@@ -66,7 +66,7 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">This Month</span>
+                            <span class="text-muted small text-nowrap">This Month Sales</span>
                             <h4 class="mb-0 mt-1 text-success">{{ format_price($salesStats['this_month']) }}</h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
@@ -74,41 +74,19 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Stats Cards Row 2 — Stock & Inventory -->
+    <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Pending Orders</span>
-                            <h4 class="mb-0 mt-1 text-warning">{{ $salesStats['pending'] }}</h4>
-                        </div>
-                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-clock ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Approved Orders</span>
-                            <h4 class="mb-0 mt-1 text-success">{{ $salesStats['approve'] }}</h4>
-                        </div>
-                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-check ti-sm"></i></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div>
-                            <span class="text-muted">Products</span>
+                            <span class="text-muted small text-nowrap">Products</span>
                             <h4 class="mb-0 mt-1">{{ $stockStats['total_products'] }}</h4>
                         </div>
-                        <span class="badge bg-label-info rounded p-2"><i class="ti ti-box ti-sm"></i></span>
+                        <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -118,24 +96,23 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Total Stock Units</span>
-                            <h4 class="mb-0 mt-1">{{ $stockStats['total_units'] }}</h4>
+                            <span class="text-muted small text-nowrap">Total Stock Inventory</span>
+                            <h4 class="mb-0 mt-1 text-info">{{ $stockStats['stock_display'] }}</h4>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">Low Stock</span>
-                            <h4 class="mb-0 mt-1 text-warning">{{ $stockStats['low_stock'] }}</h4>
+                            <span class="text-muted small text-nowrap">Total Purchase Value</span>
+                            <h4 class="mb-0 mt-1 text-primary">{{ format_price($stockStats['total_purchase_value']) }}</h4>
                         </div>
-                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
+                        <span class="badge bg-label-warning rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -145,10 +122,10 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted">SOLD OUT</span>
-                            <h4 class="mb-0 mt-1 text-danger">{{ $stockStats['out_of_stock'] }}</h4>
+                            <span class="text-muted small text-nowrap">Total MRP Value</span>
+                            <h4 class="mb-0 mt-1 text-success">{{ format_price($stockStats['total_mrp_value']) }}</h4>
                         </div>
-                        <span class="badge bg-label-danger rounded p-2"><i class="ti ti-x ti-sm"></i></span>
+                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-dots ti-sm"></i></span>
                     </div>
                 </div>
             </div>
@@ -335,7 +312,7 @@
                                             <td>{{ $inventory->product->category->name ?? '-' }}</td>
                                             <td class="text-end">
                                                 <span class="badge {{ $inventory->quantity == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">
-                                                    {{ $inventory->quantity }}
+                                                    {{ $inventory->product ? $inventory->product->formatStockDisplay((int)$inventory->quantity) : $inventory->quantity }}
                                                 </span>
                                             </td>
                                         </tr>

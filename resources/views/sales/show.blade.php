@@ -101,16 +101,21 @@
 
             @can('download sales')
                 @if($isOnline)
-                    <a href="{{ route('admin.sales.pdf', $order) }}" class="btn btn-label-primary" target="_blank">
+                    <a href="{{ route('admin.sales.pdf', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
                         <i class="ti ti-printer me-1"></i> Invoice
                     </a>
-                    <a href="{{ route('admin.sales.label', $order) }}" class="btn btn-label-success" target="_blank">
+                    <a href="{{ route('admin.sales.label', [$order, 'auto_print' => 1]) }}" class="btn btn-label-success" target="_blank">
                         <i class="ti ti-printer me-1"></i> Print Label
                     </a>
                 @else
-                    <a href="{{ route('admin.sales.thermal', $order) }}" class="btn btn-label-primary" target="_blank">
+                    <a href="{{ route('admin.sales.thermal', [$order, 'auto_print' => 1]) }}" class="btn btn-label-primary" target="_blank">
                         <i class="ti ti-printer me-1"></i> Invoice
                     </a>
+                    @if($order->is_gst)
+                        <a href="{{ route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) }}" class="btn btn-label-info" target="_blank">
+                            <i class="ti ti-file-text me-1"></i> Tax Invoice
+                        </a>
+                    @endif
                 @endif
             @endcan
 
@@ -504,14 +509,14 @@
                             @endif
                             @if($order->is_gst && $order->tax_amount > 0)
                                 @php
-                                    $isPos = ($order->source ?? 'POS') === 'POS';
-                                    $buyerState = 'gujarat';
-                                    if (!$isPos && $order->customerAddress) {
-                                        $buyerState = strtolower(trim($order->customerAddress->state));
-                                    }
-                                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
-                                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                                    $taxAmount = (float) $order->tax_amount;
+                                     $isPos = ($order->source ?? 'POS') === 'POS';
+                                     $buyerState = 'gujarat';
+                                     if (!$isPos && $order->customerAddress) {
+                                         $buyerState = strtolower(trim($order->customerAddress->state));
+                                     }
+                                     $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                                     $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                                     $taxAmount = (float) $order->tax_amount;
                                 @endphp
                                 @if($isPos || $buyerState === '' || $buyerState === $storeState)
                                     @php

@@ -19,6 +19,7 @@ class Attribute extends Model
         'status',
         'created_by',
         'sort_order',
+        'index',
     ];
 
     public function values()

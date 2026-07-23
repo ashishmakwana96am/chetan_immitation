@@ -6,6 +6,32 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}" />
+    <style>
+        .variant-toggle {
+            width: 1.75rem;
+            height: 1.75rem;
+            padding: 0;
+            line-height: 1;
+        }
+        .variant-toggle i {
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+        .variant-toggle.is-open i {
+            transform: rotate(90deg);
+        }
+        #stockTable tr.child td.child {
+            padding: 0 !important;
+            background-color: #fbfbfc;
+        }
+        .variant-table {
+            margin-bottom: 0;
+        }
+        .variant-table th,
+        .variant-table td {
+            font-size: 0.8125rem;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -71,6 +97,30 @@
                     $(this.node()).find('td').eq(0).html(start + rowLoop + 1);
                 });
             }).draw(false);
+
+            $('#stockTable tbody').off('click', '.variant-toggle').on('click', '.variant-toggle', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const $btn = $(this);
+                const productId = $btn.data('product-id');
+                const template = document.getElementById('variants-template-' + productId);
+                const row = table.row($btn.closest('tr'));
+
+                if (!template) {
+                    return;
+                }
+
+                if (row.child.isShown()) {
+                    row.child.hide();
+                    $btn.removeClass('is-open').attr('aria-expanded', 'false');
+                } else {
+                    row.child(template.innerHTML).show();
+                    $btn.addClass('is-open').attr('aria-expanded', 'true');
+                }
+
+                table.columns.adjust();
+            });
 
             function applyFilters() {
                 const cat   = $('#filterCategory').val();

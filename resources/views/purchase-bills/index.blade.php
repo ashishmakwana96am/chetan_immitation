@@ -80,18 +80,26 @@
                         <th>Destination</th>
                         <th>Items</th>
                         <th>Amount</th>
+                        <th>Total MRP</th>
                         <th>Status</th>
                         <th>Created By</th>
                         <th>Actions</th>
                         <th class="d-none">Date Group</th>
                         <th class="d-none">Date Sort</th>
+                        <th class="d-none">Amount Raw</th>
+                        <th class="d-none">MRP Raw</th>
                     </tr>
                 </thead>
                 <tfoot>
                     <tr>
                         <th colspan="5" class="text-end">Total</th>
                         <th id="purchaseBillsTotalAmount"></th>
+                        <th id="purchaseBillsTotalMrp"></th>
                         <th colspan="3"></th>
+                        <th class="d-none"></th>
+                        <th class="d-none"></th>
+                        <th class="d-none"></th>
+                        <th class="d-none"></th>
                     </tr>
                 </tfoot>
             </table>
@@ -105,8 +113,8 @@
         $(document).ready(function () {
             const table = $('#purchaseBillsTable').DataTable({
                 responsive: false,
-                order: [[10, 'desc']],
-                orderFixed: { pre: [[10, 'desc']] },
+                order: [[11, 'desc']],
+                orderFixed: { pre: [[11, 'desc']] },
                 ajax: {
                     url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
@@ -132,19 +140,25 @@
                     { data: 'to_location' },
                     { data: 'items_count' },
                     { data: 'total_amount' },
+                    { data: 'total_mrp' },
                     { data: 'status', orderable: false },
                     { data: 'created_by' },
                     { data: 'actions', orderable: false },
                     { data: 'date_group', visible: false },
                     { data: 'date_sort', visible: false },
                     { data: 'total_amount_raw', visible: false, searchable: false },
+                    { data: 'total_mrp_raw', visible: false, searchable: false },
                 ],
                 footerCallback: function () {
                     const api = this.api();
-                    const total = api.column(11, { search: 'applied' }).data().reduce(function (a, b) {
+                    const total = api.column(12, { search: 'applied' }).data().reduce(function (a, b) {
+                        return (parseFloat(a) || 0) + (parseFloat(b) || 0);
+                    }, 0);
+                    const totalMrp = api.column(13, { search: 'applied' }).data().reduce(function (a, b) {
                         return (parseFloat(a) || 0) + (parseFloat(b) || 0);
                     }, 0);
                     $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                    $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + totalMrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                 },
                 rowGroup: {
                     dataSrc: 'date_group',

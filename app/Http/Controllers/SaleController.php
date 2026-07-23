@@ -180,9 +180,12 @@ class SaleController extends Controller
             if ($canDownloadSales) {
                 if (($order->source ?? 'POS') === 'ONLINE') {
                     $actions .= '<a href="' . route('admin.sales.pdf', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
-                    $actions .= '<a href="' . route('admin.sales.label', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
+                    $actions .= '<a href="' . route('admin.sales.label', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Print Label</a>';
                 } else {
-                    $actions .= '<a href="' . route('admin.sales.thermal', $order) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Invoice</a>';
+                    $actions .= '<a href="' . route('admin.sales.thermal', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-printer me-2"></i>Invoice</a>';
+                    if ($order->is_gst) {
+                        $actions .= '<a href="' . route('admin.sales.tax-invoice', [$order, 'auto_print' => 1]) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>Tax Invoice</a>';
+                    }
                 }
             }
             $isEditable = ($order->source ?? 'POS') === 'POS'
@@ -549,12 +552,23 @@ class SaleController extends Controller
             abort(403);
         }
 
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Sale Invoice ' . $sale->order_no,
+                'pdfUrl' => route('admin.sales.pdf', [$sale, 'auto_print' => 1, 'stream' => 1]),
+            ]);
+        }
+
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment', 'cancellationRequest']);
 
         $pdf = Pdf::loadView('sales.pdf', ['order' => $sale])
             ->setPaper('a4', 'portrait');
 
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Invoice PDF exported for sale #' . $sale->order_no);
+
+        if (request()->boolean('stream')) {
+            return $pdf->stream('sale-' . $sale->order_no . '.pdf');
+        }
 
         return $pdf->download('sale-' . $sale->order_no . '.pdf');
     }
@@ -567,8 +581,11 @@ class SaleController extends Controller
             abort(403);
         }
 
-        if (($sale->source ?? 'POS') !== 'POS') {
-            abort(403, 'Thermal print is only available for POS orders.');
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Thermal Receipt ' . $sale->order_no,
+                'pdfUrl' => route('admin.sales.thermal', [$sale, 'stream' => 1]),
+            ]);
         }
 
         $sale->load(['customer', 'location', 'customerAddress', 'items.product.subCategory', 'items.product.category']);
@@ -579,6 +596,35 @@ class SaleController extends Controller
             ->setPaper([0, 0, 216, $height], 'portrait');
 
         return $pdf->stream('thermal-receipt-' . $sale->order_no . '.pdf');
+    }
+
+    public function taxInvoice(Order $sale)
+    {
+        $this->authorize('view sales');
+
+        if (auth()->user()->location_id && !auth()->user()->hasRole('super-admin') && $sale->location_id !== auth()->user()->location_id) {
+            abort(403);
+        }
+
+        if (($sale->source ?? 'POS') !== 'POS' || ! $sale->is_gst) {
+            abort(404);
+        }
+
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Tax Invoice ' . $sale->order_no,
+                'pdfUrl' => route('admin.sales.tax-invoice', [$sale, 'stream' => 1]),
+            ]);
+        }
+
+        $sale->load(['customer', 'location', 'user', 'customerAddress', 'items.product']);
+
+        $pdf = Pdf::loadView('sales.tax-invoice', ['order' => $sale])
+            ->setPaper('a4', 'portrait');
+
+        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Tax Invoice PDF exported for sale #' . $sale->order_no);
+
+        return $pdf->stream('tax-invoice-' . $sale->order_no . '.pdf');
     }
 
     private function measureThermalHeight(Order $sale): int
@@ -653,6 +699,13 @@ class SaleController extends Controller
             abort(403, 'Shipping label print is only available for online orders.');
         }
 
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Shipping Label ' . $sale->order_no,
+                'pdfUrl' => route('admin.sales.label', [$sale, 'auto_print' => 1, 'stream' => 1]),
+            ]);
+        }
+
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'payment']);
 
         $height = $this->measureViewHeight('sales.label', ['order' => $sale], $sale->items->count());
@@ -663,6 +716,21 @@ class SaleController extends Controller
         ActivityLogger::log('Sales', 'export', $sale, null, null, 'Shipping label printed for sale #' . $sale->order_no);
 
         return $pdf->stream('shipping-label-' . $sale->order_no . '.pdf');
+    }
+
+    private function autoPrintPdf($pdf, string $filename)
+    {
+        $dompdf = $pdf->getDomPDF();
+        $dompdf->render();
+
+        if (request()->boolean('auto_print')) {
+            $dompdf->getCanvas()->javascript('this.print({bUI: true, bSilent: false, bShrinkToFit: true});');
+        }
+
+        return response($dompdf->output(), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
     }
 
     public function edit(Order $sale)
@@ -1464,8 +1532,8 @@ class SaleController extends Controller
             $minTotal = $qty * $purchasePrice * 1.10;
             $minFloorTotal += $minTotal;
 
-            if ($itemTotal < $minTotal - 0.01) {
-                return 'Discount is not applicable';
+            if ($discVal > 0 && $itemTotal < $minTotal - 0.01) {
+                return 'Discount is not applicable for ' . $label;
             }
         }
 
@@ -1485,7 +1553,15 @@ class SaleController extends Controller
             return 'Order total cannot be negative.';
         }
 
-        if ($minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
+        $hasAnyDiscount = ($orderDiscountValue > 0);
+        foreach ($items as $item) {
+            if (!empty($item['discount_value']) && (float)$item['discount_value'] > 0) {
+                $hasAnyDiscount = true;
+                break;
+            }
+        }
+
+        if ($hasAnyDiscount && $minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
             return 'Order total cannot be less than ' . format_price($minFloorTotal)
                 . ' (combined purchase price + 10% of all items).';
         }

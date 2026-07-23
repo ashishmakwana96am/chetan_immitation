@@ -67,8 +67,7 @@ class PurchaseImportController extends Controller
             ['', '', '', '', '', '', '', '', '', '', '', 'Star Platers', 'Size', '3.2', '30', 'Approve', 'Pending', 'Cash'],
             ['Rings', 'Fancy Ring', 'Fancy Ring Combo', 'BAR005', '120', '2.5', '4.125', '4.575', 'F', '', 'V', 'Arihant Tools', 'Color', 'Gold', '25', 'Approve', 'Pending', 'Cash'],
             ['', '', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '15', 'Approve', 'Pending', 'Cash'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', 'Size', '2.2', '10', 'Approve', 'Pending', 'Cash'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', '', '2.4', '10', 'Approve', 'Pending', 'Cash'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', '1', 'Gold', '10', 'Approve', 'Pending', 'Cash'],
         ];
 
         $spreadsheet = new Spreadsheet();

@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Services\ActivityLogger;
 use App\Services\ReportExportService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReportController extends Controller
@@ -65,6 +66,7 @@ class ReportController extends Controller
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $parentStock,
+                    'formatted_stock' => $product->formatStockDisplay($parentStock),
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
@@ -94,6 +96,7 @@ class ReportController extends Controller
                         'purchase_price' => $v->purchase_price,
                         'sale_price'     => $v->sale_price,
                         'total_stock'    => $vStock,
+                        'formatted_stock' => $product->formatStockDisplay($vStock),
                         'status'         => $v->status,
                         'is_parent'      => false,
                         'variant_name'   => "{$attrName}: {$valName}",
@@ -114,6 +117,7 @@ class ReportController extends Controller
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $totalStock,
+                    'formatted_stock' => $product->formatStockDisplay($totalStock),
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
@@ -206,35 +210,77 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
             $salePrice     = (float) $product->sale_price;
+            $mrpPrice      = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+
+            $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+            if ($pairSize <= 0) $pairSize = 1.0;
 
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
 
-                $parentLocStock = [];
+                // Build per-location stock: prefer variant-level sum (positive), fall back to
+                // parent-level (handles purchase-at-parent, sale-at-variant inconsistency).
+                $parentLocStock    = [];
+                $hasVariantStock   = false;   // true if ANY location has positive variant-level stock
                 foreach ($locations as $location) {
-                    $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locParent     = (int) ($variantStock[$location->id]['parent'] ?? 0);
+                    if ($locVariantSum > 0) {
+                        $hasVariantStock = true;
+                        $parentLocStock[$location->id] = $locVariantSum;
+                    } else {
+                        $parentLocStock[$location->id] = max(0, $locParent);
+                    }
                 }
                 $parentTotal = array_sum($parentLocStock);
 
-                $parentPurchaseVal = 0.0;
-                $parentSaleVal     = 0.0;
+                if ($parentTotal <= 0) {
+                    foreach ($locations as $location) {
+                        $inventory = $product->inventories->firstWhere('location_id', $location->id);
+                        $parentLocStock[$location->id] = $inventory ? (int) $inventory->quantity : 0;
+                    }
+                    $parentTotal = array_sum($parentLocStock);
+                    $hasVariantStock = false;
+                }
+
+                if ($hasVariantStock) {
+                    $parentPurchaseVal = 0.0;
+                    $parentSaleVal     = 0.0;
+                    $parentMrpVal      = 0.0;
+                } else {
+                    $effectiveTotal    = $product->pair_product ? ($parentTotal / $pairSize) : (float) $parentTotal;
+                    $parentPurchaseVal = $effectiveTotal * $purchasePrice;
+                    $parentSaleVal     = $effectiveTotal * $salePrice;
+                    $parentMrpVal      = $effectiveTotal * $mrpPrice;
+                }
+                $parentPairCount   = 0;
 
                 $variantRows = [];
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
                     foreach ($locations as $location) {
-                        $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
+                        $vLocStock[$location->id] = max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
                     }
                     $attrName   = $v->attributeValue->attribute->name ?? '';
                     $valName    = $v->attributeValue->value ?? '';
-                    $vTotal     = array_sum($vLocStock);
+                    $vTotal     = array_sum($vLocStock); // always >= 0
                     $vPrice     = (float) ($v->purchase_price ?? $purchasePrice);
                     $vSale      = (float) ($v->sale_price ?? $salePrice);
-                    $vPurchVal  = $vTotal * $vPrice;
-                    $vSaleVal   = $vTotal * $vSale;
+                    $vMrp       = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+                    $vEffectiveQty = $product->pair_product ? ($vTotal / $pairSize) : (float) $vTotal;
+                    $vPurchVal  = $vEffectiveQty * $vPrice;
+                    $vSaleVal   = $vEffectiveQty * $vSale;
+                    $vMrpVal    = $vEffectiveQty * $vMrp;
 
-                    $parentPurchaseVal += $vPurchVal;
-                    $parentSaleVal     += $vSaleVal;
+                    $vPairCount = ($product->pair_product && $vTotal > 0) ? (int) floor($vTotal / $pairSize) : 0;
+                    $parentPairCount += $vPairCount;
+
+                    if ($hasVariantStock) {
+                        $parentPurchaseVal += $vPurchVal;
+                        $parentSaleVal     += $vSaleVal;
+                        $parentMrpVal      += $vMrpVal;
+                    }
 
                     $variantKey = $product->id . ':' . $v->id;
 
@@ -248,14 +294,20 @@ class ReportController extends Controller
                         'total'          => $vTotal,
                         'purchase_value' => $vPurchVal,
                         'sale_value'     => $vSaleVal,
-                        'mrp_value'      => $vSaleVal,
+                        'mrp_value'      => $vMrpVal,
                         'stock_value'    => $vPurchVal,
                         'status'         => $v->status,
                         'is_parent'      => false,
                         'variant_name'   => "{$attrName}: {$valName}",
                         'image_url'      => $product->primary_image_url,
+                        'pair_product'   => (bool) $product->pair_product,
+                        'pair_count'     => $vPairCount,
+                        'pair_display'   => $product->pair_product ? $product->formatStockDisplay($vTotal) : null,
                     ], $buildAgeInfo($variantLastPurchase[$variantKey] ?? null));
                 }
+
+                $parentPairCount = ($product->pair_product && $parentTotal > 0) ? (int) floor($parentTotal / $pairSize) : 0;
+                $parentLoosePcs  = $product->pair_product ? (int) ($parentTotal % $pairSize) : (int) $parentTotal;
 
                 $productsList->push(array_merge([
                     'id'             => $product->id,
@@ -267,12 +319,17 @@ class ReportController extends Controller
                     'total'          => $parentTotal,
                     'purchase_value' => $parentPurchaseVal,
                     'sale_value'     => $parentSaleVal,
-                    'mrp_value'      => $parentSaleVal,
+                    'mrp_value'      => $parentMrpVal,
                     'stock_value'    => $parentPurchaseVal,
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
                     'image_url'      => $product->primary_image_url,
+                    'product_obj'    => $product,
+                    'pair_product'   => (bool) $product->pair_product,
+                    'pair_count'     => $parentPairCount,
+                    'loose_pcs'      => $parentLoosePcs,
+                    'pair_display'   => $product->pair_product ? $product->formatStockDisplay($parentTotal) : null,
                 ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
 
                 foreach ($variantRows as $vRow) {
@@ -285,8 +342,13 @@ class ReportController extends Controller
                     $stock[$location->id] = $inventory ? $inventory->quantity : 0;
                 }
                 $total       = array_sum($stock);
-                $purchaseVal = $total * $purchasePrice;
-                $saleVal     = $total * $salePrice;
+                $effectiveQty = $product->pair_product ? ($total / $pairSize) : (float) $total;
+                $purchaseVal = $effectiveQty * $purchasePrice;
+                $saleVal     = $effectiveQty * $salePrice;
+                $mrpVal      = $effectiveQty * $mrpPrice;
+
+                $pPairCount  = ($product->pair_product && $total > 0) ? (int) floor($total / $pairSize) : 0;
+                $pLoosePcs   = $product->pair_product ? (int) ($total % $pairSize) : (int) $total;
 
                 $productsList->push(array_merge([
                     'id'             => $product->id,
@@ -298,20 +360,23 @@ class ReportController extends Controller
                     'total'          => $total,
                     'purchase_value' => $purchaseVal,
                     'sale_value'     => $saleVal,
-                    'mrp_value'      => $saleVal,
+                    'mrp_value'      => $mrpVal,
                     'stock_value'    => $purchaseVal,
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
                     'image_url'      => $product->primary_image_url,
+                    'product_obj'    => $product,
+                    'pair_product'   => (bool) $product->pair_product,
+                    'pair_count'     => $pPairCount,
+                    'loose_pcs'      => $pLoosePcs,
+                    'pair_display'   => $product->pair_product ? $product->formatStockDisplay($total) : null,
                 ], $buildAgeInfo($productLastPurchase[$product->id] ?? null)));
             }
         }
 
         $activeProductCount = Product::where('status', 1)->count();
 
-        // Derived from $productsList (already ledger-aware for variable products) rather than a
-        // raw inventories-table query, which misreports variable products as sold out.
         $soldoutProductCount = $productsList
             ->where('is_parent', true)
             ->where('status', 1)
@@ -955,17 +1020,19 @@ class ReportController extends Controller
             ->sortByDesc('qty_purchased')
             ->values();
 
-        $spreadsheet = $this->exportService->exportPurchases($invoices, $productPurchases);
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Purchase Report',
+                'pdfUrl' => route('admin.reports.purchases.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Purchases report exported to Excel');
+        $pdf = Pdf::loadView('reports.pdf.purchases', compact('invoices', 'productPurchases', 'startDate', 'endDate'))
+            ->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, 'purchases_report_' . now()->format('Ymd_His') . '.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Purchases report exported to PDF');
+
+        return $pdf->stream('purchases_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function exportSales(Request $request)
@@ -1020,17 +1087,19 @@ class ReportController extends Controller
             ->sortByDesc('qty_sold')
             ->values();
 
-        $spreadsheet = $this->exportService->exportSales($orders, $productSales);
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Sales Report',
+                'pdfUrl' => route('admin.reports.sales.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Sales report exported to Excel');
+        $pdf = Pdf::loadView('reports.pdf.sales', compact('orders', 'productSales', 'startDate', 'endDate'))
+            ->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, 'sales_report_' . now()->format('Ymd_His') . '.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Sales report exported to PDF');
+
+        return $pdf->stream('sales_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function exportProfitLoss(Request $request)

@@ -881,19 +881,19 @@ $(document).ready(function () {
         let hasStock = false;
 
         if (locationId) {
-            qty = displayQtyAt(locationId);
+            qty = rawQtyAt(locationId);
         } else {
             Object.keys(stockByLocation).forEach(locId => {
-                qty += displayQtyAt(locId);
+                qty += rawQtyAt(locId);
             });
         }
 
         Object.keys(stockByLocation).forEach(locId => {
-            const lQty = displayQtyAt(locId);
+            const lQty = rawQtyAt(locId);
             const loc = locations.find(l => l.id == locId);
             const locName = loc ? loc.name : 'Unknown';
             if (lQty > 0) {
-                breakdownText += `- ${locName}: ${lQty}\n`;
+                breakdownText += `- ${locName}: ${lQty} Pcs\n`;
                 hasStock = true;
             }
         });
@@ -903,8 +903,30 @@ $(document).ready(function () {
         }
 
         const labelPrefix = locationId ? 'Stock: ' : 'Total Stock: ';
+        let stockLabelText = 'Out of Stock';
+        if (qty > 0) {
+            let formattedQty = qty + ' Pcs';
+            if (product && product.pair_product) {
+                const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                let pairSize = customSizeValue > 0 ? customSizeValue : 0;
+                if (!pairSize && effectiveSizes && effectiveSizes.length > 0) {
+                    const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
+                    if (sizes.length > 0) pairSize = Math.max(...sizes);
+                }
+                if (!pairSize) pairSize = 1;
+
+                const pairsCount = Math.floor(qty / pairSize);
+                const remPcs = qty % pairSize;
+                let parts = [];
+                if (pairsCount > 0) parts.push(pairsCount + (pairsCount > 1 ? ' Pairs' : ' Pair'));
+                if (remPcs > 0) parts.push(remPcs + ' Pcs');
+                formattedQty = parts.length > 0 ? parts.join(', ') : '0';
+            }
+            stockLabelText = labelPrefix + formattedQty;
+        }
+
         stockDisplay
-            .text(qty === 0 ? 'Out of Stock' : labelPrefix + qty)
+            .text(stockLabelText)
             .attr('title', breakdownText.trim())
             .css('cursor', 'help')
             .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')
@@ -1122,14 +1144,15 @@ $(document).ready(function () {
                 return;
             }
 
+            const itemDiscVal = parseFloat($(this).find('.item-discount-value').val()) || 0;
             const minTotal = getMinAllowedTotal($(this));
             if (minTotal > 0) {
                 minFloorTotal += minTotal;
-                if (itemTotal < minTotal - 0.01) {
+                if (itemDiscVal > 0 && itemTotal < minTotal - 0.01) {
                     const product = $(this).data('product');
                     const name = (product && product.name) ? product.name : 'item';
                     $(this).find('.item-discount-value').addClass('is-invalid');
-                    errorMsg = 'Discount is not applicable';
+                    errorMsg = 'Discount is not applicable for ' + name;
                 }
             }
         });
@@ -1148,7 +1171,13 @@ $(document).ready(function () {
             return 'Order total cannot be negative.';
         }
 
-        if (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
+        let hasAnyDiscount = (orderDiscVal > 0);
+        $('.item-row').each(function () {
+            const itemDisc = parseFloat($(this).find('.item-discount-value').val()) || 0;
+            if (itemDisc > 0) hasAnyDiscount = true;
+        });
+
+        if (hasAnyDiscount && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
             $('#orderDiscountValueInput').addClass('is-invalid');
             return 'Order total cannot be less than ' + symbol + ' ' + formatPrice(minFloorTotal)
                 + ' (combined purchase price + 10% of all items).';
@@ -1157,7 +1186,7 @@ $(document).ready(function () {
         return null;
     }
 
-    const thermalUrlTemplate = '{{ route('admin.sales.thermal', ['sale' => '__ID__']) }}';
+    const thermalUrlTemplate = '{{ route('admin.sales.thermal', ['sale' => '__ID__', 'auto_print' => 1]) }}';
     let printAfterSave = false;
     let printWindowRef = null;
 

@@ -209,7 +209,12 @@
                     { data: 'index', orderable: false, width: '5%' },
                     { data: 'customer' },
                     { data: 'total_amount' },
-                    { data: 'paid_amount' },
+                    { 
+                        data: 'paid_amount',
+                        render: function (data, type, row) {
+                            return `<span class="text-success fw-semibold">${data}</span>`;
+                        }
+                    },
                     { 
                         data: 'due_amount',
                         render: function (data, type, row) {

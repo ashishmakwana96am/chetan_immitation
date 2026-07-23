@@ -250,6 +250,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('sales', SaleController::class)->except('show');
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
+        Route::get('sales/{sale}/tax-invoice', [SaleController::class, 'taxInvoice'])->name('sales.tax-invoice');
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
         Route::get('sales/{sale}/label', [SaleController::class, 'label'])->name('sales.label');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
@@ -309,6 +310,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounting/opening-balances/data', [AccountingController::class, 'branchBalancesData'])->name('accounting.opening-balances.data');
         Route::get('accounting/opening-balances/create', [AccountingController::class, 'branchBalancesCreate'])->name('accounting.opening-balances.create');
         Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
+        Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
+        Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');

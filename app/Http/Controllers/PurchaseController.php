@@ -659,12 +659,23 @@ class PurchaseController extends Controller
             }
         }
 
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Purchase ' . $purchase->invoice_no,
+                'pdfUrl' => route('admin.purchases.pdf', [$purchase, 'auto_print' => 1, 'stream' => 1]),
+            ]);
+        }
+
         $purchase->load(['supplier', 'createdBy', 'items.product.variants.attributeValue.attribute', 'items.allocations.location']);
 
         $pdf = Pdf::loadView('purchases.pdf', compact('purchase'))
             ->setPaper('a4', 'portrait');
 
         ActivityLogger::log('Purchase', 'export', $purchase, null, null, 'Invoice PDF exported for purchase #' . $purchase->invoice_no);
+
+        if (request()->boolean('stream')) {
+            return $pdf->stream('purchase-' . $purchase->invoice_no . '.pdf');
+        }
 
         return $pdf->download('purchase-' . $purchase->invoice_no . '.pdf');
     }
@@ -777,16 +788,18 @@ class PurchaseController extends Controller
     {
         $this->authorize('view purchases');
 
-        $items = $purchase->items()->with('product')->get()
+        $items = $purchase->items()->with(['product', 'variant.attributeValue'])->get()
             ->filter(fn ($item) => $item->product && !empty($item->product->barcode))
             ->map(fn ($item) => [
-                'id'                => $item->product->id,
-                'name'              => $item->product->name,
-                'barcode'           => $item->product->barcode,
-                'quantity'          => (int) $item->quantity,
-                'pair_product'      => (bool) $item->product->pair_product,
-                'custom_sizes'      => $item->product->custom_sizes ?? [],
-                'custom_size_value' => $item->custom_size_value,
+                'id'                  => $item->product->id,
+                'name'                => $item->product->name,
+                'barcode'             => $item->product->barcode,
+                'quantity'            => (int) $item->quantity,
+                'pair_product'        => (bool) $item->product->pair_product,
+                'custom_sizes'        => $item->product->custom_sizes ?? [],
+                'custom_size_value'   => $item->custom_size_value,
+                'selected_variant_id' => $item->product_variant_id,
+                'variant_label'       => $item->variant?->attributeValue?->value,
             ])
             ->values();
 

@@ -443,6 +443,11 @@
                         <span class="info-label">Email: </span>{{ $order->customer->email }}
                     </div>
                     @endif
+                    @if($order->customer?->gst_no)
+                    <div class="info-row">
+                        <span class="info-label">GSTIN: </span><strong>{{ $order->customer->gst_no }}</strong>
+                    </div>
+                    @endif
                 </div>
             </td>
 

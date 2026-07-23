@@ -21,8 +21,16 @@ class AttributeController extends Controller
     public function data(Request $request)
     {
         $this->authorize('view attributes');
+        try {
+            self::reindexAttributes();
+        } catch (\Throwable $e) {}
 
-        $query = Attribute::with('createdBy', 'values')->orderBy('id', 'desc');
+        $query = Attribute::with('createdBy', 'values');
+        try {
+            $query->orderBy('index', 'asc');
+        } catch (\Throwable $e) {
+            $query->orderBy('id', 'asc');
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -56,8 +64,15 @@ class AttributeController extends Controller
                 $actions .= '</div></div>';
             }
 
+            $indexVal = null;
+            try {
+                $indexVal = $attribute->index;
+            } catch (\Throwable $e) {
+                $indexVal = null;
+            }
+
             return [
-                'index'      => $index + 1,
+                'index'      => $indexVal ?: '-',
                 'name'       => $attribute->name,
                 'values'     => $valuesList ?: '-',
                 'status'     => $status,
@@ -97,6 +112,7 @@ class AttributeController extends Controller
             'slug'       => Str::slug(trim($request->name)),
             'status'     => $request->has('status') ? 1 : 2,
             'created_by' => auth()->id(),
+            'index'      => (int) Attribute::max('index') + 1,
         ]);
 
         $values = json_decode($request->values_json, true) ?: [];
@@ -267,10 +283,23 @@ class AttributeController extends Controller
 
         $attribute->delete();
 
+        self::reindexAttributes();
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Attribute deleted successfully.',
         ]);
+    }
+
+    public static function reindexAttributes(): void
+    {
+        $attributes = Attribute::whereNull('deleted_at')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        foreach ($attributes as $i => $attr) {
+            $attr->update(['index' => $i + 1]);
+        }
     }
 
     public function getAttributesWithValues()
@@ -343,6 +372,7 @@ class AttributeController extends Controller
             'slug'       => Str::slug($name),
             'status'     => 1,
             'created_by' => auth()->id(),
+            'index'      => (int) Attribute::max('index') + 1,
         ]);
 
         $valueLines = array_filter(array_map('trim', explode("\n", $request->values)));

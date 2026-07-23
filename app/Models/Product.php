@@ -105,16 +105,68 @@ class Product extends Model
                 return max(0, $totalStock);
             }
 
-            $totalStock = 0;
+            $totalVariantStock = 0;
+            $totalParentStock  = 0;
             foreach ($stockData as $locData) {
                 foreach ($locData['variants'] as $vStock) {
-                    $totalStock += (int) $vStock;
+                    $totalVariantStock += (int) $vStock;
                 }
+                $totalParentStock += (int) ($locData['parent'] ?? 0);
             }
-            return max(0, $totalStock);
+
+            
+            if ($totalVariantStock > 0) {
+                return $totalVariantStock;
+            }
+            if ($totalParentStock > 0) {
+                return $totalParentStock;
+            }
         }
 
         return (int) $this->inventories()->sum('quantity');
+    }
+
+    /**
+     * Format stock into Pairs and Pcs format if pair_product is true.
+     */
+    public function formatStockDisplay(?int $pcs = null): string
+    {
+        $pieces = $pcs !== null ? $pcs : (int) $this->totalAvailableStock();
+        if ($pieces <= 0) {
+            return 'SOLD OUT';
+        }
+
+        if ($this->pair_product) {
+            $sizes = collect($this->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = $sizes->count() > 0 ? (float) $sizes->max() : 1.0;
+            $pairsCount = $pairSize > 0 ? (int) floor($pieces / $pairSize) : 0;
+            $remPcsCount = $pairSize > 0 ? (int) ($pieces % $pairSize) : 0;
+
+            $parts = [];
+            if ($pairsCount > 0) {
+                $parts[] = number_format($pairsCount) . ' Pair' . ($pairsCount > 1 ? 's' : '');
+            }
+            if ($remPcsCount > 0) {
+                $parts[] = $remPcsCount . ' Pcs';
+            }
+            return count($parts) > 0 ? implode(', ', $parts) : '0';
+        }
+
+        return number_format($pieces);
+    }
+
+    /**
+     * Render standardized HTML Badge for stock across all admin pages.
+     */
+    public function renderStockBadge(?int $customPcs = null): string
+    {
+        $pieces = $customPcs !== null ? $customPcs : (int) $this->totalAvailableStock();
+        if ($pieces <= 0) {
+            return '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
+        }
+
+        $formatted = $this->formatStockDisplay($pieces);
+        return '<span class="badge bg-label-success fw-bold">' . e($formatted) . '</span>';
     }
 
     public function createdBy()

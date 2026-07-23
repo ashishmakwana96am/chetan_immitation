@@ -211,12 +211,18 @@
                     { data: 'index', orderable: false },
                     { data: 'supplier' },
                     { data: 'total_amount', className: 'text-end fw-semibold text-heading' },
-                    { data: 'paid_amount', className: 'text-end text-success fw-semibold' },
+                    { 
+                        data: 'paid_amount', 
+                        className: 'text-end fw-semibold text-heading',
+                        render: function(data, type, row) {
+                            return `<span class="text-success fw-semibold">${data}</span>`;
+                        }
+                    },
                     { 
                         data: 'due_amount', 
-                        className: 'text-end text-danger fw-semibold',
+                        className: 'text-end fw-semibold text-heading',
                         render: function(data, type, row) {
-                            return `<span class="text-danger fw-bold">${data}</span>`;
+                            return `<span class="text-danger fw-semibold">${data}</span>`;
                         }
                     },
                     { 

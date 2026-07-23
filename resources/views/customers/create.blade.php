@@ -32,6 +32,24 @@
         </div>
 
         <div class="col-12">
+            <label class="form-label">GST Number</label>
+            <input type="text" name="gst_no" class="form-control text-uppercase" placeholder="e.g. 24ABCDE1234F1Z5" maxlength="15" />
+            <div class="invalid-feedback"></div>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Address</label>
+            <textarea name="address" class="form-control" rows="2" placeholder="Enter Address"></textarea>
+            <div class="invalid-feedback"></div>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">State</label>
+            <input type="text" name="state" class="form-control" placeholder="Enter State" />
+            <div class="invalid-feedback"></div>
+        </div>
+
+        <div class="col-12">
             <label class="form-label">Status</label>
             <div class="form-check form-switch mt-1">
                 <input class="form-check-input" type="checkbox" id="customerStatus" name="status" value="1" checked />

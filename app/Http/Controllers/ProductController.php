@@ -99,6 +99,12 @@ class ProductController extends Controller
                 return $variant->attributeValue->value ?? '';
             })->filter()->unique()->implode(', ');
 
+            $variantsList = $product->type === 'variable'
+                ? $product->variants->filter(fn($v) => $v->attributeValue)
+                    ->map(fn($v) => ['id' => $v->id, 'value' => $v->attributeValue->value ?? ''])
+                    ->values()->toArray()
+                : [];
+
 
             if ($product->is_variable) {
                 $nameHtml .= ' <span class="badge bg-label-info ms-1" style="font-size:10px">Variable</span>';
@@ -115,31 +121,7 @@ class ProductController extends Controller
                 : '<span class="badge bg-label-danger">Inactive</span>';
 
             $stockSumPieces = $computeStock($product);
-            $isPairProduct = (bool) $product->pair_product;
-
-            if ($isPairProduct) {
-                $pairSize = (float) (collect($product->custom_sizes ?? [])->pluck('size')->max() ?: 2);
-                if ($stockSumPieces <= 0) {
-                    $stock = '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
-                } else {
-                    $pairsCount = $pairSize > 0 ? (int) floor($stockSumPieces / $pairSize) : 0;
-                    $remPcsCount = $pairSize > 0 ? (int) ($stockSumPieces % $pairSize) : 0;
-
-                    $parts = [];
-                    if ($pairsCount > 0) {
-                        $parts[] = number_format($pairsCount) . ' Pair' . ($pairsCount > 1 ? 's' : '');
-                    }
-                    if ($remPcsCount > 0) {
-                        $parts[] = $remPcsCount . ' Pcs';
-                    }
-                    $stockText = count($parts) > 0 ? implode(', ', $parts) : '0';
-                    $stock = '<span class="badge bg-label-success fw-bold">' . e($stockText) . '</span>';
-                }
-            } else {
-                $stock = $stockSumPieces > 0
-                    ? '<span class="badge bg-label-success fw-bold">' . number_format($stockSumPieces) . '</span>'
-                    : '<span class="badge bg-label-danger fw-bold">SOLD OUT</span>';
-            }
+            $stock = $product->renderStockBadge($stockSumPieces);
 
             $barcodeVal = $product->barcode;
             $barcode = $barcodeVal
@@ -180,6 +162,7 @@ class ProductController extends Controller
                 'pair_product'   => (bool) $product->pair_product,
                 'pair_mode'      => $product->pair_mode,
                 'custom_sizes'   => $product->custom_sizes,
+                'variants_list'  => $variantsList,
                 'category'       => !empty($product->subCategory->name) ? $product->subCategory->name : ($product->category->name ?? '-'),
                 'variations'     => $variationsStr,
                 'stock'          => $stock,
@@ -212,8 +195,16 @@ class ProductController extends Controller
                     : ($product->category?->name ?? '');
 
                 $variations = $product->variants->map(fn($v) => $v->attributeValue->value ?? '')->filter()->unique()->implode(', ');
+
+                // Resolve variant label from selected_variant_id
+                $variantLabel = null;
+                if (!empty($item['selected_variant_id'])) {
+                    $selectedVariant = $product->variants->firstWhere('id', (int) $item['selected_variant_id']);
+                    $variantLabel = $selectedVariant?->attributeValue?->value;
+                }
                 
                 $salePriceVal = $product->sale_price;
+                $mrpVal = $product->mrp;
 
                 if ($product->pair_product && !empty($product->custom_sizes)) {
                     $selectedSizeVal = $item['selected_size'] ?? $item['custom_size'] ?? null;
@@ -235,9 +226,13 @@ class ProductController extends Controller
                     if ($matchedSizeRow && isset($matchedSizeRow['sale_price'])) {
                         $salePriceVal = $matchedSizeRow['sale_price'];
                     }
+                    if ($matchedSizeRow && isset($matchedSizeRow['mrp'])) {
+                        $mrpVal = $matchedSizeRow['mrp'];
+                    }
                 }
 
                 $salePrice = number_format($salePriceVal, 0);
+                $mrp = number_format($mrpVal ?? $salePriceVal, 0);
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
@@ -279,7 +274,9 @@ class ProductController extends Controller
                     'category'         => $categoryDisplay,
                     'categoryFontSize' => $categoryFontSize,
                     'variations'       => $variations,
+                    'variantLabel'     => $variantLabel,
                     'salePrice'        => $salePrice,
+                    'mrp'              => $mrp,
                     'qty'              => $qty
                 ];
             }
@@ -292,8 +289,15 @@ class ProductController extends Controller
         $labelWidth  = 34.02;  // 12mm
         $labelHeight = 232.44; // 82mm
 
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Barcodes',
+                'pdfUrl' => route('admin.products.print-barcodes', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems'))
-            ->setPaper([0, 0, $labelWidth, $labelHeight], 'portrait');
+            ->setPaper([0, 0, $labelWidth, $labelHeight], 'landscape');
 
         return $pdf->stream('barcodes.pdf');
     }

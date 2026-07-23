@@ -25,6 +25,39 @@
         justify-content: center;
     }
     .card-title-icon i { color: #B4771E; }
+    .purchase-bill-items-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .purchase-bill-items-table {
+        min-width: 980px;
+        table-layout: fixed;
+    }
+    .purchase-bill-items-table th,
+    .purchase-bill-items-table td {
+        vertical-align: middle;
+    }
+    .purchase-bill-items-table .col-index { width: 54px; }
+    .purchase-bill-items-table .col-product { width: 42%; }
+    .purchase-bill-items-table .col-qty { width: 110px; }
+    .purchase-bill-items-table .col-money { width: 140px; }
+    .purchase-bill-items-table .money-cell,
+    .purchase-bill-items-table .qty-cell,
+    .purchase-bill-items-table .total-label {
+        white-space: nowrap;
+    }
+    .purchase-bill-items-table .product-name {
+        display: block;
+        overflow-wrap: anywhere;
+        line-height: 1.35;
+    }
+    .purchase-bill-items-table .product-code {
+        display: block;
+        margin-top: 0.15rem;
+    }
+    .purchase-bill-items-table tfoot td {
+        background: #fff;
+    }
 </style>
 @endsection
 
@@ -127,53 +160,48 @@
                     <span class="card-title-icon"><i class="ti ti-box"></i></span>
                     <h6 class="mb-0 fw-semibold">Transfer Items</h6>
                 </div>
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="table-responsive purchase-bill-items-wrap">
+                    <table class="table mb-0 purchase-bill-items-table">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 5%">#</th>
-                                <th>Product</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Price</th>
-                                <th class="text-end">Total</th>
+                                <th class="col-index">#</th>
+                                <th class="col-product">Product</th>
+                                <th class="text-end col-qty">Qty</th>
+                                <th class="text-end col-money">Price</th>
+                                <th class="text-end col-money">Total</th>
+                                <th class="text-end col-money">Unit MRP</th>
+                                <th class="text-end col-money">Total MRP</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @php $grandTotal = 0; @endphp
                             @foreach($transfer->items as $index => $item)
                                 @php
                                     $displayName = $item->product->name ?? '-';
                                     if ($item->variant && $item->variant->attributeValue) {
                                         $displayName .= ' (' . ($item->variant->attributeValue->attribute->name ?? 'Variant') . ': ' . ($item->variant->attributeValue->value ?? '') . ')';
                                     }
-                                    $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                                    $multiplier = 1.0;
-                                    if ($item->custom_size_value) {
-                                        $multiplier = (float) $item->custom_size_value;
-                                    } elseif (($item->pair_type ?? 'single') === 'pair') {
-                                        $multiplier = 2.0;
-                                    }
-                                    $price = $price * $multiplier;
-                                    $lineTotal = $price * $item->quantity;
-                                    $grandTotal += $lineTotal;
+                                    $price = $item->calculated_unit_amount ?? 0;
+                                    $lineTotal = $item->calculated_line_amount ?? 0;
+                                    $unitMrp = $item->calculated_unit_mrp ?? 0;
+                                    $lineMrp = $item->calculated_line_mrp ?? 0;
                                 @endphp
                                 <tr>
                                     <td class="text-muted small">{{ $index + 1 }}</td>
                                      <td>
                                          <div class="d-flex align-items-center">
                                              <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                             <div>
-                                                 <span class="fw-semibold">{{ $displayName }}</span>
+                                             <div class="min-w-0">
+                                                 <span class="fw-semibold product-name">{{ $displayName }}</span>
                                                  @if($item->product?->barcode)
-                                                     <br><small class="text-muted">{{ $item->product->barcode }}</small>
+                                                     <small class="text-muted product-code">{{ $item->product->barcode }}</small>
                                                  @endif
                                              </div>
                                          </div>
                                      </td>
-                                     <td class="text-end fw-semibold text-nowrap">
+                                     <td class="text-end fw-semibold qty-cell">
                                          {{ $item->quantity }}
                                          @php
-                                             $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
+                                             $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
                                          @endphp
                                          @if($szVal)
                                              <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
@@ -182,18 +210,22 @@
                                          @else
                                              <small class="text-muted">Pcs</small>
                                          @endif
-                                     </td>
-                                    <td class="text-end">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
-                                    <td class="text-end fw-semibold">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
+                                    </td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($unitMrp, 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineMrp, 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="2" class="text-end fw-bold">Total Qty</td>
+                                <td colspan="2" class="text-end fw-bold total-label">Total Qty</td>
                                 <td class="text-end fw-bold text-primary">{{ $transfer->items->sum('quantity') }}</td>
-                                <td class="text-end fw-bold">Total Amount</td>
-                                <td class="text-end fw-bold text-primary">{{ currency_symbol() }} {{ number_format($grandTotal, 2) }}</td>
+                                <td class="text-end fw-bold total-label">Total Amount</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalAmount, 2) }}</td>
+                                <td class="text-end fw-bold total-label">Total MRP</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalMrp, 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>

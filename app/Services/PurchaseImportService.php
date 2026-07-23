@@ -533,7 +533,7 @@ class PurchaseImportService
 
             $lastVariant = $variantName;
 
-            $productVariant = $this->productCreation->findOrCreateVariant($product, $variantName, $variantValueName, $userId);
+            $productVariant = $this->productCreation->findOrCreateVariantByIndexOrName($product, $variantName, $variantValueName, $userId);
             $productVariantId = $productVariant->id;
         }
 

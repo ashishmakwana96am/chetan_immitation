@@ -5,7 +5,7 @@
     <title>Print Labels</title>
     <style>
         @page {
-            size: 34.02pt 232.44pt portrait;
+            size: 232.44pt 34.02pt landscape;
             margin: 0px !important;
         }
         * {
@@ -19,8 +19,8 @@
         html, body {
             margin: 0px !important;
             padding: 0px !important;
-            width: 34.02pt !important;
-            height: 232.44pt !important;
+            width: 232.44pt !important;
+            height: 34.02pt !important;
             background: #fff;
             overflow: hidden !important;
         }
@@ -30,8 +30,8 @@
             clear: both !important;
         }
         .page-wrapper {
-            width: 34.02pt !important;
-            height: 232.44pt !important;
+            width: 232.44pt !important;
+            height: 34.02pt !important;
             position: relative !important;
             overflow: hidden !important;
         }
@@ -42,9 +42,7 @@
             table-layout: fixed !important;
             position: absolute !important;
             top: 0 !important;
-            left: 34.02pt !important;
-            transform: rotate(90deg);
-            transform-origin: 0 0;
+            left: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
         }
@@ -78,7 +76,9 @@
             line-height: 1.1 !important;
             text-transform: uppercase;
             white-space: nowrap;
-            overflow: hidden;
+            overflow: hidden !important;
+            text-overflow: clip !important;
+            max-width: 72pt !important;
             text-align: left !important;
             margin-bottom: 1.5pt !important;
             padding-left: 2pt !important;
@@ -105,6 +105,18 @@
             text-align: left !important;
             margin-top: 1.5pt !important;
             padding-left: 2pt !important;
+        }
+        .variant-line {
+            font-size: 7.5pt !important;
+            font-weight: bold !important;
+            line-height: 1.1 !important;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-align: left !important;
+            margin-top: 1pt !important;
+            padding-left: 2pt !important;
+            letter-spacing: 0.2pt;
         }
         .mrp-line {
             font-size: 9pt !important;
@@ -144,7 +156,7 @@
                     <tr>
                         <!-- Zone 1: Code + Barcode + Category (Left Section) -->
                         <td class="zone-front">
-                            <div class="code-line">{{ trim($item['barcodeText']) }}</div>
+                            <div class="code-line">{{ trim($item['barcodeText']) }}@if(!empty($item['variantLabel'])) {{ trim($item['variantLabel']) }}@endif</div>
                             <div class="barcode-container">
                                 <img class="barcode-img" src="{{ $item['barcodeBase64'] }}" />
                             </div>
@@ -152,7 +164,7 @@
                         </td>
                         <!-- Zone 2: MRP (Center Section) -->
                         <td class="zone-back">
-                            <div class="mrp-line">MRP:{{ $item['salePrice'] }}</div>
+                            <div class="mrp-line">MRP:{{ $item['mrp'] }}</div>
                             <div class="mrp-code-line">{{ $item['productCode'] }}</div>
                             @if(!empty($item['isPair']))
                                 <div class="mrp-code-line">Pair</div>

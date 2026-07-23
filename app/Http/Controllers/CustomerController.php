@@ -65,6 +65,8 @@ class CustomerController extends Controller
                 'name'       => $customer->name,
                 'phone'      => $customer->phone ?? '-',
                 'email'      => $customer->email ?? '-',
+                'gst_no'     => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
+                'state'      => $customer->state ?: '-',
                 'status'     => $status,
                 'created_at' => format_date($customer->created_at),
                 'actions'    => $actions,
@@ -89,6 +91,9 @@ class CustomerController extends Controller
             'phones'   => ['nullable', 'array'],
             'phones.*' => ['nullable', 'digits:10'],
             'email'    => ['nullable', 'email', Rule::unique('customers', 'email')->whereNull('deleted_at')],
+            'gst_no'   => ['nullable', 'string', 'max:15'],
+            'state'    => ['nullable', 'string', 'max:100'],
+            'address'  => ['nullable', 'string'],
         ]);
 
         $this->validateUniquePhones($validator, $request);
@@ -103,6 +108,9 @@ class CustomerController extends Controller
         $customer = Customer::create([
             'name'     => $request->name,
             'email'    => $request->email,
+            'gst_no'   => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
+            'state'    => $request->state ? trim($request->state) : null,
+            'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
         ]);
 
@@ -138,6 +146,9 @@ class CustomerController extends Controller
             'phones.*'  => ['nullable', 'digits:10'],
             'phone_ids' => ['nullable', 'array'],
             'email'     => ['nullable', 'email', Rule::unique('customers', 'email')->ignore($customer->id)->whereNull('deleted_at')],
+            'gst_no'    => ['nullable', 'string', 'max:15'],
+            'state'     => ['nullable', 'string', 'max:100'],
+            'address'   => ['nullable', 'string'],
         ]);
 
         $this->validateUniquePhones($validator, $request);
@@ -150,9 +161,12 @@ class CustomerController extends Controller
         }
 
         $customer->update([
-            'name'   => $request->name,
-            'email'  => $request->email,
-            'status' => $request->has('status') ? 1 : 2,
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'gst_no'   => $request->gst_no ? strtoupper(trim($request->gst_no)) : null,
+            'state'    => $request->state ? trim($request->state) : null,
+            'address'  => $request->address ? trim($request->address) : null,
+            'status'   => $request->has('status') ? 1 : 2,
         ]);
 
         $submittedPhones = $request->input('phones', []);

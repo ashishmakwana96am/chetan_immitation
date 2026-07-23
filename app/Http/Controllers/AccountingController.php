@@ -599,7 +599,7 @@ class AccountingController extends Controller
         abort_unless(auth()->user()->hasRole('super-admin'), 403);
         $this->authorize('manage branch balances');
 
-        $locations = \App\Models\Location::with('balance')->where('status', 1)->orderBy('name')->get();
+        $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
         return view('accounting.branch-balances', compact('locations'));
     }
@@ -609,7 +609,7 @@ class AccountingController extends Controller
         abort_unless(auth()->user()->hasRole('super-admin'), 403);
         $this->authorize('manage branch balances');
 
-        $query = \App\Models\LocationBalanceTransaction::with(['location', 'createdBy']);
+        $query = LocationBalanceTransaction::with(['location', 'createdBy']);
 
         if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
@@ -627,12 +627,12 @@ class AccountingController extends Controller
         $transactions = $query->orderBy('id', 'desc')->get();
 
         $data = $transactions->map(function ($tx, $index) {
-            $isCredit = $tx->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT;
+            $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             $typeBadge = $isCredit
                 ? '<span class="badge bg-label-success">Credit</span>'
                 : '<span class="badge bg-label-danger">Debit</span>';
 
-            $balanceTypeBadge = $tx->balance_type === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+            $balanceTypeBadge = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK
                 ? '<span class="badge bg-label-info">Bank</span>'
                 : '<span class="badge bg-label-secondary">Cash</span>';
 
@@ -657,7 +657,7 @@ class AccountingController extends Controller
         $totalCash = LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
         $totalBank = LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
-        $locations = \App\Models\Location::with('balance')->where('status', 1)->orderBy('name')->get();
+        $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
         $branchBalances = [];
         foreach ($locations as $loc) {
             $branchBalances[$loc->id] = [
@@ -682,7 +682,7 @@ class AccountingController extends Controller
         abort_unless(auth()->user()->hasRole('super-admin'), 403);
         $this->authorize('manage branch balances');
 
-        $locations = \App\Models\Location::where('status', 1)->orderBy('name')->get();
+        $locations = Location::where('status', 1)->orderBy('name')->get();
 
         return view('accounting.branch-balances-create', compact('locations'));
     }
@@ -694,8 +694,8 @@ class AccountingController extends Controller
 
         $validator = Validator::make($request->all(), [
             'location_id'  => ['required', 'integer', 'exists:locations,id'],
-            'balance_type' => ['required', 'string', 'in:' . \App\Models\LocationBalanceTransaction::BALANCE_TYPE_CASH . ',' . \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK],
-            'type'         => ['required', 'string', 'in:' . \App\Models\LocationBalanceTransaction::TYPE_CREDIT . ',' . \App\Models\LocationBalanceTransaction::TYPE_DEBIT],
+            'balance_type' => ['required', 'string', 'in:' . LocationBalanceTransaction::BALANCE_TYPE_CASH . ',' . LocationBalanceTransaction::BALANCE_TYPE_BANK],
+            'type'         => ['required', 'string', 'in:' . LocationBalanceTransaction::TYPE_CREDIT . ',' . LocationBalanceTransaction::TYPE_DEBIT],
             'amount'       => ['required', 'numeric', 'min:0.01'],
             'notes'        => ['nullable', 'string', 'max:1000'],
         ]);
@@ -708,28 +708,28 @@ class AccountingController extends Controller
         }
 
         $locationId = (int) $request->location_id;
-        $balanceColumn = $request->balance_type === \App\Models\LocationBalanceTransaction::BALANCE_TYPE_BANK
+        $balanceColumn = $request->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK
             ? 'bank_balance'
             : 'cash_balance';
 
         try {
             DB::transaction(function () use ($request, $locationId, $balanceColumn) {
-                $balance = \App\Models\LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+                $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
 
                 $currentBalance = (float) $balance->{$balanceColumn};
                 $amount = (float) $request->amount;
 
-                $newBalance = $request->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT
+                $newBalance = $request->type === LocationBalanceTransaction::TYPE_CREDIT
                     ? $currentBalance + $amount
                     : $currentBalance - $amount;
 
-                if ($request->type === \App\Models\LocationBalanceTransaction::TYPE_DEBIT && $newBalance < 0) {
+                if ($request->type === LocationBalanceTransaction::TYPE_DEBIT && $newBalance < 0) {
                     throw new \RuntimeException('insufficient_balance');
                 }
 
                 $balance->update([$balanceColumn => $newBalance]);
 
-                $transaction = \App\Models\LocationBalanceTransaction::create([
+                $transaction = LocationBalanceTransaction::create([
                     'location_id'   => $locationId,
                     'balance_type'  => $request->balance_type,
                     'type'          => $request->type,
@@ -764,4 +764,117 @@ class AccountingController extends Controller
             'message' => 'Balance entry recorded successfully.',
         ]);
     }
+
+    public function branchBalancesTransferCreate()
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.branch-balances-transfer', compact('locations'));
+    }
+
+    public function branchBalancesTransferStore(Request $request)
+    {
+        abort_unless(auth()->user()->hasRole('super-admin'), 403);
+        $this->authorize('manage branch balances');
+
+        $validator = Validator::make($request->all(), [
+            'from_location_id' => ['required', 'integer', 'exists:locations,id'],
+            'to_location_id'   => ['required', 'integer', 'exists:locations,id', 'different:from_location_id'],
+            'balance_type'     => ['required', 'string', 'in:' . LocationBalanceTransaction::BALANCE_TYPE_CASH . ',' . LocationBalanceTransaction::BALANCE_TYPE_BANK],
+            'amount'           => ['required', 'numeric', 'min:0.01'],
+            'notes'            => ['nullable', 'string', 'max:1000'],
+        ], [
+            'to_location_id.different' => 'To Location must be different from From Location.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $fromLocationId = (int) $request->from_location_id;
+        $toLocationId   = (int) $request->to_location_id;
+        $balanceColumn  = $request->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $amount         = (float) $request->amount;
+
+        try {
+            DB::transaction(function () use ($request, $fromLocationId, $toLocationId, $balanceColumn, $amount) {
+                $fromBalanceRecord = LocationBalance::firstOrCreate(['location_id' => $fromLocationId]);
+                $toBalanceRecord   = LocationBalance::firstOrCreate(['location_id' => $toLocationId]);
+
+                // Lock records for update
+                $fromBalanceRecord = LocationBalance::where('id', $fromBalanceRecord->id)->lockForUpdate()->first();
+                $toBalanceRecord   = LocationBalance::where('id', $toBalanceRecord->id)->lockForUpdate()->first();
+
+                $fromCurrent = (float) $fromBalanceRecord->{$balanceColumn};
+                if ($fromCurrent < $amount) {
+                    throw new \RuntimeException('insufficient_balance');
+                }
+
+                $toCurrent = (float) $toBalanceRecord->{$balanceColumn};
+
+                $fromNew = $fromCurrent - $amount;
+                $toNew   = $toCurrent + $amount;
+
+                $fromBalanceRecord->update([$balanceColumn => $fromNew]);
+                $toBalanceRecord->update([$balanceColumn => $toNew]);
+
+                $fromLocName = Location::find($fromLocationId)->name ?? $fromLocationId;
+                $toLocName   = Location::find($toLocationId)->name ?? $toLocationId;
+
+                $userNotes = !empty($request->notes) ? ' (Note: ' . $request->notes . ')' : '';
+
+                // Create debit transaction for sender
+                LocationBalanceTransaction::create([
+                    'location_id'   => $fromLocationId,
+                    'balance_type'  => $request->balance_type,
+                    'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $amount,
+                    'balance_after' => $fromNew,
+                    'notes'         => 'Transfer to ' . $toLocName . $userNotes,
+                    'created_by'    => auth()->id(),
+                ]);
+
+                // Create credit transaction for receiver
+                LocationBalanceTransaction::create([
+                    'location_id'   => $toLocationId,
+                    'balance_type'  => $request->balance_type,
+                    'type'          => LocationBalanceTransaction::TYPE_CREDIT,
+                    'amount'        => $amount,
+                    'balance_after' => $toNew,
+                    'notes'         => 'Transfer from ' . $fromLocName . $userNotes,
+                    'created_by'    => auth()->id(),
+                ]);
+
+                ActivityLogger::log(
+                    'Balance Transfer',
+                    'transfer',
+                    null,
+                    ['from' => $fromCurrent, 'to' => $toCurrent],
+                    ['from' => $fromNew, 'to' => $toNew],
+                    'Balance transfer of ' . format_price($amount) . ' (' . $request->balance_type . ') from "' . $fromLocName . '" to "' . $toLocName . '"'
+                );
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_balance') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient balance in From Location.']],
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Balance transferred successfully.',
+        ]);
+    }
 }
+

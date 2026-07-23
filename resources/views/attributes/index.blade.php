@@ -46,7 +46,7 @@
             <table class="table border-top" id="attributesTable">
                 <thead>
                     <tr>
-                        <th>#</th>
+                        <th>Index</th>
                         <th>Name</th>
                         <th>Values</th>
                         <th>Status</th>
@@ -67,7 +67,7 @@
         $(document).ready(function () {
             const table = $('#attributesTable').DataTable({
                 responsive : false,
-                order      : [],
+                order      : [[0, 'asc']],
                 ajax       : {
                     url: '{{ route('admin.attributes.data') }}',
                     dataSrc: 'data',
@@ -77,7 +77,7 @@
                     }
                 },
                 columns    : [
-                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                    { data: 'index', orderable: true, width: '80px' },
                     { data: 'name' },
                     { data: 'values' },
                     { data: 'status',     orderable: false },

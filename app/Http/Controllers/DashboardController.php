@@ -47,9 +47,82 @@ class DashboardController extends Controller
             'pending'    => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
-        $purchaseStats = [
-            'confirmed' => (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount'),
-            'draft'     => Purchase::where('status', Purchase::STATUS_PENDING)->count(),
+        $products = Product::with(['inventories', 'variants'])->get();
+        $totalStockUnits = 0;
+        $totalStockPairs = 0;
+        $totalStockLoosePcs = 0;
+        $totalStockPurchaseValue = 0.0;
+        $totalStockMrpValue = 0.0;
+
+        foreach ($products as $p) {
+            $purchasePrice = (float) $p->purchase_price;
+            $salePrice     = (float) $p->sale_price;
+            $mrpPrice      = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+
+            $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+            if ($pairSize <= 0) $pairSize = 1.0;
+
+            $pTotalPcs = (int) $p->totalAvailableStock();
+
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                $vSum = 0;
+                foreach ($p->variants as $v) {
+                    $vQty = 0;
+                    foreach ($variantStock as $locData) {
+                        
+                        $vQty += max(0, (int) ($locData['variants'][$v->id] ?? 0));
+                    }
+                    $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
+                    $vMrp   = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+
+                    $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
+
+                    $vSum += $vQty;
+                    $totalStockUnits += $vQty;
+                    $totalStockPurchaseValue += ($vEffectiveQty * $vPrice);
+                    $totalStockMrpValue += ($vEffectiveQty * $vMrp);
+                }
+
+                if ($vSum === 0 && $pTotalPcs > 0) {
+                    $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
+                    $totalStockUnits += $pTotalPcs;
+                    $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+                }
+            } else {
+                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
+
+                $totalStockUnits += $pTotalPcs;
+                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+            }
+
+            if ($p->pair_product && $pTotalPcs > 0) {
+                $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
+                $totalStockLoosePcs += (int) ($pTotalPcs % $pairSize);
+            } elseif (!$p->pair_product) {
+                $totalStockLoosePcs += $pTotalPcs;
+            }
+        }
+
+        $stockParts = [];
+        if ($totalStockPairs > 0) {
+            $stockParts[] = number_format($totalStockPairs) . ' Pair' . ($totalStockPairs > 1 ? 's' : '');
+        }
+        if ($totalStockLoosePcs > 0 || count($stockParts) === 0) {
+            $stockParts[] = number_format($totalStockLoosePcs) . ' Pcs';
+        }
+        $stockDisplay = implode(', ', $stockParts);
+
+        $stockStats = [
+            'total_units'          => $totalStockUnits,
+            'total_pairs'          => $totalStockPairs,
+            'total_loose_pcs'      => $totalStockLoosePcs,
+            'stock_display'        => $stockDisplay,
+            'total_purchase_value' => $totalStockPurchaseValue,
+            'total_mrp_value'      => $totalStockMrpValue,
         ];
 
         $monthlySales   = $this->getMonthlySales();
@@ -74,7 +147,7 @@ class DashboardController extends Controller
             : 0;
 
         return view('dashboard.super-admin', compact(
-            'stats', 'salesStats', 'purchaseStats',
+            'stats', 'salesStats', 'stockStats',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts', 'salesByLocation',
             'recentInquiries', 'todayInquiriesCount'
@@ -105,6 +178,9 @@ class DashboardController extends Controller
                     continue;
                 }
                 $qty = array_sum($stockData['variants']);
+                if ($qty === 0) {
+                    $qty = (int) ($stockData['parent'] ?? 0);
+                }
             } else {
                 $inv = $invByProduct->get($product->id);
                 if (!$inv) {
@@ -120,11 +196,87 @@ class DashboardController extends Controller
             return $row->quantity <= $threshold;
         });
 
+        $totalStockPurchaseValue = 0.0;
+        $totalStockMrpValue = 0.0;
+        $totalStockPairs = 0;
+        $totalStockLoosePcs = 0;
+        $totalStockUnits = 0;
+
+        foreach (Product::with(['inventories', 'variants'])->get() as $p) {
+            $purchasePrice = (float) $p->purchase_price;
+            $salePrice     = (float) $p->sale_price;
+            $mrpPrice      = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+
+            $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+            if ($pairSize <= 0) $pairSize = 1.0;
+
+            $pTotalPcs = 0;
+
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                $locData = $variantStock[$locationId] ?? ['variants' => []];
+                foreach ($p->variants as $v) {
+                    $vQty   = (int) ($locData['variants'][$v->id] ?? 0);
+                    $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
+                    $vMrp   = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+
+                    $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
+
+                    $pTotalPcs += $vQty;
+                    $totalStockUnits += $vQty;
+                    $totalStockPurchaseValue += ($vEffectiveQty * $vPrice);
+                    $totalStockMrpValue += ($vEffectiveQty * $vMrp);
+                }
+
+                if ($pTotalPcs === 0) {
+                    $inventory = $p->inventories->firstWhere('location_id', $locationId);
+                    $invQty = (int) ($inventory ? $inventory->quantity : 0);
+                    if ($invQty > 0) {
+                        $pTotalPcs = $invQty;
+                        $effectiveQty = $p->pair_product ? ($invQty / $pairSize) : (float) $invQty;
+                        $totalStockUnits += $invQty;
+                        $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                        $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+                    }
+                }
+            } else {
+                $inventory = $p->inventories->firstWhere('location_id', $locationId);
+                $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
+                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
+
+                $totalStockUnits += $pTotalPcs;
+                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+            }
+
+            if ($p->pair_product && $pTotalPcs > 0) {
+                $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
+                $totalStockLoosePcs += (int) ($pTotalPcs % $pairSize);
+            } elseif (!$p->pair_product) {
+                $totalStockLoosePcs += $pTotalPcs;
+            }
+        }
+
+        $stockParts = [];
+        if ($totalStockPairs > 0) {
+            $stockParts[] = number_format($totalStockPairs) . ' Pair' . ($totalStockPairs > 1 ? 's' : '');
+        }
+        if ($totalStockLoosePcs > 0 || count($stockParts) === 0) {
+            $stockParts[] = number_format($totalStockLoosePcs) . ' Pcs';
+        }
+        $stockDisplay = implode(', ', $stockParts);
+
         $stockStats = [
-            'total_products' => $stockRows->count(),
-            'total_units'    => (int) $stockRows->sum('quantity'),
-            'out_of_stock'   => $stockRows->where('quantity', 0)->count(),
-            'low_stock'      => $lowStockInventories->where('quantity', '>', 0)->count(),
+            'total_products'       => $stockRows->count(),
+            'total_units'          => $totalStockUnits,
+            'total_pairs'          => $totalStockPairs,
+            'total_loose_pcs'      => $totalStockLoosePcs,
+            'stock_display'        => $stockDisplay,
+            'total_purchase_value' => $totalStockPurchaseValue,
+            'total_mrp_value'      => $totalStockMrpValue,
+            'out_of_stock'         => $stockRows->where('quantity', 0)->count(),
+            'low_stock'            => $lowStockInventories->where('quantity', '>', 0)->count(),
         ];
 
         $monthlySales    = $this->getMonthlySales($locationId);
