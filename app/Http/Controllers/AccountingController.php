@@ -249,7 +249,9 @@ class AccountingController extends Controller
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
-            } elseif (stripos($notes, 'Purchase Bill') !== false || stripos($notes, 'Transfer') !== false) {
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
                 $detectedSource = 'purchase_bill';
             }
 
@@ -267,7 +269,8 @@ class AccountingController extends Controller
                 'sale' => 'Sale',
                 'purchase' => 'Purchase',
                 'expense' => 'Expense',
-                'purchase_bill' => 'Purchase Bill'
+                'purchase_bill'    => 'Purchase Bill',
+                'balance_transfer' => 'Balance Transfer',
             ];
 
             $ref = 'TXN#' . $tx->id;

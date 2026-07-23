@@ -46,7 +46,8 @@
         .source-expense      { background-color: #fce4ec; color: #c62828; }
         .source-sale         { background-color: #f3e5f5; color: #6a1b9a; }
         .source-purchase     { background-color: #fff3e0; color: #e65100; }
-        .source-purchase_bill{ background-color: #e0f7fa; color: #00695c; }
+        .source-purchase_bill    { background-color: #e0f7fa; color: #00695c; }
+        .source-balance_transfer { background-color: #ede7f6; color: #4527a0; }
 
         /* ─── Summary cards ─────────────────────────────── */
         .gl-summary-card .card-body { padding: 1rem 1.25rem; }
@@ -136,6 +137,7 @@
                         <option value="sale">Sales Only</option>
                         <option value="purchase">Purchases Only</option>
                         <option value="purchase_bill">Purchase Bills Only</option>
+                        <option value="balance_transfer">Balance Transfers Only</option>
                     </select>
                 </div>
                 <div class="col-12 d-flex justify-content-end gap-2 d-none" id="filterActionButtons">
@@ -226,11 +228,12 @@
             expense:      'ti ti-receipt',
             sale:         'ti ti-shopping-cart',
             purchase:     'ti ti-truck-delivery',
-            purchase_bill:'ti ti-file-invoice',
+            purchase_bill:    'ti ti-file-invoice',
+            balance_transfer: 'ti ti-arrows-exchange',
         };
         const sourceLabels = {
             cash: 'Cash', bank: 'Bank', expense: 'Expense',
-            sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill',
+            sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill', balance_transfer: 'Balance Transfer',
         };
 
         function sourceBadge(type) {
