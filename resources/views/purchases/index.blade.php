@@ -208,12 +208,21 @@
             Promise.all(ids.map(function (id) {
                 return $.get(purchaseBarcodeItemsUrlTemplate.replace('__ID__', id));
             })).then(function (responses) {
-                let items = [];
+                let itemsMap = {};
                 responses.forEach(function (res) {
-                    if (res && res.status === 'success') {
-                        items = items.concat(res.items);
+                    if (res && res.status === 'success' && res.items) {
+                        res.items.forEach(function (item) {
+                            const key = `${item.id}_${item.selected_variant_id || ''}_${item.custom_size_value || ''}`;
+                            if (itemsMap[key]) {
+                                itemsMap[key].quantity += item.quantity;
+                            } else {
+                                itemsMap[key] = Object.assign({}, item);
+                            }
+                        });
                     }
                 });
+
+                const items = Object.values(itemsMap);
 
                 if (items.length === 0) {
                     toastr.warning('No barcoded products found for this purchase.');
@@ -267,7 +276,7 @@
                                 <div class="modal-body">
                                     <div class="mb-3 d-flex align-items-center gap-2 bg-light p-2 rounded">
                                         <label for="purchaseBulkDefaultQty" class="form-label mb-0 fw-medium small text-secondary">Set Qty for All:</label>
-                                        <input type="number" id="purchaseBulkDefaultQty" class="form-control form-control-sm w-25" value="1" min="1">
+                                        <input type="number" id="purchaseBulkDefaultQty" class="form-control form-control-sm w-25" placeholder="Qty" min="1">
                                         <button type="button" id="applyPurchaseBulkDefaultQty" class="btn btn-sm btn-primary">Apply</button>
                                     </div>
                                     <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">

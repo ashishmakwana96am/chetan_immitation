@@ -792,18 +792,6 @@ class PurchaseController extends Controller
             ->filter(fn ($item) => $item->product && !empty($item->product->barcode))
             ->map(function ($item) {
                 $qty = (int) $item->quantity;
-                if ($item->product->pair_product) {
-                    $pcsPerPair = (float) ($item->custom_size_value ?? 0);
-                    if ($pcsPerPair <= 0 && !empty($item->product->custom_sizes)) {
-                        $sizes = collect($item->product->custom_sizes)->map(fn($s) => (float)(is_array($s) ? ($s['size'] ?? 0) : $s))->filter();
-                        if ($sizes->count() > 0) {
-                            $pcsPerPair = $sizes->max();
-                        }
-                    }
-                    if ($pcsPerPair > 0) {
-                        $qty = (int) round($qty / $pcsPerPair);
-                    }
-                }
 
                 return [
                     'id'                  => $item->product->id,
