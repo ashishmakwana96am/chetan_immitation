@@ -70,6 +70,11 @@
             height: 34.02pt !important;
             overflow: hidden !important;
         }
+        .zone-tail-content {
+            width: 100% !important;
+            height: 12.76pt !important;
+            overflow: hidden !important;
+        }
         .code-line {
             font-size: 8.5pt !important;
             font-weight: bold !important;
@@ -88,10 +93,11 @@
             height: 14pt !important;
             overflow: hidden;
             text-align: left;
-            padding-left: 2pt;
+            padding-left: 5pt;
+            padding-right: 5pt;
         }
         .barcode-img {
-            width: 70pt !important;
+            width: 62pt !important;
             height: 14pt !important;
             display: block;
         }
@@ -172,8 +178,8 @@
                                 <div class="mrp-code-line">{{ $item['customSizeLabel'] }}</div>
                             @endif
                         </td>
-                        <!-- Zone 3: Blank Tail Area (Right Section) -->
-                        <td class="zone-tail"></td>
+                        <!-- Zone 3: Blank Tail Area (Right Section) - physical tail flap is only ~0.3-0.6cm tall -->
+                        <td class="zone-tail"><div class="zone-tail-content"></div></td>
                     </tr>
                 </table>
             </div>

@@ -156,6 +156,7 @@ class PurchaseImportService
                             'product_variant_id' => $itemData['product_variant_id'],
                             'purchase_price'     => $itemData['price'],
                             'quantity'           => $itemData['quantity'],
+                            'custom_size_value'  => $itemData['custom_size_value'] ?? null,
                             'total'              => $itemData['total'],
                         ]);
 
@@ -496,8 +497,6 @@ class PurchaseImportService
         }
         $quantity = (int) $quantity;
 
-        // For pair products: purchase price = product_code × purchase_multiplier (full price for the largest size)
-        // Quantity in import = number of pairs → convert to pieces: qty × maxSize
         $price = round((float) $product->product_code * (float) $product->purchase_multiplier, 2);
 
         if ($product->pair_product) {
@@ -551,11 +550,7 @@ class PurchaseImportService
         $paymentStatus = $this->mapPaymentStatus($row['payment_status']);
         $paymentMethod = $this->mapPaymentMethod($row['payment_method']);
 
-        // For pair products: quantity entered = number of pairs
-        // Stored quantity = pairs × maxSize (pieces) for stock tracking
-        // Total cost     = number_of_pairs × price  (one price per pair)
-        $pairsCount    = $quantity;                                          // how many pairs
-        $storedQty     = $maxSize !== null ? (int) ($pairsCount * $maxSize) : $quantity;
+        $pairsCount    = $quantity;
         $total         = round($pairsCount * $price, 2);
 
         $paidAmount = 0.0;
@@ -584,7 +579,8 @@ class PurchaseImportService
             'product_variant_id' => $productVariantId,
             'supplier_name'      => $supplierName,
             'price'              => $price,
-            'quantity'           => $storedQty,   // pieces stored in stock
+            'quantity'           => $pairsCount,
+            'custom_size_value'  => $maxSize,
             'status'             => $status,
             'payment_status'     => $paymentStatus,
             'payment_method'     => $paymentMethod,

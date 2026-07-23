@@ -236,7 +236,7 @@ class ProductController extends Controller
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
-                $pngData = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 1.5, 28);
+                $pngData = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 5, 120);
                 $barcodeBase64 = 'data:image/png;base64,' . base64_encode($pngData);
 
                 $categoryLength = strlen($categoryDisplay);
@@ -1358,12 +1358,6 @@ class ProductController extends Controller
                 continue;
             }
 
-            // Split each allocation independently (exact, via largest-remainder rounding)
-            // and bucket the results per target variant, then rebuild allocations from
-            // scratch. Mutating/decrementing the original allocations in place while also
-            // reading them for a later variant's split previously caused stale reads that
-            // silently dropped stock (a second decrement recomputed off the pre-decrement
-            // quantity). Deleting and recreating avoids that class of bug entirely.
             $allocations = $pItem->allocations;
             $variantBuckets = [];
             foreach ($allocations as $alloc) {
@@ -1594,7 +1588,7 @@ class ProductController extends Controller
         }
 
         $generator = new BarcodeGeneratorPNG();
-        $pngData = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128, 3, 80);
+        $pngData = $generator->getBarcode($barcodeText, $generator::TYPE_CODE_128, 5, 120);
 
         return response($pngData, 200)->header('Content-Type', 'image/png');
     }
