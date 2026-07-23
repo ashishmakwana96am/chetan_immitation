@@ -100,6 +100,9 @@
             width: 62pt !important;
             height: 14pt !important;
             display: block;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
         }
         .category-line {
             font-size: 8.5pt !important;

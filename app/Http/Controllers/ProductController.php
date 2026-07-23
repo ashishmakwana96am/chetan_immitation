@@ -236,7 +236,7 @@ class ProductController extends Controller
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
-                $pngData = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 5, 120);
+                $pngData = $generator->getBarcode($barcodeVal, $generator::TYPE_CODE_128, 2.5, 60);
                 $barcodeBase64 = 'data:image/png;base64,' . base64_encode($pngData);
 
                 $categoryLength = strlen($categoryDisplay);
