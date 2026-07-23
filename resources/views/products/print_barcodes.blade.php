@@ -176,9 +176,7 @@
                         <td class="zone-back">
                             <div class="mrp-line">MRP : {{ $item['mrp'] }}</div>
                             <div class="mrp-code-line">{{ $item['productCode'] }}</div>
-                            @if(!empty($item['isPair']))
-                                <div class="mrp-code-line">Pair</div>
-                            @elseif(!empty($item['customSizeLabel']))
+                            @if(!empty($item['customSizeLabel']))
                                 <div class="mrp-code-line">{{ $item['customSizeLabel'] }}</div>
                             @endif
                         </td>

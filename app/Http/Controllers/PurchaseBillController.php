@@ -262,7 +262,7 @@ class PurchaseBillController extends Controller
             $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
             $quantity = (int) $item->quantity;
             $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $unitAmount = (float) $price * $multiplier;
+            $unitAmount = (float) $price;
             $unitMrp = $this->mrpForPurchaseBillItem($item, $multiplier);
 
             $item->calculated_unit_amount = $unitAmount;
@@ -297,11 +297,11 @@ class PurchaseBillController extends Controller
         }
 
         DB::transaction(function () use ($purchaseBill) {
-            $totalAmount = $purchaseBill->items->sum(function ($item) {
+            $totalAmount = 0.0;
+            foreach ($purchaseBill->items as $item) {
                 $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
-                return $price * $multiplier * $item->quantity;
-            });
+                $totalAmount += (float) $price * $item->quantity;
+            }
 
             foreach ($purchaseBill->items as $item) {
                 $source = Inventory::where('product_id', $item->product_id)
@@ -590,7 +590,7 @@ class PurchaseBillController extends Controller
             $quantity = (int) $item->quantity;
 
             $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $totalAmount += (float) $price * $multiplier * $quantity;
+            $totalAmount += (float) $price * $quantity;
 
             $totalMrp += $this->mrpForPurchaseBillItem($item, $multiplier) * $quantity;
         }
@@ -626,6 +626,6 @@ class PurchaseBillController extends Controller
             }
         }
 
-        return (float) ($product->mrp ?? 0) * $multiplier;
+        return (float) ($product->mrp ?? 0);
     }
 }

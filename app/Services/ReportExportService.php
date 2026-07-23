@@ -676,7 +676,7 @@ class ReportExportService
             $quantity = (int) $item->quantity;
 
             $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-            $totalAmount += (float) $price * $multiplier * $quantity;
+            $totalAmount += (float) $price * $quantity;
 
             $mrp = $this->mrpForPurchaseBillItem($item, $multiplier);
             $totalMrp += $mrp * $quantity;
@@ -713,7 +713,7 @@ class ReportExportService
             }
         }
 
-        return (float) ($product->mrp ?? 0) * $multiplier;
+        return (float) ($product->mrp ?? 0);
     }
 
 }

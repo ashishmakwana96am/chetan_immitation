@@ -264,6 +264,9 @@ class ProductController extends Controller
                         }
                     }
                 }
+                if ($customSizeLabel) {
+                    $isPair = false;
+                }
 
                 $printItems[] = [
                     'barcodeBase64'    => $barcodeBase64,
