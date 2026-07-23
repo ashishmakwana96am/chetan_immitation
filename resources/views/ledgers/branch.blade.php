@@ -44,33 +44,31 @@
         <h4 class="fw-semibold mb-0">Branch Ledger</h4>
     </div>
 
-    <div class="row g-4 mb-4">
-        @foreach($locations as $loc)
-            <div class="col-md-6 col-lg-4 branch-card-col" data-location-id="{{ $loc->id }}">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="badge rounded bg-label-primary p-2 me-2">
-                                <i class="ti ti-building ti-sm text-primary"></i>
-                            </div>
-                            <h5 class="card-title mb-0 fw-bold text-truncate" style="max-width: 80%;" title="{{ $loc->name }}">{{ $loc->name }}</h5>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small">Transfer In</span>
-                            <span class="fw-semibold text-success" id="transfer-in-{{ $loc->id }}">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small">Transfer Out</span>
-                            <span class="fw-semibold text-danger" id="transfer-out-{{ $loc->id }}">-</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Outstanding <small class="text-muted">(stock)</small></span>
-                            <span class="fw-semibold" id="outstanding-{{ $loc->id }}">-</span>
-                        </div>
-                    </div>
-                </div>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Pending Payments Between Branches</h5>
+            <small class="text-muted">Purchase bills already accepted (stock moved) but not yet marked Paid &mdash; matches the filter below. Double-click a row to see its bills.</small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Branch That Owes Payment</th>
+                            <th></th>
+                            <th>Branch To Be Paid</th>
+                            <th class="text-end">Pending Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="branchDuesBody">
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        @endforeach
+        </div>
     </div>
 
     <div class="card mb-4" id="filterReportCard">
@@ -116,9 +114,9 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Transfer In</th>
-                        <th>Transfer Out</th>
-                        <th>Outstanding</th>
+                        <th>Bill No</th>
+                        <th>From &rarr; To</th>
+                        <th>Amount</th>
                         <th>Action</th>
                         <th class="d-none">date_group</th>
                         <th class="d-none">date_sort</th>
@@ -169,11 +167,42 @@
                 };
             }
 
+            function renderBranchDues(dues) {
+                const body = $('#branchDuesBody');
+                body.empty();
+
+                if (!dues || !dues.length) {
+                    body.append('<tr><td colspan="5" class="text-center py-4 text-muted">No pending payments between branches for this filter.</td></tr>');
+                    return;
+                }
+
+                dues.forEach(function (due, index) {
+                    const billLabel = due.bills_count + ' bill' + (due.bills_count > 1 ? 's' : '');
+                    const row = $('<tr class="branch-due-row" style="cursor: pointer;" title="Double-click to view bills"></tr>')
+                        .attr('data-from', due.from_location_id)
+                        .attr('data-to', due.to_location_id);
+
+                    row.append('<td>' + (index + 1) + '</td>');
+                    row.append('<td class="fw-semibold text-danger">' + due.payable_branch + '</td>');
+                    row.append('<td class="text-muted"><i class="ti ti-arrow-right"></i></td>');
+                    row.append('<td class="fw-semibold text-success">' + due.receivable_branch + '</td>');
+                    row.append('<td class="text-end"><span class="fw-semibold">' + due.amount + '</span> <span class="text-muted small">(' + billLabel + ')</span></td>');
+
+                    body.append(row);
+                });
+            }
+
+            $(document).on('dblclick', '#branchDuesBody tr.branch-due-row', function () {
+                const from = $(this).data('from');
+                const to = $(this).data('to');
+                window.location.href = '{{ route('admin.ledgers.branch.dues-bills') }}?from_location_id=' + from + '&to_location_id=' + to;
+            });
+
             const table = $('#branchLedgerTable').DataTable({
                 responsive: false,
                 order: [[6, 'desc']],
                 columnDefs: [
-                    { targets: [4], orderable: false },
+                    { targets: [1, 2, 3, 4], orderable: false },
                     { targets: [5, 6], visible: false }
                 ],
                 rowGroup: {
@@ -188,24 +217,18 @@
                     cache: false,
                     data: function (d) { Object.assign(d, currentFilters()); },
                     dataSrc: function (json) {
-                        if (json.branch_summary) {
-                            $.each(json.branch_summary, function (locId, s) {
-                                $('#transfer-in-' + locId).text(s.transfer_in);
-                                $('#transfer-out-' + locId).text(s.transfer_out);
-                                $('#outstanding-' + locId).text(s.outstanding);
-                            });
-                        }
+                        renderBranchDues(json.branch_dues || []);
                         return json.data;
                     },
                 },
                 columns: [
-                    { data: 'index',        orderable: false, width: '5%' },
-                    { data: 'transfer_in',  orderable: false },
-                    { data: 'transfer_out', orderable: false },
-                    { data: 'outstanding',  orderable: false },
-                    { data: 'actions',      orderable: false },
-                    { data: 'date_group',   visible: false },
-                    { data: 'date_sort',    visible: false },
+                    { data: 'index',       orderable: false, width: '5%' },
+                    { data: 'transfer_no', orderable: false },
+                    { data: 'branch',      orderable: false },
+                    { data: 'amount',      orderable: false },
+                    { data: 'actions',     orderable: false },
+                    { data: 'date_group',  visible: false },
+                    { data: 'date_sort',   visible: false },
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -215,21 +238,8 @@
                 }
             });
 
-            function updateCardVisibility() {
-                const selectedLocId = $('#filter-location').val();
-                if (selectedLocId) {
-                    $('.branch-card-col').hide();
-                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
-                } else {
-                    $('.branch-card-col').show();
-                }
-            }
-
-            updateCardVisibility();
-
             window.refreshTable = function () {
                 window.showAjaxLoader && window.showAjaxLoader();
-                updateCardVisibility();
                 table.ajax.reload(function () {
                     window.hideAjaxLoader && window.hideAjaxLoader();
                 }, false);

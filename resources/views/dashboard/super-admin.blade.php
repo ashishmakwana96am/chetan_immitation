@@ -368,57 +368,46 @@
             ],
         }).render();
 
-        // Sales by Location Horizontal Bar Chart
+        // Sales by Location Pie Chart
+        // Locations are already sorted by sales (highest first). A pie reads
+        // cleanly up to ~5-6 slices, so beyond that the tail is folded into "Other"
+        // instead of drawing a wedge per location.
+        var LOCATION_SLICE_LIMIT = 5;
+        var topLocations   = salesByLocation.slice(0, LOCATION_SLICE_LIMIT);
+        var otherLocations = salesByLocation.slice(LOCATION_SLICE_LIMIT);
+        var otherTotal      = otherLocations.reduce((sum, l) => sum + (parseFloat(l.total_sales) || 0), 0);
+
+        var locationLabels = topLocations.map(l => l.name);
+        var locationSeries = topLocations.map(l => parseFloat(l.total_sales) || 0);
+        if (otherTotal > 0) {
+            locationLabels.push('Other (' + otherLocations.length + ')');
+            locationSeries.push(otherTotal);
+        }
+
         new ApexCharts(document.getElementById('locationSalesChart'), {
-            chart   : { type: 'bar', height: 280, toolbar: { show: false } },
-            plotOptions: {
-                bar: {
-                    horizontal: true,
-                    borderRadius: 4,
-                    barHeight: '55%',
-                    distributed: true
-                }
-            },
-            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
-            series  : [{
-                name: 'Sales',
-                data: salesByLocation.map(l => parseFloat(l.total_sales) || 0)
-            }],
-            xaxis   : {
-                categories: salesByLocation.map(l => l.name),
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans'
-                    },
-                    formatter: function(val) {
-                        return '₹' + val.toLocaleString('en-IN');
-                    }
-                }
-            },
-            yaxis   : {
-                labels: {
-                    style: {
-                        colors: '#5d596c',
-                        fontFamily: 'Public Sans',
-                        fontWeight: 500
-                    }
-                }
-            },
+            chart   : { type: 'pie', height: 280 },
+            labels  : locationLabels,
+            series  : locationSeries,
+            colors  : ['#B4771E', '#28c76f', '#328693', '#7367f0', '#ea5455', '#c3c2b7'],
+            stroke  : { colors: ['#fff'], width: 2 },
             dataLabels: {
                 enabled: true,
                 style: {
                     fontSize: '11px',
                     fontFamily: 'Public Sans',
-                    fontWeight: '600',
-                    colors: ['#fff']
+                    fontWeight: '600'
                 },
                 formatter: function(val) {
-                    return '₹' + val.toLocaleString('en-IN');
-                },
-                offsetX: 0
+                    return val.toFixed(1) + '%';
+                }
             },
-            legend: { show: false },
+            legend: {
+                position: 'bottom',
+                fontFamily: 'Public Sans',
+                labels: { colors: '#5d596c' },
+                markers: { offsetX: -2 },
+                itemMargin: { horizontal: 8, vertical: 4 }
+            },
             tooltip: {
                 y: {
                     formatter: function(val) {
@@ -426,13 +415,14 @@
                     }
                 }
             },
-            grid: {
-                borderColor: '#e5e5e5',
-                xaxis: { lines: { show: true } },
-                yaxis: { lines: { show: false } },
-                padding: { top: -15, right: 10, bottom: -10, left: 10 }
-            },
             noData  : { text: 'No sales data yet' },
+            responsive: [{
+                breakpoint: 992,
+                options: {
+                    chart: { height: 260 },
+                    legend: { fontSize: '11px', itemMargin: { horizontal: 6, vertical: 2 } }
+                }
+            }]
         }).render();
 
     });

@@ -260,6 +260,13 @@ table td {
   white-space: normal !important;
 }
 
+/* Short codes (bill/invoice/order numbers) shouldn't break mid-word onto
+   several lines in a narrow column — let the table scroll horizontally instead. */
+table.dataTable td code,
+table td code {
+  white-space: nowrap !important;
+}
+
 table.dataTable td .btn,
 table td .btn {
   margin-top: 3px !important;

@@ -485,11 +485,86 @@ class LedgerController extends Controller
         return view('ledgers.branch', compact('locations', 'isRestricted'));
     }
 
+    public function branchDuesBills(Request $request)
+    {
+        $this->authorizeLedger('view branch ledger');
+
+        $request->validate([
+            'from_location_id' => ['required', 'integer', 'exists:locations,id'],
+            'to_location_id'   => ['required', 'integer', 'exists:locations,id'],
+        ]);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if ($isRestricted
+            && (int) $user->location_id !== (int) $request->from_location_id
+            && (int) $user->location_id !== (int) $request->to_location_id) {
+            abort(403);
+        }
+
+        $fromLocation = Location::findOrFail($request->from_location_id);
+        $toLocation = Location::findOrFail($request->to_location_id);
+
+        $stockMultiplierFor = function ($item) {
+            if ($item->custom_size_value !== null && (float) $item->custom_size_value > 0) {
+                return (float) $item->custom_size_value;
+            }
+            if ($item->product && !$item->product->pair_product) {
+                return 1.0;
+            }
+            return ($item->pair_type === 'pair') ? 2.0 : 1.0;
+        };
+
+        $formatStockQtyText = function ($pairsCount, $pcsCount) {
+            $parts = [];
+            if ($pairsCount > 0) {
+                $parts[] = number_format($pairsCount) . ' pair' . ($pairsCount > 1 ? 's' : '');
+            }
+            if ($pcsCount > 0 || empty($parts)) {
+                $parts[] = number_format($pcsCount) . ' pcs';
+            }
+            return implode(', ', $parts);
+        };
+
+        $bills = PurchaseBill::with(['items.product', 'items.variant'])
+            ->where('from_location_id', $request->from_location_id)
+            ->where('to_location_id', $request->to_location_id)
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
+            ->orderByDesc('accepted_at')
+            ->get()
+            ->map(function ($bill) use ($stockMultiplierFor, $formatStockQtyText) {
+                $pairs = 0;
+                $pcs = 0;
+                $amount = 0.0;
+
+                foreach ($bill->items as $item) {
+                    $multiplier = $stockMultiplierFor($item);
+                    if ($item->product && $item->product->pair_product) {
+                        $pairs += (int) $item->quantity;
+                    } else {
+                        $pcs += (int) round($item->quantity * $multiplier);
+                    }
+                    $price = (float) ($item->variant->purchase_price ?? $item->product->purchase_price ?? 0);
+                    $amount += $price * $multiplier * $item->quantity;
+                }
+
+                $bill->computed_amount = $amount;
+                $bill->computed_qty_text = $formatStockQtyText($pairs, $pcs);
+
+                return $bill;
+            });
+
+        $total = $bills->sum('computed_amount');
+
+        return view('ledgers.branch-dues-bills', compact('fromLocation', 'toLocation', 'bills', 'total'));
+    }
+
     public function branchLedgerData(Request $request)
     {
         $this->authorizeLedger('view branch ledger');
 
-        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
+        [$locationIds] = $this->resolveLocationIds($request);
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
         if (empty($locationIds)) {
@@ -546,140 +621,95 @@ class LedgerController extends Controller
             return (float) $total;
         };
 
-        $transferInRaw = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
-            ->whereIn('to_location_id', $locationIds)
-            ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
-
-        $transferOutRaw = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
-            ->whereIn('from_location_id', $locationIds)
-            ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
-
-        $transferIn = $transferInRaw->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
-        $transferOut = $transferOutRaw->groupBy(fn ($transfer) => $transfer->accepted_at->format('Y-m-d'));
-
-        $days = $transferIn->keys()->concat($transferOut->keys())->unique()->sort()->values();
-
-        $dayNodes = $days
-            ->map(function ($day) use ($transferIn, $transferOut, $getTransferQtyBreakdown, $getTransferAmount, $formatStockQtyText) {
-                $inTransfers  = $transferIn->get($day, collect());
-                $outTransfers = $transferOut->get($day, collect());
-
-                [$inPairs, $inPcs]   = $getTransferQtyBreakdown($inTransfers);
-                $inAmount           = $getTransferAmount($inTransfers);
-                [$outPairs, $outPcs] = $getTransferQtyBreakdown($outTransfers);
-                $outAmount          = $getTransferAmount($outTransfers);
-
-                // Build source/destination branch strings
-                $fromBranches = $inTransfers->map(fn($t) => $t->fromLocation->name ?? null)->filter()->unique()->implode(', ');
-                $toBranches   = $outTransfers->map(fn($t) => $t->toLocation->name ?? null)->filter()->unique()->implode(', ');
-
-                return [
-                    'date'          => $day,
-                    'in_pairs'      => $inPairs,
-                    'in_pcs'        => $inPcs,
-                    'in_amount'     => $inAmount,
-                    'out_pairs'     => $outPairs,
-                    'out_pcs'       => $outPcs,
-                    'out_amount'    => $outAmount,
-                    'from_branches' => $fromBranches,
-                    'to_branches'   => $toBranches,
-                ];
+        // One row per bill (not per in/out side) — a transfer between two of the
+        // filtered locations only needs listing once, naming both branches.
+        // Only unpaid bills belong here; once marked Paid it drops off, same as
+        // the Pending Payments Between Branches summary below.
+        $transfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
             })
-            ->sortByDesc('date')
-            ->values()
-            ->all();
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
+            ->whereDate('accepted_at', '>=', $startDate)
+            ->whereDate('accepted_at', '<=', $endDate)
+            ->orderByDesc('accepted_at')
+            ->get();
 
-        $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $branchLocations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+        $rows = $transfers->values()->map(function ($transfer, $index) use ($formatStockQtyText, $getTransferQtyBreakdown, $getTransferAmount) {
+            [$pairs, $pcs] = $getTransferQtyBreakdown([$transfer]);
+            $qtyText = $formatStockQtyText($pairs, $pcs);
+            $amount = $getTransferAmount([$transfer]);
+            $date = $transfer->accepted_at->format('Y-m-d');
 
-        $allLocIds = array_unique(array_merge($locationIds, $branchLocations->pluck('id')->all()));
-        $stockData = $this->getAllStockData($allLocIds);
-
-        $currentStockPairs    = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['pairs'] ?? 0, $locationIds));
-        $currentStockLoosePcs = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['loose_pcs'] ?? 0, $locationIds));
-        $currentStockValue    = array_sum(array_map(fn($id) => $stockData['by_location'][$id]['value'] ?? 0.0, $locationIds));
-
-        $runningPairs    = $currentStockPairs;
-        $runningLoosePcs = $currentStockLoosePcs;
-        $runningStockValue = $currentStockValue;
-
-        foreach ($dayNodes as $key => $node) {
-            $dayNodes[$key]['outstanding_pairs']    = $runningPairs;
-            $dayNodes[$key]['outstanding_loose_pcs'] = $runningLoosePcs;
-            $dayNodes[$key]['outstanding_amount']   = $runningStockValue;
-
-            $runningPairs      = max(0, $runningPairs - $node['in_pairs'] + $node['out_pairs']);
-            $runningLoosePcs   = max(0, $runningLoosePcs - $node['in_pcs'] + $node['out_pcs']);
-            $runningStockValue = $runningStockValue - $node['in_amount'] + $node['out_amount'];
-        }
-
-        $rows = collect($dayNodes)->map(function ($node, $index) use ($formatStockQtyText, $actionLocationId) {
-            $inQtyText          = $formatStockQtyText($node['in_pairs'], $node['in_pcs']);
-            $outQtyText         = $formatStockQtyText($node['out_pairs'], $node['out_pcs']);
-            $outstandingQtyText = $formatStockQtyText($node['outstanding_pairs'], $node['outstanding_loose_pcs']);
-
-            $inBranchSub  = !empty($node['from_branches']) ? '<div class="text-muted small">From: ' . e($node['from_branches']) . '</div>' : '';
-            $outBranchSub = !empty($node['to_branches'])   ? '<div class="text-muted small">To: ' . e($node['to_branches']) . '</div>' : '';
+            $branchLabel = e($transfer->fromLocation->name ?? '-')
+                . ' <i class="ti ti-arrow-right mx-1 text-muted"></i> '
+                . e($transfer->toLocation->name ?? '-');
 
             return [
-                'index'        => $index + 1,
-                'date'         => format_date($node['date']),
-                'date_sort'    => $node['date'],
-                'date_group'   => format_date($node['date']),
-                'transfer_in'  => format_price($node['in_amount']) . ' (' . $inQtyText . ')' . $inBranchSub,
-                'transfer_out' => format_price($node['out_amount']) . ' (' . $outQtyText . ')' . $outBranchSub,
-                'outstanding'  => format_price($node['outstanding_amount']) . ' (' . $outstandingQtyText . ')',
-                'actions'      => '
+                'index'       => $index + 1,
+                'date'        => format_date($date),
+                'date_sort'   => $date,
+                'date_group'  => format_date($date),
+                'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
+                'branch'      => $branchLabel,
+                'amount'      => '<span class="fw-semibold">' . format_price($amount) . '</span> <span class="text-muted small">(' . $qtyText . ')</span>',
+                'actions'     => '
                     <div class="dropdown table-action-dropdown">
                         <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                             <span>Actions</span>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                            <a href="' . route('admin.ledgers.branch.detail') . '?location_id=' . $actionLocationId . '&date=' . $node['date'] . '" class="dropdown-item">
+                            <a href="' . route('admin.purchase-bills.show', $transfer->id) . '" class="dropdown-item">
                                 <i class="ti ti-eye me-2"></i>View
                             </a>
                         </div>
-                    </div>'
+                    </div>',
             ];
-        });
+        })->values();
 
-        $transferInByLocation = $transferInRaw->groupBy('to_location_id');
-        $transferOutByLocation = $transferOutRaw->groupBy('from_location_id');
+        // Pending Payments Between Branches — same date-range/location filters
+        // as the table above, but scoped to accepted+unpaid bills only.
+        $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
+            })
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
+            ->whereDate('accepted_at', '>=', $startDate)
+            ->whereDate('accepted_at', '<=', $endDate)
+            ->get();
 
-        $branchSummary = [];
-        foreach ($branchLocations as $loc) {
-            $locInTransfers  = $transferInByLocation->get($loc->id, collect());
-            $locOutTransfers = $transferOutByLocation->get($loc->id, collect());
+        $branchDues = $pendingBills
+            ->groupBy(fn ($bill) => $bill->from_location_id . ':' . $bill->to_location_id)
+            ->map(function ($bills) use ($getTransferAmount) {
+                $first = $bills->first();
 
-            [$locInPairs, $locInPcs]   = $getTransferQtyBreakdown($locInTransfers);
-            $locInAmount               = $getTransferAmount($locInTransfers);
-            [$locOutPairs, $locOutPcs] = $getTransferQtyBreakdown($locOutTransfers);
-            $locOutAmount              = $getTransferAmount($locOutTransfers);
+                return [
+                    'from_location_id'  => $first->from_location_id,
+                    'to_location_id'    => $first->to_location_id,
+                    'payable_branch'    => e($first->toLocation->name ?? '-'),
+                    'receivable_branch' => e($first->fromLocation->name ?? '-'),
+                    'amount_raw'        => $getTransferAmount($bills),
+                    'bills_count'       => $bills->count(),
+                ];
+            })
+            ->filter(fn ($due) => $due['amount_raw'] > 0)
+            ->sortByDesc('amount_raw')
+            ->values()
+            ->map(function ($due) {
+                $due['amount'] = format_price($due['amount_raw']);
+                unset($due['amount_raw']);
 
-            $locStockPairs = $stockData['by_location'][$loc->id]['pairs'] ?? 0;
-            $locStockPcs   = $stockData['by_location'][$loc->id]['loose_pcs'] ?? 0;
-            $locStockValue = $stockData['by_location'][$loc->id]['value'] ?? 0.0;
-
-            $branchSummary[$loc->id] = [
-                'transfer_in'  => format_price($locInAmount) . ' (' . $formatStockQtyText($locInPairs, $locInPcs) . ')',
-                'transfer_out' => format_price($locOutAmount) . ' (' . $formatStockQtyText($locOutPairs, $locOutPcs) . ')',
-                'outstanding'  => format_price($locStockValue) . ' (' . $formatStockQtyText($locStockPairs, $locStockPcs) . ')',
-            ];
-        }
+                return $due;
+            });
 
         return response()->json([
-            'status'         => 'success',
-            'data'           => $rows,
-            'branch_summary' => $branchSummary,
+            'status'      => 'success',
+            'data'        => $rows,
+            'branch_dues' => $branchDues,
         ]);
     }
 

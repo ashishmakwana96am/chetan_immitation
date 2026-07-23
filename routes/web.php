@@ -293,9 +293,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/bank', [LedgerController::class, 'bankLedger'])->name('ledgers.bank');
         Route::get('ledgers/bank/data', [LedgerController::class, 'bankLedgerData'])->name('ledgers.bank.data');
         Route::get('ledgers/bank/detail', [LedgerController::class, 'bankLedgerDetail'])->name('ledgers.bank.detail');
-        // Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
-        // Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
-        // Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
+        Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
+        Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
+        Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
+        Route::get('ledgers/branch/dues-bills', [LedgerController::class, 'branchDuesBills'])->name('ledgers.branch.dues-bills');
 
         // Accounting
         Route::get('accounting/cashbook', [AccountingController::class, 'cashBook'])->name('accounting.cashbook');
