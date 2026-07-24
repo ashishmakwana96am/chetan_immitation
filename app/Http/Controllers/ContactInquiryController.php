@@ -31,7 +31,7 @@ class ContactInquiryController extends Controller
 
         try {
             Mail::send('emails.contact-inquiry', ['inquiry' => $inquiry], function ($message) use ($inquiry) {
-                $message->to('jenish.rising@gmail.com')
+                $message->to('rawalshaitan@gmail.com')
                     ->replyTo($inquiry->email, $inquiry->full_name)
                     ->subject('New Contact Inquiry - ' . $inquiry->subject);
             });
