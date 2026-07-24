@@ -42,7 +42,12 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Bank Ledger</h4>
-        <div id="current-balance-container"></div>
+        <div class="d-flex align-items-center gap-2">
+            <div id="current-balance-container"></div>
+            <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
+                <i class="ti ti-file-text me-1"></i> Export to PDF
+            </button>
+        </div>
     </div>
 
     <div class="row g-4 mb-4">
@@ -265,6 +270,18 @@
                 $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            $(document).on('click', '#exportPdfBtn', function () {
+                const params = new URLSearchParams();
+                const filters = currentFilters();
+                Object.keys(filters).forEach(function (key) {
+                    if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined) {
+                        params.append(key, filters[key]);
+                    }
+                });
+                params.append('auto_print', '1');
+                window.open("{{ route('admin.ledgers.bank.export') }}?" + params.toString(), '_blank');
             });
         });
     </script>

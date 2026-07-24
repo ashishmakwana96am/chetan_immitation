@@ -6,6 +6,7 @@ use App\Models\UtilityReport;
 use App\Models\Location;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class UtilityReportController extends Controller
 {
@@ -72,6 +73,28 @@ class UtilityReportController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+    }
+
+    public function export(Request $request)
+    {
+        $this->authorize('view utility report');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Utility Report',
+                'pdfUrl' => route('admin.reports.utility.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        $logs = $this->filteredQuery($request)->orderByDesc('created_at')->orderByDesc('id')->get();
+
+        $pdf = Pdf::loadView('reports.pdf.utility', [
+            'logs'      => $logs,
+            'startDate' => $request->start_date,
+            'endDate'   => $request->end_date,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('utility_report_' . date('Y_m_d_His') . '.pdf');
     }
 
     public function show(UtilityReport $utilityReport)

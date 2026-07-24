@@ -56,9 +56,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Products Report</h4>
-        {{-- <button id="exportExcelBtn" class="btn btn-success report-export-btn">
-            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-        </button> --}}
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     <!-- Stats Cards -->
@@ -432,19 +432,23 @@
             applyFilters();
         });
 
-        /* $('#exportExcelBtn').on('click', function() {
+        $('#exportPdfBtn').on('click', function() {
             const cat = $('#filterCategory').val();
             const status = $('#filterStatus').val();
             const stock = $('#filterStock').val();
             
-            let url = "{{ route('admin.reports.products.export') }}?";
+            let url = "{{ route('admin.reports.products.export') }}?auto_print=1";
             let params = [];
             if (cat) params.push('category_id=' + cat);
             if (status) params.push('status=' + status);
             if (stock) params.push('stock=' + stock);
             
-            window.location.href = url + params.join('&');
-        }); */
+            if (params.length > 0) {
+                url += '&' + params.join('&');
+            }
+            
+            window.open(url, '_blank');
+        });
 
         // -------------------------------------------------------
         // Products by Category Horizontal Bar Chart

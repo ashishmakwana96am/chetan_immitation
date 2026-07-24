@@ -18,13 +18,29 @@ trait LogsActivity
         );
     }
 
-    /**
-     * Human-readable module label for this model. Override per-model
-     * when the class name isn't the label you want in the report.
-     */
     public function activityModule(): string
     {
         return class_basename(static::class);
+    }
+
+    public function activityLabel(): string
+    {
+        if (isset($this->invoice_no) && !empty($this->invoice_no)) {
+            return $this->invoice_no;
+        }
+        if (isset($this->order_no) && !empty($this->order_no)) {
+            return $this->order_no;
+        }
+        if (isset($this->transfer_no) && !empty($this->transfer_no)) {
+            return $this->transfer_no;
+        }
+        if (isset($this->name) && !empty($this->name)) {
+            return $this->name;
+        }
+        if (isset($this->title) && !empty($this->title)) {
+            return $this->title;
+        }
+        return '#' . $this->getKey();
     }
 
     protected static function bootLogsActivity(): void
@@ -41,7 +57,7 @@ trait LogsActivity
                 $model,
                 null,
                 $attributes,
-                $model->activityModule() . ' #' . $model->getKey() . ' created'
+                $model->activityModule() . ' ' . $model->activityLabel() . ' created'
             );
         });
 
@@ -62,7 +78,7 @@ trait LogsActivity
                 $model,
                 $old,
                 $changes,
-                $model->activityModule() . ' #' . $model->getKey() . ' updated'
+                $model->activityModule() . ' ' . $model->activityLabel() . ' updated'
             );
         });
 
@@ -74,7 +90,7 @@ trait LogsActivity
                 $model,
                 $attributes,
                 null,
-                $model->activityModule() . ' #' . $model->getKey() . ' deleted'
+                $model->activityModule() . ' ' . $model->activityLabel() . ' deleted'
             );
         });
     }

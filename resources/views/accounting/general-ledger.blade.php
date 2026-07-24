@@ -69,6 +69,9 @@
             <h4 class="fw-semibold mb-0">General Ledger</h4>
             <small class="text-muted">Cash · Bank · Expenses · Sales · Purchases · Transfers</small>
         </div>
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     {{-- ─── Branch-wise Summary Cards ───────────────────────────────── --}}
@@ -254,6 +257,16 @@
             return '<span class="source-badge source-' + type + '"><i class="' + icon + ' me-1"></i>' + label + '</span>';
         }
 
+        function currentFilters() {
+            return {
+                start_date:   $('#filter-start-date').val(),
+                end_date:     $('#filter-end-date').val(),
+                location_id:  $('#filter-location').val() || '',
+                balance_type: $('#filter-balance-type').val() || '',
+                source:       $('#filter-source').val() || 'all',
+            };
+        }
+
         @php
             $isAdmin = !$isRestricted;
         @endphp
@@ -287,11 +300,7 @@
                 url:     '{{ route('admin.accounting.general-ledger.data') }}',
                 cache:   false,
                 data: function (d) {
-                    d.start_date   = $('#filter-start-date').val();
-                    d.end_date     = $('#filter-end-date').val();
-                    d.location_id  = $('#filter-location').val() || '';
-                    d.balance_type = $('#filter-balance-type').val() || '';
-                    d.source       = $('#filter-source').val() || 'all';
+                    Object.assign(d, currentFilters());
                 },
                 dataSrc: function (json) {
                     if (json.branch_summary) {
@@ -373,6 +382,18 @@
             $('#filter-source').val('all').trigger('change');
             updateFilterButtons();
             window.refreshTable();
+        });
+
+        $(document).on('click', '#exportPdfBtn', function () {
+            const params = new URLSearchParams();
+            const filters = currentFilters();
+            Object.keys(filters).forEach(function (key) {
+                if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined && filters[key] !== 'all') {
+                    params.append(key, filters[key]);
+                }
+            });
+            params.append('auto_print', '1');
+            window.open("{{ route('admin.accounting.general-ledger.export') }}?" + params.toString(), '_blank');
         });
     });
     </script>

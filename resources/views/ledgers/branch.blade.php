@@ -42,6 +42,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Branch Ledger</h4>
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     <div class="card mb-4">
@@ -260,6 +263,18 @@
                 $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            $(document).on('click', '#exportPdfBtn', function () {
+                const params = new URLSearchParams();
+                const filters = currentFilters();
+                Object.keys(filters).forEach(function (key) {
+                    if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined) {
+                        params.append(key, filters[key]);
+                    }
+                });
+                params.append('auto_print', '1');
+                window.open("{{ route('admin.ledgers.branch.export') }}?" + params.toString(), '_blank');
             });
         });
     </script>

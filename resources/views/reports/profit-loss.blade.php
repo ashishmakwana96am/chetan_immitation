@@ -53,9 +53,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Profit & Loss Report</h4>
-        {{-- <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
-            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-        </button> --}}
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     <div id="report-results">
@@ -479,11 +479,11 @@
             loadReport(form.attr('action'));
         });
 
-        /* $('#exportExcelBtn').on('click', function () {
+        $('#exportPdfBtn').on('click', function () {
             const form = $('#filterForm');
-            const url = "{{ route('admin.reports.profit-loss.export') }}?" + form.serialize();
-            window.location.href = url;
-        }); */
+            const url = "{{ route('admin.reports.profit-loss.export') }}?" + form.serialize() + "&auto_print=1";
+            window.open(url, '_blank');
+        });
     });
     </script>
 @endsection

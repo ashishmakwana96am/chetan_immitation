@@ -34,10 +34,6 @@
         <tr>
             <td style="vertical-align: top;">
                 <div class="company-name">CHETAN IMITATION</div>
-                <div class="report-meta">
-                    <strong>Report:</strong> Purchase Register Statement<br>
-                    <strong>Period:</strong> {{ $startDate ? format_date($startDate) : 'All Time' }} to {{ $endDate ? format_date($endDate) : 'Today' }}
-                </div>
             </td>
             <td style="vertical-align: top; text-align: right;">
                 <div class="report-title">PURCHASE REGISTER</div>

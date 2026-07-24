@@ -38,6 +38,12 @@ class ReportController extends Controller
         $categories = Category::where('status', 1)->orderBy('name')->get();
 
         $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
+
         $products = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute'])
             ->orderBy('name')
             ->get();
@@ -46,15 +52,27 @@ class ReportController extends Controller
         foreach ($products as $product) {
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
-                
-                // Parent row — total stock is the sum of all variant stock (the parent has no stock of its own)
-                $parentStock = 0;
-                if ($user->location_id && !$user->hasRole('super-admin')) {
-                    $parentStock = array_sum($variantStock[$user->location_id]['variants'] ?? []);
-                } else {
-                    foreach ($variantStock as $locData) {
-                        $parentStock += array_sum($locData['variants']);
+
+                $parentLocStock  = [];
+                $hasVariantStock = false;
+                foreach ($locations as $location) {
+                    $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locParent     = (int) ($variantStock[$location->id]['parent'] ?? 0);
+                    if ($locVariantSum > 0) {
+                        $hasVariantStock = true;
+                        $parentLocStock[$location->id] = $locVariantSum;
+                    } else {
+                        $parentLocStock[$location->id] = max(0, $locParent);
                     }
+                }
+                $parentStock = array_sum($parentLocStock);
+
+                if ($parentStock <= 0) {
+                    foreach ($locations as $location) {
+                        $inventory = $product->inventories->firstWhere('location_id', $location->id);
+                        $parentLocStock[$location->id] = $inventory ? (int) $inventory->quantity : 0;
+                    }
+                    $parentStock = array_sum($parentLocStock);
                 }
 
                 $productsList->push([
@@ -77,10 +95,10 @@ class ReportController extends Controller
                 foreach ($product->variants as $v) {
                     $vStock = 0;
                     if ($user->location_id && !$user->hasRole('super-admin')) {
-                        $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
+                        $vStock = max(0, (int) ($variantStock[$user->location_id]['variants'][$v->id] ?? 0));
                     } else {
-                        foreach ($variantStock as $locData) {
-                            $vStock += ($locData['variants'][$v->id] ?? 0);
+                        foreach ($locations as $location) {
+                            $vStock += max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
                         }
                     }
 
@@ -610,7 +628,7 @@ class ReportController extends Controller
 
         // COGS query
         $saleIds = $sales->pluck('id');
-        $orderItems = OrderItem::with('product.primaryImage')
+        $orderItems = OrderItem::with(['product.primaryImage', 'variant'])
             ->whereIn('order_id', $saleIds)
             ->get();
 
@@ -618,7 +636,7 @@ class ReportController extends Controller
         $productProfitability = [];
 
         foreach ($orderItems as $item) {
-            $purchasePrice = $item->product->purchase_price ?? 0.0;
+            $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
             $itemCost = $item->quantity * $purchasePrice;
             $totalCogs += $itemCost;
 
@@ -630,7 +648,7 @@ class ReportController extends Controller
                     'qty_sold'      => 0,
                     'total_revenue' => 0.0,
                     'total_cost'    => 0.0,
-                    'image_url'     => $item->product->primary_image_url,
+                    'image_url'     => $item->product->primary_image_url ?? null,
                 ];
             }
             $productProfitability[$productId]['qty_sold']      += $item->quantity;
@@ -686,11 +704,12 @@ class ReportController extends Controller
             $grpCogs = 0.0;
             if ($grp) {
                 $grpSaleIds = $grp->pluck('id');
-                $grpItems = OrderItem::with('product')
+                $grpItems = OrderItem::with(['product', 'variant'])
                     ->whereIn('order_id', $grpSaleIds)
                     ->get();
                 foreach ($grpItems as $item) {
-                    $grpCogs += $item->quantity * ($item->product->purchase_price ?? 0.0);
+                    $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
+                    $grpCogs += $item->quantity * $purchasePrice;
                 }
             }
             $monthlyCogs[$month] = (float)$grpCogs;
@@ -726,7 +745,12 @@ class ReportController extends Controller
         $stockStatus = $request->query('stock');
 
         $user = auth()->user();
-        
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $locations = Location::where('id', $user->location_id)->get();
+        } else {
+            $locations = Location::where('status', 1)->orderBy('name')->get();
+        }
+
         $query = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
 
         if ($categoryId) {
@@ -740,18 +764,39 @@ class ReportController extends Controller
 
         $productsList = collect();
         foreach ($products as $product) {
+            $imageBase64 = $this->getImageBase64($product);
+
+            $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+            if ($pairSize <= 0) $pairSize = 1.0;
+
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
-                
-                // Parent row — total stock is the sum of all variant stock (the parent has no stock of its own)
-                $parentStock = 0;
-                if ($user->location_id && !$user->hasRole('super-admin')) {
-                    $parentStock = array_sum($variantStock[$user->location_id]['variants'] ?? []);
-                } else {
-                    foreach ($variantStock as $locData) {
-                        $parentStock += array_sum($locData['variants']);
+
+                $parentLocStock  = [];
+                $hasVariantStock = false;
+                foreach ($locations as $location) {
+                    $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locParent     = (int) ($variantStock[$location->id]['parent'] ?? 0);
+                    if ($locVariantSum > 0) {
+                        $hasVariantStock = true;
+                        $parentLocStock[$location->id] = $locVariantSum;
+                    } else {
+                        $parentLocStock[$location->id] = max(0, $locParent);
                     }
                 }
+                $parentStock = array_sum($parentLocStock);
+
+                if ($parentStock <= 0) {
+                    foreach ($locations as $location) {
+                        $inventory = $product->inventories->firstWhere('location_id', $location->id);
+                        $parentLocStock[$location->id] = $inventory ? (int) $inventory->quantity : 0;
+                    }
+                    $parentStock = array_sum($parentLocStock);
+                }
+
+                $parentPairCount = ($product->pair_product && $parentStock > 0) ? (int) floor($parentStock / $pairSize) : 0;
+                $parentLoosePcs  = $product->pair_product ? (int) ($parentStock % $pairSize) : (int) $parentStock;
 
                 $productsList->push([
                     'id'             => $product->id,
@@ -762,24 +807,32 @@ class ReportController extends Controller
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $parentStock,
+                    'formatted_stock'=> $product->formatStockDisplay($parentStock),
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
+                    'image_base64'   => $imageBase64,
+                    'pair_product'   => (bool) $product->pair_product,
+                    'pair_count'     => $parentPairCount,
+                    'loose_pcs'      => $parentLoosePcs,
                 ]);
 
                 // Variant rows
                 foreach ($product->variants as $v) {
                     $vStock = 0;
                     if ($user->location_id && !$user->hasRole('super-admin')) {
-                        $vStock = $variantStock[$user->location_id]['variants'][$v->id] ?? 0;
+                        $vStock = max(0, (int) ($variantStock[$user->location_id]['variants'][$v->id] ?? 0));
                     } else {
-                        foreach ($variantStock as $locData) {
-                            $vStock += ($locData['variants'][$v->id] ?? 0);
+                        foreach ($locations as $location) {
+                            $vStock += max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
                         }
                     }
 
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
+
+                    $vPairCount = ($product->pair_product && $vStock > 0) ? (int) floor($vStock / $pairSize) : 0;
+                    $vLoosePcs  = $product->pair_product ? (int) ($vStock % $pairSize) : (int) $vStock;
 
                     $productsList->push([
                         'id'             => $product->id,
@@ -790,15 +843,23 @@ class ReportController extends Controller
                         'purchase_price' => $v->purchase_price,
                         'sale_price'     => $v->sale_price,
                         'total_stock'    => $vStock,
+                        'formatted_stock'=> $product->formatStockDisplay($vStock),
                         'status'         => $v->status,
                         'is_parent'      => false,
                         'variant_name'   => "{$attrName}: {$valName}",
+                        'image_base64'   => $imageBase64,
+                        'pair_product'   => (bool) $product->pair_product,
+                        'pair_count'     => $vPairCount,
+                        'loose_pcs'      => $vLoosePcs,
                     ]);
                 }
             } else {
                 $totalStock = $product->inventories
                     ->when($user->location_id && !$user->hasRole('super-admin'), fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
+
+                $pPairCount = ($product->pair_product && $totalStock > 0) ? (int) floor($totalStock / $pairSize) : 0;
+                $pLoosePcs  = $product->pair_product ? (int) ($totalStock % $pairSize) : (int) $totalStock;
 
                 $productsList->push([
                     'id'             => $product->id,
@@ -809,9 +870,14 @@ class ReportController extends Controller
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $totalStock,
+                    'formatted_stock'=> $product->formatStockDisplay($totalStock),
                     'status'         => $product->status,
                     'is_parent'      => true,
                     'variant_name'   => null,
+                    'image_base64'   => $imageBase64,
+                    'pair_product'   => (bool) $product->pair_product,
+                    'pair_count'     => $pPairCount,
+                    'loose_pcs'      => $pLoosePcs,
                 ]);
             }
         }
@@ -826,17 +892,21 @@ class ReportController extends Controller
             $productsList = $productsList->where('total_stock', '<=', 0);
         }
 
-        $spreadsheet = $this->exportService->exportProducts($productsList);
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Products Report',
+                'pdfUrl' => route('admin.reports.products.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Products report exported to Excel');
+        $categoryName = $categoryId ? (Category::find($categoryId)?->name ?? 'All') : 'All';
 
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, 'products_report_' . now()->format('Ymd_His') . '.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        $pdf = Pdf::loadView('reports.pdf.products', compact('productsList', 'categoryId', 'categoryName', 'status', 'stockStatus'))
+            ->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Products report exported to PDF');
+
+        return $pdf->stream('products_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function exportStockInventory(Request $request)
@@ -853,7 +923,7 @@ class ReportController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'inventories.location', 'variants.attributeValue.attribute']);
+        $query = Product::with(['category', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
@@ -864,65 +934,136 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
             $salePrice     = (float) $product->sale_price;
+            $mrpPrice      = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+
+            $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+            if ($pairSize <= 0) $pairSize = 1.0;
+
+            $imageBase64 = $this->getImageBase64($product);
 
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
 
-                $parentLocStock = [];
+                $parentLocStock          = [];
+                $parentFormattedLocStock = [];
+                $hasVariantStock         = false;
                 foreach ($locations as $location) {
-                    $parentLocStock[$location->id] = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
+                    $locParent     = (int) ($variantStock[$location->id]['parent'] ?? 0);
+                    if ($locVariantSum > 0) {
+                        $hasVariantStock = true;
+                        $pQty = $locVariantSum;
+                    } else {
+                        $pQty = max(0, $locParent);
+                    }
+                    $parentLocStock[$location->id]          = $pQty;
+                    $parentFormattedLocStock[$location->id] = $pQty > 0 ? $product->formatStockDisplay($pQty) : '0';
                 }
                 $parentTotal = array_sum($parentLocStock);
 
-                $parentPurchaseVal = 0.0;
-                $parentSaleVal     = 0.0;
+                if ($parentTotal <= 0) {
+                    foreach ($locations as $location) {
+                        $inventory = $product->inventories->firstWhere('location_id', $location->id);
+                        $pQty = $inventory ? (int) $inventory->quantity : 0;
+                        $parentLocStock[$location->id]          = $pQty;
+                        $parentFormattedLocStock[$location->id] = $pQty > 0 ? $product->formatStockDisplay($pQty) : '0';
+                    }
+                    $parentTotal = array_sum($parentLocStock);
+                    $hasVariantStock = false;
+                }
+
+                if ($hasVariantStock) {
+                    $parentPurchaseVal = 0.0;
+                    $parentSaleVal     = 0.0;
+                    $parentMrpVal      = 0.0;
+                } else {
+                    $effectiveTotal    = $product->pair_product ? ($parentTotal / $pairSize) : (float) $parentTotal;
+                    $parentPurchaseVal = $effectiveTotal * $purchasePrice;
+                    $parentSaleVal     = $effectiveTotal * $salePrice;
+                    $parentMrpVal      = $effectiveTotal * $mrpPrice;
+                }
+                $parentPairCount = 0;
 
                 $variantRows = [];
                 foreach ($product->variants as $v) {
-                    $vLocStock = [];
+                    $vLocStock          = [];
+                    $vFormattedLocStock = [];
                     foreach ($locations as $location) {
-                        $vLocStock[$location->id] = $variantStock[$location->id]['variants'][$v->id] ?? 0;
+                        $vQty = max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
+                        $vLocStock[$location->id]          = $vQty;
+                        $vFormattedLocStock[$location->id] = $vQty > 0 ? $product->formatStockDisplay($vQty) : '0';
                     }
-                    $attrName  = $v->attributeValue->attribute->name ?? '';
-                    $valName   = $v->attributeValue->value ?? '';
-                    $vTotal    = array_sum($vLocStock);
-                    $vPrice    = (float) ($v->purchase_price ?? $purchasePrice);
-                    $vSale     = (float) ($v->sale_price ?? $salePrice);
-                    $vPurchVal = $vTotal * $vPrice;
-                    $vSaleVal  = $vTotal * $vSale;
+                    $attrName      = $v->attributeValue->attribute->name ?? '';
+                    $valName       = $v->attributeValue->value ?? '';
+                    $vTotal        = array_sum($vLocStock);
+                    $vPrice        = (float) ($v->purchase_price ?? $purchasePrice);
+                    $vSale         = (float) ($v->sale_price ?? $salePrice);
+                    $vMrp          = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+                    $vEffectiveQty = $product->pair_product ? ($vTotal / $pairSize) : (float) $vTotal;
 
-                    $parentPurchaseVal += $vPurchVal;
-                    $parentSaleVal     += $vSaleVal;
+                    $vPurchVal = $vEffectiveQty * $vPrice;
+                    $vSaleVal  = $vEffectiveQty * $vSale;
+                    $vMrpVal   = $vEffectiveQty * $vMrp;
+
+                    $vPairCount = ($product->pair_product && $vTotal > 0) ? (int) floor($vTotal / $pairSize) : 0;
+                    $vLoosePcs  = $product->pair_product ? (int) ($vTotal % $pairSize) : (int) $vTotal;
+
+                    if ($hasVariantStock) {
+                        $parentPurchaseVal += $vPurchVal;
+                        $parentSaleVal     += $vSaleVal;
+                        $parentMrpVal      += $vMrpVal;
+                        $parentPairCount   += $vPairCount;
+                    }
 
                     $variantRows[] = [
-                        'id'             => $product->id,
-                        'name'           => $product->name,
-                        'barcode'        => $product->barcode,
-                        'category'       => $product->category->name ?? '-',
-                        'category_id'    => $product->category_id,
-                        'stock'          => $vLocStock,
-                        'total'          => $vTotal,
-                        'purchase_value' => $vPurchVal,
-                        'sale_value'     => $vSaleVal,
-                        'status'         => $v->status,
-                        'is_parent'      => false,
-                        'variant_name'   => "{$attrName}: {$valName}",
+                        'id'                 => $product->id,
+                        'name'               => $product->name,
+                        'barcode'            => $product->barcode,
+                        'category'           => $product->category->name ?? '-',
+                        'category_id'        => $product->category_id,
+                        'stock'              => $vLocStock,
+                        'formatted_loc_stock'=> $vFormattedLocStock,
+                        'total'              => $vTotal,
+                        'formatted_stock'    => $product->formatStockDisplay($vTotal),
+                        'purchase_value'     => $vPurchVal,
+                        'sale_value'         => $vSaleVal,
+                        'mrp_value'          => $vMrpVal,
+                        'status'             => $v->status,
+                        'is_parent'          => false,
+                        'variant_name'       => "{$attrName}: {$valName}",
+                        'image_base64'       => $imageBase64,
+                        'pair_product'       => (bool) $product->pair_product,
+                        'pair_count'         => $vPairCount,
+                        'loose_pcs'          => $vLoosePcs,
                     ];
                 }
 
+                if (!$hasVariantStock) {
+                    $parentPairCount = ($product->pair_product && $parentTotal > 0) ? (int) floor($parentTotal / $pairSize) : 0;
+                }
+                $parentLoosePcs = $product->pair_product ? (int) ($parentTotal % $pairSize) : (int) $parentTotal;
+
                 $productsList->push([
-                    'id'             => $product->id,
-                    'name'           => $product->name,
-                    'barcode'        => $product->barcode,
-                    'category'       => $product->category->name ?? '-',
-                    'category_id'    => $product->category_id,
-                    'stock'          => $parentLocStock,
-                    'total'          => $parentTotal,
-                    'purchase_value' => $parentPurchaseVal,
-                    'sale_value'     => $parentSaleVal,
-                    'status'         => $product->status,
-                    'is_parent'      => true,
-                    'variant_name'   => null,
+                    'id'                 => $product->id,
+                    'name'               => $product->name,
+                    'barcode'            => $product->barcode,
+                    'category'           => $product->category->name ?? '-',
+                    'category_id'        => $product->category_id,
+                    'stock'              => $parentLocStock,
+                    'formatted_loc_stock'=> $parentFormattedLocStock,
+                    'total'              => $parentTotal,
+                    'formatted_stock'    => $product->formatStockDisplay($parentTotal),
+                    'purchase_value'     => $parentPurchaseVal,
+                    'sale_value'         => $parentSaleVal,
+                    'mrp_value'          => $parentMrpVal,
+                    'status'             => $product->status,
+                    'is_parent'          => true,
+                    'variant_name'       => null,
+                    'image_base64'       => $imageBase64,
+                    'pair_product'       => (bool) $product->pair_product,
+                    'pair_count'         => $parentPairCount,
+                    'loose_pcs'          => $parentLoosePcs,
                 ]);
 
                 foreach ($variantRows as $vRow) {
@@ -931,27 +1072,42 @@ class ReportController extends Controller
             } else {
                 // Normal product
                 $stock = [];
+                $formattedLocStock = [];
                 foreach ($locations as $location) {
                     $inventory            = $product->inventories->firstWhere('location_id', $location->id);
-                    $stock[$location->id] = $inventory ? $inventory->quantity : 0;
+                    $sQty                 = $inventory ? $inventory->quantity : 0;
+                    $stock[$location->id] = $sQty;
+                    $formattedLocStock[$location->id] = $sQty > 0 ? $product->formatStockDisplay($sQty) : '0';
                 }
-                $total       = array_sum($stock);
-                $purchaseVal = $total * $purchasePrice;
-                $saleVal     = $total * $salePrice;
+                $total        = array_sum($stock);
+                $effectiveQty = $product->pair_product ? ($total / $pairSize) : (float) $total;
+                $purchaseVal  = $effectiveQty * $purchasePrice;
+                $saleVal      = $effectiveQty * $salePrice;
+                $mrpVal       = $effectiveQty * $mrpPrice;
+
+                $pPairCount = ($product->pair_product && $total > 0) ? (int) floor($total / $pairSize) : 0;
+                $pLoosePcs  = $product->pair_product ? (int) ($total % $pairSize) : (int) $total;
 
                 $productsList->push([
-                    'id'             => $product->id,
-                    'name'           => $product->name,
-                    'barcode'        => $product->barcode,
-                    'category'       => $product->category->name ?? '-',
-                    'category_id'    => $product->category_id,
-                    'stock'          => $stock,
-                    'total'          => $total,
-                    'purchase_value' => $purchaseVal,
-                    'sale_value'     => $saleVal,
-                    'status'         => $product->status,
-                    'is_parent'      => true,
-                    'variant_name'   => null,
+                    'id'                 => $product->id,
+                    'name'               => $product->name,
+                    'barcode'            => $product->barcode,
+                    'category'           => $product->category->name ?? '-',
+                    'category_id'        => $product->category_id,
+                    'stock'              => $stock,
+                    'formatted_loc_stock'=> $formattedLocStock,
+                    'total'              => $total,
+                    'formatted_stock'    => $product->formatStockDisplay($total),
+                    'purchase_value'     => $purchaseVal,
+                    'sale_value'         => $saleVal,
+                    'mrp_value'          => $mrpVal,
+                    'status'             => $product->status,
+                    'is_parent'          => true,
+                    'variant_name'       => null,
+                    'image_base64'       => $imageBase64,
+                    'pair_product'       => (bool) $product->pair_product,
+                    'pair_count'         => $pPairCount,
+                    'loose_pcs'          => $pLoosePcs,
                 ]);
             }
         }
@@ -965,17 +1121,64 @@ class ReportController extends Controller
             $productsList = $productsList->where('total', '<=', 0);
         }
 
-        $spreadsheet = $this->exportService->exportStockInventory($productsList, $locations);
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Stock Inventory Report',
+                'pdfUrl' => route('admin.reports.stock-inventory.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Stock inventory report exported to Excel');
+        $categoryName = $categoryId ? (Category::find($categoryId)?->name ?? 'All') : 'All';
 
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, 'stock_inventory_report_' . now()->format('Ymd_His') . '.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        $pdf = Pdf::loadView('reports.pdf.stock-inventory', compact('productsList', 'locations', 'categoryId', 'categoryName', 'stockStatus'))
+            ->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Stock inventory report exported to PDF');
+
+        return $pdf->stream('stock_inventory_report_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    private function getImageBase64(?Product $product): string
+    {
+        if (!$product || !$product->primaryImage || empty($product->primaryImage->image_path)) {
+            return '';
+        }
+
+        $rawPath = ltrim($product->primaryImage->image_path, '/\\');
+        $cleanPath = preg_replace('#^uploads[\\/]#i', '', $rawPath);
+        
+        $imgPath = public_path('uploads/' . $cleanPath);
+        if (!file_exists($imgPath)) {
+            $imgPath = public_path($rawPath);
+        }
+
+        if (!file_exists($imgPath) || !is_file($imgPath)) {
+            return '';
+        }
+
+        $ext = strtolower(pathinfo($imgPath, PATHINFO_EXTENSION));
+
+        // Convert WebP to PNG for DomPDF compatibility
+        if ($ext === 'webp' && function_exists('imagecreatefromwebp')) {
+            $im = @imagecreatefromwebp($imgPath);
+            if ($im) {
+                ob_start();
+                imagepng($im);
+                $imData = ob_get_clean();
+                imagedestroy($im);
+                if ($imData) {
+                    return 'data:image/png;base64,' . base64_encode($imData);
+                }
+            }
+        }
+
+        $mime = ($ext === 'png') ? 'image/png' : (($ext === 'gif') ? 'image/gif' : 'image/jpeg');
+        $fileContent = @file_get_contents($imgPath);
+        if ($fileContent) {
+            return 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+        }
+
+        return '';
     }
 
     public function exportPurchases(Request $request)
@@ -1132,7 +1335,7 @@ class ReportController extends Controller
         $totalRevenue = (float)$sales->sum('final_amount');
 
         $saleIds = $sales->pluck('id');
-        $orderItems = OrderItem::with('product')
+        $orderItems = OrderItem::with(['product', 'variant'])
             ->whereIn('order_id', $saleIds)
             ->get();
 
@@ -1140,7 +1343,7 @@ class ReportController extends Controller
         $productProfitability = [];
 
         foreach ($orderItems as $item) {
-            $purchasePrice = $item->product->purchase_price ?? 0.0;
+            $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
             $itemCost = $item->quantity * $purchasePrice;
             $totalCogs += $itemCost;
 
@@ -1176,17 +1379,27 @@ class ReportController extends Controller
         $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        $spreadsheet = $this->exportService->exportProfitLoss($totalRevenue, $totalCogs, $totalExpenses, $netProfit, $profitMargin, $productProfitability);
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Profit & Loss Report',
+                'pdfUrl' => route('admin.reports.profit-loss.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & loss report exported to Excel');
+        $pdf = Pdf::loadView('reports.pdf.profit-loss', compact(
+            'totalRevenue',
+            'totalCogs',
+            'totalExpenses',
+            'netProfit',
+            'profitMargin',
+            'productProfitability',
+            'startDate',
+            'endDate'
+        ))->setPaper('a4', 'portrait');
 
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, 'profit_loss_report_' . now()->format('Ymd_His') . '.xlsx', [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & Loss report exported to PDF');
+
+        return $pdf->stream('profit_loss_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
     // ───────────────────────────────────────────────────────
@@ -1350,6 +1563,112 @@ class ReportController extends Controller
         ));
     }
 
+    public function exportPayments(Request $request)
+    {
+        $this->authorize('view payment reports');
+
+        $startDate     = $request->query('start_date');
+        $endDate       = $request->query('end_date');
+        $locationId    = $request->query('location_id');
+        $source        = $request->query('source');
+        $paymentMethod = $request->query('payment_method');
+        $paymentStatus = $request->query('payment_status');
+
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        if ($user->location_id && !$isSuperAdmin) {
+            $locationId = $user->location_id;
+        }
+
+        $applyCommonFilters = function ($q) use ($user, $isSuperAdmin, $locationId, $startDate, $endDate, $source, $paymentMethod) {
+            if ($user->location_id && !$isSuperAdmin) {
+                $q->where('location_id', $user->location_id);
+            } elseif ($locationId) {
+                $q->where('location_id', $locationId);
+            }
+
+            if ($startDate) {
+                $q->whereDate('created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $q->whereDate('created_at', '<=', $endDate);
+            }
+            if ($source) {
+                $q->where('source', $source);
+            }
+            if ($paymentMethod) {
+                if ($paymentMethod === 'online') {
+                    $q->whereIn('payment_method', ['online', 'razorpay']);
+                } else {
+                    $q->where('payment_method', $paymentMethod);
+                }
+            }
+
+            return $q;
+        };
+
+        $query = Order::with(['customer', 'payment'])
+            ->where('order_type', 'sale')
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED,
+            ]);
+        $applyCommonFilters($query);
+
+        if ($paymentStatus) {
+            $query->where('payment_status', $paymentStatus);
+        }
+
+        $orders = $query->latest()->get();
+
+        $totalAmount = (float) $orders->sum('final_amount');
+        $totalCount  = $orders->count();
+        $pendingOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING);
+        $pendingAmount = (float) $pendingOrders->sum('final_amount');
+        $pendingCount  = $pendingOrders->count();
+
+        $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
+            ->where('order_type', 'sale')
+            ->where('status', Order::STATUS_DECLINE)
+            ->whereHas('cancellationRequest', function ($q) {
+                $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
+                  ->where('refund_amount', '>', 0);
+            });
+        $applyCommonFilters($refundQuery);
+
+        $refundedOrders = $refundQuery->latest()->get();
+        $refundAmount   = (float) $refundedOrders->sum(fn ($order) => (float) $order->cancellationRequest->refund_amount);
+        $refundCount    = $refundedOrders->count();
+
+        $orders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Payment Report',
+                'pdfUrl' => route('admin.reports.payments.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        $pdf = Pdf::loadView('reports.pdf.payments', compact(
+            'orders',
+            'totalAmount',
+            'totalCount',
+            'pendingAmount',
+            'pendingCount',
+            'refundAmount',
+            'refundCount',
+            'startDate',
+            'endDate'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Payment report exported to PDF');
+
+        return $pdf->stream('payment_report_' . now()->format('Ymd_His') . '.pdf');
+    }
+
     public function dailyReport(Request $request)
     {
         $this->authorize('view daily reports');
@@ -1369,6 +1688,30 @@ class ReportController extends Controller
         [$date, $locationId] = $this->resolveDailyReportFilters($request);
 
         return response()->json(array_merge(['status' => 'success', 'date' => $date], $this->buildDailyReportData($date, $locationId)));
+    }
+
+    public function exportDailyReport(Request $request)
+    {
+        $this->authorize('view daily report');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Daily Report',
+                'pdfUrl' => route('admin.reports.daily-report.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
+        $data = $this->buildDailyReportData($date, $locationId);
+
+        $selectedLocation = $locationId ? Location::find($locationId) : null;
+
+        $pdf = Pdf::loadView('reports.pdf.daily-report', array_merge($data, [
+            'date'             => $date,
+            'selectedLocation' => $selectedLocation,
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('daily_report_' . $date . '.pdf');
     }
 
     private function resolveDailyReportFilters(Request $request): array

@@ -49,6 +49,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Utility Report</h4>
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     <!-- Filters -->
@@ -278,6 +281,19 @@
                 endPicker.set('minDate', null);
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            $(document).on('click', '#exportPdfBtn', function () {
+                const filters = currentFilters();
+                const params = new URLSearchParams();
+                for (const key in filters) {
+                    if (filters[key]) {
+                        params.append(key, filters[key]);
+                    }
+                }
+                params.append('auto_print', '1');
+                const url = "{{ route('admin.reports.utility.export') }}?" + params.toString();
+                window.open(url, '_blank');
             });
         });
     </script>

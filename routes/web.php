@@ -236,12 +236,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
-            Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('payments/export', [ReportController::class, 'exportPayments'])->name('payments.export');
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
+            Route::get('daily-report/export', [ReportController::class, 'exportDailyReport'])->name('daily-report.export');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
+            Route::get('utility/export', [UtilityReportController::class, 'export'])->name('utility.export');
             Route::get('utility/{utilityReport}', [UtilityReportController::class, 'show'])->name('utility.show');
             Route::get('utility', [UtilityReportController::class, 'index'])->name('utility');
         });
@@ -284,19 +286,24 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/supplier', [LedgerController::class, 'supplierLedger'])->name('ledgers.supplier');
         Route::get('ledgers/supplier/data', [LedgerController::class, 'supplierLedgerData'])->name('ledgers.supplier.data');
         Route::get('ledgers/supplier/detail', [LedgerController::class, 'supplierLedgerDetail'])->name('ledgers.supplier.detail');
+        Route::get('ledgers/supplier/export', [LedgerController::class, 'exportSupplierLedger'])->name('ledgers.supplier.export');
         Route::get('ledgers/customer', [LedgerController::class, 'customerLedger'])->name('ledgers.customer');
         Route::get('ledgers/customer/data', [LedgerController::class, 'customerLedgerData'])->name('ledgers.customer.data');
         Route::get('ledgers/customer/detail', [LedgerController::class, 'customerLedgerDetail'])->name('ledgers.customer.detail');
+        Route::get('ledgers/customer/export', [LedgerController::class, 'exportCustomerLedger'])->name('ledgers.customer.export');
         Route::get('ledgers/cash', [LedgerController::class, 'cashLedger'])->name('ledgers.cash');
         Route::get('ledgers/cash/data', [LedgerController::class, 'cashLedgerData'])->name('ledgers.cash.data');
         Route::get('ledgers/cash/detail', [LedgerController::class, 'cashLedgerDetail'])->name('ledgers.cash.detail');
+        Route::get('ledgers/cash/export', [LedgerController::class, 'exportCashLedger'])->name('ledgers.cash.export');
         Route::get('ledgers/bank', [LedgerController::class, 'bankLedger'])->name('ledgers.bank');
         Route::get('ledgers/bank/data', [LedgerController::class, 'bankLedgerData'])->name('ledgers.bank.data');
         Route::get('ledgers/bank/detail', [LedgerController::class, 'bankLedgerDetail'])->name('ledgers.bank.detail');
+        Route::get('ledgers/bank/export', [LedgerController::class, 'exportBankLedger'])->name('ledgers.bank.export');
         Route::get('ledgers/branch', [LedgerController::class, 'branchLedger'])->name('ledgers.branch');
         Route::get('ledgers/branch/data', [LedgerController::class, 'branchLedgerData'])->name('ledgers.branch.data');
         Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
         Route::get('ledgers/branch/dues-bills', [LedgerController::class, 'branchDuesBills'])->name('ledgers.branch.dues-bills');
+        Route::get('ledgers/branch/export', [LedgerController::class, 'exportBranchLedger'])->name('ledgers.branch.export');
 
         // Accounting
         Route::get('accounting/cashbook', [AccountingController::class, 'cashBook'])->name('accounting.cashbook');
@@ -305,6 +312,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounting/bankbook/data', [AccountingController::class, 'bankBookData'])->name('accounting.bankbook.data');
         Route::get('accounting/general-ledger', [AccountingController::class, 'generalLedger'])->name('accounting.general-ledger');
         Route::get('accounting/general-ledger/data', [AccountingController::class, 'generalLedgerData'])->name('accounting.general-ledger.data');
+        Route::get('accounting/general-ledger/export', [AccountingController::class, 'exportGeneralLedger'])->name('accounting.general-ledger.export');
         Route::get('accounting/outstanding-payables', [AccountingController::class, 'outstandingPayables'])->name('accounting.outstanding-payables');
         Route::get('accounting/outstanding-payables/data', [AccountingController::class, 'outstandingPayablesData'])->name('accounting.outstanding-payables.data');
         Route::get('accounting/outstanding-payables/detail', [AccountingController::class, 'outstandingPayablesDetail'])->name('accounting.outstanding-payables.detail');

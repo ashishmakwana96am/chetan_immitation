@@ -10,6 +10,8 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
+use App\Services\ActivityLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class LedgerController extends Controller
@@ -190,6 +192,90 @@ class LedgerController extends Controller
         ));
     }
 
+    public function exportSupplierLedger(Request $request)
+    {
+        $this->authorizeLedger('view supplier ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Supplier Ledger',
+                'pdfUrl' => route('admin.ledgers.supplier.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = Purchase::with('supplier')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate);
+
+        $locationName = 'All Locations';
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+            $locationName = Location::find($locationId)->name ?? 'All Locations';
+        } elseif ($request->filled('location_id')) {
+            $locationId = (int) $request->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+            $locationName = Location::find($locationId)->name ?? 'All Locations';
+        }
+
+        $purchases = $purchasesQuery->get();
+
+        $grouped = $purchases->groupBy(function ($purchase) {
+            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($purchase->supplier_id ?? 0);
+        });
+
+        $rows = collect();
+        foreach ($grouped as $items) {
+            $first = $items->first();
+            $totalAmount = (float) $items->sum('total_amount');
+            $paidAmount  = (float) $items->sum('paid_amount');
+            $dueAmount   = max(0.0, $totalAmount - $paidAmount);
+
+            $rows->push([
+                'supplier_name' => $first->supplier->name ?? '-',
+                'date'          => $first->created_at ?? now(),
+                'total_amount'  => $totalAmount,
+                'paid_amount'   => $paidAmount,
+                'due_amount'    => $dueAmount,
+            ]);
+        }
+
+        $rows = $rows->sort(function ($a, $b) {
+            if ($a['date']->format('Y-m-d') !== $b['date']->format('Y-m-d')) {
+                return $b['date'] <=> $a['date'];
+            }
+            return strcmp($a['supplier_name'], $b['supplier_name']);
+        })->values();
+
+        $totalAmount = $rows->sum('total_amount');
+        $totalPaid   = $rows->sum('paid_amount');
+        $totalDue    = $rows->sum('due_amount');
+
+        $pdf = Pdf::loadView('ledgers.pdf.supplier', compact(
+            'rows',
+            'startDate',
+            'endDate',
+            'locationName',
+            'totalAmount',
+            'totalPaid',
+            'totalDue'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Supplier ledger exported to PDF');
+
+        return $pdf->stream('supplier_ledger_' . now()->format('Ymd_His') . '.pdf');
+    }
+
     public function cashLedgerDetail(Request $request)
     {
         $this->authorizeLedger('view cash ledger');
@@ -331,6 +417,55 @@ class LedgerController extends Controller
         ]);
     }
 
+    public function exportCashLedger(Request $request)
+    {
+        $this->authorizeLedger('view cash ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Cash Ledger',
+                'pdfUrl' => route('admin.ledgers.cash.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
+
+        abort_if(empty($locationIds), 404);
+
+        $today = now()->format('Y-m-d');
+        $chain = $this->buildLedgerChain($locationIds, LocationBalanceTransaction::BALANCE_TYPE_CASH, $today);
+
+        $startDate = $request->filled('start_date') ? $request->start_date : null;
+        $endDate   = $request->filled('end_date') ? $request->end_date : null;
+
+        $rows = $chain
+            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0 || $node['date'] === $today)
+            ->when($startDate, fn ($c) => $c->where('date', '>=', $startDate))
+            ->when($endDate, fn ($c) => $c->where('date', '<=', $endDate))
+            ->sortByDesc('date')
+            ->values();
+
+        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('cash_balance');
+        $locationName = is_int($actionLocationId) ? (Location::find($actionLocationId)->name ?? 'All Locations') : 'All Locations';
+
+        $totalIn  = $rows->sum('in');
+        $totalOut = $rows->sum('out');
+
+        $pdf = Pdf::loadView('ledgers.pdf.cash', compact(
+            'rows',
+            'startDate',
+            'endDate',
+            'locationName',
+            'currentBalance',
+            'totalIn',
+            'totalOut'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Cash ledger exported to PDF');
+
+        return $pdf->stream('cash_ledger_' . now()->format('Ymd_His') . '.pdf');
+    }
+
     // -----------------------------------------------------------------
     // Bank Ledger (per branch)
     // -----------------------------------------------------------------
@@ -418,6 +553,55 @@ class LedgerController extends Controller
             'current_balance' => format_price($currentBalance),
             'branch_summary' => $branchSummary,
         ]);
+    }
+
+    public function exportBankLedger(Request $request)
+    {
+        $this->authorizeLedger('view bank ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Bank Ledger',
+                'pdfUrl' => route('admin.ledgers.bank.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
+
+        abort_if(empty($locationIds), 404);
+
+        $today = now()->format('Y-m-d');
+        $chain = $this->buildLedgerChain($locationIds, LocationBalanceTransaction::BALANCE_TYPE_BANK, $today);
+
+        $startDate = $request->filled('start_date') ? $request->start_date : null;
+        $endDate   = $request->filled('end_date') ? $request->end_date : null;
+
+        $rows = $chain
+            ->filter(fn ($node) => $node['in'] > 0 || $node['out'] > 0 || $node['date'] === $today)
+            ->when($startDate, fn ($c) => $c->where('date', '>=', $startDate))
+            ->when($endDate, fn ($c) => $c->where('date', '<=', $endDate))
+            ->sortByDesc('date')
+            ->values();
+
+        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('bank_balance');
+        $locationName = is_int($actionLocationId) ? (Location::find($actionLocationId)->name ?? 'All Locations') : 'All Locations';
+
+        $totalIn  = $rows->sum('in');
+        $totalOut = $rows->sum('out');
+
+        $pdf = Pdf::loadView('ledgers.pdf.bank', compact(
+            'rows',
+            'startDate',
+            'endDate',
+            'locationName',
+            'currentBalance',
+            'totalIn',
+            'totalOut'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Bank ledger exported to PDF');
+
+        return $pdf->stream('bank_ledger_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function bankLedgerDetail(Request $request)
@@ -668,6 +852,64 @@ class LedgerController extends Controller
             'data'        => $rows,
             'branch_dues' => $branchDues,
         ]);
+    }
+
+    public function exportBranchLedger(Request $request)
+    {
+        $this->authorizeLedger('view branch ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Branch Ledger',
+                'pdfUrl' => route('admin.ledgers.branch.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$locationIds] = $this->resolveLocationIds($request);
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        abort_if(empty($locationIds), 404);
+
+        $getTransferAmount = function ($transferCollection) {
+            $total = 0.0;
+            foreach ($transferCollection as $transfer) {
+                foreach ($transfer->items as $item) {
+                    $total += $this->purchasePriceForLedgerItem($item) * $item->quantity;
+                }
+            }
+            return (float) $total;
+        };
+
+        $transfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
+            })
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
+            ->whereDate('accepted_at', '>=', $startDate)
+            ->whereDate('accepted_at', '<=', $endDate)
+            ->orderByDesc('accepted_at')
+            ->get();
+
+        $rows = $transfers->map(function ($transfer) use ($getTransferAmount) {
+            return [
+                'date'        => $transfer->accepted_at,
+                'transfer_no' => $transfer->transfer_no,
+                'from'        => $transfer->fromLocation->name ?? '-',
+                'to'          => $transfer->toLocation->name ?? '-',
+                'amount'      => $getTransferAmount([$transfer]),
+            ];
+        })->values();
+
+        $totalAmount = $rows->sum('amount');
+
+        $pdf = Pdf::loadView('ledgers.pdf.branch', compact('rows', 'startDate', 'endDate', 'totalAmount'))
+            ->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Branch ledger exported to PDF');
+
+        return $pdf->stream('branch_ledger_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function branchLedgerDetail(Request $request)
@@ -1267,6 +1509,94 @@ class LedgerController extends Controller
             'data'           => $mappedRows,
             'branch_summary' => $branchSummary,
         ]);
+    }
+
+    public function exportCustomerLedger(Request $request)
+    {
+        $this->authorizeLedger('view customer ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Customer Ledger',
+                'pdfUrl' => route('admin.ledgers.customer.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $ordersQuery = \App\Models\Order::with('customer')
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate);
+
+        $locationName = 'All Locations';
+        if ($isRestricted) {
+            $ordersQuery->where('location_id', $user->location_id);
+            $locationName = Location::find($user->location_id)->name ?? 'All Locations';
+        } elseif ($request->filled('location_id')) {
+            $ordersQuery->where('location_id', (int) $request->location_id);
+            $locationName = Location::find((int) $request->location_id)->name ?? 'All Locations';
+        }
+
+        $orders = $ordersQuery->get();
+
+        $grouped = $orders->groupBy(function ($order) {
+            $date = $order->created_at ? $order->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($order->customer_id ?? 0);
+        });
+
+        $rows = collect();
+        foreach ($grouped as $items) {
+            $first = $items->first();
+            $totalAmount = 0.0;
+            $paidAmount  = 0.0;
+
+            foreach ($items as $order) {
+                $totalAmount += (float) $order->final_amount;
+                if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                    $paidAmount += (float) $order->final_amount;
+                } else {
+                    $paidAmount += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                }
+            }
+
+            $dueAmount = max(0.0, $totalAmount - $paidAmount);
+
+            $rows->push([
+                'customer_name' => $first->customer->name ?? 'Walk-in',
+                'date'          => $first->created_at ?? now(),
+                'total_amount'  => $totalAmount,
+                'paid_amount'   => $paidAmount,
+                'due_amount'    => $dueAmount,
+            ]);
+        }
+
+        $rows = $rows->sort(function ($a, $b) {
+            if ($a['date']->format('Y-m-d') !== $b['date']->format('Y-m-d')) {
+                return $b['date'] <=> $a['date'];
+            }
+            return strcmp($a['customer_name'], $b['customer_name']);
+        })->values();
+
+        $totalAmount = $rows->sum('total_amount');
+        $totalPaid   = $rows->sum('paid_amount');
+        $totalDue    = $rows->sum('due_amount');
+
+        $pdf = Pdf::loadView('ledgers.pdf.customer', compact(
+            'rows',
+            'startDate',
+            'endDate',
+            'locationName',
+            'totalAmount',
+            'totalPaid',
+            'totalDue'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Customer ledger exported to PDF');
+
+        return $pdf->stream('customer_ledger_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function customerLedgerDetail(Request $request)

@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Services\ActivityLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -440,6 +441,108 @@ class AccountingController extends Controller
             'data'           => $data,
             'branch_summary' => $branchSummary,
         ]);
+    }
+
+    public function exportGeneralLedger(Request $request)
+    {
+        $this->authorize('view general ledger');
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'General Ledger',
+                'pdfUrl' => route('admin.accounting.general-ledger.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        $user         = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $filterLocationId  = $isRestricted ? $user->location_id : ($request->filled('location_id') ? $request->location_id : null);
+        $startDate         = $request->filled('start_date') ? $request->start_date : null;
+        $endDate           = $request->filled('end_date') ? $request->end_date : null;
+        $sourceFilter      = $request->filled('source') ? $request->source : 'all';
+        $balanceTypeFilter = $request->filled('balance_type') ? $request->balance_type : null;
+
+        $txQuery = LocationBalanceTransaction::with(['location', 'createdBy']);
+
+        if ($filterLocationId) {
+            $txQuery->where('location_id', $filterLocationId);
+        }
+        if ($startDate) {
+            $txQuery->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $txQuery->whereDate('created_at', '<=', $endDate);
+        }
+        if ($balanceTypeFilter) {
+            $txQuery->where('balance_type', $balanceTypeFilter);
+        }
+
+        $transactions = $txQuery->orderBy('id', 'desc')->get();
+
+        $sourceLabels = [
+            'cash'             => 'Cash',
+            'bank'             => 'Bank',
+            'opening_balance'  => 'Opening Balance',
+            'sale'             => 'Sale',
+            'purchase'         => 'Purchase',
+            'expense'          => 'Expense',
+            'purchase_bill'    => 'Purchase Bill',
+            'balance_transfer' => 'Balance Transfer',
+        ];
+
+        $rows = collect();
+
+        foreach ($transactions as $tx) {
+            $notes = $tx->notes ?? '';
+            $detectedSource = 'general';
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
+            if ($sourceFilter !== 'all' && $sourceFilter !== $detectedSource) {
+                continue;
+            }
+
+            $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
+
+            $rows->push([
+                'date'         => $tx->created_at,
+                'source'       => $sourceLabels[$detectedSource] ?? $detectedSource,
+                'balance_type' => $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'Bank' : 'Cash',
+                'location'     => $tx->location->name ?? '-',
+                'particulars'  => !empty($notes) ? $notes : 'Manual Balance Adjustment',
+                'is_credit'    => $isCredit,
+                'amount'       => (float) $tx->amount,
+                'done_by'      => $tx->createdBy->name ?? '-',
+            ]);
+        }
+
+        $totalCredit = $rows->where('is_credit', true)->sum('amount');
+        $totalDebit  = $rows->where('is_credit', false)->sum('amount');
+
+        $pdf = Pdf::loadView('accounting.pdf.general-ledger', compact(
+            'rows',
+            'startDate',
+            'endDate',
+            'totalCredit',
+            'totalDebit',
+            'isRestricted'
+        ))->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Accounting', 'export', null, null, null, 'General ledger exported to PDF');
+
+        return $pdf->stream('general_ledger_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function outstandingPayables(Request $request)

@@ -48,6 +48,9 @@
             <h4 class="fw-semibold mb-0">Supplier Ledger</h4>
             <small class="text-muted">Company-wide across all branches</small>
         </div>
+        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
+            <i class="ti ti-file-text me-1"></i> Export to PDF
+        </button>
     </div>
 
     <div class="row g-4 mb-4">
@@ -288,6 +291,18 @@
                 $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            $(document).on('click', '#exportPdfBtn', function () {
+                const params = new URLSearchParams();
+                const filters = currentFilters();
+                Object.keys(filters).forEach(function (key) {
+                    if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined) {
+                        params.append(key, filters[key]);
+                    }
+                });
+                params.append('auto_print', '1');
+                window.open("{{ route('admin.ledgers.supplier.export') }}?" + params.toString(), '_blank');
             });
 
             // Double click anywhere on row to navigate to details page

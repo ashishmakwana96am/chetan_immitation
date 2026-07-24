@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Sales Register Report</title>
+    <title>Payment Report</title>
     <style>
         @page { size: A4 landscape; margin: 12px; }
         * { box-sizing: border-box; }
@@ -36,42 +36,29 @@
                 <div class="company-name">CHETAN IMITATION</div>
             </td>
             <td style="vertical-align: top; text-align: right;">
-                <div class="report-title">SALES REGISTER</div>
+                <div class="report-title">PAYMENT REPORT</div>
                 <div class="report-meta">Generated Date: {{ date('d-m-Y h:i A') }}</div>
             </td>
         </tr>
     </table>
 
-    @php
-        $totalSales = $orders->sum('final_amount');
-        $totalOrders = $orders->count();
-        $totalTax = 0;
-        $totalTaxable = 0;
-        foreach($orders as $o) {
-            $tax = $o->is_gst ? (float) ($o->tax_amount ?? 0) : 0;
-            $taxable = max(0, (float) $o->final_amount - $tax);
-            $totalTax += $tax;
-            $totalTaxable += $taxable;
-        }
-    @endphp
-
     <table class="summary-box">
         <tr>
             <td style="width: 25%;">
-                <div class="summary-label">Total Invoices</div>
-                <div class="summary-value">{{ $totalOrders }}</div>
+                <div class="summary-label">Total Transactions</div>
+                <div class="summary-value">{{ $totalCount }}</div>
             </td>
             <td style="width: 25%;">
-                <div class="summary-label">Total Taxable Value</div>
-                <div class="summary-value">{{ format_price($totalTaxable) }}</div>
+                <div class="summary-label">Total Sales Amount</div>
+                <div class="summary-value">{{ format_price($totalAmount) }}</div>
             </td>
             <td style="width: 25%;">
-                <div class="summary-label">Total Tax Amount (GST)</div>
-                <div class="summary-value">{{ format_price($totalTax) }}</div>
+                <div class="summary-label">Pending Amount</div>
+                <div class="summary-value">{{ format_price($pendingAmount) }} ({{ $pendingCount }})</div>
             </td>
             <td style="width: 25%;">
-                <div class="summary-label">Total Sales Value</div>
-                <div class="summary-value">{{ format_price($totalSales) }}</div>
+                <div class="summary-label">Refunded Amount</div>
+                <div class="summary-value">{{ format_price($refundAmount) }} ({{ $refundCount }})</div>
             </td>
         </tr>
     </table>
@@ -82,43 +69,54 @@
                 <th style="width: 4%;" class="text-center">#</th>
                 <th style="width: 10%;">Date</th>
                 <th style="width: 13%;">Invoice No</th>
-                <th style="width: 24%;">Customer Name</th>
-                <th style="width: 14%;">GSTIN</th>
-                <th style="width: 11%;" class="text-right">Taxable Val</th>
-                <th style="width: 10%;" class="text-right">GST Tax</th>
-                <th style="width: 14%;" class="text-right">Total Invoice</th>
+                <th style="width: 23%;">Customer Name</th>
+                <th style="width: 12%;">Source</th>
+                <th style="width: 12%;">Method</th>
+                <th style="width: 12%;">Payment Status</th>
+                <th style="width: 14%;" class="text-right">Amount</th>
             </tr>
         </thead>
         <tbody>
             @forelse($orders as $index => $order)
                 @php
-                    $tax = $order->is_gst ? (float) ($order->tax_amount ?? 0) : 0;
-                    $taxable = max(0, (float) $order->final_amount - $tax);
-                    $gstin = $order->customer?->gst_number ?: ($order->is_gst ? 'URP' : '-');
+                    $method = strtoupper($order->payment_method ?? '-');
+                    $source = strtoupper($order->source ?? 'POS');
+                    $cancellation = $order->cancellationRequest;
+                    $isRefunded = $cancellation
+                        && $cancellation->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED
+                        && (float) $cancellation->refund_amount > 0;
+                    
+                    if ($isRefunded) {
+                        $status = 'Refunded';
+                    } elseif ($order->payment && $order->payment->status === 'captured') {
+                        $status = 'Paid';
+                    } elseif ((int)$order->payment_status === \App\Models\Order::PAYMENT_STATUS_PAID) {
+                        $status = 'Paid';
+                    } else {
+                        $status = 'Pending';
+                    }
                 @endphp
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>{{ $order->created_at->format('d/m/Y') }}</td>
                     <td><strong>{{ $order->order_no }}</strong></td>
                     <td>{{ $order->customer?->name ?: 'Walk-in Customer' }}</td>
-                    <td><code>{{ $gstin }}</code></td>
-                    <td class="text-right">{{ number_format($taxable, 2) }}</td>
-                    <td class="text-right">{{ number_format($tax, 2) }}</td>
+                    <td>{{ $source }}</td>
+                    <td>{{ $method }}</td>
+                    <td>{{ $status }}</td>
                     <td class="text-right"><strong>{{ number_format((float) $order->final_amount, 2) }}</strong></td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="text-center" style="padding: 15px;">No sales transactions found for the selected criteria.</td>
+                    <td colspan="8" class="text-center" style="padding: 15px;">No payment transactions found for the selected criteria.</td>
                 </tr>
             @endforelse
         </tbody>
         @if($orders->count() > 0)
             <tfoot>
                 <tr>
-                    <td colspan="5" class="text-right fw-bold">TOTAL:</td>
-                    <td class="text-right fw-bold">{{ number_format($totalTaxable, 2) }}</td>
-                    <td class="text-right fw-bold">{{ number_format($totalTax, 2) }}</td>
-                    <td class="text-right fw-bold">{{ number_format($totalSales, 2) }}</td>
+                    <td colspan="7" class="text-right fw-bold">TOTAL:</td>
+                    <td class="text-right fw-bold">{{ number_format($totalAmount, 2) }}</td>
                 </tr>
             </tfoot>
         @endif
