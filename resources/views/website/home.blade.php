@@ -147,13 +147,7 @@
                     <a href="{{ $post['link'] ?? $instagramProfileUrl }}" target="_blank" class="group overflow-hidden relative block">
                         <img src="{{ $post['image'] }}" alt="{{ $post['caption'] ?? 'Instagram Post' }}" class="w-full h-[500px] object-cover transition duration-500 group-hover:scale-105">
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white text-2xl">
-                            @if(isset($post['media_type']) && ($post['media_type'] === 'VIDEO' || $post['media_type'] === 'REEL'))
-                                <i class="fa-solid fa-play"></i>
-                            @elseif(isset($post['media_type']) && $post['media_type'] === 'CAROUSEL_ALBUM')
-                                <i class="fa-solid fa-images"></i>
-                            @else
-                                <i class="fa-brands fa-instagram"></i>
-                            @endif
+                            <i class="fa-brands fa-instagram"></i>
                         </div>
                     </a>
                 @endforeach
