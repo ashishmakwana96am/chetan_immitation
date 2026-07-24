@@ -43,11 +43,11 @@ class SettingController extends Controller
         $storeState             = Setting::getValue('store_state', 'Gujarat');
 
         Setting::setValue('instagram_username', 'chetan_imitation');
-        Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
         Setting::setValue('instagram_access_token', '');
 
         $instagramUsername    = Setting::getValue('instagram_username', 'chetan_imitation');
-        $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
         $instagramAccessToken = Setting::getValue('instagram_access_token', '');
 
         return view('settings.index', compact(

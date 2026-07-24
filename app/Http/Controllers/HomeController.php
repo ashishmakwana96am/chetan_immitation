@@ -48,12 +48,8 @@ class HomeController extends Controller
             auth('customer')->user()->load('wishlists');
         }
 
-        Setting::setValue('instagram_username', 'chetan_imitation');
-        Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
-        Setting::setValue('instagram_access_token', '');
-
         $instagramPosts = $this->getInstagramPosts();
-        $instagramProfileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        $instagramProfileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
 
         return view('website.home', compact('categories', 'lovedProducts', 'latestProducts', 'instagramPosts', 'instagramProfileUrl'));
     }
@@ -61,10 +57,10 @@ class HomeController extends Controller
     private function getInstagramPosts()
     {
         $accessToken = Setting::getValue('instagram_access_token');
-        $profileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4&utm_source=qr');
+        $profileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
 
         if (!empty($accessToken)) {
-            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts', 3600, function () use ($accessToken, $profileUrl) {
+            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts_v5', 3600, function () use ($accessToken, $profileUrl) {
                 try {
                     $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://graph.instagram.com/me/media', [
                         'fields'       => 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp',
@@ -75,11 +71,12 @@ class HomeController extends Controller
                     if ($response->successful()) {
                         $data = $response->json('data') ?? [];
                         if (!empty($data)) {
-                            return collect($data)->map(function ($post) use ($profileUrl) {
+                            return collect($data)->take(6)->map(function ($post) use ($profileUrl) {
                                 return [
-                                    'image'   => $post['media_type'] === 'VIDEO' ? ($post['thumbnail_url'] ?? $post['media_url']) : $post['media_url'],
-                                    'link'    => $post['permalink'] ?? $profileUrl,
-                                    'caption' => $post['caption'] ?? 'Instagram Post',
+                                    'image'      => ($post['media_type'] === 'VIDEO' || $post['media_type'] === 'REEL') ? ($post['thumbnail_url'] ?? $post['media_url']) : $post['media_url'],
+                                    'link'       => $post['permalink'] ?? $profileUrl,
+                                    'caption'    => $post['caption'] ?? 'Instagram Post',
+                                    'media_type' => $post['media_type'] ?? 'IMAGE',
                                 ];
                             })->toArray();
                         }
