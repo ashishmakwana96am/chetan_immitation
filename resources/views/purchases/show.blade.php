@@ -378,10 +378,11 @@
 
                             @if($purchase->is_gst && $taxAmount > 0)
                                 @php
-                                    $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
+                                    $supplierState = strtolower(trim($purchase->supplier->state ?? ''));
+                                    $isLocalGujarat = empty($supplierState) || str_contains($supplierState, 'gujarat') || str_contains($supplierState, 'gujrat');
                                     $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
                                 @endphp
-                                @if($storeState === 'gujarat')
+                                @if($isLocalGujarat)
                                     @php
                                         $halfRate = $gstRate / 2;
                                         $halfTax = $taxAmount / 2;

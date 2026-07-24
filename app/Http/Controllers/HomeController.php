@@ -56,7 +56,7 @@ class HomeController extends Controller
 
     private function getInstagramPosts()
     {
-        $accessToken = Setting::getValue('instagram_access_token');
+        $accessToken = Setting::getValue('instagram_access_token','IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
         $profileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
 
         if (!empty($accessToken)) {

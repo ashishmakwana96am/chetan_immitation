@@ -137,7 +137,7 @@
     @endif
 
     <!-- Instagram Journey -->
-    <section class="section-space-bottom">
+    <section class="section-space-bottom mt-12 lg:mt-20">
         <div>
             <div class="text-center px-5">
                 <h2 class="hero-title">Follow Our Jewellery Journey</h2>

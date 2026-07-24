@@ -26,12 +26,8 @@
         </div>
         <div class="col-12">
             <label class="form-label" for="supplierState">State</label>
-            <select id="supplierState" name="state" class="form-select no-select2">
-                <option value="">Select State</option>
-                @foreach($states as $state)
-                    <option value="{{ $state->name }}">{{ $state->name }}</option>
-                @endforeach
-            </select>
+            <input type="text" id="supplierState" name="state"
+                class="form-control" placeholder="Enter State" />
             <div class="invalid-feedback"></div>
         </div>
         <div class="col-12">

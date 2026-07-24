@@ -44,11 +44,11 @@ class SettingController extends Controller
 
         Setting::setValue('instagram_username', 'chetan_imitation');
         Setting::setValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
-        Setting::setValue('instagram_access_token', '');
+        Setting::setValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
 
         $instagramUsername    = Setting::getValue('instagram_username', 'chetan_imitation');
         $instagramProfileUrl  = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
-        $instagramAccessToken = Setting::getValue('instagram_access_token', '');
+        $instagramAccessToken = Setting::getValue('instagram_access_token', 'IGAAWZA8ewYnlBBZAFk2SVA1ZAHNpclhYVUh3dWo4STFRNTRvMGN3VnlXWG1hMGJmTGpoWGNYTExJSnQ1UFBNRFAzUEV2b1pmWVBpS1JSbDZApWEdCZAW85UW8zXzZATMGttVTVEdGNjMms1NnBVNDg3cWRqRW5ENEZA2N1FYdGVIeDkzdwZDZD');
 
         return view('settings.index', compact(
             'razorpayPaymentMode',
