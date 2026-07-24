@@ -14,12 +14,27 @@ class UtilityReportController extends Controller
     {
         $this->authorize('view utility report');
 
-        $users     = User::orderBy('name')->get(['id', 'name']);
-        $locations = Location::orderBy('name')->get(['id', 'name']);
-        $modules   = UtilityReport::select('module')->distinct()->orderBy('module')->pluck('module');
-        $actions   = UtilityReport::select('action')->distinct()->orderBy('action')->pluck('action');
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        return view('utility-reports.index', compact('users', 'locations', 'modules', 'actions'));
+        $usersQuery    = User::orderBy('name');
+        $locationsQuery = Location::orderBy('name');
+        $modulesQuery  = UtilityReport::select('module')->distinct();
+        $actionsQuery  = UtilityReport::select('action')->distinct();
+
+        if ($isRestricted) {
+            $usersQuery->where('location_id', $user->location_id);
+            $locationsQuery->where('id', $user->location_id);
+            $modulesQuery->where('location_id', $user->location_id);
+            $actionsQuery->where('location_id', $user->location_id);
+        }
+
+        $users     = $usersQuery->get(['id', 'name']);
+        $locations = $locationsQuery->get(['id', 'name']);
+        $modules   = $modulesQuery->orderBy('module')->pluck('module');
+        $actions   = $actionsQuery->orderBy('action')->pluck('action');
+
+        return view('utility-reports.index', compact('users', 'locations', 'modules', 'actions', 'isRestricted'));
     }
 
     public function data(Request $request)
@@ -108,6 +123,9 @@ class UtilityReportController extends Controller
     {
         $query = UtilityReport::query();
 
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
         $startDate = $request->start_date ?: now()->subDays(30)->format('Y-m-d');
         $endDate   = $request->end_date ?: now()->format('Y-m-d');
 
@@ -115,8 +133,13 @@ class UtilityReportController extends Controller
             ->whereDate('created_at', '<=', $endDate)
             ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->user_id))
             ->when($request->filled('module'), fn ($q) => $q->where('module', $request->module))
-            ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action))
-            ->when($request->filled('location_id'), fn ($q) => $q->where('location_id', $request->location_id));
+            ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action));
+
+        if ($isRestricted) {
+            $query->where('location_id', $user->location_id);
+        } else {
+            $query->when($request->filled('location_id'), fn ($q) => $q->where('location_id', $request->location_id));
+        }
 
         return $query;
     }

@@ -70,6 +70,7 @@
                         @endforeach
                     </select>
                 </div>
+                @if(!$isRestricted)
                 <div class="col-md-3">
                     <label class="form-label">Location</label>
                     <select id="filter-location" class="form-select">
@@ -79,6 +80,7 @@
                         @endforeach
                     </select>
                 </div>
+                @endif
                 <div class="col-md-3">
                     <label class="form-label">Module</label>
                     <select id="filter-module" class="form-select">

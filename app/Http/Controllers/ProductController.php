@@ -231,8 +231,8 @@ class ProductController extends Controller
                     }
                 }
 
-                $salePrice = number_format($salePriceVal, 0);
-                $mrp = number_format($mrpVal ?? $salePriceVal, 0);
+                $salePrice = number_format($salePriceVal, 0, '.', '');
+                $mrp = number_format($mrpVal ?? $salePriceVal, 0, '.', '');
                 $qty = (int)($item['qty'] ?? 1);
                 $totalQty += $qty;
                 
@@ -271,7 +271,7 @@ class ProductController extends Controller
                 $printItems[] = [
                     'barcodeBase64'    => $barcodeBase64,
                     'barcodeText'      => $barcodeVal,
-                    'productCode'      => $product->product_code !== null ? number_format($product->product_code, 0) : '',
+                    'productCode'      => $product->product_code !== null ? number_format($product->product_code, 0, '.', '') : '',
                     'isPair'           => $isPair,
                     'customSizeLabel'  => $customSizeLabel,
                     'category'         => $categoryDisplay,

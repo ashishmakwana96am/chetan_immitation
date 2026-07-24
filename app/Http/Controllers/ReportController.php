@@ -1692,7 +1692,7 @@ class ReportController extends Controller
 
     public function exportDailyReport(Request $request)
     {
-        $this->authorize('view daily report');
+        $this->authorize('view daily reports');
 
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [

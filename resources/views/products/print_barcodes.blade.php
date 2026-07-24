@@ -174,7 +174,7 @@
                         </td>
                         <!-- Zone 2: MRP (Center Section) -->
                         <td class="zone-back">
-                            <div class="mrp-line">MRP : {{ $item['mrp'] }}</div>
+                            <div class="mrp-line">MRP:{{ $item['mrp'] }}</div>
                             <div class="mrp-code-line">{{ $item['productCode'] }}</div>
                             @if(!empty($item['customSizeLabel']))
                                 <div class="mrp-code-line">{{ $item['customSizeLabel'] }}</div>
