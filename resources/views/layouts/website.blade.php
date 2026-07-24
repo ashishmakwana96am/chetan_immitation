@@ -659,6 +659,7 @@
                 </div>
 
                 <!-- Category -->
+                @if(isset($sharedCategories) && count($sharedCategories) > 0)
                 <div>
                     <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Shop By Category</h3>
                     <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
@@ -667,6 +668,7 @@
                         @endforeach
                     </ul>
                 </div>
+                @endif
 
                 <!-- Company -->
                 <div>

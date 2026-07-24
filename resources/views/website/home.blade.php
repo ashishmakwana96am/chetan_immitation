@@ -41,6 +41,7 @@
     </section>
 
     <!-- Collection Carousel -->
+    @if(isset($categories) && count($categories) > 0)
     <section class="section-space">
         <div class="container-1440">
             <div class="text-center">
@@ -62,6 +63,7 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- Art Section -->
     <section class="bg-[#F7F4EF] py-16 lg:py-[80px]">
@@ -102,6 +104,7 @@
     </section>
 
     <!-- Most Loved Jewellery -->
+    @if(isset($lovedProducts) && count($lovedProducts) > 0)
     <section class="section-space">
         <div class="container-1440">
             <div class="text-center mb-12">
@@ -116,8 +119,10 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- Latest Jewellery Collection -->
+    @if(isset($latestProducts) && count($latestProducts) > 0)
     <section class="section-space-bottom">
         <div class="container-1440">
             <div class="text-center mb-10">
@@ -129,6 +134,7 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- Instagram Journey -->
     <section class="section-space-bottom">
