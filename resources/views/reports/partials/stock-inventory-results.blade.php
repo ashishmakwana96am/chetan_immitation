@@ -302,6 +302,15 @@
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td colspan="{{ 5 + $locations->count() }}" class="text-end">Total:</td>
+                    <td class="text-center text-primary">{{ $reportStockDisplay }}</td>
+                    <td class="text-end text-primary">{{ format_price($totalPurchaseValue) }}</td>
+                    <td class="text-end text-success">{{ format_price($totalMrpValue) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
         </table>
         @foreach($groupedStockProducts as $group)
             @php
@@ -376,15 +385,5 @@
                 </template>
             @endif
         @endforeach
-            <tfoot>
-                <tr class="table-light fw-bold">
-                    <td colspan="{{ 5 + $locations->count() }}" class="text-end">Total:</td>
-                    <td class="text-center text-primary">{{ $reportStockDisplay }}</td>
-                    <td class="text-end text-primary">{{ format_price($totalPurchaseValue) }}</td>
-                    <td class="text-end text-success">{{ format_price($totalMrpValue) }}</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
     </div>
 </div>
