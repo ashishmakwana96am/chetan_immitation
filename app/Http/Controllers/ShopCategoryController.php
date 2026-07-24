@@ -80,6 +80,13 @@ class ShopCategoryController extends Controller
 
         $data = $this->getFilteredProducts($slug);
 
+        if ($data['products']->total() === 0 && !request()->ajax() && !$request->filled('search') && !$slug) {
+            $hasAnyProducts = Product::where('status', Product::STATUS_ACTIVE)->has('images')->exists();
+            if (!$hasAnyProducts) {
+                return redirect()->route('home');
+            }
+        }
+
         if (auth('customer')->check()) {
             auth('customer')->user()->load('wishlists');
         }

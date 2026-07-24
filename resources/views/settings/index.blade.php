@@ -264,6 +264,7 @@
                         </div>
 
                         <!-- Backup Action -->
+                        @if($googleDriveConnected)
                         <div class="d-flex align-items-center justify-content-between border rounded p-3 flex-wrap gap-3">
                             <div>
                                 <p class="fw-semibold mb-0">Generate Backup</p>
@@ -273,6 +274,7 @@
                                 <i class="ti ti-database-export me-1"></i> Generate Backup
                             </button>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -395,7 +397,6 @@ $(document).ready(function () {
     // Generate Backup via AJAX (Google Drive Only)
     $('#btnDownloadBackup').on('click', function () {
         var btn = $(this);
-        toastr.info('Generating backup and uploading to Google Drive, please wait...');
         btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Processing...');
 
         $.ajax({

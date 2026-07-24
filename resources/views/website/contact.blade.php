@@ -117,13 +117,13 @@
                     <div>
                         <h4 class="text-lg md:text-xl font-medium text-[#131615] mb-2">Visit Us</h4>
 
-                        <a href="https://maps.google.com/?q=G-14+Abc+market+Sudama+chowk+Mota+Varachha+Surat" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 mb-3 hover:text-[#B4771E] transition">
+                        <a href="https://maps.app.goo.gl/aAs5DaPUi4WsVdxM7" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 mb-3 hover:text-[#B4771E] transition">
                             <span class="font-normal text-[#3D403F]">Branch - 1:</span>
                             G-14 Abc market, Abc circle, Sudama chowk,
                             Mota Varachha, Surat, Gujarat 394101, India
                         </a>
 
-                        <a href="https://maps.google.com/?q=Narayannagar+Chok+Singanpore+Road+Katargam+Surat" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
+                        <a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
                             <span class="font-normal text-[#3D403F]">Branch - 2:</span>
                             Shop No. 4, Narayan Flats,
                             Narayannagar Chok, Singanpore Road,
@@ -222,7 +222,7 @@
         </div>
 
         <div class="border border-[#D5D5D5] overflow-hidden bg-white">
-            <iframe src="https://www.google.com/maps?q=Sudama%20Chowk%20Mota%20Varachha%20Surat&output=embed" class="w-full h-[300px] md:h-[450px] lg:h-[520px]" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3718.7814914346445!2d72.8780558!3d21.2405117!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be04fb74838640f%3A0xf07f814d770fed04!2sChetan%20imitation!5e0!3m2!1sen!2sin!4v1784891107042!5m2!1sen!2sin" class="w-full h-[300px] md:h-[450px] lg:h-[520px]" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
 
     </div>

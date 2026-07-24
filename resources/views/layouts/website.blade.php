@@ -181,6 +181,7 @@
                         </a>
 
                         <!-- Mega Menu -->
+                        @if(isset($sharedCategories) && count($sharedCategories) > 0)
                         <div class="group relative" onmouseenter="setHeaderCategoryArrow(true)" onmouseleave="resetSubmenus(); setHeaderCategoryArrow(false)" onfocusin="setHeaderCategoryArrow(true)" onfocusout="setHeaderCategoryArrow(false)">
                             <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                                 Shop By Category
@@ -225,6 +226,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             About Us
@@ -711,7 +713,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                             </svg>
-                            <a href="https://maps.google.com/?q=G-14+Abc+market+Abc+circle+Sudama+chowk+Mota+Varachha+Surat+Gujarat+394101+India" target="_blank" class="hover:text-[#B4771E] transition">
+                            <a href="https://maps.app.goo.gl/aAs5DaPUi4WsVdxM7" target="_blank" class="hover:text-[#B4771E] transition">
                                 G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat, Gujarat 394101, India
                             </a>
                         </li>
