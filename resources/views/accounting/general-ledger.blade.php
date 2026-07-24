@@ -43,6 +43,7 @@
         }
         .source-cash         { background-color: #e8f5e9; color: #2e7d32; }
         .source-bank         { background-color: #e3f2fd; color: #1565c0; }
+        .source-opening_balance { background-color: #fff8e1; color: #f57f17; }
         .source-expense      { background-color: #fce4ec; color: #c62828; }
         .source-sale         { background-color: #f3e5f5; color: #6a1b9a; }
         .source-purchase     { background-color: #fff3e0; color: #e65100; }
@@ -130,9 +131,18 @@
                 </div>
                 @endif
                 <div class="col-md-3 col-sm-6">
+                    <label class="form-label">Balance Type</label>
+                    <select id="filter-balance-type" class="form-select">
+                        <option value="">All Balance Types</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-6">
                     <label class="form-label">Source / Type</label>
                     <select id="filter-source" class="form-select">
                         <option value="all">All Sources</option>
+                        <option value="opening_balance">Opening Balance Only</option>
                         <option value="expense">Expenses Only</option>
                         <option value="sale">Sales Only</option>
                         <option value="purchase">Purchases Only</option>
@@ -159,6 +169,7 @@
                     <tr>
                         <th>#</th>
                         <th>Source</th>
+                        <th>Balance Type</th>
                         @if(!$isRestricted)
                             <th>Location</th>
                         @endif
@@ -216,23 +227,24 @@
             }
         }
 
-        $(document).on('input change', '#filterForm', function () {
+        $(document).on('input change select2:select select2:clear', '#filterForm input, #filterForm select', function () {
             updateFilterButtons();
         });
 
         updateFilterButtons();
 
         const sourceIcons = {
-            cash:         'ti ti-cash',
-            bank:         'ti ti-building-bank',
-            expense:      'ti ti-receipt',
-            sale:         'ti ti-shopping-cart',
-            purchase:     'ti ti-truck-delivery',
-            purchase_bill:    'ti ti-file-invoice',
-            balance_transfer: 'ti ti-arrows-exchange',
+            cash:            'ti ti-cash',
+            bank:            'ti ti-building-bank',
+            opening_balance: 'ti ti-scale',
+            expense:         'ti ti-receipt',
+            sale:            'ti ti-shopping-cart',
+            purchase:        'ti ti-truck-delivery',
+            purchase_bill:   'ti ti-file-invoice',
+            balance_transfer:'ti ti-arrows-exchange',
         };
         const sourceLabels = {
-            cash: 'Cash', bank: 'Bank', expense: 'Expense',
+            cash: 'Cash', bank: 'Bank', opening_balance: 'Opening Balance', expense: 'Expense',
             sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill', balance_transfer: 'Balance Transfer',
         };
 
@@ -246,8 +258,8 @@
             $isAdmin = !$isRestricted;
         @endphp
         const hasLocation = {{ $isRestricted ? 'false' : 'true' }};
-        const dateGroupCol = hasLocation ? 7 : 6;
-        const dateSortCol  = hasLocation ? 8 : 7;
+        const dateGroupCol = hasLocation ? 8 : 7;
+        const dateSortCol  = hasLocation ? 9 : 8;
 
         const table = $('#generalLedgerTable').DataTable({
             responsive: false,
@@ -259,7 +271,7 @@
             rowGroup: {
                 dataSrc: 'date_group',
                 startRender: function (rows, group) {
-                    const colspan = hasLocation ? 7 : 6;
+                    const colspan = hasLocation ? 8 : 7;
                     return $('<tr class="group-header"/>')
                         .append(
                             '<td colspan="' + colspan + '">' +
@@ -275,10 +287,11 @@
                 url:     '{{ route('admin.accounting.general-ledger.data') }}',
                 cache:   false,
                 data: function (d) {
-                    d.start_date  = $('#filter-start-date').val();
-                    d.end_date    = $('#filter-end-date').val();
-                    d.location_id = $('#filter-location').val() || '';
-                    d.source      = $('#filter-source').val() || 'all';
+                    d.start_date   = $('#filter-start-date').val();
+                    d.end_date     = $('#filter-end-date').val();
+                    d.location_id  = $('#filter-location').val() || '';
+                    d.balance_type = $('#filter-balance-type').val() || '';
+                    d.source       = $('#filter-source').val() || 'all';
                 },
                 dataSrc: function (json) {
                     if (json.branch_summary) {
@@ -301,12 +314,13 @@
                 { data: 'source_type', orderable: false,
                   render: function (data) { return sourceBadge(data); }
                 },
+                { data: 'balance_type_badge', orderable: false },
                 @if(!$isRestricted)
                 { data: 'location' },
                 @endif
                 { data: 'particulars' },
                 { data: 'type_badge', orderable: false },
-                { data: 'amount', orderable: false, className: 'fw-bold', render: function (data, type, row) {
+                { data: 'amount', orderable: false, className: 'fw-bold text-nowrap', render: function (data, type, row) {
                     return row.is_credit ? '<span class="text-success">' + data + '</span>' : '<span class="text-danger">' + data + '</span>';
                 } },
                 { data: 'done_by' },
@@ -355,6 +369,7 @@
             startPicker.set('maxDate', 'today');
             endPicker.set('minDate', null);
             $('#filter-location').val('').trigger('change');
+            $('#filter-balance-type').val('').trigger('change');
             $('#filter-source').val('all').trigger('change');
             updateFilterButtons();
             window.refreshTable();

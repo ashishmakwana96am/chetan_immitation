@@ -53,15 +53,63 @@ class AccountingController extends Controller
             $query->whereDate('created_at', '<=', $request->end_date);
         }
 
+        $sourceFilter = $request->filled('source') ? $request->source : 'all';
+
         $transactions = $query->orderBy('id', 'desc')->get();
 
-        $data = $transactions->map(function ($tx, $index) {
+        $data = $transactions->filter(function ($tx) use ($sourceFilter) {
+            if ($sourceFilter === 'all') {
+                return true;
+            }
+            $notes = $tx->notes ?? '';
+            $detectedSource = 'cash';
+            if ($tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK) {
+                $detectedSource = 'bank';
+            }
+
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
+            return $detectedSource === $sourceFilter;
+        })->values()->map(function ($tx, $index) {
+            $notes = $tx->notes ?? '';
+            $detectedSource = 'cash';
+            if ($tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK) {
+                $detectedSource = 'bank';
+            }
+
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
             $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             return [
                 'index'         => $index + 1,
                 'date'          => format_date($tx->created_at),
                 'date_group'    => $tx->created_at->format('d M Y'),
                 'date_sort'     => $tx->created_at->format('Ymd'),
+                'source_type'   => $detectedSource,
                 'location'      => $tx->location->name ?? '-',
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
                 'type'          => $isCredit ? 'credit' : 'debit',
@@ -140,15 +188,55 @@ class AccountingController extends Controller
             $query->whereDate('created_at', '<=', $request->end_date);
         }
 
+        $sourceFilter = $request->filled('source') ? $request->source : 'all';
+
         $transactions = $query->orderBy('id', 'desc')->get();
 
-        $data = $transactions->map(function ($tx, $index) {
+        $data = $transactions->filter(function ($tx) use ($sourceFilter) {
+            if ($sourceFilter === 'all') {
+                return true;
+            }
+            $notes = $tx->notes ?? '';
+            $detectedSource = 'bank';
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
+            return $detectedSource === $sourceFilter;
+        })->values()->map(function ($tx, $index) {
+            $notes = $tx->notes ?? '';
+            $detectedSource = 'bank';
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
             $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             return [
                 'index'         => $index + 1,
                 'date'          => format_date($tx->created_at),
                 'date_group'    => $tx->created_at->format('d M Y'),
                 'date_sort'     => $tx->created_at->format('Ymd'),
+                'source_type'   => $detectedSource,
                 'location'      => $tx->location->name ?? '-',
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
                 'type'          => $isCredit ? 'credit' : 'debit',
@@ -214,10 +302,11 @@ class AccountingController extends Controller
         $user         = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $filterLocationId = $isRestricted ? $user->location_id : ($request->filled('location_id') ? $request->location_id : null);
-        $startDate        = $request->filled('start_date') ? $request->start_date : null;
-        $endDate          = $request->filled('end_date') ? $request->end_date : null;
-        $sourceFilter     = $request->filled('source') ? $request->source : 'all';
+        $filterLocationId  = $isRestricted ? $user->location_id : ($request->filled('location_id') ? $request->location_id : null);
+        $startDate         = $request->filled('start_date') ? $request->start_date : null;
+        $endDate           = $request->filled('end_date') ? $request->end_date : null;
+        $sourceFilter      = $request->filled('source') ? $request->source : 'all';
+        $balanceTypeFilter = $request->filled('balance_type') ? $request->balance_type : null;
 
         $txQuery = LocationBalanceTransaction::with(['location', 'createdBy']);
 
@@ -230,6 +319,9 @@ class AccountingController extends Controller
         if ($endDate) {
             $txQuery->whereDate('created_at', '<=', $endDate);
         }
+        if ($balanceTypeFilter) {
+            $txQuery->where('balance_type', $balanceTypeFilter);
+        }
 
         $transactions = $txQuery->orderBy('id', 'desc')->get();
         $entries = collect();
@@ -238,21 +330,19 @@ class AccountingController extends Controller
             $notes = $tx->notes ?? '';
             
             // 1. Identify the source based on transaction notes
-            $detectedSource = 'cash'; // default
-            if ($tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK) {
-                $detectedSource = 'bank';
-            }
-
-            if (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+            $detectedSource = 'general'; // default
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
                 $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
             } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
                 $detectedSource = 'purchase';
             } elseif (stripos($notes, 'Expense') !== false) {
                 $detectedSource = 'expense';
             } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
                 $detectedSource = 'balance_transfer';
-            } elseif (stripos($notes, 'Purchase Bill') !== false) {
-                $detectedSource = 'purchase_bill';
             }
 
             // 2. Apply Source Filter if selected
@@ -264,14 +354,19 @@ class AccountingController extends Controller
             
             // Map labels for UI display
             $sourceLabels = [
-                'cash' => 'Cash',
-                'bank' => 'Bank',
-                'sale' => 'Sale',
-                'purchase' => 'Purchase',
-                'expense' => 'Expense',
+                'cash'             => 'Cash',
+                'bank'             => 'Bank',
+                'opening_balance'  => 'Opening Balance',
+                'sale'             => 'Sale',
+                'purchase'         => 'Purchase',
+                'expense'          => 'Expense',
                 'purchase_bill'    => 'Purchase Bill',
                 'balance_transfer' => 'Balance Transfer',
             ];
+
+            $balanceTypeBadge = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK
+                ? '<span class="badge bg-label-info">Bank</span>'
+                : '<span class="badge bg-label-secondary">Cash</span>';
 
             $ref = 'TXN#' . $tx->id;
             if ($detectedSource === 'sale') {
@@ -291,25 +386,26 @@ class AccountingController extends Controller
             }
 
             $entries->push([
-                'index'       => 0, // Will be set during map
-                'date'        => format_date($tx->created_at),
-                'date_group'  => $tx->created_at->format('d M Y'),
-                'date_sort'   => $tx->created_at->format('YmdHis'),
-                'source'      => $sourceLabels[$detectedSource] ?? $detectedSource,
-                'source_type' => $detectedSource,
-                'location'    => $tx->location->name ?? '-',
-                'location_id' => $tx->location_id,
-                'particulars' => !empty($notes) ? $notes : 'Manual Balance Adjustment',
-                'type'        => $isCredit ? 'credit' : 'debit',
-                'type_badge'  => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
-                'amount'      => format_price($tx->amount),
-                'is_credit'   => $isCredit,
-                'credit'      => $isCredit ? format_price($tx->amount) : '-',
-                'debit'       => !$isCredit ? format_price($tx->amount) : '-',
-                'done_by'     => $tx->createdBy->name ?? '-',
-                'ref'         => $ref,
-                'raw_credit'  => $isCredit ? (float) $tx->amount : 0,
-                'raw_debit'   => !$isCredit ? (float) $tx->amount : 0,
+                'index'              => 0, // Will be set during map
+                'date'               => format_date($tx->created_at),
+                'date_group'         => $tx->created_at->format('d M Y'),
+                'date_sort'          => $tx->created_at->format('YmdHis'),
+                'source'             => $sourceLabels[$detectedSource] ?? $detectedSource,
+                'source_type'        => $detectedSource,
+                'balance_type_badge' => $balanceTypeBadge,
+                'location'           => $tx->location->name ?? '-',
+                'location_id'        => $tx->location_id,
+                'particulars'        => !empty($notes) ? $notes : 'Manual Balance Adjustment',
+                'type'               => $isCredit ? 'credit' : 'debit',
+                'type_badge'         => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
+                'amount'             => format_price($tx->amount),
+                'is_credit'          => $isCredit,
+                'credit'             => $isCredit ? format_price($tx->amount) : '-',
+                'debit'              => !$isCredit ? format_price($tx->amount) : '-',
+                'done_by'            => $tx->createdBy->name ?? '-',
+                'ref'                => $ref,
+                'raw_credit'         => $isCredit ? (float) $tx->amount : 0,
+                'raw_debit'          => !$isCredit ? (float) $tx->amount : 0,
             ]);
         }
 
@@ -627,9 +723,50 @@ class AccountingController extends Controller
             $query->where('balance_type', $request->balance_type);
         }
 
+        $sourceFilter = $request->filled('source') ? $request->source : 'all';
+
         $transactions = $query->orderBy('id', 'desc')->get();
 
-        $data = $transactions->map(function ($tx, $index) {
+        $data = $transactions->filter(function ($tx) use ($sourceFilter) {
+            if ($sourceFilter === 'all') {
+                return true;
+            }
+            $notes = $tx->notes ?? '';
+            $detectedSource = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank' : 'cash';
+
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
+            return $detectedSource === $sourceFilter;
+        })->values()->map(function ($tx, $index) {
+            $notes = $tx->notes ?? '';
+            $detectedSource = $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank' : 'cash';
+
+            if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
+                $detectedSource = 'opening_balance';
+            } elseif (stripos($notes, 'Sale #') !== false || stripos($notes, 'Reversal: Sale') !== false) {
+                $detectedSource = 'sale';
+            } elseif (stripos($notes, 'Purchase Bill') !== false) {
+                $detectedSource = 'purchase_bill';
+            } elseif (stripos($notes, 'Purchase') !== false || stripos($notes, 'Purchase Payment') !== false) {
+                $detectedSource = 'purchase';
+            } elseif (stripos($notes, 'Expense') !== false) {
+                $detectedSource = 'expense';
+            } elseif (stripos($notes, 'Transfer to ') !== false || stripos($notes, 'Transfer from ') !== false) {
+                $detectedSource = 'balance_transfer';
+            }
+
             $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             $typeBadge = $isCredit
                 ? '<span class="badge bg-label-success">Credit</span>'
@@ -640,12 +777,13 @@ class AccountingController extends Controller
                 : '<span class="badge bg-label-secondary">Cash</span>';
 
             $amountFormatted = ($isCredit ? '+ ' : '- ') . format_price($tx->amount);
-            $amountSpan = '<span class="' . ($isCredit ? 'text-success' : 'text-danger') . '">' . $amountFormatted . '</span>';
+            $amountSpan = '<span class="' . ($isCredit ? 'text-success' : 'text-danger') . ' text-nowrap">' . $amountFormatted . '</span>';
 
             return [
                 'index'         => $index + 1,
                 'time'          => $tx->created_at->format('h:i A'),
                 'branch_name'   => $tx->location->name ?? '-',
+                'source_type'   => $detectedSource,
                 'balance_type'  => $balanceTypeBadge,
                 'type'          => $typeBadge,
                 'amount'        => $amountSpan,

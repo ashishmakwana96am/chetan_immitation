@@ -36,6 +36,24 @@
             align-items: center;
             margin-top: 2px;
         }
+
+        /* ─── Source badges ─────────────────────────────── */
+        .source-badge {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .source-cash         { background-color: #e8f5e9; color: #2e7d32; }
+        .source-bank         { background-color: #e3f2fd; color: #1565c0; }
+        .source-opening_balance { background-color: #fff8e1; color: #f57f17; }
+        .source-expense      { background-color: #fce4ec; color: #c62828; }
+        .source-sale         { background-color: #f3e5f5; color: #6a1b9a; }
+        .source-purchase     { background-color: #fff3e0; color: #e65100; }
+        .source-purchase_bill    { background-color: #e0f7fa; color: #00695c; }
+        .source-balance_transfer { background-color: #ede7f6; color: #4527a0; }
     </style>
 @endsection
 
@@ -112,6 +130,18 @@
                         <option value="bank">Bank</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Source / Type</label>
+                    <select id="filter-source" class="form-select">
+                        <option value="all">All Sources</option>
+                        <option value="opening_balance">Opening Balance Only</option>
+                        <option value="expense">Expenses Only</option>
+                        <option value="sale">Sales Only</option>
+                        <option value="purchase">Purchases Only</option>
+                        <option value="purchase_bill">Purchase Bills Only</option>
+                        <option value="balance_transfer">Balance Transfers Only</option>
+                    </select>
+                </div>
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
@@ -130,6 +160,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
+                        <th>Source</th>
                         <th>Time</th>
                         <th>Branch</th>
                         <th>Balance Type</th>
@@ -185,7 +216,8 @@
 
             function updateFilterButtonsVisibility() {
                 const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
-                    return $(el).val() !== '';
+                    const val = $(el).val();
+                    return val !== '' && val !== null && val !== 'all';
                 });
                 $('#filterActionButtons').toggleClass('d-none', !hasValue);
                 if (!hasValue && isFiltered) {
@@ -194,104 +226,128 @@
                 }
             }
 
-            $(document).on('input change', '#filterForm', function () {
+            $(document).on('input change select2:select select2:clear', '#filterForm input, #filterForm select', function () {
                 updateFilterButtonsVisibility();
             });
 
             updateFilterButtonsVisibility();
 
-            const table = $('#branchBalancesTable').DataTable({
-                responsive : false,
-                order      : [[10, 'desc']],
-                orderFixed : { pre: [[10, 'desc']] },
-                columnDefs : [
-                    { targets: [9, 10], visible: false }
-                ],
-                rowGroup   : {
-                    dataSrc: 'date_group',
-                    startRender: function (rows, group) {
-                        return $('<tr class="group-header"/>')
-                            .append('<td colspan="9"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
-                    }
-                },
-                ajax        : {
-                    url     : '{{ route('admin.accounting.opening-balances.data') }}',
-                    dataSrc : function (json) {
-                        if (json.branch_balances) {
-                            $.each(json.branch_balances, function (locId, balances) {
-                                $('#cash-balance-' + locId).text(balances.cash)
-                                    .toggleClass('text-danger', balances.cash.includes('-'))
-                                    .toggleClass('text-success', !balances.cash.includes('-'));
-                                $('#bank-balance-' + locId).text(balances.bank)
-                                    .toggleClass('text-danger', balances.bank.includes('-'))
-                                    .toggleClass('text-primary', !balances.bank.includes('-'));
-                            });
-                        }
-                        return json.data;
-                    },
-                    cache   : false,
-                    data    : function(d) {
-                        d.start_date   = $('#filter-start-date').val();
-                        d.end_date     = $('#filter-end-date').val();
-                        d.location_id  = $('#filter-location').val() || '';
-                        d.balance_type = $('#filter-balance-type').val() || '';
-                    }
-                },
-                columns     : [
-                    { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                    { data: 'time' },
-                    { data: 'branch_name' },
-                    { data: 'balance_type', orderable: false },
-                    { data: 'type', orderable: false },
-                    { data: 'amount', className: 'fw-semibold' },
-                    { data: 'balance_after', className: 'fw-semibold', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
-                    { data: 'notes' },
-                    { data: 'created_by' },
-                    { data: 'date_group', visible: false },
-                    { data: 'date_sort', visible: false },
-                ],
-            });
+        const sourceIcons = {
+            cash:             'ti ti-cash',
+            bank:             'ti ti-building-bank',
+            opening_balance:  'ti ti-scale',
+            expense:          'ti ti-receipt',
+            sale:             'ti ti-shopping-cart',
+            purchase:         'ti ti-truck-delivery',
+            purchase_bill:    'ti ti-file-invoice',
+            balance_transfer: 'ti ti-arrows-exchange',
+        };
+        const sourceLabels = {
+            cash: 'Cash', bank: 'Bank', opening_balance: 'Opening Balance', expense: 'Expense',
+            sale: 'Sale', purchase: 'Purchase', purchase_bill: 'Purchase Bill', balance_transfer: 'Balance Transfer',
+        };
 
-            function updateCardVisibility() {
-                const selectedLocId = $('#filter-location').val();
-                if (selectedLocId) {
-                    $('.branch-card-col').hide();
-                    $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
-                } else {
-                    $('.branch-card-col').show();
+        function sourceBadge(type) {
+            const icon  = sourceIcons[type]  || 'ti ti-circle';
+            const label = sourceLabels[type] || type;
+            return '<span class="source-badge source-' + type + '"><i class="' + icon + ' me-1"></i>' + label + '</span>';
+        }
+
+        const table = $('#branchBalancesTable').DataTable({
+            responsive : false,
+            order      : [[11, 'desc']],
+            orderFixed : { pre: [[11, 'desc']] },
+            columnDefs : [
+                { targets: [10, 11], visible: false }
+            ],
+            rowGroup   : {
+                dataSrc: 'date_group',
+                startRender: function (rows, group) {
+                    return $('<tr class="group-header"/>')
+                        .append('<td colspan="10"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                 }
+            },
+            ajax        : {
+                url     : '{{ route('admin.accounting.opening-balances.data') }}',
+                dataSrc : function (json) {
+                    if (json.branch_balances) {
+                        $.each(json.branch_balances, function (locId, balances) {
+                            $('#cash-balance-' + locId).text(balances.cash)
+                                .toggleClass('text-danger', balances.cash.includes('-'))
+                                .toggleClass('text-success', !balances.cash.includes('-'));
+                            $('#bank-balance-' + locId).text(balances.bank)
+                                .toggleClass('text-danger', balances.bank.includes('-'))
+                                .toggleClass('text-primary', !balances.bank.includes('-'));
+                        });
+                    }
+                    return json.data;
+                },
+                cache   : false,
+                data    : function(d) {
+                    d.start_date   = $('#filter-start-date').val();
+                    d.end_date     = $('#filter-end-date').val();
+                    d.location_id  = $('#filter-location').val() || '';
+                    d.balance_type = $('#filter-balance-type').val() || '';
+                    d.source       = $('#filter-source').val() || 'all';
+                }
+            },
+            columns     : [
+                { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { data: 'source_type', orderable: false, render: function (data) { return sourceBadge(data); } },
+                { data: 'time' },
+                { data: 'branch_name' },
+                { data: 'balance_type', orderable: false },
+                { data: 'type', orderable: false },
+                { data: 'amount', className: 'fw-semibold text-nowrap' },
+                { data: 'balance_after', className: 'fw-semibold text-nowrap', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
+                { data: 'notes' },
+                { data: 'created_by' },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false },
+            ],
+        });
+
+        function updateCardVisibility() {
+            const selectedLocId = $('#filter-location').val();
+            if (selectedLocId) {
+                $('.branch-card-col').hide();
+                $('.branch-card-col[data-location-id="' + selectedLocId + '"]').show();
+            } else {
+                $('.branch-card-col').show();
             }
+        }
 
+        updateCardVisibility();
+
+        window.refreshTable = function () {
+            window.showAjaxLoader && window.showAjaxLoader();
             updateCardVisibility();
+            table.ajax.reload(function () {
+                window.hideAjaxLoader && window.hideAjaxLoader();
+            }, false);
+        };
 
-            window.refreshTable = function () {
-                window.showAjaxLoader && window.showAjaxLoader();
-                updateCardVisibility();
-                table.ajax.reload(function () {
-                    window.hideAjaxLoader && window.hideAjaxLoader();
-                }, false);
-            };
+        // Apply Filters
+        $(document).on('click', '#applyFiltersBtn', function (e) {
+            e.preventDefault();
+            isFiltered = true;
+            window.refreshTable();
+        });
 
-            // Apply Filters
-            $(document).on('click', '#applyFiltersBtn', function (e) {
-                e.preventDefault();
-                isFiltered = true;
-                window.refreshTable();
-            });
-
-            // Clear Filters
-            $(document).on('click', '#clearFiltersBtn', function (e) {
-                e.preventDefault();
-                $('#filter-start-date').val('');
-                $('#filter-end-date').val('');
-                $('#filter-location').val('').trigger('change');
-                $('#filter-balance-type').val('').trigger('change');
-                if (startPicker) startPicker.clear();
-                if (endPicker) endPicker.clear();
-                updateFilterButtonsVisibility();
-                isFiltered = false;
-                window.refreshTable();
-            });
+        // Clear Filters
+        $(document).on('click', '#clearFiltersBtn', function (e) {
+            e.preventDefault();
+            $('#filter-start-date').val('');
+            $('#filter-end-date').val('');
+            $('#filter-location').val('').trigger('change');
+            $('#filter-balance-type').val('').trigger('change');
+            $('#filter-source').val('all').trigger('change');
+            if (startPicker) startPicker.clear();
+            if (endPicker) endPicker.clear();
+            updateFilterButtonsVisibility();
+            isFiltered = false;
+            window.refreshTable();
+        });
 
         });
     </script>
