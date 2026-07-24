@@ -37,9 +37,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Stock Inventory Report</h4>
-        <button id="exportExcelBtn" class="btn btn-success report-export-btn">
+        {{-- <button id="exportExcelBtn" class="btn btn-success report-export-btn">
             <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-        </button>
+        </button> --}}
     </div>
 
     <div id="report-results">
@@ -359,7 +359,7 @@
             loadReport('{{ route('admin.reports.stock-inventory') }}');
         });
 
-        $('#exportExcelBtn').on('click', function() {
+        /* $('#exportExcelBtn').on('click', function() {
             const cat = $('#filterCategory').val();
             const stock = $('#filterStock').val();
 
@@ -369,7 +369,7 @@
             if (stock) params.push('stock=' + stock);
 
             window.location.href = url + params.join('&');
-        });
+        }); */
 
         initReport();
         initDatePickers();
