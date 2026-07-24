@@ -1527,13 +1527,32 @@ class SaleController extends Controller
                 continue;
             }
 
-
+            if (!empty($product->pair_product)) {
+                $customSizes = !empty($variant->custom_sizes) ? $variant->custom_sizes : ($product->custom_sizes ?? []);
+                if (!empty($customSizes) && (is_array($customSizes) || $customSizes instanceof \Illuminate\Support\Collection)) {
+                    $sizes = collect($customSizes)->map(function ($s) {
+                        return (float) (is_array($s) ? ($s['size'] ?? 0) : (is_object($s) ? ($s->size ?? 0) : $s));
+                    })->filter(fn($s) => $s > 0);
+                    $maxSize = $sizes->count() > 0 ? $sizes->max() : 2.0;
+                    $customSizeValRaw = is_array($itemData) ? ($itemData['custom_size_value'] ?? null) : ($itemData->custom_size_value ?? null);
+                    $customSizeVal = !empty($customSizeValRaw) ? (float)$customSizeValRaw : $maxSize;
+                    if ($maxSize > 0) {
+                        $purchasePrice = $purchasePrice * ($customSizeVal / $maxSize);
+                    }
+                } else {
+                    $isPairRaw = is_array($itemData) ? ($itemData['pair_type'] ?? null) : ($itemData->pair_type ?? null);
+                    $isPair = isset($isPairRaw) && $isPairRaw === 'pair';
+                    if (!$isPair) {
+                        $purchasePrice = $purchasePrice / 2.0;
+                    }
+                }
+            }
 
             $minTotal = $qty * $purchasePrice * 1.10;
             $minFloorTotal += $minTotal;
 
             if ($discVal > 0 && $itemTotal < $minTotal - 0.01) {
-                return 'Discount is not applicable for ' . $label;
+                return 'Discount cannot be applied to this order.';
             }
         }
 
@@ -1562,8 +1581,7 @@ class SaleController extends Controller
         }
 
         if ($hasAnyDiscount && $minFloorTotal > 0 && $finalAmount < $minFloorTotal - 0.01) {
-            return 'Order total cannot be less than ' . format_price($minFloorTotal)
-                . ' (combined purchase price + 10% of all items).';
+            return 'Discount cannot be applied to this order.';
         }
 
         return null;

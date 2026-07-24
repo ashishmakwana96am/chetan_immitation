@@ -443,10 +443,21 @@ $(document).ready(function () {
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
         const product = row.data('product');
+        const variantId = row.data('variant-id');
         const isPair = row.find('.pair-type-input').val() === 'pair';
 
-        if (product && product.pair_product && !(product.custom_sizes && product.custom_sizes.length) && !isPair) {
-            purchasePrice = purchasePrice / 2;
+        if (product && product.pair_product) {
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            if (effectiveSizes && effectiveSizes.length) {
+                const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
+                const maxSize = sizes.length > 0 ? Math.max(...sizes) : 2;
+                const currentSize = parseFloat(row.find('.custom-size-value-input').val()) || maxSize;
+                if (maxSize > 0) {
+                    purchasePrice = purchasePrice * (currentSize / maxSize);
+                }
+            } else if (!isPair) {
+                purchasePrice = purchasePrice / 2;
+            }
         }
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
     }
@@ -1123,10 +1134,8 @@ $(document).ready(function () {
             if (minTotal > 0) {
                 minFloorTotal += minTotal;
                 if (itemDiscVal > 0 && itemTotal < minTotal - 0.01) {
-                    const product = $(this).data('product');
-                    const name = (product && product.name) ? product.name : 'item';
                     $(this).find('.item-discount-value').addClass('is-invalid');
-                    errorMsg = 'Discount is not applicable for ' + name;
+                    errorMsg = 'Discount cannot be applied to this order.';
                 }
             }
         });
@@ -1153,8 +1162,7 @@ $(document).ready(function () {
 
         if (hasAnyDiscount && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
             $('#orderDiscountValueInput').addClass('is-invalid');
-            return 'Order total cannot be less than ' + symbol + ' ' + formatPrice(minFloorTotal)
-                + ' (combined purchase price + 10% of all items).';
+            return 'Discount cannot be applied to this order.';
         }
 
         return null;
