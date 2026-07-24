@@ -683,10 +683,12 @@
                             <span class="font-medium text-[#131615]">Discount</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutDiscountValue">-{{ website_price($discount) }}</span>
                         </div>
+                        {{--
                         <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Shipping</span>
                             <span class="font-normal text-[#3D403F]" id="checkoutShippingValue">{{ $shipping > 0 ? website_price($shipping) : 'Free' }}</span>
                         </div>
+                        --}}
                         {{--
                         <div class="flex justify-between text-base sm:text-lg">
                             <span class="font-medium text-[#131615]">Estimated Tax</span>

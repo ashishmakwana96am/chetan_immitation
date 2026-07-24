@@ -38,6 +38,9 @@ class CheckoutController extends Controller
      */
     private function calculateShipping(float $subtotal, ?CustomerAddress $address, ?Coupon $coupon = null): float
     {
+        return 0.0;
+
+        /*
         if ($subtotal <= 0) {
             return 0.0;
         }
@@ -61,6 +64,7 @@ class CheckoutController extends Controller
         }
 
         return 0.0;
+        */
     }
 
     private function resolveDeliveryDays(?CustomerAddress $address): ?int
