@@ -150,6 +150,10 @@ class PurchaseBillController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        if ($transfers->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         $spreadsheet = $this->exportService->exportPurchaseBills($transfers);
 
         ActivityLogger::log('Purchase Bill', 'export', null, null, null, 'Purchase bills exported to Excel');

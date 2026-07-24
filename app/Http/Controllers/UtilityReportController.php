@@ -94,14 +94,18 @@ class UtilityReportController extends Controller
     {
         $this->authorize('view utility report');
 
+        $logs = $this->filteredQuery($request)->orderByDesc('created_at')->orderByDesc('id')->get();
+
+        if ($logs->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Utility Report',
                 'pdfUrl' => route('admin.reports.utility.export', array_merge($request->all(), ['stream' => 1])),
             ]);
         }
-
-        $logs = $this->filteredQuery($request)->orderByDesc('created_at')->orderByDesc('id')->get();
 
         $pdf = Pdf::loadView('reports.pdf.utility', [
             'logs'      => $logs,

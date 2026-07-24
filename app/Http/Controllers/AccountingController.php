@@ -447,13 +447,6 @@ class AccountingController extends Controller
     {
         $this->authorize('view general ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'General Ledger',
-                'pdfUrl' => route('admin.accounting.general-ledger.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         $user         = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
@@ -530,6 +523,17 @@ class AccountingController extends Controller
 
         $totalCredit = $rows->where('is_credit', true)->sum('amount');
         $totalDebit  = $rows->where('is_credit', false)->sum('amount');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'General Ledger',
+                'pdfUrl' => route('admin.accounting.general-ledger.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('accounting.pdf.general-ledger', compact(
             'rows',

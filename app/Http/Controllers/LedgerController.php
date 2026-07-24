@@ -196,13 +196,6 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view supplier ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Supplier Ledger',
-                'pdfUrl' => route('admin.ledgers.supplier.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
         $user = auth()->user();
@@ -260,6 +253,17 @@ class LedgerController extends Controller
         $totalAmount = $rows->sum('total_amount');
         $totalPaid   = $rows->sum('paid_amount');
         $totalDue    = $rows->sum('due_amount');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Supplier Ledger',
+                'pdfUrl' => route('admin.ledgers.supplier.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('ledgers.pdf.supplier', compact(
             'rows',
@@ -421,13 +425,6 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view cash ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Cash Ledger',
-                'pdfUrl' => route('admin.ledgers.cash.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
 
         abort_if(empty($locationIds), 404);
@@ -450,6 +447,17 @@ class LedgerController extends Controller
 
         $totalIn  = $rows->sum('in');
         $totalOut = $rows->sum('out');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Cash Ledger',
+                'pdfUrl' => route('admin.ledgers.cash.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('ledgers.pdf.cash', compact(
             'rows',
@@ -559,13 +567,6 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view bank ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Bank Ledger',
-                'pdfUrl' => route('admin.ledgers.bank.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
 
         abort_if(empty($locationIds), 404);
@@ -588,6 +589,17 @@ class LedgerController extends Controller
 
         $totalIn  = $rows->sum('in');
         $totalOut = $rows->sum('out');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Bank Ledger',
+                'pdfUrl' => route('admin.ledgers.bank.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('ledgers.pdf.bank', compact(
             'rows',
@@ -858,13 +870,6 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view branch ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Branch Ledger',
-                'pdfUrl' => route('admin.ledgers.branch.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         [$locationIds] = $this->resolveLocationIds($request);
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
@@ -903,6 +908,17 @@ class LedgerController extends Controller
         })->values();
 
         $totalAmount = $rows->sum('amount');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Branch Ledger',
+                'pdfUrl' => route('admin.ledgers.branch.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('ledgers.pdf.branch', compact('rows', 'startDate', 'endDate', 'totalAmount'))
             ->setPaper('a4', 'landscape');
@@ -1515,13 +1531,6 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view customer ledger');
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Customer Ledger',
-                'pdfUrl' => route('admin.ledgers.customer.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
-
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
         $user = auth()->user();
@@ -1583,6 +1592,17 @@ class LedgerController extends Controller
         $totalAmount = $rows->sum('total_amount');
         $totalPaid   = $rows->sum('paid_amount');
         $totalDue    = $rows->sum('due_amount');
+
+        if ($rows->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Customer Ledger',
+                'pdfUrl' => route('admin.ledgers.customer.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
 
         $pdf = Pdf::loadView('ledgers.pdf.customer', compact(
             'rows',

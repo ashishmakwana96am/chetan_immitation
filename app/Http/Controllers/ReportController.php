@@ -892,6 +892,10 @@ class ReportController extends Controller
             $productsList = $productsList->where('total_stock', '<=', 0);
         }
 
+        if ($productsList->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Products Report',
@@ -1121,6 +1125,10 @@ class ReportController extends Controller
             $productsList = $productsList->where('total', '<=', 0);
         }
 
+        if ($productsList->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Stock Inventory Report',
@@ -1223,6 +1231,10 @@ class ReportController extends Controller
             ->sortByDesc('qty_purchased')
             ->values();
 
+        if ($invoices->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Purchase Report',
@@ -1289,6 +1301,10 @@ class ReportController extends Controller
             ->get()
             ->sortByDesc('qty_sold')
             ->values();
+
+        if ($orders->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
 
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
@@ -1378,6 +1394,10 @@ class ReportController extends Controller
 
         $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
+
+        if ($sales->isEmpty() && $totalExpenses <= 0) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
 
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
@@ -1645,6 +1665,10 @@ class ReportController extends Controller
 
         $orders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
 
+        if ($orders->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Payment Report',
@@ -1694,15 +1718,24 @@ class ReportController extends Controller
     {
         $this->authorize('view daily reports');
 
+        [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
+        $data = $this->buildDailyReportData($date, $locationId);
+
+        if (
+            $data['salesRows']->isEmpty()
+            && $data['purchaseRows']->isEmpty()
+            && $data['expenseRows']->isEmpty()
+            && $data['purchaseBillRows']->isEmpty()
+        ) {
+            return redirect()->back()->with('error', 'No data found for the selected date. Nothing to export.');
+        }
+
         if ($request->boolean('auto_print') && !$request->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
                 'title'  => 'Daily Report',
                 'pdfUrl' => route('admin.reports.daily-report.export', array_merge($request->all(), ['stream' => 1])),
             ]);
         }
-
-        [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
-        $data = $this->buildDailyReportData($date, $locationId);
 
         $selectedLocation = $locationId ? Location::find($locationId) : null;
 
