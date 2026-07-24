@@ -60,25 +60,31 @@ class HomeController extends Controller
         $profileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
 
         if (!empty($accessToken)) {
-            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts_v5', 3600, function () use ($accessToken, $profileUrl) {
+            return \Illuminate\Support\Facades\Cache::remember('instagram_feed_posts_v6', 3600, function () use ($accessToken, $profileUrl) {
                 try {
                     $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://graph.instagram.com/me/media', [
                         'fields'       => 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp',
                         'access_token' => $accessToken,
-                        'limit'        => 6,
+                        'limit'        => 50,
                     ]);
 
                     if ($response->successful()) {
                         $data = $response->json('data') ?? [];
                         if (!empty($data)) {
-                            return collect($data)->take(6)->map(function ($post) use ($profileUrl) {
-                                return [
-                                    'image'      => ($post['media_type'] === 'VIDEO' || $post['media_type'] === 'REEL') ? ($post['thumbnail_url'] ?? $post['media_url']) : $post['media_url'],
-                                    'link'       => $post['permalink'] ?? $profileUrl,
-                                    'caption'    => $post['caption'] ?? 'Instagram Post',
-                                    'media_type' => $post['media_type'] ?? 'IMAGE',
-                                ];
-                            })->toArray();
+                            $reels = collect($data)->filter(function ($post) {
+                                return in_array($post['media_type'] ?? '', ['VIDEO', 'REEL']);
+                            });
+
+                            if ($reels->isNotEmpty()) {
+                                return $reels->take(6)->map(function ($post) use ($profileUrl) {
+                                    return [
+                                        'image'      => $post['thumbnail_url'] ?? $post['media_url'],
+                                        'link'       => $post['permalink'] ?? $profileUrl,
+                                        'caption'    => $post['caption'] ?? 'Instagram Reel',
+                                        'media_type' => $post['media_type'] ?? 'VIDEO',
+                                    ];
+                                })->toArray();
+                            }
                         }
                     }
                 } catch (\Throwable $e) {

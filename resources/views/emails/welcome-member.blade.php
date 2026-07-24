@@ -74,7 +74,7 @@
 
             <p style="color:#757575;font-size:14px;line-height:1.7;margin:0;">
                 If you did not create this account, please ignore this email or contact us at
-                <a href="mailto:info@chetanimitation.com" style="color:#B4771E;text-decoration:none;">info@chetanimitation.com</a>.
+                <a href="mailto:rawalshaitan@gmail.com" style="color:#B4771E;text-decoration:none;">rawalshaitan@gmail.com</a>.
             </p>
 
         </td>

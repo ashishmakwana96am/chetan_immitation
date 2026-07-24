@@ -649,7 +649,7 @@
     <!-- Footer -->
     <footer class="bg-[#131615]">
         <div class="container-1440">
-            <div class="grid lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr] md:grid-cols-2 gap-9 py-10">
+            <div class="grid {{ (isset($sharedCategories) && count($sharedCategories) > 0) ? 'lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr]' : 'lg:grid-cols-[1.5fr_0.8fr_1.2fr_1.8fr]' }} md:grid-cols-2 gap-9 py-10">
                 <!-- Logo -->
                 <div>
                     <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
@@ -704,7 +704,7 @@
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" Box="0 0 24 24" stroke-width="1.5" stroke="currentColor"  class="w-5 h-5 text-[#B4771E]">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
                             </svg>
-                            <a href="mailto:info@chetanimitation.com" class="hover:text-[#B4771E] transition">info@chetanimitation.com</a>
+                            <a href="mailto:rawalshaitan@gmail.com" class="hover:text-[#B4771E] transition">rawalshaitan@gmail.com</a>
                         </li>
                         <li class="flex items-start gap-4">
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E] shrink-0 mt-2">

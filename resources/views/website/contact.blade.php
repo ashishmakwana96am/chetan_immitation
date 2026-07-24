@@ -100,8 +100,7 @@
 
                     <div>
                         <h4 class="text-lg md:text-xl font-medium text-[#131615] mb-2">Email Us</h4>
-                        <a href="mailto:info@chetanimitation.com" class="block text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition break-all">info@chetanimitation.com</a>
-                        <a href="mailto:support@chetanimitation.com" class="block text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition break-all">support@chetanimitation.com</a>
+                        <a href="mailto:rawalshaitan@gmail.com" class="block text-base md:text-lg text-[#3D403F] hover:text-[#B4771E] transition break-all">rawalshaitan@gmail.com</a>
                     </div>
 
                 </div>

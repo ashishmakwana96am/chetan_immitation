@@ -145,7 +145,7 @@
             <div class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 @foreach($instagramPosts as $post)
                     <a href="{{ $post['link'] ?? $instagramProfileUrl }}" target="_blank" class="group overflow-hidden relative block">
-                        <img src="{{ $post['image'] }}" alt="{{ $post['caption'] ?? 'Instagram Post' }}" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
+                        <img src="{{ $post['image'] }}" alt="{{ $post['caption'] ?? 'Instagram Post' }}" class="w-full h-[500px] object-cover transition duration-500 group-hover:scale-105">
                         <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white text-2xl">
                             @if(isset($post['media_type']) && ($post['media_type'] === 'VIDEO' || $post['media_type'] === 'REEL'))
                                 <i class="fa-solid fa-play"></i>
