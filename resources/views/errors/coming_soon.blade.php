@@ -133,12 +133,12 @@
         }
 
         .clock-hand {
-            transform-origin: 50px 53px;
+            transform-origin: 50px 50px;
             animation: rotateClock 4s linear infinite;
         }
 
         .clock-hand-short {
-            transform-origin: 50px 53px;
+            transform-origin: 50px 50px;
             animation: rotateClockSlow 48s linear infinite;
         }
 
