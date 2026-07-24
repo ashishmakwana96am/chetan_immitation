@@ -137,7 +137,10 @@
     @endif
 
     <!-- Instagram Journey -->
-    <section class="section-space-bottom mt-12 lg:mt-20">
+    @php
+        $hasPrecedingProducts = (isset($lovedProducts) && count($lovedProducts) > 0) || (isset($latestProducts) && count($latestProducts) > 0);
+    @endphp
+    <section class="section-space-bottom {{ !$hasPrecedingProducts ? 'section-space-top' : '' }}">
         <div>
             <div class="text-center px-5">
                 <h2 class="hero-title">Follow Our Jewellery Journey</h2>
