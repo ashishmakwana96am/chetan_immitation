@@ -283,26 +283,31 @@ class SettingController extends Controller
             'PATH' => getenv('PATH') ?: 'C:\\Windows\\system32;C:\\Windows',
         ]);
 
-        $process = new Process($command, null, $env);
-        $process->setTimeout(600);
-
+        $mysqldumpSuccess = false;
         try {
+            $process = new Process($command, null, $env);
+            $process->setTimeout(600);
             $process->run();
+            if ($process->isSuccessful() && is_file($filePath) && filesize($filePath) > 0) {
+                $mysqldumpSuccess = true;
+            }
         } catch (\Throwable $e) {
-            Log::error('Database backup failed to run mysqldump: ' . $e->getMessage());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Backup failed: could not run mysqldump. ' . $e->getMessage(),
-            ], 500);
+            Log::warning('mysqldump binary execution unavailable or failed: ' . $e->getMessage() . '. Falling back to PHP PDO backup export.');
         }
 
-        if (!$process->isSuccessful() || !is_file($filePath) || filesize($filePath) === 0) {
+        // PHP Fallback Export if mysqldump is not installed or enabled on hosting
+        if (!$mysqldumpSuccess) {
             @unlink($filePath);
-            Log::error('Database backup failed: ' . $process->getErrorOutput());
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Backup failed. Please check that mysqldump is installed and accessible.',
-            ], 500);
+            try {
+                $this->generatePhpPdoBackup($filePath, $connection);
+            } catch (\Throwable $e) {
+                @unlink($filePath);
+                Log::error('PHP PDO Database Backup fallback failed: ' . $e->getMessage());
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Backup failed: ' . $e->getMessage(),
+                ], 500);
+            }
         }
 
         // Clean up "don't" / "don\'t" / "Don't" / "Don\'t" to prevent MySQL import issues
@@ -343,5 +348,70 @@ class SettingController extends Controller
             'status'  => 'success',
             'message' => 'Database backup successfully generated and stored in Google Drive!',
         ]);
+    }
+
+    private function generatePhpPdoBackup(string $filePath, array $connection): void
+    {
+        $host = $connection['host'];
+        $port = $connection['port'] ?? 3306;
+        $database = $connection['database'];
+        $username = $connection['username'];
+        $password = $connection['password'] ?? '';
+
+        $dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
+        $pdo = new \PDO($dsn, $username, $password, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
+        ]);
+
+        $handle = fopen($filePath, 'w');
+        if (!$handle) {
+            throw new \Exception("Could not open file {$filePath} for writing.");
+        }
+
+        fwrite($handle, "-- Chetan Imitation Database Backup (PHP PDO Exporter)\n");
+        fwrite($handle, "-- Generated: " . date('Y-m-d H:i:s') . "\n");
+        fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n");
+        fwrite($handle, "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n");
+        fwrite($handle, "SET time_zone = \"+00:00\";\n\n");
+
+        $tables = $pdo->query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'")->fetchAll(\PDO::FETCH_COLUMN, 0);
+
+        foreach ($tables as $table) {
+            fwrite($handle, "DROP TABLE IF EXISTS `{$table}`;\n");
+            $createTableStmt = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $createSql = $createTableStmt['Create Table'] ?? '';
+            fwrite($handle, $createSql . ";\n\n");
+
+            $rowsStmt = $pdo->query("SELECT * FROM `{$table}`");
+            $rows = $rowsStmt->fetchAll(\PDO::FETCH_ASSOC);
+            if (!empty($rows)) {
+                $columns = array_keys($rows[0]);
+                $colNames = '`' . implode('`, `', $columns) . '`';
+
+                $chunks = array_chunk($rows, 100);
+                foreach ($chunks as $chunk) {
+                    $insertSql = "INSERT INTO `{$table}` ({$colNames}) VALUES\n";
+                    $valueStrings = [];
+                    foreach ($chunk as $row) {
+                        $values = [];
+                        foreach ($row as $val) {
+                            if (is_null($val)) {
+                                $values[] = 'NULL';
+                            } else {
+                                $values[] = $pdo->quote($val);
+                            }
+                        }
+                        $valueStrings[] = '(' . implode(', ', $values) . ')';
+                    }
+                    $insertSql .= implode(",\n", $valueStrings) . ";\n";
+                    fwrite($handle, $insertSql);
+                }
+                fwrite($handle, "\n");
+            }
+        }
+
+        fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+        fclose($handle);
     }
 }
