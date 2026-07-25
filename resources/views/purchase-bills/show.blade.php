@@ -3,6 +3,8 @@
 @section('title', 'Purchase Bill ' . $transfer->transfer_no)
 
 @section('page-css')
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
 <style>
     .info-row {
         display: flex;
@@ -176,8 +178,8 @@
                     <span class="card-title-icon"><i class="ti ti-box"></i></span>
                     <h6 class="mb-0 fw-semibold">Transfer Items</h6>
                 </div>
-                <div class="table-responsive purchase-bill-items-wrap">
-                    <table class="table mb-0 purchase-bill-items-table">
+                <div class="card-datatable table-responsive purchase-bill-items-wrap p-3">
+                    <table class="table mb-0 purchase-bill-items-table" id="transferItemsTable">
                         <thead class="table-light">
                             <tr>
                                 <th class="col-index">#</th>
@@ -252,8 +254,24 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
 <script>
 $(document).ready(function () {
+
+    if ($('#transferItemsTable').length) {
+        $('#transferItemsTable').DataTable({
+            paging: true,
+            searching: true,
+            ordering: false,
+            info: true,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+            language: {
+                search: '',
+                searchPlaceholder: 'Search item...'
+            }
+        });
+    }
     $(document).on('click', '.change-purchase-bill-payment-status-btn', function (e) {
         e.preventDefault();
         const url = $(this).data('url');

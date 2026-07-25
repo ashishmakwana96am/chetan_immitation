@@ -3,6 +3,8 @@
 @section('title', 'Sale ' . $order->order_no)
 
 @section('page-css')
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
 <style>
     .sale-info-row {
         display: flex;
@@ -422,8 +424,8 @@
                     <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
                     <h6 class="mb-0 fw-semibold">Sale Items</h6>
                 </div>
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="card-datatable table-responsive p-3">
+                    <table class="table mb-0" id="saleItemsTable">
                         <thead class="table-light">
                             <tr>
                                 <th style="width:4%">#</th>
@@ -558,6 +560,7 @@
 @endsection
 
 @section('page-js')
+<script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
 <script>
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
@@ -594,6 +597,21 @@ function fallbackCopyTextToClipboard(text) {
 }
 
 $(document).ready(function () {
+
+    if ($('#saleItemsTable').length) {
+        $('#saleItemsTable').DataTable({
+            paging: true,
+            searching: true,
+            ordering: false,
+            info: true,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+            language: {
+                search: '',
+                searchPlaceholder: 'Search item...'
+            }
+        });
+    }
 
     $('#change-sale-status').on('change', function () {
         const status  = $(this).val();

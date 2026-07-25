@@ -3,6 +3,8 @@
 @section('title', 'Purchase ' . $purchase->invoice_no)
 
 @section('page-css')
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
 <style>
     .sale-info-row {
         display: flex;
@@ -224,8 +226,8 @@
                     <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
                     <h6 class="mb-0 fw-semibold">Purchase Items</h6>
                 </div>
-                <div class="table-responsive">
-                    <table class="table mb-0">
+                <div class="card-datatable table-responsive p-3">
+                    <table class="table mb-0" id="purchaseItemsTable">
                         <thead class="table-light">
                             <tr>
                                 <th style="width:4%">#</th>
@@ -421,7 +423,25 @@
 @endsection
 
 @section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
+        $(document).ready(function () {
+            if ($('#purchaseItemsTable').length) {
+                $('#purchaseItemsTable').DataTable({
+                    paging: true,
+                    searching: true,
+                    ordering: false,
+                    info: true,
+                    pageLength: 25,
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                    language: {
+                        search: '',
+                        searchPlaceholder: 'Search item...'
+                    }
+                });
+            }
+        });
+
         function buildPaymentHistoryHtml(historyData) {
             if (!historyData || !historyData.payments || historyData.payments.length === 0) {
                 return '';
