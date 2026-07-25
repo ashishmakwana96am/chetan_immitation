@@ -14,6 +14,7 @@ use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Services\PurchaseStockService;
 
 class PurchaseController extends Controller
 {
@@ -636,8 +637,14 @@ class PurchaseController extends Controller
             abort(403);
         }
 
-        $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
-        $purchase->delete();
+        DB::transaction(function () use ($purchase) {
+            if ($purchase->status == Purchase::STATUS_APPROVE) {
+                PurchaseStockService::reverse($purchase, 'deletion');
+            }
+
+            $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
+            $purchase->delete();
+        });
 
         return response()->json([
             'status'  => 'success',
@@ -693,12 +700,12 @@ class PurchaseController extends Controller
 
     private function approveInvoice(Purchase $purchase)
     {
-        \App\Services\PurchaseStockService::approve($purchase);
+        PurchaseStockService::approve($purchase);
     }
 
     private function reverseInvoiceStock(Purchase $purchase): void
     {
-        \App\Services\PurchaseStockService::reverse($purchase);
+        PurchaseStockService::reverse($purchase);
     }
 
     /**

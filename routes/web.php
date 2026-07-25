@@ -250,7 +250,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Sales
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
-        Route::resource('sales', SaleController::class)->except('show');
+        Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
         Route::get('sales/{sale}/tax-invoice', [SaleController::class, 'taxInvoice'])->name('sales.tax-invoice');

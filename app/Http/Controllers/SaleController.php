@@ -74,7 +74,6 @@ class SaleController extends Controller
             ->orderBy('id', 'desc')
             ->get();
         $canEdit                   = auth()->user()->can('edit sales');
-        $canDelete                 = auth()->user()->can('delete sales');
         $canEditSalesStatus        = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales          = auth()->user()->can('download sales');
@@ -112,7 +111,7 @@ class SaleController extends Controller
             2 => 'Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canDelete, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -220,10 +219,6 @@ class SaleController extends Controller
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
-            }
-            if ($canDelete && $order->status == 6) {
-                $actions .= '<div class="dropdown-divider"></div>';
-                $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '" data-row-id="sale-row-' . $order->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
@@ -1749,19 +1744,5 @@ class SaleController extends Controller
                 'message' => 'Failed to reject cancellation: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    public function destroy(Order $sale)
-    {
-        $this->authorize('delete sales');
-
-        if ($sale->status != 6) {
-            return response()->json(['status' => 'error', 'message' => 'Only cancelled sales can be deleted.'], 422);
-        }
-
-        $sale->update(['order_no' => 'DEL-' . $sale->id . '-' . $sale->order_no]);
-        $sale->delete();
-
-        return response()->json(['status' => 'success', 'message' => 'Sale deleted successfully.']);
     }
 }

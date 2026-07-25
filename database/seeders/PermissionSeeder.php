@@ -111,7 +111,6 @@ class PermissionSeeder extends Seeder
             'view sales' => 'Sales',
             'create sales' => 'Sales',
             'edit sales' => 'Sales',
-            'delete sales' => 'Sales',
             'edit sales status' => 'Sales',
             'edit sales payment status' => 'Sales',
 
@@ -146,6 +145,8 @@ class PermissionSeeder extends Seeder
         ];
 
         // Migrate/cleanup old permission if it exists
+        Permission::where('name', 'delete sales')->delete();
+
         $oldPermission = Permission::where('name', 'view activity logs')->first();
         if ($oldPermission) {
             $newPermission = Permission::firstOrCreate(['name' => 'view utility report', 'module' => 'Reports']);

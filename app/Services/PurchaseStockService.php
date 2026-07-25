@@ -40,9 +40,9 @@ class PurchaseStockService
 
     /**
      * Reverse the inventory added by approve(), used when an approved
-     * purchase is edited back to a non-approved state.
+     * purchase is edited back to a non-approved state or deleted.
      */
-    public static function reverse(Purchase $purchase): void
+    public static function reverse(Purchase $purchase, string $reason = 'edit'): void
     {
         $purchase->load('items.allocations.location', 'items.product');
         foreach ($purchase->items as $item) {
@@ -58,7 +58,7 @@ class PurchaseStockService
                     $newQty = max(0, $inventory->quantity - $qtyToSubtract);
                     $inventory->update(['quantity' => $newQty]);
 
-                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' edit');
+                    ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], 'Stock reversed for purchase #' . $purchase->invoice_no . ' ' . $reason);
                 }
             }
         }
