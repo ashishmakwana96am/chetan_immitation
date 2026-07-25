@@ -221,9 +221,7 @@
             <p class="hero-para">Discover our latest jewellery collections and receive personalized assistance at our store.</p>
         </div>
 
-        <div class="border border-[#D5D5D5] overflow-hidden bg-white">
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3718.7814914346445!2d72.8780558!3d21.2405117!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be04fb74838640f%3A0xf07f814d770fed04!2sChetan%20imitation!5e0!3m2!1sen!2sin!4v1784891107042!5m2!1sen!2sin" class="w-full h-[300px] md:h-[450px] lg:h-[520px]" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-        </div>
+        <div id="map" class="w-full h-[450px] lg:h-[500px] rounded-sm border border-[#D5D5D5] z-10"></div>
 
     </div>
 
@@ -231,9 +229,46 @@
 
 @endsection
 
+@section('page-css')
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+    .custom-map-tooltip {
+        background: #ffffff !important;
+        border: 1px solid #B4771E !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+        padding: 10px 14px !important;
+        font-family: inherit !important;
+        font-size: 13px !important;
+        color: #131615 !important;
+    }
+    .leaflet-tooltip-top:before {
+        border-top-color: #B4771E !important;
+    }
+</style>
+@endsection
+
 @section('page-js')
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
     $(document).ready(function () {
+        const map = L.map('map').setView([21.2324180, 72.8536005], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const marker1 = L.marker([21.2405117, 72.8780558])
+            .addTo(map)
+            .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 1</strong><br><span style="color:#666;">Mota Varachha, Surat</span><br><a href="https://maps.app.goo.gl/aAs5DaPUi4WsVdxM7" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
+
+        const marker2 = L.marker([21.2243243, 72.8291452])
+            .addTo(map)
+            .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 2</strong><br><span style="color:#666;">Katargam, Surat</span><br><a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
+
+        const group = L.featureGroup([marker1, marker2]);
+        map.fitBounds(group.getBounds().pad(0.3));
+        marker1.openPopup();
         const form = $('#contactForm');
         const submitBtn = $('#contactSubmitBtn');
         const successBox = $('#contactSuccess');
