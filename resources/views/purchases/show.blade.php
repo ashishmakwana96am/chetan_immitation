@@ -42,6 +42,32 @@
     .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
     .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
     .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
+    .purchase-items-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .purchase-items-table {
+        min-width: 750px;
+    }
+    .purchase-items-table th,
+    .purchase-items-table td {
+        vertical-align: middle;
+    }
+    .purchase-items-table .col-index { width: 54px; }
+    .purchase-items-table .col-product { width: 45%; min-width: 250px; }
+    .purchase-items-table .col-price { width: 140px; }
+    .purchase-items-table .col-qty { width: 110px; }
+    .purchase-items-table .col-discount { width: 110px; }
+    .purchase-items-table .col-total { width: 140px; }
+    .purchase-items-table .product-name {
+        display: block;
+        word-break: break-word;
+        line-height: 1.35;
+    }
+    .purchase-items-table .product-code {
+        display: block;
+        margin-top: 0.15rem;
+    }
 </style>
 @endsection
 
@@ -226,17 +252,16 @@
                     <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
                     <h6 class="mb-0 fw-semibold">Purchase Items</h6>
                 </div>
-                <div class="card-datatable table-responsive p-3">
-                    <table class="table mb-0" id="purchaseItemsTable">
+                <div class="card-datatable table-responsive purchase-items-wrap p-3">
+                    <table class="table mb-0 purchase-items-table" id="purchaseItemsTable">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:4%">#</th>
-                                <th>Product</th>
-                                <th class="text-end">Purchase Price</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Discount</th>
-                                <th class="text-end">Total</th>
-                                <th>Allocations</th>
+                                <th class="col-index">#</th>
+                                <th class="col-product">Product</th>
+                                <th class="text-end col-price">Purchase Price</th>
+                                <th class="text-end col-qty">Qty</th>
+                                <th class="text-end col-discount">Discount</th>
+                                <th class="text-end col-total">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -269,10 +294,10 @@
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            <div>
-                                                <span class="fw-semibold">{{ $displayName }}</span>
+                                            <div class="min-w-0">
+                                                <span class="fw-semibold product-name">{{ $displayName }}</span>
                                                 @if($item->product?->barcode)
-                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
+                                                    <small class="text-muted product-code">{{ $item->product->barcode }}</small>
                                                 @endif
                                             </div>
                                         </div>
@@ -284,9 +309,9 @@
                                             $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
                                         @endphp
                                         @if($szVal)
-                                            <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
+                                            <span class="small text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
                                         @else
-                                            <small class="text-muted">Pcs</small>
+                                            <span class="small text-muted">Pcs</span>
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap small">
@@ -301,13 +326,6 @@
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($displayTotal) }}</td>
-                                    <td class="small">
-                                        @foreach($displayAllocations as $allocation)
-                                            <span class="badge bg-label-info me-1 mb-1">
-                                                {{ $allocation->location->name ?? '-' }}: {{ $allocation->quantity }}
-                                            </span>
-                                        @endforeach
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -363,18 +381,15 @@
                             <tr>
                                 <td colspan="5" class="text-end fw-semibold text-muted">Total Items</td>
                                 <td class="text-end fw-semibold text-muted">{{ $totalQty }}</td>
-                                <td></td>
                             </tr>
                             @if($totalItemDiscount > 0 || $overallDiscAmount > 0)
                                 <tr>
                                     <td colspan="5" class="text-end fw-semibold text-muted">Subtotal</td>
                                     <td class="text-end fw-semibold text-muted">{{ format_price($totalSubtotal) }}</td>
-                                    <td></td>
                                 </tr>
                                 <tr>
                                     <td colspan="5" class="text-end fw-semibold text-danger">Discount</td>
                                     <td class="text-end fw-semibold text-danger">-{{ format_price($totalItemDiscount + $overallDiscAmount) }}</td>
-                                    <td></td>
                                 </tr>
                             @endif
 
@@ -392,18 +407,15 @@
                                     <tr>
                                         <td colspan="5" class="text-end fw-semibold text-muted">CGST ({{ $halfRate }}%)</td>
                                         <td class="text-end fw-semibold text-muted">{{ format_price($halfTax) }}</td>
-                                        <td></td>
                                     </tr>
                                     <tr>
                                         <td colspan="5" class="text-end fw-semibold text-muted">SGST ({{ $halfRate }}%)</td>
                                         <td class="text-end fw-semibold text-muted">{{ format_price($halfTax) }}</td>
-                                        <td></td>
                                     </tr>
                                 @else
                                     <tr>
                                         <td colspan="5" class="text-end fw-semibold text-muted">IGST ({{ $gstRate }}%)</td>
                                         <td class="text-end fw-semibold text-muted">{{ format_price($taxAmount) }}</td>
-                                        <td></td>
                                     </tr>
                                 @endif
                             @endif
@@ -411,7 +423,6 @@
                             <tr style="border-top:2px solid #B4771E;">
                                 <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Grand Total</td>
                                 <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($grandTotal) }}</td>
-                                <td></td>
                             </tr>
                         </tfoot>
                     </table>

@@ -42,6 +42,32 @@
     .card-header .card-title-icon i { color: #B4771E; font-size: 1rem; }
     .tfoot-label { font-size: 0.82rem; font-weight: 600; color: #5d596c; }
     .tfoot-amount { font-size: 0.82rem; font-weight: 600; }
+    .sale-items-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sale-items-table {
+        min-width: 750px;
+    }
+    .sale-items-table th,
+    .sale-items-table td {
+        vertical-align: middle;
+    }
+    .sale-items-table .col-index { width: 54px; }
+    .sale-items-table .col-product { width: 45%; min-width: 250px; }
+    .sale-items-table .col-price { width: 140px; }
+    .sale-items-table .col-qty { width: 110px; }
+    .sale-items-table .col-discount { width: 110px; }
+    .sale-items-table .col-total { width: 140px; }
+    .sale-items-table .product-name {
+        display: block;
+        word-break: break-word;
+        line-height: 1.35;
+    }
+    .sale-items-table .product-code {
+        display: block;
+        margin-top: 0.15rem;
+    }
 </style>
 @endsection
 
@@ -424,16 +450,16 @@
                     <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
                     <h6 class="mb-0 fw-semibold">Sale Items</h6>
                 </div>
-                <div class="card-datatable table-responsive p-3">
-                    <table class="table mb-0" id="saleItemsTable">
+                <div class="card-datatable table-responsive sale-items-wrap p-3">
+                    <table class="table mb-0 sale-items-table" id="orderItemsTable">
                         <thead class="table-light">
                             <tr>
-                                <th style="width:4%">#</th>
-                                <th>Product</th>
-                                <th class="text-end">Price</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Discount</th>
-                                <th class="text-end">Total</th>
+                                <th class="col-index">#</th>
+                                <th class="col-product">Product</th>
+                                <th class="text-end col-price">Price</th>
+                                <th class="text-end col-qty">Qty</th>
+                                <th class="text-end col-discount">Discount</th>
+                                <th class="text-end col-total">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -452,10 +478,10 @@
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $displayName }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            <div>
-                                                <span class="fw-semibold">{{ $displayName }}</span>
+                                            <div class="min-w-0">
+                                                <span class="fw-semibold product-name">{{ $displayName }}</span>
                                                 @if($item->product?->barcode)
-                                                    <br><small class="text-muted">{{ $item->product->barcode }}</small>
+                                                    <small class="text-muted product-code">{{ $item->product->barcode }}</small>
                                                 @endif
                                             </div>
                                         </div>
@@ -467,9 +493,9 @@
                                             $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
                                         @endphp
                                         @if($szVal)
-                                            <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
+                                            <span class="small text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
                                         @else
-                                            <small class="text-muted">Pcs</small>
+                                            <span class="small text-muted">Pcs</span>
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap small">
@@ -598,8 +624,8 @@ function fallbackCopyTextToClipboard(text) {
 
 $(document).ready(function () {
 
-    if ($('#saleItemsTable').length) {
-        $('#saleItemsTable').DataTable({
+    if ($('#orderItemsTable').length) {
+        $('#orderItemsTable').DataTable({
             paging: true,
             searching: true,
             ordering: false,
