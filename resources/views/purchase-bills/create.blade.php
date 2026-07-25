@@ -371,15 +371,16 @@ $(document).ready(function () {
         setProductImage(row.find('.product-image-container'), product);
 
         if (product.type === 'variable' && product.variants && product.variants.length) {
-            let options = '';
+            let options = `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(function (variant) {
-                const selected = initialVariantId == variant.id ? 'selected' : '';
+                const selected = selectedVariantId && selectedVariantId == variant.id ? 'selected' : '';
                 const price = variant.purchase_price != null ? variant.purchase_price : 0;
                 const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})`;
                 options += `<option value="${variant.id}" ${selected}>${label}</option>`;
             });
             row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
-            row.data('variant-id', row.find('.variant-select').val() || null);
+            const currentVarVal = row.find('.variant-select').val() || null;
+            row.data('variant-id', currentVarVal);
         }
 
         if (product.pair_product) {
@@ -537,7 +538,29 @@ $(document).ready(function () {
         $('#itemsTable').toggle(items > 0);
     }
 
+    function hasUnselectedVariableProduct() {
+        let unselected = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable') {
+                const variantVal = row.find('.variant-select').val();
+                if (!variantVal || variantVal === '') {
+                    unselected = true;
+                }
+            }
+        });
+        return unselected;
+    }
+
     function selectSearchProduct(product) {
+        if (hasUnselectedVariableProduct()) {
+            toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
+            searchInput.val('');
+            searchResults.hide().empty();
+            return;
+        }
+
         addItemRow(product);
         searchInput.val('');
         searchResults.hide().empty();
@@ -662,6 +685,7 @@ $(document).ready(function () {
         const row = $(this).closest('.item-row');
         const product = row.data('product');
         let variantId = $(this).val() || null;
+
         if (variantId && hasDuplicate(product.id, variantId)) {
             toastr.warning('This variant is already in the list.');
             $(this).val('');
@@ -704,6 +728,23 @@ $(document).ready(function () {
         const rows = $('.item-row');
         if (!rows.length) {
             toastr.error('Please add at least one transfer item.');
+            return;
+        }
+
+        let variantMissing = false;
+        rows.each(function () {
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable') {
+                const vVal = row.find('.variant-select').val();
+                if (!vVal) {
+                    variantMissing = true;
+                    row.find('.variant-select').addClass('is-invalid');
+                }
+            }
+        });
+        if (variantMissing) {
+            toastr.error('Please select a variant for each variable product before saving.');
             return;
         }
 

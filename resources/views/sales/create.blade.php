@@ -554,7 +554,29 @@ $(document).ready(function () {
         return matches.length === 1 ? matches[0] : null;
     }
 
+    function hasUnselectedVariableProduct() {
+        let unselected = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable') {
+                const variantVal = row.find('.variant-select').val();
+                if (!variantVal || variantVal === '') {
+                    unselected = true;
+                }
+            }
+        });
+        return unselected;
+    }
+
     function selectSearchProduct(product) {
+        if (hasUnselectedVariableProduct()) {
+            toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
+            searchInput.val('');
+            searchResults.hide().empty();
+            return;
+        }
+
         let exists = false;
         if (product.type !== 'variable') {
             $('.product-id-input').each(function() {
@@ -695,10 +717,11 @@ $(document).ready(function () {
         if (product.type === 'variable') {
             // Build variant select dropdown
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
+            selectHtml += `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(v => {
                 const optPrice = v.sale_price != null ? v.sale_price : 0;
                 const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
-                const selected = (selectedVariantId && selectedVariantId == v.id) || (!selectedVariantId && product.variants[0].id == v.id) ? 'selected' : '';
+                const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
                 selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
@@ -706,12 +729,12 @@ $(document).ready(function () {
 
             // Set initial variant
             const selectedOpt = row.find('.variant-select option:selected');
-            const initialVariantId = selectedOpt.val();
-            const initialPrice = price != null ? price : selectedOpt.data('price');
+            const initialVariantId = selectedOpt.val() || '';
+            const initialPrice = price != null ? price : (selectedOpt.data('price') || 0);
 
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
-            row.data('purchase-price', selectedOpt.data('purchase-price'));
+            row.data('purchase-price', selectedOpt.data('purchase-price') || 0);
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
             setItemPrice(row, initialPrice);
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
@@ -752,7 +775,7 @@ $(document).ready(function () {
         const product = row.data('product');
         const selectedOpt = $(this).find('option:selected');
         const variantId = selectedOpt.val();
-        const variantPrice = selectedOpt.data('price');
+        const variantPrice = selectedOpt.data('price') || 0;
 
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
@@ -1191,6 +1214,24 @@ $(document).ready(function () {
         });
         if (activeCount === 0) {
             return 'Please add at least one item with quantity greater than 0.';
+        }
+
+        let variantMissing = false;
+        $('.item-row').each(function () {
+            const row = $(this);
+            const qty = parseInt(row.find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+            const product = row.data('product');
+            if (product && product.type === 'variable') {
+                const vVal = row.find('.variant-select').val();
+                if (!vVal) {
+                    variantMissing = true;
+                    row.find('.variant-select').addClass('is-invalid');
+                }
+            }
+        });
+        if (variantMissing) {
+            return 'Please select a variant for each variable product before saving.';
         }
 
         let sizeMissing = false;

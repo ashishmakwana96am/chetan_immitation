@@ -33,16 +33,15 @@
     }
     .purchase-bill-items-table {
         min-width: 980px;
-        table-layout: fixed;
     }
     .purchase-bill-items-table th,
     .purchase-bill-items-table td {
         vertical-align: middle;
     }
     .purchase-bill-items-table .col-index { width: 54px; }
-    .purchase-bill-items-table .col-product { width: 42%; }
+    .purchase-bill-items-table .col-product { width: 35%; min-width: 250px; }
     .purchase-bill-items-table .col-qty { width: 110px; }
-    .purchase-bill-items-table .col-money { width: 140px; }
+    .purchase-bill-items-table .col-money { width: 130px; }
     .purchase-bill-items-table .money-cell,
     .purchase-bill-items-table .qty-cell,
     .purchase-bill-items-table .total-label {
@@ -50,7 +49,7 @@
     }
     .purchase-bill-items-table .product-name {
         display: block;
-        overflow-wrap: anywhere;
+        word-break: break-word;
         line-height: 1.35;
     }
     .purchase-bill-items-table .product-code {
@@ -217,17 +216,17 @@
                                          </div>
                                      </td>
                                      <td class="text-end fw-semibold qty-cell">
-                                         {{ $item->quantity }}
-                                         @php
-                                             $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
-                                         @endphp
-                                         @if($szVal)
-                                             <small class="text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</small>
-                                         @elseif(($item->pair_type ?? 'single') === 'pair')
-                                             <small class="text-muted">&times; 2pcs</small>
-                                         @else
-                                             <small class="text-muted">Pcs</small>
-                                         @endif
+                                        {{ $item->quantity }}
+                                        @php
+                                            $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
+                                        @endphp
+                                        @if($szVal)
+                                            <span class="small text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
+                                        @elseif(($item->pair_type ?? 'single') === 'pair')
+                                            <span class="small text-muted">&times; 2pcs</span>
+                                        @else
+                                            <span class="small text-muted">Pcs</span>
+                                        @endif
                                     </td>
                                     <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
                                     <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
