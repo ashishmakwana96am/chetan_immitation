@@ -681,8 +681,10 @@ $(document).ready(function () {
 
         if (product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, row.data('variant-id'));
-            if (effectiveSizes.length) {
+            if (effectiveSizes && effectiveSizes.length) {
                 row.data('custom-size-value', selectedCustomSize || maxSizeOf(effectiveSizes));
+            } else {
+                row.data('custom-size-value', 2);
             }
         }
 
@@ -710,8 +712,10 @@ $(document).ready(function () {
 
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
-            if (effectiveSizes.length) {
+            if (effectiveSizes && effectiveSizes.length) {
                 row.data('custom-size-value', maxSizeOf(effectiveSizes));
+            } else {
+                row.data('custom-size-value', 2);
             }
         }
 
@@ -1048,22 +1052,6 @@ $(document).ready(function () {
             return;
         }
 
-        let sizeMissing = false;
-        $('.item-row').each(function () {
-            const row = $(this);
-            const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return;
-            const product = row.data('product');
-            if (product && product.pair_product && product.custom_sizes && product.custom_sizes.length && !row.data('custom-size-value')) {
-                sizeMissing = true;
-            }
-        });
-
-        if (sizeMissing) {
-            toastr.error('Please select a size for each pair product before saving.');
-            return;
-        }
-
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.select2-container .select2-selection').css('border-color', '');
@@ -1089,7 +1077,15 @@ $(document).ready(function () {
             if (qty <= 0) return; // skip rows with 0 qty
 
             const variantId = row.data('variant-id') || '';
-            const customSizeValue = row.data('custom-size-value') || '';
+            let customSizeValue = row.data('custom-size-value') || '';
+            if (product && product.pair_product && !customSizeValue) {
+                const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                if (effectiveSizes && effectiveSizes.length) {
+                    customSizeValue = maxSizeOf(effectiveSizes);
+                } else {
+                    customSizeValue = 2;
+                }
+            }
             const purchasePrice = parseFloat(row.find('.purchase-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
