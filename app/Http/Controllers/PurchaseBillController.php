@@ -94,7 +94,7 @@ class PurchaseBillController extends Controller
             $actions .= '<a href="' . route('admin.purchase-bills.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($transfer->status == PurchaseBill::STATUS_PENDING) {
                 if ($canEdit) {
-                    $actions .= '<a href="' . route('admin.purchase-bills.edit', $transfer) . '" class="dropdown-item"><i class="ti ti-edit me-2"></i>Edit</a>';
+                    $actions .= '<a href="' . route('admin.purchase-bills.edit', $transfer) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
                 }
                 if ($canAccept) {
                     $actions .= '<button class="dropdown-item text-success purchase-bill-action" data-url="' . route('admin.purchase-bills.accept', $transfer) . '" data-method="PATCH" data-title="Accept Purchase Bill" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
