@@ -567,9 +567,12 @@ $(document).ready(function () {
         searchInput.focus();
     }
 
+    let scanMatchTimer = null;
+
     searchInput.on('keydown', function(e) {
         if (e.key === 'Enter' || e.keyCode === 13) {
             e.preventDefault();
+            if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
             const exactMatch = findExactProductMatch($(this).val());
             if (exactMatch) {
                 selectSearchProduct(exactMatch);
@@ -583,15 +586,24 @@ $(document).ready(function () {
     searchInput.on('input', function() {
         const query = $(this).val().toLowerCase().trim();
         searchResults.empty();
+
+        if (scanMatchTimer) { clearTimeout(scanMatchTimer); scanMatchTimer = null; }
+
         if (!query) {
             searchResults.hide();
             return;
         }
-        const exactMatch = findExactProductMatch(query);
-        if (exactMatch) {
-            selectSearchProduct(exactMatch);
-            return;
-        }
+
+        // Barcode scanners (that don't send an Enter/Tab terminator) fire an
+        // input event per character. Wait briefly for the burst to finish
+        // before treating an exact match as a completed scan, so a shorter
+        // barcode that is a prefix of the one being scanned isn't added by mistake.
+        scanMatchTimer = setTimeout(function() {
+            if (searchInput.val().toLowerCase().trim() !== query) return;
+            const exactMatch = findExactProductMatch(query);
+            if (exactMatch) selectSearchProduct(exactMatch);
+        }, 100);
+
         const matchedProducts = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
             (p.barcode && p.barcode.toLowerCase().includes(query))
