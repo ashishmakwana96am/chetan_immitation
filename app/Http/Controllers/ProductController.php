@@ -14,9 +14,11 @@ use App\Models\PurchaseBillItem;
 use App\Models\PurchaseItem;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class ProductController extends Controller
@@ -177,10 +179,32 @@ class ProductController extends Controller
         return response()->json(['status' => 'success', 'data' => $data]);
     }
 
+    /**
+     * Stash a large barcode-print item list server-side and hand back a short
+     * token, so the actual print request stays a small GET URL instead of a
+     * multi-hundred-item query string (which some servers reject with a 414).
+     */
+    public function prepareBarcodePrint(\Illuminate\Http\Request $request)
+    {
+        $items = $request->input('items', []);
+        if (empty($items)) {
+            return response()->json(['status' => 'error', 'message' => 'No items to print.'], 422);
+        }
+
+        $token = Str::random(32);
+        Cache::put('barcode_print:' . $token, $items, now()->addMinutes(30));
+
+        return response()->json(['status' => 'success', 'token' => $token]);
+    }
+
     public function printBarcodes(\Illuminate\Http\Request $request)
     {
-        $itemsInput = $request->input('items', []);
-        
+        if ($request->filled('token')) {
+            $itemsInput = Cache::get('barcode_print:' . $request->input('token'), []);
+        } else {
+            $itemsInput = $request->input('items', []);
+        }
+
         $printItems = [];
         $totalQty = 0;
         

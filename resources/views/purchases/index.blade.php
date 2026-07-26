@@ -321,28 +321,23 @@
         });
 
         $(document).on('click', '#startPurchaseBarcodePrintBtn', function () {
-            let url = '{{ route("admin.products.print-barcodes") }}?auto_print=1&';
-            let idx = 0;
+            const items = [];
             $('.purchase-bulk-item-row').each(function () {
                 const id = $(this).data('id');
                 const qty = parseInt($(this).find('.purchase-bulk-item-qty').val()) || 1;
-                let itemUrl = `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}`;
+                const item = { id: id, qty: qty };
                 const $sizeSelect = $(this).find('.purchase-bulk-item-custom-size');
                 if ($sizeSelect.length > 0 && $sizeSelect.val()) {
-                    itemUrl += `&items[${idx}][selected_size]=${encodeURIComponent($sizeSelect.val())}`;
+                    item.selected_size = $sizeSelect.val();
                 }
                 const variantId = $(this).data('variant-id');
                 if (variantId) {
-                    itemUrl += `&items[${idx}][selected_variant_id]=${encodeURIComponent(variantId)}`;
+                    item.selected_variant_id = variantId;
                 }
-                url += itemUrl + '&';
-                idx++;
+                items.push(item);
             });
 
-            if (idx === 0) return;
-
-            url = url.replace(/&$/, '');
-            window.open(url, '_blank');
+            window.startBarcodePrint(items);
 
             bootstrap.Modal.getInstance(document.getElementById('purchaseBarcodeModal')).hide();
         });

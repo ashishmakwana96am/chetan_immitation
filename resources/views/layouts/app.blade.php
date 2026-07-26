@@ -649,6 +649,37 @@
             el.style.display = 'none';
             document.body.style.overflow = '';
         };
+
+        // Shared barcode-print launcher: stashes the item list server-side and
+        // opens the print tab with a short token instead of a giant query
+        // string, since long item lists can exceed the server's max URL length.
+        window.startBarcodePrint = function (items) {
+            if (!items || !items.length) return;
+
+            const printTab = window.open('', '_blank');
+
+            $.ajax({
+                url: '{{ route("admin.products.print-barcodes.prepare") }}',
+                type: 'POST',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    items: items
+                },
+                success: function (res) {
+                    if (res.status === 'success' && printTab) {
+                        printTab.location.href = '{{ route("admin.products.print-barcodes") }}?auto_print=1&token=' + res.token;
+                    } else if (printTab) {
+                        printTab.close();
+                    }
+                },
+                error: function () {
+                    if (printTab) printTab.close();
+                    if (window.toastr) {
+                        toastr.error('Something went wrong while preparing barcodes. Please try again.');
+                    }
+                }
+            });
+        };
     </script>
 </body>
 
