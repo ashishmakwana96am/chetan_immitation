@@ -1749,14 +1749,14 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    let url = '{{ route("admin.products.print-barcodes") }}' + '?auto_print=1&items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    const item = { id: productId, qty: qty };
                     if ($('#printCustomSize').length > 0) {
-                        url += '&items[0][selected_size]=' + encodeURIComponent($('#printCustomSize').val());
+                        item.selected_size = $('#printCustomSize').val();
                     }
                     if ($('#printVariantSelect').length > 0 && $('#printVariantSelect').val()) {
-                        url += '&items[0][selected_variant_id]=' + encodeURIComponent($('#printVariantSelect').val());
+                        item.selected_variant_id = $('#printVariantSelect').val();
                     }
-                    window.open(url, '_blank');
+                    window.startBarcodePrint([item]);
                 });
                 
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {

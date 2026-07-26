@@ -450,14 +450,14 @@
                 // Handle printing
                 $printBtn.on('click', function() {
                     const qty = parseInt($printQty.val()) || 1;
-                    let url = '{{ route("admin.products.print-barcodes") }}' + '?auto_print=1&items[0][id]=' + productId + '&items[0][qty]=' + qty;
+                    const item = { id: productId, qty: qty };
                     if ($('#printCustomSize').length > 0) {
-                        url += '&items[0][selected_size]=' + encodeURIComponent($('#printCustomSize').val());
+                        item.selected_size = $('#printCustomSize').val();
                     }
                     if ($('#printVariantSelect').length > 0 && $('#printVariantSelect').val()) {
-                        url += '&items[0][selected_variant_id]=' + encodeURIComponent($('#printVariantSelect').val());
+                        item.selected_variant_id = $('#printVariantSelect').val();
                     }
-                    window.open(url, '_blank');
+                    window.startBarcodePrint([item]);
                 });
                 
                 document.getElementById('barcodeModal').addEventListener('hidden.bs.modal', function () {
@@ -615,28 +615,23 @@
 
             // Start bulk printing
             $(document).on('click', '#startBulkPrintBtn', function() {
-                let url = '{{ route("admin.products.print-barcodes") }}?auto_print=1&';
-                let idx = 0;
+                const items = [];
                 $('.bulk-item-row').each(function() {
                     const id = $(this).data('id');
                     const qty = parseInt($(this).find('.bulk-item-qty').val()) || 1;
-                    let itemUrl = `items[${idx}][id]=${id}&items[${idx}][qty]=${qty}`;
+                    const item = { id: id, qty: qty };
                     const $sizeSelect = $(this).find('.bulk-item-custom-size');
                     if ($sizeSelect.length > 0 && $sizeSelect.val()) {
-                        itemUrl += `&items[${idx}][selected_size]=${encodeURIComponent($sizeSelect.val())}`;
+                        item.selected_size = $sizeSelect.val();
                     }
                     const $variantSelect = $(this).find('.bulk-item-variant-select');
                     if ($variantSelect.length > 0 && $variantSelect.val()) {
-                        itemUrl += `&items[${idx}][selected_variant_id]=${encodeURIComponent($variantSelect.val())}`;
+                        item.selected_variant_id = $variantSelect.val();
                     }
-                    url += itemUrl + '&';
-                    idx++;
+                    items.push(item);
                 });
 
-                if (idx === 0) return;
-
-                url = url.replace(/&$/, '');
-                window.open(url, '_blank');
+                window.startBarcodePrint(items);
 
                 // Hide bulk modal
                 bootstrap.Modal.getInstance(document.getElementById('bulkBarcodeModal')).hide();
