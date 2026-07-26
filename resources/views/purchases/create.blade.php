@@ -517,6 +517,22 @@ $(document).ready(function () {
         return unselected;
     }
 
+    function incrementExistingRowQty(product) {
+        let updated = false;
+        $('.product-id-input').each(function () {
+            const row = $(this).closest('.item-row');
+            const rowProduct = row.data('product');
+            if (rowProduct && rowProduct.type !== 'variable' && $(this).val() == product.id) {
+                const qtyInput = row.find('.item-qty');
+                qtyInput.val((parseInt(qtyInput.val()) || 0) + 1);
+                updateRowTotal(row);
+                updated = true;
+                return false;
+            }
+        });
+        return updated;
+    }
+
     function selectSearchProduct(product) {
         if (hasUnselectedVariableProduct()) {
             toastr.warning('Please select a variant for the existing variable product before scanning or adding another product.');
@@ -536,7 +552,7 @@ $(document).ready(function () {
             });
         }
         if (exists) {
-            toastr.warning('Product is already in the list.');
+            incrementExistingRowQty(product);
             searchInput.val('');
             searchResults.hide().empty();
             searchInput.focus();

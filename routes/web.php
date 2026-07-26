@@ -194,7 +194,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchase-bills/{purchaseBill}/payment-status', [PurchaseBillController::class, 'updatePaymentStatus'])->name('purchase-bills.update-payment-status');
         Route::resource('purchase-bills', PurchaseBillController::class)
             ->parameters(['purchase-bills' => 'purchaseBill'])
-            ->only(['index', 'create', 'store', 'show']);
+            ->only(['index', 'create', 'store', 'show', 'edit', 'update']);
 
         // Suppliers
         Route::get('suppliers/data', [SupplierController::class, 'data'])->name('suppliers.data');

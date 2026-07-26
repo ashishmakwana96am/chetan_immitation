@@ -86,7 +86,7 @@
                         <th>Bill No</th>
                         <th>Source</th>
                         <th>Destination</th>
-                        <th>Items</th>
+                        <th>Total Quantity</th>
                         <th>Amount</th>
                         <th>Total MRP</th>
                         <th>Status</th>

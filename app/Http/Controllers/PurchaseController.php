@@ -427,6 +427,15 @@ class PurchaseController extends Controller
 
         try {
             DB::transaction(function () use ($request, $purchase, $defaultLocation) {
+            $oldItemsSnapshot = $purchase->items->map(function ($item) {
+                return [
+                    'product_id'         => $item->product_id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'quantity'           => $item->quantity,
+                    'price'              => (float) $item->purchase_price,
+                ];
+            })->values()->all();
+
             $itemsTotal = 0.0;
             $itemsData = [];
 
@@ -568,6 +577,24 @@ class PurchaseController extends Controller
             if ($newStatus == Purchase::STATUS_APPROVE) {
                 $this->approveInvoice($purchase);
             }
+
+            $newItemsSnapshot = collect($itemsData)->map(function ($item) {
+                return [
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'quantity'           => $item['quantity'],
+                    'price'              => (float) $item['purchase_price'],
+                ];
+            })->values()->all();
+
+            ActivityLogger::log(
+                'Purchase',
+                'update',
+                $purchase,
+                ['items' => $oldItemsSnapshot],
+                ['items' => $newItemsSnapshot],
+                'Purchase #' . $purchase->invoice_no . ' items modified'
+            );
             });
         } catch (\RuntimeException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);

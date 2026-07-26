@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'New Purchase Bill')
+@section('title', 'Edit Purchase Bill')
 
 @section('page-css')
 <style>
@@ -74,14 +74,20 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">New Purchase Bill</h4>
-        <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary">
-            <i class="ti ti-arrow-left me-1"></i> Back
-        </a>
+        <h4 class="fw-semibold mb-0">Edit Purchase Bill <code>{{ $purchaseBill->transfer_no }}</code></h4>
+        <div class="d-flex gap-2">
+            <a href="{{ route('admin.purchase-bills.show', $purchaseBill) }}" class="btn btn-label-secondary">
+                <i class="ti ti-eye me-1"></i> View
+            </a>
+            <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary">
+                <i class="ti ti-arrow-left me-1"></i> Back
+            </a>
+        </div>
     </div>
 
-    <form id="purchaseBillForm" action="{{ route('admin.purchase-bills.store') }}" method="POST">
+    <form id="purchaseBillForm" action="{{ route('admin.purchase-bills.update', $purchaseBill) }}" method="POST">
         @csrf
+        @method('PUT')
         <div class="row g-3">
             <div class="col-lg-8">
                 <div class="card mb-3">
@@ -90,22 +96,21 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Bill No</label>
-                                <input type="text" class="form-control" value="{{ $transferNo }}" disabled>
-                                <small class="text-muted">Auto-generated on save</small>
+                                <input type="text" class="form-control" value="{{ $purchaseBill->transfer_no }}" disabled>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Payment Method <span class="text-danger">*</span></label>
                                 <select name="payment_method" id="paymentMethodSelect" class="form-select no-select2">
-                                    <option value="cash">Cash</option>
-                                    <option value="online">Online</option>
+                                    <option value="cash" {{ $purchaseBill->payment_method === 'cash' ? 'selected' : '' }}>Cash</option>
+                                    <option value="online" {{ $purchaseBill->payment_method === 'online' ? 'selected' : '' }}>Online</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Payment Status <span class="text-danger">*</span></label>
                                 <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
-                                    <option value="1">Pending</option>
-                                    <option value="2">Paid</option>
+                                    <option value="1" {{ (int) ($purchaseBill->payment_status ?? 1) === 1 ? 'selected' : '' }}>Pending</option>
+                                    <option value="2" {{ (int) ($purchaseBill->payment_status ?? 1) === 2 ? 'selected' : '' }}>Paid</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
@@ -128,14 +133,14 @@
                                 <select name="to_location_id" id="toLocation" class="form-select">
                                     <option value="">Select Destination</option>
                                     @foreach($destinationLocations as $location)
-                                        <option value="{{ $location->id }}" {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
+                                        <option value="{{ $location->id }}" {{ $location->id === $purchaseBill->to_location_id ? 'selected' : '' }} {{ $location->id === $defaultLocation->id ? 'disabled' : '' }}>{{ $location->name }}</option>
                                     @endforeach
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Remarks</label>
-                                <textarea name="remarks" class="form-control" rows="2" placeholder="Optional note for this transfer"></textarea>
+                                <textarea name="remarks" class="form-control" rows="2" placeholder="Optional note for this transfer">{{ $purchaseBill->remarks }}</textarea>
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
@@ -199,7 +204,7 @@
                 <div class="card">
                     <div class="card-body">
                         <button type="submit" class="btn btn-primary w-100" id="submitBtn">
-                            <i class="ti ti-device-floppy me-1"></i> Save Request
+                            <i class="ti ti-device-floppy me-1"></i> Update Request
                         </button>
                         <a href="{{ route('admin.purchase-bills.index') }}" class="btn btn-label-secondary w-100 mt-3">Cancel</a>
                     </div>
@@ -274,6 +279,7 @@ $(document).ready(function () {
     @endphp
 
     const allProducts = @json($mappedProducts);
+    const existingItems = @json($existingItems);
     const symbol = '{{ currency_symbol() }}';
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');
@@ -360,7 +366,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null) {
         let initialVariantId = null;
 
         if (product.type !== 'variable' && !(product.pair_product && product.custom_sizes && product.custom_sizes.length) && hasDuplicate(product.id, null)) {
@@ -383,6 +389,7 @@ $(document).ready(function () {
         row.data('product-id', product.id);
         row.find('.product-name-display').text(product.name);
         row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
+        row.find('.item-qty').val(qty);
         setProductImage(row.find('.product-image-container'), product);
 
         if (product.type === 'variable' && product.variants && product.variants.length) {
@@ -401,9 +408,11 @@ $(document).ready(function () {
         if (product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, initialVariantId);
             if (effectiveSizes.length) {
-                const firstSizeVal = effectiveSizes[0].size;
-                row.find('.size-select-container').html(buildTransferSizeToggleHtml(effectiveSizes, firstSizeVal));
-                row.data('custom-size-value', firstSizeVal);
+                const defSize = customSizeValue && effectiveSizes.some(cs => cs.size == customSizeValue)
+                    ? customSizeValue
+                    : effectiveSizes[0].size;
+                row.find('.size-select-container').html(buildTransferSizeToggleHtml(effectiveSizes, defSize));
+                row.data('custom-size-value', defSize);
             }
         }
 
@@ -413,11 +422,11 @@ $(document).ready(function () {
         if (product.pair_product) {
             row.find('.pair-type-container').html(`
                 <span class="badge bg-label-warning">Pair Size</span>
-                <input type="hidden" class="pair-type-input" value="single">`);
+                <input type="hidden" class="pair-type-input" value="${pairType || 'single'}">`);
         } else {
             row.find('.pair-type-container').html(`
                 <span class="badge bg-label-secondary">Piece</span>
-                <input type="hidden" class="pair-type-input" value="single">`);
+                <input type="hidden" class="pair-type-input" value="${pairType || 'single'}">`);
         }
 
         $('#itemsBody').append(row);
@@ -466,10 +475,10 @@ $(document).ready(function () {
     function updateRowAvailableStockDisplay(row) {
         const qtyPcs = parseInt(row.data('available-pcs') || 0);
         const product = row.data('product');
-        
+
         let stockText = qtyPcs + ' Pcs';
         let displayQty = qtyPcs;
-        
+
         if (product && product.pair_product) {
             let pairSize = 2;
             if (product.custom_sizes && Array.isArray(product.custom_sizes) && product.custom_sizes.length > 0) {
@@ -484,7 +493,7 @@ $(document).ready(function () {
             stockText = parts.length > 0 ? parts.join(', ') : '0';
             displayQty = pairsCount;
         }
-        
+
         row.data('available', displayQty);
         row.find('.stock-info-display')
             .text('Stock: ' + stockText)
@@ -503,17 +512,17 @@ $(document).ready(function () {
         } else {
             basePrice = parseFloat(product.purchase_price || 0);
         }
-        
+
         let multiplier = 1.0;
         const pairType = row.find('.pair-type-input').val() || 'single';
         const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
-        
+
         if (product.pair_product && customSizeValue > 0) {
             multiplier = customSizeValue;
         } else if (pairType === 'pair') {
             multiplier = 2.0;
         }
-        
+
         return basePrice * multiplier;
     }
 
@@ -609,10 +618,6 @@ $(document).ready(function () {
             return;
         }
 
-        // Barcode scanners (that don't send an Enter/Tab terminator) fire an
-        // input event per character. Wait briefly for the burst to finish
-        // before treating an exact match as a completed scan, so a shorter
-        // barcode that is a prefix of the one being scanned isn't added by mistake.
         scanMatchTimer = setTimeout(function() {
             if (searchInput.val().toLowerCase().trim() !== query) return;
             const exactMatch = findExactProductMatch(query);
@@ -671,7 +676,7 @@ $(document).ready(function () {
         updateRowAvailableStockDisplay(row);
         updateRowPrice(row);
         updateSummary();
-        
+
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         const available = parseInt(row.data('available') || 0);
         if (qty > available) {
@@ -685,18 +690,17 @@ $(document).ready(function () {
         const btn = $(this);
         const toggle = btn.closest('.pair-type-toggle');
         const row = btn.closest('.item-row');
-        
+
         toggle.find('.pair-btn').removeClass('active');
         btn.addClass('active');
-        
+
         const val = btn.data('value') || 'single';
         row.find('.pair-type-input').val(val);
-        
+
         updateRowAvailableStockDisplay(row);
         updateRowPrice(row);
         updateSummary();
-        
-        // Also trigger check validation
+
         const qty = parseInt(row.find('.item-qty').val()) || 0;
         const available = parseInt(row.data('available') || 0);
         if (qty > available) {
@@ -704,7 +708,7 @@ $(document).ready(function () {
         } else {
             row.find('.item-qty').removeClass('is-invalid');
         }
-        
+
         updateSummary();
     });
 
@@ -720,8 +724,6 @@ $(document).ready(function () {
         }
         row.data('variant-id', variantId);
 
-        // Pack sizes can differ per variant — rebuild the toggle for the new variant,
-        // trying to keep the same size selected if it still exists.
         if (product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
             if (effectiveSizes.length) {
@@ -742,6 +744,30 @@ $(document).ready(function () {
         $(this).closest('.item-row').remove();
         updateSummary();
     });
+
+    // Pre-populate items already on this purchase bill
+    function loadExistingItems() {
+        if (!existingItems || !existingItems.length) return;
+
+        existingItems.forEach(function (item) {
+            if (parseInt(item.quantity) <= 0) return;
+
+            const product = allProducts.find(p => p.id == item.product_id);
+            if (!product) return;
+
+            if (product.type === 'variable') {
+                let matchedVariant = product.variants.find(v => v.id == item.product_variant_id);
+                if (!matchedVariant && product.variants.length > 0) {
+                    matchedVariant = product.variants[0];
+                }
+                if (matchedVariant) {
+                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value);
+                }
+            } else {
+                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value);
+            }
+        });
+    }
 
     $('#purchaseBillForm').on('submit', function (e) {
         e.preventDefault();
@@ -838,7 +864,7 @@ $(document).ready(function () {
             },
             error: function (xhr) {
                 hiddenContainer.remove();
-                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Request');
+                $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Update Request');
                 if (xhr.status === 422) {
                     const errors = xhr.responseJSON?.message || {};
                     if (typeof errors === 'string') {
@@ -903,6 +929,7 @@ $(document).ready(function () {
         });
     });
 
+    loadExistingItems();
 });
 </script>
 @endsection

@@ -408,7 +408,7 @@ class ReportExportService
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Purchase Bills');
 
-        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Items', 'Amount', 'Total MRP', 'Status', 'Payment Status', 'Created By', 'Date'];
+        $headers = ['S.No.', 'Bill No', 'Source', 'Destination', 'Total Quantity', 'Amount', 'Total MRP', 'Status', 'Payment Status', 'Created By', 'Date'];
         $sheet->fromArray($headers, null, 'A1');
         $sheet->getRowDimension(1)->setRowHeight(28);
 
@@ -431,7 +431,7 @@ class ReportExportService
             $sheet->setCellValue('B' . $row, $transfer->transfer_no);
             $sheet->setCellValue('C' . $row, $transfer->fromLocation->name ?? '-');
             $sheet->setCellValue('D' . $row, $transfer->toLocation->name ?? '-');
-            $sheet->setCellValue('E' . $row, $transfer->items_count);
+            $sheet->setCellValue('E' . $row, $this->totalPcsForTransfer($transfer));
             $sheet->setCellValueExplicit('F' . $row, round((float) $totalAmount, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValueExplicit('G' . $row, round((float) $totalMrp, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValue('H' . $row, $statusLabels[$transfer->status] ?? 'Unknown');
@@ -688,6 +688,18 @@ class ReportExportService
         }
 
         return [$totalAmount, $totalMrp];
+    }
+
+    protected function totalPcsForTransfer($transfer): int
+    {
+        $totalPcs = 0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
+            $totalPcs += (int) round($item->quantity * $multiplier);
+        }
+
+        return $totalPcs;
     }
 
     protected function purchasePriceForPurchaseBillItem($item): float

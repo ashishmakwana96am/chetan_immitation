@@ -201,7 +201,13 @@
                     </div>
                     <div class="col-sm-6 col-md-4">
                         <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Record</small>
-                        <span class="fw-semibold text-dark fs-6">{{ $log->subject_type ? class_basename($log->subject_type) . ' #' . $log->subject_id : '-' }}</span>
+                        <span class="fw-semibold text-dark fs-6">
+                            @if($log->subject_type && class_basename($log->subject_type) === 'Inventory' && $subject)
+                                {{ $subject->product?->name ?? ('Inventory #' . $log->subject_id) }}{{ $subject->location?->name ? ' (' . $subject->location->name . ')' : '' }}
+                            @else
+                                {{ $log->subject_type ? class_basename($log->subject_type) . ' #' . $log->subject_id : '-' }}
+                            @endif
+                        </span>
                     </div>
                     <div class="col-12">
                         <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Description</small>

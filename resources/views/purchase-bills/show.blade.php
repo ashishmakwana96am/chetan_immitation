@@ -45,7 +45,7 @@
     .purchase-bill-items-table .money-cell,
     .purchase-bill-items-table .qty-cell,
     .purchase-bill-items-table .total-label {
-        white-space: nowrap;
+        white-space: nowrap !important;
     }
     .purchase-bill-items-table .product-name {
         display: block;

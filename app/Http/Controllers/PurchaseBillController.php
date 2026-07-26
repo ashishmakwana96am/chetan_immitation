@@ -80,8 +80,9 @@ class PurchaseBillController extends Controller
         $canAccept = auth()->user()->can('accept purchase bills');
         $canReject = auth()->user()->can('reject purchase bills');
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
+        $canEdit = auth()->user()->can('edit purchase bills');
 
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus) {
+        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
             $statusBadge = $this->statusBadge($transfer->status);
             $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
 
@@ -92,6 +93,9 @@ class PurchaseBillController extends Controller
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchase-bills.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($transfer->status == PurchaseBill::STATUS_PENDING) {
+                if ($canEdit) {
+                    $actions .= '<a href="' . route('admin.purchase-bills.edit', $transfer) . '" class="dropdown-item"><i class="ti ti-edit me-2"></i>Edit</a>';
+                }
                 if ($canAccept) {
                     $actions .= '<button class="dropdown-item text-success purchase-bill-action" data-url="' . route('admin.purchase-bills.accept', $transfer) . '" data-method="PATCH" data-title="Accept Purchase Bill" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
                 }
@@ -109,7 +113,7 @@ class PurchaseBillController extends Controller
                 'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
-                'items_count' => $transfer->items_count,
+                'items_count' => $this->totalPcsForTransfer($transfer),
                 'total_amount' => format_price($totalAmount),
                 'total_amount_raw' => $totalAmount,
                 'total_mrp' => format_price($totalMrp),
@@ -255,6 +259,138 @@ class PurchaseBillController extends Controller
         });
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill created successfully.']);
+    }
+
+    public function edit(PurchaseBill $purchaseBill)
+    {
+        $this->authorize('edit purchase bills');
+        $this->guardLocationAccess($purchaseBill);
+
+        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return redirect()->route('admin.purchase-bills.show', $purchaseBill)->with('error', 'Only pending purchase bills can be edited.');
+        }
+
+        $user = auth()->user();
+        $canChooseSource = $user->hasRole('super-admin');
+        $defaultLocation = $purchaseBill->fromLocation;
+
+        $sourceLocations = $canChooseSource
+            ? Location::where('status', 1)->orderBy('name')->get()
+            : collect([$defaultLocation]);
+        $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
+        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])
+            ->where('status', 1)
+            ->orderBy('name')
+            ->get();
+
+        $purchaseBill->load('items.product', 'items.variant');
+        $existingItems = $purchaseBill->items->map(function ($item) {
+            return [
+                'product_id' => $item->product_id,
+                'product_variant_id' => $item->product_variant_id,
+                'pair_type' => $item->pair_type ?? 'single',
+                'custom_size_value' => $item->custom_size_value,
+                'quantity' => $item->quantity,
+            ];
+        })->values();
+
+        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'existingItems'));
+    }
+
+    public function update(Request $request, PurchaseBill $purchaseBill)
+    {
+        $this->authorize('edit purchase bills');
+        $this->guardLocationAccess($purchaseBill);
+
+        if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
+            return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be edited.'], 422);
+        }
+
+        $user = auth()->user();
+        if ($user->hasRole('super-admin') && $request->filled('from_location_id')) {
+            $fromLocation = Location::where('id', $request->from_location_id)->where('status', 1)->first();
+            if (!$fromLocation) {
+                return response()->json(['status' => 'error', 'message' => ['from_location_id' => ['Selected source location is invalid.']]], 422);
+            }
+        } else {
+            $fromLocation = $purchaseBill->fromLocation;
+        }
+        $request->merge(['from_location_id' => $fromLocation->id]);
+
+        $validator = Validator::make($request->all(), [
+            'from_location_id' => ['required', 'exists:locations,id'],
+            'to_location_id' => ['required', 'exists:locations,id', 'different:from_location_id'],
+            'payment_method' => ['required', 'string', 'in:cash,online'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        $stockError = $this->getStockError($request->items, (int) $fromLocation->id);
+        if ($stockError) {
+            return response()->json(['status' => 'error', 'message' => ['items' => [$stockError]]], 422);
+        }
+
+        DB::transaction(function () use ($request, $fromLocation, $purchaseBill) {
+            $oldItemsSnapshot = $purchaseBill->items->map(function ($item) {
+                return [
+                    'product_id'         => $item->product_id,
+                    'product_variant_id' => $item->product_variant_id,
+                    'quantity'           => $item->quantity,
+                ];
+            })->values()->all();
+
+            $purchaseBill->update([
+                'from_location_id' => $fromLocation->id,
+                'to_location_id' => $request->to_location_id,
+                'payment_method' => $request->payment_method,
+                'payment_status' => $request->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING,
+                'remarks' => $request->remarks,
+            ]);
+
+            $purchaseBill->items()->delete();
+
+            $newItemsSnapshot = [];
+            foreach ($this->normalizeItems($request->items) as $item) {
+                $product = Product::find($item['product_id']);
+                $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+
+                PurchaseBillItem::create([
+                    'purchase_bill_id' => $purchaseBill->id,
+                    'product_id' => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'pair_type' => $item['pair_type'] ?? 'single',
+                    'custom_size_value' => $customSizeVal,
+                    'quantity' => $item['quantity'],
+                ]);
+
+                $newItemsSnapshot[] = [
+                    'product_id'         => $item['product_id'],
+                    'product_variant_id' => $item['product_variant_id'],
+                    'quantity'           => $item['quantity'],
+                ];
+            }
+
+            ActivityLogger::log(
+                'Purchase Bill',
+                'update',
+                $purchaseBill,
+                ['items' => $oldItemsSnapshot],
+                ['items' => $newItemsSnapshot],
+                'Purchase Bill #' . $purchaseBill->transfer_no . ' items modified'
+            );
+        });
+
+        return response()->json(['status' => 'success', 'message' => 'Purchase bill updated successfully.']);
     }
 
     public function show(PurchaseBill $purchaseBill)
@@ -655,6 +791,18 @@ class PurchaseBillController extends Controller
         }
 
         return 2.0;
+    }
+
+    private function totalPcsForTransfer(PurchaseBill $transfer): int
+    {
+        $totalPcs = 0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+            $totalPcs += (int) round($item->quantity * $multiplier);
+        }
+
+        return $totalPcs;
     }
 
     private function purchaseBillTotals(PurchaseBill $transfer): array
