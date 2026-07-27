@@ -509,12 +509,20 @@ $(document).ready(function () {
         const customSizeValue = parseFloat(row.data('custom-size-value') || 0);
         
         if (product.pair_product && customSizeValue > 0) {
-            multiplier = customSizeValue;
+            const sizes = getEffectiveCustomSizes(product, variantId);
+            let maxSize = 0;
+            if (sizes && sizes.length) {
+                const numSizes = sizes.map(s => parseFloat(s.size)).filter(s => s > 0);
+                if (numSizes.length) maxSize = Math.max(...numSizes);
+            }
+            if (maxSize > 0) {
+                multiplier = customSizeValue / maxSize;
+            }
         } else if (pairType === 'pair') {
-            multiplier = 2.0;
+            multiplier = 1.0;
         }
         
-        return basePrice * multiplier;
+        return Math.round(basePrice * multiplier);
     }
 
     function updateRowPrice(row) {
