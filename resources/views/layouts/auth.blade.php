@@ -6,7 +6,6 @@
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
     <title>@yield('title', 'Login') | Chetan Imitation</title>
 
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
