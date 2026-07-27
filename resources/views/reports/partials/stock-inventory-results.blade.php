@@ -39,7 +39,11 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total Stock Units</span>
-                        <h4 class="mb-0 mt-1 text-info">{!! $reportStockDisplay !!}</h4>
+                        <div class="mb-0 mt-1 text-info fw-bold lh-sm">
+                            @foreach($reportStockParts as $part)
+                                <div style="font-size: 0.95rem; line-height: 1.2;">{{ $part }}</div>
+                            @endforeach
+                        </div>
                     </div>
                     <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                 </div>
