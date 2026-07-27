@@ -107,17 +107,6 @@ Route::get('/shop/{slug?}', [ShopCategoryController::class, 'index'])->name('sho
 Route::post('/shop/filter', [ShopCategoryController::class, 'filter'])->name('shop.filter');
 Route::get('/product/{slug}', [HomeController::class, 'detail'])->name('product.detail');
 
-Route::get('robots.txt', function () {
-    $host = request()->getHost();
-    if (str_contains($host, 'royalgujarati')) {
-        $content = "User-agent: *\nDisallow: /";
-    } else {
-        $content = "User-agent: *\nDisallow:";
-    }
-
-    return response($content, 200)->header('Content-Type', 'text/plain');
-});
-
 // Required by Laravel's password broker to generate reset URL in email
 Route::get('/admin/reset-password/{token}', [ResetPasswordController::class, 'showResetForm'])->name('password.reset')->middleware('admin.guest:web');
 

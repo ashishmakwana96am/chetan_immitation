@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Chetan Imitation')</title>
-    @if(str_contains(request()->getHost(), 'royalgujarati'))
-        <meta name="robots" content="noindex, nofollow">
-    @endif
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
