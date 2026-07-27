@@ -64,7 +64,7 @@
         if ($totalLoosePcs > 0 || count($reportStockParts) === 0) {
             $reportStockParts[] = number_format($totalLoosePcs) . ' Pcs';
         }
-        $reportStockDisplay = implode(', ', $reportStockParts);
+        $reportStockDisplay = implode('<br>', $reportStockParts);
     @endphp
 
     <table class="summary-box">
@@ -75,7 +75,7 @@
             </td>
             <td style="width: 50%;">
                 <div class="summary-label">Total Stock Quantity</div>
-                <div class="summary-value">{{ $reportStockDisplay }}</div>
+                <div class="summary-value">{!! $reportStockDisplay !!}</div>
             </td>
         </tr>
     </table>
@@ -122,7 +122,7 @@
                     <td class="text-right">{{ format_price($item['purchase_price']) }}</td>
                     <td class="text-right">{{ format_price($item['sale_price']) }}</td>
                     <td class="text-right">{{ $marginPct }}%</td>
-                    <td class="text-right fw-bold">{{ $item['formatted_stock'] ?? $item['total_stock'] }}</td>
+                    <td class="text-right fw-bold">{!! $item['formatted_stock'] ?? $item['total_stock'] !!}</td>
                     <td class="text-center">
                         @if($item['status'] == 1)
                             <span class="badge-active">Active</span>

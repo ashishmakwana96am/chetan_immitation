@@ -181,7 +181,7 @@ class Product extends Model
     /**
      * Format stock into Pairs and Pcs format if pair_product is true.
      */
-    public function formatStockDisplay(?int $pcs = null): string
+    public function formatStockDisplay(?int $pcs = null, string $separator = '<br>'): string
     {
         $pieces = $pcs !== null ? $pcs : (int) $this->totalAvailableStock();
         if ($pieces <= 0) {
@@ -199,9 +199,9 @@ class Product extends Model
                 $parts[] = number_format($pairsCount) . ' Pair' . ($pairsCount > 1 ? 's' : '');
             }
             if ($remPcsCount > 0) {
-                $parts[] = $remPcsCount . ' Pcs';
+                $parts[] = number_format($remPcsCount) . ' Pcs';
             }
-            return count($parts) > 0 ? implode(', ', $parts) : '0';
+            return count($parts) > 0 ? implode($separator, $parts) : '0';
         }
 
         return number_format($pieces);
@@ -218,7 +218,7 @@ class Product extends Model
         }
 
         $formatted = $this->formatStockDisplay($pieces);
-        return '<span class="badge bg-label-success fw-bold">' . e($formatted) . '</span>';
+        return '<span class="badge bg-label-success fw-bold">' . $formatted . '</span>';
     }
 
     public function createdBy()

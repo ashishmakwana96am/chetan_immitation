@@ -63,7 +63,7 @@
         if ($totalLoosePcs > 0 || count($reportStockParts) === 0) {
             $reportStockParts[] = number_format($totalLoosePcs) . ' Pcs';
         }
-        $reportStockDisplay = implode(', ', $reportStockParts);
+        $reportStockDisplay = implode('<br>', $reportStockParts);
 
         $locCount = count($locations);
         $locWidth = $locCount > 0 ? (49 / $locCount) : 0;
@@ -77,7 +77,7 @@
             </td>
             <td style="width: 25%;">
                 <div class="summary-label">Total Stock Quantity</div>
-                <div class="summary-value">{{ $reportStockDisplay }}</div>
+                <div class="summary-value">{!! $reportStockDisplay !!}</div>
             </td>
             <td style="width: 25%;">
                 <div class="summary-label">Total Purchase Value</div>
@@ -127,9 +127,9 @@
                     <td><code>{{ $item['barcode'] ?: '-' }}</code></td>
                     <td><span class="badge-category">{{ $item['category'] }}</span></td>
                     @foreach($locations as $loc)
-                        <td class="text-right">{{ $item['formatted_loc_stock'][$loc->id] ?? number_format($item['stock'][$loc->id] ?? 0) }}</td>
+                        <td class="text-right">{!! $item['formatted_loc_stock'][$loc->id] ?? number_format($item['stock'][$loc->id] ?? 0) !!}</td>
                     @endforeach
-                    <td class="text-right fw-bold">{{ $item['formatted_stock'] ?? number_format($item['total']) }}</td>
+                    <td class="text-right fw-bold">{!! $item['formatted_stock'] ?? number_format($item['total']) !!}</td>
                     <td class="text-right">{{ format_price($item['purchase_value']) }}</td>
                     <td class="text-right">{{ format_price($item['mrp_value']) }}</td>
                 </tr>
