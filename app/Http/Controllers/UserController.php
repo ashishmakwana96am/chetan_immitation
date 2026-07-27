@@ -178,7 +178,7 @@ class UserController extends Controller
 
         // Restricted user cannot edit users from other locations
         if ($locationId && $user->location_id !== $locationId) {
-            abort(403, 'Unauthorized action.');
+            return redirect()->route('admin.dashboard');
         }
 
         $roles     = Role::where('name', '!=', 'super-admin')->orderBy('name')->get();
@@ -289,7 +289,7 @@ class UserController extends Controller
         $locationId = $this->getRestrictedLocationId();
 
         if ($locationId && $user->location_id !== $locationId) {
-            abort(403, 'Unauthorized action.');
+            return redirect()->route('admin.dashboard');
         }
 
         return view('users.change-password', compact('user'));

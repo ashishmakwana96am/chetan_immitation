@@ -14,7 +14,9 @@ class SettingController extends Controller
 {
     public function index()
     {
-        $this->authorize('view settings');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
         $razorpayPaymentMode   = Setting::getValue('razorpay_payment_mode', 'test');
         $razorpayTestKeyId     = Setting::getValue('razorpay_test_key_id', '');
@@ -78,7 +80,9 @@ class SettingController extends Controller
 
     public function update(Request $request)
     {
-        $this->authorize('edit settings');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized action.'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'razorpay_payment_mode'   => ['nullable', 'string', 'in:test,live'],
@@ -176,7 +180,9 @@ class SettingController extends Controller
 
     public function googleDriveConnect()
     {
-        $this->authorize('edit settings');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
         try {
             $googleService = app(GoogleDriveService::class);
@@ -190,7 +196,9 @@ class SettingController extends Controller
 
     public function googleDriveCallback(Request $request)
     {
-        $this->authorize('edit settings');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
         if ($request->has('error')) {
             return redirect()->route('admin.settings.index')->with('error', 'Google Drive connection cancelled: ' . $request->get('error'));
@@ -234,7 +242,9 @@ class SettingController extends Controller
 
     public function googleDriveDisconnect()
     {
-        $this->authorize('edit settings');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
         $email = Setting::getValue('google_drive_connected_email', 'Connected Account');
 
@@ -248,7 +258,9 @@ class SettingController extends Controller
 
     public function runBackup()
     {
-        $this->authorize('download backup');
+        if (!auth()->user()->hasRole('super-admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
         $connection = config('database.connections.' . config('database.default'));
         $fileName = 'Backup_' . now()->format('Y-m-d_H-i-s') . '.sql';

@@ -39,9 +39,9 @@
         vertical-align: middle;
     }
     .purchase-bill-items-table .col-index { width: 54px; }
-    .purchase-bill-items-table .col-product { width: 35%; min-width: 250px; }
-    .purchase-bill-items-table .col-qty { width: 110px; }
-    .purchase-bill-items-table .col-money { width: 130px; }
+    .purchase-bill-items-table .col-product { width: 45%; min-width: 250px; }
+    .purchase-bill-items-table .col-qty { width: 140px; min-width: 140px; white-space: nowrap; }
+    .purchase-bill-items-table .col-money { width: 140px; }
     .purchase-bill-items-table .money-cell,
     .purchase-bill-items-table .qty-cell,
     .purchase-bill-items-table .total-label {
@@ -220,23 +220,23 @@
                                              </div>
                                          </div>
                                      </td>
-                                     <td class="text-end fw-semibold qty-cell">
-                                        {{ $item->quantity }}
+                                     <td class="text-end fw-semibold qty-cell text-nowrap">
+                                        <span class="text-nowrap">{{ $item->quantity }}</span>
                                         @php
                                             $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
                                         @endphp
                                         @if($szVal)
-                                            <span class="small text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
+                                            <span class="small text-muted text-nowrap">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
                                         @elseif(($item->pair_type ?? 'single') === 'pair')
-                                            <span class="small text-muted">&times; 2pcs</span>
+                                            <span class="small text-muted text-nowrap">&times; 2pcs</span>
                                         @else
-                                            <span class="small text-muted">Pcs</span>
+                                            <span class="small text-muted text-nowrap">Pcs</span>
                                         @endif
                                     </td>
-                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
-                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
-                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($unitMrp, 2) }}</td>
-                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineMrp, 2) }}</td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format(round($price), 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format(round($lineTotal), 2) }}</td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format(round($unitMrp), 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format(round($lineMrp), 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -245,9 +245,9 @@
                                 <td colspan="2" class="text-end fw-bold total-label">Total Qty</td>
                                 <td class="text-end fw-bold text-primary">{{ $transfer->items->sum('quantity') }}</td>
                                 <td class="text-end fw-bold total-label">Total Amount</td>
-                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalAmount, 2) }}</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format(round($totalAmount), 2) }}</td>
                                 <td class="text-end fw-bold total-label">Total MRP</td>
-                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalMrp, 2) }}</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format(round($totalMrp), 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>

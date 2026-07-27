@@ -81,7 +81,7 @@ class RoleController extends Controller
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
-        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules'])
+        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')
             ->get()->groupBy(function ($permission) {
             if (!empty($permission->module)) {
@@ -144,7 +144,7 @@ class RoleController extends Controller
             'Suppliers', 'Purchases', 
             'Customers', 'Sales', 'Reports'
         ];
-        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules'])
+        $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')
             ->get()->groupBy(function ($permission) {
             if (!empty($permission->module)) {
