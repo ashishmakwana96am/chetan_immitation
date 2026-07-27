@@ -1071,13 +1071,13 @@ $(document).ready(function () {
                 let parts = [];
                 if (pairsCount > 0) parts.push(pairsCount + (pairsCount > 1 ? ' Pairs' : ' Pair'));
                 if (remPcs > 0) parts.push(remPcs + ' Pcs');
-                formattedQty = parts.length > 0 ? parts.join(', ') : '0';
+                formattedQty = parts.length > 0 ? parts.join('<br>') : '0';
             }
             stockLabelText = 'Stock: ' + formattedQty;
         }
 
         stockDisplay
-            .text(stockLabelText)
+            .html(stockLabelText)
             .attr('title', breakdownText.trim())
             .css('cursor', 'help')
             .removeClass('bg-label-success bg-label-danger bg-label-warning text-success text-danger text-warning')

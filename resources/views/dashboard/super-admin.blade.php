@@ -330,7 +330,7 @@
                                                 </td>
                                                 <td>{{ $product->category->name ?? '-' }}</td>
                                                 @php($lowStockQty = $product->totalAvailableStock())
-                                                <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{{ $product->formatStockDisplay($lowStockQty) }}</span></td>
+                                                <td class="text-end"><span class="badge {{ $lowStockQty == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">{!! $product->formatStockDisplay($lowStockQty) !!}</span></td>
                                             </tr>
                                         @empty
                                             <tr><td colspan="3" class="text-center text-muted py-3">All products well stocked</td></tr>

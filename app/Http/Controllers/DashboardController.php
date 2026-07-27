@@ -114,7 +114,7 @@ class DashboardController extends Controller
         if ($totalStockLoosePcs > 0 || count($stockParts) === 0) {
             $stockParts[] = number_format($totalStockLoosePcs) . ' Pcs';
         }
-        $stockDisplay = implode(', ', $stockParts);
+        $stockDisplay = implode('<br>', $stockParts);
 
         $stockStats = [
             'total_units'          => $totalStockUnits,
@@ -266,7 +266,7 @@ class DashboardController extends Controller
         if ($totalStockLoosePcs > 0 || count($stockParts) === 0) {
             $stockParts[] = number_format($totalStockLoosePcs) . ' Pcs';
         }
-        $stockDisplay = implode(', ', $stockParts);
+        $stockDisplay = implode('<br>', $stockParts);
 
         $stockStats = [
             'total_products'       => $stockRows->count(),

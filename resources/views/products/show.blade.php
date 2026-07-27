@@ -473,11 +473,11 @@
                                             <td>Grand Total</td>
                                             @foreach($product->variants as $v)
                                                 <td class="text-center">
-                                                    <span class="badge bg-success text-white stock-badge">{{ $product->pair_product ? $product->formatStockDisplay($grandTotalVariants[$v->id] ?? 0) : ($grandTotalVariants[$v->id] ?? 0) }}</span>
+                                                    <span class="badge bg-success text-white stock-badge">{!! $product->pair_product ? $product->formatStockDisplay($grandTotalVariants[$v->id] ?? 0) : ($grandTotalVariants[$v->id] ?? 0) !!}</span>
                                                 </td>
                                             @endforeach
                                             <td class="text-center">
-                                                <span class="badge bg-primary text-white stock-badge fw-bold">{{ $product->pair_product ? $product->formatStockDisplay($grandTotalAll) : $grandTotalAll }}</span>
+                                                <span class="badge bg-primary text-white stock-badge fw-bold">{!! $product->pair_product ? $product->formatStockDisplay($grandTotalAll) : $grandTotalAll !!}</span>
                                             </td>
                                         </tr>
                                     </tfoot>
@@ -519,9 +519,9 @@
                                                                 $pParts = [];
                                                                 if ($pCount > 0) $pParts[] = number_format($pCount) . ' Pair' . ($pCount > 1 ? 's' : '');
                                                                 if ($remPcs > 0) $pParts[] = $remPcs . ' Pcs';
-                                                                $pText = count($pParts) > 0 ? implode(', ', $pParts) : '0';
+                                                                $pText = count($pParts) > 0 ? implode('<br>', $pParts) : '0';
                                                             @endphp
-                                                            {{ $pText }} <span class="text-muted fs-7">({{ number_format($qtyPieces) }} Pcs)</span>
+                                                            {!! $pText !!} <span class="text-muted fs-7">({{ number_format($qtyPieces) }} Pcs)</span>
                                                         @else
                                                             {{ number_format($inventory->quantity) }}
                                                         @endif
@@ -550,9 +550,9 @@
                                                         $pParts = [];
                                                         if ($pCount > 0) $pParts[] = number_format($pCount) . ' Pair' . ($pCount > 1 ? 's' : '');
                                                         if ($remPcs > 0) $pParts[] = $remPcs . ' Pcs';
-                                                        $pText = count($pParts) > 0 ? implode(', ', $pParts) : '0';
+                                                        $pText = count($pParts) > 0 ? implode('<br>', $pParts) : '0';
                                                     @endphp
-                                                    {{ $pText }} <span class="text-muted fs-7">({{ number_format($pTotalPieces) }} Pieces)</span>
+                                                    {!! $pText !!} <span class="text-muted fs-7">({{ number_format($pTotalPieces) }} Pieces)</span>
                                                 @else
                                                     {{ number_format($product->inventories->sum('quantity')) }}
                                                 @endif
@@ -786,7 +786,7 @@
                                             @else
                                                 @if($product->pair_product && $vQty > 0)
                                                     <span class="badge bg-label-{{ $vQty > 0 ? 'success' : 'secondary' }} stock-badge">
-                                                        {{ $product->formatStockDisplay($vQty) }}
+                                                        {!! $product->formatStockDisplay($vQty) !!}
                                                     </span>
                                                 @else
                                                     <span class="badge bg-label-{{ $vQty > 0 ? 'success' : ($vQty < 0 ? 'danger' : 'secondary') }} stock-badge">
