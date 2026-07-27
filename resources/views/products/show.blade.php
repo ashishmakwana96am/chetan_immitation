@@ -285,36 +285,21 @@
                     <h6 class="mb-0 fw-semibold">Pricing</h6>
                 </div>
                 <div class="card-body p-3 d-flex flex-column gap-3">
+                    @php
+                        $effectiveCustomSizes = $product->custom_sizes;
+                        if (empty($effectiveCustomSizes) && $product->variants->count()) {
+                            foreach ($product->variants as $v) {
+                                if (!empty($v->custom_sizes)) {
+                                    $effectiveCustomSizes = $v->custom_sizes;
+                                    break;
+                                }
+                            }
+                        }
+                    @endphp
 
-                    @if($product->is_variable && $product->variants->count())
-                        {{-- Main product pricing (base prices) --}}
-                        <div class="info-row">
-                            <span class="info-label">Purchase Price</span>
-                            <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <div class="price-chip">
-                                <span class="p-lbl">Sale Price</span>
-                                <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
-                            </div>
-                            <div class="price-chip">
-                                <span class="p-lbl">MRP</span>
-                                <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
-                            </div>
-                        </div>
-
-                        <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">
-                            <span class="info-label">Profit</span>
-                            <span class="info-value fw-bold {{ $profit > 0 ? 'text-success' : 'text-danger' }}">
-                                {{ format_price($profit) }}
-                                <small class="text-muted">({{ $margin }}%)</small>
-                            </span>
-                        </div>
-
-                    @elseif($product->pair_product && $product->custom_sizes)
+                    @if($product->pair_product && !empty($effectiveCustomSizes))
                         @php
-                            $maxSize = (float) (collect($product->custom_sizes)->pluck('size')->max() ?: 1);
+                            $maxSize = (float) (collect($effectiveCustomSizes)->pluck('size')->max() ?: 1);
                             $maxSizeLabel = rtrim(rtrim(number_format($maxSize, 2), '0'), '.');
                         @endphp
                         {{-- Purchase Price (configured for the largest pack size) --}}
@@ -324,9 +309,10 @@
                         </div>
 
                         {{-- Custom size prices & per-size profit --}}
-                        @foreach(collect($product->custom_sizes)->sortBy('size') as $sizeRow)
+                        @foreach(collect($effectiveCustomSizes)->sortBy('size') as $sizeRow)
                             @php
                                 $sSale     = (float) ($sizeRow['sale_price'] ?? 0);
+                                $sMrp      = (float) ($sizeRow['mrp'] ?? 0);
                                 $sSize     = (float) ($sizeRow['size'] ?? 0);
                                 $sPurchase = $maxSize > 0 ? ((float) $product->purchase_price * ($sSize / $maxSize)) : (float) $product->purchase_price;
                                 $sProfit   = $sSale - $sPurchase;
@@ -337,11 +323,11 @@
                                 <div class="d-flex gap-2">
                                     <div class="price-chip">
                                         <span class="p-lbl">Sale Price</span>
-                                        <span class="p-val text-success">{{ format_price($sizeRow['sale_price'] ?? 0) }}</span>
+                                        <span class="p-val text-success">{{ format_price($sSale) }}</span>
                                     </div>
                                     <div class="price-chip">
                                         <span class="p-lbl">MRP</span>
-                                        <span class="p-val text-danger">{{ format_price($sizeRow['mrp'] ?? 0) }}</span>
+                                        <span class="p-val text-danger">{{ format_price($sMrp) }}</span>
                                     </div>
                                 </div>
                                 <div class="info-row" style="padding-top:6px;">
@@ -353,6 +339,31 @@
                                 </div>
                             </div>
                         @endforeach
+                    @elseif($product->is_variable && $product->variants->count())
+                        {{-- Main product pricing (base prices) --}}
+                        <div class="info-row">
+                            <span class="info-label">Purchase Price</span>
+                            <span class="info-value text-info fw-bold">{{ format_price($product->purchase_price) }}</span>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <div class="price-chip">
+                                <span class="p-lbl">Sale Price</span>
+                                <span class="p-val text-success">{{ format_price($product->display_sale_price) }}</span>
+                            </div>
+                            <div class="price-chip">
+                                <span class="p-lbl">MRP</span>
+                                <span class="p-val text-danger">{{ format_price($product->display_mrp) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="info-row" style="border-top:1px solid rgba(0,0,0,0.05); padding-top:8px;">
+                            <span class="info-label">Profit</span>
+                            <span class="info-value fw-bold {{ $profit > 0 ? 'text-success' : 'text-danger' }}">
+                                {{ format_price($profit) }}
+                                <small class="text-muted">({{ $margin }}%)</small>
+                            </span>
+                        </div>
                     @else
                         {{-- Purchase Price --}}
                         <div class="info-row">
@@ -363,11 +374,11 @@
                         <div class="d-flex gap-2">
                             <div class="price-chip">
                                 <span class="p-lbl">Sale Price</span>
-                                <span class="p-val text-success">{{ format_price($product->sale_price) }}</span>
+                                <span class="p-val text-success">{{ format_price($product->display_sale_price) }}</span>
                             </div>
                             <div class="price-chip">
                                 <span class="p-lbl">MRP</span>
-                                <span class="p-val text-danger">{{ format_price($product->mrp) }}</span>
+                                <span class="p-val text-danger">{{ format_price($product->display_mrp) }}</span>
                             </div>
                         </div>
 

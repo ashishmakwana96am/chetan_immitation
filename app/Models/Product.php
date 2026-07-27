@@ -127,6 +127,58 @@ class Product extends Model
     }
 
     /**
+     * Get the Sale Price for the largest size if pair_product is true.
+     */
+    public function getDisplaySalePriceAttribute(): float
+    {
+        if ($this->pair_product) {
+            $sizes = $this->custom_sizes ?? [];
+            if (empty($sizes) && $this->relationLoaded('variants')) {
+                foreach ($this->variants as $v) {
+                    if (!empty($v->custom_sizes)) {
+                        $sizes = array_merge($sizes, $v->custom_sizes);
+                    }
+                }
+            }
+
+            if (!empty($sizes)) {
+                $maxRow = collect($sizes)->sortBy(fn($row) => (float) ($row['size'] ?? 0))->last();
+                if ($maxRow && isset($maxRow['sale_price']) && is_numeric($maxRow['sale_price'])) {
+                    return (float) $maxRow['sale_price'];
+                }
+            }
+        }
+
+        return (float) ($this->sale_price ?? 0);
+    }
+
+    /**
+     * Get the MRP for the largest size if pair_product is true.
+     */
+    public function getDisplayMrpAttribute(): float
+    {
+        if ($this->pair_product) {
+            $sizes = $this->custom_sizes ?? [];
+            if (empty($sizes) && $this->relationLoaded('variants')) {
+                foreach ($this->variants as $v) {
+                    if (!empty($v->custom_sizes)) {
+                        $sizes = array_merge($sizes, $v->custom_sizes);
+                    }
+                }
+            }
+
+            if (!empty($sizes)) {
+                $maxRow = collect($sizes)->sortBy(fn($row) => (float) ($row['size'] ?? 0))->last();
+                if ($maxRow && isset($maxRow['mrp']) && is_numeric($maxRow['mrp'])) {
+                    return (float) $maxRow['mrp'];
+                }
+            }
+        }
+
+        return (float) ($this->mrp ?? 0);
+    }
+
+    /**
      * Format stock into Pairs and Pcs format if pair_product is true.
      */
     public function formatStockDisplay(?int $pcs = null): string
