@@ -169,8 +169,8 @@ class ProductController extends Controller
                 'variations'     => $variationsStr,
                 'stock'          => $stock,
                 'purchase_price' => format_price($product->purchase_price),
-                'sale_price'     => format_price($product->sale_price),
-                'mrp'            => format_price($product->mrp),
+                'sale_price'     => format_price($product->display_sale_price),
+                'mrp'            => format_price($product->display_mrp),
                 'status'         => $status,
                 'actions'        => $actions,
             ];
