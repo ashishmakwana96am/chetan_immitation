@@ -78,6 +78,11 @@
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
             @if($transfer->status == \App\Models\PurchaseBill::STATUS_PENDING)
+                @can('edit purchase bills')
+                    <a href="{{ route('admin.purchase-bills.edit', $transfer) }}" class="btn btn-label-primary">
+                        <i class="ti ti-pencil me-1"></i> Edit
+                    </a>
+                @endcan
                 @can('accept purchase bills')
                     <button class="btn btn-success purchase-bill-action"
                         data-url="{{ route('admin.purchase-bills.accept', $transfer) }}"
