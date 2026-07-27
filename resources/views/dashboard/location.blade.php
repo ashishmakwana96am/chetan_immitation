@@ -320,7 +320,7 @@
                                             <td>{{ $inventory->product->category->name ?? '-' }}</td>
                                             <td class="text-end">
                                                 <span class="badge {{ $inventory->quantity == 0 ? 'bg-label-danger' : 'bg-label-warning' }}">
-                                                    {{ $inventory->product ? $inventory->product->formatStockDisplay((int)$inventory->quantity) : $inventory->quantity }}
+                                                    {!! $inventory->product ? $inventory->product->formatStockDisplay((int)$inventory->quantity) : $inventory->quantity !!}
                                                 </span>
                                             </td>
                                         </tr>

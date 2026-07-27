@@ -481,13 +481,13 @@ $(document).ready(function () {
             let parts = [];
             if (pairsCount > 0) parts.push(pairsCount + (pairsCount > 1 ? ' Pairs' : ' Pair'));
             if (remPcs > 0) parts.push(remPcs + ' Pcs');
-            stockText = parts.length > 0 ? parts.join(', ') : '0';
+            stockText = parts.length > 0 ? parts.join('<br>') : '0';
             displayQty = pairsCount;
         }
         
         row.data('available', displayQty);
         row.find('.stock-info-display')
-            .text('Stock: ' + stockText)
+            .html('Stock: ' + stockText)
             .removeClass('bg-label-secondary bg-label-warning bg-label-danger bg-label-success')
             .addClass(qtyPcs > 0 ? 'bg-label-success' : 'bg-label-danger');
     }

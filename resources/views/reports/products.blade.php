@@ -255,7 +255,7 @@
                             </td>
                             <td class="text-end">
                                 <span class="badge {{ $parent['total_stock'] > 0 ? 'bg-label-success' : 'bg-label-danger' }}">
-                                    {{ $parent['total_stock'] > 0 ? ($parent['formatted_stock'] ?? $parent['total_stock']) : 'SOLD OUT' }}
+                                    {!! $parent['total_stock'] > 0 ? ($parent['formatted_stock'] ?? $parent['total_stock']) : 'SOLD OUT' !!}
                                 </span>
                             </td>
                             <td>{!! status_badge($parent['status']) !!}</td>
@@ -302,7 +302,7 @@
                                             </td>
                                             <td class="text-end">
                                                 <span class="badge {{ $variant['total_stock'] > 0 ? 'bg-label-success' : 'bg-label-danger' }}">
-                                                    {{ $variant['total_stock'] > 0 ? ($variant['formatted_stock'] ?? $variant['total_stock']) : 'SOLD OUT' }}
+                                                    {!! $variant['total_stock'] > 0 ? ($variant['formatted_stock'] ?? $variant['total_stock']) : 'SOLD OUT' !!}
                                                 </span>
                                             </td>
                                             <td>{!! status_badge($variant['status']) !!}</td>

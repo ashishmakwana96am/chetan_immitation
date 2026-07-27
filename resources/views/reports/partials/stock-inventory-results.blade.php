@@ -15,7 +15,7 @@
     if ($totalLoosePcs > 0 || count($reportStockParts) === 0) {
         $reportStockParts[] = number_format($totalLoosePcs) . ' Pcs';
     }
-    $reportStockDisplay = implode(', ', $reportStockParts);
+    $reportStockDisplay = implode('<br>', $reportStockParts);
 @endphp
 
 <!-- Stats Cards -->
@@ -39,7 +39,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total Stock Units</span>
-                        <h4 class="mb-0 mt-1 text-info">{{ $reportStockDisplay }}</h4>
+                        <h4 class="mb-0 mt-1 text-info">{!! $reportStockDisplay !!}</h4>
                     </div>
                     <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                 </div>
@@ -272,7 +272,7 @@
                             @endphp
                             <td class="text-center">
                                 <span class="badge {{ $qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary') }}">
-                                    {{ $displayQty }}
+                                    {!! $displayQty !!}
                                 </span>
                             </td>
                         @endforeach
@@ -283,7 +283,7 @@
                                     : $product['total'];
                             @endphp
                             <span class="badge {{ $product['total'] > 5 ? 'bg-label-success' : ($product['total'] > 0 ? 'bg-label-warning' : 'bg-label-danger') }} fw-bold">
-                                {{ $totalDisplay }}
+                                {!! $totalDisplay !!}
                             </span>
                         </td>
                         <td class="text-end fw-semibold">{{ format_price($product['purchase_value']) }}</td>
@@ -305,7 +305,7 @@
             <tfoot>
                 <tr class="table-light fw-bold">
                     <td colspan="{{ 5 + $locations->count() }}" class="text-end">Total:</td>
-                    <td class="text-center text-primary">{{ $reportStockDisplay }}</td>
+                    <td class="text-center text-primary">{!! $reportStockDisplay !!}</td>
                     <td class="text-end text-primary">{{ format_price($totalPurchaseValue) }}</td>
                     <td class="text-end text-success">{{ format_price($totalMrpValue) }}</td>
                     <td></td>
@@ -350,7 +350,7 @@
                                             @endphp
                                             <td class="text-center">
                                                 <span class="badge {{ $vQty > 5 ? 'bg-label-success' : ($vQty > 0 ? 'bg-label-warning' : 'bg-label-secondary') }}">
-                                                    {{ $vDisplayQty }}
+                                                    {!! $vDisplayQty !!}
                                                 </span>
                                             </td>
                                         @endforeach
@@ -361,7 +361,7 @@
                                         @endphp
                                         <td class="text-center">
                                             <span class="badge {{ $variant['total'] > 5 ? 'bg-label-success' : ($variant['total'] > 0 ? 'bg-label-warning' : 'bg-label-danger') }} fw-bold">
-                                                {{ $vTotalDisplay }}
+                                                {!! $vTotalDisplay !!}
                                             </span>
                                         </td>
                                         <td class="text-end fw-semibold">{{ format_price($variant['purchase_value']) }}</td>
