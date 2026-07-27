@@ -34,8 +34,8 @@
       @php
         $checkChildVisible = function($child) {
             if (!auth()->check()) return false;
-            if ($child->permission === 'manage branch balances') {
-                return auth()->user()->hasRole('super-admin') && auth()->user()->can($child->permission);
+            if (in_array($child->permission, ['manage branch balances', 'view settings'])) {
+                return auth()->user()->hasRole('super-admin');
             }
             return is_null($child->permission) || auth()->user()->can($child->permission);
         };
@@ -43,8 +43,8 @@
         $isVisible = false;
         if (!is_null($module->permission)) {
             if (auth()->check()) {
-                if ($module->permission === 'manage branch balances') {
-                    $isVisible = auth()->user()->hasRole('super-admin') && auth()->user()->can($module->permission);
+                if (in_array($module->permission, ['manage branch balances', 'view settings'])) {
+                    $isVisible = auth()->user()->hasRole('super-admin');
                 } else {
                     $isVisible = auth()->user()->can($module->permission);
                 }

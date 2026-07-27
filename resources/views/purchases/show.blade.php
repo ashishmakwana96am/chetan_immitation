@@ -56,7 +56,7 @@
     .purchase-items-table .col-index { width: 54px; }
     .purchase-items-table .col-product { width: 45%; min-width: 250px; }
     .purchase-items-table .col-price { width: 140px; }
-    .purchase-items-table .col-qty { width: 110px; }
+    .purchase-items-table .col-qty { width: 140px; min-width: 140px; white-space: nowrap; }
     .purchase-items-table .col-discount { width: 110px; }
     .purchase-items-table .col-total { width: 140px; }
     .purchase-items-table .product-name {
@@ -304,14 +304,14 @@
                                     </td>
                                     <td class="text-end text-nowrap small">{{ format_price($item->purchase_price) }}</td>
                                     <td class="text-end text-nowrap small">
-                                        {{ $displayQty }}
+                                        <span class="text-nowrap">{{ $displayQty }}</span>
                                         @php
                                             $szVal = $item->custom_size_value ?: ($item->product?->pair_product ? (collect($item->product?->custom_sizes ?? [])->pluck('size')->max() ?: 2) : null);
                                         @endphp
                                         @if($szVal)
-                                            <span class="small text-muted">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
+                                            <span class="small text-muted text-nowrap">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
                                         @else
-                                            <span class="small text-muted">Pcs</span>
+                                            <span class="small text-muted text-nowrap">Pcs</span>
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap small">

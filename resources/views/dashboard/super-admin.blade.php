@@ -66,7 +66,15 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted small text-nowrap">Total Stock Inventory</span>
-                            <h4 class="mb-0 mt-1 text-info">{{ $stockStats['stock_display'] }}</h4>
+                            <div class="h5 mb-0 mt-1 text-info fw-bold lh-sm">
+                                @if(!empty($stockStats['stock_parts']))
+                                    @foreach($stockStats['stock_parts'] as $part)
+                                        <div style="font-size: 0.95rem; line-height: 1.2;">{{ $part }}</div>
+                                    @endforeach
+                                @else
+                                    {{ $stockStats['stock_display'] }}
+                                @endif
+                            </div>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                     </div>

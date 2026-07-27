@@ -121,6 +121,7 @@ class DashboardController extends Controller
             'total_pairs'          => $totalStockPairs,
             'total_loose_pcs'      => $totalStockLoosePcs,
             'stock_display'        => $stockDisplay,
+            'stock_parts'          => $stockParts,
             'total_purchase_value' => $totalStockPurchaseValue,
             'total_mrp_value'      => $totalStockMrpValue,
         ];
@@ -273,6 +274,7 @@ class DashboardController extends Controller
             'total_pairs'          => $totalStockPairs,
             'total_loose_pcs'      => $totalStockLoosePcs,
             'stock_display'        => $stockDisplay,
+            'stock_parts'          => $stockParts,
             'total_purchase_value' => $totalStockPurchaseValue,
             'total_mrp_value'      => $totalStockMrpValue,
             'out_of_stock'         => $stockRows->where('quantity', 0)->count(),
