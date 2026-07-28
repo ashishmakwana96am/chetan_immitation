@@ -48,12 +48,10 @@ class ReportController extends Controller
             ->orderBy('name')
             ->get();
 
-        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
-
         $productsList = collect();
         foreach ($products as $product) {
             if ($product->type === 'variable') {
-                $variantStock = $variantStockMap[$product->id] ?? [];
+                $variantStock = $product->getVariantStock();
 
                 $parentLocStock  = [];
                 $hasVariantStock = false;
@@ -226,8 +224,6 @@ class ReportController extends Controller
             ];
         };
 
-        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
-
         $productsList = collect();
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
@@ -239,7 +235,7 @@ class ReportController extends Controller
             if ($pairSize <= 0) $pairSize = 1.0;
 
             if ($product->type === 'variable') {
-                $variantStock = $variantStockMap[$product->id] ?? [];
+                $variantStock = $product->getVariantStock();
 
                 // Build per-location stock: prefer variant-level sum (positive), fall back to
                 // parent-level (handles purchase-at-parent, sale-at-variant inconsistency).
@@ -766,8 +762,6 @@ class ReportController extends Controller
 
         $products = $query->orderBy('name')->get();
 
-        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
-
         $productsList = collect();
         foreach ($products as $product) {
             $imageBase64 = $this->getImageBase64($product);
@@ -777,7 +771,7 @@ class ReportController extends Controller
             if ($pairSize <= 0) $pairSize = 1.0;
 
             if ($product->type === 'variable') {
-                $variantStock = $variantStockMap[$product->id] ?? [];
+                $variantStock = $product->getVariantStock();
 
                 $parentLocStock  = [];
                 $hasVariantStock = false;
@@ -940,8 +934,6 @@ class ReportController extends Controller
 
         $products = $query->orderBy('name')->get();
 
-        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
-
         $productsList = collect();
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
@@ -955,7 +947,7 @@ class ReportController extends Controller
             $imageBase64 = $this->getImageBase64($product);
 
             if ($product->type === 'variable') {
-                $variantStock = $variantStockMap[$product->id] ?? [];
+                $variantStock = $product->getVariantStock();
 
                 $parentLocStock          = [];
                 $parentFormattedLocStock = [];

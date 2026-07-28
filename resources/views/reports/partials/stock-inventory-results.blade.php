@@ -1,10 +1,4 @@
-@php
-    $reportProductsJson = $products->values()->map(function ($p) {
-        unset($p['product_obj']);
-        return $p;
-    });
-@endphp
-<script type="application/json" id="reportProductsData">@json($reportProductsJson)</script>
+<script type="application/json" id="reportProductsData">@json($products->values())</script>
 
 @php
     $totalStockUnits    = $products->where('is_parent', true)->sum('total');

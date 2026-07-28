@@ -48,7 +48,6 @@ class DashboardController extends Controller
         ];
 
         $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
-        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
         $totalStockUnits = 0;
         $totalStockPairs = 0;
         $totalStockLoosePcs = 0;
@@ -64,11 +63,10 @@ class DashboardController extends Controller
             $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
             if ($pairSize <= 0) $pairSize = 1.0;
 
-            $preloadedStock = $p->type === 'variable' ? ($variantStockMap[$p->id] ?? []) : null;
-            $pTotalPcs = (int) $p->totalAvailableStock(null, $preloadedStock);
+            $pTotalPcs = (int) $p->totalAvailableStock();
 
             if ($p->type === 'variable') {
-                $variantStock = $preloadedStock;
+                $variantStock = $p->getVariantStock();
                 $vSum = 0;
                 foreach ($p->variants as $v) {
                     $vQty = 0;
@@ -130,10 +128,9 @@ class DashboardController extends Controller
 
         $monthlySales   = $this->getMonthlySales();
         $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
-        $lowStock       = $products->filter(function ($p) use ($variantStockMap) {
+        $lowStock       = $products->filter(function ($p) {
             $threshold = $p->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
-            $preloadedStock = $p->type === 'variable' ? ($variantStockMap[$p->id] ?? []) : null;
-            return $p->totalAvailableStock(null, $preloadedStock) <= $threshold;
+            return $p->totalAvailableStock() <= $threshold;
         })->take(10)->values();
         $topProducts    = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
         $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])], 'final_amount')
@@ -174,15 +171,12 @@ class DashboardController extends Controller
         ];
 
         $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
-        $variableProducts = $allProducts->where('type', 'variable');
-        $variantStockMapForLocation = Product::getVariantStockBatch($variableProducts, $locationId);
-        $variantStockMapAll = Product::getVariantStockBatch($variableProducts);
 
         $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
         $stockRows = collect();
         foreach ($allProducts as $product) {
             if ($product->type === 'variable') {
-                $stockData = $variantStockMapForLocation[$product->id] ?? null;
+                $stockData = $product->getVariantStock($locationId);
                 if (!$stockData) {
                     continue;
                 }
@@ -223,7 +217,7 @@ class DashboardController extends Controller
             $pTotalPcs = 0;
 
             if ($p->type === 'variable') {
-                $variantStock = $variantStockMapAll[$p->id] ?? [];
+                $variantStock = $p->getVariantStock();
                 $locData = $variantStock[$locationId] ?? ['variants' => []];
                 foreach ($p->variants as $v) {
                     $vQty   = (int) ($locData['variants'][$v->id] ?? 0);

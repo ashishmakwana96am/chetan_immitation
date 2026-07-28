@@ -92,10 +92,10 @@ class Product extends Model
     /**
      * Get the total available stock (Pcs) across all locations.
      */
-    public function totalAvailableStock($variantId = null, $preloadedStockData = null)
+    public function totalAvailableStock($variantId = null)
     {
         if ($this->type === 'variable') {
-            $stockData = $preloadedStockData ?? $this->getVariantStock();
+            $stockData = $this->getVariantStock();
 
             if ($variantId) {
                 $totalStock = 0;
@@ -121,10 +121,6 @@ class Product extends Model
             if ($totalParentStock > 0) {
                 return $totalParentStock;
             }
-        }
-
-        if ($this->relationLoaded('inventories')) {
-            return (int) $this->inventories->sum('quantity');
         }
 
         return (int) $this->inventories()->sum('quantity');
@@ -383,179 +379,6 @@ class Product extends Model
         }
 
         return $locationId ? ($result[$locationId] ?? null) : $result;
-    }
-
-    /**
-     * Batched equivalent of getVariantStock() for many products at once.
-     * Runs a fixed number of queries regardless of product count instead of
-     * ~5 queries per product, by fetching all products' allocations/sales/
-     * transfers in bulk and grouping them in PHP before running the exact
-     * same per-row ledger math as getVariantStock().
-     *
-     * Returns [$productId => <same shape getVariantStock() returns>].
-     */
-    public static function getVariantStockBatch($products, $locationId = null): array
-    {
-        $products = $products instanceof \Illuminate\Support\Collection ? $products : collect($products);
-        $productIds = $products->pluck('id')->all();
-
-        if (empty($productIds)) {
-            return [];
-        }
-
-        $locations = Location::when($locationId, function ($q) use ($locationId) {
-            $q->where('id', $locationId);
-        })->get();
-
-        $variantsByProduct = [];
-        foreach ($products as $product) {
-            $variantsByProduct[$product->id] = $product->relationLoaded('variants')
-                ? $product->variants
-                : $product->variants()->get();
-        }
-
-        $purchaseAllocationsByProduct = PurchaseAllocation::whereHas('purchaseItem', function ($q) use ($productIds) {
-                $q->whereIn('product_id', $productIds)
-                  ->whereHas('invoice', function ($sub) {
-                      $sub->where('status', 2);
-                  });
-            })
-            ->with('purchaseItem')
-            ->get()
-            ->groupBy(fn ($alloc) => $alloc->purchaseItem->product_id);
-
-        $orderItemsByProduct = OrderItem::whereIn('product_id', $productIds)
-            ->whereHas('order', function ($q) {
-                $q->where('status', Order::STATUS_APPROVE);
-            })
-            ->with('order')
-            ->get()
-            ->groupBy('product_id');
-
-        $transferItemsByProduct = PurchaseBillItem::whereIn('product_id', $productIds)
-            ->whereHas('transfer', function ($q) {
-                $q->where('status', PurchaseBill::STATUS_ACCEPTED);
-            })
-            ->with('transfer')
-            ->get()
-            ->groupBy('product_id');
-
-        $inventoriesByProduct = Inventory::whereIn('product_id', $productIds)
-            ->when($locationId, function ($q) use ($locationId) {
-                $q->where('location_id', $locationId);
-            })
-            ->get()
-            ->groupBy('product_id');
-
-        $results = [];
-
-        foreach ($products as $product) {
-            $variants = $variantsByProduct[$product->id];
-            $variantsById = $variants->keyBy('id');
-
-            $purchasedQty = [];
-            $soldQty = [];
-            $transferredInQty = [];
-            $transferredOutQty = [];
-
-            foreach ($locations as $loc) {
-                $purchasedQty[$loc->id] = ['parent' => 0];
-                $soldQty[$loc->id] = ['parent' => 0];
-                $transferredInQty[$loc->id] = ['parent' => 0];
-                $transferredOutQty[$loc->id] = ['parent' => 0];
-                foreach ($variants as $v) {
-                    $purchasedQty[$loc->id][$v->id] = 0;
-                    $soldQty[$loc->id][$v->id] = 0;
-                    $transferredInQty[$loc->id][$v->id] = 0;
-                    $transferredOutQty[$loc->id][$v->id] = 0;
-                }
-            }
-
-            foreach (($purchaseAllocationsByProduct[$product->id] ?? []) as $alloc) {
-                $locId = $alloc->location_id;
-                $vId = $alloc->purchaseItem->product_variant_id;
-                $qty = (int) round($alloc->quantity * $product->purchasePairMultiplier($alloc->purchaseItem->custom_size_value, $variantsById->get($vId)));
-                if (isset($purchasedQty[$locId])) {
-                    if ($vId && isset($purchasedQty[$locId][$vId])) {
-                        $purchasedQty[$locId][$vId] += $qty;
-                        $purchasedQty[$locId]['parent'] += $qty;
-                    } else if (!$vId) {
-                        $purchasedQty[$locId]['parent'] += $qty;
-                    }
-                }
-            }
-
-            foreach (($orderItemsByProduct[$product->id] ?? []) as $item) {
-                $locId = $item->order->location_id;
-                $vId = $item->product_variant_id;
-                $qty = (int) round($item->quantity * $product->orderPairMultiplier($item->pair_type, $item->custom_size_value));
-                if (isset($soldQty[$locId])) {
-                    if ($vId && isset($soldQty[$locId][$vId])) {
-                        $soldQty[$locId][$vId] += $qty;
-                        $soldQty[$locId]['parent'] += $qty;
-                    } else if (!$vId) {
-                        $soldQty[$locId]['parent'] += $qty;
-                    }
-                }
-            }
-
-            foreach (($transferItemsByProduct[$product->id] ?? []) as $item) {
-                $vId = $item->product_variant_id;
-                $fromLocId = $item->transfer->from_location_id;
-                $toLocId = $item->transfer->to_location_id;
-                $qty = (int) round($item->quantity * $product->orderPairMultiplier($item->pair_type, $item->custom_size_value));
-
-                if (isset($transferredOutQty[$fromLocId])) {
-                    if ($vId && isset($transferredOutQty[$fromLocId][$vId])) {
-                        $transferredOutQty[$fromLocId][$vId] += $qty;
-                        $transferredOutQty[$fromLocId]['parent'] += $qty;
-                    } else if (!$vId) {
-                        $transferredOutQty[$fromLocId]['parent'] += $qty;
-                    }
-                }
-
-                if (isset($transferredInQty[$toLocId])) {
-                    if ($vId && isset($transferredInQty[$toLocId][$vId])) {
-                        $transferredInQty[$toLocId][$vId] += $qty;
-                        $transferredInQty[$toLocId]['parent'] += $qty;
-                    } else if (!$vId) {
-                        $transferredInQty[$toLocId]['parent'] += $qty;
-                    }
-                }
-            }
-
-            $result = [];
-            foreach ($locations as $loc) {
-                $parentStock = $purchasedQty[$loc->id]['parent']
-                    - $soldQty[$loc->id]['parent']
-                    + $transferredInQty[$loc->id]['parent']
-                    - $transferredOutQty[$loc->id]['parent'];
-
-                if ($purchasedQty[$loc->id]['parent'] === 0 && $soldQty[$loc->id]['parent'] === 0 && $transferredInQty[$loc->id]['parent'] === 0 && $transferredOutQty[$loc->id]['parent'] === 0) {
-                    $inv = ($inventoriesByProduct[$product->id] ?? collect())->firstWhere('location_id', $loc->id);
-                    $parentStock = (int) ($inv->quantity ?? 0);
-                }
-
-                $locData = [
-                    'location_id' => $loc->id,
-                    'location_name' => $loc->name,
-                    'parent' => $parentStock,
-                    'variants' => [],
-                ];
-                foreach ($variants as $v) {
-                    $vStock = $purchasedQty[$loc->id][$v->id]
-                        - $soldQty[$loc->id][$v->id]
-                        + $transferredInQty[$loc->id][$v->id]
-                        - $transferredOutQty[$loc->id][$v->id];
-                    $locData['variants'][$v->id] = $vStock;
-                }
-                $result[$loc->id] = $locData;
-            }
-
-            $results[$product->id] = $locationId ? ($result[$locationId] ?? null) : $result;
-        }
-
-        return $results;
     }
 
     /**
