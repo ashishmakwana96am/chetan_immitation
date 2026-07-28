@@ -488,7 +488,7 @@ $(document).ready(function () {
             select.empty();
             select.append('<option value=""></option>');
             select.append('<option value="0">Walk-in Customer</option>');
-            res.data.forEach(function (c) {-
+            res.data.forEach(function (c) {
                 const opt = $('<option>', {
                     value: c.id,
                     text: c.name + (c.phone !== '-' ? ' - ' + c.phone : '')
@@ -814,8 +814,6 @@ $(document).ready(function () {
         row.data('variant-id', variantId);
         row.data('purchase-price', selectedOpt.data('purchase-price'));
 
-        // Pack sizes/prices can differ per variant — rebuild the toggle for the new variant,
-        // trying to keep the same size selected if it still exists.
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
             if (effectiveSizes.length) {
@@ -1092,6 +1090,7 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const total = subtotal - discount;
+        let violatesFloor = false;
         if (row.data('bypass-min-price')) {
             violatesFloor = total < 0;
         } else {
