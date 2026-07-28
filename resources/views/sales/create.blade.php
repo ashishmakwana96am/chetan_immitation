@@ -1021,11 +1021,12 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const total = subtotal - discount;
+        let violatesFloor = false;
         if (row.data('bypass-min-price')) {
             violatesFloor = total < 0;
         } else {
             const minTotal = getMinAllowedTotal(row);
-            violatesFloor = minTotal > 0 && total < minTotal - 0.01;
+            violatesFloor = discVal > 0 && minTotal > 0 && total < minTotal - 0.01;
         }
         row.find('.item-discount-value').toggleClass('is-invalid', violatesFloor);
         if (row.hasClass('parent-row')) {
@@ -1088,8 +1089,8 @@ $(document).ready(function () {
         }
 
         const finalAmount = itemsTotal - orderDiscountAmount;
-        const orderViolatesFloor = (minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
-            || (minFloorTotal > 0 && finalAmount <= 0)
+        const hasAnyDiscount = (orderDiscVal > 0) || (discountSum > 0);
+        const orderViolatesFloor = (hasAnyDiscount && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
             || (finalAmount < 0);
         $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
