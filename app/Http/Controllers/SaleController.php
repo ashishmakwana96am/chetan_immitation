@@ -263,9 +263,10 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage', 'inventories'])->where('status', 1)->orderBy('name')->get();
         $orderNo     = generate_invoice_no('SA', Order::class, 'order_no');
-        $allProducts = $products->map(function ($p) {
+        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
+        $allProducts = $products->map(function ($p) use ($variantStockMap) {
             $data = [
                 'id'              => $p->id,
                 'name'            => $p->name,
@@ -300,7 +301,7 @@ class SaleController extends Controller
             // Calculate stock by location
             $stockByLocation = [];
             if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
+                $variantStock = $variantStockMap[$p->id] ?? [];
                 foreach ($variantStock as $locId => $locData) {
                     $stockByLocation[$locId] = [
                         'parent' => $locData['parent'],
@@ -760,11 +761,12 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage', 'inventories'])->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
         $defaultLocationId = $isRestricted ? $user->location_id : null;
 
-        $allProducts = $products->map(function ($p) {
+        $variantStockMap = Product::getVariantStockBatch($products->where('type', 'variable'));
+        $allProducts = $products->map(function ($p) use ($variantStockMap) {
             $data = [
                 'id'              => $p->id,
                 'name'            => $p->name,
@@ -799,7 +801,7 @@ class SaleController extends Controller
             // Calculate stock by location
             $stockByLocation = [];
             if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
+                $variantStock = $variantStockMap[$p->id] ?? [];
                 foreach ($variantStock as $locId => $locData) {
                     $stockByLocation[$locId] = [
                         'parent' => $locData['parent'],

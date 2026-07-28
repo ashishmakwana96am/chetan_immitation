@@ -70,14 +70,19 @@ class ProductController extends Controller
 
         $products = $query->orderBy('id', 'desc')->get();
 
-        $computeStock = function ($product) use ($locationId) {
+        $variableProducts = $products->where('type', 'variable');
+        $variantStockMap = $variableProducts->isNotEmpty()
+            ? Product::getVariantStockBatch($variableProducts, $locationId)
+            : [];
+
+        $computeStock = function ($product) use ($locationId, $variantStockMap) {
             if ($product->type === 'variable') {
-                $stockData = $product->getVariantStock($locationId);
+                $stockData = $variantStockMap[$product->id] ?? null;
                 if ($locationId) {
                     return $stockData ? array_sum($stockData['variants']) : 0;
                 }
                 $total = 0;
-                foreach ($stockData as $locData) {
+                foreach (($stockData ?? []) as $locData) {
                     $total += array_sum($locData['variants']);
                 }
                 return $total;
