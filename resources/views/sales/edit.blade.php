@@ -444,10 +444,15 @@ $(document).ready(function () {
         if (row.data('bypass-min-price')) return 0;
 
         const qty = parseInt(row.find('.item-qty').val()) || 0;
-        let purchasePrice = parseFloat(row.data('purchase-price')) || 0;
         const product = row.data('product');
         const variantId = row.data('variant-id');
         const isPair = row.find('.pair-type-input').val() === 'pair';
+
+        let purchasePrice = parseFloat(row.data('purchase-price'));
+        if ((isNaN(purchasePrice) || purchasePrice <= 0) && product && product.purchase_price) {
+            purchasePrice = parseFloat(product.purchase_price) || 0;
+        }
+        if (isNaN(purchasePrice)) purchasePrice = 0;
 
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
@@ -1152,8 +1157,7 @@ $(document).ready(function () {
         }
 
         const finalAmount = itemsTotal - orderDiscountAmount;
-        const hasAnyDiscount = (orderDiscVal > 0) || (discountSum > 0);
-        const orderViolatesFloor = (hasAnyDiscount && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
+        const orderViolatesFloor = (orderDiscVal > 0 && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01)
             || (finalAmount < 0);
         $('#orderDiscountValueInput').toggleClass('is-invalid', orderViolatesFloor);
         const totalDiscount = discountSum + orderDiscountAmount;
@@ -1276,13 +1280,7 @@ $(document).ready(function () {
             return 'Order total cannot be negative.';
         }
 
-        let hasAnyDiscount = (orderDiscVal > 0);
-        $('.item-row').each(function () {
-            const itemDisc = parseFloat($(this).find('.item-discount-value').val()) || 0;
-            if (itemDisc > 0) hasAnyDiscount = true;
-        });
-
-        if (hasAnyDiscount && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
+        if (orderDiscVal > 0 && minFloorTotal > 0 && finalAmount < minFloorTotal - 0.01) {
             $('#orderDiscountValueInput').addClass('is-invalid');
             return 'Discount cannot be applied to this order.';
         }
