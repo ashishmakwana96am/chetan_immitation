@@ -542,13 +542,17 @@ class PurchaseController extends Controller
 
             $purchase->update($updateData);
 
-            $paidAmountDelta = round($paidAmount - $oldPaidAmount, 2);
-            if (abs($paidAmountDelta) >= 0.01) {
-                PurchasePayment::create([
-                    'purchase_id' => $purchase->id,
-                    'amount'      => $paidAmountDelta,
-                    'created_by'  => auth()->id(),
-                ]);
+            if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
+                $purchase->payments()->delete();
+            } else {
+                $paidAmountDelta = round($paidAmount - $oldPaidAmount, 2);
+                if ($paidAmountDelta >= 0.01) {
+                    PurchasePayment::create([
+                        'purchase_id' => $purchase->id,
+                        'amount'      => $paidAmountDelta,
+                        'created_by'  => auth()->id(),
+                    ]);
+                }
             }
 
             $purchase->items()->delete();
@@ -756,7 +760,7 @@ class PurchaseController extends Controller
             return [Purchase::PAYMENT_STATUS_PARTIAL, round($paidAmountInput, 2)];
         }
 
-        return [Purchase::PAYMENT_STATUS_PENDING, round($fallbackPaidAmount, 2)];
+        return [Purchase::PAYMENT_STATUS_PENDING, 0.0];
     }
 
     private function defaultPurchaseLocation(): Location
@@ -864,28 +868,6 @@ class PurchaseController extends Controller
         $newStatus = (int) $request->payment_status;
         $balanceDue = round($purchase->total_amount - $purchase->paid_amount, 2);
 
-        $statusRank = [
-            Purchase::PAYMENT_STATUS_PENDING => 0,
-            Purchase::PAYMENT_STATUS_PARTIAL => 1,
-            Purchase::PAYMENT_STATUS_PAID    => 2,
-        ];
-        $currentRank = $statusRank[$purchase->payment_status ?? Purchase::PAYMENT_STATUS_PENDING] ?? 0;
-        $newRank = $statusRank[$newStatus] ?? 0;
-
-        if ($newRank < $currentRank) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Payment status cannot be moved back to a previous stage.',
-            ], 422);
-        }
-
-        if ($balanceDue <= 0 && $newStatus !== Purchase::PAYMENT_STATUS_PENDING) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'This purchase is already fully paid.',
-            ], 422);
-        }
-
         if ($newStatus === Purchase::PAYMENT_STATUS_PARTIAL && round((float) $request->amount, 2) > $balanceDue) {
             return response()->json([
                 'status'  => 'error',
@@ -921,7 +903,11 @@ class PurchaseController extends Controller
                     'paid_amount'    => min($newPaidAmount, $purchase->total_amount),
                 ]);
             } else {
-                $purchase->update(['payment_status' => Purchase::PAYMENT_STATUS_PENDING]);
+                $purchase->payments()->delete();
+                $purchase->update([
+                    'payment_status' => Purchase::PAYMENT_STATUS_PENDING,
+                    'paid_amount'    => 0,
+                ]);
             }
         });
 
