@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Module;
 
@@ -32,6 +33,8 @@ class ModuleController extends Controller
         foreach ($request->order as $item) {
             Module::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
         }
+
+        Cache::forget('admin_sidebar_modules');
 
         return response()->json(['status' => 'success', 'message' => 'Order updated.']);
     }

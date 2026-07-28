@@ -47,7 +47,7 @@ class DashboardController extends Controller
             'pending'    => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
-        $products = Product::with(['inventories', 'variants'])->get();
+        $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
         $totalStockUnits = 0;
         $totalStockPairs = 0;
         $totalStockLoosePcs = 0;
@@ -128,7 +128,7 @@ class DashboardController extends Controller
 
         $monthlySales   = $this->getMonthlySales();
         $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
-        $lowStock       = Product::with(['inventories', 'category', 'primaryImage'])->get()->filter(function ($p) {
+        $lowStock       = $products->filter(function ($p) {
             $threshold = $p->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
             return $p->totalAvailableStock() <= $threshold;
         })->take(10)->values();
@@ -170,9 +170,11 @@ class DashboardController extends Controller
             'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 
+        $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
+
         $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
         $stockRows = collect();
-        foreach (Product::with(['category', 'primaryImage'])->get() as $product) {
+        foreach ($allProducts as $product) {
             if ($product->type === 'variable') {
                 $stockData = $product->getVariantStock($locationId);
                 if (!$stockData) {
@@ -203,7 +205,7 @@ class DashboardController extends Controller
         $totalStockLoosePcs = 0;
         $totalStockUnits = 0;
 
-        foreach (Product::with(['inventories', 'variants'])->get() as $p) {
+        foreach ($allProducts as $p) {
             $purchasePrice = (float) $p->purchase_price;
             $salePrice     = (float) $p->sale_price;
             $mrpPrice      = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
