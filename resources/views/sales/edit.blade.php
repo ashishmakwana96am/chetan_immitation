@@ -447,6 +447,7 @@ $(document).ready(function () {
         const product = row.data('product');
         const variantId = row.data('variant-id');
         const isPair = row.find('.pair-type-input').val() === 'pair';
+        const itemPrice = parseFloat(row.find('.item-price').val()) || 0;
 
         let purchasePrice = parseFloat(row.data('purchase-price'));
         if ((isNaN(purchasePrice) || purchasePrice <= 0) && product && product.purchase_price) {
@@ -467,6 +468,11 @@ $(document).ready(function () {
                 purchasePrice = purchasePrice / 2;
             }
         }
+
+        if (itemPrice > 0 && purchasePrice > itemPrice) {
+            purchasePrice = itemPrice / 1.10;
+        }
+
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
     }
     function setProductImage(container, product) {
