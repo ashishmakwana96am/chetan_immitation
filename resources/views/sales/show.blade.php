@@ -320,7 +320,7 @@
                             @if($order->payment_method === 'online_cash')
                                 Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}
                             @else
-                                {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}
+                                {{ $order->payment_method ? ucwords(str_replace('_', ' ', $order->payment_method)) : '-' }}
                             @endif
                         </span>
                     </div>

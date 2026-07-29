@@ -558,10 +558,34 @@ class ReportController extends Controller
             $salesTrend[$month] = (float)$grp->sum('final_amount');
         }
 
-        // Sales by Payment Method
+        // Sales by Payment Method — attribute actual money collected to Cash/Online,
+        // ignoring Pending orders (nothing collected yet) and never showing a
+        // separate "Pending"/"Cash + Online" bucket.
+        $cashTotal = 0.0;
+        $onlineTotal = 0.0;
+        foreach ($orders as $order) {
+            if ((int) $order->payment_status !== Order::PAYMENT_STATUS_PAID) {
+                continue;
+            }
+            $cashAmt = (float) $order->paid_cash_amount;
+            $onlineAmt = (float) $order->paid_online_amount;
+            if ($cashAmt <= 0 && $onlineAmt <= 0) {
+                $pm = strtolower($order->payment_method ?? '');
+                if (in_array($pm, ['online', 'razorpay'])) {
+                    $onlineAmt = (float) $order->final_amount;
+                } else {
+                    $cashAmt = (float) $order->final_amount;
+                }
+            }
+            $cashTotal += $cashAmt;
+            $onlineTotal += $onlineAmt;
+        }
         $paymentMethodData = [];
-        foreach ($orders->groupBy('payment_method') as $method => $grp) {
-            $paymentMethodData[$method] = (float)$grp->sum('final_amount');
+        if ($cashTotal > 0) {
+            $paymentMethodData['Cash'] = $cashTotal;
+        }
+        if ($onlineTotal > 0) {
+            $paymentMethodData['Online'] = $onlineTotal;
         }
 
         // Top Selling Products
@@ -1579,20 +1603,24 @@ class ReportController extends Controller
 
         $normalizePaymentMethod = function (?string $method): string {
             return match ($method) {
-                'razorpay' => 'online',
-                'cod'      => 'cod',
-                'cash'     => 'cash',
-                'online'   => 'online',
-                default    => (string) $method,
+                'razorpay'    => 'online',
+                'cod'         => 'cod',
+                'cash'        => 'cash',
+                'online'      => 'online',
+                'online_cash' => 'online_cash',
+                null, ''      => 'pending',
+                default       => (string) $method,
             };
         };
 
         $paymentMethodLabel = function (?string $method) use ($normalizePaymentMethod): string {
             return match ($normalizePaymentMethod($method)) {
-                'cod'    => 'COD',
-                'online' => 'Online',
-                'cash'   => 'Cash',
-                default  => ucwords(str_replace('_', ' ', (string) $method)),
+                'cod'         => 'COD',
+                'online'      => 'Online',
+                'cash'        => 'Cash',
+                'online_cash' => 'Cash + Online',
+                'pending'     => 'Pending',
+                default       => ucwords(str_replace('_', ' ', (string) $method)),
             };
         };
 
@@ -1605,10 +1633,33 @@ class ReportController extends Controller
             $paymentTrend[$month] = (float) $grp->sum('final_amount');
         }
 
-        // ── By Payment Method (donut) ─────────────────────
+        // ── By Payment Method (donut) — attribute actual money collected to
+        // Cash/Online, ignoring Pending orders and never showing a separate
+        // "Pending"/"Cash + Online" bucket. ─────────────────────
+        $cashTotal = 0.0;
+        $onlineTotal = 0.0;
+        foreach ($orders as $order) {
+            if ((int) $order->payment_status !== \App\Models\Order::PAYMENT_STATUS_PAID) {
+                continue;
+            }
+            $cashAmt = (float) $order->paid_cash_amount;
+            $onlineAmt = (float) $order->paid_online_amount;
+            if ($cashAmt <= 0 && $onlineAmt <= 0) {
+                if ($normalizePaymentMethod($order->payment_method) === 'online') {
+                    $onlineAmt = (float) $order->final_amount;
+                } else {
+                    $cashAmt = (float) $order->final_amount;
+                }
+            }
+            $cashTotal += $cashAmt;
+            $onlineTotal += $onlineAmt;
+        }
         $paymentMethodData = [];
-        foreach ($orders->groupBy(fn ($order) => $normalizePaymentMethod($order->payment_method)) as $method => $grp) {
-            $paymentMethodData[$paymentMethodLabel($method)] = (float) $grp->sum('final_amount');
+        if ($cashTotal > 0) {
+            $paymentMethodData['Cash'] = $cashTotal;
+        }
+        if ($onlineTotal > 0) {
+            $paymentMethodData['Online'] = $onlineTotal;
         }
 
         // ── By Source (donut) ─────────────────────────────

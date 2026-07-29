@@ -257,7 +257,7 @@
                                         @if($order->payment_method === 'online_cash')
                                             <span class="small fw-semibold">Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}</span>
                                         @else
-                                            <span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method) }}</span>
+                                            <span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method ?? '-') }}</span>
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>

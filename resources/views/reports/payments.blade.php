@@ -294,7 +294,14 @@
                                     <span class="gateway-badge source-{{ strtolower($sourceVal) }}">{{ $sourceVal }}</span>
                                 </td>
                                 <td>
-                                    <span class="gateway-badge method-{{ $normalizedMethod }}">{{ $methodLabel }}</span>
+                                    @if(is_null($order->payment_method))
+                                        <span class="text-muted">-</span>
+                                    @elseif($normalizedMethod === 'online_cash')
+                                        <span class="gateway-badge method-cash">Cash: {{ format_price($order->paid_cash_amount) }}</span>
+                                        <span class="gateway-badge method-online">Online: {{ format_price($order->paid_online_amount) }}</span>
+                                    @else
+                                        <span class="gateway-badge method-{{ $normalizedMethod }}">{{ $methodLabel }}</span>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="gateway-badge {{ $statusClass }}">{{ $statusLabel }}</span>

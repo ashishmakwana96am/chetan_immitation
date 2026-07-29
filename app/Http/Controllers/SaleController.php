@@ -241,7 +241,7 @@ class SaleController extends Controller
                 'payment_status' => $paymentStatus,
                 'payment_method' => $order->payment_method === 'online_cash'
                     ? 'Cash + Online'
-                    : ($order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method))),
+                    : ($order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method ?? ''))),
                 'date_group'     => $order->created_at->format('d M Y'),
                 'date_sort'      => $order->created_at->format('Ymd'),
                 'actions'        => $actions,
