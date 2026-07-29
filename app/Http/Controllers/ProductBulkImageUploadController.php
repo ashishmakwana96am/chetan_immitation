@@ -75,19 +75,20 @@ class ProductBulkImageUploadController extends Controller
 
         $tmpFile = $tmpDir . '/sample_product_image_upload_' . uniqid() . '.zip';
 
-        $structure = [
-            '100001' => ['1.jpg', '2.jpg', '3.jpg'],
-            '100002' => ['1.jpg'],
-            '100003' => ['1.jpg', '2.jpg'],
+        $sampleFiles = [
+            '100001_1.jpg',
+            '100001_2.jpg',
+            '100001_3.jpg',
+            '100002_1.jpg',
+            '100003_1.jpg',
+            '100003_2.jpg',
         ];
 
         $zip = new ZipArchive();
         $zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
-        foreach ($structure as $barcode => $files) {
-            foreach ($files as $file) {
-                $zip->addFile($sourceImage, $barcode . '/' . $file);
-            }
+        foreach ($sampleFiles as $file) {
+            $zip->addFile($sourceImage, $file);
         }
 
         $zip->close();

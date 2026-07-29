@@ -163,8 +163,8 @@ class ProductBulkImageUploadService
     }
 
     /**
-     * Cheap name-only scan of every ZIP entry: group image files by their top-level
-     * barcode folder, without reading any file contents yet.
+     * Scan every ZIP entry: group image files by barcode (either from flat filenames like BARCODE_1.jpg
+     * or top-level barcode folders), without reading file contents yet.
      */
     private function scanEntries(ZipArchive $zip): array
     {
@@ -180,38 +180,14 @@ class ProductBulkImageUploadService
 
             $name = $stat['name'];
 
-            if (str_starts_with($name, '__MACOSX/')) {
+            if (str_starts_with($name, '__MACOSX/') || str_ends_with($name, '/')) {
                 continue;
             }
 
-            // Explicit directory entry — record the folder even if it turns out empty.
-            if (str_ends_with($name, '/')) {
-                $trimmed = rtrim($name, '/');
-                if ($trimmed !== '' && !str_contains($trimmed, '/')) {
-                    $seenFolders[$trimmed] = true;
-                }
-                continue;
-            }
+            $baseName = basename($name);
 
-            $parts = explode('/', $name, 2);
-            if (count($parts) !== 2) {
-                // Loose file at the ZIP root — outside the expected barcode-folder structure.
-                continue;
-            }
-
-            [$barcode, $relativeFile] = $parts;
-            $barcode = trim($barcode);
-
-            if ($barcode === '' || $relativeFile === '') {
-                continue;
-            }
-
-            $seenFolders[$barcode] = true;
-
-            $baseName = basename($relativeFile);
-
-            // Ignore hidden/system files and anything nested deeper than one level.
-            if (str_contains($relativeFile, '/') || str_starts_with($baseName, '.')) {
+            // Ignore hidden/system files
+            if (str_starts_with($baseName, '.')) {
                 continue;
             }
 
@@ -221,8 +197,62 @@ class ProductBulkImageUploadService
                 continue;
             }
 
-            $folders[$barcode][] = $name;
+            $parts = explode('/', $name);
+            $barcode = '';
+            $seq = 1;
+
+            if (count($parts) > 1) {
+                // Folder structure: BARCODE/file.jpg or BARCODE/BARCODE_1.jpg
+                $barcode = trim($parts[0]);
+                $filenameNoExt = pathinfo($baseName, PATHINFO_FILENAME);
+                $lastUnderscore = strrpos($filenameNoExt, '_');
+                if ($lastUnderscore !== false) {
+                    $possibleSeq = substr($filenameNoExt, $lastUnderscore + 1);
+                    if (is_numeric($possibleSeq)) {
+                        $seq = (int)$possibleSeq;
+                    }
+                } elseif (is_numeric($filenameNoExt)) {
+                    $seq = (int)$filenameNoExt;
+                }
+            } else {
+                // Flat file at ZIP root: e.g. BARCODE_1.jpg, BARCODE_2.png, BARCODE.jpg
+                $filenameNoExt = pathinfo($baseName, PATHINFO_FILENAME);
+                $lastUnderscore = strrpos($filenameNoExt, '_');
+                if ($lastUnderscore !== false) {
+                    $possibleSeq = substr($filenameNoExt, $lastUnderscore + 1);
+                    if (is_numeric($possibleSeq)) {
+                        $barcode = trim(substr($filenameNoExt, 0, $lastUnderscore));
+                        $seq = (int)$possibleSeq;
+                    } else {
+                        $barcode = trim($filenameNoExt);
+                    }
+                } else {
+                    $barcode = trim($filenameNoExt);
+                }
+            }
+
+            if ($barcode === '') {
+                continue;
+            }
+
+            $seenFolders[$barcode] = true;
+            $folders[$barcode][] = [
+                'name' => $name,
+                'seq'  => $seq,
+            ];
         }
+
+        // Sort entries for each barcode so seq 1 (_1) comes first, followed by _2, _3...
+        foreach ($folders as $barcode => &$entries) {
+            usort($entries, function ($a, $b) {
+                if ($a['seq'] === $b['seq']) {
+                    return strnatcasecmp($a['name'], $b['name']);
+                }
+                return $a['seq'] <=> $b['seq'];
+            });
+            $entries = array_column($entries, 'name');
+        }
+        unset($entries);
 
         return [$folders, $seenFolders, $skippedFiles];
     }

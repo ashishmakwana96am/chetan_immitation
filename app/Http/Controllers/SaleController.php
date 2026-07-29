@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
@@ -637,24 +638,28 @@ class SaleController extends Controller
 
     private function measureThermalHeight(Order $sale): int
     {
-        $itemCount = $sale->items->count();
-        $low = 150;
-        $high = 400 + ($itemCount * 40);
+        $cacheKey = 'thermal-height:' . $sale->id . ':' . $sale->items->count() . ':' . $sale->final_amount . ':' . $sale->is_gst;
 
-        while ($this->thermalPageCount($sale, $high) > 1) {
-            $high += 200;
-        }
+        return Cache::remember($cacheKey, now()->addDays(7), function () use ($sale) {
+            $itemCount = $sale->items->count();
+            $low = 150;
+            $high = 400 + ($itemCount * 40);
 
-        while ($high - $low > 1) {
-            $mid = intdiv($low + $high, 2);
-            if ($this->thermalPageCount($sale, $mid) > 1) {
-                $low = $mid;
-            } else {
-                $high = $mid;
+            while ($this->thermalPageCount($sale, $high) > 1) {
+                $high += 200;
             }
-        }
 
-        return $high + 4;
+            while ($high - $low > 1) {
+                $mid = intdiv($low + $high, 2);
+                if ($this->thermalPageCount($sale, $mid) > 1) {
+                    $low = $mid;
+                } else {
+                    $high = $mid;
+                }
+            }
+
+            return $high + 4;
+        });
     }
 
     private function thermalPageCount(Order $sale, int $height): int

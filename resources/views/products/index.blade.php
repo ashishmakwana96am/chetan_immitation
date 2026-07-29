@@ -253,6 +253,7 @@
             );
 
             const table = $('#productsTable').DataTable({
+                stateSave: true,
                 responsive : false,
                 order: [],
                 ajax       : {

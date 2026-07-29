@@ -33,7 +33,7 @@
             <div class="py-2" style="pointer-events:none;">
                 <i class="ti ti-cloud-upload text-muted mb-2" style="font-size:2.5rem;"></i>
                 <p class="fw-semibold mb-1">Drag & drop your ZIP file here or click to browse</p>
-                <span class="text-muted small">Supports: ZIP only</span>
+                <span class="text-muted small">Supports: ZIP file containing flat images (e.g. <code>100001_1.jpg</code>, <code>100001_2.jpg</code>) or barcode folders</span>
             </div>
         </div>
 
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const summaryTiles = [
-        { key: 'total_folders', label: 'Total Barcode Folders', icon: 'ti-folder', color: 'primary' },
+        { key: 'total_folders', label: 'Total Barcodes Processed', icon: 'ti-folder', color: 'primary' },
         { key: 'matched', label: 'Matched Products', icon: 'ti-check', color: 'success' },
         { key: 'not_found', label: 'Products Not Found', icon: 'ti-alert-triangle', color: 'danger' },
         { key: 'primary_added', label: 'Primary Images Added', icon: 'ti-star', color: 'warning' },
