@@ -297,7 +297,12 @@
         <tr>
             <td style="width: 58%; vertical-align: top; padding: 8px;">
                 <span class="label">Total Qty:</span> {{ rtrim(rtrim(number_format((float) $totalQty, 2), '0'), '.') }}<br>
-                <span class="label">Payment:</span> {{ ucwords(str_replace('_', ' ', $order->payment_method ?? '-')) }}
+                <span class="label">Payment:</span>
+                @if($order->payment_method === 'online_cash')
+                    Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}
+                @else
+                    {{ ucwords(str_replace('_', ' ', $order->payment_method ?? '-')) }}
+                @endif
             </td>
             <td style="width: 42%; padding: 0;">
                 <table class="summary">

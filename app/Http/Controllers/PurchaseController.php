@@ -542,7 +542,7 @@ class PurchaseController extends Controller
 
             $oldFieldsSnapshot = $purchase->only(array_keys($updateData));
 
-            $purchase->updateQuietly($updateData);
+            Purchase::withoutActivityLogging(fn () => $purchase->update($updateData));
 
             if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
                 $purchase->payments()->delete();
@@ -646,7 +646,7 @@ class PurchaseController extends Controller
         $oldStatus = (int) $purchase->status;
 
         DB::transaction(function () use ($purchase, $newStatus) {
-            $purchase->updateQuietly(['status' => $newStatus]);
+            Purchase::withoutActivityLogging(fn () => $purchase->update(['status' => $newStatus]));
 
             if ($newStatus == 2) {
                 $this->approveInvoice($purchase);
@@ -688,8 +688,10 @@ class PurchaseController extends Controller
                 PurchaseStockService::reverse($purchase, 'deletion');
             }
 
-            $purchase->updateQuietly(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
-            $purchase->deleteQuietly();
+            Purchase::withoutActivityLogging(function () use ($purchase) {
+                $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
+                $purchase->delete();
+            });
         });
 
         ActivityLogger::log(
@@ -910,10 +912,10 @@ class PurchaseController extends Controller
                     'created_by'  => auth()->id(),
                 ]);
 
-                $purchase->updateQuietly([
+                Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => Purchase::PAYMENT_STATUS_PAID,
                     'paid_amount'    => $purchase->total_amount,
-                ]);
+                ]));
             } elseif ($newStatus === Purchase::PAYMENT_STATUS_PARTIAL) {
                 $amount = (float) $request->amount;
                 $newPaidAmount = round($purchase->paid_amount + $amount, 2);
@@ -925,16 +927,16 @@ class PurchaseController extends Controller
                     'created_by'  => auth()->id(),
                 ]);
 
-                $purchase->updateQuietly([
+                Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, $purchase->total_amount),
-                ]);
+                ]));
             } else {
                 $purchase->payments()->delete();
-                $purchase->updateQuietly([
+                Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => Purchase::PAYMENT_STATUS_PENDING,
                     'paid_amount'    => 0,
-                ]);
+                ]));
             }
         });
 

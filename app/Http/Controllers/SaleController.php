@@ -218,7 +218,7 @@ class SaleController extends Controller
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
-                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
@@ -239,7 +239,9 @@ class SaleController extends Controller
                 'final_amount'   => format_price($order->final_amount),
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
-                'payment_method' => $order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method)),
+                'payment_method' => $order->payment_method === 'online_cash'
+                    ? 'Cash + Online'
+                    : ($order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method))),
                 'date_group'     => $order->created_at->format('d M Y'),
                 'date_sort'      => $order->created_at->format('Ymd'),
                 'actions'        => $actions,
@@ -343,7 +345,8 @@ class SaleController extends Controller
                     }
                 }
             ],
-            'payment_method'         => ['required', 'string'],
+            'paid_cash_amount'           => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount'         => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
@@ -482,6 +485,12 @@ class SaleController extends Controller
 
             $grandTotal = round($finalAmount + $taxAmount);
 
+            [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                $request->payment_status ?? Order::PAYMENT_STATUS_PAID,
+                $grandTotal,
+                (float) ($request->paid_online_amount ?? 0)
+            );
+
             $order = Order::create([
                 'customer_id'          => $request->customer_id,
                 'location_id'          => $request->location_id,
@@ -490,7 +499,9 @@ class SaleController extends Controller
                 'order_type'           => 'sale',
                 'status'               => $request->status ?? 2,
                 'payment_status'       => $request->payment_status ?? 2,
-                'payment_method'       => $request->payment_method,
+                'payment_method'       => $paymentMethod,
+                'paid_cash_amount'     => $paidCash,
+                'paid_online_amount'   => $paidOnline,
                 'is_gst'               => $isGst,
                 'tax_amount'           => $taxAmount,
                 'final_amount'         => $grandTotal,
@@ -869,7 +880,8 @@ class SaleController extends Controller
                     }
                 }
             ],
-            'payment_method'             => ['required', 'string'],
+            'paid_cash_amount'           => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount'         => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
             'items'                      => ['required', 'array', 'min:1'],
             'items.*.product_id'         => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
@@ -1025,12 +1037,22 @@ class SaleController extends Controller
 
             $grandTotal = round($finalAmount + $taxAmount);
 
+            $resolvedPaymentStatus = $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1);
+
+            [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                $resolvedPaymentStatus,
+                $grandTotal,
+                (float) ($request->paid_online_amount ?? 0)
+            );
+
             $updateData = [
                 'customer_id'          => $request->customer_id,
                 'location_id'          => $request->location_id,
-                'payment_method'       => $request->payment_method,
+                'payment_method'       => $paymentMethod,
+                'paid_cash_amount'     => $paidCash,
+                'paid_online_amount'   => $paidOnline,
                 'status'               => $request->status ?? 2,
-                'payment_status'       => $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1),
+                'payment_status'       => $resolvedPaymentStatus,
                 'is_gst'               => $isGst,
                 'tax_amount'           => $taxAmount,
                 'final_amount'         => $grandTotal,
@@ -1050,7 +1072,7 @@ class SaleController extends Controller
 
             $oldFieldsSnapshot = $sale->only(array_keys($updateData));
 
-            $sale->updateQuietly($updateData);
+            Order::withoutActivityLogging(fn () => $sale->update($updateData));
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
@@ -1116,6 +1138,8 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'status'               => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
             'payment_status'       => ['nullable', 'integer', 'in:1,2'],
+            'paid_cash_amount'     => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount'   => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
             'cancellation_reason'  => ['nullable', 'string', 'max:500'],
             'shipped_client_url'   => ['required_if:status,3', 'nullable', 'string', 'max:255'],
             'tracking_id'          => ['required_if:status,3', 'nullable', 'string', 'max:100'],
@@ -1318,7 +1342,7 @@ class SaleController extends Controller
                             $updateData['delivered_at'] = now();
                         }
 
-                        $sale->updateQuietly($updateData);
+                        Order::withoutActivityLogging(fn () => $sale->update($updateData));
 
                         if ($sale->customer && $sale->customer->email) {
                             try {
@@ -1331,7 +1355,18 @@ class SaleController extends Controller
                 }
 
                 if ($request->filled('payment_status')) {
-                    $sale->updateQuietly(['payment_status' => $request->payment_status]);
+                    [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                        $request->payment_status,
+                        (float) $sale->final_amount,
+                        (float) ($request->paid_online_amount ?? 0)
+                    );
+
+                    Order::withoutActivityLogging(fn () => $sale->update([
+                        'payment_status'     => $request->payment_status,
+                        'payment_method'     => $paymentMethod,
+                        'paid_cash_amount'   => $paidCash,
+                        'paid_online_amount' => $paidOnline,
+                    ]));
                 }
             });
         } catch (\Exception $e) {
@@ -1353,11 +1388,36 @@ class SaleController extends Controller
         }
 
         $pendingCount = \App\Models\Order::where('status', 1)->count();
+
+        $statusMessage = 'Sale status updated successfully.';
+        if ($request->filled('payment_status') && !$request->filled('status')) {
+            $statusMessage = 'Sale payment status updated successfully.';
+        }
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Sale status updated successfully.',
+            'message' => $statusMessage,
             'pending_count' => $pendingCount
         ]);
+    }
+
+    private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $onlineAmountInput): array
+    {
+        if ((int) $paymentStatus !== Order::PAYMENT_STATUS_PAID || $grandTotal <= 0) {
+            return [null, 0.0, 0.0];
+        }
+
+        $paidOnline = round(min(max($onlineAmountInput, 0), $grandTotal), 2);
+        $paidCash = round($grandTotal - $paidOnline, 2);
+
+        $paymentMethod = 'cash';
+        if ($paidOnline > 0 && $paidCash > 0) {
+            $paymentMethod = 'online_cash';
+        } elseif ($paidOnline > 0) {
+            $paymentMethod = 'online';
+        }
+
+        return [$paymentMethod, $paidCash, $paidOnline];
     }
 
     private function logInventoryChange(int $productId, int $locationId, int $delta, string $description): void
@@ -1699,11 +1759,11 @@ class SaleController extends Controller
             ]);
 
             // Update order status
-            $sale->updateQuietly([
+            Order::withoutActivityLogging(fn () => $sale->update([
                 'status'              => Order::STATUS_DECLINE,
                 'payment_status'      => Order::PAYMENT_STATUS_PENDING,
                 'cancellation_reason' => $cancellationRequest->cancellation_reason,
-            ]);
+            ]));
 
             DB::commit();
 

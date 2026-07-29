@@ -253,7 +253,13 @@
                                         @endphp
                                         <span class="badge {{ $badgeColor }}">{{ $payLabels[$order->payment_status] ?? 'Pending' }}</span>
                                     </td>
-                                    <td><span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method) }}</span></td>
+                                    <td>
+                                        @if($order->payment_method === 'online_cash')
+                                            <span class="small fw-semibold">Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}</span>
+                                        @else
+                                            <span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method) }}</span>
+                                        @endif
+                                    </td>
                                     <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>
                                     <td>
                                         <div class="dropdown table-action-dropdown">

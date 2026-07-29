@@ -148,7 +148,7 @@
             @endcan
 
             @can('edit sales')
-                @if($order->status == 1 && !$isOnline)
+                @if(!$isOnline && in_array((int) $order->status, [1, 2], true) && !($order->cancellationRequest && $order->cancellationRequest->status === 'pending'))
                     <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
@@ -157,14 +157,9 @@
 
             @can('edit sales payment status')
                 @if(($order->payment_status ?? 1) == 1)
-                    <button class="btn btn-success"
-                        data-common-confirm="{{ route('admin.sales.status', $order) }}"
-                        data-confirm-method="PATCH"
-                        data-confirm-title="Mark as Paid"
-                        data-confirm-text="Are you sure you want to mark this sale as paid?"
-                        data-confirm-btn="Yes, Mark as Paid"
-                        data-confirm-btn-class="btn-success"
-                        data-confirm-data='{"payment_status":2}'>
+                    <button class="btn btn-success mark-as-paid-btn"
+                        data-url="{{ route('admin.sales.status', $order) }}"
+                        data-amount="{{ $order->final_amount }}">
                         <i class="ti ti-currency-rupee me-1"></i> Mark as Paid
                     </button>
                 @endif
@@ -321,7 +316,13 @@
 
                     <div class="sale-info-row">
                         <span class="sale-info-label">Method</span>
-                        <span class="sale-info-value">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</span>
+                        <span class="sale-info-value">
+                            @if($order->payment_method === 'online_cash')
+                                Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}
+                            @else
+                                {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}
+                            @endif
+                        </span>
                     </div>
 
                     @if($couponCode)
@@ -621,6 +622,87 @@ function fallbackCopyTextToClipboard(text) {
 
     document.body.removeChild(textArea);
 }
+
+$(document).on('click', '.mark-as-paid-btn', function (e) {
+    e.preventDefault();
+    const url = $(this).data('url');
+    const total = parseFloat($(this).data('amount')) || 0;
+
+    Swal.fire({
+        title: 'Mark as Paid',
+        html: `
+            <div class="text-start d-flex gap-2">
+                <div class="flex-fill">
+                    <label class="form-label fw-semibold mb-2">Cash</label>
+                    <input type="number" id="swal-paid-cash" class="form-control" value="${total}" min="0" step="0.01">
+                </div>
+                <div class="flex-fill">
+                    <label class="form-label fw-semibold mb-2">Online</label>
+                    <input type="number" id="swal-paid-online" class="form-control" value="0" min="0" step="0.01">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Mark as Paid',
+        cancelButtonText: 'Cancel',
+        customClass: {
+            confirmButton: 'btn btn-success me-3',
+            cancelButton: 'btn btn-label-secondary'
+        },
+        buttonsStyling: false,
+        didOpen: () => {
+            const cashInput = document.getElementById('swal-paid-cash');
+            const onlineInput = document.getElementById('swal-paid-online');
+
+            const sync = (source) => {
+                if (source === 'cash') {
+                    let cash = Math.min(Math.max(parseFloat(cashInput.value) || 0, 0), total);
+                    cashInput.value = cash;
+                    onlineInput.value = Math.round((total - cash) * 100) / 100;
+                } else {
+                    let online = Math.min(Math.max(parseFloat(onlineInput.value) || 0, 0), total);
+                    onlineInput.value = online;
+                    cashInput.value = Math.round((total - online) * 100) / 100;
+                }
+            };
+
+            cashInput.addEventListener('input', () => sync('cash'));
+            onlineInput.addEventListener('input', () => sync('online'));
+        },
+        preConfirm: () => {
+            return {
+                paid_cash_amount: document.getElementById('swal-paid-cash').value,
+                paid_online_amount: document.getElementById('swal-paid-online').value,
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            window.showAjaxLoader ? window.showAjaxLoader() : null;
+            $.ajax({
+                url: url,
+                type: 'PATCH',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    payment_status: 2,
+                    paid_cash_amount: result.value.paid_cash_amount,
+                    paid_online_amount: result.value.paid_online_amount
+                },
+                success: function (res) {
+                    window.hideAjaxLoader ? window.hideAjaxLoader() : null;
+                    if (res.status === 'success') {
+                        toastr.success(res.message);
+                        setTimeout(() => location.reload(), 800);
+                    }
+                },
+                error: function (xhr) {
+                    window.hideAjaxLoader ? window.hideAjaxLoader() : null;
+                    const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                    toastr.error(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
+                }
+            });
+        }
+    });
+});
 
 $(document).ready(function () {
 
