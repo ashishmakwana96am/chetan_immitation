@@ -632,28 +632,62 @@ class ReportController extends Controller
             ->whereIn('order_id', $saleIds)
             ->get();
 
+        // Group order items by order_id to distribute order-level discounts proportionally
+        $orderItemsGrouped = $orderItems->groupBy('order_id');
+
         $totalCogs = 0.0;
         $productProfitability = [];
 
-        foreach ($orderItems as $item) {
-            $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
-            $itemCost = $item->quantity * $purchasePrice;
-            $totalCogs += $itemCost;
+        foreach ($orderItemsGrouped as $orderId => $items) {
+            $orderSubtotal = (float)$items->sum('total');
+            $order = $sales->firstWhere('id', $orderId);
 
-            $productId = $item->product_id;
-            if (!isset($productProfitability[$productId])) {
-                $productProfitability[$productId] = [
-                    'name'          => $item->product->name ?? 'Unknown',
-                    'barcode'       => $item->product->barcode ?? '-',
-                    'qty_sold'      => 0,
-                    'total_revenue' => 0.0,
-                    'total_cost'    => 0.0,
-                    'image_url'     => $item->product->primary_image_url ?? null,
-                ];
+            $orderDiscountAmount = 0.0;
+            if ($order && $orderSubtotal > 0) {
+                $discVal = (float)($order->order_discount_value ?? 0);
+                $discType = $order->order_discount_type;
+                if ($discVal > 0) {
+                    if ($discType === 'percentage') {
+                        $orderDiscountAmount = $orderSubtotal * ($discVal / 100);
+                    } else {
+                        // flat discount
+                        $orderDiscountAmount = $discVal;
+                    }
+                }
+                if ($orderDiscountAmount > $orderSubtotal) {
+                    $orderDiscountAmount = $orderSubtotal;
+                }
             }
-            $productProfitability[$productId]['qty_sold']      += $item->quantity;
-            $productProfitability[$productId]['total_revenue'] += (float)$item->total;
-            $productProfitability[$productId]['total_cost']    += (float)$itemCost;
+
+            foreach ($items as $item) {
+                $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
+                $itemCost = $item->quantity * $purchasePrice;
+                $totalCogs += $itemCost;
+
+                // Proportionate net revenue after order-level discount
+                $itemTotal = (float)$item->total;
+                $effectiveRevenue = $itemTotal;
+                if ($orderSubtotal > 0 && $orderDiscountAmount > 0) {
+                    $itemShareRatio = $itemTotal / $orderSubtotal;
+                    $itemOrderDiscount = $orderDiscountAmount * $itemShareRatio;
+                    $effectiveRevenue = max(0.0, $itemTotal - $itemOrderDiscount);
+                }
+
+                $productId = $item->product_id;
+                if (!isset($productProfitability[$productId])) {
+                    $productProfitability[$productId] = [
+                        'name'          => $item->product->name ?? 'Unknown',
+                        'barcode'       => $item->product->barcode ?? '-',
+                        'qty_sold'      => 0,
+                        'total_revenue' => 0.0,
+                        'total_cost'    => 0.0,
+                        'image_url'     => $item->product->primary_image_url ?? null,
+                    ];
+                }
+                $productProfitability[$productId]['qty_sold']      += $item->quantity;
+                $productProfitability[$productId]['total_revenue'] += $effectiveRevenue;
+                $productProfitability[$productId]['total_cost']    += (float)$itemCost;
+            }
         }
 
         // Latest product first (by product id)
@@ -1355,27 +1389,58 @@ class ReportController extends Controller
             ->whereIn('order_id', $saleIds)
             ->get();
 
+        $orderItemsGrouped = $orderItems->groupBy('order_id');
+
         $totalCogs = 0.0;
         $productProfitability = [];
 
-        foreach ($orderItems as $item) {
-            $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
-            $itemCost = $item->quantity * $purchasePrice;
-            $totalCogs += $itemCost;
+        foreach ($orderItemsGrouped as $orderId => $items) {
+            $orderSubtotal = (float)$items->sum('total');
+            $order = $sales->firstWhere('id', $orderId);
 
-            $productId = $item->product_id;
-            if (!isset($productProfitability[$productId])) {
-                $productProfitability[$productId] = [
-                    'name'          => $item->product->name ?? 'Unknown',
-                    'barcode'       => $item->product->barcode ?? '-',
-                    'qty_sold'      => 0,
-                    'total_revenue' => 0.0,
-                    'total_cost'    => 0.0,
-                ];
+            $orderDiscountAmount = 0.0;
+            if ($order && $orderSubtotal > 0) {
+                $discVal = (float)($order->order_discount_value ?? 0);
+                $discType = $order->order_discount_type;
+                if ($discVal > 0) {
+                    if ($discType === 'percentage') {
+                        $orderDiscountAmount = $orderSubtotal * ($discVal / 100);
+                    } else {
+                        $orderDiscountAmount = $discVal;
+                    }
+                }
+                if ($orderDiscountAmount > $orderSubtotal) {
+                    $orderDiscountAmount = $orderSubtotal;
+                }
             }
-            $productProfitability[$productId]['qty_sold']      += $item->quantity;
-            $productProfitability[$productId]['total_revenue'] += (float)$item->total;
-            $productProfitability[$productId]['total_cost']    += (float)$itemCost;
+
+            foreach ($items as $item) {
+                $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
+                $itemCost = $item->quantity * $purchasePrice;
+                $totalCogs += $itemCost;
+
+                $itemTotal = (float)$item->total;
+                $effectiveRevenue = $itemTotal;
+                if ($orderSubtotal > 0 && $orderDiscountAmount > 0) {
+                    $itemShareRatio = $itemTotal / $orderSubtotal;
+                    $itemOrderDiscount = $orderDiscountAmount * $itemShareRatio;
+                    $effectiveRevenue = max(0.0, $itemTotal - $itemOrderDiscount);
+                }
+
+                $productId = $item->product_id;
+                if (!isset($productProfitability[$productId])) {
+                    $productProfitability[$productId] = [
+                        'name'          => $item->product->name ?? 'Unknown',
+                        'barcode'       => $item->product->barcode ?? '-',
+                        'qty_sold'      => 0,
+                        'total_revenue' => 0.0,
+                        'total_cost'    => 0.0,
+                    ];
+                }
+                $productProfitability[$productId]['qty_sold']      += $item->quantity;
+                $productProfitability[$productId]['total_revenue'] += $effectiveRevenue;
+                $productProfitability[$productId]['total_cost']    += (float)$itemCost;
+            }
         }
 
         krsort($productProfitability);

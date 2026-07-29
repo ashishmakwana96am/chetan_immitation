@@ -5,39 +5,9 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <style>
-        #supplierLedgerTable tbody tr:not(.group-header) {
+        #supplierLedgerTable tbody tr {
             cursor: pointer;
-        }
-        #supplierLedgerTable tbody tr.group-header td {
-            background-color: #f0f2f5;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: #566a7f;
-            padding: 8px 14px;
-            letter-spacing: 0.3px;
-            text-align: center;
-            vertical-align: middle;
-        }
-        #supplierLedgerTable tbody tr.group-header td .group-header-inner {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            line-height: 1;
-        }
-        #supplierLedgerTable tbody tr.group-header td .group-header-inner i {
-            font-size: 1rem;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-        }
-        #supplierLedgerTable tbody tr.group-header td .group-header-inner span {
-            line-height: 1;
-            display: flex;
-            align-items: center;
-            margin-top: 2px;
         }
     </style>
 @endsection
@@ -89,12 +59,8 @@
         <div class="card-body">
             <form id="filterForm" class="row g-3" onsubmit="return false;">
                 <div class="col-md-3">
-                    <label class="form-label">Start Date</label>
-                    <input type="text" id="filter-start-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">End Date</label>
-                    <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
+                    <label class="form-label">As on Date</label>
+                    <input type="text" id="filter-as-on-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
                 @if(!$isRestricted)
                 <div class="col-md-3">
@@ -107,7 +73,7 @@
                     </select>
                 </div>
                 @endif
-                <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+                <div class="col-12 d-flex justify-content-end gap-2 mt-4" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
                     </button>
@@ -130,8 +96,6 @@
                         <th>Paid Amount</th>
                         <th>Due Amount</th>
                         <th>Action</th>
-                        <th>Date Group</th>
-                        <th>Date Sort</th>
                     </tr>
                 </thead>
             </table>
@@ -144,55 +108,21 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            const startPicker = $('#filter-start-date').flatpickr({
+            const asOnDatePicker = $('#filter-as-on-date').flatpickr({
                 altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
-                onChange: function (selectedDates) { endPicker.set('minDate', selectedDates.length ? selectedDates[0] : null); }
+                defaultDate: 'today'
             });
-            const endPicker = $('#filter-end-date').flatpickr({
-                altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
-                onChange: function (selectedDates) { startPicker.set('maxDate', selectedDates.length ? selectedDates[0] : 'today'); }
-            });
-
-            let isFiltered = false;
-
-            function updateFilterButtonsVisibility() {
-                const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
-                    return $(el).val();
-                });
-                $('#filterActionButtons').toggleClass('d-none', !hasValue);
-
-                if (!hasValue && isFiltered) {
-                    isFiltered = false;
-                    window.refreshTable();
-                }
-            }
-
-            $(document).on('input change', '#filterForm', function () {
-                updateFilterButtonsVisibility();
-            });
-            updateFilterButtonsVisibility();
 
             function currentFilters() {
                 return {
-                    start_date: $('#filter-start-date').val(),
-                    end_date: $('#filter-end-date').val(),
+                    as_on_date: $('#filter-as-on-date').val(),
                     location_id: $('#filter-location').val() || '',
                 };
             }
 
             const table = $('#supplierLedgerTable').DataTable({
                 responsive: false,
-                order: [[7, 'desc']],
-                columnDefs: [
-                    { targets: [6, 7], visible: false }
-                ],
-                rowGroup: {
-                    dataSrc: 'date_group',
-                    startRender: function (rows, group) {
-                        return $('<tr class="group-header"/>')
-                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
-                    }
-                },
+                order: [[4, 'desc']],
                 ajax: {
                     url: '{{ route('admin.ledgers.supplier.data') }}',
                     cache: false,
@@ -230,13 +160,14 @@
                         render: function (data, type, row) {
                             const locationVal = $('#filter-location').val() || '';
                             const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
+                            const asOnDate = $('#filter-as-on-date').val() || '';
                             return `
                                 <div class="dropdown table-action-dropdown">
                                     <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
+                                        <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}&as_on_date=${asOnDate}${locationQuery}" class="dropdown-item">
                                             <i class="ti ti-eye me-2"></i>View
                                         </a>
                                     </div>
@@ -244,8 +175,6 @@
                             `;
                         }
                     },
-                    { data: 'date_group' },
-                    { data: 'date_sort' },
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -277,19 +206,13 @@
 
             $(document).on('click', '#applyFiltersBtn', function (e) {
                 e.preventDefault();
-                isFiltered = true;
                 window.refreshTable();
             });
 
             $(document).on('click', '#clearFiltersBtn', function (e) {
                 e.preventDefault();
-                isFiltered = false;
-                startPicker.clear();
-                endPicker.clear();
-                startPicker.set('maxDate', 'today');
-                endPicker.set('minDate', null);
+                asOnDatePicker.setDate('today', true);
                 $('#filter-location').val(null).trigger('change');
-                updateFilterButtonsVisibility();
                 window.refreshTable();
             });
 
@@ -314,7 +237,8 @@
                 if (data) {
                     const locationVal = $('#filter-location').val() || '';
                     const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                    window.location.href = `{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
+                    const asOnDate = $('#filter-as-on-date').val() || '';
+                    window.location.href = `{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${data.supplier_id}&as_on_date=${asOnDate}${locationQuery}`;
                 }
             });
         });

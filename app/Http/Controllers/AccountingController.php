@@ -58,6 +58,22 @@ class AccountingController extends Controller
 
         $transactions = $query->orderBy('id', 'desc')->get();
 
+        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
+        $transactions = $transactions->filter(function ($tx) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $invoiceNo = $matches[1];
+                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
+                if (!$exists) return false;
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $orderNo = $matches[1];
+                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
+                if (!$exists) return false;
+            }
+            return true;
+        });
+
         $data = $transactions->filter(function ($tx) use ($sourceFilter) {
             if ($sourceFilter === 'all') {
                 return true;
@@ -192,6 +208,22 @@ class AccountingController extends Controller
         $sourceFilter = $request->filled('source') ? $request->source : 'all';
 
         $transactions = $query->orderBy('id', 'desc')->get();
+
+        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
+        $transactions = $transactions->filter(function ($tx) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $invoiceNo = $matches[1];
+                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
+                if (!$exists) return false;
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $orderNo = $matches[1];
+                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
+                if (!$exists) return false;
+            }
+            return true;
+        });
 
         $data = $transactions->filter(function ($tx) use ($sourceFilter) {
             if ($sourceFilter === 'all') {

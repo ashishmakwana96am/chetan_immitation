@@ -24,7 +24,9 @@
 
     @php
       try {
-          $modules = \App\Models\Module::whereNull('parent_id')->with('children')->orderBy('sort_order')->get();
+          $modules = \Illuminate\Support\Facades\Cache::remember('admin_sidebar_modules', 3600, function () {
+              return \App\Models\Module::whereNull('parent_id')->with('children')->orderBy('sort_order')->get();
+          });
       } catch (\Exception $e) {
           $modules = collect();
       }
@@ -78,12 +80,15 @@
                     @php
                       try {
                           $authUser = auth()->user();
-                          $pendingSalesCount = \App\Models\Order::where('status', 1)
-                              ->when(
-                                  $authUser->location_id && !$authUser->hasRole('super-admin'),
-                                  fn($q) => $q->where('location_id', $authUser->location_id)
-                              )
-                              ->count();
+                          $pendingSalesCacheKey = 'admin_sidebar_pending_sales_count_' . ($authUser->location_id && !$authUser->hasRole('super-admin') ? $authUser->location_id : 'all');
+                          $pendingSalesCount = \Illuminate\Support\Facades\Cache::remember($pendingSalesCacheKey, 30, function () use ($authUser) {
+                              return \App\Models\Order::where('status', 1)
+                                  ->when(
+                                      $authUser->location_id && !$authUser->hasRole('super-admin'),
+                                      fn($q) => $q->where('location_id', $authUser->location_id)
+                                  )
+                                  ->count();
+                          });
                       } catch (\Exception $e) {
                           $pendingSalesCount = 0;
                       }
@@ -95,7 +100,9 @@
                   @if($child->route === 'admin.contact-inquiries.index')
                     @php
                       try {
-                          $todayInquiriesCount = \App\Models\ContactInquiry::whereDate('created_at', today())->count();
+                          $todayInquiriesCount = \Illuminate\Support\Facades\Cache::remember('admin_sidebar_today_inquiries_count_' . today()->toDateString(), 30, function () {
+                              return \App\Models\ContactInquiry::whereDate('created_at', today())->count();
+                          });
                       } catch (\Exception $e) {
                           $todayInquiriesCount = 0;
                       }
@@ -109,14 +116,17 @@
                       try {
                           $authUser = auth()->user();
                           $isTransferRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
-                          $pendingTransfersCount = \App\Models\PurchaseBill::where('status', \App\Models\PurchaseBill::STATUS_PENDING)
-                              ->when($isTransferRestricted, function ($q) use ($authUser) {
-                                  $q->where(function ($sub) use ($authUser) {
-                                      $sub->where('from_location_id', $authUser->location_id)
-                                          ->orWhere('to_location_id', $authUser->location_id);
-                                  });
-                              })
-                              ->count();
+                          $pendingTransfersCacheKey = 'admin_sidebar_pending_transfers_count_' . ($isTransferRestricted ? $authUser->location_id : 'all');
+                          $pendingTransfersCount = \Illuminate\Support\Facades\Cache::remember($pendingTransfersCacheKey, 30, function () use ($authUser, $isTransferRestricted) {
+                              return \App\Models\PurchaseBill::where('status', \App\Models\PurchaseBill::STATUS_PENDING)
+                                  ->when($isTransferRestricted, function ($q) use ($authUser) {
+                                      $q->where(function ($sub) use ($authUser) {
+                                          $sub->where('from_location_id', $authUser->location_id)
+                                              ->orWhere('to_location_id', $authUser->location_id);
+                                      });
+                                  })
+                                  ->count();
+                          });
                       } catch (\Exception $e) {
                           $pendingTransfersCount = 0;
                       }
