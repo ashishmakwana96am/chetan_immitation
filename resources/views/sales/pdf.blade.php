@@ -457,7 +457,13 @@
                     <div class="info-section-title">Payment</div>
                     <div class="info-row">
                         <span class="info-label">Method: </span>
-                        <span class="info-value">{{ ucwords(str_replace('_', ' ', $order->payment_method)) }}</span>
+                        <span class="info-value">
+                            @if($order->payment_method === 'online_cash')
+                                Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}
+                            @else
+                                {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}
+                            @endif
+                        </span>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Payment Status: </span>

@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Purchase;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseObserver
@@ -72,10 +73,11 @@ class PurchaseObserver
         DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $purchase) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
 
-            $newBalance = (float) $balance->{$balanceCol} - $amount;
+            $oldBalance = (float) $balance->{$balanceCol};
+            $newBalance = $oldBalance - $amount;
             $balance->update([$balanceCol => $newBalance]);
 
-            LocationBalanceTransaction::create([
+            $transaction = LocationBalanceTransaction::create([
                 'location_id'  => $locationId,
                 'balance_type' => $balanceType,
                 'type'         => LocationBalanceTransaction::TYPE_DEBIT,
@@ -84,6 +86,15 @@ class PurchaseObserver
                 'notes'        => 'Purchase #' . $purchase->invoice_no,
                 'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
             ]);
+
+            ActivityLogger::log(
+                'Accounting',
+                'create',
+                $transaction,
+                [$balanceCol => $oldBalance],
+                [$balanceCol => $newBalance],
+                'Balance deducted for Purchase #' . $purchase->invoice_no . ' (' . format_price($amount) . ')'
+            );
         });
      }
 
@@ -138,6 +149,7 @@ class PurchaseObserver
             }
 
             $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
+            $transaction = $existingTx;
             if ($existingTx) {
                 $existingTx->update([
                     'balance_type' => $newType,
@@ -145,7 +157,7 @@ class PurchaseObserver
                     'balance_after'=> $newBalanceVal,
                 ]);
             } else if ($newPaid > 0) {
-                LocationBalanceTransaction::create([
+                $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $locationId,
                     'balance_type' => $newType,
                     'type'         => LocationBalanceTransaction::TYPE_DEBIT,
@@ -155,6 +167,15 @@ class PurchaseObserver
                     'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
                 ]);
             }
+
+            ActivityLogger::log(
+                'Accounting',
+                'update',
+                $transaction,
+                [$oldCol => $oldPaid],
+                [$newCol => $newPaid],
+                'Balance adjusted for updated Purchase #' . $purchase->invoice_no
+            );
         });
     }
 
@@ -182,13 +203,24 @@ class PurchaseObserver
 
         DB::transaction(function () use ($locationId, $balanceCol, $amount, $purchase) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            $oldBalance = $balance ? (float) $balance->{$balanceCol} : null;
+            $newBalance = $oldBalance;
             if ($balance) {
-                $newBalance = (float) $balance->{$balanceCol} + $amount;
+                $newBalance = $oldBalance + $amount;
                 $balance->update([$balanceCol => $newBalance]);
             }
 
             $note = 'Purchase #' . $purchase->invoice_no;
             LocationBalanceTransaction::whereIn('notes', [$note, 'Refund/Correction: ' . $note])->delete();
+
+            ActivityLogger::log(
+                'Accounting',
+                'delete',
+                null,
+                $balance ? [$balanceCol => $oldBalance] : null,
+                $balance ? [$balanceCol => $newBalance] : null,
+                'Balance refunded on deletion of Purchase #' . $purchase->invoice_no . ' (' . format_price($amount) . ')'
+            );
         });
     }
 

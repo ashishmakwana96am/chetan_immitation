@@ -246,7 +246,25 @@ class Product extends Model
         return $query->withCount('reviews')->withAvg('reviews', 'rating');
     }
 
+    /**
+     * Per-request memoization cache for getVariantStock() — this method scans
+     * a product's entire purchase/sale/transfer history (several queries) and
+     * is called once per row on list pages, so repeated calls for the same
+     * product+location within a single request must not recompute it.
+     */
+    protected static array $variantStockCache = [];
+
     public function getVariantStock($locationId = null)
+    {
+        $cacheKey = $this->id . ':' . ($locationId ?? 'all');
+        if (array_key_exists($cacheKey, static::$variantStockCache)) {
+            return static::$variantStockCache[$cacheKey];
+        }
+
+        return static::$variantStockCache[$cacheKey] = $this->computeVariantStock($locationId);
+    }
+
+    private function computeVariantStock($locationId = null)
     {
         $variants = $this->variants()->with('attributeValue.attribute')->get();
         $variantsById = $variants->keyBy('id');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\UtilityReport;
 use App\Models\Location;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -112,6 +113,8 @@ class UtilityReportController extends Controller
             'startDate' => $request->start_date,
             'endDate'   => $request->end_date,
         ])->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Utility Report', 'export', null, null, null, 'Activity log exported to PDF');
 
         return $pdf->stream('utility_report_' . date('Y_m_d_His') . '.pdf');
     }

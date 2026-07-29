@@ -6,6 +6,20 @@ use App\Services\ActivityLogger;
 
 trait LogsActivity
 {
+    protected static bool $activityLogSuppressed = false;
+
+    public static function withoutActivityLogging(\Closure $callback)
+    {
+        $previous = static::$activityLogSuppressed;
+        static::$activityLogSuppressed = true;
+
+        try {
+            return $callback();
+        } finally {
+            static::$activityLogSuppressed = $previous;
+        }
+    }
+
     /**
      * Attribute keys that must never be written to the activity log,
      * even as part of an old/new value diff.
@@ -46,6 +60,9 @@ trait LogsActivity
     protected static function bootLogsActivity(): void
     {
         static::created(function ($model) {
+            if (static::$activityLogSuppressed) {
+                return;
+            }
             if (property_exists(static::class, 'logCreate') && static::$logCreate === false) {
                 return;
             }
@@ -62,6 +79,10 @@ trait LogsActivity
         });
 
         static::updated(function ($model) {
+            if (static::$activityLogSuppressed) {
+                return;
+            }
+
             $changes = self::stripHidden($model->getChanges());
             unset($changes['updated_at']);
 
@@ -83,6 +104,10 @@ trait LogsActivity
         });
 
         static::deleted(function ($model) {
+            if (static::$activityLogSuppressed) {
+                return;
+            }
+
             $attributes = self::stripHidden($model->getAttributes());
             ActivityLogger::log(
                 $model->activityModule(),

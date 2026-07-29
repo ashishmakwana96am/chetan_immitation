@@ -79,7 +79,9 @@
         <tbody>
             @forelse($orders as $index => $order)
                 @php
-                    $method = strtoupper($order->payment_method ?? '-');
+                    $method = $order->payment_method === 'online_cash'
+                        ? 'Cash + Online'
+                        : strtoupper($order->payment_method ?? '-');
                     $source = strtoupper($order->source ?? 'POS');
                     $cancellation = $order->cancellationRequest;
                     $isRefunded = $cancellation

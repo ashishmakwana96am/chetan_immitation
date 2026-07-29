@@ -188,10 +188,11 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
-                                <select name="payment_method" class="form-select">
-                                    <option value="cash">Cash</option>
-                                    <option value="online">Online</option>
+                                <label class="form-label">Sales Status <span class="text-danger">*</span></label>
+                                <select name="status" class="form-select no-select2">
+                                    <option value="1">Pending</option>
+                                    <option value="2" selected>Approve</option>
+                                    <option value="6">Cancelled</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
@@ -316,29 +317,27 @@
                         </div>
                     </div>
 
-            <!-- Sales Status -->
+            <!-- Payment Details -->
             <div class="col-12">
                 <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Sales Status</h5></div>
+                    <div class="card-header"><h5 class="mb-0">Payment Details</h5></div>
                     <div class="card-body">
-                        <select name="status" class="form-select no-select2">
-                            <option value="1">Pending</option>
-                            <option value="2" selected>Approve</option>
-                            <option value="6">Cancelled</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payment Status -->
-            <div class="col-12">
-                <div class="card mb-4">
-                    <div class="card-header"><h5 class="mb-0">Payment Status</h5></div>
-                    <div class="card-body">
-                        <select name="payment_status" class="form-select no-select2">
+                        <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
                             <option value="1">Pending</option>
                             <option value="2" selected>Paid</option>
                         </select>
+                        <div class="row g-2 mt-1" id="paymentSplitWrapper">
+                            <div class="col-6">
+                                <label class="form-label">Cash</label>
+                                <input type="number" name="paid_cash_amount" id="paidCashAmountInput" class="form-control" value="0" min="0" step="0.01">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Online</label>
+                                <input type="number" name="paid_online_amount" id="paidOnlineAmountInput" class="form-control" value="0" min="0" step="0.01">
+                                <div class="invalid-feedback"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1129,6 +1128,8 @@ $(document).ready(function () {
         }
 
         const grandTotalAmount = Math.round(finalAmount + taxAmount);
+        window.currentGrandTotal = grandTotalAmount;
+        updatePaymentSplit();
 
         $('#itemsTotal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
@@ -1157,6 +1158,47 @@ $(document).ready(function () {
     $(document).on('change', '#is_gst_switch', function () {
         updateSummary();
     });
+
+    function updatePaymentSplit() {
+        const isPaid = $('#paymentStatusSelect').val() === '2';
+        $('#paymentSplitWrapper').toggleClass('d-none', !isPaid);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('disabled', !isPaid);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('required', isPaid);
+
+        if (!isPaid) {
+            $('#paidOnlineAmountInput').val(0);
+            $('#paidCashAmountInput').val(0);
+            return;
+        }
+
+        syncPaymentSplit('online');
+    }
+
+    function syncPaymentSplit(source) {
+        const total = window.currentGrandTotal || 0;
+
+        // Items may not be loaded into the table yet (total still 0) — don't
+        // clobber the existing Cash/Online values with a premature recalculation.
+        if (total <= 0) {
+            return;
+        }
+
+        if (source === 'cash') {
+            let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
+            cash = Math.min(Math.max(cash, 0), total);
+            $('#paidCashAmountInput').val(cash);
+            $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
+        } else {
+            let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
+            online = Math.min(Math.max(online, 0), total);
+            $('#paidOnlineAmountInput').val(online);
+            $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+        }
+    }
+
+    $(document).on('change', '#paymentStatusSelect', updatePaymentSplit);
+    $(document).on('input', '#paidOnlineAmountInput', function () { syncPaymentSplit('online'); });
+    $(document).on('input', '#paidCashAmountInput', function () { syncPaymentSplit('cash'); });
 
     function validateDiscounts() {
         let itemsTotal = 0;

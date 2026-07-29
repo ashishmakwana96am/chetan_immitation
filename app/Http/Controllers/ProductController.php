@@ -326,6 +326,8 @@ class ProductController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('products.print_barcodes', compact('printItems'))
             ->setPaper([0, 0, $labelWidth, $labelHeight], 'landscape');
 
+        ActivityLogger::log('Products', 'export', null, null, null, 'Barcode labels printed (' . $totalQty . ' labels)');
+
         return $pdf->stream('barcodes.pdf');
     }
 

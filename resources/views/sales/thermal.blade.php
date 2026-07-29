@@ -129,22 +129,27 @@
             }
         }
 
-        // Payment Mapping
         $paymentCash   = 0.00;
         $paymentUpi    = 0.00;
         $paymentChaque = 0.00;
         $paymentCard   = 0.00;
 
-        $pm = strtolower($order->payment_method ?? '');
-        if (in_array($pm, ['upi', 'online', 'razorpay', 'bank_transfer', 'bank transfer'])) {
-            $paymentUpi = (float)$order->final_amount;
-        } elseif (in_array($pm, ['cheque', 'chaque', 'check'])) {
-            $paymentChaque = (float)$order->final_amount;
-        } elseif (in_array($pm, ['card', 'debit_card', 'credit_card', 'debit card', 'credit card'])) {
-            $paymentCard = (float)$order->final_amount;
-        } else {
-            // cash, cod, or any other method → show in CASH
-            $paymentCash = (float)$order->final_amount;
+        if (($order->payment_status ?? 1) == \App\Models\Order::PAYMENT_STATUS_PAID) {
+            if ((float) $order->paid_cash_amount > 0 || (float) $order->paid_online_amount > 0) {
+                $paymentCash = (float) $order->paid_cash_amount;
+                $paymentUpi  = (float) $order->paid_online_amount;
+            } else {
+                $pm = strtolower($order->payment_method ?? '');
+                if (in_array($pm, ['upi', 'online', 'razorpay', 'bank_transfer', 'bank transfer'])) {
+                    $paymentUpi = (float)$order->final_amount;
+                } elseif (in_array($pm, ['cheque', 'chaque', 'check'])) {
+                    $paymentChaque = (float)$order->final_amount;
+                } elseif (in_array($pm, ['card', 'debit_card', 'credit_card', 'debit card', 'credit card'])) {
+                    $paymentCard = (float)$order->final_amount;
+                } else {
+                    $paymentCash = (float)$order->final_amount;
+                }
+            }
         }
 
         $totalQty = $order->items->sum('quantity');

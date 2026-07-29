@@ -557,17 +557,20 @@
             $(document).on('click', '.change-payment-status-btn', function (e) {
                 e.preventDefault();
                 const url = $(this).data('url');
-                const currentPaymentStatus = $(this).data('current');
+                const total = parseFloat($(this).data('amount')) || 0;
 
                 Swal.fire({
-                    title: 'Update Payment Status',
+                    title: 'Mark as Paid',
                     html: `
-                        <div class="mb-3 text-start">
-                            <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
-                            <select id="swal-payment-status" class="form-select form-select-lg">
-                                <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
-                                <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
-                            </select>
+                        <div class="text-start d-flex gap-2">
+                            <div class="flex-fill">
+                                <label class="form-label fw-semibold mb-2">Cash</label>
+                                <input type="number" id="swal-paid-cash" class="form-control" value="${total}" min="0" step="0.01">
+                            </div>
+                            <div class="flex-fill">
+                                <label class="form-label fw-semibold mb-2">Online</label>
+                                <input type="number" id="swal-paid-online" class="form-control" value="0" min="0" step="0.01">
+                            </div>
                         </div>
                     `,
                     showCancelButton: true,
@@ -578,8 +581,30 @@
                         cancelButton: 'btn btn-label-secondary'
                     },
                     buttonsStyling: false,
+                    didOpen: () => {
+                        const cashInput = document.getElementById('swal-paid-cash');
+                        const onlineInput = document.getElementById('swal-paid-online');
+
+                        const sync = (source) => {
+                            if (source === 'cash') {
+                                let cash = Math.min(Math.max(parseFloat(cashInput.value) || 0, 0), total);
+                                cashInput.value = cash;
+                                onlineInput.value = Math.round((total - cash) * 100) / 100;
+                            } else {
+                                let online = Math.min(Math.max(parseFloat(onlineInput.value) || 0, 0), total);
+                                onlineInput.value = online;
+                                cashInput.value = Math.round((total - online) * 100) / 100;
+                            }
+                        };
+
+                        cashInput.addEventListener('input', () => sync('cash'));
+                        onlineInput.addEventListener('input', () => sync('online'));
+                    },
                     preConfirm: () => {
-                        return document.getElementById('swal-payment-status').value;
+                        return {
+                            paid_cash_amount: document.getElementById('swal-paid-cash').value,
+                            paid_online_amount: document.getElementById('swal-paid-online').value,
+                        };
                     }
                 }).then((result) => {
                     if (result.isConfirmed && result.value) {
@@ -589,7 +614,9 @@
                             type: 'PATCH',
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
-                                payment_status: result.value
+                                payment_status: 2,
+                                paid_cash_amount: result.value.paid_cash_amount,
+                                paid_online_amount: result.value.paid_online_amount
                             },
                             success: function (res) {
                                 window.hideAjaxLoader();

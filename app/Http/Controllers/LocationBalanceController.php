@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -100,7 +101,7 @@ class LocationBalanceController extends Controller
 
                 $lockedBalance->update([$balanceColumn => $newBalance]);
 
-                LocationBalanceTransaction::create([
+                $transaction = LocationBalanceTransaction::create([
                     'location_id'   => $location->id,
                     'balance_type'  => $request->balance_type,
                     'type'          => $request->type,
@@ -109,6 +110,15 @@ class LocationBalanceController extends Controller
                     'notes'         => !empty($request->notes) ? $request->notes : 'Opening Balance Added',
                     'created_by'    => auth()->id(),
                 ]);
+
+                ActivityLogger::log(
+                    'Accounting',
+                    'create',
+                    $transaction,
+                    [$balanceColumn => $currentBalance],
+                    [$balanceColumn => $newBalance],
+                    ucfirst($request->type) . ' of ' . format_price($amount) . ' (' . $request->balance_type . ') recorded for "' . $location->name . '"'
+                );
 
                 return $newBalance;
             });
