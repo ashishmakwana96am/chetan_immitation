@@ -66,8 +66,6 @@ class ProductBulkImageUploadController extends Controller
     {
         $this->authorize('bulk upload product images');
 
-        $sourceImage = public_path('website/assets/images/no-image.svg');
-
         $tmpDir = storage_path('app/private/tmp');
         if (!file_exists($tmpDir)) {
             mkdir($tmpDir, 0755, true);
@@ -84,11 +82,30 @@ class ProductBulkImageUploadController extends Controller
             '100003_2.jpg',
         ];
 
+        // Generate a real, valid JPEG image stream
+        $imageBytes = null;
+        if (function_exists('imagecreatetruecolor')) {
+            ob_start();
+            $im = imagecreatetruecolor(400, 400);
+            $bg = imagecolorallocate($im, 240, 243, 246);
+            $textColor = imagecolorallocate($im, 100, 116, 139);
+            imagefill($im, 0, 0, $bg);
+            imagestring($im, 5, 140, 190, "Sample Image", $textColor);
+            imagejpeg($im, null, 90);
+            imagedestroy($im);
+            $imageBytes = ob_get_clean();
+        }
+
+        if (!$imageBytes) {
+            // Fallback valid minimal JPEG binary
+            $imageBytes = base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
+        }
+
         $zip = new ZipArchive();
         $zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
         foreach ($sampleFiles as $file) {
-            $zip->addFile($sourceImage, $file);
+            $zip->addFromString($file, $imageBytes);
         }
 
         $zip->close();
