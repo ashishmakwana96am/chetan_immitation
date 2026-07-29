@@ -39,6 +39,7 @@
             </td>
             <td style="vertical-align: top; text-align: right;">
                 <div class="report-title">SUPPLIER LEDGER</div>
+                <div class="report-meta">As on Date: {{ \Carbon\Carbon::parse($asOnDate)->format('d-m-Y') }}</div>
                 <div class="report-meta">Generated Date: {{ date('d-m-Y h:i A') }}</div>
             </td>
         </tr>
@@ -65,18 +66,16 @@
         <thead>
             <tr>
                 <th style="width: 5%;" class="text-center">#</th>
-                <th style="width: 15%;">Date</th>
-                <th style="width: 35%;">Supplier</th>
-                <th style="width: 15%;" class="text-right">Total Amount</th>
-                <th style="width: 15%;" class="text-right">Paid Amount</th>
-                <th style="width: 15%;" class="text-right">Due Amount</th>
+                <th style="width: 40%;">Supplier</th>
+                <th style="width: 18%;" class="text-right">Total Amount</th>
+                <th style="width: 18%;" class="text-right">Paid Amount</th>
+                <th style="width: 19%;" class="text-right">Due Amount</th>
             </tr>
         </thead>
         <tbody>
             @forelse($rows as $index => $row)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $row['date']->format('d/m/Y') }}</td>
                     <td>{{ $row['supplier_name'] }}</td>
                     <td class="text-right">{{ format_price($row['total_amount']) }}</td>
                     <td class="text-right text-success fw-bold">{{ format_price($row['paid_amount']) }}</td>
@@ -84,14 +83,14 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center" style="padding: 15px;">No records found for the selected criteria.</td>
+                    <td colspan="5" class="text-center" style="padding: 15px;">No records found for the selected criteria.</td>
                 </tr>
             @endforelse
         </tbody>
         @if($rows->count() > 0)
             <tfoot>
                 <tr>
-                    <td colspan="3" class="text-right fw-bold">TOTAL:</td>
+                    <td colspan="2" class="text-right fw-bold">TOTAL:</td>
                     <td class="text-right fw-bold">{{ format_price($totalAmount) }}</td>
                     <td class="text-right fw-bold">{{ format_price($totalPaid) }}</td>
                     <td class="text-right fw-bold">{{ format_price($totalDue) }}</td>

@@ -35,14 +35,9 @@ class ExpenseObserver
         $oldLocationId = $expense->getOriginal('location_id');
         $oldAmount     = (float) $expense->getOriginal('amount');
         $oldMethod     = $expense->getOriginal('payment_method');
+        $oldTitle      = $expense->getOriginal('title') ?: $expense->getOriginal('category');
 
-        if ($oldLocationId && $oldAmount > 0) {
-            $this->reverseBalance($expense, $oldAmount, $oldLocationId, $oldMethod);
-        }
-
-        if ($expense->location_id && $expense->amount > 0) {
-            $this->deductBalance($expense, (float) $expense->amount, $expense->location_id, $expense->payment_method);
-        }
+        $this->updateExpenseBalance($oldLocationId, $oldMethod, $oldAmount, $oldTitle, $expense);
     }
 
     /**
@@ -84,28 +79,95 @@ class ExpenseObserver
         });
     }
 
+    private function updateExpenseBalance(?int $oldLocationId, ?string $oldMethod, float $oldAmount, ?string $oldTitle, Expense $expense): void
+    {
+        $oldType = $this->resolveBalanceType($oldMethod);
+        $newType = $this->resolveBalanceType($expense->payment_method);
+        $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $newAmount = (float) $expense->amount;
+        $newLocationId = (int) $expense->location_id;
+        $newNote = 'Expense: ' . ($expense->title ?: $expense->category);
+        $oldNote = 'Expense: ' . $oldTitle;
+
+        DB::transaction(function () use ($oldLocationId, $oldCol, $oldAmount, $newLocationId, $newCol, $newAmount, $newType, $newNote, $oldNote, $expense) {
+            if ($oldLocationId === $newLocationId && $oldCol === $newCol) {
+                // Same location and balance type: update by difference
+                $newBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
+                $newBalanceVal = 0.0;
+                if ($newBalance) {
+                    $diff = $newAmount - $oldAmount;
+                    $newBalanceVal = (float) $newBalance->{$newCol} - $diff;
+                    $newBalance->update([
+                        $newCol => $newBalanceVal
+                    ]);
+                }
+            } else {
+                // Restore old amount
+                if ($oldLocationId && $oldAmount > 0) {
+                    $oldBalance = LocationBalance::where('location_id', $oldLocationId)->lockForUpdate()->first();
+                    if ($oldBalance) {
+                        $oldBalance->update([
+                            $oldCol => (float) $oldBalance->{$oldCol} + $oldAmount
+                        ]);
+                    }
+                }
+
+                // Deduct new amount
+                $newBalanceVal = 0.0;
+                if ($newLocationId && $newAmount > 0) {
+                    $newBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
+                    if ($newBalance) {
+                        $newBalanceVal = (float) $newBalance->{$newCol} - $newAmount;
+                        $newBalance->update([
+                            $newCol => $newBalanceVal
+                        ]);
+                    }
+                }
+            }
+
+            $existingTx = LocationBalanceTransaction::where('notes', $oldNote)
+                ->orWhere('notes', $newNote)
+                ->first();
+
+            if ($existingTx) {
+                $existingTx->update([
+                    'location_id'  => $newLocationId,
+                    'balance_type' => $newType,
+                    'amount'       => $newAmount,
+                    'balance_after'=> $newBalanceVal,
+                    'notes'        => $newNote,
+                ]);
+            } else if ($newLocationId && $newAmount > 0) {
+                LocationBalanceTransaction::create([
+                    'location_id'  => $newLocationId,
+                    'balance_type' => $newType,
+                    'type'         => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'       => $newAmount,
+                    'balance_after'=> $newBalanceVal,
+                    'notes'        => $newNote,
+                    'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
+                ]);
+            }
+        });
+    }
+
     private function reverseBalance(Expense $expense, float $amount, int $locationId, ?string $paymentMethod): void
     {
         $balanceType = $this->resolveBalanceType($paymentMethod);
         $balanceCol  = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK
             ? 'bank_balance'
             : 'cash_balance';
+        $note = 'Expense: ' . ($expense->title ?: $expense->category);
 
-        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $expense) {
-            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($locationId, $balanceCol, $amount, $note) {
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            if ($balance) {
+                $newBalance = (float) $balance->{$balanceCol} + $amount;
+                $balance->update([$balanceCol => $newBalance]);
+            }
 
-            $newBalance = (float) $balance->{$balanceCol} + $amount;
-            $balance->update([$balanceCol => $newBalance]);
-
-            LocationBalanceTransaction::create([
-                'location_id'  => $locationId,
-                'balance_type' => $balanceType,
-                'type'         => LocationBalanceTransaction::TYPE_CREDIT,
-                'amount'       => $amount,
-                'balance_after'=> $newBalance,
-                'notes'        => 'Reversal: Expense ' . ($expense->title ?: $expense->category),
-                'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
-            ]);
+            LocationBalanceTransaction::whereIn('notes', [$note, 'Reversal: ' . $note])->delete();
         });
     }
 

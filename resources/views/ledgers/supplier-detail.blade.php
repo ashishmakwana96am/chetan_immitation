@@ -3,6 +3,8 @@
 @section('title', 'Supplier Ledger Details')
 
 @section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <style>
         .ledger-info-row {
             display: flex;
@@ -48,7 +50,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Supplier Ledger Details</h4>
-            <small class="text-muted">Breakdown of purchases for <strong>{{ $supplier->name }}</strong> on <strong>{{ format_date($date) }}</strong></small>
+            <small class="text-muted">Breakdown of purchases for <strong>{{ $supplier->name }}</strong> as on <strong>{{ format_date($asOnDate) }}</strong></small>
         </div>
         <div>
             <a href="{{ route('admin.ledgers.supplier') }}" class="btn btn-label-secondary">
@@ -75,8 +77,8 @@
                         <span class="ledger-info-value">{{ $supplier->mobile ?? '-' }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Date</span>
-                        <span class="ledger-info-value">{{ format_date($date) }}</span>
+                        <span class="ledger-info-label">As on Date</span>
+                        <span class="ledger-info-value">{{ format_date($asOnDate) }}</span>
                     </div>
                 </div>
             </div>
@@ -112,11 +114,12 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0">
+                        <table class="table border-top table-hover mb-0" id="purchasesInvoicesTable">
                             <thead>
                                 <tr>
                                     <th style="width: 5%">#</th>
                                     <th>Invoice No</th>
+                                    <th>Date</th>
                                     <th class="text-end">Total Amount</th>
                                     <th class="text-end">Paid Amount</th>
                                     <th class="text-end">Remaining Amount</th>
@@ -134,14 +137,15 @@
                                                 {{ $purchase->invoice_no }}
                                             </a>
                                         </td>
+                                        <td>{{ format_date($purchase->created_at) }}</td>
                                         <td class="text-end fw-semibold text-heading">{{ format_price($purchase->total_amount) }}</td>
                                         <td class="text-end text-success fw-semibold">{{ format_price($purchase->paid_amount) }}</td>
                                         <td class="text-end text-danger fw-semibold">{{ format_price($remaining) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
-                                            No purchases found for this date.
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            No purchases found up to this date.
                                         </td>
                                     </tr>
                                 @endforelse
@@ -152,4 +156,17 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            $('#purchasesInvoicesTable').DataTable({
+                responsive: true,
+                order: [],
+                columnDefs: [{ targets: 0, orderable: false }],
+            });
+        });
+    </script>
 @endsection

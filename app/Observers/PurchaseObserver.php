@@ -22,18 +22,24 @@ class PurchaseObserver
 
     public function updated(Purchase $purchase): void
     {
-        if (!$purchase->wasChanged('paid_amount')) {
+        if (
+            !$purchase->wasChanged('paid_amount') &&
+            !$purchase->wasChanged('payment_method') &&
+            !$purchase->wasChanged('location_id')
+        ) {
             return;
         }
 
-        $oldPaid = (float) $purchase->getOriginal('paid_amount');
-        $newPaid = (float) $purchase->paid_amount;
-        $diff    = $newPaid - $oldPaid;
+        $oldPaid   = (float) $purchase->getOriginal('paid_amount');
+        $oldMethod = $purchase->getOriginal('payment_method');
 
-        if ($diff > 0) {
-            $this->deductBalance($purchase, $diff);
-        } elseif ($diff < 0) {
-            $this->refundBalance($purchase, abs($diff));
+        $this->updatePurchaseBalance($oldPaid, $oldMethod, $purchase);
+    }
+
+    public function deleted(Purchase $purchase): void
+    {
+        if ($purchase->paid_amount > 0) {
+            $this->refundBalance($purchase, (float) $purchase->paid_amount);
         }
     }
 
@@ -81,6 +87,77 @@ class PurchaseObserver
         });
      }
 
+    private function updatePurchaseBalance(float $oldPaid, ?string $oldMethod, Purchase $purchase): void
+    {
+        $locationId = $purchase->location_id;
+        if (!$locationId) {
+            $locationId = $purchase->items()
+                ->with('allocations')
+                ->get()
+                ->flatMap(fn($item) => $item->allocations)
+                ->first()
+                ?->location_id;
+        }
+
+        if (!$locationId) {
+            return;
+        }
+
+        $oldType = $this->resolveBalanceType($oldMethod);
+        $newType = $this->resolveBalanceType($purchase->payment_method);
+        $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $newPaid = (float) $purchase->paid_amount;
+        $note    = 'Purchase #' . $purchase->invoice_no;
+
+        DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase) {
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+
+            if ($balance) {
+                if ($oldCol === $newCol) {
+                    // Same balance type (e.g. Cash -> Cash), update net difference
+                    $diff = $newPaid - $oldPaid;
+                    $newBalanceVal = (float) $balance->{$newCol} - $diff;
+                    $balance->update([
+                        $newCol => $newBalanceVal
+                    ]);
+                } else {
+                    // Method changed (e.g. Cash -> Bank), refund old column and deduct from new column
+                    if ($oldPaid > 0) {
+                        $balance->update([
+                            $oldCol => (float) $balance->{$oldCol} + $oldPaid
+                        ]);
+                    }
+                    $newBalanceVal = (float) $balance->{$newCol} - $newPaid;
+                    $balance->update([
+                        $newCol => $newBalanceVal
+                    ]);
+                }
+            } else {
+                $newBalanceVal = 0.0;
+            }
+
+            $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
+            if ($existingTx) {
+                $existingTx->update([
+                    'balance_type' => $newType,
+                    'amount'       => $newPaid,
+                    'balance_after'=> $newBalanceVal,
+                ]);
+            } else if ($newPaid > 0) {
+                LocationBalanceTransaction::create([
+                    'location_id'  => $locationId,
+                    'balance_type' => $newType,
+                    'type'         => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'       => $newPaid,
+                    'balance_after'=> $newBalanceVal,
+                    'notes'        => $note,
+                    'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
+                ]);
+            }
+        });
+    }
+
     private function refundBalance(Purchase $purchase, float $amount): void
     {
         $locationId = $purchase->location_id;
@@ -103,21 +180,15 @@ class PurchaseObserver
             ? 'bank_balance'
             : 'cash_balance';
 
-        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $purchase) {
-            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($locationId, $balanceCol, $amount, $purchase) {
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            if ($balance) {
+                $newBalance = (float) $balance->{$balanceCol} + $amount;
+                $balance->update([$balanceCol => $newBalance]);
+            }
 
-            $newBalance = (float) $balance->{$balanceCol} + $amount;
-            $balance->update([$balanceCol => $newBalance]);
-
-            LocationBalanceTransaction::create([
-                'location_id'  => $locationId,
-                'balance_type' => $balanceType,
-                'type'         => LocationBalanceTransaction::TYPE_CREDIT,
-                'amount'       => $amount,
-                'balance_after'=> $newBalance,
-                'notes'        => 'Refund/Correction: Purchase #' . $purchase->invoice_no,
-                'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
-            ]);
+            $note = 'Purchase #' . $purchase->invoice_no;
+            LocationBalanceTransaction::whereIn('notes', [$note, 'Refund/Correction: ' . $note])->delete();
         });
     }
 

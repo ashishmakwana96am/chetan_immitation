@@ -53,19 +53,39 @@ class OrderObserver
 
         // Transition 2: PAID -> Unpaid (e.g. status set back to pending)
         if ($oldStatus == \App\Models\Order::PAYMENT_STATUS_PAID && $newStatus != \App\Models\Order::PAYMENT_STATUS_PAID) {
-            $this->reverseBalance((int) $order->getOriginal('location_id'), $order->getOriginal('payment_method'), (float) $order->getOriginal('final_amount'), $order->order_no);
+            $this->removeSaleBalance((int) $order->getOriginal('location_id'), $order->getOriginal('payment_method'), (float) $order->getOriginal('final_amount'), $order->order_no);
             return;
         }
 
         // Transition 3: Was PAID, remains PAID, but method, amount, or location changed
         if ($oldStatus == \App\Models\Order::PAYMENT_STATUS_PAID && $newStatus == \App\Models\Order::PAYMENT_STATUS_PAID) {
             if ($order->wasChanged('payment_method') || $order->wasChanged('final_amount') || $order->wasChanged('location_id')) {
-                $oldMethod = $order->getOriginal('payment_method');
-                $oldAmount = (float) $order->getOriginal('final_amount');
-                $this->reverseBalance((int) $order->getOriginal('location_id'), $oldMethod, $oldAmount, $order->order_no);
-                $this->creditBalance($order);
+                $oldLocationId = (int) $order->getOriginal('location_id');
+                $oldMethod     = $order->getOriginal('payment_method');
+                $oldAmount     = (float) $order->getOriginal('final_amount');
+                $newLocationId = (int) $order->location_id;
+                $newMethod     = $order->payment_method;
+                $newAmount     = (float) $order->final_amount;
+
+                $this->updateSaleBalance($oldLocationId, $oldMethod, $oldAmount, $newLocationId, $newMethod, $newAmount, $order);
             }
         }
+    }
+
+    /**
+     * When a paid sale order is deleted, reverse the credited balance.
+     */
+    public function deleted(Order $order): void
+    {
+        if ($order->order_type !== 'sale') {
+            return;
+        }
+
+        if ($order->payment_status != \App\Models\Order::PAYMENT_STATUS_PAID) {
+            return;
+        }
+
+        $this->removeSaleBalance((int) $order->location_id, $order->payment_method, (float) $order->final_amount, $order->order_no);
     }
 
     // ─────────────────────────────────────────────
@@ -101,7 +121,70 @@ class OrderObserver
         });
     }
 
-    private function reverseBalance(int $locationId, ?string $paymentMethod, float $amount, string $orderNo): void
+    private function updateSaleBalance(int $oldLocationId, ?string $oldMethod, float $oldAmount, int $newLocationId, ?string $newMethod, float $newAmount, Order $order): void
+    {
+        $oldType = $this->resolveBalanceType($oldMethod);
+        $newType = $this->resolveBalanceType($newMethod);
+        $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+
+        DB::transaction(function () use ($oldLocationId, $oldCol, $oldAmount, $oldType, $newLocationId, $newCol, $newAmount, $newType, $order) {
+            if ($oldLocationId === $newLocationId && $oldCol === $newCol) {
+                // Same location & balance type: update by difference
+                $newLocBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
+                $newBalanceVal = 0.0;
+                if ($newLocBalance) {
+                    $diff = $newAmount - $oldAmount;
+                    $newBalanceVal = (float)$newLocBalance->{$newCol} + $diff;
+                    $newLocBalance->update([
+                        $newCol => $newBalanceVal
+                    ]);
+                }
+            } else {
+                // Location or payment method changed: deduct old, add new
+                if ($oldLocationId > 0 && $oldAmount > 0) {
+                    $oldLocBalance = LocationBalance::where('location_id', $oldLocationId)->lockForUpdate()->first();
+                    if ($oldLocBalance) {
+                        $oldLocBalance->update([
+                            $oldCol => (float)$oldLocBalance->{$oldCol} - $oldAmount
+                        ]);
+                    }
+                }
+
+                $newLocBalance = LocationBalance::where('location_id', $newLocationId)->lockForUpdate()->first();
+                $newBalanceVal = 0.0;
+                if ($newLocBalance) {
+                    $newBalanceVal = (float)$newLocBalance->{$newCol} + $newAmount;
+                    $newLocBalance->update([
+                        $newCol => $newBalanceVal
+                    ]);
+                }
+            }
+
+            // Find existing transaction for this sale
+            $existingTx = LocationBalanceTransaction::where('notes', 'Sale #' . $order->order_no)->first();
+            if ($existingTx) {
+                $existingTx->update([
+                    'location_id'  => $newLocationId,
+                    'balance_type' => $newType,
+                    'amount'       => $newAmount,
+                    'balance_after'=> $newBalanceVal,
+                ]);
+            } else {
+                LocationBalanceTransaction::create([
+                    'location_id'  => $newLocationId,
+                    'balance_type' => $newType,
+                    'type'         => LocationBalanceTransaction::TYPE_CREDIT,
+                    'amount'       => $newAmount,
+                    'balance_after'=> $newBalanceVal,
+                    'notes'        => 'Sale #' . $order->order_no,
+                    'created_by'   => LocationBalanceTransaction::getFallbackUserId($order->user_id ?? $order->created_by),
+                ]);
+            }
+        });
+    }
+
+    private function removeSaleBalance(int $locationId, ?string $paymentMethod, float $amount, string $orderNo): void
     {
         if (!$locationId || $amount <= 0) {
             return;
@@ -112,21 +195,14 @@ class OrderObserver
             ? 'bank_balance'
             : 'cash_balance';
 
-        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $orderNo) {
-            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($locationId, $balanceCol, $amount, $orderNo) {
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            if ($balance) {
+                $newBalance = (float) $balance->{$balanceCol} - $amount;
+                $balance->update([$balanceCol => $newBalance]);
+            }
 
-            $newBalance = (float) $balance->{$balanceCol} - $amount;
-            $balance->update([$balanceCol => $newBalance]);
-
-            LocationBalanceTransaction::create([
-                'location_id'  => $locationId,
-                'balance_type' => $balanceType,
-                'type'         => LocationBalanceTransaction::TYPE_DEBIT,
-                'amount'       => $amount,
-                'balance_after'=> $newBalance,
-                'notes'        => 'Reversal: Sale #' . $orderNo,
-                'created_by'   => LocationBalanceTransaction::getFallbackUserId(),
-            ]);
+            LocationBalanceTransaction::whereIn('notes', ['Sale #' . $orderNo, 'Reversal: Sale #' . $orderNo])->delete();
         });
     }
 

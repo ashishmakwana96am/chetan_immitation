@@ -33,14 +33,13 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view supplier ledger');
 
-        [$startDate, $endDate] = $this->resolveDateRange($request);
+        $asOnDate = $this->resolveAsOnDate($request);
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $purchasesQuery = Purchase::with('supplier')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+            ->whereDate('created_at', '<=', $asOnDate);
 
         if ($isRestricted) {
             $locationId = $user->location_id;
@@ -58,14 +57,11 @@ class LedgerController extends Controller
 
         $purchases = $purchasesQuery->get();
 
-        // Group by Date portion and Supplier ID
-        $grouped = $purchases->groupBy(function ($purchase) {
-            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
-            return $date . '_' . ($purchase->supplier_id ?? 0);
-        });
+        // Group by Supplier ID only — cumulative totals as on the selected date
+        $grouped = $purchases->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
 
         $rows = collect();
-        foreach ($grouped as $key => $items) {
+        foreach ($grouped as $items) {
             $first = $items->first();
             $totalAmount = (float) $items->sum('total_amount');
             $paidAmount  = (float) $items->sum('paid_amount');
@@ -80,13 +76,9 @@ class LedgerController extends Controller
                 $status = Purchase::PAYMENT_STATUS_PARTIAL;
             }
 
-            $dateObj = $first->created_at ?? now();
-
             $rows->push([
                 'supplier_id'    => $first->supplier_id,
                 'supplier_name'  => $first->supplier->name ?? '-',
-                'date_raw'       => $dateObj->format('Y-m-d'),
-                'date_formatted' => format_date($dateObj),
                 'total_amount'   => $totalAmount,
                 'paid_amount'    => $paidAmount,
                 'due_amount'     => $dueAmount,
@@ -94,27 +86,21 @@ class LedgerController extends Controller
             ]);
         }
 
-        // Sort by date desc, then supplier name asc
         $sortedRows = $rows->sort(function ($a, $b) {
-            if ($a['date_raw'] !== $b['date_raw']) {
-                return strcmp($b['date_raw'], $a['date_raw']);
+            if ($a['due_amount'] !== $b['due_amount']) {
+                return $b['due_amount'] <=> $a['due_amount'];
             }
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
         $mappedRows = $sortedRows->map(function ($row, $index) {
-            $dateObj = \Carbon\Carbon::parse($row['date_raw']);
-
             return [
                 'index'          => $index + 1,
                 'supplier_id'    => $row['supplier_id'],
                 'supplier'       => e($row['supplier_name']),
-                'date'           => $row['date_formatted'],
                 'total_amount'   => format_price($row['total_amount']),
                 'paid_amount'    => format_price($row['paid_amount']),
                 'due_amount'     => format_price($row['due_amount']),
-                'date_group'     => format_date($dateObj, 'd M Y'),
-                'date_sort'      => $row['date_raw'],
             ];
         });
 
@@ -150,17 +136,18 @@ class LedgerController extends Controller
 
         $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
-            'date'        => ['required', 'date_format:Y-m-d'],
+            'as_on_date'  => ['required', 'date_format:Y-m-d'],
         ]);
 
         $supplier = \App\Models\Supplier::findOrFail($request->supplier_id);
-        $date = \Carbon\Carbon::parse($request->date);
+        $asOnDate = \Carbon\Carbon::parse($request->as_on_date);
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $purchasesQuery = Purchase::where('supplier_id', $request->supplier_id)
-            ->whereDate('created_at', $request->date);
+            ->whereDate('created_at', '<=', $request->as_on_date)
+            ->orderByDesc('created_at');
 
         if ($isRestricted) {
             $locationId = $user->location_id;
@@ -184,7 +171,7 @@ class LedgerController extends Controller
 
         return view('ledgers.supplier-detail', compact(
             'supplier',
-            'date',
+            'asOnDate',
             'purchases',
             'totalPurchase',
             'totalPayment',
@@ -196,14 +183,13 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view supplier ledger');
 
-        [$startDate, $endDate] = $this->resolveDateRange($request);
+        $asOnDate = $this->resolveAsOnDate($request);
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
         $purchasesQuery = Purchase::with('supplier')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+            ->whereDate('created_at', '<=', $asOnDate);
 
         $locationName = 'All Locations';
         if ($isRestricted) {
@@ -222,10 +208,7 @@ class LedgerController extends Controller
 
         $purchases = $purchasesQuery->get();
 
-        $grouped = $purchases->groupBy(function ($purchase) {
-            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
-            return $date . '_' . ($purchase->supplier_id ?? 0);
-        });
+        $grouped = $purchases->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
 
         $rows = collect();
         foreach ($grouped as $items) {
@@ -236,7 +219,6 @@ class LedgerController extends Controller
 
             $rows->push([
                 'supplier_name' => $first->supplier->name ?? '-',
-                'date'          => $first->created_at ?? now(),
                 'total_amount'  => $totalAmount,
                 'paid_amount'   => $paidAmount,
                 'due_amount'    => $dueAmount,
@@ -244,8 +226,8 @@ class LedgerController extends Controller
         }
 
         $rows = $rows->sort(function ($a, $b) {
-            if ($a['date']->format('Y-m-d') !== $b['date']->format('Y-m-d')) {
-                return $b['date'] <=> $a['date'];
+            if ($a['due_amount'] !== $b['due_amount']) {
+                return $b['due_amount'] <=> $a['due_amount'];
             }
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
@@ -267,8 +249,7 @@ class LedgerController extends Controller
 
         $pdf = Pdf::loadView('ledgers.pdf.supplier', compact(
             'rows',
-            'startDate',
-            'endDate',
+            'asOnDate',
             'locationName',
             'totalAmount',
             'totalPaid',
@@ -1149,6 +1130,13 @@ class LedgerController extends Controller
         $endDate   = $request->end_date ?: now()->format('Y-m-d');
 
         return [$startDate, $endDate];
+    }
+
+    private function resolveAsOnDate(Request $request): string
+    {
+        $asOnDate = $request->as_on_date ?: now()->format('Y-m-d');
+
+        return $asOnDate > now()->format('Y-m-d') ? now()->format('Y-m-d') : $asOnDate;
     }
 
     private function openingBalance(int $locationId, string $balanceType, string $beforeDate): float

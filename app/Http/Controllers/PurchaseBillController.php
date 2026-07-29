@@ -717,39 +717,78 @@ class PurchaseBillController extends Controller
             ? 'bank_balance'
             : 'cash_balance';
 
-        $fromDelta = $reverse ? -$totalAmount : $totalAmount;
-        $toDelta = $reverse ? $totalAmount : -$totalAmount;
-        $fromType = $reverse ? \App\Models\LocationBalanceTransaction::TYPE_DEBIT : \App\Models\LocationBalanceTransaction::TYPE_CREDIT;
-        $toType = $reverse ? \App\Models\LocationBalanceTransaction::TYPE_CREDIT : \App\Models\LocationBalanceTransaction::TYPE_DEBIT;
-        $notePrefix = $reverse ? 'Purchase Bill Payment Reversed' : 'Purchase Bill';
+        $outNote = 'Purchase Bill Out #' . $purchaseBill->transfer_no;
+        $inNote  = 'Purchase Bill In #' . $purchaseBill->transfer_no;
+
+        if ($reverse) {
+            // Revert balances for from and to locations
+            $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->first();
+            if ($fromBalance) {
+                $fromBalance->update([$balanceCol => (float) $fromBalance->{$balanceCol} - $totalAmount]);
+            }
+            $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->first();
+            if ($toBalance) {
+                $toBalance->update([$balanceCol => (float) $toBalance->{$balanceCol} + $totalAmount]);
+            }
+
+            // Remove existing transactions so no duplicate reversal lines are shown
+            \App\Models\LocationBalanceTransaction::whereIn('notes', [$outNote, $inNote])
+                ->orWhere('notes', 'LIKE', '%#' . $purchaseBill->transfer_no)
+                ->delete();
+            return;
+        }
 
         $fromBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->from_location_id)->lockForUpdate()->firstOrFail();
-        $newFromBalance = (float) $fromBalance->{$balanceCol} + $fromDelta;
+        $newFromBalance = (float) $fromBalance->{$balanceCol} + $totalAmount;
         $fromBalance->update([$balanceCol => $newFromBalance]);
 
-        \App\Models\LocationBalanceTransaction::create([
-            'location_id'   => $purchaseBill->from_location_id,
-            'balance_type'  => $balanceType,
-            'type'          => $fromType,
-            'amount'        => $totalAmount,
-            'balance_after' => $newFromBalance,
-            'notes'         => $notePrefix . ' Out #' . $purchaseBill->transfer_no,
-            'created_by'    => auth()->id(),
-        ]);
+        $existingOut = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->from_location_id)->first();
+        if ($existingOut) {
+            $existingOut->update([
+                'location_id'   => $purchaseBill->from_location_id,
+                'balance_type'  => $balanceType,
+                'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
+                'amount'        => $totalAmount,
+                'balance_after' => $newFromBalance,
+                'notes'         => $outNote,
+            ]);
+        } else {
+            \App\Models\LocationBalanceTransaction::create([
+                'location_id'   => $purchaseBill->from_location_id,
+                'balance_type'  => $balanceType,
+                'type'          => \App\Models\LocationBalanceTransaction::TYPE_CREDIT,
+                'amount'        => $totalAmount,
+                'balance_after' => $newFromBalance,
+                'notes'         => $outNote,
+                'created_by'    => auth()->id(),
+            ]);
+        }
 
         $toBalance = \App\Models\LocationBalance::where('location_id', $purchaseBill->to_location_id)->lockForUpdate()->firstOrFail();
-        $newToBalance = (float) $toBalance->{$balanceCol} + $toDelta;
+        $newToBalance = (float) $toBalance->{$balanceCol} - $totalAmount;
         $toBalance->update([$balanceCol => $newToBalance]);
 
-        \App\Models\LocationBalanceTransaction::create([
-            'location_id'   => $purchaseBill->to_location_id,
-            'balance_type'  => $balanceType,
-            'type'          => $toType,
-            'amount'        => $totalAmount,
-            'balance_after' => $newToBalance,
-            'notes'         => $notePrefix . ' In #' . $purchaseBill->transfer_no,
-            'created_by'    => auth()->id(),
-        ]);
+        $existingIn = \App\Models\LocationBalanceTransaction::where('notes', 'LIKE', '%' . $purchaseBill->transfer_no)->where('location_id', $purchaseBill->to_location_id)->first();
+        if ($existingIn) {
+            $existingIn->update([
+                'location_id'   => $purchaseBill->to_location_id,
+                'balance_type'  => $balanceType,
+                'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
+                'amount'        => $totalAmount,
+                'balance_after' => $newToBalance,
+                'notes'         => $inNote,
+            ]);
+        } else {
+            \App\Models\LocationBalanceTransaction::create([
+                'location_id'   => $purchaseBill->to_location_id,
+                'balance_type'  => $balanceType,
+                'type'          => \App\Models\LocationBalanceTransaction::TYPE_DEBIT,
+                'amount'        => $totalAmount,
+                'balance_after' => $newToBalance,
+                'notes'         => $inNote,
+                'created_by'    => auth()->id(),
+            ]);
+        }
     }
 
     private function resolveCustomSizeValue(?Product $product, array $itemData): ?float
