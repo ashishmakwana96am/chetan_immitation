@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 class OrderObserver
@@ -106,10 +107,11 @@ class OrderObserver
         DB::transaction(function () use ($order, $balanceType, $balanceCol) {
             $balance = LocationBalance::where('location_id', $order->location_id)->lockForUpdate()->firstOrFail();
 
-            $newBalance = (float) $balance->{$balanceCol} + (float) $order->final_amount;
+            $oldBalance = (float) $balance->{$balanceCol};
+            $newBalance = $oldBalance + (float) $order->final_amount;
             $balance->update([$balanceCol => $newBalance]);
 
-            LocationBalanceTransaction::create([
+            $transaction = LocationBalanceTransaction::create([
                 'location_id'  => $order->location_id,
                 'balance_type' => $balanceType,
                 'type'         => LocationBalanceTransaction::TYPE_CREDIT,
@@ -118,6 +120,15 @@ class OrderObserver
                 'notes'        => 'Sale #' . $order->order_no,
                 'created_by'   => LocationBalanceTransaction::getFallbackUserId($order->user_id ?? $order->created_by),
             ]);
+
+            ActivityLogger::log(
+                'Accounting',
+                'create',
+                $transaction,
+                [$balanceCol => $oldBalance],
+                [$balanceCol => $newBalance],
+                'Balance credited for Sale #' . $order->order_no . ' (' . format_price($order->final_amount) . ')'
+            );
         });
     }
 
@@ -163,6 +174,7 @@ class OrderObserver
 
             // Find existing transaction for this sale
             $existingTx = LocationBalanceTransaction::where('notes', 'Sale #' . $order->order_no)->first();
+            $transaction = $existingTx;
             if ($existingTx) {
                 $existingTx->update([
                     'location_id'  => $newLocationId,
@@ -171,7 +183,7 @@ class OrderObserver
                     'balance_after'=> $newBalanceVal,
                 ]);
             } else {
-                LocationBalanceTransaction::create([
+                $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $newLocationId,
                     'balance_type' => $newType,
                     'type'         => LocationBalanceTransaction::TYPE_CREDIT,
@@ -181,6 +193,15 @@ class OrderObserver
                     'created_by'   => LocationBalanceTransaction::getFallbackUserId($order->user_id ?? $order->created_by),
                 ]);
             }
+
+            ActivityLogger::log(
+                'Accounting',
+                'update',
+                $transaction,
+                [$oldCol => $oldAmount],
+                [$newCol => $newAmount],
+                'Balance adjusted for updated Sale #' . $order->order_no
+            );
         });
     }
 
@@ -197,12 +218,23 @@ class OrderObserver
 
         DB::transaction(function () use ($locationId, $balanceCol, $amount, $orderNo) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            $oldBalance = $balance ? (float) $balance->{$balanceCol} : null;
+            $newBalance = $oldBalance;
             if ($balance) {
-                $newBalance = (float) $balance->{$balanceCol} - $amount;
+                $newBalance = $oldBalance - $amount;
                 $balance->update([$balanceCol => $newBalance]);
             }
 
             LocationBalanceTransaction::whereIn('notes', ['Sale #' . $orderNo, 'Reversal: Sale #' . $orderNo])->delete();
+
+            ActivityLogger::log(
+                'Accounting',
+                'delete',
+                null,
+                $balance ? [$balanceCol => $oldBalance] : null,
+                $balance ? [$balanceCol => $newBalance] : null,
+                'Balance reversed for cancelled/deleted Sale #' . $orderNo . ' (' . format_price($amount) . ')'
+            );
         });
     }
 

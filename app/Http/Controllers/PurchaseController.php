@@ -540,7 +540,9 @@ class PurchaseController extends Controller
                 $updateData['invoice_no'] = generate_invoice_no($invoicePrefix, Purchase::class);
             }
 
-            $purchase->update($updateData);
+            $oldFieldsSnapshot = $purchase->only(array_keys($updateData));
+
+            $purchase->updateQuietly($updateData);
 
             if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
                 $purchase->payments()->delete();
@@ -595,9 +597,9 @@ class PurchaseController extends Controller
                 'Purchase',
                 'update',
                 $purchase,
-                ['items' => $oldItemsSnapshot],
-                ['items' => $newItemsSnapshot],
-                'Purchase #' . $purchase->invoice_no . ' items modified'
+                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                'Purchase #' . $purchase->invoice_no . ' updated'
             );
             });
         } catch (\RuntimeException $e) {
@@ -641,9 +643,11 @@ class PurchaseController extends Controller
             ], 422);
         }
  
+        $oldStatus = (int) $purchase->status;
+
         DB::transaction(function () use ($purchase, $newStatus) {
-            $purchase->update(['status' => $newStatus]);
- 
+            $purchase->updateQuietly(['status' => $newStatus]);
+
             if ($newStatus == 2) {
                 $this->approveInvoice($purchase);
             }
@@ -655,6 +659,15 @@ class PurchaseController extends Controller
             3 => 'Declined',
         ];
         $statusName = $statusLabels[$newStatus] ?? $newStatus;
+
+        ActivityLogger::log(
+            'Purchase',
+            'update',
+            $purchase,
+            ['status' => $oldStatus],
+            ['status' => (int) $newStatus],
+            'Purchase #' . $purchase->invoice_no . ' status changed to ' . $statusName
+        );
 
         return response()->json([
             'status'  => 'success',
@@ -668,14 +681,25 @@ class PurchaseController extends Controller
             abort(403);
         }
 
+        $originalInvoiceNo = $purchase->invoice_no;
+
         DB::transaction(function () use ($purchase) {
             if ($purchase->status == Purchase::STATUS_APPROVE) {
                 PurchaseStockService::reverse($purchase, 'deletion');
             }
 
-            $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
-            $purchase->delete();
+            $purchase->updateQuietly(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
+            $purchase->deleteQuietly();
         });
+
+        ActivityLogger::log(
+            'Purchase',
+            'delete',
+            $purchase,
+            ['invoice_no' => $originalInvoiceNo],
+            null,
+            'Purchase ' . $originalInvoiceNo . ' deleted'
+        );
 
         return response()->json([
             'status'  => 'success',
@@ -875,6 +899,9 @@ class PurchaseController extends Controller
             ], 422);
         }
 
+        $oldPaymentStatus = (int) $purchase->payment_status;
+        $oldPaidAmount = (float) $purchase->paid_amount;
+
         DB::transaction(function () use ($purchase, $newStatus, $request, $balanceDue) {
             if ($newStatus === Purchase::PAYMENT_STATUS_PAID) {
                 PurchasePayment::create([
@@ -883,7 +910,7 @@ class PurchaseController extends Controller
                     'created_by'  => auth()->id(),
                 ]);
 
-                $purchase->update([
+                $purchase->updateQuietly([
                     'payment_status' => Purchase::PAYMENT_STATUS_PAID,
                     'paid_amount'    => $purchase->total_amount,
                 ]);
@@ -898,18 +925,27 @@ class PurchaseController extends Controller
                     'created_by'  => auth()->id(),
                 ]);
 
-                $purchase->update([
+                $purchase->updateQuietly([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, $purchase->total_amount),
                 ]);
             } else {
                 $purchase->payments()->delete();
-                $purchase->update([
+                $purchase->updateQuietly([
                     'payment_status' => Purchase::PAYMENT_STATUS_PENDING,
                     'paid_amount'    => 0,
                 ]);
             }
         });
+
+        ActivityLogger::log(
+            'Purchase',
+            'update',
+            $purchase,
+            ['payment_status' => $oldPaymentStatus, 'paid_amount' => $oldPaidAmount],
+            ['payment_status' => (int) $purchase->payment_status, 'paid_amount' => (float) $purchase->paid_amount],
+            'Purchase #' . $purchase->invoice_no . ' payment status updated'
+        );
 
         return response()->json([
             'status'  => 'success',

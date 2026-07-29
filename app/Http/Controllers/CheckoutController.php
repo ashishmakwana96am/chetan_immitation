@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Setting;
 use App\Models\State;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -621,9 +622,17 @@ class CheckoutController extends Controller
                     if ($isDefault) {
                         $itemProduct = Product::find($item['product_id']);
                         $deductQty = $this->stockMultiplier($itemProduct, $item['pair_type'] ?? 'single', $item['custom_size_value'] ?? null) * $item['quantity'];
+                        $inventoryRow = Inventory::where('product_id', $item['product_id'])
+                            ->where('location_id', $order->location_id)
+                            ->first();
+                        $oldQty = $inventoryRow?->quantity;
                         Inventory::where('product_id', $item['product_id'])
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
+
+                        if ($inventoryRow) {
+                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
+                        }
                     }
                 }
 
@@ -1232,9 +1241,17 @@ class CheckoutController extends Controller
 
                     if ($hasStock) {
                         $deductQty = $this->stockMultiplier($item->product, $item->pair_type ?? 'single', $item->custom_size_value) * $item->qty;
+                        $inventoryRow = Inventory::where('product_id', $item->product_id)
+                            ->where('location_id', $order->location_id)
+                            ->first();
+                        $oldQty = $inventoryRow?->quantity;
                         Inventory::where('product_id', $item->product_id)
                             ->where('location_id', $order->location_id)
                             ->decrement('quantity', $deductQty);
+
+                        if ($inventoryRow) {
+                            ActivityLogger::log('Inventory', 'update', $inventoryRow, ['quantity' => $oldQty], ['quantity' => $oldQty - $deductQty], 'Stock deducted for order #' . $order->order_no);
+                        }
                     }
                 }
 

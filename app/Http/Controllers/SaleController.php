@@ -590,6 +590,8 @@ class SaleController extends Controller
         $pdf = Pdf::loadView('sales.thermal', ['order' => $sale, 'pdfHeight' => $height])
             ->setPaper([0, 0, 216, $height], 'portrait');
 
+        ActivityLogger::log('Sales', 'export', $sale, null, null, 'Thermal receipt printed for sale #' . $sale->order_no);
+
         return $pdf->stream('thermal-receipt-' . $sale->order_no . '.pdf');
     }
 
@@ -1046,7 +1048,9 @@ class SaleController extends Controller
                 $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
             }
 
-            $sale->update($updateData);
+            $oldFieldsSnapshot = $sale->only(array_keys($updateData));
+
+            $sale->updateQuietly($updateData);
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
@@ -1082,9 +1086,9 @@ class SaleController extends Controller
                 'Sales',
                 'update',
                 $sale,
-                ['items' => $oldItemsSnapshot],
-                ['items' => $newItemsSnapshot],
-                'Order #' . $sale->order_no . ' items modified'
+                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                'Order #' . $sale->order_no . ' updated'
             );
             });
         } catch (\RuntimeException $e) {
@@ -1120,6 +1124,9 @@ class SaleController extends Controller
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
+
+        $preStatus = (int) $sale->status;
+        $prePaymentStatus = (int) $sale->payment_status;
 
         try {
             DB::transaction(function () use ($request, $sale) {
@@ -1311,7 +1318,7 @@ class SaleController extends Controller
                             $updateData['delivered_at'] = now();
                         }
 
-                        $sale->update($updateData);
+                        $sale->updateQuietly($updateData);
 
                         if ($sale->customer && $sale->customer->email) {
                             try {
@@ -1324,11 +1331,25 @@ class SaleController extends Controller
                 }
 
                 if ($request->filled('payment_status')) {
-                    $sale->update(['payment_status' => $request->payment_status]);
+                    $sale->updateQuietly(['payment_status' => $request->payment_status]);
                 }
             });
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
+
+        $logOld = [];
+        $logNew = [];
+        if ((int) $sale->status !== $preStatus) {
+            $logOld['status'] = $preStatus;
+            $logNew['status'] = (int) $sale->status;
+        }
+        if ((int) $sale->payment_status !== $prePaymentStatus) {
+            $logOld['payment_status'] = $prePaymentStatus;
+            $logNew['payment_status'] = (int) $sale->payment_status;
+        }
+        if (!empty($logNew)) {
+            ActivityLogger::log('Sales', 'update', $sale, $logOld, $logNew, 'Sale #' . $sale->order_no . ' status updated');
         }
 
         $pendingCount = \App\Models\Order::where('status', 1)->count();
@@ -1678,7 +1699,7 @@ class SaleController extends Controller
             ]);
 
             // Update order status
-            $sale->update([
+            $sale->updateQuietly([
                 'status'              => Order::STATUS_DECLINE,
                 'payment_status'      => Order::PAYMENT_STATUS_PENDING,
                 'cancellation_reason' => $cancellationRequest->cancellation_reason,
@@ -1730,7 +1751,6 @@ class SaleController extends Controller
                 'status' => OrderCancellationRequest::STATUS_REJECTED,
             ]);
 
-            // Log activity
             ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request rejected.');
 
             return response()->json([

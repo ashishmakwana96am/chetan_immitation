@@ -1809,6 +1809,8 @@ class ReportController extends Controller
             'selectedLocation' => $selectedLocation,
         ]))->setPaper('a4', 'landscape');
 
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Daily report exported to PDF for ' . $date);
+
         return $pdf->stream('daily_report_' . $date . '.pdf');
     }
 

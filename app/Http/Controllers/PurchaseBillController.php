@@ -349,13 +349,16 @@ class PurchaseBillController extends Controller
                 ];
             })->values()->all();
 
-            $purchaseBill->update([
+            $updateData = [
                 'from_location_id' => $fromLocation->id,
                 'to_location_id' => $request->to_location_id,
                 'payment_method' => $request->payment_method,
                 'payment_status' => $request->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING,
                 'remarks' => $request->remarks,
-            ]);
+            ];
+            $oldFieldsSnapshot = $purchaseBill->only(array_keys($updateData));
+
+            $purchaseBill->updateQuietly($updateData);
 
             $purchaseBill->items()->delete();
 
@@ -384,9 +387,9 @@ class PurchaseBillController extends Controller
                 'Purchase Bill',
                 'update',
                 $purchaseBill,
-                ['items' => $oldItemsSnapshot],
-                ['items' => $newItemsSnapshot],
-                'Purchase Bill #' . $purchaseBill->transfer_no . ' items modified'
+                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                'Purchase Bill #' . $purchaseBill->transfer_no . ' updated'
             );
         });
 
@@ -484,12 +487,21 @@ class PurchaseBillController extends Controller
                 $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount);
             }
 
-            $purchaseBill->update([
+            $purchaseBill->updateQuietly([
                 'status' => PurchaseBill::STATUS_ACCEPTED,
                 'accepted_by' => auth()->id(),
                 'accepted_at' => now(),
             ]);
         });
+
+        ActivityLogger::log(
+            'Purchase Bill',
+            'update',
+            $purchaseBill,
+            ['status' => PurchaseBill::STATUS_PENDING],
+            ['status' => PurchaseBill::STATUS_ACCEPTED],
+            'Purchase Bill #' . $purchaseBill->transfer_no . ' accepted'
+        );
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill accepted successfully.']);
     }
@@ -524,10 +536,20 @@ class PurchaseBillController extends Controller
 
             $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount, $newStatus === PurchaseBill::PAYMENT_STATUS_PENDING);
 
-            $purchaseBill->update(['payment_status' => $newStatus]);
+            $purchaseBill->updateQuietly(['payment_status' => $newStatus]);
         });
 
         $label = $newStatus === PurchaseBill::PAYMENT_STATUS_PAID ? 'Paid' : 'Pending';
+
+        ActivityLogger::log(
+            'Purchase Bill',
+            'update',
+            $purchaseBill,
+            ['payment_status' => $currentStatus],
+            ['payment_status' => $newStatus],
+            'Purchase Bill #' . $purchaseBill->transfer_no . ' payment status updated to ' . $label
+        );
+
         return response()->json(['status' => 'success', 'message' => 'Payment status updated to ' . $label . '.']);
     }
 
@@ -540,11 +562,20 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be rejected.'], 422);
         }
 
-        $purchaseBill->update([
+        $purchaseBill->updateQuietly([
             'status' => PurchaseBill::STATUS_REJECTED,
             'accepted_by' => auth()->id(),
             'accepted_at' => now(),
         ]);
+
+        ActivityLogger::log(
+            'Purchase Bill',
+            'update',
+            $purchaseBill,
+            ['status' => PurchaseBill::STATUS_PENDING],
+            ['status' => PurchaseBill::STATUS_REJECTED],
+            'Purchase Bill #' . $purchaseBill->transfer_no . ' rejected'
+        );
 
         return response()->json(['status' => 'success', 'message' => 'Purchase bill rejected successfully.']);
     }

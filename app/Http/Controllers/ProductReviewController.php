@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductReview;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
 class ProductReviewController extends Controller
@@ -82,7 +83,18 @@ class ProductReviewController extends Controller
     {
         $this->authorize('delete product reviews');
 
+        $attributes = $productReview->getAttributes();
+
         $productReview->delete();
+
+        ActivityLogger::log(
+            'Product Review',
+            'delete',
+            $productReview,
+            $attributes,
+            null,
+            'Product review #' . $productReview->id . ' deleted'
+        );
 
         return response()->json([
             'status'  => 'success',

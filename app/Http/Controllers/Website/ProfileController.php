@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\CustomerAddress;
 use App\Models\Inventory;
 use App\Models\Order;
+use App\Services\ActivityLogger;
 use App\Models\ProductReview;
 use App\Models\State;
 use App\Models\OrderCancellationRequest;
@@ -164,6 +165,8 @@ class ProfileController extends Controller
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.pdf', ['order' => $order])
             ->setPaper('a4', 'portrait');
+
+        ActivityLogger::log('Sales', 'export', $order, null, null, 'Invoice PDF downloaded by customer for order #' . $order->order_no);
 
         return $pdf->download('invoice-' . $order->order_no . '.pdf');
     }

@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Expense;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 class ExpenseObserver
@@ -64,10 +65,11 @@ class ExpenseObserver
         DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $expense) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
 
-            $newBalance = (float) $balance->{$balanceCol} - $amount;
+            $oldBalance = (float) $balance->{$balanceCol};
+            $newBalance = $oldBalance - $amount;
             $balance->update([$balanceCol => $newBalance]);
 
-            LocationBalanceTransaction::create([
+            $transaction = LocationBalanceTransaction::create([
                 'location_id'  => $locationId,
                 'balance_type' => $balanceType,
                 'type'         => LocationBalanceTransaction::TYPE_DEBIT,
@@ -76,6 +78,15 @@ class ExpenseObserver
                 'notes'        => 'Expense: ' . ($expense->title ?: $expense->category),
                 'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
             ]);
+
+            ActivityLogger::log(
+                'Accounting',
+                'create',
+                $transaction,
+                [$balanceCol => $oldBalance],
+                [$balanceCol => $newBalance],
+                'Balance deducted for Expense: ' . ($expense->title ?: $expense->category) . ' (' . format_price($amount) . ')'
+            );
         });
     }
 
@@ -130,6 +141,7 @@ class ExpenseObserver
                 ->orWhere('notes', $newNote)
                 ->first();
 
+            $transaction = $existingTx;
             if ($existingTx) {
                 $existingTx->update([
                     'location_id'  => $newLocationId,
@@ -139,7 +151,7 @@ class ExpenseObserver
                     'notes'        => $newNote,
                 ]);
             } else if ($newLocationId && $newAmount > 0) {
-                LocationBalanceTransaction::create([
+                $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $newLocationId,
                     'balance_type' => $newType,
                     'type'         => LocationBalanceTransaction::TYPE_DEBIT,
@@ -149,6 +161,15 @@ class ExpenseObserver
                     'created_by'   => LocationBalanceTransaction::getFallbackUserId($expense->created_by),
                 ]);
             }
+
+            ActivityLogger::log(
+                'Accounting',
+                'update',
+                $transaction,
+                [$oldCol => $oldAmount],
+                [$newCol => $newAmount],
+                'Balance adjusted for updated ' . $newNote
+            );
         });
     }
 
@@ -162,12 +183,23 @@ class ExpenseObserver
 
         DB::transaction(function () use ($locationId, $balanceCol, $amount, $note) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            $oldBalance = $balance ? (float) $balance->{$balanceCol} : null;
+            $newBalance = $oldBalance;
             if ($balance) {
-                $newBalance = (float) $balance->{$balanceCol} + $amount;
+                $newBalance = $oldBalance + $amount;
                 $balance->update([$balanceCol => $newBalance]);
             }
 
             LocationBalanceTransaction::whereIn('notes', [$note, 'Reversal: ' . $note])->delete();
+
+            ActivityLogger::log(
+                'Accounting',
+                'delete',
+                null,
+                $balance ? [$balanceCol => $oldBalance] : null,
+                $balance ? [$balanceCol => $newBalance] : null,
+                'Balance reversed for deleted ' . $note . ' (' . format_price($amount) . ')'
+            );
         });
     }
 
