@@ -357,6 +357,23 @@ class AccountingController extends Controller
         }
 
         $transactions = $txQuery->orderBy('id', 'desc')->get();
+
+        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
+        $transactions = $transactions->filter(function ($tx) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $invoiceNo = $matches[1];
+                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
+                if (!$exists) return false;
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $orderNo = $matches[1];
+                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
+                if (!$exists) return false;
+            }
+            return true;
+        });
+
         $entries = collect();
 
         foreach ($transactions as $tx) {
@@ -442,14 +459,18 @@ class AccountingController extends Controller
             ]);
         }
 
+        $entries = $entries->unique(function ($item) {
+            if (in_array($item['source_type'], ['sale', 'purchase', 'purchase_bill']) && !empty($item['ref']) && strpos($item['ref'], 'TXN#') === false) {
+                return $item['source_type'] . '_' . $item['location_id'] . '_' . $item['ref'] . '_' . ($item['balance_type_badge']);
+            }
+            return 'tx_' . rand() . '_' . microtime();
+        })->values();
+
         $data = $entries->map(function ($item, $index) {
             $item['index'] = $index + 1;
             return $item;
         });
 
-        // Branch-wise summary cards: restricted users only ever get their own
-        // branch; super-admins get every active branch, narrowed to the
-        // filtered one if selected.
         $branchLocations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
@@ -505,6 +526,22 @@ class AccountingController extends Controller
 
         $transactions = $txQuery->orderBy('id', 'desc')->get();
 
+        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
+        $transactions = $transactions->filter(function ($tx) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $invoiceNo = $matches[1];
+                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
+                if (!$exists) return false;
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $orderNo = $matches[1];
+                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
+                if (!$exists) return false;
+            }
+            return true;
+        });
+
         $sourceLabels = [
             'cash'             => 'Cash',
             'bank'             => 'Bank',
@@ -541,17 +578,44 @@ class AccountingController extends Controller
 
             $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
 
+            $ref = 'TXN#' . $tx->id;
+            if ($detectedSource === 'sale') {
+                if (preg_match('/Sale\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                    $ref = $matches[1];
+                }
+            } elseif ($detectedSource === 'purchase') {
+                if (preg_match('/Purchase\s+#([^\s\[\]]+)/i', $notes, $matches)) {
+                    $ref = $matches[1];
+                } elseif (preg_match('/\[Inv:\s*([^\]]+)\]/i', $notes, $matches)) {
+                    $ref = trim($matches[1]);
+                }
+            } elseif ($detectedSource === 'purchase_bill') {
+                if (preg_match('/#([^\s\|\]]+)/i', $notes, $matches)) {
+                    $ref = $matches[1];
+                }
+            }
+
             $rows->push([
                 'date'         => $tx->created_at,
                 'source'       => $sourceLabels[$detectedSource] ?? $detectedSource,
+                'source_type'  => $detectedSource,
                 'balance_type' => $tx->balance_type === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'Bank' : 'Cash',
                 'location'     => $tx->location->name ?? '-',
+                'location_id'  => $tx->location_id,
                 'particulars'  => !empty($notes) ? $notes : 'Manual Balance Adjustment',
                 'is_credit'    => $isCredit,
                 'amount'       => (float) $tx->amount,
                 'done_by'      => $tx->createdBy->name ?? '-',
+                'ref'          => $ref,
             ]);
         }
+
+        $rows = $rows->unique(function ($item) {
+            if (in_array($item['source_type'], ['sale', 'purchase', 'purchase_bill']) && !empty($item['ref']) && strpos($item['ref'], 'TXN#') === false) {
+                return $item['source_type'] . '_' . $item['location_id'] . '_' . $item['ref'] . '_' . $item['balance_type'];
+            }
+            return 'tx_' . rand() . '_' . microtime();
+        })->values();
 
         $totalCredit = $rows->where('is_credit', true)->sum('amount');
         $totalDebit  = $rows->where('is_credit', false)->sum('amount');
