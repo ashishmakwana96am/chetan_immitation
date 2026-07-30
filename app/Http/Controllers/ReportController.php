@@ -2027,6 +2027,7 @@ class ReportController extends Controller
             ->whereDate('created_at', $date)
             ->whereIn('location_id', $locationIds)
             ->latest()
+            ->latest('id')
             ->get()
             ->values()
             ->map(function ($order, $index) use ($orderStatusLabels, $orderStatusColors, $orderPaymentLabels, $orderPaymentColors, $badge) {
@@ -2056,6 +2057,7 @@ class ReportController extends Controller
         $purchaseRows = Purchase::with(['supplier'])
             ->whereIn('id', $purchaseLocationMap->keys())
             ->latest()
+            ->latest('id')
             ->get()
             ->values()
             ->map(function ($purchase, $index) use ($purchaseStatusLabels, $purchaseStatusColors, $purchasePaymentLabels, $purchasePaymentColors, $badge) {
@@ -2073,6 +2075,7 @@ class ReportController extends Controller
             ->whereDate('expense_date', $date)
             ->whereIn('location_id', $locationIds)
             ->latest()
+            ->latest('id')
             ->get()
             ->values()
             ->map(function ($expense, $index) {
@@ -2106,6 +2109,7 @@ class ReportController extends Controller
 
         $purchaseBillRows = $purchaseBillQuery->withCount('items')
             ->latest()
+            ->latest('id')
             ->get()
             ->values()
             ->map(function ($transfer, $index) use ($transferStatusLabels, $transferStatusColors, $badge) {
