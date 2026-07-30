@@ -77,6 +77,7 @@ class PurchaseBillController extends Controller
             ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
             ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
             ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
 
@@ -125,7 +126,7 @@ class PurchaseBillController extends Controller
                 'payment_status' => $paymentStatusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
                 'date_group' => $transfer->created_at->format('d M Y'),
-                'date_sort' => $transfer->created_at->format('Ymd'),
+                'date_sort' => $transfer->created_at->format('YmdHis'),
                 'actions' => $actions,
             ];
         });
@@ -157,6 +158,7 @@ class PurchaseBillController extends Controller
             ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
             ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
             ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
 
