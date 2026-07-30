@@ -42,9 +42,26 @@ class UtilityReportController extends Controller
     {
         $this->authorize('view utility report');
 
-        $logs = $this->filteredQuery($request)->orderByDesc('created_at')->orderByDesc('id')->get();
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $data = $logs->map(function ($log, $index) {
+        $recordsTotal = UtilityReport::when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))->count();
+        $recordsFiltered = $this->filteredQuery($request)->count();
+
+        $start  = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+
+        $logs = $this->filteredQuery($request)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->skip($start)
+            ->take($length)
+            ->get();
+
+        $data = $logs->map(function ($log, $index) use ($start) {
             $actionColors = [
                 'create'       => 'bg-label-success',
                 'update'       => 'bg-label-warning',
@@ -70,7 +87,7 @@ class UtilityReportController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index'       => $index + 1,
+                'index'       => $start + $index + 1,
                 'created_at'  => format_date($log->created_at, 'h:i A'),
                 'date_group'  => $log->created_at ? format_date($log->created_at, 'd M Y') : '-',
                 'date_sort'   => $log->created_at?->format('YmdHis'),
@@ -85,7 +102,13 @@ class UtilityReportController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data])
+        return response()->json([
+                'draw'            => (int) $request->input('draw', 1),
+                'recordsTotal'    => $recordsTotal,
+                'recordsFiltered' => $recordsFiltered,
+                'status'          => 'success',
+                'data'            => $data,
+            ])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
@@ -140,7 +163,16 @@ class UtilityReportController extends Controller
             ->whereDate('created_at', '<=', $endDate)
             ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->user_id))
             ->when($request->filled('module'), fn ($q) => $q->where('module', $request->module))
-            ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action));
+            ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action))
+            ->when($request->input('search.value'), function ($q, $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('user_name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('module', 'like', "%{$search}%")
+                        ->orWhere('action', 'like', "%{$search}%")
+                        ->orWhere('location_name', 'like', "%{$search}%");
+                });
+            });
 
         if ($isRestricted) {
             $query->where('location_id', $user->location_id);

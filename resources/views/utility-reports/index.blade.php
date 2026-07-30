@@ -209,6 +209,8 @@
 
             const table = $('#activityLogTable').DataTable({
                 responsive : false,
+                processing : true,
+                serverSide : true,
                 order      : [[9, 'desc']],
                 orderFixed : { pre: [[9, 'desc']] },
                 ajax       : {
@@ -228,15 +230,15 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
-                    { data: 'created_at' },
-                    { data: 'user' },
-                    { data: 'location' },
-                    { data: 'module' },
-                    { data: 'action' },
-                    { data: 'description' },
+                    { data: 'created_at',  orderable: false },
+                    { data: 'user',        orderable: false },
+                    { data: 'location',    orderable: false },
+                    { data: 'module',      orderable: false },
+                    { data: 'action',      orderable: false },
+                    { data: 'description', orderable: false },
                     { data: 'actions', orderable: false, searchable: false },
-                    { data: 'date_group', visible: false },
-                    { data: 'date_sort', visible: false },
+                    { data: 'date_group', visible: false, orderable: false },
+                    { data: 'date_sort', visible: false, orderable: false },
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',
@@ -245,6 +247,13 @@
                             .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' log' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
+            });
+
+            // The bundled DataTables build doesn't reliably clear its own
+            // processing indicator on this table (stays display:block after
+            // draw completes), so hide it explicitly once each draw is done.
+            table.on('draw.dt', function () {
+                $('#activityLogTable_processing').css('display', 'none');
             });
 
             $('#activityLogTable tbody').on('dblclick', 'tr', function (e) {
