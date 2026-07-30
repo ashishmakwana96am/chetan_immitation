@@ -254,6 +254,81 @@ class Product extends Model
      */
     protected static array $variantStockCache = [];
 
+    /**
+     * Batch preload state for computeVariantStock() so listing pages (Dashboard,
+     * Products list) that call getVariantStock() for many products in a loop hit
+     * the DB a constant number of times instead of ~5 queries per product (N+1).
+     * Populated by preloadVariantStock(); computeVariantStock() falls back to its
+     * original per-product queries when nothing has been preloaded.
+     */
+    protected static ?array $preloadedVariantsByProduct = null;
+    protected static ?array $preloadedPurchaseAllocationsByProduct = null;
+    protected static ?array $preloadedOrderItemsByProduct = null;
+    protected static ?array $preloadedTransferItemsByProduct = null;
+    protected static ?array $preloadedInventoryQtyByProductLocation = null;
+    protected static $preloadedLocations = null;
+
+    public static function preloadVariantStock($products): void
+    {
+        $ids = $products->where('type', 'variable')->pluck('id')->filter()->values()->all();
+        if (empty($ids)) {
+            return;
+        }
+
+        static::$preloadedLocations = Location::get();
+
+        static::$preloadedVariantsByProduct = ProductVariant::whereIn('product_id', $ids)
+            ->with('attributeValue.attribute')
+            ->get()
+            ->groupBy('product_id')
+            ->all();
+
+        static::$preloadedPurchaseAllocationsByProduct = PurchaseAllocation::whereHas('purchaseItem', function ($q) use ($ids) {
+                $q->whereIn('product_id', $ids)
+                  ->whereHas('invoice', function ($sub) {
+                      $sub->where('status', 2);
+                  });
+            })
+            ->with('purchaseItem')
+            ->get()
+            ->groupBy(fn($alloc) => $alloc->purchaseItem->product_id)
+            ->all();
+
+        static::$preloadedOrderItemsByProduct = OrderItem::whereIn('product_id', $ids)
+            ->whereHas('order', function ($q) {
+                $q->where('status', Order::STATUS_APPROVE);
+            })
+            ->with('order')
+            ->get()
+            ->groupBy('product_id')
+            ->all();
+
+        static::$preloadedTransferItemsByProduct = PurchaseBillItem::whereIn('product_id', $ids)
+            ->whereHas('transfer', function ($q) {
+                $q->where('status', PurchaseBill::STATUS_ACCEPTED);
+            })
+            ->with('transfer')
+            ->get()
+            ->groupBy('product_id')
+            ->all();
+
+        static::$preloadedInventoryQtyByProductLocation = Inventory::whereIn('product_id', $ids)
+            ->get()
+            ->keyBy(fn($inv) => $inv->product_id . ':' . $inv->location_id)
+            ->map(fn($inv) => (int) $inv->quantity)
+            ->all();
+    }
+
+    public static function clearPreloadedVariantStock(): void
+    {
+        static::$preloadedVariantsByProduct = null;
+        static::$preloadedPurchaseAllocationsByProduct = null;
+        static::$preloadedOrderItemsByProduct = null;
+        static::$preloadedTransferItemsByProduct = null;
+        static::$preloadedInventoryQtyByProductLocation = null;
+        static::$preloadedLocations = null;
+    }
+
     public function getVariantStock($locationId = null)
     {
         $cacheKey = $this->id . ':' . ($locationId ?? 'all');
@@ -266,12 +341,15 @@ class Product extends Model
 
     private function computeVariantStock($locationId = null)
     {
-        $variants = $this->variants()->with('attributeValue.attribute')->get();
+        $variants = static::$preloadedVariantsByProduct !== null
+            ? collect(static::$preloadedVariantsByProduct[$this->id] ?? [])
+            : $this->variants()->with('attributeValue.attribute')->get();
         $variantsById = $variants->keyBy('id');
 
-        $locations = Location::when($locationId, function ($q) use ($locationId) {
-            $q->where('id', $locationId);
-        })->get();
+        $allLocations = static::$preloadedLocations ?? Location::get();
+        $locations = $locationId
+            ? $allLocations->where('id', $locationId)->values()
+            : $allLocations;
 
         $purchasedQty = [];
         $soldQty = [];
@@ -291,7 +369,9 @@ class Product extends Model
             }
         }
 
-        $purchaseAllocations = PurchaseAllocation::whereHas('purchaseItem', function ($q) {
+        $purchaseAllocations = static::$preloadedPurchaseAllocationsByProduct !== null
+            ? collect(static::$preloadedPurchaseAllocationsByProduct[$this->id] ?? [])
+            : PurchaseAllocation::whereHas('purchaseItem', function ($q) {
                 $q->where('product_id', $this->id)
                   ->whereHas('invoice', function ($sub) {
                       $sub->where('status', 2);
@@ -314,12 +394,14 @@ class Product extends Model
             }
         }
 
-        $orderItems = OrderItem::where('product_id', $this->id)
-            ->whereHas('order', function ($q) {
-                $q->where('status', Order::STATUS_APPROVE);
-            })
-            ->with('order')
-            ->get();
+        $orderItems = static::$preloadedOrderItemsByProduct !== null
+            ? collect(static::$preloadedOrderItemsByProduct[$this->id] ?? [])
+            : OrderItem::where('product_id', $this->id)
+                ->whereHas('order', function ($q) {
+                    $q->where('status', Order::STATUS_APPROVE);
+                })
+                ->with('order')
+                ->get();
 
         foreach ($orderItems as $item) {
             $locId = $item->order->location_id;
@@ -335,12 +417,14 @@ class Product extends Model
             }
         }
 
-        $transferItems = PurchaseBillItem::where('product_id', $this->id)
-            ->whereHas('transfer', function ($q) {
-                $q->where('status', PurchaseBill::STATUS_ACCEPTED);
-            })
-            ->with('transfer')
-            ->get();
+        $transferItems = static::$preloadedTransferItemsByProduct !== null
+            ? collect(static::$preloadedTransferItemsByProduct[$this->id] ?? [])
+            : PurchaseBillItem::where('product_id', $this->id)
+                ->whereHas('transfer', function ($q) {
+                    $q->where('status', PurchaseBill::STATUS_ACCEPTED);
+                })
+                ->with('transfer')
+                ->get();
 
         foreach ($transferItems as $item) {
             $vId = $item->product_variant_id;
@@ -375,9 +459,12 @@ class Product extends Model
                 - $transferredOutQty[$loc->id]['parent'];
 
             if ($purchasedQty[$loc->id]['parent'] === 0 && $soldQty[$loc->id]['parent'] === 0 && $transferredInQty[$loc->id]['parent'] === 0 && $transferredOutQty[$loc->id]['parent'] === 0) {
-                $parentStock = (int) Inventory::where('product_id', $this->id)
-                    ->where('location_id', $loc->id)
-                    ->value('quantity');
+                $invKey = $this->id . ':' . $loc->id;
+                $parentStock = static::$preloadedInventoryQtyByProductLocation !== null
+                    ? (int) (static::$preloadedInventoryQtyByProductLocation[$invKey] ?? 0)
+                    : (int) Inventory::where('product_id', $this->id)
+                        ->where('location_id', $loc->id)
+                        ->value('quantity');
             }
 
             $locData = [

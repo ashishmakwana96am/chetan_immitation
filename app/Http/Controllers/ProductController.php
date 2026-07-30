@@ -51,24 +51,22 @@ class ProductController extends Controller
             $locationId = $user->location_id;
         }
 
-        $query = Product::with([
-            'category',
-            'subCategory',
-            'primaryImage',
-            'variants.attributeValue',
-            'purchaseItems.invoice',
-            'inventories' => function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-            }
-        ])
-        ->when($request->category_id, function($q) use ($request) {
-            $q->where('category_id', $request->category_id);
-        })
-        ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
-            $q->where('status', $request->status);
-        });
+        $baseQuery = Product::query()
+            ->when($request->category_id, function($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            })
+            ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
+                $q->where('status', $request->status);
+            })
+            ->when($request->input('search.value'), function ($q, $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%")
+                        ->orWhere('product_code', 'like', "%{$search}%");
+                });
+            });
 
-        $products = $query->orderBy('id', 'desc')->get();
+        $recordsTotal = Product::count();
 
         $computeStock = function ($product) use ($locationId) {
             if ($product->type === 'variable') {
@@ -85,11 +83,66 @@ class ProductController extends Controller
             return $product->inventories->sum('quantity');
         };
 
-        if ($request->stock_status === 'in_stock') {
-            $products = $products->filter(fn($product) => $computeStock($product) > 0)->values();
-        } elseif ($request->stock_status === 'out_of_stock') {
-            $products = $products->filter(fn($product) => $computeStock($product) <= 0)->values();
+        $hasStockFilter = in_array($request->stock_status, ['in_stock', 'out_of_stock'], true);
+        $start  = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) {
+            $length = 25;
         }
+
+        if ($hasStockFilter) {
+            // Stock isn't a DB column, so the filter must run in PHP. Only fetch the
+            // lightweight columns/relations needed to compute it, for every row matching
+            // the other filters, then page the resulting id list before loading full rows.
+            $lightProducts = (clone $baseQuery)
+                ->select(['id', 'type'])
+                ->with(['inventories' => function($q) use ($locationId) {
+                    $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                }])
+                ->orderBy('id', 'desc')
+                ->get();
+            Product::preloadVariantStock($lightProducts);
+
+            $wantInStock = $request->stock_status === 'in_stock';
+            $matchingIds = $lightProducts->filter(function ($product) use ($computeStock, $wantInStock) {
+                $stock = $computeStock($product);
+                return $wantInStock ? $stock > 0 : $stock <= 0;
+            })->pluck('id')->values();
+
+            $recordsFiltered = $matchingIds->count();
+            $pageIds = $matchingIds->slice($start, $length)->values();
+
+            $products = Product::with([
+                'category',
+                'subCategory',
+                'primaryImage',
+                'variants.attributeValue',
+                'inventories' => function($q) use ($locationId) {
+                    $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                }
+            ])->whereIn('id', $pageIds)->get();
+
+            $products = $pageIds->map(fn($id) => $products->firstWhere('id', $id))->filter()->values();
+        } else {
+            $recordsFiltered = (clone $baseQuery)->count();
+
+            $products = (clone $baseQuery)
+                ->with([
+                    'category',
+                    'subCategory',
+                    'primaryImage',
+                    'variants.attributeValue',
+                    'inventories' => function($q) use ($locationId) {
+                        $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                    }
+                ])
+                ->orderBy('id', 'desc')
+                ->skip($start)
+                ->take($length)
+                ->get();
+        }
+
+        Product::preloadVariantStock($products);
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
@@ -176,7 +229,13 @@ class ProductController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        return response()->json([
+            'draw'            => (int) $request->input('draw', 1),
+            'recordsTotal'    => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'status'          => 'success',
+            'data'            => $data,
+        ]);
     }
 
     /**
