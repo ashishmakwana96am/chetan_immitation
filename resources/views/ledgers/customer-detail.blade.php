@@ -127,6 +127,8 @@
                                     @php
                                         if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                                             $paid = (float) $order->final_amount;
+                                        } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                                            $paid = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
                                         } else {
                                             $paid = (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
                                         }

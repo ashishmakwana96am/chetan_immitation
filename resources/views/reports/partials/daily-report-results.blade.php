@@ -251,7 +251,7 @@
                     <th>Bill No</th>
                     <th>Source</th>
                     <th>Destination</th>
-                    <th>Items</th>
+                    <th>Total Quantity</th>
                     <th class="text-end">Amount</th>
                     <th>Status</th>
                     <th>Created By</th>
@@ -264,7 +264,7 @@
                         <td><code>{{ $row['bill_no'] }}</code></td>
                         <td>{{ $row['source'] }}</td>
                         <td>{{ $row['destination'] }}</td>
-                        <td>{!! $row['items_count'] !!}</td>
+                        <td>{{ number_format($row['total_quantity']) }}</td>
                         <td class="text-end">{{ format_price($row['amount']) }}</td>
                         <td>{!! $row['status'] !!}</td>
                         <td>{{ $row['created_by'] }}</td>
