@@ -199,6 +199,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
+        Route::patch('customers/{customer}/toggle-credit-customer', [CustomerController::class, 'toggleCreditCustomer'])->name('customers.toggle-credit-customer');
 
         // Product Reviews
         Route::get('product-reviews/data', [ProductReviewController::class, 'data'])->name('product-reviews.data');

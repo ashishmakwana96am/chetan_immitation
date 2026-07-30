@@ -61,6 +61,7 @@
                         <th>GST No</th>
                         <th>State</th>
                         <th>Status</th>
+                        <th>Credit Customer</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
                             <th>Actions</th>
@@ -97,6 +98,7 @@
                     { data: 'gst_no' },
                     { data: 'state' },
                     { data: 'status',     orderable: false },
+                    { data: 'credit_customer', orderable: false },
                     { data: 'created_at' },
                     @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
                         { data: 'actions',    orderable: false },
@@ -138,6 +140,27 @@
             });
 
             $(document).on('change', '.customer-status-toggle', function () {
+                const toggle = $(this);
+                const url    = toggle.attr('data-url');
+
+                $.ajax({
+                    url  : url,
+                    type : 'PATCH',
+                    data : { _token: $('meta[name="csrf-token"]').attr('content') },
+                    success : function (res) {
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            window.refreshTable();
+                        }
+                    },
+                    error : function () {
+                        toggle.prop('checked', !toggle.prop('checked'));
+                        toastr.error('Something went wrong. Please try again.');
+                    }
+                });
+            });
+
+            $(document).on('change', '.customer-credit-toggle', function () {
                 const toggle = $(this);
                 const url    = toggle.attr('data-url');
 

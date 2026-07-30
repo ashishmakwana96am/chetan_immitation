@@ -42,6 +42,10 @@ class CustomerController extends Controller
                 ? '<div class="form-check form-switch mb-0"><input class="form-check-input customer-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.customers.toggle-status', $customer) . '" ' . ($customer->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($customer->status);
 
+            $creditCustomer = $canEdit
+                ? '<div class="form-check form-switch mb-0"><input class="form-check-input customer-credit-toggle" type="checkbox" role="switch" data-url="' . route('admin.customers.toggle-credit-customer', $customer) . '" ' . ($customer->is_credit_customer ? 'checked' : '') . ' /></div>'
+                : ($customer->is_credit_customer ? '<span class="badge bg-label-info">Yes</span>' : '<span class="badge bg-label-secondary">No</span>');
+
             $actions = '';
             if ($canEdit || $canDelete) {
                 $actions = '<div class="dropdown table-action-dropdown">';
@@ -70,6 +74,7 @@ class CustomerController extends Controller
                 'gst_no_raw' => $customer->gst_no ?? '',
                 'state_raw'  => $customer->state ?? '',
                 'status'     => $status,
+                'credit_customer' => $creditCustomer,
                 'created_at' => format_date($customer->created_at),
                 'actions'    => $actions,
             ];
@@ -114,6 +119,7 @@ class CustomerController extends Controller
             'state'    => $request->state ? trim($request->state) : null,
             'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
+            'is_credit_customer' => $request->has('is_credit_customer'),
         ]);
 
         $phones = array_filter($request->input('phones', []));
@@ -169,6 +175,7 @@ class CustomerController extends Controller
             'state'    => $request->state ? trim($request->state) : null,
             'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
+            'is_credit_customer' => $request->has('is_credit_customer'),
         ]);
 
         $submittedPhones = $request->input('phones', []);
@@ -223,6 +230,20 @@ class CustomerController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Customer status updated successfully.',
+        ]);
+    }
+
+    public function toggleCreditCustomer(Customer $customer)
+    {
+        $this->authorize('edit customers');
+
+        $customer->update([
+            'is_credit_customer' => !$customer->is_credit_customer,
+        ]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Customer credit status updated successfully.',
         ]);
     }
 

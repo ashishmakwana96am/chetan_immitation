@@ -27,6 +27,7 @@ class Customer extends Authenticatable
         'avatar',
         'is_website',
         'status',
+        'is_credit_customer',
         'otp',
         'otp_expires_at',
     ];
@@ -40,6 +41,7 @@ class Customer extends Authenticatable
     {
         return [
             'is_website' => 'boolean',
+            'is_credit_customer' => 'boolean',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];

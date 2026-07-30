@@ -56,6 +56,14 @@
                 <label class="form-check-label" for="customerStatus">Active</label>
             </div>
         </div>
+
+        <div class="col-12">
+            <label class="form-label">Credit Customer</label>
+            <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" id="customerCreditCustomer" name="is_credit_customer" value="1" />
+                <label class="form-check-label" for="customerCreditCustomer">Credit Customer</label>
+            </div>
+        </div>
     </div>
 
     <div class="d-flex gap-2 mt-auto pt-3 border-top">
