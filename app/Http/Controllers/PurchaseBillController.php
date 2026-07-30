@@ -74,6 +74,9 @@ class PurchaseBillController extends Controller
             ->when($request->to_location_id, fn ($q) => $q->where('to_location_id', $request->to_location_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->payment_status, fn ($q) => $q->where('payment_status', $request->payment_status))
+            ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
+            ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
+            ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
             ->orderByDesc('id')
             ->get();
 
@@ -151,6 +154,9 @@ class PurchaseBillController extends Controller
             ->when($request->to_location_id, fn ($q) => $q->where('to_location_id', $request->to_location_id))
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->payment_status, fn ($q) => $q->where('payment_status', $request->payment_status))
+            ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
+            ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
+            ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
             ->orderByDesc('id')
             ->get();
 

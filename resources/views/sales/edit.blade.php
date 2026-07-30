@@ -326,7 +326,8 @@
                     <div class="card-header"><h5 class="mb-0">Payment Details</h5></div>
                     <div class="card-body">
                         <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
-                            <option value="1" {{ ($order->payment_status ?? 1) == 1 ? 'selected' : '' }}>Pending</option>
+                            <option value="1" {{ ($order->payment_status ?? 1) == 1 ? 'selected' : '' }} {{ ($order->payment_status ?? 1) == 3 ? 'disabled' : '' }}>Pending</option>
+                            <option value="3" {{ ($order->payment_status ?? 1) == 3 ? 'selected' : '' }}>Partially Paid</option>
                             <option value="2" {{ ($order->payment_status ?? 1) == 2 ? 'selected' : '' }}>Paid</option>
                         </select>
                         <div class="row g-2 mt-1" id="paymentSplitWrapper">
@@ -340,7 +341,60 @@
                                 <input type="number" name="paid_online_amount" id="paidOnlineAmountInput" class="form-control" value="{{ (float) $order->paid_online_amount }}" min="0" step="0.01">
                                 <div class="invalid-feedback"></div>
                             </div>
-                        </div>
+                        @php
+                            $editPrevCash = (float)($order->paid_cash_amount ?? 0);
+                            $editPrevOnline = (float)($order->paid_online_amount ?? 0);
+                            $editPrevPaid = $editPrevCash + $editPrevOnline;
+                            $editGrandTotal = (float)($order->final_amount ?? 0);
+                            $editDue = max(0, $editGrandTotal - $editPrevPaid);
+
+                            $editPayments = $order->salePayments()->get();
+                        @endphp
+
+                        @if(in_array(($order->payment_status ?? 1), [2, 3]) && $editPrevPaid > 0)
+                            <div class="mt-3 text-start" style="font-size: 0.8rem;">
+                                <div class="d-flex justify-content-between text-muted mb-2">
+                                    <span>Total: <strong>{{ format_price($editGrandTotal) }}</strong></span>
+                                    <span>Paid: <strong class="text-success">{{ format_price($editPrevPaid) }}</strong></span>
+                                    <span>Balance: <strong class="text-danger">{{ format_price($editDue) }}</strong></span>
+                                </div>
+                                <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
+                                <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
+                                    <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                                        <thead class="table-light"><tr><th>DATE</th><th class="text-end">AMOUNT</th></tr></thead>
+                                        <tbody>
+                                            @if($editPayments->isNotEmpty())
+                                                @foreach($editPayments as $p)
+                                                    @php
+                                                        $epMethodParts = [];
+                                                        $epc = (float)($p->cash_amount ?? 0);
+                                                        $epo = (float)($p->online_amount ?? 0);
+                                                        if ($epc > 0) $epMethodParts[] = 'Cash: ' . format_price($epc);
+                                                        if ($epo > 0) $epMethodParts[] = 'Online: ' . format_price($epo);
+                                                        $epMethodStr = count($epMethodParts) > 0 ? ' (' . implode(' + ', $epMethodParts) . ')' : '';
+                                                    @endphp
+                                                    <tr>
+                                                        <td class="text-nowrap">{{ format_date($p->created_at, 'd M Y, h:i A') }}</td>
+                                                        <td class="text-end">{{ format_price($p->amount) }}{{ $epMethodStr }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            @else
+                                                @php
+                                                    $editMethodParts = [];
+                                                    if ($editPrevCash > 0) $editMethodParts[] = 'Cash: ' . format_price($editPrevCash);
+                                                    if ($editPrevOnline > 0) $editMethodParts[] = 'Online: ' . format_price($editPrevOnline);
+                                                    $editMethodStr = count($editMethodParts) > 0 ? ' (' . implode(' + ', $editMethodParts) . ')' : '';
+                                                @endphp
+                                                <tr>
+                                                    <td class="text-nowrap">{{ $order->updated_at ? format_date($order->updated_at, 'd M Y, h:i A') : format_date($order->created_at, 'd M Y, h:i A') }}</td>
+                                                    <td class="text-end">{{ format_price($editPrevPaid) }}{{ $editMethodStr }}</td>
+                                                </tr>
+                                            @endif
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1230,39 +1284,47 @@ $(document).ready(function () {
     });
 
     function updatePaymentSplit() {
-        const isPaid = $('#paymentStatusSelect').val() === '2';
-        $('#paymentSplitWrapper').toggleClass('d-none', !isPaid);
-        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('disabled', !isPaid);
-        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('required', isPaid);
+        const val = $('#paymentStatusSelect').val();
+        const isPaid = val === '2';
+        const isPartial = val === '3';
+        const isPaymentActive = isPaid || isPartial;
 
-        if (!isPaid) {
+        $('#paymentSplitWrapper').toggleClass('d-none', !isPaymentActive);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('disabled', !isPaymentActive);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('required', isPaymentActive);
+
+        if (!isPaymentActive) {
             $('#paidOnlineAmountInput').val(0);
             $('#paidCashAmountInput').val(0);
             return;
         }
 
-        syncPaymentSplit('online');
+        if (isPaid) {
+            syncPaymentSplit('online');
+        }
     }
 
     function syncPaymentSplit(source) {
-        const total = window.currentGrandTotal || 0;
+        const val = $('#paymentStatusSelect').val();
+        const isPaid = val === '2';
 
-        // Items may not be loaded into the table yet (total still 0) — don't
-        // clobber the existing Cash/Online values with a premature recalculation.
+        const total = window.currentGrandTotal || 0;
         if (total <= 0) {
             return;
         }
 
-        if (source === 'cash') {
-            let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
-            cash = Math.min(Math.max(cash, 0), total);
-            $('#paidCashAmountInput').val(cash);
-            $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
-        } else {
-            let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
-            online = Math.min(Math.max(online, 0), total);
-            $('#paidOnlineAmountInput').val(online);
-            $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+        if (isPaid) {
+            if (source === 'cash') {
+                let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
+                cash = Math.min(Math.max(cash, 0), total);
+                $('#paidCashAmountInput').val(cash);
+                $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
+            } else {
+                let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
+                online = Math.min(Math.max(online, 0), total);
+                $('#paidOnlineAmountInput').val(online);
+                $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+            }
         }
     }
 

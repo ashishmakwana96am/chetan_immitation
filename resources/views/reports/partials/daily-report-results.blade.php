@@ -264,7 +264,7 @@
                         <td><code>{{ $row['bill_no'] }}</code></td>
                         <td>{{ $row['source'] }}</td>
                         <td>{{ $row['destination'] }}</td>
-                        <td>{{ $row['items_count'] }}</td>
+                        <td>{!! $row['items_count'] !!}</td>
                         <td class="text-end">{{ format_price($row['amount']) }}</td>
                         <td>{!! $row['status'] !!}</td>
                         <td>{{ $row['created_by'] }}</td>

@@ -25,6 +25,7 @@
         .source-online { background: #ede7f6; color: #7367f0; }
         .status-captured  { background: #e6f9f0; color: #28c76f; }
         .status-paid      { background: #e6f9f0; color: #28c76f; }
+        .status-partial   { background: #e7f3ff; color: #7367f0; }
         .status-pending   { background: #fff3cd; color: #856404; }
         .status-refunded  { background: #fff3cd; color: #856404; }
         .status-failed    { background: #fde8e8; color: #ea5455; }
@@ -210,9 +211,10 @@
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Payment Status</label>
-                        <select name="payment_status" class="form-select no-select2">
+                        <select name="payment_status" id="filterPaymentStatus" class="form-select no-select2">
                             <option value="">All Statuses</option>
                             <option value="{{ \App\Models\Order::PAYMENT_STATUS_PENDING }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PENDING ? 'selected' : '' }}>Pending</option>
+                            <option value="{{ \App\Models\Order::PAYMENT_STATUS_PARTIAL }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PARTIAL ? 'selected' : '' }}>Partially Paid</option>
                             <option value="{{ \App\Models\Order::PAYMENT_STATUS_PAID }}" {{ $paymentStatus == \App\Models\Order::PAYMENT_STATUS_PAID ? 'selected' : '' }}>Paid</option>
                         </select>
                     </div>
@@ -271,12 +273,15 @@
                                 if ($isRefunded) {
                                     $statusLabel = 'Refunded';
                                     $statusClass = 'status-refunded';
-                                } elseif ($payment) {
-                                    $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
-                                    $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
                                 } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                                     $statusLabel = 'Paid';
                                     $statusClass = 'status-paid';
+                                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                                    $statusLabel = 'Partially Paid';
+                                    $statusClass = 'status-partial';
+                                } elseif ($payment) {
+                                    $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
+                                    $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
                                 } else {
                                     $statusLabel = 'Pending';
                                     $statusClass = 'status-pending';

@@ -31,6 +31,8 @@ class Order extends Model
 
     const PAYMENT_STATUS_PAID = 2;
 
+    const PAYMENT_STATUS_PARTIAL = 3;
+
     protected $fillable = [
         'customer_id',
         'customer_address_id',
@@ -128,5 +130,10 @@ class Order extends Model
     public function cancellationRequests()
     {
         return $this->hasMany(OrderCancellationRequest::class);
+    }
+
+    public function salePayments()
+    {
+        return $this->hasMany(SalePayment::class);
     }
 }

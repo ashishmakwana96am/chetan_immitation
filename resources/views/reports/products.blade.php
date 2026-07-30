@@ -123,7 +123,7 @@
         <!-- Products by Category (Pie) -->
         <div class="col-lg-4">
             <div class="card h-100">
-                <div class="card-header"><h5 class="mb-0">Products by Category</h5></div>
+                <div class="card-header"><h5 class="mb-0">Products by Sub Category</h5></div>
                 <div class="card-body">
                     <div id="categoryPieChart"></div>
                 </div>
@@ -150,11 +150,11 @@
         <div class="card-body">
             <form id="filterForm" class="row g-3" onsubmit="return false;">
                 <div class="col-md-3">
-                    <label class="form-label">Filter by Category</label>
+                    <label class="form-label">Filter by Sub Category</label>
                     <select id="filterCategory" class="form-select">
-                        <option value="">All Categories</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        <option value="">All Sub Categories</option>
+                        @foreach($subCategories as $subCat)
+                            <option value="{{ $subCat->id }}">{{ $subCat->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -196,7 +196,8 @@
                         <th>#</th>
                         <th>Product</th>
                         <th>Barcode</th>
-                        <th>Category</th>
+                        <th class="d-none">Category</th>
+                        <th>Sub Category</th>
                         <th class="text-end">Purchase Price</th>
                         <th class="text-end">Sale Price</th>
                         <th class="text-end">Margin</th>
@@ -225,6 +226,7 @@
                         <!-- Parent Row -->
                         <tr class="parent-row" data-product-id="{{ $parent['id'] }}"
                             data-category-id="{{ $parent['category_id'] }}"
+                            data-sub-category-id="{{ $parent['sub_category_id'] ?? '' }}"
                             data-status="{{ $parent['status'] }}"
                             data-stock="{{ $parent['total_stock'] }}"
                             data-has-variants="{{ $hasVariants ? '1' : '0' }}">
@@ -245,7 +247,14 @@
                                 </div>
                             </td>
                             <td><code>{{ $parent['barcode'] }}</code></td>
-                            <td><span class="badge bg-label-primary">{{ $parent['category'] }}</span></td>
+                            <td class="d-none"><span class="badge bg-label-primary">{{ $parent['category'] }}</span></td>
+                            <td>
+                                @if(isset($parent['sub_category']) && $parent['sub_category'] !== '-')
+                                    <span class="badge bg-label-info">{{ $parent['sub_category'] }}</span>
+                                @else
+                                    <span class="text-muted small">-</span>
+                                @endif
+                            </td>
                             <td class="text-end">{{ format_price($parent['purchase_price']) }}</td>
                             <td class="text-end">{{ format_price($parent['sale_price']) }}</td>
                             <td class="text-end">
@@ -319,7 +328,7 @@
 @endsection
 
 @php
-    $categoryChartData = $products->where('is_parent', true)->groupBy('category')->map(fn($g) => $g->count())->sortDesc();
+    $categoryChartData = $products->where('is_parent', true)->groupBy('sub_category')->map(fn($g) => $g->count())->sortDesc()->take(10);
     $top10ChartData = $products->where('is_parent', true)->sortByDesc('total_stock')->take(10)->values()->map(fn($p) => [
         'name'  => $p['name'],
         'stock' => $p['total_stock'],
@@ -387,7 +396,7 @@
                     const row   = $(table.row(dataIndex).node());
 
                     const total = parseInt(row.data('stock') || 0);
-                    if (cat    && row.data('category-id') != cat)    return false;
+                    if (cat    && row.data('sub-category-id') != cat) return false;
                     if (status && String(row.data('status')) !== status) return false;
                     if (stock === 'in'  && total <= 0)                return false;
                     if (stock === 'out' && total > 0)                 return false;
@@ -456,7 +465,7 @@
         const categoryData = @json($categoryChartData);
 
         new ApexCharts(document.getElementById('categoryPieChart'), {
-            chart   : { type: 'bar', height: 300, toolbar: { show: false } },
+            chart   : { type: 'bar', height: Math.max(300, Object.keys(categoryData).length * 32 + 60), toolbar: { show: false } },
             plotOptions: {
                 bar: {
                     horizontal: true,
@@ -465,7 +474,7 @@
                     distributed: true
                 }
             },
-            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
+            colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8', '#6610f2', '#20c997', '#fd7e14', '#6f42c1', '#e83e8c'],
             series  : [{
                 name: 'Products',
                 data: Object.values(categoryData)
