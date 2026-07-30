@@ -48,6 +48,7 @@ class DashboardController extends Controller
         ];
 
         $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
+        Product::preloadVariantStock($products);
         $totalStockUnits = 0;
         $totalStockPairs = 0;
         $totalStockLoosePcs = 0;
@@ -171,6 +172,7 @@ class DashboardController extends Controller
         ];
 
         $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
+        Product::preloadVariantStock($allProducts);
 
         $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
         $stockRows = collect();
@@ -306,22 +308,30 @@ class DashboardController extends Controller
     private function getMonthlySales(?int $locationId = null): array
     {
         $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+        $rangeStart = now()->subMonths(5)->startOfMonth();
+
+        $query = Order::where('order_type', 'sale')
+            ->whereIn('status', $approvedStatuses)
+            ->where('created_at', '>=', $rangeStart);
+
+        if ($locationId) {
+            $query->where('location_id', $locationId);
+        }
+
+        $rows = $query->selectRaw('YEAR(created_at) as y, MONTH(created_at) as m, SUM(final_amount) as amount, COUNT(*) as count')
+            ->groupBy('y', 'm')
+            ->get()
+            ->keyBy(fn($row) => $row->y . '-' . $row->m);
+
         $months = [];
         for ($i = 5; $i >= 0; $i--) {
-            $date  = now()->subMonths($i);
-            $query = Order::where('order_type', 'sale')
-                ->whereIn('status', $approvedStatuses)
-                ->whereMonth('created_at', $date->month)
-                ->whereYear('created_at', $date->year);
-
-            if ($locationId) {
-                $query->where('location_id', $locationId);
-            }
+            $date = now()->subMonths($i);
+            $row  = $rows->get($date->year . '-' . $date->month);
 
             $months[] = [
                 'month'  => $date->format('M Y'),
-                'amount' => (float) $query->sum('final_amount'),
-                'count'  => $query->count(),
+                'amount' => (float) ($row->amount ?? 0),
+                'count'  => (int) ($row->count ?? 0),
             ];
         }
         return $months;

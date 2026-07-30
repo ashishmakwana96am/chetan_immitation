@@ -241,13 +241,13 @@
                 },
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image',          orderable: false },
-                { data: 'name' },
-                { data: 'barcode'},
-                { data: 'category' },
-                { data: 'stock' },
-                { data: 'purchase_price' },
-                { data: 'sale_price' },
-                { data: 'mrp' },
+                { data: 'name',           orderable: false },
+                { data: 'barcode',        orderable: false },
+                { data: 'category',       orderable: false },
+                { data: 'stock',          orderable: false },
+                { data: 'purchase_price', orderable: false },
+                { data: 'sale_price',     orderable: false },
+                { data: 'mrp',            orderable: false },
                 { data: 'status',         orderable: false },
                 { data: 'actions',        orderable: false },
             );
@@ -256,8 +256,10 @@
                 stateSave: true,
                 responsive : false,
                 order: [],
+                processing : true,
+                serverSide : true,
                 ajax       : {
-                    url: '{{ route('admin.products.data') }}', 
+                    url: '{{ route('admin.products.data') }}',
                     dataSrc: 'data',
                     cache: false,
                     data: function(d) {
@@ -268,6 +270,13 @@
                     }
                 },
                 columns    : columns,
+            });
+
+            // The bundled DataTables build doesn't reliably clear its own
+            // processing indicator on this table (it stays display:block after
+            // draw completes), so hide it explicitly once each draw is done.
+            table.on('draw.dt', function () {
+                $('#productsTable_processing').css('display', 'none');
             });
 
             window.refreshTable = function () {
