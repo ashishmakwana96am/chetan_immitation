@@ -210,8 +210,9 @@ class PurchaseObserver
                 $balance->update([$balanceCol => $newBalance]);
             }
 
-            $note = 'Purchase #' . $purchase->invoice_no;
-            LocationBalanceTransaction::whereIn('notes', [$note, 'Refund/Correction: ' . $note])->delete();
+            $cleanInvoiceNo = preg_replace('/^DEL-\d+-/i', '', $purchase->invoice_no);
+            $note = 'Purchase #' . $cleanInvoiceNo;
+            LocationBalanceTransaction::whereIn('notes', [$note, 'Purchase #' . $purchase->invoice_no, 'Refund/Correction: ' . $note])->delete();
 
             ActivityLogger::log(
                 'Accounting',
@@ -219,7 +220,7 @@ class PurchaseObserver
                 null,
                 $balance ? [$balanceCol => $oldBalance] : null,
                 $balance ? [$balanceCol => $newBalance] : null,
-                'Balance refunded on deletion of Purchase #' . $purchase->invoice_no . ' (' . format_price($amount) . ')'
+                'Balance refunded on deletion of Purchase #' . $cleanInvoiceNo . ' (' . format_price($amount) . ')'
             );
         });
     }
