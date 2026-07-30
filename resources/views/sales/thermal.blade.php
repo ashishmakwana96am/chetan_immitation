@@ -133,8 +133,12 @@
         $paymentUpi    = 0.00;
         $paymentChaque = 0.00;
         $paymentCard   = 0.00;
+        $dueAmount     = 0.00;
+        $paymentStatusInt = (int)($order->payment_status ?? 1);
+        $isPartiallyPaid  = $paymentStatusInt === 3; // PAYMENT_STATUS_PARTIAL
+        $isPending        = $paymentStatusInt === 1; // PAYMENT_STATUS_PENDING
 
-        if (($order->payment_status ?? 1) == \App\Models\Order::PAYMENT_STATUS_PAID) {
+        if ($paymentStatusInt === 2) { // PAYMENT_STATUS_PAID
             if ((float) $order->paid_cash_amount > 0 || (float) $order->paid_online_amount > 0) {
                 $paymentCash = (float) $order->paid_cash_amount;
                 $paymentUpi  = (float) $order->paid_online_amount;
@@ -150,6 +154,13 @@
                     $paymentCash = (float)$order->final_amount;
                 }
             }
+        } elseif ($isPartiallyPaid) {
+            $paymentCash = (float) $order->paid_cash_amount;
+            $paymentUpi  = (float) $order->paid_online_amount;
+            $totalPaid   = $paymentCash + $paymentUpi;
+            $dueAmount   = max(0, (float)$order->final_amount - $totalPaid);
+        } elseif ($isPending) {
+            $dueAmount = (float) $order->final_amount;
         }
 
         $totalQty = $order->items->sum('quantity');
@@ -358,6 +369,15 @@
                 <td style="width: 50%; text-align: left; padding: 1px 0; border: none;"></td>
                 <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">
                     <span style="float: left;">UPI :</span> {{ number_format($paymentUpi, 2) }}
+                </td>
+            </tr>
+            @endif
+            {{-- DUE row — shown for Partially Paid and Pending orders --}}
+            @if(($isPartiallyPaid || $isPending) && $dueAmount > 0)
+            <tr style="border-top: 1px dashed #000;">
+                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;"></td>
+                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;">
+                    <span style="float: left;">DUE :</span> {{ number_format($dueAmount, 2) }}
                 </td>
             </tr>
             @endif

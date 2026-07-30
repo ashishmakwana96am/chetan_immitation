@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\SubCategory;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Product;
@@ -36,6 +37,7 @@ class ReportController extends Controller
         $this->authorize('view product reports');
 
         $categories = Category::where('status', 1)->orderBy('name')->get();
+        $subCategories = SubCategory::where('status', 1)->orderBy('name')->get();
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin')) {
@@ -44,7 +46,7 @@ class ReportController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $products = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute'])
+        $products = Product::with(['category', 'subCategory', 'primaryImage', 'inventories', 'variants.attributeValue.attribute'])
             ->orderBy('name')
             ->get();
 
@@ -81,6 +83,8 @@ class ReportController extends Controller
                     'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
+                    'sub_category'   => $product->subCategory->name ?? '-',
+                    'sub_category_id'=> $product->sub_category_id,
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $parentStock,
@@ -111,6 +115,8 @@ class ReportController extends Controller
                         'barcode'        => $product->barcode,
                         'category'       => $product->category->name ?? '-',
                         'category_id'    => $product->category_id,
+                        'sub_category'   => $product->subCategory->name ?? '-',
+                        'sub_category_id'=> $product->sub_category_id,
                         'purchase_price' => $v->purchase_price,
                         'sale_price'     => $v->sale_price,
                         'total_stock'    => $vStock,
@@ -132,6 +138,8 @@ class ReportController extends Controller
                     'barcode'        => $product->barcode,
                     'category'       => $product->category->name ?? '-',
                     'category_id'    => $product->category_id,
+                    'sub_category'   => $product->subCategory->name ?? '-',
+                    'sub_category_id'=> $product->sub_category_id,
                     'purchase_price' => $product->purchase_price,
                     'sale_price'     => $product->sale_price,
                     'total_stock'    => $totalStock,
@@ -155,7 +163,7 @@ class ReportController extends Controller
             ->filter(fn ($p) => $p['total_stock'] <= 0)
             ->count();
 
-        return view('reports.products', ['products' => $productsList, 'categories' => $categories,'totalProducts' => $totalProducts, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
+        return view('reports.products', ['products' => $productsList, 'categories' => $categories, 'subCategories' => $subCategories, 'totalProducts' => $totalProducts, 'activeProductCount' => $activeProductCount, 'soldoutProductCount' => $soldoutProductCount]);
     }
 
     public function stockInventory(Request $request)
@@ -1528,7 +1536,6 @@ class ReportController extends Controller
         $user = auth()->user();
         $isSuperAdmin = $user->hasRole('super-admin');
 
-        // Location scoping
         if ($user->location_id && !$isSuperAdmin) {
             $locations  = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
@@ -1579,15 +1586,22 @@ class ReportController extends Controller
 
         $orders = $query->latest()->get();
 
-        // ── Summary Stats ──────────────────────────────────
         $totalAmount = (float) $orders->sum('final_amount');
         $totalCount  = $orders->count();
         $avgAmount   = $totalCount > 0 ? $totalAmount / $totalCount : 0.0;
+        
         $pendingOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING);
-        $pendingAmount = (float) $pendingOrders->sum('final_amount');
-        $pendingCount  = $pendingOrders->count();
+        $pendingFullAmount = (float) $pendingOrders->sum('final_amount');
 
-        // ── Refunded Orders (cancelled sales with an approved refund) ──
+        $partialOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PARTIAL);
+        $partialDueAmount = (float) $partialOrders->sum(function ($order) {
+            $paid = (float) ($order->paid_cash_amount ?? 0) + (float) ($order->paid_online_amount ?? 0);
+            return max(0, (float) $order->final_amount - $paid);
+        });
+
+        $pendingAmount = $pendingFullAmount + $partialDueAmount;
+        $pendingCount  = $pendingOrders->count() + $partialOrders->count();
+
         $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
             ->where('order_type', 'sale')
             ->where('status', Order::STATUS_DECLINE)
@@ -1624,7 +1638,6 @@ class ReportController extends Controller
             };
         };
 
-        // ── Payments Over Time (monthly) ────────────────────
         $paymentTrend = [];
         $trendGroup = $orders
             ->groupBy(fn ($order) => $order->created_at->format('Y-m'))
@@ -1633,18 +1646,16 @@ class ReportController extends Controller
             $paymentTrend[$month] = (float) $grp->sum('final_amount');
         }
 
-        // ── By Payment Method (donut) — attribute actual money collected to
-        // Cash/Online, ignoring Pending orders and never showing a separate
-        // "Pending"/"Cash + Online" bucket. ─────────────────────
         $cashTotal = 0.0;
         $onlineTotal = 0.0;
         foreach ($orders as $order) {
-            if ((int) $order->payment_status !== \App\Models\Order::PAYMENT_STATUS_PAID) {
+            $pStatus = (int) $order->payment_status;
+            if (!in_array($pStatus, [\App\Models\Order::PAYMENT_STATUS_PAID, \App\Models\Order::PAYMENT_STATUS_PARTIAL], true)) {
                 continue;
             }
             $cashAmt = (float) $order->paid_cash_amount;
             $onlineAmt = (float) $order->paid_online_amount;
-            if ($cashAmt <= 0 && $onlineAmt <= 0) {
+            if ($cashAmt <= 0 && $onlineAmt <= 0 && $pStatus === \App\Models\Order::PAYMENT_STATUS_PAID) {
                 if ($normalizePaymentMethod($order->payment_method) === 'online') {
                     $onlineAmt = (float) $order->final_amount;
                 } else {
@@ -1939,7 +1950,6 @@ class ReportController extends Controller
             ->get()
             ->keyBy('location_id');
 
-        // Purchases have no direct location_id — every item's allocation carries the branch it was received at.
         $purchasesByLocation = DB::table('purchase_allocations')
             ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
@@ -1950,20 +1960,22 @@ class ReportController extends Controller
             ->get()
             ->keyBy('location_id');
 
-        // A branch's Purchase Bill activity is counted only when it is the SOURCE (sender) of the transfer.
-        $transferFrom = PurchaseBill::join('purchase_bill_items', 'purchase_bill_items.purchase_bill_id', '=', 'purchase_bills.id')
-            ->whereDate('purchase_bills.created_at', $date)
-            ->whereIn('purchase_bills.from_location_id', $locationIds)
-            ->groupBy('purchase_bills.from_location_id')
-            ->selectRaw('purchase_bills.from_location_id as location_id, COUNT(DISTINCT purchase_bills.id) as cnt, SUM(purchase_bill_items.quantity) as qty')
-            ->get();
-
         $transfersByLocation = [];
-        foreach ($transferFrom as $row) {
-            $transfersByLocation[$row->location_id] = ['cnt' => (int) $row->cnt, 'qty' => (int) $row->qty];
+        foreach ($locationIds as $locId) {
+            $locTransfers = PurchaseBill::where('status', PurchaseBill::STATUS_ACCEPTED)
+                ->whereDate('created_at', $date)
+                ->where(function ($q) use ($locId) {
+                    $q->where('from_location_id', $locId)
+                      ->orWhere('to_location_id', $locId);
+                })->get();
+
+            $cnt = $locTransfers->count();
+            $billIds = $locTransfers->pluck('id');
+            $qty = PurchaseBillItem::whereIn('purchase_bill_id', $billIds)->sum('quantity');
+
+            $transfersByLocation[$locId] = ['cnt' => (int) $cnt, 'qty' => (int) $qty];
         }
 
-        // ── Per-branch breakdown table ────────────────────────────────────
         $branchRows = $reportLocations->map(function ($location) use ($salesByLocation, $expensesByLocation, $purchasesByLocation, $transfersByLocation) {
             $sale     = $salesByLocation->get($location->id);
             $expense  = $expensesByLocation->get($location->id);
@@ -1983,7 +1995,6 @@ class ReportController extends Controller
             ];
         })->values();
 
-        // ── Top summary cards (avoid double counting a transfer that touches two visible branches) ──
         $totalSales    = (float) $salesByLocation->sum('total');
         $totalSalesCount = (int) $salesByLocation->sum('cnt');
         $totalPurchases = (float) $purchasesByLocation->sum('total');
@@ -1991,17 +2002,24 @@ class ReportController extends Controller
         $totalExpenses = (float) $expensesByLocation->sum('total');
         $totalExpensesCount = (int) $expensesByLocation->sum('cnt');
 
-        $transferOverallQuery = PurchaseBill::whereDate('created_at', $date)
-            ->when($locationId, fn ($q) => $q->where('from_location_id', $locationId));
-        $totalTransfersCount = (clone $transferOverallQuery)->count();
-        $totalTransfersQty = PurchaseBillItem::whereHas('transfer', function ($q) use ($date, $locationId) {
-            $q->whereDate('created_at', $date);
-            if ($locationId) {
-                $q->where('from_location_id', $locationId);
-            }
-        })->sum('quantity');
+        $transferOverallQuery = PurchaseBill::where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->whereDate('created_at', $date);
 
-        // ── Per-module tables for the day (mirrors each module's own list columns, no actions) ──
+        if ($locationId) {
+            $transferOverallQuery->where(function ($q) use ($locationId) {
+                $q->where('from_location_id', $locationId)
+                  ->orWhere('to_location_id', $locationId);
+            });
+        } else {
+            $transferOverallQuery->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                  ->orWhereIn('to_location_id', $locationIds);
+            });
+        }
+
+        $overallTransfers = $transferOverallQuery->get();
+        $totalTransfersCount = $overallTransfers->count();
+        $totalTransfersQty = PurchaseBillItem::whereIn('purchase_bill_id', $overallTransfers->pluck('id'))->sum('quantity');
 
         $salesRows = Order::with(['customer', 'location'])
             ->where('order_type', 'sale')
@@ -2025,8 +2043,6 @@ class ReportController extends Controller
                 ];
             });
 
-        // One purchase's items are always allocated to a single branch, so pluck the first matching
-        // (purchase_id => location_id) pair per purchase in a single batch query, avoiding N+1 below.
         $purchaseLocationMap = DB::table('purchase_items')
             ->join('purchase_allocations', 'purchase_allocations.purchase_item_id', '=', 'purchase_items.id')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
@@ -2072,25 +2088,83 @@ class ReportController extends Controller
                 ];
             });
 
-        $purchaseBillRows = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
-            ->whereDate('created_at', $date)
-            ->whereIn('from_location_id', $locationIds)
-            ->withCount('items')
+        $purchaseBillQuery = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->whereDate('created_at', $date);
+
+        if ($locationId) {
+            $purchaseBillQuery->where(function ($q) use ($locationId) {
+                $q->where('from_location_id', $locationId)
+                  ->orWhere('to_location_id', $locationId);
+            });
+        } else {
+            $purchaseBillQuery->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                  ->orWhereIn('to_location_id', $locationIds);
+            });
+        }
+
+        $purchaseBillRows = $purchaseBillQuery->withCount('items')
             ->latest()
             ->get()
             ->values()
             ->map(function ($transfer, $index) use ($transferStatusLabels, $transferStatusColors, $badge) {
-                $amount = $transfer->items->sum(function ($item) {
+                $amount = 0.0;
+                $totalPcs = 0;
+
+                $totalPairs = 0;
+                $totalRemPcs = 0;
+
+                foreach ($transfer->items as $item) {
                     $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
-                    return $price * $item->quantity;
-                });
+                    $amount += $price * $item->quantity;
+
+                    $multiplier = 1.0;
+                    if ($item->custom_size_value !== null && $item->custom_size_value !== '' && (float)$item->custom_size_value > 0) {
+                        $multiplier = (float) $item->custom_size_value;
+                    } elseif ($item->product && $item->product->pair_product) {
+                        $customSizes = $item->product->custom_sizes;
+                        if (is_array($customSizes) && count($customSizes) > 0) {
+                            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+                            if ($sizes->count() > 0) {
+                                $multiplier = (float) $sizes->max();
+                            } else {
+                                $multiplier = 2.0;
+                            }
+                        } else {
+                            $multiplier = 2.0;
+                        }
+                    }
+
+                    $itemPcs = (int) round($item->quantity * $multiplier);
+                    $totalPcs += $itemPcs;
+
+                    if ($item->product && $item->product->pair_product) {
+                        $pairSize = $multiplier > 0 ? $multiplier : 1.0;
+                        $pairs = (int) floor($itemPcs / $pairSize);
+                        $remPcs = (int) ($itemPcs % $pairSize);
+                        $totalPairs += $pairs;
+                        $totalRemPcs += $remPcs;
+                    } else {
+                        $totalRemPcs += $itemPcs;
+                    }
+                }
+
+                $itemsDisplayParts = [];
+                if ($totalPairs > 0) {
+                    $itemsDisplayParts[] = number_format($totalPairs) . ' Pair' . ($totalPairs > 1 ? 's' : '');
+                }
+                if ($totalRemPcs > 0) {
+                    $itemsDisplayParts[] = number_format($totalRemPcs) . ' Pcs';
+                }
+                $itemsDisplay = count($itemsDisplayParts) > 0 ? implode('<br>', $itemsDisplayParts) : number_format($totalPcs);
 
                 return [
                     'index'       => $index + 1,
                     'bill_no'     => $transfer->transfer_no,
                     'source'      => $transfer->fromLocation->name ?? '-',
                     'destination' => $transfer->toLocation->name ?? '-',
-                    'items_count' => $transfer->items_count,
+                    'items_count' => $itemsDisplay,
                     'amount'      => (float) $amount,
                     'status'      => $badge($transferStatusLabels[$transfer->status] ?? '-', $transferStatusColors[$transfer->status] ?? 'bg-label-secondary'),
                     'created_by'  => $transfer->createdBy->name ?? '-',

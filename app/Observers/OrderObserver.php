@@ -26,7 +26,8 @@ class OrderObserver
             return;
         }
 
-        if ($order->payment_status != Order::PAYMENT_STATUS_PAID) {
+        $isPaidLike = in_array((int) $order->payment_status, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true);
+        if (!$isPaidLike) {
             return;
         }
 
@@ -42,9 +43,9 @@ class OrderObserver
     }
 
     /**
-     * When payment_status changes to PAID, credit the balance.
-     * If payment_status was PAID and changed to something else, reverse the balance.
-     * Also handles payment_method / final_amount / location / cash-online split changes for PAID orders.
+     * When payment_status changes to PAID or PARTIAL, credit the balance.
+     * If payment_status was PAID/PARTIAL and changed to PENDING, reverse the balance.
+     * Also handles payment_method / final_amount / location / cash-online split changes for PAID/PARTIAL orders.
      */
     public function updated(Order $order): void
     {
@@ -52,11 +53,14 @@ class OrderObserver
             return;
         }
 
-        $oldStatus = $order->getOriginal('payment_status');
-        $newStatus = $order->payment_status;
+        $oldStatus = (int) $order->getOriginal('payment_status');
+        $newStatus = (int) $order->payment_status;
 
-        // Transition 1: Unpaid -> PAID
-        if ($oldStatus != Order::PAYMENT_STATUS_PAID && $newStatus == Order::PAYMENT_STATUS_PAID) {
+        $wasPaidLike = in_array($oldStatus, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true);
+        $isPaidLike = in_array($newStatus, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true);
+
+        // Transition 1: Unpaid -> PAID / PARTIAL
+        if (!$wasPaidLike && $isPaidLike) {
             $this->creditBalance(
                 $order->location_id,
                 (float) $order->paid_cash_amount,
@@ -69,8 +73,10 @@ class OrderObserver
             return;
         }
 
-        // Transition 2: PAID -> Unpaid (e.g. status set back to pending)
-        if ($oldStatus == Order::PAYMENT_STATUS_PAID && $newStatus != Order::PAYMENT_STATUS_PAID) {
+        // Transition 2: Was PAID / PARTIAL -> Unpaid
+        if ($wasPaidLike && !$isPaidLike) {
+            $order->salePayments()->delete();
+            $order->payments()->delete();
             $this->removeSaleBalance(
                 (int) $order->getOriginal('location_id'),
                 (float) $order->getOriginal('paid_cash_amount'),
@@ -82,14 +88,15 @@ class OrderObserver
             return;
         }
 
-        // Transition 3: Was PAID, remains PAID, but method, amount, location, or split changed
-        if ($oldStatus == Order::PAYMENT_STATUS_PAID && $newStatus == Order::PAYMENT_STATUS_PAID) {
+        // Transition 3: Was PAID / PARTIAL, remains PAID / PARTIAL, but method, amount, location, or split changed
+        if ($wasPaidLike && $isPaidLike) {
             if (
                 $order->wasChanged('payment_method')
                 || $order->wasChanged('final_amount')
                 || $order->wasChanged('location_id')
                 || $order->wasChanged('paid_cash_amount')
                 || $order->wasChanged('paid_online_amount')
+                || $order->wasChanged('payment_status')
             ) {
                 // Reverse the previously recorded allocation, then credit the new one.
                 $this->removeSaleBalance(

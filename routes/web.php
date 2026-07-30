@@ -247,6 +247,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
         Route::get('sales/{sale}/label', [SaleController::class, 'label'])->name('sales.label');
         Route::patch('sales/{sale}/status', [SaleController::class, 'updateStatus'])->name('sales.status');
+        Route::get('sales/{sale}/payment-history', [SaleController::class, 'paymentHistory'])->name('sales.payment-history');
         Route::post('sales/{sale}/cancellation/approve', [SaleController::class, 'approveCancellation'])->name('sales.cancellation.approve');
         Route::post('sales/{sale}/cancellation/reject', [SaleController::class, 'rejectCancellation'])->name('sales.cancellation.reject');
 

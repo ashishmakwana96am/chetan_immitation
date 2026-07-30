@@ -427,11 +427,40 @@ class ReportExportService
         foreach ($transfers as $index => $transfer) {
             [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
 
+            $totalPcs = 0;
+            $totalPairs = 0;
+            $totalRemPcs = 0;
+
+            foreach ($transfer->items as $item) {
+                $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type ?? 'single', $item->custom_size_value);
+                $itemPcs = (int) round($item->quantity * $multiplier);
+                $totalPcs += $itemPcs;
+
+                if ($item->product && $item->product->pair_product) {
+                    $pairSize = $multiplier > 0 ? $multiplier : 1.0;
+                    $pairs = (int) floor($itemPcs / $pairSize);
+                    $remPcs = (int) ($itemPcs % $pairSize);
+                    $totalPairs += $pairs;
+                    $totalRemPcs += $remPcs;
+                } else {
+                    $totalRemPcs += $itemPcs;
+                }
+            }
+
+            $itemsDisplayParts = [];
+            if ($totalPairs > 0) {
+                $itemsDisplayParts[] = number_format($totalPairs) . ' Pair' . ($totalPairs > 1 ? 's' : '');
+            }
+            if ($totalRemPcs > 0) {
+                $itemsDisplayParts[] = number_format($totalRemPcs) . ' Pcs';
+            }
+            $itemsDisplay = count($itemsDisplayParts) > 0 ? implode(', ', $itemsDisplayParts) : number_format($totalPcs);
+
             $sheet->setCellValue('A' . $row, $index + 1);
             $sheet->setCellValue('B' . $row, $transfer->transfer_no);
             $sheet->setCellValue('C' . $row, $transfer->fromLocation->name ?? '-');
             $sheet->setCellValue('D' . $row, $transfer->toLocation->name ?? '-');
-            $sheet->setCellValue('E' . $row, $this->totalPcsForTransfer($transfer));
+            $sheet->setCellValue('E' . $row, $itemsDisplay);
             $sheet->setCellValueExplicit('F' . $row, round((float) $totalAmount, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValueExplicit('G' . $row, round((float) $totalMrp, 2), DataType::TYPE_NUMERIC);
             $sheet->setCellValue('H' . $row, $statusLabels[$transfer->status] ?? 'Unknown');

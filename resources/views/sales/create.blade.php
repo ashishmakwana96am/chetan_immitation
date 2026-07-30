@@ -324,6 +324,7 @@
                     <div class="card-body">
                         <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
                             <option value="1">Pending</option>
+                            <option value="3">Partially Paid</option>
                             <option value="2" selected>Paid</option>
                         </select>
                         <div class="row g-2 mt-1" id="paymentSplitWrapper">
@@ -1160,39 +1161,47 @@ $(document).ready(function () {
     });
 
     function updatePaymentSplit() {
-        const isPaid = $('#paymentStatusSelect').val() === '2';
-        $('#paymentSplitWrapper').toggleClass('d-none', !isPaid);
-        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('disabled', !isPaid);
-        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('required', isPaid);
+        const val = $('#paymentStatusSelect').val();
+        const isPaid = val === '2';
+        const isPartial = val === '3';
+        const isPaymentActive = isPaid || isPartial;
 
-        if (!isPaid) {
+        $('#paymentSplitWrapper').toggleClass('d-none', !isPaymentActive);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('disabled', !isPaymentActive);
+        $('#paidOnlineAmountInput, #paidCashAmountInput').prop('required', isPaymentActive);
+
+        if (!isPaymentActive) {
             $('#paidOnlineAmountInput').val(0);
             $('#paidCashAmountInput').val(0);
             return;
         }
 
-        syncPaymentSplit('online');
+        if (isPaid) {
+            syncPaymentSplit('online');
+        }
     }
 
     function syncPaymentSplit(source) {
-        const total = window.currentGrandTotal || 0;
+        const val = $('#paymentStatusSelect').val();
+        const isPaid = val === '2';
 
-        // Items may not be loaded into the table yet (total still 0) — don't
-        // clobber the existing Cash/Online values with a premature recalculation.
+        const total = window.currentGrandTotal || 0;
         if (total <= 0) {
             return;
         }
 
-        if (source === 'cash') {
-            let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
-            cash = Math.min(Math.max(cash, 0), total);
-            $('#paidCashAmountInput').val(cash);
-            $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
-        } else {
-            let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
-            online = Math.min(Math.max(online, 0), total);
-            $('#paidOnlineAmountInput').val(online);
-            $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+        if (isPaid) {
+            if (source === 'cash') {
+                let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
+                cash = Math.min(Math.max(cash, 0), total);
+                $('#paidCashAmountInput').val(cash);
+                $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
+            } else {
+                let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
+                online = Math.min(Math.max(online, 0), total);
+                $('#paidOnlineAmountInput').val(online);
+                $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+            }
         }
     }
 

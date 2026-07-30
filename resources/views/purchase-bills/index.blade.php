@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/flatpickr/flatpickr.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/select2/select2.css') }}" />
 @endsection
 
 @section('content')
@@ -55,10 +57,27 @@
                             <option value="2">Paid</option>
                         </select>
                     </div>
+
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
+                        <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
+                            <option value="">All Products</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1">Date Range</label>
+                        <div class="w-100">
+                            <input type="text" id="filter-start-date" class="form-control flatpickr-purchase-bills mb-2" placeholder="Start Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                            <div class="text-center text-muted small mb-2">to</div>
+                            <input type="text" id="filter-end-date" class="form-control flatpickr-purchase-bills" placeholder="End Date" readonly style="width: 100% !important; display: block; margin-left: 0px !important;" />
+                        </div>
+                    </div>
+
                     <div class="dropdown-divider"></div>
-                    <div class="d-flex gap-2 pt-2">
-                        <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear</button>
-                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply</button>
+                    <div class="d-flex justify-content-between gap-2 pt-2">
+                        <button type="button" class="btn btn-label-secondary btn-sm flex-grow-1" id="btnClearFilter">Clear Filter</button>
+                        <button type="button" class="btn btn-primary btn-sm flex-grow-1" id="btnApplyFilter">Apply Filter</button>
                     </div>
                 </div>
             </div>
@@ -118,8 +137,45 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/select2/select2.js') }}"></script>
     <script>
         $(document).ready(function () {
+            if ($('.flatpickr-purchase-bills').length) {
+                $('.flatpickr-purchase-bills').flatpickr({
+                    dateFormat: 'Y-m-d',
+                    allowInput: true
+                });
+            }
+
+            $('.product-search-select').select2({
+                ajax: {
+                    url: '{{ route('admin.products.search') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data
+                        };
+                    },
+                    cache: true
+                },
+                minimumInputLength: 1,
+                placeholder: 'Search products...',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#filterDropdownContainer')
+            });
+
+            $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
+                e.stopPropagation();
+            });
+
             const table = $('#purchaseBillsTable').DataTable({
                 responsive: false,
                 order: [[12, 'desc']],
@@ -133,6 +189,9 @@
                         d.to_location_id = $('#filter-to-location').val();
                         d.status = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
+                        d.product_id = $('#filter-product').val();
+                        d.start_date = $('#filter-start-date').val();
+                        d.end_date = $('#filter-end-date').val();
                     }
                 },
                 columns: [
@@ -190,6 +249,9 @@
                     to_location_id: $('#filter-to-location').val() || '',
                     status: $('#filter-status').val() || '',
                     payment_status: $('#filter-payment-status').val() || '',
+                    product_id: $('#filter-product').val() || '',
+                    start_date: $('#filter-start-date').val() || '',
+                    end_date: $('#filter-end-date').val() || '',
                 });
                 window.location.href = '{{ route('admin.purchase-bills.export') }}?' + params;
             });
@@ -200,7 +262,8 @@
             });
 
             $('#btnClearFilter').on('click', function () {
-                $('#filter-from-location, #filter-to-location, #filter-status, #filter-payment-status').val('');
+                $('#filter-from-location, #filter-to-location, #filter-status, #filter-payment-status, #filter-start-date, #filter-end-date').val('');
+                $('#filter-product').val(null).trigger('change');
                 window.refreshTable();
                 bootstrap.Dropdown.getOrCreateInstance(document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]')).hide();
             });

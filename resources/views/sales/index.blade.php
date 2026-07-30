@@ -154,6 +154,7 @@
                         <select id="filter-payment-status" class="form-select">
                             <option value="">All Payments</option>
                             <option value="1">Pending</option>
+                            <option value="3">Partially Paid</option>
                             <option value="2">Paid</option>
                         </select>
                     </div>
@@ -554,18 +555,76 @@
                 });
             });
 
+            function buildSalePaymentHistoryHtml(historyData) {
+                if (!historyData || !historyData.payments || historyData.payments.length === 0) {
+                    return '';
+                }
+
+                let rows = historyData.payments.map(function (p) {
+                    return `<tr><td class="text-nowrap">${p.date}</td><td class="text-end">${p.amount}</td></tr>`;
+                }).join('');
+
+                return `
+                    <div class="mb-3 text-start" style="font-size: 0.8rem;">
+                        <div class="d-flex justify-content-between text-muted mb-2">
+                            <span>Total: <strong>${historyData.total_amount}</strong></span>
+                            <span>Paid: <strong class="text-success">${historyData.paid_amount}</strong></span>
+                            <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
+                        </div>
+                        <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
+                        <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
+                            <table class="table table-sm mb-0" style="font-size: 0.75rem;">
+                                <thead class="table-light"><tr><th>DATE</th><th class="text-end">AMOUNT</th></tr></thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
             $(document).on('click', '.change-payment-status-btn', function (e) {
                 e.preventDefault();
                 const url = $(this).data('url');
-                const total = parseFloat($(this).data('amount')) || 0;
+                const historyUrl = $(this).data('history-url');
+                const grandTotal = parseFloat($(this).data('amount')) || 0;
+                const currentStatus = parseInt($(this).data('current') || 1);
+
+                window.showAjaxLoader();
+                $.get(historyUrl)
+                    .done(function (res) {
+                        window.hideAjaxLoader();
+                        openSalePaymentModal(url, currentStatus, grandTotal, res.data);
+                    })
+                    .fail(function () {
+                        window.hideAjaxLoader();
+                        openSalePaymentModal(url, currentStatus, grandTotal, null);
+                    });
+            });
+
+            function openSalePaymentModal(url, currentStatus, grandTotal, historyData) {
+                const optPending = currentStatus === 3 ? 'disabled' : (currentStatus === 1 ? 'selected' : '');
+                const optPartial = currentStatus === 3 ? 'selected' : '';
+                const optPaid = currentStatus === 2 ? 'selected' : '';
+
+                const remainingDue = historyData ? (historyData.balance_due_raw !== undefined ? parseFloat(historyData.balance_due_raw) : grandTotal) : grandTotal;
+                const initialCash = remainingDue;
 
                 Swal.fire({
-                    title: 'Mark as Paid',
+                    title: 'Update Payment Status',
                     html: `
-                        <div class="text-start d-flex gap-2">
+                        ${buildSalePaymentHistoryHtml(historyData)}
+                        <div class="mb-3 text-start">
+                            <label for="swal-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
+                            <select id="swal-payment-status" class="form-select">
+                                <option value="1" ${optPending}>Pending</option>
+                                <option value="3" ${optPartial}>Partially Paid</option>
+                                <option value="2" ${optPaid}>Paid</option>
+                            </select>
+                        </div>
+                        <div class="text-start d-flex gap-2" id="swal-amounts-wrap">
                             <div class="flex-fill">
                                 <label class="form-label fw-semibold mb-2">Cash</label>
-                                <input type="number" id="swal-paid-cash" class="form-control" value="${total}" min="0" step="0.01">
+                                <input type="number" id="swal-paid-cash" class="form-control" value="${initialCash}" min="0" step="0.01">
                             </div>
                             <div class="flex-fill">
                                 <label class="form-label fw-semibold mb-2">Online</label>
@@ -582,28 +641,83 @@
                     },
                     buttonsStyling: false,
                     didOpen: () => {
+                        const statusSelect = document.getElementById('swal-payment-status');
+                        const amountsWrap = document.getElementById('swal-amounts-wrap');
                         const cashInput = document.getElementById('swal-paid-cash');
                         const onlineInput = document.getElementById('swal-paid-online');
 
-                        const sync = (source) => {
-                            if (source === 'cash') {
-                                let cash = Math.min(Math.max(parseFloat(cashInput.value) || 0, 0), total);
-                                cashInput.value = cash;
-                                onlineInput.value = Math.round((total - cash) * 100) / 100;
-                            } else {
-                                let online = Math.min(Math.max(parseFloat(onlineInput.value) || 0, 0), total);
-                                onlineInput.value = online;
-                                cashInput.value = Math.round((total - online) * 100) / 100;
+                        const toggleVisibility = () => {
+                            const val = parseInt(statusSelect.value);
+                            amountsWrap.style.display = (val === 1) ? 'none' : 'flex';
+                        };
+
+                        const clamp = (source) => {
+                            const val = parseInt(statusSelect.value);
+                            if (val === 1) return;
+
+                            let cash = parseFloat(cashInput.value) || 0;
+                            let online = parseFloat(onlineInput.value) || 0;
+
+                            if (val === 2) {
+                                if (source === 'cash') {
+                                    cash = Math.min(Math.max(cash, 0), remainingDue);
+                                    cashInput.value = cash;
+                                    onlineInput.value = Math.round((remainingDue - cash) * 100) / 100;
+                                } else {
+                                    online = Math.min(Math.max(online, 0), remainingDue);
+                                    onlineInput.value = online;
+                                    cashInput.value = Math.round((remainingDue - online) * 100) / 100;
+                                }
+                            } else if (val === 3) {
+                                if (source === 'cash') {
+                                    if (cash > remainingDue) {
+                                        cash = remainingDue;
+                                        cashInput.value = cash;
+                                    }
+                                    if (cash + online > remainingDue) {
+                                        online = Math.round((remainingDue - cash) * 100) / 100;
+                                        onlineInput.value = online;
+                                    }
+                                } else if (source === 'online') {
+                                    if (online > remainingDue) {
+                                        online = remainingDue;
+                                        onlineInput.value = online;
+                                    }
+                                    if (cash + online > remainingDue) {
+                                        cash = Math.round((remainingDue - online) * 100) / 100;
+                                        cashInput.value = cash;
+                                    }
+                                }
                             }
                         };
 
-                        cashInput.addEventListener('input', () => sync('cash'));
-                        onlineInput.addEventListener('input', () => sync('online'));
+                        statusSelect.addEventListener('change', () => {
+                            toggleVisibility();
+                            clamp('online');
+                        });
+                        cashInput.addEventListener('input', () => clamp('cash'));
+                        onlineInput.addEventListener('input', () => clamp('online'));
+                        toggleVisibility();
                     },
                     preConfirm: () => {
+                        const status = document.getElementById('swal-payment-status').value;
+                        const cash = parseFloat(document.getElementById('swal-paid-cash').value) || 0;
+                        const online = parseFloat(document.getElementById('swal-paid-online').value) || 0;
+                        const sum = cash + online;
+
+                        if (status === '3' && sum <= 0) {
+                            Swal.showValidationMessage('Paid amount must be at least 0.01 for Partially Paid status.');
+                            return false;
+                        }
+                        if (status !== '1' && sum > (remainingDue + 0.01)) {
+                            Swal.showValidationMessage(`Paid amount cannot be greater than the remaining balance due (₹${remainingDue.toFixed(2)}).`);
+                            return false;
+                        }
+
                         return {
-                            paid_cash_amount: document.getElementById('swal-paid-cash').value,
-                            paid_online_amount: document.getElementById('swal-paid-online').value,
+                            payment_status: status,
+                            paid_cash_amount: cash,
+                            paid_online_amount: online,
                         };
                     }
                 }).then((result) => {
@@ -614,7 +728,7 @@
                             type: 'PATCH',
                             data: {
                                 _token: $('meta[name="csrf-token"]').attr('content'),
-                                payment_status: 2,
+                                payment_status: result.value.payment_status,
                                 paid_cash_amount: result.value.paid_cash_amount,
                                 paid_online_amount: result.value.paid_online_amount
                             },
@@ -633,7 +747,7 @@
                         });
                     }
                 });
-            });
+            }
 
 
 

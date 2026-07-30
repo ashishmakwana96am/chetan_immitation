@@ -2,28 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Mail\OrderStatusMail;
 use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Order;
+use App\Models\OrderCancellationRequest;
 use App\Models\OrderItem;
+use App\Models\OrderPayment;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Setting;
+use App\Models\State;
 use App\Services\ActivityLogger;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use App\Models\OrderCancellationRequest;
-use App\Models\State;
-use App\Models\CustomerAddress;
-use App\Models\OrderPayment;
-use App\Models\Setting;
-use App\Mail\OrderStatusMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 
 class SaleController extends Controller
 {
@@ -45,42 +45,42 @@ class SaleController extends Controller
     {
         $this->authorize('view sales');
 
-        $user      = auth()->user();
-        $orders    = Order::with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
+        $user = auth()->user();
+        $orders = Order::with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
             ->where('order_type', 'sale')
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
-            ->when($request->location_id, function($q) use ($request) {
+            ->when($request->location_id, function ($q) use ($request) {
                 $q->where('location_id', $request->location_id);
             })
-            ->when($request->status, function($q) use ($request) {
+            ->when($request->status, function ($q) use ($request) {
                 $q->where('status', $request->status);
             })
-            ->when($request->payment_status, function($q) use ($request) {
+            ->when($request->payment_status, function ($q) use ($request) {
                 $q->where('payment_status', $request->payment_status);
             })
-            ->when($request->source, function($q) use ($request) {
+            ->when($request->source, function ($q) use ($request) {
                 $q->where('source', $request->source);
             })
-            ->when($request->product_id, function($q) use ($request) {
-                $q->whereHas('items', function($sub) use ($request) {
+            ->when($request->product_id, function ($q) use ($request) {
+                $q->whereHas('items', function ($sub) use ($request) {
                     $sub->where('product_id', $request->product_id);
                 });
             })
-            ->when($request->start_date, function($q) use ($request) {
+            ->when($request->start_date, function ($q) use ($request) {
                 $q->whereDate('created_at', '>=', $request->start_date);
             })
-            ->when($request->end_date, function($q) use ($request) {
+            ->when($request->end_date, function ($q) use ($request) {
                 $q->whereDate('created_at', '<=', $request->end_date);
             })
             ->orderBy('id', 'desc')
             ->get();
-        $canEdit                   = auth()->user()->can('edit sales');
-        $canEditSalesStatus        = auth()->user()->can('edit sales status');
+        $canEdit = auth()->user()->can('edit sales');
+        $canEditSalesStatus = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
-        $canDownloadSales          = auth()->user()->can('download sales');
+        $canDownloadSales = auth()->user()->can('download sales');
 
         $onlineOrders = $orders->where('source', 'ONLINE');
-        $productIds   = $onlineOrders->flatMap(fn ($o) => $o->items->pluck('product_id'))->unique()->values();
+        $productIds = $onlineOrders->flatMap(fn($o) => $o->items->pluck('product_id'))->unique()->values();
         $inventoryByProduct = Inventory::whereIn('product_id', $productIds)
             ->with('location')
             ->get()
@@ -106,10 +106,12 @@ class SaleController extends Controller
         $paymentColors = [
             1 => 'bg-label-warning',
             2 => 'bg-label-info',
+            3 => 'bg-label-primary',
         ];
         $paymentLabels = [
             1 => 'Pending',
             2 => 'Paid',
+            3 => 'Partially Paid',
         ];
 
         $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
@@ -123,7 +125,7 @@ class SaleController extends Controller
             $stockWarningHtml = '';
             $isFallbackOrder = !$order->is_default;
 
-            if ($isFallbackOrder && (int)$order->status === Order::STATUS_PENDING) {
+            if ($isFallbackOrder && (int) $order->status === Order::STATUS_PENDING) {
                 $issueBlocks = [];
                 foreach ($order->items as $item) {
                     if ($item->product_variant_id) {
@@ -131,21 +133,22 @@ class SaleController extends Controller
                         $stockData = $product ? $product->getVariantStock() : [];
                         $qtyAtLocation = (int) ($stockData[$order->location_id]['variants'][$item->product_variant_id] ?? 0);
                         $otherLocations = collect($stockData)
-                            ->filter(fn ($d, $locId) => (int) $locId !== (int) $order->location_id)
-                            ->map(fn ($d) => ['name' => $d['location_name'], 'qty' => (int) ($d['variants'][$item->product_variant_id] ?? 0)])
-                            ->filter(fn ($d) => $d['qty'] > 0);
+                            ->filter(fn($d, $locId) => (int) $locId !== (int) $order->location_id)
+                            ->map(fn($d) => ['name' => $d['location_name'], 'qty' => (int) ($d['variants'][$item->product_variant_id] ?? 0)])
+                            ->filter(fn($d) => $d['qty'] > 0);
                     } else {
                         $invRows = $inventoryByProduct->get($item->product_id, collect());
                         $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
-                        $otherLocations = $invRows->where('location_id', '!=', $order->location_id)
-                            ->filter(fn ($inv) => $inv->quantity > 0)
-                            ->map(fn ($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
+                        $otherLocations = $invRows
+                            ->where('location_id', '!=', $order->location_id)
+                            ->filter(fn($inv) => $inv->quantity > 0)
+                            ->map(fn($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
                     }
 
                     if ($qtyAtLocation < $item->quantity) {
                         $otherRows = $otherLocations
                             ->map(function ($d) {
-                                return "<div class='sw-branch'><span>" . e($d['name']) . "</span><span class='sw-qty'>" . $d['qty'] . "</span></div>";
+                                return "<div class='sw-branch'><span>" . e($d['name']) . "</span><span class='sw-qty'>" . $d['qty'] . '</span></div>';
                             })
                             ->implode('');
 
@@ -154,10 +157,10 @@ class SaleController extends Controller
                             : "<div class='sw-empty'>Not available in any other branch</div>";
 
                         $issueBlocks[] = "<div class='sw-item'>"
-                            . "<div class='sw-title'><i class='ti ti-box'></i>" . e($item->product->name ?? 'Product') . "</div>"
+                            . "<div class='sw-title'><i class='ti ti-box'></i>" . e($item->product->name ?? 'Product') . '</div>'
                             . "<div class='sw-status'><i class='ti ti-alert-circle'></i>Not available at this location</div>"
                             . $availabilitySection
-                            . "</div>";
+                            . '</div>';
                     }
                 }
 
@@ -167,7 +170,7 @@ class SaleController extends Controller
                 }
             }
 
-            $status        = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
+            $status = '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . '">' . ($statusLabels[$order->status] ?? ucfirst($order->status)) . '</span>';
             if ($order->status == 6 && !empty($order->cancellation_reason)) {
                 $status .= ' <i class="fas fa-info-circle text-danger fs-5 ms-1 align-middle cursor-pointer" data-bs-toggle="tooltip" data-bs-placement="top" title="' . e($order->cancellation_reason) . '"></i>';
             }
@@ -188,9 +191,9 @@ class SaleController extends Controller
                     }
                 }
             }
-            $isEditable = ($order->source ?? 'POS') === 'POS'
-                && in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)
-                && !$cancellationRequested;
+            $isEditable = ($order->source ?? 'POS') === 'POS' &&
+                in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true) &&
+                !$cancellationRequested;
             if ($canEdit && $isEditable) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
@@ -200,17 +203,17 @@ class SaleController extends Controller
             $sourceVal = $order->source ?? 'POS';
 
             if ($sourceVal === 'POS') {
-                if ($order->status == 2) { // 2 = Approve
+                if ($order->status == 2) {  // 2 = Approve
                     $showStatusOption = false;
                 }
-                if ($order->payment_status == 2) { // 2 = Paid
+                if ($order->payment_status == 2) {  // 2 = Paid
                     $showPaymentOption = false;
                 }
             } elseif ($sourceVal === 'ONLINE') {
-                if (in_array($order->status, [5, 6])) { // 5 = Delivered, 6 = Decline
+                if (in_array($order->status, [5, 6])) {  // 5 = Delivered, 6 = Decline
                     $showStatusOption = false;
                 }
-                if ($order->payment_status == 2) { // 2 = Paid
+                if ($order->payment_status == 2) {  // 2 = Paid
                     $showPaymentOption = false;
                 }
             }
@@ -219,7 +222,7 @@ class SaleController extends Controller
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
-                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+                $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
@@ -229,27 +232,28 @@ class SaleController extends Controller
 
             return [
                 'cancellation_requested' => $cancellationRequested,
-                'cancellation_warning'   => $cancellationWarningHtml,
-                'index'          => $index + 1,
-                'is_default'     => (bool) $order->is_default,
-                'stock_warning'  => $stockWarningHtml,
-                'order_no'       => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
-                'customer'       => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
-                'location'       => $order->location->name ?? '-',
-                'source'         => $sourceBadge,
-                'final_amount'   => format_price($order->final_amount),
-                'status'         => $status,
+                'cancellation_warning' => $cancellationWarningHtml,
+                'index' => $index + 1,
+                'is_default' => (bool) $order->is_default,
+                'stock_warning' => $stockWarningHtml,
+                'order_no' => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
+                'customer' => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
+                'location' => $order->location->name ?? '-',
+                'source' => $sourceBadge,
+                'final_amount' => format_price($order->final_amount),
+                'status' => $status,
                 'payment_status' => $paymentStatus,
                 'payment_method' => $order->payment_method === 'online_cash'
                     ? 'Cash + Online'
                     : ($order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method ?? ''))),
-                'date_group'     => $order->created_at->format('d M Y'),
-                'date_sort'      => $order->created_at->format('Ymd'),
-                'actions'        => $actions,
+                'date_group' => $order->created_at->format('d M Y'),
+                'date_sort' => $order->created_at->format('Ymd'),
+                'actions' => $actions,
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data])
+        return response()
+            ->json(['status' => 'success', 'data' => $data])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
@@ -260,34 +264,34 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $customers   = Customer::where('status', 1)->orderBy('name')->get();
+        $customers = Customer::where('status', 1)->orderBy('name')->get();
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        $orderNo     = generate_invoice_no('SA', Order::class, 'order_no');
+        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $orderNo = generate_invoice_no('SA', Order::class, 'order_no');
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'              => $p->id,
-                'name'            => $p->name,
-                'price'           => $p->sale_price,
-                'barcode'         => $p->barcode,
-                'label'           => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
-                'type'            => $p->type,
-                'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
-                'pair_product'    => (bool) $p->pair_product,
-                'pair_mode'       => $p->pair_mode,
-                'custom_sizes'    => $p->custom_sizes ?? [],
-                'single_price'    => $p->sale_price,
-                'purchase_price'  => $p->purchase_price,
+                'id' => $p->id,
+                'name' => $p->name,
+                'price' => $p->sale_price,
+                'barcode' => $p->barcode,
+                'label' => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
+                'type' => $p->type,
+                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product' => (bool) $p->pair_product,
+                'pair_mode' => $p->pair_mode,
+                'custom_sizes' => $p->custom_sizes ?? [],
+                'single_price' => $p->sale_price,
+                'purchase_price' => $p->purchase_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function($v) {
+                $data['variants'] = $p->variants->filter(function ($v) {
                     return $v->status == 1;
-                })->values()->map(function($v) {
+                })->values()->map(function ($v) {
                     return [
                         'id' => $v->id,
                         'attribute_value_id' => $v->attribute_value_id,
@@ -329,16 +333,16 @@ class SaleController extends Controller
 
         $authUser = auth()->user();
         $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
-        if ($isRestricted && (int)$request->location_id !== (int)$authUser->location_id) {
+        if ($isRestricted && (int) $request->location_id !== (int) $authUser->location_id) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'You can only create sales for your assigned location.',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'location_id'            => ['required', 'exists:locations,id'],
-            'customer_id'            => [
+            'location_id' => ['required', 'exists:locations,id'],
+            'customer_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
                     if ($value !== '0' && !\DB::table('customers')->where('id', $value)->exists()) {
@@ -346,30 +350,30 @@ class SaleController extends Controller
                     }
                 }
             ],
-            'paid_cash_amount'           => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'paid_online_amount'         => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'items'                      => ['required', 'array', 'min:1'],
-            'items.*.product_id'         => ['required', 'exists:products,id'],
+            'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
-            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
-            'items.*.custom_size_value'  => ['nullable', 'numeric', 'min:0.01'],
-            'items.*.quantity'           => ['required', 'integer', 'min:1'],
-            'items.*.price'              => ['required', 'numeric', 'min:0.01'],
-            'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
-            'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
-            'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
-            'discount_value'             => ['nullable', 'numeric', 'min:0'],
-            'order_discount_type'        => ['nullable', 'string', 'in:flat,percentage'],
-            'order_discount_value'       => ['nullable', 'numeric', 'min:0'],
-            'status'                     => ['nullable', 'integer', 'in:1,2,6'],
-            'payment_status'             => ['nullable', 'integer', 'in:1,2'],
-            'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
-            'coupon_id'                  => ['nullable', 'exists:coupons,id'],
+            'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.discount_type' => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type' => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
+            'discount_value' => ['nullable', 'numeric', 'min:0'],
+            'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
+            'order_discount_value' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['nullable', 'integer', 'in:1,2,6'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
+            'source' => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id' => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
@@ -383,7 +387,7 @@ class SaleController extends Controller
         $customSizeError = $this->getCustomSizeError($request->items);
         if ($customSizeError) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => ['items' => [$customSizeError]],
             ], 422);
         }
@@ -395,7 +399,7 @@ class SaleController extends Controller
         );
         if ($minPriceError) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => ['items' => [$minPriceError]],
             ], 422);
         }
@@ -404,7 +408,7 @@ class SaleController extends Controller
             $stockError = $this->getStockError($request->items, (int) $request->location_id);
             if ($stockError) {
                 return response()->json([
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => ['items' => [$stockError]],
                 ], 422);
             }
@@ -417,11 +421,11 @@ class SaleController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $itemData) {
-                $qty = (int)$itemData['quantity'];
-                $price = (float)$itemData['price'];
+                $qty = (int) $itemData['quantity'];
+                $price = (float) $itemData['price'];
                 $subtotal = $qty * $price;
 
-                $discVal = (float)($itemData['discount_value'] ?? 0);
+                $discVal = (float) ($itemData['discount_value'] ?? 0);
                 $discType = $itemData['discount_type'] ?? 'flat';
 
                 $discAmount = 0.0;
@@ -439,20 +443,20 @@ class SaleController extends Controller
                 $totalAmount += $itemTotal;
 
                 $itemsData[] = [
-                    'product_id'         => $itemData['product_id'],
+                    'product_id' => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
-                    'pair_type'          => $itemData['pair_type'] ?? 'single',
-                    'custom_size_value'  => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
-                    'quantity'           => $qty,
-                    'price'              => $price,
-                    'discount_type'      => $discType,
-                    'discount_value'     => $discVal,
-                    'discount_amount'    => $discAmount,
-                    'total'              => $itemTotal,
+                    'pair_type' => $itemData['pair_type'] ?? 'single',
+                    'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'discount_type' => $discType,
+                    'discount_value' => $discVal,
+                    'discount_amount' => $discAmount,
+                    'total' => $itemTotal,
                 ];
             }
 
-            $discVal = (float)($request->order_discount_value ?? 0);
+            $discVal = (float) ($request->order_discount_value ?? 0);
             $discType = $discVal > 0 ? ($request->order_discount_type ?? 'flat') : null;
 
             $orderDiscountAmount = 0.0;
@@ -489,43 +493,56 @@ class SaleController extends Controller
             [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
                 $request->payment_status ?? Order::PAYMENT_STATUS_PAID,
                 $grandTotal,
+                (float) ($request->paid_cash_amount ?? 0),
                 (float) ($request->paid_online_amount ?? 0)
             );
 
             $order = Order::create([
-                'customer_id'          => $request->customer_id,
-                'location_id'          => $request->location_id,
-                'user_id'              => auth()->id(),
-                'order_no'             => generate_invoice_no($orderPrefix, Order::class, 'order_no'),
-                'order_type'           => 'sale',
-                'status'               => $request->status ?? 2,
-                'payment_status'       => $request->payment_status ?? 2,
-                'payment_method'       => $paymentMethod,
-                'paid_cash_amount'     => $paidCash,
-                'paid_online_amount'   => $paidOnline,
-                'is_gst'               => $isGst,
-                'tax_amount'           => $taxAmount,
-                'final_amount'         => $grandTotal,
-                'source'               => $source,
-                'order_discount_type'  => $discType,
+                'customer_id' => $request->customer_id,
+                'location_id' => $request->location_id,
+                'user_id' => auth()->id(),
+                'order_no' => generate_invoice_no($orderPrefix, Order::class, 'order_no'),
+                'order_type' => 'sale',
+                'status' => $request->status ?? 2,
+                'payment_status' => $request->payment_status ?? 2,
+                'payment_method' => $paymentMethod,
+                'paid_cash_amount' => $paidCash,
+                'paid_online_amount' => $paidOnline,
+                'is_gst' => $isGst,
+                'tax_amount' => $taxAmount,
+                'final_amount' => $grandTotal,
+                'source' => $source,
+                'order_discount_type' => $discType,
                 'order_discount_value' => $discVal,
-                'discount_type'        => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
-                'coupon_id'            => $request->input('coupon_id', null),
+                'discount_type' => in_array($request->discount_type, ['MANUAL', 'COUPON']) ? $request->discount_type : 'MANUAL',
+                'coupon_id' => $request->input('coupon_id', null),
             ]);
+
+            $storePaidTotal = $paidCash + $paidOnline;
+            if ($storePaidTotal > 0 && (int)($request->payment_status ?? 2) !== Order::PAYMENT_STATUS_PENDING) {
+                \App\Models\SalePayment::create([
+                    'order_id'       => $order->id,
+                    'amount'         => $storePaidTotal,
+                    'cash_amount'    => $paidCash,
+                    'online_amount'  => $paidOnline,
+                    'payment_method' => $paymentMethod,
+                    'created_by'     => auth()->id(),
+                ]);
+            }
 
             foreach ($itemsData as $item) {
                 OrderItem::create([
-                    'order_id'           => $order->id,
-                    'product_id'         => $item['product_id'],
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
-                    'pair_type'          => $item['pair_type'],
-                    'custom_size_value'  => $item['custom_size_value'],
-                    'quantity'           => $item['quantity'],
-                    'price'              => $item['price'],
-                    'discount_type'      => $item['discount_type'],
-                    'discount_value'     => $item['discount_value'],
-                    'discount_amount'    => $item['discount_amount'],
-                    'total'              => $item['total'],
+                    'pair_type' => $item['pair_type'],
+                    'custom_size_value' => $item['custom_size_value'],
+                    'quantity' => $item['quantity'],
+                    'price' => $item['price'],
+                    'discount_type' => $item['discount_type'],
+                    'discount_value' => $item['discount_value'],
+                    'discount_amount' => $item['discount_amount'],
+                    'total' => $item['total'],
                 ]);
 
                 if ($isApprove) {
@@ -561,7 +578,7 @@ class SaleController extends Controller
 
         if (request()->boolean('auto_print') && !request()->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
-                'title'  => 'Sale Invoice ' . $sale->order_no,
+                'title' => 'Sale Invoice ' . $sale->order_no,
                 'pdfUrl' => route('admin.sales.pdf', [$sale, 'auto_print' => 1, 'stream' => 1]),
             ]);
         }
@@ -590,7 +607,7 @@ class SaleController extends Controller
 
         if (request()->boolean('auto_print') && !request()->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
-                'title'  => 'Thermal Receipt ' . $sale->order_no,
+                'title' => 'Thermal Receipt ' . $sale->order_no,
                 'pdfUrl' => route('admin.sales.thermal', [$sale, 'stream' => 1]),
             ]);
         }
@@ -615,13 +632,13 @@ class SaleController extends Controller
             abort(403);
         }
 
-        if (($sale->source ?? 'POS') !== 'POS' || ! $sale->is_gst) {
+        if (($sale->source ?? 'POS') !== 'POS' || !$sale->is_gst) {
             abort(404);
         }
 
         if (request()->boolean('auto_print') && !request()->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
-                'title'  => 'Tax Invoice ' . $sale->order_no,
+                'title' => 'Tax Invoice ' . $sale->order_no,
                 'pdfUrl' => route('admin.sales.tax-invoice', [$sale, 'stream' => 1]),
             ]);
         }
@@ -638,28 +655,24 @@ class SaleController extends Controller
 
     private function measureThermalHeight(Order $sale): int
     {
-        $cacheKey = 'thermal-height:' . $sale->id . ':' . $sale->items->count() . ':' . $sale->final_amount . ':' . $sale->is_gst;
+        $itemCount = $sale->items->count();
+        $low = 150;
+        $high = 400 + ($itemCount * 40);
 
-        return Cache::remember($cacheKey, now()->addDays(7), function () use ($sale) {
-            $itemCount = $sale->items->count();
-            $low = 150;
-            $high = 400 + ($itemCount * 40);
+        while ($this->thermalPageCount($sale, $high) > 1) {
+            $high += 200;
+        }
 
-            while ($this->thermalPageCount($sale, $high) > 1) {
-                $high += 200;
+        while ($high - $low > 1) {
+            $mid = intdiv($low + $high, 2);
+            if ($this->thermalPageCount($sale, $mid) > 1) {
+                $low = $mid;
+            } else {
+                $high = $mid;
             }
+        }
 
-            while ($high - $low > 1) {
-                $mid = intdiv($low + $high, 2);
-                if ($this->thermalPageCount($sale, $mid) > 1) {
-                    $low = $mid;
-                } else {
-                    $high = $mid;
-                }
-            }
-
-            return $high + 4;
-        });
+        return $high + 4;
     }
 
     private function thermalPageCount(Order $sale, int $height): int
@@ -714,7 +727,7 @@ class SaleController extends Controller
 
         if (request()->boolean('auto_print') && !request()->boolean('stream')) {
             return view('sales.pdf-print-wrapper', [
-                'title'  => 'Shipping Label ' . $sale->order_no,
+                'title' => 'Shipping Label ' . $sale->order_no,
                 'pdfUrl' => route('admin.sales.label', [$sale, 'auto_print' => 1, 'stream' => 1]),
             ]);
         }
@@ -741,7 +754,7 @@ class SaleController extends Controller
         }
 
         return response($dompdf->output(), 200, [
-            'Content-Type'        => 'application/pdf',
+            'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
@@ -758,50 +771,53 @@ class SaleController extends Controller
         }
 
         if (($sale->source ?? 'POS') === 'ONLINE') {
-            return redirect()->route('admin.sales.show', $sale)
+            return redirect()
+                ->route('admin.sales.show', $sale)
                 ->with('error', 'Online orders cannot be edited from sales.');
         }
 
         if (!in_array((int) $sale->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true)) {
-            return redirect()->route('admin.sales.show', $sale)
+            return redirect()
+                ->route('admin.sales.show', $sale)
                 ->with('error', 'Only pending or approved sales can be edited.');
         }
 
         if ($sale->cancellationRequest && $sale->cancellationRequest->status === 'pending') {
-            return redirect()->route('admin.sales.show', $sale)
+            return redirect()
+                ->route('admin.sales.show', $sale)
                 ->with('error', 'This sale has a pending cancellation request and cannot be edited.');
         }
 
-        $customers   = Customer::where('status', 1)->orderBy('name')->get();
+        $customers = Customer::where('status', 1)->orderBy('name')->get();
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products    = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $sale->load(['items.product.variants.attributeValue.attribute']);
         $defaultLocationId = $isRestricted ? $user->location_id : null;
 
         $allProducts = $products->map(function ($p) {
             $data = [
-                'id'              => $p->id,
-                'name'            => $p->name,
-                'price'           => $p->sale_price,
-                'barcode'         => $p->barcode,
-                'label'           => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
-                'type'            => $p->type,
-                'image'           => $p->primaryImage ? $p->primaryImage->image_url : null,
-                'pair_product'    => (bool) $p->pair_product,
-                'pair_mode'       => $p->pair_mode,
-                'custom_sizes'    => $p->custom_sizes ?? [],
-                'single_price'    => $p->sale_price,
-                'purchase_price'  => $p->purchase_price,
+                'id' => $p->id,
+                'name' => $p->name,
+                'price' => $p->sale_price,
+                'barcode' => $p->barcode,
+                'label' => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
+                'type' => $p->type,
+                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
+                'pair_product' => (bool) $p->pair_product,
+                'pair_mode' => $p->pair_mode,
+                'custom_sizes' => $p->custom_sizes ?? [],
+                'single_price' => $p->sale_price,
+                'purchase_price' => $p->purchase_price,
                 'bypass_min_price' => (bool) $p->bypass_min_price,
             ];
             if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function($v) {
+                $data['variants'] = $p->variants->filter(function ($v) {
                     return $v->status == 1;
-                })->values()->map(function($v) {
+                })->values()->map(function ($v) {
                     return [
                         'id' => $v->id,
                         'attribute_value_id' => $v->attribute_value_id,
@@ -836,14 +852,14 @@ class SaleController extends Controller
 
         $existingItems = $sale->items->map(function ($item) {
             return [
-                'product_id'         => $item->product_id,
+                'product_id' => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
-                'pair_type'          => $item->pair_type ?? 'single',
-                'custom_size_value'  => $item->custom_size_value,
-                'price'              => $item->price,
-                'quantity'           => $item->quantity,
-                'discount_type'      => $item->discount_type ?? 'flat',
-                'discount_value'     => $item->discount_value ?? 0,
+                'pair_type' => $item->pair_type ?? 'single',
+                'custom_size_value' => $item->custom_size_value,
+                'price' => $item->price,
+                'quantity' => $item->quantity,
+                'discount_type' => $item->discount_type ?? 'flat',
+                'discount_value' => $item->discount_value ?? 0,
             ];
         })->values();
 
@@ -856,9 +872,9 @@ class SaleController extends Controller
 
         $authUser = auth()->user();
         $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
-        if ($isRestricted && (int)$request->location_id !== (int)$authUser->location_id) {
+        if ($isRestricted && (int) $request->location_id !== (int) $authUser->location_id) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'You can only update sales for your assigned location.',
             ], 403);
         }
@@ -876,8 +892,8 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'location_id'                => ['required', 'exists:locations,id'],
-            'customer_id'                => [
+            'location_id' => ['required', 'exists:locations,id'],
+            'customer_id' => [
                 'required',
                 function ($attribute, $value, $fail) {
                     if ($value !== '0' && !\DB::table('customers')->where('id', $value)->exists()) {
@@ -885,25 +901,25 @@ class SaleController extends Controller
                     }
                 }
             ],
-            'paid_cash_amount'           => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'paid_online_amount'         => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'items'                      => ['required', 'array', 'min:1'],
-            'items.*.product_id'         => ['required', 'exists:products,id'],
+            'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
-            'items.*.pair_type'          => ['nullable', 'string', 'in:single,pair'],
-            'items.*.custom_size_value'  => ['nullable', 'numeric', 'min:0.01'],
-            'items.*.quantity'           => ['required', 'integer', 'min:1'],
-            'items.*.price'              => ['required', 'numeric', 'min:0.01'],
-            'items.*.discount_type'      => ['nullable', 'string', 'in:flat,percentage'],
-            'items.*.discount_value'     => ['nullable', 'numeric', 'min:0'],
-            'discount_type'              => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
-            'discount_value'             => ['nullable', 'numeric', 'min:0'],
-            'order_discount_type'        => ['nullable', 'string', 'in:flat,percentage'],
-            'order_discount_value'       => ['nullable', 'numeric', 'min:0'],
-            'status'                     => ['nullable', 'integer', 'in:1,2,6'],
-            'payment_status'             => ['nullable', 'integer', 'in:1,2'],
-            'source'                     => ['nullable', 'string', 'in:POS,ONLINE'],
-            'coupon_id'                  => ['nullable', 'exists:coupons,id'],
+            'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
+            'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.price' => ['required', 'numeric', 'min:0.01'],
+            'items.*.discount_type' => ['nullable', 'string', 'in:flat,percentage'],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'discount_type' => ['nullable', 'string', 'in:flat,percentage,MANUAL,COUPON'],
+            'discount_value' => ['nullable', 'numeric', 'min:0'],
+            'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
+            'order_discount_value' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['nullable', 'integer', 'in:1,2,6'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
+            'source' => ['nullable', 'string', 'in:POS,ONLINE'],
+            'coupon_id' => ['nullable', 'exists:coupons,id'],
         ]);
 
         if ($validator->fails()) {
@@ -920,7 +936,7 @@ class SaleController extends Controller
         $customSizeError = $this->getCustomSizeError($request->items);
         if ($customSizeError) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => ['items' => [$customSizeError]],
             ], 422);
         }
@@ -932,195 +948,215 @@ class SaleController extends Controller
         );
         if ($minPriceError) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => ['items' => [$minPriceError]],
             ], 422);
         }
 
         try {
             DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale) {
-            $wasApproved = ((int) $sale->status === Order::STATUS_APPROVE);
-            $oldLocationId = (int) $sale->location_id;
+                $wasApproved = ((int) $sale->status === Order::STATUS_APPROVE);
+                $oldLocationId = (int) $sale->location_id;
 
-            $oldItemsSnapshot = $sale->items->map(function ($item) {
-                return [
-                    'product_id'         => $item->product_id,
-                    'product_variant_id' => $item->product_variant_id,
-                    'pair_type'          => $item->pair_type ?? 'single',
-                    'quantity'           => $item->quantity,
-                    'price'              => (float) $item->price,
-                ];
-            })->values()->all();
+                $oldItemsSnapshot = $sale->items->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product_variant_id' => $item->product_variant_id,
+                        'pair_type' => $item->pair_type ?? 'single',
+                        'quantity' => $item->quantity,
+                        'price' => (float) $item->price,
+                    ];
+                })->values()->all();
 
-            // Sale was already approved (stock deducted) — restore it before applying the edited items.
-            if ($wasApproved) {
-                foreach ($oldItemsSnapshot as $old) {
-                    $stockRestore = ($old['pair_type'] === 'pair') ? $old['quantity'] * 2 : $old['quantity'];
-                    $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                // Sale was already approved (stock deducted) — restore it before applying the edited items.
+                if ($wasApproved) {
+                    foreach ($oldItemsSnapshot as $old) {
+                        $stockRestore = ($old['pair_type'] === 'pair') ? $old['quantity'] * 2 : $old['quantity'];
+                        $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                    }
                 }
-            }
-
-            if ($isApprove) {
-                $stockError = $this->getStockError($request->items, (int) $request->location_id);
-                if ($stockError) {
-                    throw new \RuntimeException($stockError);
-                }
-            }
-
-            $sale->items()->delete();
-
-            $totalAmount = 0.0;
-            $itemsData = [];
-
-            foreach ($request->items as $itemData) {
-                $qty = (int)$itemData['quantity'];
-                $price = (float)$itemData['price'];
-                $subtotal = $qty * $price;
-
-                $discVal = (float)($itemData['discount_value'] ?? 0);
-                $discType = $itemData['discount_type'] ?? 'flat';
-
-                $discAmount = 0.0;
-                if ($discType === 'flat') {
-                    $discAmount = $discVal;
-                } else if ($discType === 'percentage') {
-                    $discAmount = $subtotal * ($discVal / 100);
-                }
-
-                if ($discAmount > $subtotal) {
-                    $discAmount = $subtotal;
-                }
-
-                $itemTotal = $subtotal - $discAmount;
-                $totalAmount += $itemTotal;
-
-                $itemsData[] = [
-                    'product_id'         => $itemData['product_id'],
-                    'product_variant_id' => $itemData['product_variant_id'] ?? null,
-                    'pair_type'          => $itemData['pair_type'] ?? 'single',
-                    'custom_size_value'  => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
-                    'quantity'           => $qty,
-                    'price'              => $price,
-                    'discount_type'      => $discType,
-                    'discount_value'     => $discVal,
-                    'discount_amount'    => $discAmount,
-                    'total'              => $itemTotal,
-                ];
-            }
-
-            $discVal = (float)($request->order_discount_value ?? 0);
-            $discType = $discVal > 0 ? ($request->order_discount_type ?? 'flat') : null;
-
-            $orderDiscountAmount = 0.0;
-            if ($discVal > 0) {
-                if ($discType === 'flat') {
-                    $orderDiscountAmount = $discVal;
-                } else if ($discType === 'percentage') {
-                    $orderDiscountAmount = $totalAmount * ($discVal / 100);
-                }
-            }
-
-            if ($orderDiscountAmount > $totalAmount) {
-                $orderDiscountAmount = $totalAmount;
-            }
-
-            $finalAmount = $totalAmount - $orderDiscountAmount;
-
-            $source = $request->input('source', $sale->source ?? 'POS');
-            $isGst = $request->boolean('is_gst');
-            if ($source === 'ONLINE') {
-                $isGst = false;
-            }
-            $taxAmount = 0.0;
-            $orderPrefix = 'SA';
-
-            if ($isGst) {
-                $orderPrefix = 'GS';
-                $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
-                $taxAmount = $finalAmount * ($gstRate / 100);
-            }
-
-            $grandTotal = round($finalAmount + $taxAmount);
-
-            $resolvedPaymentStatus = $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1);
-
-            [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
-                $resolvedPaymentStatus,
-                $grandTotal,
-                (float) ($request->paid_online_amount ?? 0)
-            );
-
-            $updateData = [
-                'customer_id'          => $request->customer_id,
-                'location_id'          => $request->location_id,
-                'payment_method'       => $paymentMethod,
-                'paid_cash_amount'     => $paidCash,
-                'paid_online_amount'   => $paidOnline,
-                'status'               => $request->status ?? 2,
-                'payment_status'       => $resolvedPaymentStatus,
-                'is_gst'               => $isGst,
-                'tax_amount'           => $taxAmount,
-                'final_amount'         => $grandTotal,
-                'source'               => $source,
-                'order_discount_type'  => $discType,
-                'order_discount_value' => $discVal,
-                'coupon_id'            => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
-            ];
-
-            if ($isCancelled && $request->filled('cancellation_reason')) {
-                $updateData['cancellation_reason'] = $request->cancellation_reason;
-            }
-
-            if ($sale->is_gst !== $isGst) {
-                $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
-            }
-
-            $oldFieldsSnapshot = $sale->only(array_keys($updateData));
-
-            Order::withoutActivityLogging(fn () => $sale->update($updateData));
-
-            foreach ($itemsData as $item) {
-                OrderItem::create([
-                    'order_id'           => $sale->id,
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'pair_type'          => $item['pair_type'],
-                    'custom_size_value'  => $item['custom_size_value'],
-                    'quantity'           => $item['quantity'],
-                    'price'              => $item['price'],
-                    'discount_type'      => $item['discount_type'],
-                    'discount_value'     => $item['discount_value'],
-                    'discount_amount'    => $item['discount_amount'],
-                    'total'              => $item['total'],
-                ]);
 
                 if ($isApprove) {
-                    $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
-                    $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                    $stockError = $this->getStockError($request->items, (int) $request->location_id);
+                    if ($stockError) {
+                        throw new \RuntimeException($stockError);
+                    }
                 }
-            }
 
-            $newItemsSnapshot = collect($itemsData)->map(function ($item) {
-                return [
-                    'product_id'         => $item['product_id'],
-                    'product_variant_id' => $item['product_variant_id'],
-                    'quantity'           => $item['quantity'],
-                    'price'              => (float) $item['price'],
+                $sale->items()->delete();
+
+                $totalAmount = 0.0;
+                $itemsData = [];
+
+                foreach ($request->items as $itemData) {
+                    $qty = (int) $itemData['quantity'];
+                    $price = (float) $itemData['price'];
+                    $subtotal = $qty * $price;
+
+                    $discVal = (float) ($itemData['discount_value'] ?? 0);
+                    $discType = $itemData['discount_type'] ?? 'flat';
+
+                    $discAmount = 0.0;
+                    if ($discType === 'flat') {
+                        $discAmount = $discVal;
+                    } else if ($discType === 'percentage') {
+                        $discAmount = $subtotal * ($discVal / 100);
+                    }
+
+                    if ($discAmount > $subtotal) {
+                        $discAmount = $subtotal;
+                    }
+
+                    $itemTotal = $subtotal - $discAmount;
+                    $totalAmount += $itemTotal;
+
+                    $itemsData[] = [
+                        'product_id' => $itemData['product_id'],
+                        'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                        'pair_type' => $itemData['pair_type'] ?? 'single',
+                        'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
+                        'quantity' => $qty,
+                        'price' => $price,
+                        'discount_type' => $discType,
+                        'discount_value' => $discVal,
+                        'discount_amount' => $discAmount,
+                        'total' => $itemTotal,
+                    ];
+                }
+
+                $discVal = (float) ($request->order_discount_value ?? 0);
+                $discType = $discVal > 0 ? ($request->order_discount_type ?? 'flat') : null;
+
+                $orderDiscountAmount = 0.0;
+                if ($discVal > 0) {
+                    if ($discType === 'flat') {
+                        $orderDiscountAmount = $discVal;
+                    } else if ($discType === 'percentage') {
+                        $orderDiscountAmount = $totalAmount * ($discVal / 100);
+                    }
+                }
+
+                if ($orderDiscountAmount > $totalAmount) {
+                    $orderDiscountAmount = $totalAmount;
+                }
+
+                $finalAmount = $totalAmount - $orderDiscountAmount;
+
+                $source = $request->input('source', $sale->source ?? 'POS');
+                $isGst = $request->boolean('is_gst');
+                if ($source === 'ONLINE') {
+                    $isGst = false;
+                }
+                $taxAmount = 0.0;
+                $orderPrefix = 'SA';
+
+                if ($isGst) {
+                    $orderPrefix = 'GS';
+                    $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+                    $taxAmount = $finalAmount * ($gstRate / 100);
+                }
+
+                $grandTotal = round($finalAmount + $taxAmount);
+
+                $resolvedPaymentStatus = $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1);
+
+                [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                    $resolvedPaymentStatus,
+                    $grandTotal,
+                    (float) ($request->paid_cash_amount ?? 0),
+                    (float) ($request->paid_online_amount ?? 0)
+                );
+
+                $updateData = [
+                    'customer_id' => $request->customer_id,
+                    'location_id' => $request->location_id,
+                    'payment_method' => $paymentMethod,
+                    'paid_cash_amount' => $paidCash,
+                    'paid_online_amount' => $paidOnline,
+                    'status' => $request->status ?? 2,
+                    'payment_status' => $resolvedPaymentStatus,
+                    'is_gst' => $isGst,
+                    'tax_amount' => $taxAmount,
+                    'final_amount' => $grandTotal,
+                    'source' => $source,
+                    'order_discount_type' => $discType,
+                    'order_discount_value' => $discVal,
+                    'coupon_id' => $request->has('coupon_id') ? $request->coupon_id : $sale->coupon_id,
                 ];
-            })->values()->all();
 
-            ActivityLogger::log(
-                'Sales',
-                'update',
-                $sale,
-                ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
-                ['fields' => $updateData, 'items' => $newItemsSnapshot],
-                'Order #' . $sale->order_no . ' updated'
-            );
+                if ($isCancelled && $request->filled('cancellation_reason')) {
+                    $updateData['cancellation_reason'] = $request->cancellation_reason;
+                }
+
+                if ($sale->is_gst !== $isGst) {
+                    $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
+                }
+
+                $oldFieldsSnapshot = $sale->only(array_keys($updateData));
+
+                Order::withoutActivityLogging(fn() => $sale->update($updateData));
+
+                if ($resolvedPaymentStatus === Order::PAYMENT_STATUS_PENDING) {
+                    \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                    $sale->payments()->delete();
+                } else {
+                    $editPaidTotal = $paidCash + $paidOnline;
+                    if ($editPaidTotal > 0) {
+                        \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                        $sale->payments()->delete();
+                        \App\Models\SalePayment::create([
+                            'order_id'       => $sale->id,
+                            'amount'         => $editPaidTotal,
+                            'cash_amount'    => $paidCash,
+                            'online_amount'  => $paidOnline,
+                            'payment_method' => $paymentMethod,
+                            'created_by'     => auth()->id(),
+                        ]);
+                    }
+                }
+
+                foreach ($itemsData as $item) {
+                    OrderItem::create([
+                        'order_id' => $sale->id,
+                        'product_id' => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'pair_type' => $item['pair_type'],
+                        'custom_size_value' => $item['custom_size_value'],
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'discount_type' => $item['discount_type'],
+                        'discount_value' => $item['discount_value'],
+                        'discount_amount' => $item['discount_amount'],
+                        'total' => $item['total'],
+                    ]);
+
+                    if ($isApprove) {
+                        $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
+                        $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                    }
+                }
+
+                $newItemsSnapshot = collect($itemsData)->map(function ($item) {
+                    return [
+                        'product_id' => $item['product_id'],
+                        'product_variant_id' => $item['product_variant_id'],
+                        'quantity' => $item['quantity'],
+                        'price' => (float) $item['price'],
+                    ];
+                })->values()->all();
+
+                ActivityLogger::log(
+                    'Sales',
+                    'update',
+                    $sale,
+                    ['fields' => $oldFieldsSnapshot, 'items' => $oldItemsSnapshot],
+                    ['fields' => $updateData, 'items' => $newItemsSnapshot],
+                    'Order #' . $sale->order_no . ' updated'
+                );
             });
         } catch (\RuntimeException $e) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => ['items' => [$e->getMessage()]],
             ], 422);
         }
@@ -1141,13 +1177,13 @@ class SaleController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status'               => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
-            'payment_status'       => ['nullable', 'integer', 'in:1,2'],
-            'paid_cash_amount'     => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'paid_online_amount'   => ['required_if:payment_status,2', 'nullable', 'numeric', 'min:0'],
-            'cancellation_reason'  => ['nullable', 'string', 'max:500'],
-            'shipped_client_url'   => ['required_if:status,3', 'nullable', 'string', 'max:255'],
-            'tracking_id'          => ['required_if:status,3', 'nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'integer', 'in:1,2,3,4,5,6'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
+            'paid_cash_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'paid_online_amount' => ['required_if:payment_status,2,3', 'nullable', 'numeric', 'min:0'],
+            'cancellation_reason' => ['nullable', 'string', 'max:500'],
+            'shipped_client_url' => ['required_if:status,3', 'nullable', 'string', 'max:255'],
+            'tracking_id' => ['required_if:status,3', 'nullable', 'string', 'max:100'],
         ]);
 
         if ($validator->fails()) {
@@ -1160,8 +1196,8 @@ class SaleController extends Controller
         try {
             DB::transaction(function () use ($request, $sale) {
                 if ($request->filled('status')) {
-                    $newStatus = (int)$request->status;
-                    $oldStatus = (int)$sale->status;
+                    $newStatus = (int) $request->status;
+                    $oldStatus = (int) $sale->status;
 
                     if ($newStatus != $oldStatus) {
                         // 1. Terminal status validation
@@ -1250,16 +1286,16 @@ class SaleController extends Controller
                             $updateData['cancellation_reason'] = $request->cancellation_reason;
 
                             // Process Refund for Direct Admin Cancellation
-                            $refundAmount = (float)$sale->final_amount;
+                            $refundAmount = (float) $sale->final_amount;
                             $shippingDeducted = 0.0;
-                            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+                            $shippedOrLater = in_array((int) $sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
 
                             if ($shippedOrLater) {
                                 $address = CustomerAddress::find($sale->customer_address_id);
                                 if ($address && $address->state) {
                                     $state = State::where('name', $address->state)->first();
                                     if ($state) {
-                                        $shippingDeducted = (float)$state->shipping_charge;
+                                        $shippingDeducted = (float) $state->shipping_charge;
                                     }
                                 }
                                 $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
@@ -1284,7 +1320,7 @@ class SaleController extends Controller
                                     $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
                                         ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
                                             'amount' => $refundAmountInPaise,
-                                            'speed'  => 'normal',
+                                            'speed' => 'normal',
                                         ]);
 
                                     if ($response->failed()) {
@@ -1303,13 +1339,13 @@ class SaleController extends Controller
 
                                 // Create a new refunded transaction entry
                                 OrderPayment::create([
-                                    'order_id'           => $sale->id,
-                                    'gateway'            => 'razorpay',
-                                    'gateway_order_id'   => $payment->gateway_order_id,
+                                    'order_id' => $sale->id,
+                                    'gateway' => 'razorpay',
+                                    'gateway_order_id' => $payment->gateway_order_id,
                                     'gateway_payment_id' => $payment->gateway_payment_id,
-                                    'status'             => OrderPayment::STATUS_REFUNDED,
-                                    'amount'             => -$refundAmount,
-                                    'currency'           => $payment->currency ?? 'INR',
+                                    'status' => OrderPayment::STATUS_REFUNDED,
+                                    'amount' => -$refundAmount,
+                                    'currency' => $payment->currency ?? 'INR',
                                 ]);
                             }
 
@@ -1317,19 +1353,19 @@ class SaleController extends Controller
                             $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)->first();
                             if ($cancellationRequest) {
                                 $cancellationRequest->update([
-                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
+                                    'status' => OrderCancellationRequest::STATUS_APPROVED,
                                     'cancellation_reason' => $request->cancellation_reason ?? $cancellationRequest->cancellation_reason,
-                                    'refund_amount'       => $refundAmount,
-                                    'refund_gateway_id'   => $refundGatewayId,
+                                    'refund_amount' => $refundAmount,
+                                    'refund_gateway_id' => $refundGatewayId,
                                 ]);
                             } else {
                                 OrderCancellationRequest::create([
-                                    'order_id'            => $sale->id,
-                                    'customer_id'         => $sale->customer_id,
+                                    'order_id' => $sale->id,
+                                    'customer_id' => $sale->customer_id,
                                     'cancellation_reason' => $request->cancellation_reason ?? 'Cancelled by Admin',
-                                    'status'              => OrderCancellationRequest::STATUS_APPROVED,
-                                    'refund_amount'       => $refundAmount,
-                                    'refund_gateway_id'   => $refundGatewayId,
+                                    'status' => OrderCancellationRequest::STATUS_APPROVED,
+                                    'refund_amount' => $refundAmount,
+                                    'refund_gateway_id' => $refundGatewayId,
                                 ]);
                             }
                         }
@@ -1347,7 +1383,7 @@ class SaleController extends Controller
                             $updateData['delivered_at'] = now();
                         }
 
-                        Order::withoutActivityLogging(fn () => $sale->update($updateData));
+                        Order::withoutActivityLogging(fn() => $sale->update($updateData));
 
                         if ($sale->customer && $sale->customer->email) {
                             try {
@@ -1360,18 +1396,84 @@ class SaleController extends Controller
                 }
 
                 if ($request->filled('payment_status')) {
-                    [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
-                        $request->payment_status,
-                        (float) $sale->final_amount,
-                        (float) ($request->paid_online_amount ?? 0)
-                    );
+                    $newStatus = (int) $request->payment_status;
+                    $prevPaid = (float) ($sale->paid_cash_amount + $sale->paid_online_amount);
+                    $grandTotal = (float) $sale->final_amount;
+                    $balanceDue = round(max(0, $grandTotal - $prevPaid), 2);
 
-                    Order::withoutActivityLogging(fn () => $sale->update([
-                        'payment_status'     => $request->payment_status,
-                        'payment_method'     => $paymentMethod,
-                        'paid_cash_amount'   => $paidCash,
-                        'paid_online_amount' => $paidOnline,
-                    ]));
+                    if ($newStatus === Order::PAYMENT_STATUS_PAID) {
+                        if ($balanceDue > 0) {
+                            $cashThis = max(0, $balanceDue - (float)$sale->paid_online_amount);
+                            $onlineThis = max(0, $balanceDue - $cashThis);
+                            $pmThis = ($cashThis > 0 && $onlineThis > 0) ? 'online_cash' : ($onlineThis > 0 ? 'online' : 'cash');
+                            \App\Models\SalePayment::create([
+                                'order_id'       => $sale->id,
+                                'amount'         => $balanceDue,
+                                'cash_amount'    => $cashThis,
+                                'online_amount'  => $onlineThis,
+                                'payment_method' => $pmThis,
+                                'created_by'     => auth()->id(),
+                            ]);
+                        }
+                        [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                            Order::PAYMENT_STATUS_PAID,
+                            $grandTotal,
+                            $grandTotal,
+                            0
+                        );
+                        Order::withoutActivityLogging(fn() => $sale->update([
+                            'payment_status'   => Order::PAYMENT_STATUS_PAID,
+                            'payment_method'   => $paymentMethod,
+                            'paid_cash_amount' => $paidCash,
+                            'paid_online_amount' => $paidOnline,
+                        ]));
+                    } elseif ($newStatus === Order::PAYMENT_STATUS_PARTIAL) {
+                        $newCash = (float) ($request->paid_cash_amount ?? 0);
+                        $newOnline = (float) ($request->paid_online_amount ?? 0);
+                        $amountThisTime = $newCash + $newOnline;
+
+                        if (round($amountThisTime, 2) > $balanceDue + 0.01) {
+                            throw new \Exception('Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').');
+                        }
+
+                        if ($amountThisTime > 0) {
+                            $pmThis = ($newCash > 0 && $newOnline > 0) ? 'online_cash' : ($newOnline > 0 ? 'online' : 'cash');
+                            \App\Models\SalePayment::create([
+                                'order_id'       => $sale->id,
+                                'amount'         => $amountThisTime,
+                                'cash_amount'    => $newCash,
+                                'online_amount'  => $newOnline,
+                                'payment_method' => $pmThis,
+                                'created_by'     => auth()->id(),
+                            ]);
+                        }
+
+                        $newPaidTotal = round($prevPaid + $amountThisTime, 2);
+                        $finalStatus = $newPaidTotal >= $grandTotal ? Order::PAYMENT_STATUS_PAID : Order::PAYMENT_STATUS_PARTIAL;
+
+                        [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                            $finalStatus,
+                            $grandTotal,
+                            (float)($sale->paid_cash_amount + $newCash),
+                            (float)($sale->paid_online_amount + $newOnline)
+                        );
+
+                        Order::withoutActivityLogging(fn() => $sale->update([
+                            'payment_status'   => $finalStatus,
+                            'payment_method'   => $paymentMethod,
+                            'paid_cash_amount' => $paidCash,
+                            'paid_online_amount' => $paidOnline,
+                        ]));
+                    } else {
+                        \App\Models\SalePayment::where('order_id', $sale->id)->delete();
+                        $sale->payments()->delete();
+                        Order::withoutActivityLogging(fn() => $sale->update([
+                            'payment_status'   => Order::PAYMENT_STATUS_PENDING,
+                            'paid_cash_amount' => 0,
+                            'paid_online_amount' => 0,
+                            'payment_method'   => null,
+                        ]));
+                    }
                 }
             });
         } catch (\Exception $e) {
@@ -1406,14 +1508,20 @@ class SaleController extends Controller
         ]);
     }
 
-    private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $onlineAmountInput): array
+    private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $cashAmountInput = 0.0, float $onlineAmountInput = 0.0): array
     {
-        if ((int) $paymentStatus !== Order::PAYMENT_STATUS_PAID || $grandTotal <= 0) {
+        $status = (int) $paymentStatus;
+        if (!in_array($status, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true) || $grandTotal <= 0) {
             return [null, 0.0, 0.0];
         }
 
-        $paidOnline = round(min(max($onlineAmountInput, 0), $grandTotal), 2);
-        $paidCash = round($grandTotal - $paidOnline, 2);
+        if ($status === Order::PAYMENT_STATUS_PAID) {
+            $paidOnline = round(min(max($onlineAmountInput, 0), $grandTotal), 2);
+            $paidCash = round($grandTotal - $paidOnline, 2);
+        } else {
+            $paidCash = round(min(max($cashAmountInput, 0), $grandTotal), 2);
+            $paidOnline = round(min(max($onlineAmountInput, 0), max(0, $grandTotal - $paidCash)), 2);
+        }
 
         $paymentMethod = 'cash';
         if ($paidOnline > 0 && $paidCash > 0) {
@@ -1449,7 +1557,7 @@ class SaleController extends Controller
      */
     private function stockMultiplierFor(int $productId, ?string $pairType, ?float $customSizeValue): float
     {
-        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {
             return (float) $customSizeValue;
         }
 
@@ -1478,9 +1586,9 @@ class SaleController extends Controller
             }
 
             $value = ($customSizeValue !== null && $customSizeValue !== '') ? (float) $customSizeValue : null;
-            $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn ($s) => (float) $s);
+            $validSizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s);
 
-            if (!$value || !$validSizes->contains(fn ($s) => abs($s - $value) < 0.001)) {
+            if (!$value || !$validSizes->contains(fn($s) => abs($s - $value) < 0.001)) {
                 return 'Please select a valid size for "' . $product->name . '".';
             }
         }
@@ -1498,8 +1606,8 @@ class SaleController extends Controller
                 ? ($item['product_variant_id'] ?? null)
                 : $item->product_variant_id;
             $variantId = $variantId ? (int) $variantId : null;
-            $quantity  = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
-            $pairType  = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
+            $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
+            $pairType = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
             $customSizeValue = is_array($item) ? ($item['custom_size_value'] ?? null) : ($item->custom_size_value ?? null);
 
             $stockQty = (int) round($quantity * $this->stockMultiplierFor($productId, $pairType, $customSizeValue ? (float) $customSizeValue : null));
@@ -1510,7 +1618,7 @@ class SaleController extends Controller
                 $requested[$key] = [
                     'product_id' => $productId,
                     'variant_id' => $variantId,
-                    'quantity'   => 0,
+                    'quantity' => 0,
                 ];
             }
 
@@ -1556,17 +1664,17 @@ class SaleController extends Controller
 
     private function getMinPriceError(iterable $items, string $orderDiscountType = 'flat', float $orderDiscountValue = 0): ?string
     {
-        $itemsTotal    = 0.0;
+        $itemsTotal = 0.0;
         $minFloorTotal = 0.0;
-        $hasItems      = false;
+        $hasItems = false;
 
         foreach ($items as $itemData) {
             $productId = is_array($itemData) ? $itemData['product_id'] : $itemData->product_id;
             $variantId = is_array($itemData) ? ($itemData['product_variant_id'] ?? null) : $itemData->product_variant_id;
-            $qty       = (int) (is_array($itemData) ? $itemData['quantity'] : $itemData->quantity);
-            $price     = (float) (is_array($itemData) ? $itemData['price'] : $itemData->price);
-            $discVal   = (float) (is_array($itemData) ? ($itemData['discount_value'] ?? 0) : ($itemData->discount_value ?? 0));
-            $discType  = is_array($itemData) ? ($itemData['discount_type'] ?? 'flat') : ($itemData->discount_type ?? 'flat');
+            $qty = (int) (is_array($itemData) ? $itemData['quantity'] : $itemData->quantity);
+            $price = (float) (is_array($itemData) ? $itemData['price'] : $itemData->price);
+            $discVal = (float) (is_array($itemData) ? ($itemData['discount_value'] ?? 0) : ($itemData->discount_value ?? 0));
+            $discType = is_array($itemData) ? ($itemData['discount_type'] ?? 'flat') : ($itemData->discount_type ?? 'flat');
 
             if ($qty <= 0) {
                 continue;
@@ -1616,7 +1724,7 @@ class SaleController extends Controller
                     })->filter(fn($s) => $s > 0);
                     $maxSize = $sizes->count() > 0 ? $sizes->max() : 2.0;
                     $customSizeValRaw = is_array($itemData) ? ($itemData['custom_size_value'] ?? null) : ($itemData->custom_size_value ?? null);
-                    $customSizeVal = !empty($customSizeValRaw) ? (float)$customSizeValRaw : $maxSize;
+                    $customSizeVal = !empty($customSizeValRaw) ? (float) $customSizeValRaw : $maxSize;
                     if ($maxSize > 0) {
                         $purchasePrice = $purchasePrice * ($customSizeVal / $maxSize);
                     }
@@ -1629,7 +1737,7 @@ class SaleController extends Controller
                 }
             }
 
-            $minTotal = $qty * $purchasePrice * 1.10;
+            $minTotal = $qty * $purchasePrice * 1.1;
             $minFloorTotal += $minTotal;
 
             if ($discVal > 0 && $itemTotal < $minTotal - 0.01) {
@@ -1655,7 +1763,7 @@ class SaleController extends Controller
 
         $hasAnyDiscount = ($orderDiscountValue > 0);
         foreach ($items as $item) {
-            if (!empty($item['discount_value']) && (float)$item['discount_value'] > 0) {
+            if (!empty($item['discount_value']) && (float) $item['discount_value'] > 0) {
                 $hasAnyDiscount = true;
                 break;
             }
@@ -1683,9 +1791,9 @@ class SaleController extends Controller
         try {
             DB::beginTransaction();
 
-            $refundAmount = (float)$sale->final_amount;
+            $refundAmount = (float) $sale->final_amount;
             $shippingDeducted = 0.0;
-            $shippedOrLater = in_array((int)$sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
+            $shippedOrLater = in_array((int) $sale->status, [Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED], true);
 
             if ($shippedOrLater) {
                 // Find state shipping charge
@@ -1693,7 +1801,7 @@ class SaleController extends Controller
                 if ($address && $address->state) {
                     $state = State::where('name', $address->state)->first();
                     if ($state) {
-                        $shippingDeducted = (float)$state->shipping_charge;
+                        $shippingDeducted = (float) $state->shipping_charge;
                     }
                 }
                 $refundAmount = max(0.0, $refundAmount - $shippingDeducted);
@@ -1719,7 +1827,7 @@ class SaleController extends Controller
                     $response = Http::withBasicAuth($razorpayKeyId, $razorpayKeySecret)
                         ->post("https://api.razorpay.com/v1/payments/{$payment->gateway_payment_id}/refund", [
                             'amount' => $refundAmountInPaise,
-                            'speed'  => 'normal',
+                            'speed' => 'normal',
                         ]);
 
                     if ($response->failed()) {
@@ -1738,13 +1846,13 @@ class SaleController extends Controller
 
                 // Create a new refunded transaction entry
                 OrderPayment::create([
-                    'order_id'           => $sale->id,
-                    'gateway'            => 'razorpay',
-                    'gateway_order_id'   => $payment->gateway_order_id,
+                    'order_id' => $sale->id,
+                    'gateway' => 'razorpay',
+                    'gateway_order_id' => $payment->gateway_order_id,
                     'gateway_payment_id' => $payment->gateway_payment_id,
-                    'status'             => OrderPayment::STATUS_REFUNDED,
-                    'amount'             => -$refundAmount,
-                    'currency'           => $payment->currency ?? 'INR',
+                    'status' => OrderPayment::STATUS_REFUNDED,
+                    'amount' => -$refundAmount,
+                    'currency' => $payment->currency ?? 'INR',
                 ]);
             }
 
@@ -1758,15 +1866,15 @@ class SaleController extends Controller
 
             // Update cancellation request status
             $cancellationRequest->update([
-                'status'            => OrderCancellationRequest::STATUS_APPROVED,
-                'refund_amount'     => $refundAmount,
+                'status' => OrderCancellationRequest::STATUS_APPROVED,
+                'refund_amount' => $refundAmount,
                 'refund_gateway_id' => $refundGatewayId,
             ]);
 
             // Update order status
-            Order::withoutActivityLogging(fn () => $sale->update([
-                'status'              => Order::STATUS_DECLINE,
-                'payment_status'      => Order::PAYMENT_STATUS_PENDING,
+            Order::withoutActivityLogging(fn() => $sale->update([
+                'status' => Order::STATUS_DECLINE,
+                'payment_status' => Order::PAYMENT_STATUS_PENDING,
                 'cancellation_reason' => $cancellationRequest->cancellation_reason,
             ]));
 
@@ -1785,15 +1893,14 @@ class SaleController extends Controller
             ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request approved & order cancelled. Refund processed: ₹' . $refundAmount);
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Cancellation request approved. Refund processed: ₹' . number_format($refundAmount, 2),
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Cancellation Approval Failed: ' . $e->getMessage());
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Failed to approve cancellation: ' . $e->getMessage()
             ], 500);
         }
@@ -1819,15 +1926,71 @@ class SaleController extends Controller
             ActivityLogger::log('Sales', 'update', $sale, null, null, 'Cancellation request rejected.');
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Cancellation request rejected successfully.',
             ]);
         } catch (\Exception $e) {
             Log::error('Cancellation Rejection Failed: ' . $e->getMessage());
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Failed to reject cancellation: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function paymentHistory(Order $sale)
+    {
+        $this->authorize('view sales');
+
+        $isPending = (int) ($sale->payment_status ?? 1) === Order::PAYMENT_STATUS_PENDING;
+
+        $paidCash = $isPending ? 0.0 : (float) ($sale->paid_cash_amount ?? 0);
+        $paidOnline = $isPending ? 0.0 : (float) ($sale->paid_online_amount ?? 0);
+        $totalPaid = $paidCash + $paidOnline;
+        $grandTotal = (float) ($sale->final_amount ?? 0);
+        $balanceDue = max(0, $grandTotal - $totalPaid);
+
+        $dbPayments = $isPending ? collect() : $sale->salePayments()->with('createdBy')->get();
+
+        if ($dbPayments->isNotEmpty()) {
+            $payments = $dbPayments->map(function ($payment) {
+                $methodParts = [];
+                $c = (float)($payment->cash_amount ?? 0);
+                $o = (float)($payment->online_amount ?? 0);
+                if ($c > 0) $methodParts[] = 'Cash: ' . format_price($c);
+                if ($o > 0) $methodParts[] = 'Online: ' . format_price($o);
+                $methodStr = count($methodParts) > 0 ? ' (' . implode(' + ', $methodParts) . ')' : '';
+
+                return [
+                    'amount' => format_price($payment->amount) . $methodStr,
+                    'date'   => $payment->created_at->format('d M Y, h:i A'),
+                ];
+            });
+        } else {
+            $payments = [];
+            if ($totalPaid > 0) {
+                $paymentDate = $sale->updated_at ? $sale->updated_at->format('d M Y, h:i A') : $sale->created_at->format('d M Y, h:i A');
+                $methodParts = [];
+                if ($paidCash > 0) $methodParts[] = 'Cash: ' . format_price($paidCash);
+                if ($paidOnline > 0) $methodParts[] = 'Online: ' . format_price($paidOnline);
+                $methodStr = count($methodParts) > 0 ? ' (' . implode(' + ', $methodParts) . ')' : '';
+
+                $payments[] = [
+                    'amount' => format_price($totalPaid) . $methodStr,
+                    'date'   => $paymentDate,
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'total_amount'    => format_price($grandTotal),
+                'paid_amount'     => format_price($totalPaid),
+                'balance_due'     => format_price($balanceDue),
+                'balance_due_raw' => $balanceDue,
+                'payments'        => $payments,
+            ],
+        ]);
     }
 }
