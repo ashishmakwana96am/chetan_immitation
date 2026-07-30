@@ -2112,9 +2112,6 @@ class ReportController extends Controller
                 $amount = 0.0;
                 $totalPcs = 0;
 
-                $totalPairs = 0;
-                $totalRemPcs = 0;
-
                 foreach ($transfer->items as $item) {
                     $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
                     $amount += $price * $item->quantity;
@@ -2136,36 +2133,16 @@ class ReportController extends Controller
                         }
                     }
 
-                    $itemPcs = (int) round($item->quantity * $multiplier);
-                    $totalPcs += $itemPcs;
-
-                    if ($item->product && $item->product->pair_product) {
-                        $pairSize = $multiplier > 0 ? $multiplier : 1.0;
-                        $pairs = (int) floor($itemPcs / $pairSize);
-                        $remPcs = (int) ($itemPcs % $pairSize);
-                        $totalPairs += $pairs;
-                        $totalRemPcs += $remPcs;
-                    } else {
-                        $totalRemPcs += $itemPcs;
-                    }
+                    $totalPcs += (int) round($item->quantity * $multiplier);
                 }
-
-                $itemsDisplayParts = [];
-                if ($totalPairs > 0) {
-                    $itemsDisplayParts[] = number_format($totalPairs) . ' Pair' . ($totalPairs > 1 ? 's' : '');
-                }
-                if ($totalRemPcs > 0) {
-                    $itemsDisplayParts[] = number_format($totalRemPcs) . ' Pcs';
-                }
-                $itemsDisplay = count($itemsDisplayParts) > 0 ? implode('<br>', $itemsDisplayParts) : number_format($totalPcs);
 
                 return [
-                    'index'       => $index + 1,
-                    'bill_no'     => $transfer->transfer_no,
-                    'source'      => $transfer->fromLocation->name ?? '-',
-                    'destination' => $transfer->toLocation->name ?? '-',
-                    'items_count' => $itemsDisplay,
-                    'amount'      => (float) $amount,
+                    'index'          => $index + 1,
+                    'bill_no'        => $transfer->transfer_no,
+                    'source'         => $transfer->fromLocation->name ?? '-',
+                    'destination'    => $transfer->toLocation->name ?? '-',
+                    'total_quantity' => $totalPcs,
+                    'amount'         => (float) $amount,
                     'status'      => $badge($transferStatusLabels[$transfer->status] ?? '-', $transferStatusColors[$transfer->status] ?? 'bg-label-secondary'),
                     'created_by'  => $transfer->createdBy->name ?? '-',
                 ];

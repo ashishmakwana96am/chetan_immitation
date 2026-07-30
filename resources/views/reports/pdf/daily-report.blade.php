@@ -195,7 +195,7 @@
                 <th style="width: 18%;">Bill No</th>
                 <th style="width: 22%;">Source</th>
                 <th style="width: 22%;">Destination</th>
-                <th style="width: 13%;" class="text-center">Items Count</th>
+                <th style="width: 13%;" class="text-center">Total Quantity</th>
                 <th style="width: 20%;" class="text-right">Total Amount</th>
             </tr>
         </thead>
@@ -206,7 +206,7 @@
                     <td><strong>{{ $bill['bill_no'] }}</strong></td>
                     <td>{{ $bill['source'] }}</td>
                     <td>{{ $bill['destination'] }}</td>
-                    <td class="text-center">{{ $bill['items_count'] }}</td>
+                    <td class="text-center">{{ number_format($bill['total_quantity']) }}</td>
                     <td class="text-right"><strong>{{ number_format($bill['amount'], 2) }}</strong></td>
                 </tr>
             @empty

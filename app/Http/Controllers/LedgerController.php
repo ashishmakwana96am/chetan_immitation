@@ -1424,6 +1424,8 @@ class LedgerController extends Controller
                 $totalAmount += (float) $order->final_amount;
                 if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                     $paidAmount += (float) $order->final_amount;
+                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                    $paidAmount += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
                 } else {
                     $paidAmount += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
                 }
@@ -1496,6 +1498,8 @@ class LedgerController extends Controller
                 $locSales += (float) $order->final_amount;
                 if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                     $locPaid += (float) $order->final_amount;
+                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                    $locPaid += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
                 } else {
                     $locPaid += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
                 }
@@ -1554,6 +1558,8 @@ class LedgerController extends Controller
                 $totalAmount += (float) $order->final_amount;
                 if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                     $paidAmount += (float) $order->final_amount;
+                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                    $paidAmount += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
                 } else {
                     $paidAmount += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
                 }
@@ -1655,6 +1661,8 @@ class LedgerController extends Controller
             $totalSales += (float) $order->final_amount;
             if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                 $totalPayment += (float) $order->final_amount;
+            } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                $totalPayment += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
             } else {
                 $totalPayment += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
             }
