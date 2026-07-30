@@ -98,8 +98,13 @@ class OrderObserver
                     (float) $order->getOriginal('paid_online_amount'),
                     $order->getOriginal('payment_method'),
                     (float) $order->getOriginal('final_amount'),
-                    $order->order_no
+                    $order->order_no,
+                    true
                 );
+
+                $oldAmt = (float) $order->getOriginal('final_amount');
+                $newAmt = (float) $order->final_amount;
+                $editDesc = 'Balance updated for Sale #' . $order->order_no . ' (Old: ' . format_price($oldAmt) . ' → New: ' . format_price($newAmt) . ')';
 
                 $this->creditBalance(
                     $order->location_id,
@@ -108,7 +113,8 @@ class OrderObserver
                     (float) $order->final_amount,
                     $order->payment_method,
                     $order->order_no,
-                    $order->user_id ?? $order->created_by
+                    $order->user_id ?? $order->created_by,
+                    $editDesc
                 );
             }
         }
@@ -174,7 +180,7 @@ class OrderObserver
      * Reverse a previously credited sale (cancellation, deletion, or edit that
      * changes the allocation). Mirrors creditBalance's split/legacy handling.
      */
-    private function removeSaleBalance(int $locationId, float $cashAmount, float $onlineAmount, ?string $paymentMethod, float $finalAmount, string $orderNo): void
+    private function removeSaleBalance(int $locationId, float $cashAmount, float $onlineAmount, ?string $paymentMethod, float $finalAmount, string $orderNo, bool $isUpdateReversal = false): void
     {
         if (!$locationId) {
             return;
@@ -185,15 +191,15 @@ class OrderObserver
                 return;
             }
 
-            $this->applyBalanceChange($locationId, $this->resolveBalanceType($paymentMethod), $finalAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo, null, true);
+            $this->applyBalanceChange($locationId, $this->resolveBalanceType($paymentMethod), $finalAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo, null, true, $isUpdateReversal);
             return;
         }
 
         if ($cashAmount > 0) {
-            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH, $cashAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Cash)', null, true);
+            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_CASH, $cashAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Cash)', null, true, $isUpdateReversal);
         }
         if ($onlineAmount > 0) {
-            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK, $onlineAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Online)', null, true);
+            $this->applyBalanceChange($locationId, LocationBalanceTransaction::BALANCE_TYPE_BANK, $onlineAmount, LocationBalanceTransaction::TYPE_DEBIT, 'Sale #' . $orderNo . ' (Online)', null, true, $isUpdateReversal);
         }
     }
 
@@ -202,11 +208,11 @@ class OrderObserver
      * activity. On reversal, the prior transaction row (matched by its note)
      * is removed so it doesn't linger after a cancellation/edit.
      */
-    private function applyBalanceChange(int $locationId, string $balanceType, float $amount, string $direction, string $note, ?int $userId, bool $isReversal = false): void
+    private function applyBalanceChange(int $locationId, string $balanceType, float $amount, string $direction, string $note, ?int $userId, bool $isReversal = false, bool $isUpdateReversal = false, ?string $customLogDescription = null): void
     {
         $balanceCol = $balanceType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
 
-        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $direction, $note, $userId, $isReversal) {
+        DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $direction, $note, $userId, $isReversal, $isUpdateReversal, $customLogDescription) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
             if (!$balance) {
                 return;
@@ -219,16 +225,18 @@ class OrderObserver
             $balance->update([$balanceCol => $newBalance]);
 
             if ($isReversal) {
-                LocationBalanceTransaction::where('notes', $note)->delete();
+                LocationBalanceTransaction::where('notes', 'LIKE', '%' . $note . '%')->delete();
 
-                ActivityLogger::log(
-                    'Accounting',
-                    'delete',
-                    null,
-                    [$balanceCol => $oldBalance],
-                    [$balanceCol => $newBalance],
-                    'Balance reversed for ' . $note . ' (' . format_price($amount) . ')'
-                );
+                if (!$isUpdateReversal) {
+                    ActivityLogger::log(
+                        'Accounting',
+                        'delete',
+                        null,
+                        [$balanceCol => $oldBalance],
+                        [$balanceCol => $newBalance],
+                        'Balance reversed for ' . $note . ' (' . format_price($amount) . ')'
+                    );
+                }
 
                 return;
             }
@@ -243,13 +251,15 @@ class OrderObserver
                 'created_by'   => LocationBalanceTransaction::getFallbackUserId($userId),
             ]);
 
+            $logDesc = $customLogDescription ?: ('Balance credited for ' . $note . ' (' . format_price($amount) . ')');
+
             ActivityLogger::log(
                 'Accounting',
-                'create',
+                $customLogDescription ? 'update' : 'create',
                 $transaction,
                 [$balanceCol => $oldBalance],
                 [$balanceCol => $newBalance],
-                'Balance credited for ' . $note . ' (' . format_price($amount) . ')'
+                $logDesc
             );
         });
     }
