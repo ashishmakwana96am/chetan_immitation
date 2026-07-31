@@ -181,7 +181,12 @@ class OrderObserver
     }
 
     /**
-     * When a paid sale order is deleted, reverse the credited balance.
+     * When a paid or partially-paid sale order is deleted, reverse whatever
+     * was actually credited (branch ledger + customer wallet) for it. Must
+     * match the "wasPaidLike" check in updated() below — a Partial sale has
+     * genuinely debited the customer's wallet for its paid_cash/online amount,
+     * so skipping it here (as this used to, checking PAID only) silently
+     * leaves that money stuck out of the customer's balance forever.
      */
     public function deleted(Order $order): void
     {
@@ -189,7 +194,7 @@ class OrderObserver
             return;
         }
 
-        if ($order->payment_status != Order::PAYMENT_STATUS_PAID) {
+        if (!in_array((int) $order->payment_status, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)) {
             return;
         }
 
