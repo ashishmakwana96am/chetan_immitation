@@ -2114,30 +2114,10 @@ class ReportController extends Controller
             ->values()
             ->map(function ($transfer, $index) use ($transferStatusLabels, $transferStatusColors, $badge) {
                 $amount = 0.0;
-                $totalPcs = 0;
 
                 foreach ($transfer->items as $item) {
                     $price = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0;
                     $amount += $price * $item->quantity;
-
-                    $multiplier = 1.0;
-                    if ($item->custom_size_value !== null && $item->custom_size_value !== '' && (float)$item->custom_size_value > 0) {
-                        $multiplier = (float) $item->custom_size_value;
-                    } elseif ($item->product && $item->product->pair_product) {
-                        $customSizes = $item->product->custom_sizes;
-                        if (is_array($customSizes) && count($customSizes) > 0) {
-                            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
-                            if ($sizes->count() > 0) {
-                                $multiplier = (float) $sizes->max();
-                            } else {
-                                $multiplier = 2.0;
-                            }
-                        } else {
-                            $multiplier = 2.0;
-                        }
-                    }
-
-                    $totalPcs += (int) round($item->quantity * $multiplier);
                 }
 
                 return [
@@ -2145,7 +2125,7 @@ class ReportController extends Controller
                     'bill_no'        => $transfer->transfer_no,
                     'source'         => $transfer->fromLocation->name ?? '-',
                     'destination'    => $transfer->toLocation->name ?? '-',
-                    'total_quantity' => $totalPcs,
+                    'total_quantity' => $transfer->items->sum('quantity'),
                     'amount'         => (float) $amount,
                     'status'      => $badge($transferStatusLabels[$transfer->status] ?? '-', $transferStatusColors[$transfer->status] ?? 'bg-label-secondary'),
                     'created_by'  => $transfer->createdBy->name ?? '-',
