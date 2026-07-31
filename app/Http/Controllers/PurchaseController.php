@@ -689,6 +689,10 @@ class PurchaseController extends Controller
             }
 
             Purchase::withoutActivityLogging(function () use ($purchase) {
+                $itemIds = $purchase->items()->pluck('id');
+                PurchaseAllocation::whereIn('purchase_item_id', $itemIds)->delete();
+                $purchase->items()->delete();
+
                 $purchase->update(['invoice_no' => 'DEL-' . $purchase->id . '-' . $purchase->invoice_no]);
                 $purchase->delete();
             });
