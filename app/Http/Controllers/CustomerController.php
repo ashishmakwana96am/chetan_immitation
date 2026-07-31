@@ -121,6 +121,8 @@ class CustomerController extends Controller
             'state'       => ['nullable', 'string', 'max:100'],
             'address'     => ['nullable', 'string'],
             'location_id' => [$restrictedLocationId ? 'nullable' : 'required', 'exists:locations,id'],
+        ], [], [
+            'location_id' => 'branch',
         ]);
 
         $this->validateUniquePhones($validator, $request);
@@ -192,6 +194,8 @@ class CustomerController extends Controller
             'state'       => ['nullable', 'string', 'max:100'],
             'address'     => ['nullable', 'string'],
             'location_id' => [$restrictedLocationId ? 'nullable' : 'required', 'exists:locations,id'],
+        ], [], [
+            'location_id' => 'branch',
         ]);
 
         $this->validateUniquePhones($validator, $request);

@@ -1255,6 +1255,8 @@ class AccountingController extends Controller
             'type'        => ['required', 'string', 'in:' . CustomerBalanceTransaction::TYPE_CREDIT . ',' . CustomerBalanceTransaction::TYPE_DEBIT],
             'amount'      => ['required', 'numeric', 'min:0.01'],
             'notes'       => ['nullable', 'string', 'max:1000'],
+        ], [], [
+            'customer_id' => 'customer',
         ]);
 
         if ($validator->fails()) {
