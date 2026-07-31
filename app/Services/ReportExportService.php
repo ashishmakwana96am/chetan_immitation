@@ -515,6 +515,7 @@ class ReportExportService
             $paymentStatuses = [
                 1 => 'Pending',
                 2 => 'Paid',
+                3 => 'Partially Paid',
             ];
             $paymentStatusLabel = $paymentStatuses[$order->payment_status] ?? 'Pending';
             $sheet1->setCellValue('E' . $row, $paymentStatusLabel);

@@ -1921,8 +1921,8 @@ class ReportController extends Controller
 
         $orderStatusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Shipped', 4 => 'Out for delivery', 5 => 'Delivered', 6 => 'Cancelled'];
         $orderStatusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-info', 4 => 'bg-label-warning', 5 => 'bg-label-success', 6 => 'bg-label-danger'];
-        $orderPaymentLabels = [1 => 'Pending', 2 => 'Paid'];
-        $orderPaymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info'];
+        $orderPaymentLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
+        $orderPaymentColors = [1 => 'bg-label-warning', 2 => 'bg-label-info', 3 => 'bg-label-primary'];
         $purchaseStatusLabels = [1 => 'Pending', 2 => 'Approve', 3 => 'Decline'];
         $purchaseStatusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $purchasePaymentLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
