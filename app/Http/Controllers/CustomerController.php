@@ -169,6 +169,17 @@ class CustomerController extends Controller
             ], 422);
         }
 
+        $isCreditCustomer = $request->has('is_credit_customer');
+
+        if ($customer->is_credit_customer && !$isCreditCustomer && (float) $customer->balance != 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => [
+                    'is_credit_customer' => ['Cannot remove credit customer status. This customer has a balance of ' . format_price($customer->balance) . '. Please clear the balance first.'],
+                ],
+            ], 422);
+        }
+
         $customer->update([
             'name'     => $request->name,
             'email'    => $request->email,
@@ -176,7 +187,7 @@ class CustomerController extends Controller
             'state'    => $request->state ? trim($request->state) : null,
             'address'  => $request->address ? trim($request->address) : null,
             'status'   => $request->has('status') ? 1 : 2,
-            'is_credit_customer' => $request->has('is_credit_customer'),
+            'is_credit_customer' => $isCreditCustomer,
         ]);
 
         $submittedPhones = $request->input('phones', []);
@@ -238,6 +249,13 @@ class CustomerController extends Controller
     {
         $this->authorize('edit customers');
 
+        if ($customer->is_credit_customer && (float) $customer->balance != 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Cannot remove credit customer status. This customer has a balance of ' . format_price($customer->balance) . '. Please clear the balance first.',
+            ], 422);
+        }
+
         $customer->update([
             'is_credit_customer' => !$customer->is_credit_customer,
         ]);
@@ -251,6 +269,13 @@ class CustomerController extends Controller
     public function destroy(Customer $customer)
     {
         $this->authorize('delete customers');
+
+        if ((float) $customer->balance != 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Cannot delete this customer. They have a balance of ' . format_price($customer->balance) . '. Please clear the balance first, then delete this customer.',
+            ], 422);
+        }
 
         $customer->delete();
 

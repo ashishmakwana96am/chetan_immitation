@@ -180,9 +180,10 @@
                             window.refreshTable();
                         }
                     },
-                    error : function () {
+                    error : function (xhr) {
                         toggle.prop('checked', !toggle.prop('checked'));
-                        toastr.error('Something went wrong. Please try again.');
+                        const msg = xhr.responseJSON?.message;
+                        toastr.error(typeof msg === 'string' ? msg : 'Something went wrong. Please try again.');
                     }
                 });
             });
