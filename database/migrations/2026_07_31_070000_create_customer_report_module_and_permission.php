@@ -2,6 +2,7 @@
 
 use App\Models\Module;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -29,6 +30,8 @@ return new class extends Migration
                 'sort_order'     => 9,
             ]);
         }
+
+        Cache::forget('admin_sidebar_modules');
     }
 
     public function down(): void

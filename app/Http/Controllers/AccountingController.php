@@ -1235,8 +1235,9 @@ class AccountingController extends Controller
         $source = in_array($request->source, [CustomerBalanceTransaction::SOURCE_BANK, CustomerBalanceTransaction::SOURCE_CASH])
             ? $request->source
             : CustomerBalanceTransaction::SOURCE_CASH;
+        $selectedCustomerId = $request->query('customer_id');
 
-        return view('accounting.customer-balance-create', compact('customers', 'source'));
+        return view('accounting.customer-balance-create', compact('customers', 'source', 'selectedCustomerId'));
     }
 
     public function customerBalanceStore(Request $request)

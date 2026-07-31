@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Customer Wallet Details')
+@section('title', 'Customer Details')
 
 @section('page-css')
     <style>
@@ -47,10 +47,15 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h4 class="fw-semibold mb-0">Customer Wallet Details</h4>
-            <small class="text-muted">Full wallet transaction history for <strong>{{ $customer->name }}</strong></small>
+            <h4 class="fw-semibold mb-0">Customer Details</h4>
+            <small class="text-muted">Full transaction history for <strong>{{ $customer->name }}</strong></small>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            @can('manage customer balance')
+                <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create', ['customer_id' => $customer->id]) }}">
+                    <i class="ti ti-plus me-1"></i> Add Credit Balance
+                </button>
+            @endcan
             <a href="{{ route('admin.reports.customer-report') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back to List
             </a>
@@ -83,8 +88,8 @@
 
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-wallet"></i></span>
-                    <h6 class="mb-0 fw-semibold">Wallet Summary</h6>
+                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-report-money"></i></span>
+                    <h6 class="mb-0 fw-semibold">Summary</h6>
                 </div>
                 <div class="card-body">
                     <div class="ledger-info-row">
@@ -108,7 +113,7 @@
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
                     <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
-                    <h6 class="mb-0 fw-semibold">Wallet Transactions</h6>
+                    <h6 class="mb-0 fw-semibold">Transactions</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive text-nowrap">
@@ -148,7 +153,7 @@
                                 @empty
                                     <tr>
                                         <td colspan="8" class="text-center py-4 text-muted">
-                                            No wallet transactions found.
+                                            No transactions found.
                                         </td>
                                     </tr>
                                 @endforelse

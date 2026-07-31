@@ -2154,61 +2154,92 @@ class ReportController extends Controller
     // CUSTOMER REPORT
     // ============================================================
 
-    public function customerReport()
+    private function buildCustomerReportData(Request $request): array
     {
-        $this->authorize('view customer report');
-
-        return view('reports.customer-report');
-    }
-
-    public function customerReportData(Request $request)
-    {
-        $this->authorize('view customer report');
+        $creditOnly = $request->query('credit_only');
+        $startDate  = $request->query('start_date');
+        $endDate    = $request->query('end_date');
+        $search     = $request->query('search');
 
         $query = Customer::query();
 
-        if ($request->filled('credit_only') && $request->boolean('credit_only')) {
+        if ($creditOnly) {
             $query->where('is_credit_customer', true);
+        }
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhereHas('phones', fn ($pq) => $pq->where('phone', 'like', "%{$search}%"));
+            });
         }
 
         $customers = $query->orderBy('name')->get();
 
-        $customerIds = $customers->pluck('id');
-        $totalsByCustomer = CustomerBalanceTransaction::whereIn('customer_id', $customerIds)
+        $totalsQuery = CustomerBalanceTransaction::whereIn('customer_id', $customers->pluck('id'));
+        if ($startDate) {
+            $totalsQuery->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $totalsQuery->whereDate('created_at', '<=', $endDate);
+        }
+
+        $totalsByCustomer = $totalsQuery
             ->selectRaw('customer_id, type, SUM(amount) as total')
             ->groupBy('customer_id', 'type')
             ->get()
             ->groupBy('customer_id');
 
-        $data = $customers->values()->map(function ($customer, $index) use ($totalsByCustomer) {
+        $customers->each(function ($customer) use ($totalsByCustomer) {
             $totals = $totalsByCustomer->get($customer->id, collect());
-            $totalCredit = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_CREDIT)->total ?? 0);
-            $totalDebit  = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_DEBIT)->total ?? 0);
-
-            return [
-                'index'               => $index + 1,
-                'customer_id'         => $customer->id,
-                'name'                => e($customer->name),
-                'phone'               => $customer->phone ?? '-',
-                'is_credit_customer'  => (bool) $customer->is_credit_customer,
-                'credit_badge'        => $customer->is_credit_customer
-                    ? '<span class="badge bg-label-success">Credit Customer</span>'
-                    : '<span class="badge bg-label-secondary">Regular</span>',
-                'balance'             => $customer->is_credit_customer ? format_price($customer->balance) : '-',
-                'total_credit'        => $customer->is_credit_customer ? format_price($totalCredit) : '-',
-                'total_debit'         => $customer->is_credit_customer ? format_price($totalDebit) : '-',
-            ];
+            $customer->period_credit = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_CREDIT)->total ?? 0);
+            $customer->period_debit  = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_DEBIT)->total ?? 0);
         });
 
-        return response()->json([
-            'status' => 'success',
-            'data'   => $data,
-            'summary' => [
-                'total_customers'        => $customers->count(),
-                'total_credit_customers' => $customers->where('is_credit_customer', true)->count(),
-                'total_balance'          => format_price($customers->where('is_credit_customer', true)->sum('balance')),
-            ],
-        ]);
+        $creditCustomers = $customers->where('is_credit_customer', true);
+
+        return [
+            'customers'             => $customers,
+            'totalCustomers'        => $customers->count(),
+            'totalCreditCustomers'  => $creditCustomers->count(),
+            'totalWalletBalance'    => (float) $creditCustomers->sum('balance'),
+            'totalCredit'           => (float) $customers->sum('period_credit'),
+            'totalDebit'            => (float) $customers->sum('period_debit'),
+            'creditOnly'            => $creditOnly,
+            'startDate'             => $startDate,
+            'endDate'               => $endDate,
+            'search'                => $search,
+        ];
+    }
+
+    public function customerReport(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        return view('reports.customer-report', $this->buildCustomerReportData($request));
+    }
+
+    public function exportCustomerReport(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $data = $this->buildCustomerReportData($request);
+
+        if ($data['customers']->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Customer Report',
+                'pdfUrl' => route('admin.reports.customer-report.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        $pdf = Pdf::loadView('reports.pdf.customer-report', $data)->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Customer report exported to PDF');
+
+        return $pdf->stream('customer_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
     public function customerReportDetail(Request $request)

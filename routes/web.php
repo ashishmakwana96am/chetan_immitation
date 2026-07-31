@@ -232,7 +232,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
             Route::get('daily-report/export', [ReportController::class, 'exportDailyReport'])->name('daily-report.export');
             Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
-            Route::get('customer-report/data', [ReportController::class, 'customerReportData'])->name('customer-report.data');
+            Route::get('customer-report/export', [ReportController::class, 'exportCustomerReport'])->name('customer-report.export');
             Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
 
             // Utility Report

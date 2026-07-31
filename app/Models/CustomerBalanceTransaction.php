@@ -44,4 +44,23 @@ class CustomerBalanceTransaction extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public static function getFallbackUserId(?int $preferredUserId = null): ?int
+    {
+        if ($preferredUserId && User::where('id', $preferredUserId)->exists()) {
+            return $preferredUserId;
+        }
+        if (auth()->check() && auth()->id() && User::where('id', auth()->id())->exists()) {
+            return auth()->id();
+        }
+        $adminId = User::whereHas('roles', function ($q) {
+            $q->where('name', 'super-admin');
+        })->value('id');
+
+        if ($adminId) {
+            return $adminId;
+        }
+
+        return User::orderBy('id', 'asc')->value('id');
+    }
 }

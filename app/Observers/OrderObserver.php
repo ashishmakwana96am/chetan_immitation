@@ -2,6 +2,8 @@
 
 namespace App\Observers;
 
+use App\Models\Customer;
+use App\Models\CustomerBalanceTransaction;
 use App\Models\LocationBalance;
 use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
@@ -40,6 +42,16 @@ class OrderObserver
             $order->order_no,
             $order->user_id ?? $order->created_by
         );
+
+        $this->debitCustomerWalletForSale(
+            $order->customer_id,
+            (float) $order->paid_cash_amount,
+            (float) $order->paid_online_amount,
+            (float) $order->final_amount,
+            $order->payment_method,
+            $order->order_no,
+            $order->user_id ?? $order->created_by
+        );
     }
 
     /**
@@ -70,6 +82,16 @@ class OrderObserver
                 $order->order_no,
                 $order->user_id ?? $order->created_by
             );
+
+            $this->debitCustomerWalletForSale(
+                $order->customer_id,
+                (float) $order->paid_cash_amount,
+                (float) $order->paid_online_amount,
+                (float) $order->final_amount,
+                $order->payment_method,
+                $order->order_no,
+                $order->user_id ?? $order->created_by
+            );
             return;
         }
 
@@ -85,15 +107,25 @@ class OrderObserver
                 (float) $order->getOriginal('final_amount'),
                 $order->order_no
             );
+
+            $this->reverseCustomerWalletForSale(
+                $order->getOriginal('customer_id'),
+                (float) $order->getOriginal('paid_cash_amount'),
+                (float) $order->getOriginal('paid_online_amount'),
+                $order->getOriginal('payment_method'),
+                (float) $order->getOriginal('final_amount'),
+                $order->order_no
+            );
             return;
         }
 
-        // Transition 3: Was PAID / PARTIAL, remains PAID / PARTIAL, but method, amount, location, or split changed
+        // Transition 3: Was PAID / PARTIAL, remains PAID / PARTIAL, but method, amount, location, customer, or split changed
         if ($wasPaidLike && $isPaidLike) {
             if (
                 $order->wasChanged('payment_method')
                 || $order->wasChanged('final_amount')
                 || $order->wasChanged('location_id')
+                || $order->wasChanged('customer_id')
                 || $order->wasChanged('paid_cash_amount')
                 || $order->wasChanged('paid_online_amount')
                 || $order->wasChanged('payment_status')
@@ -109,12 +141,33 @@ class OrderObserver
                     true
                 );
 
+                $this->reverseCustomerWalletForSale(
+                    $order->getOriginal('customer_id'),
+                    (float) $order->getOriginal('paid_cash_amount'),
+                    (float) $order->getOriginal('paid_online_amount'),
+                    $order->getOriginal('payment_method'),
+                    (float) $order->getOriginal('final_amount'),
+                    $order->order_no,
+                    true
+                );
+
                 $oldAmt = (float) $order->getOriginal('final_amount');
                 $newAmt = (float) $order->final_amount;
                 $editDesc = 'Balance updated for Sale #' . $order->order_no . ' (Old: ' . format_price($oldAmt) . ' → New: ' . format_price($newAmt) . ')';
 
                 $this->creditBalance(
                     $order->location_id,
+                    (float) $order->paid_cash_amount,
+                    (float) $order->paid_online_amount,
+                    (float) $order->final_amount,
+                    $order->payment_method,
+                    $order->order_no,
+                    $order->user_id ?? $order->created_by,
+                    $editDesc
+                );
+
+                $this->debitCustomerWalletForSale(
+                    $order->customer_id,
                     (float) $order->paid_cash_amount,
                     (float) $order->paid_online_amount,
                     (float) $order->final_amount,
@@ -142,6 +195,15 @@ class OrderObserver
 
         $this->removeSaleBalance(
             (int) $order->location_id,
+            (float) $order->paid_cash_amount,
+            (float) $order->paid_online_amount,
+            $order->payment_method,
+            (float) $order->final_amount,
+            $order->order_no
+        );
+
+        $this->reverseCustomerWalletForSale(
+            $order->customer_id,
             (float) $order->paid_cash_amount,
             (float) $order->paid_online_amount,
             $order->payment_method,
@@ -282,5 +344,145 @@ class OrderObserver
         return in_array(strtolower($paymentMethod ?? ''), $online, true)
             ? LocationBalanceTransaction::BALANCE_TYPE_BANK
             : LocationBalanceTransaction::BALANCE_TYPE_CASH;
+    }
+
+    // ─────────────────────────────────────────────
+    // Credit customer wallet (mirrors the cash/bank
+    // ledger crediting above, but debits the paying
+    // customer's own balance when they are a credit
+    // customer). Only fires for PAID/PARTIAL sales —
+    // a PENDING sale never touches the wallet.
+    // ─────────────────────────────────────────────
+
+    /**
+     * Debit a credit customer's wallet by the amount actually paid on a sale.
+     * No-op for walk-in sales or non-credit customers.
+     */
+    private function debitCustomerWalletForSale(?int $customerId, float $cashAmount, float $onlineAmount, float $finalAmount, ?string $paymentMethod, string $orderNo, ?int $userId, ?string $customLogDescription = null): void
+    {
+        if (!$customerId) {
+            return;
+        }
+
+        $customer = Customer::find($customerId);
+        if (!$customer || !$customer->is_credit_customer) {
+            return;
+        }
+
+        if ($cashAmount <= 0 && $onlineAmount <= 0) {
+            if ($finalAmount <= 0) {
+                return;
+            }
+
+            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, $userId, false, false, $customLogDescription);
+            return;
+        }
+
+        if ($cashAmount > 0) {
+            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', $userId, false, false, $customLogDescription);
+        }
+        if ($onlineAmount > 0) {
+            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', $userId, false, false, $customLogDescription);
+        }
+    }
+
+    /**
+     * Reverse a previously debited wallet amount (sale cancelled, deleted, or
+     * edited). Mirrors debitCustomerWalletForSale's split/legacy handling.
+     */
+    private function reverseCustomerWalletForSale(?int $customerId, float $cashAmount, float $onlineAmount, ?string $paymentMethod, float $finalAmount, string $orderNo, bool $isUpdateReversal = false): void
+    {
+        if (!$customerId) {
+            return;
+        }
+
+        $customer = Customer::find($customerId);
+        if (!$customer || !$customer->is_credit_customer) {
+            return;
+        }
+
+        if ($cashAmount <= 0 && $onlineAmount <= 0) {
+            if ($finalAmount <= 0) {
+                return;
+            }
+
+            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, null, true, $isUpdateReversal);
+            return;
+        }
+
+        if ($cashAmount > 0) {
+            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', null, true, $isUpdateReversal);
+        }
+        if ($onlineAmount > 0) {
+            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', null, true, $isUpdateReversal);
+        }
+    }
+
+    /**
+     * Apply a debit (sale paid) or reversal (credit back) to a customer's
+     * wallet balance. The debit is clamped so the balance never goes
+     * negative — if the customer's balance can't cover the full amount,
+     * only what's available is debited.
+     */
+    private function applyCustomerWalletChange(int $customerId, float $amount, string $source, string $note, ?int $userId, bool $isReversal = false, bool $isUpdateReversal = false, ?string $customLogDescription = null): void
+    {
+        DB::transaction(function () use ($customerId, $amount, $source, $note, $userId, $isReversal, $isUpdateReversal, $customLogDescription) {
+            $customer = Customer::where('id', $customerId)->lockForUpdate()->first();
+            if (!$customer) {
+                return;
+            }
+
+            $oldBalance = (float) $customer->balance;
+
+            if ($isReversal) {
+                $newBalance = $oldBalance + $amount;
+                $customer->update(['balance' => $newBalance]);
+
+                CustomerBalanceTransaction::where('customer_id', $customerId)->where('notes', 'LIKE', '%' . $note . '%')->delete();
+
+                if (!$isUpdateReversal) {
+                    ActivityLogger::log(
+                        'Customer Balance',
+                        'delete',
+                        null,
+                        ['balance' => $oldBalance],
+                        ['balance' => $newBalance],
+                        'Balance reversed for ' . $note . ' (' . format_price($amount) . ')'
+                    );
+                }
+
+                return;
+            }
+
+            // Debit, clamped so balance never goes negative.
+            $newBalance = max(0, $oldBalance - $amount);
+            $actualAmount = $oldBalance - $newBalance;
+            if ($actualAmount <= 0) {
+                return;
+            }
+
+            $customer->update(['balance' => $newBalance]);
+
+            $transaction = CustomerBalanceTransaction::create([
+                'customer_id'   => $customerId,
+                'source'        => $source,
+                'type'          => CustomerBalanceTransaction::TYPE_DEBIT,
+                'amount'        => $actualAmount,
+                'balance_after' => $newBalance,
+                'notes'         => $note,
+                'created_by'    => CustomerBalanceTransaction::getFallbackUserId($userId),
+            ]);
+
+            $logDesc = $customLogDescription ?: ('Balance debited for ' . $note . ' (' . format_price($actualAmount) . ')');
+
+            ActivityLogger::log(
+                'Customer Balance',
+                $customLogDescription ? 'update' : 'create',
+                $transaction,
+                ['balance' => $oldBalance],
+                ['balance' => $newBalance],
+                $logDesc
+            );
+        });
     }
 }

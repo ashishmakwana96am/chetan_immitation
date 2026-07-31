@@ -11,13 +11,20 @@
             <select id="customerBalanceCustomer" name="customer_id" class="form-select">
                 <option value="">Select Customer</option>
                 @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
+                    <option value="{{ $customer->id }}" {{ (string) $selectedCustomerId === (string) $customer->id ? 'selected' : '' }}>{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
                 @endforeach
             </select>
             <div class="invalid-feedback"></div>
         </div>
 
-        <input type="hidden" name="source" value="{{ $source }}" />
+        <div class="col-12">
+            <label class="form-label" for="customerBalanceSource">Book <span class="text-danger">*</span></label>
+            <select id="customerBalanceSource" name="source" class="form-select no-select2">
+                <option value="cash" {{ $source === 'cash' ? 'selected' : '' }}>Cash</option>
+                <option value="bank" {{ $source === 'bank' ? 'selected' : '' }}>Bank</option>
+            </select>
+            <div class="invalid-feedback"></div>
+        </div>
 
         <div class="col-12">
             <label class="form-label" for="customerBalanceType">Type <span class="text-danger">*</span></label>
