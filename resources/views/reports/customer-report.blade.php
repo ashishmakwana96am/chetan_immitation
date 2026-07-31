@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Customer Report')
+@section('title', 'Customer Credit Report')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -9,7 +9,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">Customer Report</h4>
+        <h4 class="fw-semibold mb-0">Customer Credit Report</h4>
         <div class="d-flex gap-2">
             @can('manage customer balance')
                 <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create') }}">
@@ -25,41 +25,54 @@
     <div id="report-results">
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Total Customers</span>
-                                <h4 class="mb-0 mt-1">{{ $totalCustomers }}</h4>
+                                <span class="text-muted">Total Transactions</span>
+                                <h4 class="mb-0 mt-1">{{ $totalTransactions }}</h4>
                             </div>
-                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-users ti-sm"></i></span>
+                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-receipt ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Credit Customers</span>
-                                <h4 class="mb-0 mt-1">{{ $totalCreditCustomers }}</h4>
+                                <span class="text-muted">Total Credit</span>
+                                <h4 class="mb-0 mt-1 text-success">{{ format_price($totalCredit) }}</h4>
                             </div>
-                            <span class="badge bg-label-info rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
+                            <span class="badge bg-label-success rounded p-2"><i class="ti ti-arrow-down-circle ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-xl-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted">Total Debit</span>
+                                <h4 class="mb-0 mt-1 text-danger">{{ format_price($totalDebit) }}</h4>
+                            </div>
+                            <span class="badge bg-label-danger rounded p-2"><i class="ti ti-arrow-up-circle ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Balance</span>
-                                <h4 class="mb-0 mt-1 {{ $totalWalletBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($totalWalletBalance) }}</h4>
+                                <h4 class="mb-0 mt-1 {{ $totalWalletBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($totalWalletBalance) }}</h4>
                             </div>
-                            <span class="badge {{ $totalWalletBalance < 0 ? 'bg-label-danger' : 'bg-label-success' }} rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
+                            <span class="badge {{ $totalWalletBalance < 0 ? 'bg-label-danger' : 'bg-label-info' }} rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
@@ -82,14 +95,30 @@
                         <input type="text" name="end_date" class="form-control flatpickr" value="{{ $endDate }}" placeholder="DD-MM-YYYY" />
                     </div>
                     <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Search</label>
-                        <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Name or phone" />
+                        <label class="form-label">Credit Customer</label>
+                        <select name="customer_id" class="form-select">
+                            <option value="">All Credit Customers</option>
+                            @foreach($creditCustomers as $creditCustomer)
+                                <option value="{{ $creditCustomer->id }}" {{ (string) $customerId === (string) $creditCustomer->id ? 'selected' : '' }}>
+                                    {{ $creditCustomer->name }}{{ $creditCustomer->phone ? ' (' . $creditCustomer->phone . ')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Customer Type</label>
-                        <select name="credit_only" class="form-select no-select2">
-                            <option value="" {{ !$creditOnly ? 'selected' : '' }}>All Customers</option>
-                            <option value="1" {{ $creditOnly ? 'selected' : '' }}>Credit Customers Only</option>
+                        <label class="form-label">Transaction Type</label>
+                        <select name="type" class="form-select no-select2">
+                            <option value="" {{ !$type ? 'selected' : '' }}>All (Credit & Debit)</option>
+                            <option value="credit" {{ $type === 'credit' ? 'selected' : '' }}>Credit Only</option>
+                            <option value="debit" {{ $type === 'debit' ? 'selected' : '' }}>Debit Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label">Source</label>
+                        <select name="source" class="form-select no-select2">
+                            <option value="" {{ !$source ? 'selected' : '' }}>All Sources</option>
+                            <option value="cash" {{ $source === 'cash' ? 'selected' : '' }}>Cash</option>
+                            <option value="bank" {{ $source === 'bank' ? 'selected' : '' }}>Bank</option>
                         </select>
                     </div>
                     <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
@@ -104,49 +133,68 @@
             </div>
         </div>
 
-        <!-- Customers Table -->
+        <!-- Transactions Table -->
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">All Customers</h5>
+                <h5 class="mb-0">Credit Customer Transactions</h5>
             </div>
             <div class="card-datatable table-responsive">
                 <table class="table border-top" id="customerReportTable">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Name</th>
+                            <th>Customer</th>
                             <th>Phone</th>
-                            <th class="text-end">Total Credit</th>
-                            <th class="text-end">Total Debit</th>
-                            <th class="text-end">Balance</th>
+                            <th>Source</th>
+                            <th>Type</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end">Balance After</th>
+                            <th>Notes</th>
+                            <th>Done By</th>
+                            <th>Date</th>
                             <th style="width: 10%">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($customers as $customer)
-                            <tr>
+                        @foreach($transactions as $transaction)
+                            <tr @if($transaction->linked_order) data-modal-url="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-modal-size="half" style="cursor: pointer;" @endif>
                                 <td></td>
+                                <td class="fw-semibold">{{ $transaction->customer->name ?? '-' }}</td>
+                                <td>{{ $transaction->customer->phone ?? '-' }}</td>
                                 <td>
-                                    <span class="fw-semibold">{{ $customer->name }}</span>
-                                    @if($customer->is_credit_customer)
-                                        <span class="badge bg-label-success ms-1">Credit</span>
+                                    @if($transaction->source === 'bank')
+                                        <span class="badge bg-label-info">Bank</span>
+                                    @else
+                                        <span class="badge bg-label-warning">Cash</span>
                                     @endif
                                 </td>
-                                <td>{{ $customer->phone ?? '-' }}</td>
-                                <td class="text-end text-success fw-semibold">{{ $customer->is_credit_customer ? format_price($customer->period_credit) : '-' }}</td>
-                                <td class="text-end text-danger fw-semibold">{{ $customer->is_credit_customer ? format_price($customer->period_debit) : '-' }}</td>
-                                <td class="text-end fw-bold {{ $customer->is_credit_customer && $customer->balance < 0 ? 'text-danger' : 'text-heading' }}">{{ $customer->is_credit_customer ? format_price($customer->balance) : '-' }}</td>
                                 <td>
-                                    <div class="dropdown table-action-dropdown">
-                                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                            <span>Actions</span>
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                            <a href="{{ route('admin.reports.customer-report.detail') }}?customer_id={{ $customer->id }}" class="dropdown-item">
-                                                <i class="ti ti-eye me-2"></i>View
-                                            </a>
+                                    @if($transaction->type === 'credit')
+                                        <span class="badge bg-label-success">Credit</span>
+                                    @else
+                                        <span class="badge bg-label-danger">Debit</span>
+                                    @endif
+                                </td>
+                                <td class="text-end fw-semibold {{ $transaction->type === 'credit' ? 'text-success' : 'text-danger' }}">{{ format_price($transaction->amount) }}</td>
+                                <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
+                                <td>{{ $transaction->notes ?? '-' }}</td>
+                                <td>{{ $transaction->createdBy->name ?? '-' }}</td>
+                                <td>{{ $transaction->created_at->format('d M Y, h:i A') }}</td>
+                                <td>
+                                    @if($transaction->linked_order)
+                                        <div class="dropdown table-action-dropdown">
+                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                                <span>Actions</span>
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                                <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-size="half">
+                                                    <i class="ti ti-eye me-2"></i>View
+                                                </a>
+                                            </div>
                                         </div>
-                                    </div>
+                                    @else
+                                        -
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -166,7 +214,7 @@
             }
             $('#customerReportTable').DataTable({
                 responsive: false,
-                order: [[1, 'asc']],
+                order: [],
                 columnDefs: [
                     {
                         targets: 0,
@@ -175,7 +223,8 @@
                         render: function (data, type, row, meta) {
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
-                    }
+                    },
+                    { targets: 10, orderable: false, searchable: false }
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -290,6 +339,13 @@
                 const form = $('#filterForm');
                 const url = "{{ route('admin.reports.customer-report.export') }}?" + form.serialize() + "&auto_print=1";
                 window.open(url, '_blank');
+            });
+
+            $(document).on('dblclick', '#customerReportTable tbody tr[data-modal-url]', function (e) {
+                if ($(e.target).closest('.dropdown').length) {
+                    return;
+                }
+                window.openCommonModal($(this).data('modal-url'), $(this).data('modal-size'));
             });
         });
     </script>

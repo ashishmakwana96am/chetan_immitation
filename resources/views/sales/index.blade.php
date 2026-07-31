@@ -114,7 +114,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales</h4>
         <div class="d-flex gap-2 align-items-center">
-            {{-- Filter Dropdown --}}
+            
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
                 <button type="button" class="btn btn-outline-primary" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-boundary="viewport" aria-expanded="false">
                     <i class="ti ti-filter me-1"></i> Filter
@@ -134,7 +134,6 @@
                     </div>
                     @endif
 
-                    {{-- Status --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-status">Sale Status</label>
                         <select id="filter-status" class="form-select">
@@ -148,7 +147,6 @@
                         </select>
                     </div>
 
-                    {{-- Payment Status --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-payment-status">Payment Status</label>
                         <select id="filter-payment-status" class="form-select">
@@ -159,7 +157,6 @@
                         </select>
                     </div>
 
-                    {{-- Source --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-source">Source</label>
                         <select id="filter-source" class="form-select">
@@ -169,7 +166,6 @@
                         </select>
                     </div>
 
-                    {{-- Product --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-product">Product</label>
                         <select id="filter-product" class="form-select product-search-select" style="width: 100%;">
@@ -177,7 +173,6 @@
                         </select>
                     </div>
 
-                    {{-- Date Range --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1">Date Range</label>
                         <div class="w-100">
@@ -397,7 +392,6 @@
                 let optionsHtml = '';
 
                 if (!isOnline) {
-                    // POS Order: only Pending and Approve
                     selectDisabled = (currentStatus >= 2) ? 'disabled' : '';
                     const opt1 = (currentStatus !== 1) ? 'disabled' : '';
                     const opt2 = (currentStatus === 2) ? '' : ((currentStatus === 1) ? '' : 'disabled');
@@ -407,7 +401,6 @@
                         <option value="2" ${currentStatus == 2 ? 'selected' : ''} ${opt2}>Approve</option>
                     `;
                 } else {
-                    // ONLINE Order: all options, sequential disabling
                     selectDisabled = [5, 6].includes(currentStatus) ? 'disabled' : '';
                     const opt1 = (currentStatus !== 1) ? 'disabled' : '';
                     const opt2 = (![1, 2].includes(currentStatus)) ? 'disabled' : '';
@@ -498,7 +491,7 @@
                             Swal.showValidationMessage('Please enter a cancellation reason.');
                             return false;
                         }
-                        // Only validate shipping fields when transitioning TO Shipped (not already shipped)
+                        
                         if (status == '3' && currentStatus != 3) {
                             if (!shippedUrl) {
                                 Swal.showValidationMessage('Please enter Shipping Client URL');
@@ -749,14 +742,10 @@
                 });
             }
 
-
-
-            // Apply Filter button handler
             $(document).on('click', '#btnApplyFilter', function (e) {
                 e.preventDefault();
                 window.refreshTable();
                 
-                // Close the dropdown after applying
                 const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
                 if (dropdownToggleEl) {
                     const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);
@@ -764,7 +753,6 @@
                 }
             });
 
-            // Clear Filter button handler
             $(document).on('click', '#btnClearFilter', function (e) {
                 e.preventDefault();
                 $('#filter-status').val('');
@@ -780,7 +768,6 @@
                 endPicker.set('minDate', null);
                 window.refreshTable();
                 
-                // Close the dropdown after clearing
                 const dropdownToggleEl = document.querySelector('#filterDropdownContainer button[data-bs-toggle="dropdown"]');
                 if (dropdownToggleEl) {
                     const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownToggleEl) || new bootstrap.Dropdown(dropdownToggleEl);

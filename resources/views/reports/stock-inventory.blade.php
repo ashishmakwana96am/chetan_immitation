@@ -31,6 +31,9 @@
         .variant-table td {
             font-size: 0.8125rem;
         }
+        #stockTableFooterRow td {
+            white-space: nowrap !important;
+        }
     </style>
 @endsection
 
@@ -91,11 +94,64 @@
                 ],
             });
 
+            function formatInr(amount) {
+                return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function formatPairsPcs(pairs, pcs) {
+                const parts = [];
+                if (pairs > 0) {
+                    parts.push(pairs.toLocaleString('en-IN') + ' Pair' + (pairs > 1 ? 's' : ''));
+                }
+                if (pcs > 0 || parts.length === 0) {
+                    parts.push(pcs.toLocaleString('en-IN') + ' Pcs');
+                }
+                return parts.join('<br>');
+            }
+
+            function updateFooterTotals() {
+                const $rows = $(table.rows({ search: 'applied' }).nodes());
+
+                let pairTotal = 0, looseTotal = 0, purchaseTotal = 0, mrpTotal = 0;
+                const locPairTotals = new Array({{ $locations->count() }}).fill(0);
+                const locLooseTotals = new Array({{ $locations->count() }}).fill(0);
+
+                $rows.each(function () {
+                    const $row = $(this);
+                    pairTotal     += parseInt($row.data('pair-count'), 10) || 0;
+                    looseTotal    += parseInt($row.data('loose-pcs'), 10) || 0;
+                    purchaseTotal += parseFloat($row.data('purchase-value')) || 0;
+                    mrpTotal      += parseFloat($row.data('mrp-value')) || 0;
+
+                    const isPairProduct = $row.data('is-pair-product') == 1;
+                    const pairSize = parseFloat($row.data('pair-size')) || 1;
+
+                    $row.find('td[data-loc-qty]').each(function (idx) {
+                        const qty = parseInt($(this).data('loc-qty'), 10) || 0;
+                        if (isPairProduct && qty > 0) {
+                            locPairTotals[idx]  += Math.floor(qty / pairSize);
+                            locLooseTotals[idx] += qty % pairSize;
+                        } else {
+                            locLooseTotals[idx] += qty;
+                        }
+                    });
+                });
+
+                $('#stockTableFooterRow td[data-loc-total]').each(function (idx) {
+                    $(this).html(formatPairsPcs(locPairTotals[idx], locLooseTotals[idx]));
+                });
+
+                $('#stockTableFooterRow td[data-footer="qty"]').html(formatPairsPcs(pairTotal, looseTotal));
+                $('#stockTableFooterRow td[data-footer="purchase"]').html('₹ ' + formatInr(purchaseTotal));
+                $('#stockTableFooterRow td[data-footer="mrp"]').html('₹ ' + formatInr(mrpTotal));
+            }
+
             table.on('draw', function () {
                 const start = table.page.info().start;
                 table.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop) {
                     $(this.node()).find('td').eq(0).html(start + rowLoop + 1);
                 });
+                updateFooterTotals();
             }).draw(false);
 
             $('#stockTable tbody').off('click', '.variant-toggle').on('click', '.variant-toggle', function(e) {

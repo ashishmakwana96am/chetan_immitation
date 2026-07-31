@@ -126,10 +126,18 @@ $(document).ready(function () {
     // -------------------------------------------------------
     // Open common modal
     // Trigger : [data-common-modal="url"]
-    // Optional: [data-size="modal-lg|modal-xl|modal-sm"]
+    // Optional: [data-size="modal-lg|modal-xl|modal-sm|half"]
     // -------------------------------------------------------
+    const commonModalWidths = {
+        'modal-sm': '400px',
+        'modal-lg': '800px',
+        'modal-xl': '1140px',
+        'half': '50vw'
+    };
+
     window.openCommonModal = function (url, size) {
         $('#commonModalBody').html(showSpinner());
+        $('#commonModal').css('width', commonModalWidths[size] || '600px');
         $('#commonModal').offcanvas('show');
 
         $.get(url)

@@ -234,6 +234,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
             Route::get('customer-report/export', [ReportController::class, 'exportCustomerReport'])->name('customer-report.export');
             Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
+            Route::get('customer-report/sale-products', [ReportController::class, 'customerReportSaleProducts'])->name('customer-report.sale-products');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
@@ -246,6 +247,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
         Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
+        Route::delete('sales/{sale}', [SaleController::class, 'destroy'])->name('sales.destroy');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
         Route::get('sales/{sale}/tax-invoice', [SaleController::class, 'taxInvoice'])->name('sales.tax-invoice');
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');

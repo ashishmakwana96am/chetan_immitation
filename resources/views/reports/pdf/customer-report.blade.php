@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Customer Report</title>
+    <title>Customer Credit Report</title>
     <style>
         @page { size: A4 landscape; margin: 12px; }
         * { box-sizing: border-box; }
@@ -34,7 +34,7 @@
                 <div class="company-name">CHETAN IMITATION</div>
             </td>
             <td style="vertical-align: top; text-align: right;">
-                <div class="report-title">CUSTOMER REPORT</div>
+                <div class="report-title">CUSTOMER CREDIT REPORT</div>
                 <div class="report-meta">Generated Date: {{ date('d-m-Y h:i A') }}</div>
             </td>
         </tr>
@@ -43,20 +43,20 @@
     <table class="summary-box">
         <tr>
             <td style="width: 25%;">
-                <div class="summary-label">Total Customers</div>
-                <div class="summary-value">{{ $totalCustomers }}</div>
+                <div class="summary-label">Total Transactions</div>
+                <div class="summary-value">{{ $totalTransactions }}</div>
             </td>
             <td style="width: 25%;">
-                <div class="summary-label">Credit Customers</div>
-                <div class="summary-value">{{ $totalCreditCustomers }}</div>
+                <div class="summary-label">Total Credit</div>
+                <div class="summary-value">{{ format_price($totalCredit) }}</div>
+            </td>
+            <td style="width: 25%;">
+                <div class="summary-label">Total Debit</div>
+                <div class="summary-value">{{ format_price($totalDebit) }}</div>
             </td>
             <td style="width: 25%;">
                 <div class="summary-label">Total Balance</div>
                 <div class="summary-value">{{ format_price($totalWalletBalance) }}</div>
-            </td>
-            <td style="width: 25%;">
-                <div class="summary-label">Total Credit / Debit</div>
-                <div class="summary-value">{{ format_price($totalCredit) }} / {{ format_price($totalDebit) }}</div>
             </td>
         </tr>
     </table>
@@ -64,29 +64,33 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th style="width: 4%;" class="text-center">#</th>
-                <th style="width: 24%;">Name</th>
-                <th style="width: 16%;">Phone</th>
-                <th style="width: 14%;">Type</th>
-                <th style="width: 14%;" class="text-right">Total Credit</th>
-                <th style="width: 14%;" class="text-right">Total Debit</th>
-                <th style="width: 14%;" class="text-right">Balance</th>
+                <th style="width: 3%;" class="text-center">#</th>
+                <th style="width: 16%;">Customer</th>
+                <th style="width: 11%;">Phone</th>
+                <th style="width: 9%;">Source</th>
+                <th style="width: 8%;">Type</th>
+                <th style="width: 10%;" class="text-right">Amount</th>
+                <th style="width: 11%;" class="text-right">Balance After</th>
+                <th style="width: 18%;">Notes</th>
+                <th style="width: 14%;">Date</th>
             </tr>
         </thead>
         <tbody>
-            @forelse($customers as $index => $customer)
+            @forelse($transactions as $index => $transaction)
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $customer->name }}</td>
-                    <td>{{ $customer->phone ?? '-' }}</td>
-                    <td>{{ $customer->is_credit_customer ? 'Credit Customer' : 'Regular' }}</td>
-                    <td class="text-right">{{ $customer->is_credit_customer ? number_format((float) $customer->period_credit, 2) : '-' }}</td>
-                    <td class="text-right">{{ $customer->is_credit_customer ? number_format((float) $customer->period_debit, 2) : '-' }}</td>
-                    <td class="text-right fw-bold">{{ $customer->is_credit_customer ? number_format((float) $customer->balance, 2) : '-' }}</td>
+                    <td>{{ $transaction->customer->name ?? '-' }}</td>
+                    <td>{{ $transaction->customer->phone ?? '-' }}</td>
+                    <td>{{ ucfirst($transaction->source) }}</td>
+                    <td>{{ ucfirst($transaction->type) }}</td>
+                    <td class="text-right">{{ number_format((float) $transaction->amount, 2) }}</td>
+                    <td class="text-right fw-bold">{{ number_format((float) $transaction->balance_after, 2) }}</td>
+                    <td>{{ $transaction->notes ?? '-' }}</td>
+                    <td>{{ $transaction->created_at->format('d-m-Y h:i A') }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center" style="padding: 15px;">No customers found for the selected criteria.</td>
+                    <td colspan="9" class="text-center" style="padding: 15px;">No transactions found for the selected criteria.</td>
                 </tr>
             @endforelse
         </tbody>

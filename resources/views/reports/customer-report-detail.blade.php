@@ -148,9 +148,20 @@
             <!-- Transactions List Card (Right Column) -->
             <div class="col-lg-8 col-md-7">
                 <div class="card">
-                    <div class="card-header d-flex align-items-center gap-2">
-                        <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
-                        <h6 class="mb-0 fw-semibold">Transactions</h6>
+                    <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
+                            <h6 class="mb-0 fw-semibold">Transactions</h6>
+                        </div>
+                        <form method="GET" action="{{ route('admin.reports.customer-report.detail') }}" id="transactionTypeFilterForm" class="d-flex align-items-center gap-2">
+                            <input type="hidden" name="customer_id" value="{{ $customer->id }}">
+                            <label class="form-label mb-0 text-nowrap">Type</label>
+                            <select name="type" class="form-select form-select-sm no-select2" style="min-width: 140px" onchange="this.form.submit()">
+                                <option value="" {{ !$transactionType ? 'selected' : '' }}>All</option>
+                                <option value="credit" {{ $transactionType === 'credit' ? 'selected' : '' }}>Credit</option>
+                                <option value="debit" {{ $transactionType === 'debit' ? 'selected' : '' }}>Debit</option>
+                            </select>
+                        </form>
                     </div>
                     <div class="card-datatable table-responsive">
                         <table class="table border-top" id="transactionsTable">
@@ -163,13 +174,14 @@
                                     <th class="text-end">Balance After</th>
                                     <th>Notes</th>
                                     <th>Done By</th>
+                                    <th>Action</th>
                                     <th>date_group</th>
                                     <th>date_sort</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($transactions as $transaction)
-                                    <tr>
+                                    <tr @if($transaction->linked_order) data-modal-url="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-modal-size="half" style="cursor: pointer;" @endif>
                                         <td></td>
                                         <td class="text-capitalize">{{ $transaction->source }}</td>
                                         <td>
@@ -185,6 +197,22 @@
                                         <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
                                         <td>{{ $transaction->notes ?? '-' }}</td>
                                         <td>{{ $transaction->createdBy->name ?? '-' }}</td>
+                                        <td>
+                                            @if($transaction->linked_order)
+                                                <div class="dropdown table-action-dropdown">
+                                                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                                        <span>Actions</span>
+                                                    </button>
+                                                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                                        <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-size="half">
+                                                            <i class="ti ti-eye me-2"></i>View
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
                                         <td>{{ $transaction->created_at->format('d M Y') }}</td>
                                         <td>{{ $transaction->created_at->format('YmdHis') }}</td>
                                     </tr>
@@ -314,6 +342,13 @@
                 if (href) {
                     window.location.href = href;
                 }
+            });
+
+            $('#transactionsTable tbody').on('dblclick', 'tr[data-modal-url]', function (e) {
+                if ($(e.target).closest('.dropdown').length) {
+                    return;
+                }
+                window.openCommonModal($(this).data('modal-url'), $(this).data('modal-size'));
             });
         });
     </script>

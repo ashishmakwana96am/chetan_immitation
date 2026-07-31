@@ -78,6 +78,7 @@ class SaleController extends Controller
         $canEditSalesStatus = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales = auth()->user()->can('download sales');
+        $canDelete = auth()->user()->can('delete sales');
 
         $onlineOrders = $orders->where('source', 'ONLINE');
         $productIds = $onlineOrders->flatMap(fn($o) => $o->items->pluck('product_id'))->unique()->values();
@@ -114,7 +115,7 @@ class SaleController extends Controller
             3 => 'Partially Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -223,6 +224,10 @@ class SaleController extends Controller
             }
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+            }
+            if ($canDelete) {
+                $actions .= '<div class="dropdown-divider"></div>';
+                $actions .= '<a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '"><i class="ti ti-trash me-2"></i>Delete</a>';
             }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
@@ -566,6 +571,42 @@ class SaleController extends Controller
 
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment', 'cancellationRequest']);
         return view('sales.show', ['order' => $sale]);
+    }
+
+    public function destroy(Order $sale)
+    {
+        $this->authorize('delete sales');
+
+        if ($sale->order_type !== 'sale') {
+            abort(404);
+        }
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $sale->location_id !== $user->location_id) {
+            abort(403);
+        }
+
+        $orderNo = $sale->order_no;
+        $oldStatus = (int) $sale->status;
+        $stockAdjustedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+
+        DB::transaction(function () use ($sale, $stockAdjustedStatuses) {
+            if (in_array((int) $sale->status, $stockAdjustedStatuses, true)) {
+                foreach ($sale->items as $item) {
+                    $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
+                    $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
+                }
+            }
+
+            $sale->delete();
+        });
+
+        ActivityLogger::log('Sales', 'delete', $sale, ['status' => $oldStatus], null, 'Sale #' . $orderNo . ' deleted');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Sale #' . $orderNo . ' deleted successfully.',
+        ]);
     }
 
     public function pdf(Order $sale)
