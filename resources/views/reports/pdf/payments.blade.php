@@ -94,6 +94,8 @@
                         $status = 'Paid';
                     } elseif ((int)$order->payment_status === \App\Models\Order::PAYMENT_STATUS_PAID) {
                         $status = 'Paid';
+                    } elseif ((int)$order->payment_status === \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                        $status = 'Partially Paid';
                     } else {
                         $status = 'Pending';
                     }

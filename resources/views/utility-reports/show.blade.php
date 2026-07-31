@@ -128,6 +128,7 @@
             $statusMap = [
                 1 => 'Pending',
                 2 => 'Paid',
+                3 => 'Partially Paid',
             ];
             return $statusMap[$val] ?? "Payment Status #$val";
         }
@@ -249,8 +250,8 @@
                             <div class="col-sm-6 col-md-4">
                                 <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Payment Status</small>
                                 @php
-                                    $payStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success'];
-                                    $payStatusLabels = [1 => 'Pending', 2 => 'Paid'];
+                                    $payStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success', 3 => 'bg-label-primary'];
+                                    $payStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
                                 @endphp
                                 <span class="badge {{ $payStatusColors[$subject->payment_status] ?? 'bg-label-secondary' }}">
                                     {{ $payStatusLabels[$subject->payment_status] ?? 'Unknown' }}
@@ -331,8 +332,8 @@
                             <div class="col-sm-6 col-md-4">
                                 <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Payment Status</small>
                                 @php
-                                    $payStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success'];
-                                    $payStatusLabels = [1 => 'Pending', 2 => 'Paid'];
+                                    $payStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success', 3 => 'bg-label-primary'];
+                                    $payStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
                                 @endphp
                                 <span class="badge {{ $payStatusColors[$subject->payment_status] ?? 'bg-label-secondary' }}">
                                     {{ $payStatusLabels[$subject->payment_status] ?? 'Unknown' }}

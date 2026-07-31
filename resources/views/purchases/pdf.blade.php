@@ -110,7 +110,7 @@
                         <h4>Purchase Details</h4>
                         <p><span class="label">Purchase No:</span> <strong>{{ $purchase->invoice_no }}</strong></p>
                         <p><span class="label">Date:</span> {{ format_date($purchase->created_at) }}</p>
-                        @php $payLabels = [1 => 'Pending', 2 => 'Paid']; @endphp
+                        @php $payLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid']; @endphp
                         <p><span class="label">Payment Status:</span> {{ $payLabels[$purchase->payment_status ?? 1] ?? 'Pending' }}</p>
                     </div>
                 </td>

@@ -167,6 +167,7 @@
                         <option value="">All Statuses</option>
                         <option value="1" {{ $paymentStatus == 1 ? 'selected' : '' }}>Pending</option>
                         <option value="2" {{ $paymentStatus == 2 ? 'selected' : '' }}>Paid</option>
+                        <option value="3" {{ $paymentStatus == 3 ? 'selected' : '' }}>Partially Paid</option>
                     </select>
                 </div>
                 <div class="col-md-3 col-sm-6">
@@ -244,10 +245,12 @@
                                             $payColors = [
                                                 1 => 'bg-label-warning',
                                                 2 => 'bg-label-success',
+                                                3 => 'bg-label-primary',
                                             ];
                                             $payLabels = [
                                                 1 => 'Pending',
                                                 2 => 'Paid',
+                                                3 => 'Partially Paid',
                                             ];
                                             $badgeColor = $payColors[$order->payment_status] ?? 'bg-label-secondary';
                                         @endphp

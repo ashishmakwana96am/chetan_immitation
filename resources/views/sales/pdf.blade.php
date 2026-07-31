@@ -271,8 +271,8 @@
         5 => 'badge-delivered',
         6 => 'badge-decline',
     ];
-    $payLabels = [1 => 'Unpaid', 2 => 'Paid'];
-    $payBadge  = [1 => 'badge-unpaid', 2 => 'badge-paid'];
+    $payLabels = [1 => 'Unpaid', 2 => 'Paid', 3 => 'Partially Paid'];
+    $payBadge  = [1 => 'badge-unpaid', 2 => 'badge-paid', 3 => 'badge-unpaid'];
 
     $isOnline          = ($order->source ?? 'POS') === 'ONLINE';
     $totalItemDiscount = $order->items->sum('discount_amount');
