@@ -366,7 +366,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null, prependRow = true) {
         let initialVariantId = null;
 
         if (product.type !== 'variable' && !(product.pair_product && product.custom_sizes && product.custom_sizes.length) && hasDuplicate(product.id, null)) {
@@ -429,7 +429,11 @@ $(document).ready(function () {
                 <input type="hidden" class="pair-type-input" value="${pairType || 'single'}">`);
         }
 
-        $('#itemsBody').append(row);
+        if (prependRow) {
+            $('#itemsBody').prepend(row);
+        } else {
+            $('#itemsBody').append(row);
+        }
         refreshRowStock(row);
         updateSummary();
     }
@@ -769,10 +773,10 @@ $(document).ready(function () {
                     matchedVariant = product.variants[0];
                 }
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value, false);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value);
+                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value, false);
             }
         });
     }

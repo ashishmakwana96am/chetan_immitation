@@ -164,7 +164,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Purchases
         Route::get('purchases/import/sample', [PurchaseImportController::class, 'sample'])->name('purchases.import.sample');
-        Route::post('purchases/import', [PurchaseImportController::class, 'store'])->name('purchases.import.store');
+        Route::post('purchases/import/preview', [PurchaseImportController::class, 'preview'])->name('purchases.import.preview');
+        Route::post('purchases/import/confirm', [PurchaseImportController::class, 'confirm'])->name('purchases.import.confirm');
+        Route::delete('purchases/import/cancel', [PurchaseImportController::class, 'cancel'])->name('purchases.import.cancel');
         Route::get('purchases/data', [PurchaseController::class, 'data'])->name('purchases.data');
         Route::get('products/{product}/price', [PurchaseController::class, 'getProductPrice'])->name('products.price');
         Route::resource('purchases', PurchaseController::class)->except('show');

@@ -512,14 +512,16 @@ class ReportController extends Controller
         $this->authorize('view sale reports');
 
         $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
             $locationId = $request->query('location_id');
         }
-        $customers = Customer::orderBy('name')->get();
+        $customers = Customer::when($isRestricted, fn($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
 
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
@@ -2164,8 +2166,16 @@ class ReportController extends Controller
         $source     = $request->query('source');
         $customerId = $request->query('customer_id');
 
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
         $query = CustomerBalanceTransaction::query()
-            ->whereHas('customer', fn ($q) => $q->where('is_credit_customer', true))
+            ->whereHas('customer', function ($q) use ($isRestricted, $user) {
+                $q->where('is_credit_customer', true);
+                if ($isRestricted) {
+                    $q->where('location_id', $user->location_id);
+                }
+            })
             ->with(['customer', 'createdBy']);
 
         if ($startDate) {
@@ -2186,7 +2196,9 @@ class ReportController extends Controller
 
         $transactions = $query->orderByDesc('id')->get();
 
-        $creditCustomers = Customer::where('is_credit_customer', true)->orderBy('name')->get();
+        $creditCustomers = Customer::where('is_credit_customer', true)
+            ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
 
         $saleOrderNos = $transactions
             ->filter(fn ($t) => $t->type === CustomerBalanceTransaction::TYPE_DEBIT)
@@ -2269,6 +2281,11 @@ class ReportController extends Controller
         ]);
 
         $customer = Customer::findOrFail($request->customer_id);
+
+        $viewer = auth()->user();
+        if ($viewer->location_id && !$viewer->hasRole('super-admin') && $customer->location_id != $viewer->location_id) {
+            abort(403);
+        }
 
         $transactionType = $request->query('type');
 

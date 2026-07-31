@@ -18,6 +18,7 @@ class Customer extends Authenticatable
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
+        'location_id',
         'name',
         'email',
         'gst_no',
@@ -47,6 +48,11 @@ class Customer extends Authenticatable
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function balanceTransactions()

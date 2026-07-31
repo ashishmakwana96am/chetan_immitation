@@ -1231,7 +1231,11 @@ class AccountingController extends Controller
     {
         $this->authorize('manage customer balance');
 
-        $customers = Customer::where('is_credit_customer', true)->orderBy('name')->get();
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $customers = Customer::where('is_credit_customer', true)
+            ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
         $source = in_array($request->source, [CustomerBalanceTransaction::SOURCE_BANK, CustomerBalanceTransaction::SOURCE_CASH])
             ? $request->source
             : CustomerBalanceTransaction::SOURCE_CASH;
@@ -1261,6 +1265,14 @@ class AccountingController extends Controller
         }
 
         $customerId = (int) $request->customer_id;
+
+        $viewer = auth()->user();
+        if ($viewer->location_id && !$viewer->hasRole('super-admin')) {
+            $ownsCustomer = Customer::where('id', $customerId)->where('location_id', $viewer->location_id)->exists();
+            if (!$ownsCustomer) {
+                return response()->json(['status' => 'error', 'message' => 'You can only manage balances for customers in your own branch.'], 403);
+            }
+        }
 
         try {
             DB::transaction(function () use ($request, $customerId) {

@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
         progressLabel.text('Uploading… 0%');
 
         currentPurchaseImportRequest = $.ajax({
-            url: '{{ route('admin.purchases.import.store') }}',
+            url: '{{ route('admin.purchases.import.preview') }}',
             type: 'POST',
             data: formData,
             processData: false,
@@ -186,8 +186,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             const percent = Math.round((evt.loaded / evt.total) * 100);
                             progressBar.css('width', percent + '%');
                             if (percent >= 100) {
-                                progressLabel.text('Processing… this may take a moment for large files.');
-                                submitBtn.html('<span class="spinner-border spinner-border-sm me-1"></span> Processing...');
+                                progressLabel.text('Analyzing… this may take a moment for large files.');
+                                submitBtn.html('<span class="spinner-border spinner-border-sm me-1"></span> Analyzing...');
                             } else {
                                 progressLabel.text('Uploading… ' + percent + '%');
                             }
@@ -202,14 +202,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 progressWrap.hide();
 
                 if (res.status === 'success') {
-                    toastr.success(res.message || 'Purchase import completed successfully.');
                     fileInput.val('');
                     resetFileState();
                     bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('purchaseImportOffcanvas')).hide();
-                    if (typeof window.refreshTable === 'function') {
-                        window.refreshTable();
-                    }
-                    showPurchaseImportHistoryOffcanvas(res);
+                    showPurchaseImportPreviewOffcanvas(res);
                 }
             },
             error: function (xhr) {
@@ -248,6 +244,225 @@ document.addEventListener('DOMContentLoaded', function () {
         { key: 'failed_rows', label: 'Failed Rows', icon: 'ti-x', color: 'danger' },
         { key: 'skipped_rows', label: 'Skipped Rows', icon: 'ti-file-off', color: 'secondary' },
     ];
+
+    function formatInr(amount) {
+        return '₹ ' + (parseFloat(amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    const purchaseImportFieldLabels = {
+        name: 'Name',
+        category: 'Category',
+        sub_category: 'Sub Category',
+        category_id: 'Category',
+        sub_category_id: 'Sub Category',
+        purchase_price: 'Purchase Price',
+        sale_price: 'Sale Price',
+        mrp: 'MRP',
+        purchase_multiplier: 'Purchase Multiplier',
+        sale_multiplier: 'Sale Multiplier',
+        mrp_multiplier: 'MRP Multiplier',
+        type: 'Product Type',
+    };
+
+    function showPurchaseImportPreviewOffcanvas(res) {
+        window.currentPurchaseImportToken = res.token;
+
+        const summaryCards = $('#purchaseImportPreviewSummaryCards').empty();
+        purchaseImportSummaryTiles.forEach(function (tile) {
+            const value = res.summary[tile.key] ?? 0;
+            summaryCards.append(`
+                <div class="col-sm-6 col-md-4">
+                    <div class="card shadow-none border h-100">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-start justify-content-between">
+                                <div>
+                                    <span class="text-muted small">${tile.label}</span>
+                                    <h5 class="mb-0 mt-1">${value}</h5>
+                                </div>
+                                <span class="badge bg-label-${tile.color} rounded p-2"><i class="ti ${tile.icon} ti-sm"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+
+        // New products
+        const newProducts = res.new_products || [];
+        const newBody = $('#purchaseImportPreviewNewProductsBody').empty();
+        if (newProducts.length > 0) {
+            newProducts.forEach(function (p) {
+                newBody.append(`
+                    <tr>
+                        <td><code>${p.barcode}</code></td>
+                        <td class="fw-semibold">${p.name}</td>
+                        <td>${p.category}${p.sub_category && p.sub_category !== '-' ? ' / ' + p.sub_category : ''}</td>
+                        <td class="text-capitalize">${p.type}</td>
+                        <td class="text-end">${formatInr(p.purchase_price)}</td>
+                        <td class="text-end">${formatInr(p.sale_price)}</td>
+                        <td class="text-end">${formatInr(p.mrp)}</td>
+                    </tr>
+                `);
+            });
+            $('#purchaseImportPreviewNewProductsCount').text(newProducts.length);
+            $('#purchaseImportPreviewNewProductsWrap').removeClass('d-none');
+        } else {
+            $('#purchaseImportPreviewNewProductsWrap').addClass('d-none');
+        }
+
+        // Existing / reused products — old vs new diff
+        const updatedProducts = res.updated_products || [];
+        const updatedWrap = $('#purchaseImportPreviewUpdatedProductsBody').empty();
+        const changedProducts = updatedProducts.filter(p => p.changed);
+        if (changedProducts.length > 0) {
+            changedProducts.forEach(function (p) {
+                let rows = '';
+                Object.keys(p.changes).forEach(function (field) {
+                    const change = p.changes[field];
+                    const label = purchaseImportFieldLabels[field] || field;
+                    rows += `
+                        <tr>
+                            <td class="text-muted">${label}</td>
+                            <td class="text-danger">${change.old === '' || change.old === null ? '-' : change.old}</td>
+                            <td class="text-success fw-semibold">${change.new === '' || change.new === null ? '-' : change.new}</td>
+                        </tr>
+                    `;
+                });
+                updatedWrap.append(`
+                    <div class="card shadow-none border mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <code>${p.barcode}</code>
+                                <span class="fw-semibold">${p.name}</span>
+                            </div>
+                            <table class="table table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Field</th><th>Old Value</th><th>New Value</th></tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `);
+            });
+            $('#purchaseImportPreviewUpdatedProductsCount').text(changedProducts.length);
+            $('#purchaseImportPreviewUpdatedProductsWrap').removeClass('d-none');
+        } else {
+            $('#purchaseImportPreviewUpdatedProductsWrap').addClass('d-none');
+        }
+
+        // Purchases to be created
+        const purchasesPreview = res.purchases_preview || [];
+        if ($.fn.DataTable.isDataTable('#purchaseImportPreviewPurchasesTable')) {
+            $('#purchaseImportPreviewPurchasesTable').DataTable().destroy();
+        }
+        const purchasesBody = $('#purchaseImportPreviewPurchasesBody').empty();
+        if (purchasesPreview.length > 0) {
+            purchasesPreview.forEach(function (p) {
+                const qtyParts = [];
+                if (p.pair_qty > 0) {
+                    qtyParts.push(p.pair_qty + ' Pair' + (p.pair_qty > 1 ? 's' : ''));
+                }
+                if (p.pcs_qty > 0) {
+                    qtyParts.push(p.pcs_qty + ' Pcs');
+                }
+                const qtyDisplay = qtyParts.length > 0 ? qtyParts.join('<br>') : '-';
+
+                purchasesBody.append(`
+                    <tr>
+                        <td class="fw-semibold">${p.supplier_name}</td>
+                        <td class="text-center">${p.item_count}</td>
+                        <td class="text-center">${qtyDisplay}</td>
+                        <td class="text-end">${formatInr(p.total_amount)}</td>
+                        <td class="text-end">${formatInr(p.paid_amount)}</td>
+                        <td><span class="badge bg-label-${p.status === 'Approve' ? 'success' : 'secondary'}">${p.status}</span></td>
+                        <td><span class="badge bg-label-${p.payment_status === 'Paid' ? 'success' : (p.payment_status === 'Partial' ? 'info' : 'warning')}">${p.payment_status}</span></td>
+                    </tr>
+                `);
+            });
+            $('#purchaseImportPreviewPurchasesTable').DataTable({
+                responsive: false,
+                pageLength: 10,
+                order: [],
+                language: {
+                    search: "",
+                    searchPlaceholder: "Search Supplier..."
+                }
+            });
+            $('#purchaseImportPreviewPurchasesWrap').removeClass('d-none');
+        } else {
+            $('#purchaseImportPreviewPurchasesWrap').addClass('d-none');
+        }
+
+        // Failures
+        const failures = res.failures || [];
+        const failuresBody = $('#purchaseImportPreviewFailuresBody').empty();
+        if (failures.length > 0) {
+            failures.forEach(function (f) {
+                failuresBody.append(`
+                    <tr>
+                        <td>${f.row}</td>
+                        <td>${f.product || 'N/A'}</td>
+                        <td>${f.barcode || 'N/A'}</td>
+                        <td><span class="badge bg-label-danger">${f.status}</span></td>
+                        <td>${f.reason}</td>
+                    </tr>
+                `);
+            });
+            $('#purchaseImportPreviewFailuresWrap').removeClass('d-none');
+        } else {
+            $('#purchaseImportPreviewFailuresWrap').addClass('d-none');
+        }
+
+        bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('purchaseImportPreviewOffcanvas')).show();
+    }
+
+    function cancelPurchaseImportPreview() {
+        const token = window.currentPurchaseImportToken;
+        window.currentPurchaseImportToken = null;
+        if (token) {
+            $.ajax({ url: '{{ route('admin.purchases.import.cancel') }}', type: 'DELETE', data: { token: token } });
+        }
+        bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('purchaseImportPreviewOffcanvas')).hide();
+    }
+
+    $(document).on('click', '#purchaseImportPreviewCancelBtn, #purchaseImportPreviewCloseBtn', function () {
+        cancelPurchaseImportPreview();
+    });
+
+    $(document).on('click', '#purchaseImportPreviewConfirmBtn', function () {
+        const token = window.currentPurchaseImportToken;
+        if (!token) {
+            toastr.error('This preview has expired. Please upload the file again.');
+            return;
+        }
+
+        const btn = $(this);
+        btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Importing...');
+
+        $.ajax({
+            url: '{{ route('admin.purchases.import.confirm') }}',
+            type: 'POST',
+            data: { token: token },
+            success: function (res) {
+                btn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Confirm & Import');
+                if (res.status === 'success') {
+                    window.currentPurchaseImportToken = null;
+                    toastr.success(res.message || 'Purchase import completed successfully.');
+                    bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('purchaseImportPreviewOffcanvas')).hide();
+                    if (typeof window.refreshTable === 'function') {
+                        window.refreshTable();
+                    }
+                    showPurchaseImportHistoryOffcanvas(res);
+                }
+            },
+            error: function (xhr) {
+                btn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Confirm & Import');
+                const message = xhr.responseJSON?.message || 'Failed to complete the import.';
+                toastr.error(message, 'Import Failed', { timeOut: 12000, closeButton: true });
+            }
+        });
+    });
 
     function showPurchaseImportHistoryOffcanvas(res) {
         const summaryCards = $('#purchaseImportHistorySummaryCards').empty();

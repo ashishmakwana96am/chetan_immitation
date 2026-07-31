@@ -420,9 +420,10 @@ class OrderObserver
 
     /**
      * Apply a debit (sale paid) or reversal (credit back) to a customer's
-     * wallet balance. Unlike manual balance entries, this is allowed to go
-     * negative — it reflects the customer's real outstanding due when a
-     * sale's paid amount exceeds their available balance.
+     * wallet balance. The debit amount is expected to already be capped to
+     * the customer's available balance by SaleController::capPaymentToCustomerBalance
+     * before the order is saved — the floor at 0 below is just a safety net,
+     * not the primary enforcement, since a wallet balance must never go negative.
      */
     private function applyCustomerWalletChange(int $customerId, float $amount, string $source, string $note, ?int $userId, bool $isReversal = false, bool $isUpdateReversal = false, ?string $customLogDescription = null): void
     {
@@ -469,7 +470,7 @@ class OrderObserver
                 return;
             }
 
-            $newBalance = $oldBalance - $amount;
+            $newBalance = max(0.0, $oldBalance - $amount);
             $customer->update(['balance' => $newBalance]);
 
             $transaction = CustomerBalanceTransaction::create([

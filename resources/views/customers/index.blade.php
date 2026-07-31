@@ -58,6 +58,9 @@
                         <th>Name</th>
                         <th>Phone</th>
                         <th>Email</th>
+                        @if($isSuperAdmin)
+                            <th>Branch</th>
+                        @endif
                         <th>GST No</th>
                         <th>State</th>
                         <th>Status</th>
@@ -102,6 +105,9 @@
                     }},
                     { data: 'phone' },
                     { data: 'email' },
+                    @if($isSuperAdmin)
+                        { data: 'branch' },
+                    @endif
                     { data: 'gst_no' },
                     { data: 'state' },
                     { data: 'status',     orderable: false },

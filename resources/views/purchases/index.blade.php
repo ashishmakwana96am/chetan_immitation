@@ -171,6 +171,92 @@
                 </div>
             </div>
         </div>
+
+        <div class="offcanvas offcanvas-end" id="purchaseImportPreviewOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 65vw; max-width: 100vw;">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Review Before Import</h5>
+                <button type="button" class="btn-close text-reset" id="purchaseImportPreviewCloseBtn" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body p-4 d-flex flex-column" style="overflow-y: auto; overflow-x: hidden;">
+                <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+                    <i class="ti ti-info-circle me-2 fs-5"></i>
+                    <div>Nothing has been saved yet. Review the details below, then click <strong>Confirm &amp; Import</strong> to actually create the purchase(s).</div>
+                </div>
+
+                <h6 class="fw-semibold mb-3">Summary</h6>
+                <div class="row g-3 mb-4" id="purchaseImportPreviewSummaryCards"></div>
+
+                <div id="purchaseImportPreviewNewProductsWrap" class="mb-4 d-none">
+                    <h6 class="fw-semibold mb-2"><i class="ti ti-package me-1"></i> New Products <span class="badge bg-label-info" id="purchaseImportPreviewNewProductsCount"></span></h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Barcode</th>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Purchase Price</th>
+                                    <th class="text-end">Sale Price</th>
+                                    <th class="text-end">MRP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseImportPreviewNewProductsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="purchaseImportPreviewUpdatedProductsWrap" class="mb-4 d-none">
+                    <h6 class="fw-semibold mb-2"><i class="ti ti-refresh me-1"></i> Existing Products Being Reused <span class="badge bg-label-warning" id="purchaseImportPreviewUpdatedProductsCount"></span></h6>
+                    <small class="text-muted d-block mb-2">These products already exist (matched by barcode). Fields below will be overwritten with the Excel's values.</small>
+                    <div id="purchaseImportPreviewUpdatedProductsBody"></div>
+                </div>
+
+                <div id="purchaseImportPreviewPurchasesWrap" class="mb-4 d-none">
+                    <h6 class="fw-semibold mb-2"><i class="ti ti-shopping-cart me-1"></i> Purchases to be Created</h6>
+                    <div class="card-datatable table-responsive">
+                        <table class="table table-sm table-bordered mb-0" id="purchaseImportPreviewPurchasesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th class="text-center">Items</th>
+                                    <th class="text-center">Quantity</th>
+                                    <th class="text-end">Total Amount</th>
+                                    <th class="text-end">Paid Amount</th>
+                                    <th>Status</th>
+                                    <th>Payment Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseImportPreviewPurchasesBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="purchaseImportPreviewFailuresWrap" class="mb-4 d-none">
+                    <h6 class="fw-semibold mb-2 text-danger"><i class="ti ti-alert-triangle me-1"></i> Rows That Will Be Skipped</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Row</th>
+                                    <th>Product</th>
+                                    <th>Barcode</th>
+                                    <th>Status</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseImportPreviewFailuresBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
+                <button type="button" class="btn btn-primary flex-fill w-50 m-0" id="purchaseImportPreviewConfirmBtn">
+                    <i class="ti ti-check me-1"></i> Confirm &amp; Import
+                </button>
+                <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" id="purchaseImportPreviewCancelBtn">Cancel</button>
+            </div>
+        </div>
     @endcan
 
     <div class="card">

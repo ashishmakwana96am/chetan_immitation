@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\MergesGuestCustomerState;
 use App\Mail\WelcomeMemberMail;
 use App\Models\Customer;
+use App\Models\Location;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -57,7 +58,10 @@ class MemberRegisterController extends Controller
             ], 422);
         }
 
+        $defaultLocation = Location::where('is_default', true)->first() ?? Location::first();
+
         $customer = Customer::create([
+            'location_id' => $defaultLocation?->id,
             'name'       => $request->name,
             'email'      => $request->email,
             'password'   => $request->password,

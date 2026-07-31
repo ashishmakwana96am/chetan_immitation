@@ -25,7 +25,15 @@ class PurchaseImportService
     {
     }
 
-    public function process(UploadedFile $file, ?int $userId): array
+    /**
+     * @param bool $dryRun When true, every DB write (products, categories, variants,
+     *                      suppliers, purchases) happens inside a transaction that is
+     *                      rolled back at the end — nothing is persisted. Used to build
+     *                      an accurate preview (including auto-created categories/variants)
+     *                      without touching real data, by running the exact same code
+     *                      path that a real import would.
+     */
+    public function process(UploadedFile $file, ?int $userId, bool $dryRun = false): array
     {
         $summary = [
             'total_rows'             => 0,
@@ -39,6 +47,8 @@ class PurchaseImportService
             'purchase_ids'           => [],
         ];
         $failures = [];
+        $productDiffs = ['new' => [], 'updated' => []];
+        $purchasesPreview = [];
 
         $rows = $this->parseWorkbook($file);
 
@@ -65,128 +75,190 @@ class PurchaseImportService
 
         $history = [];
         $lastSupplier = null;
-        foreach ($groups as $group) {
-            $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows, $lastSupplier);
-        }
 
-        if (!empty($validRows)) {
-            $groupedBySupplier = [];
-            foreach ($validRows as $vr) {
-                $key = strtolower(trim($vr['supplier_name']));
-                if (!isset($groupedBySupplier[$key])) {
-                    $groupedBySupplier[$key] = [
-                        'supplier_name' => $vr['supplier_name'],
-                        'items'         => [],
-                    ];
+        try {
+            DB::transaction(function () use (&$groups, &$productsByBarcode, &$seenSignatures, &$summary, &$failures, $userId, &$history, &$validRows, &$lastSupplier, &$productDiffs, &$purchasesPreview, $dryRun) {
+                foreach ($groups as $group) {
+                    $this->processGroup($group, $productsByBarcode, $seenSignatures, $summary, $failures, $userId, $history, $validRows, $lastSupplier, $productDiffs);
                 }
-                $groupedBySupplier[$key]['items'][] = $vr;
-            }
 
-            $purchaseDate = now()->startOfDay();
+                $this->createPurchasesFromValidRows($validRows, $userId, $summary, $purchasesPreview);
 
-            foreach ($groupedBySupplier as $supplierGroup) {
-                DB::transaction(function () use ($supplierGroup, $purchaseDate, $userId, &$summary) {
-                    $supplierName = $supplierGroup['supplier_name'];
-                    $items = $supplierGroup['items'];
-
-                    $supplier = Supplier::firstOrCreate(
-                        ['name' => $supplierName],
-                        ['status' => Supplier::STATUS_ACTIVE, 'created_by' => $userId]
-                    );
-
-                    $totalAmount = 0.0;
-                    $paidAmount = 0.0;
-
-                    foreach ($items as $item) {
-                        $totalAmount += $item['total'];
-                        $paidAmount += $item['paid_amount'];
-                    }
-
-                    $totalAmount = round($totalAmount, 2);
-                    $paidAmount = round($paidAmount, 2);
-
-                    $status = Purchase::STATUS_PENDING;
-                    foreach ($items as $item) {
-                        if ($item['status'] === Purchase::STATUS_APPROVE) {
-                            $status = Purchase::STATUS_APPROVE;
-                            break;
-                        }
-                    }
-
-                    $paymentStatus = Purchase::PAYMENT_STATUS_PENDING;
-                    if ($paidAmount >= $totalAmount) {
-                        $paidAmount = $totalAmount;
-                        $paymentStatus = Purchase::PAYMENT_STATUS_PAID;
-                    } elseif ($paidAmount > 0) {
-                        $paymentStatus = Purchase::PAYMENT_STATUS_PARTIAL;
-                    }
-
-                    $paymentMethod = $items[0]['payment_method'] ?? 'cash';
-                    $defaultLocation = $this->defaultPurchaseLocation();
-
-                    $purchase = Purchase::create([
-                        'supplier_id'    => $supplier->id,
-                        'location_id'    => $defaultLocation->id,
-                        'invoice_no'     => generate_invoice_no('PS', Purchase::class),
-                        'is_gst'         => false,
-                        'tax_amount'     => 0.00,
-                        'total_amount'   => $totalAmount,
-                        'status'         => $status,
-                        'payment_status' => $paymentStatus,
-                        'payment_method' => $paymentMethod,
-                        'paid_amount'    => $paidAmount,
-                        'created_by'     => $userId,
-                    ]);
-                    $purchase->created_at = $purchaseDate;
-                    $purchase->updated_at = $purchaseDate;
-                    $purchase->save();
-
-                    if ($paidAmount > 0) {
-                        PurchasePayment::create([
-                            'purchase_id' => $purchase->id,
-                            'amount'      => $paidAmount,
-                            'created_by'  => $userId,
-                        ]);
-                    }
-
-                    foreach ($items as $itemData) {
-                        $item = PurchaseItem::create([
-                            'purchase_id'        => $purchase->id,
-                            'product_id'         => $itemData['product']->id,
-                            'product_variant_id' => $itemData['product_variant_id'],
-                            'purchase_price'     => $itemData['price'],
-                            'quantity'           => $itemData['quantity'],
-                            'custom_size_value'  => $itemData['custom_size_value'] ?? null,
-                            'total'              => $itemData['total'],
-                        ]);
-
-                        PurchaseAllocation::create([
-                            'purchase_item_id' => $item->id,
-                            'location_id'      => $defaultLocation->id,
-                            'quantity'          => $itemData['quantity'],
-                        ]);
-                    }
-
-                    if ($status === Purchase::STATUS_APPROVE) {
-                        PurchaseStockService::approve($purchase);
-                    }
-
-                    $summary['purchases_created']++;
-                    $summary['purchase_ids'][] = $purchase->id;
-                });
-            }
+                if ($dryRun) {
+                    throw new PurchaseImportDryRun();
+                }
+            });
+        } catch (PurchaseImportDryRun) {
+            // Expected — the transaction above has already been rolled back by Laravel.
         }
 
-        ActivityLogger::log(
-            'Purchase',
-            'import',
-            null,
-            null,
-            $summary,
-            "Purchase import: {$summary['purchases_created']} purchases created, {$summary['failed_rows']} failed"
-        );
+        if (!$dryRun) {
+            ActivityLogger::log(
+                'Purchase',
+                'import',
+                null,
+                null,
+                $summary,
+                "Purchase import: {$summary['purchases_created']} purchases created, {$summary['failed_rows']} failed"
+            );
+        }
 
-        return ['summary' => $summary, 'failures' => $failures, 'history' => $history];
+        if ($dryRun) {
+            // Every ID above (product IDs, purchase IDs) belongs to a rolled-back
+            // transaction and no longer exists — don't let callers act on them.
+            $summary['purchase_ids'] = [];
+        }
+
+        return [
+            'summary'           => $summary,
+            'failures'          => $failures,
+            'history'           => $history,
+            'new_products'      => $productDiffs['new'],
+            'updated_products'  => $productDiffs['updated'],
+            'purchases_preview' => $purchasesPreview,
+        ];
+    }
+
+    private function createPurchasesFromValidRows(array $validRows, ?int $userId, array &$summary, array &$purchasesPreview): void
+    {
+        if (empty($validRows)) {
+            return;
+        }
+
+        $groupedBySupplier = [];
+        foreach ($validRows as $vr) {
+            $key = strtolower(trim($vr['supplier_name']));
+            if (!isset($groupedBySupplier[$key])) {
+                $groupedBySupplier[$key] = [
+                    'supplier_name' => $vr['supplier_name'],
+                    'items'         => [],
+                ];
+            }
+            $groupedBySupplier[$key]['items'][] = $vr;
+        }
+
+        $purchaseDate = now()->startOfDay();
+
+        foreach ($groupedBySupplier as $supplierGroup) {
+            DB::transaction(function () use ($supplierGroup, $purchaseDate, $userId, &$summary, &$purchasesPreview) {
+                $supplierName = $supplierGroup['supplier_name'];
+                $items = $supplierGroup['items'];
+
+                $supplier = Supplier::firstOrCreate(
+                    ['name' => $supplierName],
+                    ['status' => Supplier::STATUS_ACTIVE, 'created_by' => $userId]
+                );
+
+                $totalAmount = 0.0;
+                $paidAmount = 0.0;
+
+                foreach ($items as $item) {
+                    $totalAmount += $item['total'];
+                    $paidAmount += $item['paid_amount'];
+                }
+
+                $totalAmount = round($totalAmount, 2);
+                $paidAmount = round($paidAmount, 2);
+
+                $status = Purchase::STATUS_PENDING;
+                foreach ($items as $item) {
+                    if ($item['status'] === Purchase::STATUS_APPROVE) {
+                        $status = Purchase::STATUS_APPROVE;
+                        break;
+                    }
+                }
+
+                $paymentStatus = Purchase::PAYMENT_STATUS_PENDING;
+                if ($paidAmount >= $totalAmount) {
+                    $paidAmount = $totalAmount;
+                    $paymentStatus = Purchase::PAYMENT_STATUS_PAID;
+                } elseif ($paidAmount > 0) {
+                    $paymentStatus = Purchase::PAYMENT_STATUS_PARTIAL;
+                }
+
+                $paymentMethod = $items[0]['payment_method'] ?? 'cash';
+                $defaultLocation = $this->defaultPurchaseLocation();
+
+                $purchase = Purchase::create([
+                    'supplier_id'    => $supplier->id,
+                    'location_id'    => $defaultLocation->id,
+                    'invoice_no'     => generate_invoice_no('PS', Purchase::class),
+                    'is_gst'         => false,
+                    'tax_amount'     => 0.00,
+                    'total_amount'   => $totalAmount,
+                    'status'         => $status,
+                    'payment_status' => $paymentStatus,
+                    'payment_method' => $paymentMethod,
+                    'paid_amount'    => $paidAmount,
+                    'created_by'     => $userId,
+                ]);
+                $purchase->created_at = $purchaseDate;
+                $purchase->updated_at = $purchaseDate;
+                $purchase->save();
+
+                if ($paidAmount > 0) {
+                    PurchasePayment::create([
+                        'purchase_id' => $purchase->id,
+                        'amount'      => $paidAmount,
+                        'created_by'  => $userId,
+                    ]);
+                }
+
+                foreach ($items as $itemData) {
+                    $item = PurchaseItem::create([
+                        'purchase_id'        => $purchase->id,
+                        'product_id'         => $itemData['product']->id,
+                        'product_variant_id' => $itemData['product_variant_id'],
+                        'purchase_price'     => $itemData['price'],
+                        'quantity'           => $itemData['quantity'],
+                        'custom_size_value'  => $itemData['custom_size_value'] ?? null,
+                        'total'              => $itemData['total'],
+                    ]);
+
+                    PurchaseAllocation::create([
+                        'purchase_item_id' => $item->id,
+                        'location_id'      => $defaultLocation->id,
+                        'quantity'          => $itemData['quantity'],
+                    ]);
+                }
+
+                if ($status === Purchase::STATUS_APPROVE) {
+                    PurchaseStockService::approve($purchase);
+                }
+
+                $summary['purchases_created']++;
+                $summary['purchase_ids'][] = $purchase->id;
+
+                // Purchase item quantity is entered as a pair-count for pair
+                // products (e.g. 6 pairs) and a plain piece-count otherwise —
+                // same convention as everywhere else stock is displayed.
+                $pairQty = 0;
+                $pcsQty = 0;
+                foreach ($items as $itemData) {
+                    if ($itemData['product']->pair_product) {
+                        $pairQty += $itemData['quantity'];
+                    } else {
+                        $pcsQty += $itemData['quantity'];
+                    }
+                }
+
+                $purchasesPreview[] = [
+                    'supplier_name'   => $supplierName,
+                    'invoice_no'      => $purchase->invoice_no,
+                    'item_count'      => count($items),
+                    'pair_qty'        => $pairQty,
+                    'pcs_qty'         => $pcsQty,
+                    'total_amount'    => $totalAmount,
+                    'paid_amount'     => $paidAmount,
+                    'status'          => $status === Purchase::STATUS_APPROVE ? 'Approve' : 'Pending',
+                    'payment_status'  => match ($paymentStatus) {
+                        Purchase::PAYMENT_STATUS_PAID    => 'Paid',
+                        Purchase::PAYMENT_STATUS_PARTIAL => 'Partial',
+                        default                           => 'Pending',
+                    },
+                ];
+            });
+        }
     }
 
     private function parseWorkbook(UploadedFile $file): array
@@ -338,7 +410,7 @@ class PurchaseImportService
         return in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 't'], true);
     }
 
-    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history, array &$validRows, ?string &$lastSupplier): void
+    private function processGroup(array $group, array &$productsByBarcode, array &$seenSignatures, array &$summary, array &$failures, ?int $userId, array &$history, array &$validRows, ?string &$lastSupplier, array &$productDiffs): void
     {
         $barcode = $group['barcode'];
 
@@ -361,12 +433,43 @@ class PurchaseImportService
         $product = $productsByBarcode[$barcode] ?? null;
 
         if ($product) {
+            $diffFields = ['name', 'category_id', 'sub_category_id', 'purchase_price', 'sale_price', 'mrp', 'purchase_multiplier', 'sale_multiplier', 'mrp_multiplier', 'type'];
+            $oldSnapshot = $product->only($diffFields);
+            $oldCategoryName = $product->category->name ?? '-';
+            $oldSubCategoryName = $product->subCategory->name ?? '-';
+
             try {
                 DB::transaction(function () use ($product, $group, &$summary, $userId) {
                     $this->productCreation->restoreTrashedProduct($product);
                     $this->productCreation->updateExistingProduct($product, $group, $summary, $userId);
                 });
                 $summary['existing_products_used']++;
+
+                $newSnapshot = $product->only($diffFields);
+                $changes = [];
+                foreach ($diffFields as $field) {
+                    if ((string) $oldSnapshot[$field] !== (string) $newSnapshot[$field]) {
+                        $changes[$field] = ['old' => $oldSnapshot[$field], 'new' => $newSnapshot[$field]];
+                    }
+                }
+                // Category/SubCategory are matched case-insensitively at the DB level
+                // (firstOrCreate against a _ci collation), so "Necklace" vs "NECKLACE"
+                // resolves to the same row and creates nothing new — only flag it as a
+                // change here when it's a genuinely different name, not just casing.
+                if (mb_strtolower($oldCategoryName) !== mb_strtolower($group['category_name'])) {
+                    $changes['category'] = ['old' => $oldCategoryName, 'new' => $group['category_name']];
+                }
+                $newSubCategoryName = $group['sub_category_name'] !== '' ? $group['sub_category_name'] : '-';
+                if (mb_strtolower($oldSubCategoryName) !== mb_strtolower($newSubCategoryName)) {
+                    $changes['sub_category'] = ['old' => $oldSubCategoryName, 'new' => $newSubCategoryName];
+                }
+
+                $productDiffs['updated'][] = [
+                    'barcode' => $barcode,
+                    'name'    => $product->name,
+                    'changed' => !empty($changes),
+                    'changes' => $changes,
+                ];
             } catch (\Throwable $e) {
                 Log::error('Purchase import: product update failed for barcode ' . $barcode . ': ' . $e->getMessage());
                 foreach ($group['rows'] as $row) {
@@ -387,6 +490,17 @@ class PurchaseImportService
                 $product = $this->productCreation->create($group, $summary, $userId);
                 $productsByBarcode[$barcode] = $product;
                 $summary['products_created']++;
+
+                $productDiffs['new'][] = [
+                    'barcode'       => $barcode,
+                    'name'          => $product->name,
+                    'category'      => $group['category_name'],
+                    'sub_category'  => $group['sub_category_name'] !== '' ? $group['sub_category_name'] : '-',
+                    'type'          => $product->type,
+                    'purchase_price' => (float) $product->purchase_price,
+                    'sale_price'    => (float) $product->sale_price,
+                    'mrp'           => (float) $product->mrp,
+                ];
             } catch (\Throwable $e) {
                 Log::error('Purchase import: product creation failed for barcode ' . $barcode . ': ' . $e->getMessage());
                 foreach ($group['rows'] as $row) {
@@ -668,5 +782,15 @@ class RowFailureException extends \Exception
 }
 
 class RowSkipException extends \Exception
+{
+}
+
+/**
+ * Thrown at the end of a dry-run import to force the wrapping DB::transaction
+ * to roll back everything it just did (products, categories, variants,
+ * suppliers, purchases) while still letting process() return the collected
+ * preview payload — see PurchaseImportService::process().
+ */
+class PurchaseImportDryRun extends \Exception
 {
 }

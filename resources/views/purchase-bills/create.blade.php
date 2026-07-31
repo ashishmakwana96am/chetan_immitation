@@ -420,7 +420,7 @@ $(document).ready(function () {
                 <input type="hidden" class="pair-type-input" value="single">`);
         }
 
-        $('#itemsBody').append(row);
+        $('#itemsBody').prepend(row);
         refreshRowStock(row);
         updateSummary();
     }
