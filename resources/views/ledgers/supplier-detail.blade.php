@@ -162,11 +162,14 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            $('#purchasesInvoicesTable').DataTable({
-                responsive: true,
-                order: [],
-                columnDefs: [{ targets: 0, orderable: false }],
-            });
+            if ($('#purchasesInvoicesTable tbody tr').length > 0 && !$('#purchasesInvoicesTable tbody tr td').hasClass('dataTables_empty') && $('#purchasesInvoicesTable tbody tr td[colspan]').length === 0) {
+                $('#purchasesInvoicesTable').DataTable({
+                    responsive: true,
+                    order: [],
+                    columnDefs: [{ targets: 0, orderable: false }],
+                });
+            }
         });
     </script>
 @endsection
+

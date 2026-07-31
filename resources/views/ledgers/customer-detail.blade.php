@@ -3,6 +3,8 @@
 @section('title', 'Customer Ledger Details')
 
 @section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <style>
         .ledger-info-row {
             display: flex;
@@ -112,7 +114,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0">
+                        <table class="table border-top table-hover mb-0" id="customerOrdersTable">
                             <thead>
                                 <tr>
                                     <th style="width: 5%">#</th>
@@ -123,7 +125,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($orders as $index => $order)
+                                @foreach($orders as $index => $order)
                                     @php
                                         if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                                             $paid = (float) $order->final_amount;
@@ -145,13 +147,7 @@
                                         <td class="text-end text-success fw-semibold">{{ format_price($paid) }}</td>
                                         <td class="text-end text-danger fw-semibold">{{ format_price($remaining) }}</td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
-                                            No sales found for this date.
-                                        </td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -160,3 +156,19 @@
         </div>
     </div>
 @endsection
+
+@section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            if ($('#customerOrdersTable tbody tr').length > 0) {
+                $('#customerOrdersTable').DataTable({
+                    responsive: true,
+                    order: [],
+                    columnDefs: [{ targets: 0, orderable: false }],
+                });
+            }
+        });
+    </script>
+@endsection
+

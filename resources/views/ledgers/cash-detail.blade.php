@@ -167,11 +167,14 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            $('#cashTransactionsTable').DataTable({
-                responsive: true,
-                order: [],
-                columnDefs: [{ targets: 0, orderable: false }],
-            });
+            if ($('#cashTransactionsTable tbody tr').length > 0 && $('#cashTransactionsTable tbody tr td[colspan]').length === 0) {
+                $('#cashTransactionsTable').DataTable({
+                    responsive: true,
+                    order: [],
+                    columnDefs: [{ targets: 0, orderable: false }],
+                });
+            }
         });
     </script>
 @endsection
+
