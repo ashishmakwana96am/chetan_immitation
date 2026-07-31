@@ -196,16 +196,21 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            $('#transferInTable').DataTable({
-                responsive: true,
-                order: [],
-                columnDefs: [{ targets: 0, orderable: false }],
-            });
-            $('#transferOutTable').DataTable({
-                responsive: true,
-                order: [],
-                columnDefs: [{ targets: 0, orderable: false }],
-            });
+            if ($('#transferInTable tbody tr').length > 0 && $('#transferInTable tbody tr td[colspan]').length === 0) {
+                $('#transferInTable').DataTable({
+                    responsive: true,
+                    order: [],
+                    columnDefs: [{ targets: 0, orderable: false }],
+                });
+            }
+            if ($('#transferOutTable tbody tr').length > 0 && $('#transferOutTable tbody tr td[colspan]').length === 0) {
+                $('#transferOutTable').DataTable({
+                    responsive: true,
+                    order: [],
+                    columnDefs: [{ targets: 0, orderable: false }],
+                });
+            }
         });
     </script>
 @endsection
+
