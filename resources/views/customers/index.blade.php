@@ -58,6 +58,9 @@
                         <th>Name</th>
                         <th>Phone</th>
                         <th>Email</th>
+                        @if($isSuperAdmin)
+                            <th>Branch</th>
+                        @endif
                         <th>GST No</th>
                         <th>State</th>
                         <th>Status</th>
@@ -91,9 +94,20 @@
                 },
                 columns    : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                    { data: 'name' },
+                    { data: 'name', render: function(data, type, row) {
+                        if (type === 'display') {
+                            var badge = row.is_credit_customer
+                                ? ' <span class="badge bg-label-info ms-1">Credit</span>'
+                                : '';
+                            return data + badge;
+                        }
+                        return data;
+                    }},
                     { data: 'phone' },
                     { data: 'email' },
+                    @if($isSuperAdmin)
+                        { data: 'branch' },
+                    @endif
                     { data: 'gst_no' },
                     { data: 'state' },
                     { data: 'status',     orderable: false },
@@ -154,6 +168,28 @@
                     error : function () {
                         toggle.prop('checked', !toggle.prop('checked'));
                         toastr.error('Something went wrong. Please try again.');
+                    }
+                });
+            });
+
+            $(document).on('change', '.customer-credit-toggle', function () {
+                const toggle = $(this);
+                const url    = toggle.attr('data-url');
+
+                $.ajax({
+                    url  : url,
+                    type : 'PATCH',
+                    data : { _token: $('meta[name="csrf-token"]').attr('content') },
+                    success : function (res) {
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            window.refreshTable();
+                        }
+                    },
+                    error : function (xhr) {
+                        toggle.prop('checked', !toggle.prop('checked'));
+                        const msg = xhr.responseJSON?.message;
+                        toastr.error(typeof msg === 'string' ? msg : 'Something went wrong. Please try again.');
                     }
                 });
             });

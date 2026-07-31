@@ -249,7 +249,7 @@
         <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon"><i class="ti ti-shopping-bag"></i></span>
+                    <span class="card-title-icon"><i class="ti ti-shopping-cart"></i></span>
                     <h6 class="mb-0 fw-semibold">Purchase Items</h6>
                 </div>
                 <div class="card-datatable table-responsive purchase-items-wrap p-3">

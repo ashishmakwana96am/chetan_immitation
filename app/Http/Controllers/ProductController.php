@@ -403,9 +403,7 @@ class ProductController extends Controller
             'images',
             'createdBy',
             'variants.attributeValue',
-            'inventories' => function($q) use ($locationId) {
-                $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-            },
+            'inventories',
             'inventories.location'
         ]);
 

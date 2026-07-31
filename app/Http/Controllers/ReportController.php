@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Customer;
+use App\Models\CustomerBalanceTransaction;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseBill;
@@ -353,6 +354,7 @@ class ReportController extends Controller
                     'image_url'      => $product->primary_image_url,
                     'product_obj'    => $product,
                     'pair_product'   => (bool) $product->pair_product,
+                    'pair_size'      => $pairSize,
                     'pair_count'     => $parentPairCount,
                     'loose_pcs'      => $parentLoosePcs,
                     'pair_display'   => $product->pair_product ? $product->formatStockDisplay($parentTotal) : null,
@@ -394,6 +396,7 @@ class ReportController extends Controller
                     'image_url'      => $product->primary_image_url,
                     'product_obj'    => $product,
                     'pair_product'   => (bool) $product->pair_product,
+                    'pair_size'      => $pairSize,
                     'pair_count'     => $pPairCount,
                     'loose_pcs'      => $pLoosePcs,
                     'pair_display'   => $product->pair_product ? $product->formatStockDisplay($total) : null,
@@ -509,14 +512,16 @@ class ReportController extends Controller
         $this->authorize('view sale reports');
 
         $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
             $locationId = $user->location_id;
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
             $locationId = $request->query('location_id');
         }
-        $customers = Customer::orderBy('name')->get();
+        $customers = Customer::when($isRestricted, fn($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
 
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
@@ -2147,5 +2152,206 @@ class ReportController extends Controller
             'totalTransfersCount' => $totalTransfersCount,
             'totalTransfersQty'   => $totalTransfersQty,
         ];
+    }
+
+    // ============================================================
+    // CUSTOMER REPORT
+    // ============================================================
+
+    private function buildCustomerReportData(Request $request): array
+    {
+        $startDate  = $request->query('start_date');
+        $endDate    = $request->query('end_date');
+        $type       = $request->query('type');
+        $source     = $request->query('source');
+        $customerId = $request->query('customer_id');
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $query = CustomerBalanceTransaction::query()
+            ->whereHas('customer', function ($q) use ($isRestricted, $user) {
+                $q->where('is_credit_customer', true);
+                if ($isRestricted) {
+                    $q->where('location_id', $user->location_id);
+                }
+            })
+            ->with(['customer', 'createdBy']);
+
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+        if (in_array($type, [CustomerBalanceTransaction::TYPE_CREDIT, CustomerBalanceTransaction::TYPE_DEBIT], true)) {
+            $query->where('type', $type);
+        }
+        if (in_array($source, [CustomerBalanceTransaction::SOURCE_CASH, CustomerBalanceTransaction::SOURCE_BANK], true)) {
+            $query->where('source', $source);
+        }
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        }
+
+        $transactions = $query->orderByDesc('id')->get();
+
+        $creditCustomers = Customer::where('is_credit_customer', true)
+            ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
+
+        $saleOrderNos = $transactions
+            ->filter(fn ($t) => $t->type === CustomerBalanceTransaction::TYPE_DEBIT)
+            ->map(function ($t) {
+                return preg_match('/Sale #([^\s(]+)/', $t->notes ?? '', $m) ? $m[1] : null;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $ordersByNo = Order::with('items.product', 'items.variant.attributeValue')
+            ->whereIn('order_no', $saleOrderNos)
+            ->get()
+            ->keyBy('order_no');
+
+        $transactions->each(function ($t) use ($ordersByNo) {
+            $t->linked_order = null;
+            if ($t->type === CustomerBalanceTransaction::TYPE_DEBIT && preg_match('/Sale #([^\s(]+)/', $t->notes ?? '', $m)) {
+                $t->linked_order = $ordersByNo->get($m[1]);
+            }
+        });
+
+        $totalCredit = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
+        $totalDebit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
+
+        return [
+            'transactions'       => $transactions,
+            'totalTransactions'  => $transactions->count(),
+            'totalCredit'        => $totalCredit,
+            'totalDebit'         => $totalDebit,
+            'type'               => $type,
+            'source'             => $source,
+            'startDate'          => $startDate,
+            'endDate'            => $endDate,
+            'customerId'         => $customerId,
+            'creditCustomers'    => $creditCustomers,
+            // Net balance for the currently filtered result set (Credit - Debit),
+            // not the customer's absolute wallet balance, so it moves with the filters.
+            'totalWalletBalance' => $totalCredit - $totalDebit,
+        ];
+    }
+
+    public function customerReport(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        return view('reports.customer-report', $this->buildCustomerReportData($request));
+    }
+
+    public function exportCustomerReport(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $data = $this->buildCustomerReportData($request);
+
+        if ($data['transactions']->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Customer Credit Report',
+                'pdfUrl' => route('admin.reports.customer-report.export', array_merge($request->all(), ['stream' => 1])),
+            ]);
+        }
+
+        $pdf = Pdf::loadView('reports.pdf.customer-report', $data)->setPaper('a4', 'landscape');
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Customer credit report exported to PDF');
+
+        return $pdf->stream('customer_report_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    public function customerReportDetail(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+        ]);
+
+        $customer = Customer::findOrFail($request->customer_id);
+
+        $viewer = auth()->user();
+        if ($viewer->location_id && !$viewer->hasRole('super-admin') && $customer->location_id != $viewer->location_id) {
+            abort(403);
+        }
+
+        $transactionType = $request->query('type');
+
+        $transactionsQuery = $customer->balanceTransactions()
+            ->with('createdBy')
+            ->orderByDesc('id');
+
+        if (in_array($transactionType, [CustomerBalanceTransaction::TYPE_CREDIT, CustomerBalanceTransaction::TYPE_DEBIT], true)) {
+            $transactionsQuery->where('type', $transactionType);
+        }
+
+        $transactions = $transactionsQuery->get();
+
+        $totalCredit = $customer->balanceTransactions()->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
+        $totalDebit  = $customer->balanceTransactions()->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
+
+        $saleOrderNos = $transactions
+            ->filter(fn ($t) => $t->type === CustomerBalanceTransaction::TYPE_DEBIT)
+            ->map(function ($t) {
+                return preg_match('/Sale #([^\s(]+)/', $t->notes ?? '', $m) ? $m[1] : null;
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $ordersByNo = Order::with('items.product', 'items.variant.attributeValue')
+            ->whereIn('order_no', $saleOrderNos)
+            ->get()
+            ->keyBy('order_no');
+
+        $transactions->each(function ($t) use ($ordersByNo) {
+            $t->linked_order = null;
+            if ($t->type === CustomerBalanceTransaction::TYPE_DEBIT && preg_match('/Sale #([^\s(]+)/', $t->notes ?? '', $m)) {
+                $t->linked_order = $ordersByNo->get($m[1]);
+            }
+        });
+
+        $sales = Order::with('location')
+            ->where('customer_id', $customer->id)
+            ->where('order_type', 'sale')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('reports.customer-report-detail', compact('customer', 'transactions', 'totalCredit', 'totalDebit', 'sales', 'transactionType'));
+    }
+
+    public function customerReportSaleProducts(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $request->validate([
+            'order_id' => ['required', 'integer', 'exists:orders,id'],
+        ]);
+
+        $order = Order::with([
+            'items.product.variants.attributeValue.attribute',
+            'items.product.primaryImage',
+            'items.variant.attributeValue.attribute',
+            'customer',
+            'customerAddress',
+            'location',
+            'user',
+            'coupon',
+            'cancellationRequest',
+        ])->findOrFail($request->order_id);
+
+        return view('reports.partials.sale-details', compact('order'));
     }
 }

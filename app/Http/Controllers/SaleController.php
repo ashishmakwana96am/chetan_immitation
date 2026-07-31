@@ -78,6 +78,7 @@ class SaleController extends Controller
         $canEditSalesStatus = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
         $canDownloadSales = auth()->user()->can('download sales');
+        $canDelete = auth()->user()->can('delete sales');
 
         $onlineOrders = $orders->where('source', 'ONLINE');
         $productIds = $onlineOrders->flatMap(fn($o) => $o->items->pluck('product_id'))->unique()->values();
@@ -114,7 +115,7 @@ class SaleController extends Controller
             3 => 'Partially Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -224,6 +225,10 @@ class SaleController extends Controller
             if ($canEditSalesPaymentStatus && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
+            if ($canDelete) {
+                $actions .= '<div class="dropdown-divider"></div>';
+                $actions .= '<a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '"><i class="ti ti-trash me-2"></i>Delete</a>';
+            }
             $actions .= '</div></div>';
             $sourceVal = $order->source ?? 'POS';
             $sourceBadge = $sourceVal === 'ONLINE'
@@ -264,7 +269,9 @@ class SaleController extends Controller
         $this->authorize('create sales');
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $customers = Customer::where('status', 1)->orderBy('name')->get();
+        $customers = Customer::where('status', 1)
+            ->when($isRestricted, fn($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
@@ -490,11 +497,19 @@ class SaleController extends Controller
 
             $grandTotal = round($finalAmount + $taxAmount);
 
-            [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
-                $request->payment_status ?? Order::PAYMENT_STATUS_PAID,
+            [$cappedStatus, $cappedCashInput, $cappedOnlineInput] = $this->capPaymentToCustomerBalance(
+                $request->customer_id,
+                (int) ($request->payment_status ?? Order::PAYMENT_STATUS_PAID),
                 $grandTotal,
                 (float) ($request->paid_cash_amount ?? 0),
                 (float) ($request->paid_online_amount ?? 0)
+            );
+
+            [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
+                $cappedStatus,
+                $grandTotal,
+                $cappedCashInput,
+                $cappedOnlineInput
             );
 
             $order = Order::create([
@@ -504,7 +519,7 @@ class SaleController extends Controller
                 'order_no' => generate_invoice_no($orderPrefix, Order::class, 'order_no'),
                 'order_type' => 'sale',
                 'status' => $request->status ?? 2,
-                'payment_status' => $request->payment_status ?? 2,
+                'payment_status' => $cappedStatus,
                 'payment_method' => $paymentMethod,
                 'paid_cash_amount' => $paidCash,
                 'paid_online_amount' => $paidOnline,
@@ -519,7 +534,7 @@ class SaleController extends Controller
             ]);
 
             $storePaidTotal = $paidCash + $paidOnline;
-            if ($storePaidTotal > 0 && (int)($request->payment_status ?? 2) !== Order::PAYMENT_STATUS_PENDING) {
+            if ($storePaidTotal > 0 && $cappedStatus !== Order::PAYMENT_STATUS_PENDING) {
                 \App\Models\SalePayment::create([
                     'order_id'       => $order->id,
                     'amount'         => $storePaidTotal,
@@ -566,6 +581,42 @@ class SaleController extends Controller
 
         $sale->load(['customer', 'location', 'user', 'coupon', 'customerAddress', 'items.product.variants.attributeValue.attribute', 'items.product.primaryImage', 'payment', 'cancellationRequest']);
         return view('sales.show', ['order' => $sale]);
+    }
+
+    public function destroy(Order $sale)
+    {
+        $this->authorize('delete sales');
+
+        if ($sale->order_type !== 'sale') {
+            abort(404);
+        }
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $sale->location_id !== $user->location_id) {
+            abort(403);
+        }
+
+        $orderNo = $sale->order_no;
+        $oldStatus = (int) $sale->status;
+        $stockAdjustedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+
+        DB::transaction(function () use ($sale, $stockAdjustedStatuses) {
+            if (in_array((int) $sale->status, $stockAdjustedStatuses, true)) {
+                foreach ($sale->items as $item) {
+                    $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
+                    $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
+                }
+            }
+
+            $sale->delete();
+        });
+
+        ActivityLogger::log('Sales', 'delete', $sale, ['status' => $oldStatus], null, 'Sale #' . $orderNo . ' deleted');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Sale #' . $orderNo . ' deleted successfully.',
+        ]);
     }
 
     public function pdf(Order $sale)
@@ -788,7 +839,9 @@ class SaleController extends Controller
                 ->with('error', 'This sale has a pending cancellation request and cannot be edited.');
         }
 
-        $customers = Customer::where('status', 1)->orderBy('name')->get();
+        $customers = Customer::where('status', 1)
+            ->when($isRestricted, fn($q) => $q->where(fn($sub) => $sub->where('location_id', $user->location_id)->orWhere('id', $sale->customer_id)))
+            ->orderBy('name')->get();
         if ($isRestricted) {
             $locations = Location::where('id', $user->location_id)->get();
         } else {
@@ -1060,11 +1113,27 @@ class SaleController extends Controller
 
                 $resolvedPaymentStatus = $isCancelled ? Order::PAYMENT_STATUS_PENDING : ($request->payment_status ?? $sale->payment_status ?? 1);
 
+                $alreadyDebitedForThisSale = 0.0;
+                if ((int) $sale->customer_id === (int) $request->customer_id
+                    && in_array((int) $sale->payment_status, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)
+                ) {
+                    $alreadyDebitedForThisSale = (float) $sale->paid_cash_amount + (float) $sale->paid_online_amount;
+                }
+
+                [$resolvedPaymentStatus, $cappedCashInput, $cappedOnlineInput] = $this->capPaymentToCustomerBalance(
+                    $request->customer_id,
+                    (int) $resolvedPaymentStatus,
+                    $grandTotal,
+                    (float) ($request->paid_cash_amount ?? 0),
+                    (float) ($request->paid_online_amount ?? 0),
+                    $alreadyDebitedForThisSale
+                );
+
                 [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
                     $resolvedPaymentStatus,
                     $grandTotal,
-                    (float) ($request->paid_cash_amount ?? 0),
-                    (float) ($request->paid_online_amount ?? 0)
+                    $cappedCashInput,
+                    $cappedOnlineInput
                 );
 
                 $updateData = [
@@ -1402,27 +1471,50 @@ class SaleController extends Controller
                     $balanceDue = round(max(0, $grandTotal - $prevPaid), 2);
 
                     if ($newStatus === Order::PAYMENT_STATUS_PAID) {
-                        if ($balanceDue > 0) {
-                            $cashThis = max(0, $balanceDue - (float)$sale->paid_online_amount);
-                            $onlineThis = max(0, $balanceDue - $cashThis);
-                            $pmThis = ($cashThis > 0 && $onlineThis > 0) ? 'online_cash' : ($onlineThis > 0 ? 'online' : 'cash');
+                        $cashThis = (float) ($request->paid_cash_amount ?? 0);
+                        $onlineThis = (float) ($request->paid_online_amount ?? 0);
+
+                        if ($balanceDue > 0 && round($cashThis + $onlineThis, 2) <= 0) {
+                            $cashThis = $balanceDue;
+                            $onlineThis = 0;
+                        }
+
+                        $targetOnlineTotal = (float) $sale->paid_online_amount + $onlineThis;
+
+                        [$cappedStatus, $cappedCashTotal, $cappedOnlineTotal] = $this->capPaymentToCustomerBalance(
+                            $sale->customer_id,
+                            Order::PAYMENT_STATUS_PAID,
+                            $grandTotal,
+                            0.0,
+                            $targetOnlineTotal,
+                            $prevPaid
+                        );
+
+                        $newPaidTotal = round($cappedCashTotal + $cappedOnlineTotal, 2);
+                        $installmentAmount = round($newPaidTotal - $prevPaid, 2);
+
+                        if ($installmentAmount > 0) {
+                            $installmentOnline = round(max(0, $cappedOnlineTotal - $sale->paid_online_amount), 2);
+                            $installmentCash = round($installmentAmount - $installmentOnline, 2);
+                            $pmThis = ($installmentCash > 0 && $installmentOnline > 0) ? 'online_cash' : ($installmentOnline > 0 ? 'online' : 'cash');
                             \App\Models\SalePayment::create([
                                 'order_id'       => $sale->id,
-                                'amount'         => $balanceDue,
-                                'cash_amount'    => $cashThis,
-                                'online_amount'  => $onlineThis,
+                                'amount'         => $installmentAmount,
+                                'cash_amount'    => $installmentCash,
+                                'online_amount'  => $installmentOnline,
                                 'payment_method' => $pmThis,
                                 'created_by'     => auth()->id(),
                             ]);
                         }
+
                         [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
-                            Order::PAYMENT_STATUS_PAID,
+                            $cappedStatus,
                             $grandTotal,
-                            $grandTotal,
-                            0
+                            $cappedCashTotal,
+                            $cappedOnlineTotal
                         );
                         Order::withoutActivityLogging(fn() => $sale->update([
-                            'payment_status'   => Order::PAYMENT_STATUS_PAID,
+                            'payment_status'   => $cappedStatus,
                             'payment_method'   => $paymentMethod,
                             'paid_cash_amount' => $paidCash,
                             'paid_online_amount' => $paidOnline,
@@ -1436,30 +1528,47 @@ class SaleController extends Controller
                             throw new \Exception('Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').');
                         }
 
-                        if ($amountThisTime > 0) {
-                            $pmThis = ($newCash > 0 && $newOnline > 0) ? 'online_cash' : ($newOnline > 0 ? 'online' : 'cash');
+                        $targetCashTotal = (float) $sale->paid_cash_amount + $newCash;
+                        $targetOnlineTotal = (float) $sale->paid_online_amount + $newOnline;
+                        $intendedStatus = round($targetCashTotal + $targetOnlineTotal, 2) >= $grandTotal
+                            ? Order::PAYMENT_STATUS_PAID
+                            : Order::PAYMENT_STATUS_PARTIAL;
+
+                        [$cappedStatus, $cappedCashTotal, $cappedOnlineTotal] = $this->capPaymentToCustomerBalance(
+                            $sale->customer_id,
+                            $intendedStatus,
+                            $grandTotal,
+                            $targetCashTotal,
+                            $targetOnlineTotal,
+                            $prevPaid
+                        );
+
+                        $newPaidTotal = round($cappedCashTotal + $cappedOnlineTotal, 2);
+                        $installmentAmount = round($newPaidTotal - $prevPaid, 2);
+
+                        if ($installmentAmount > 0) {
+                            $installmentCash = round(max(0, $cappedCashTotal - $sale->paid_cash_amount), 2);
+                            $installmentOnline = round($installmentAmount - $installmentCash, 2);
+                            $pmThis = ($installmentCash > 0 && $installmentOnline > 0) ? 'online_cash' : ($installmentOnline > 0 ? 'online' : 'cash');
                             \App\Models\SalePayment::create([
                                 'order_id'       => $sale->id,
-                                'amount'         => $amountThisTime,
-                                'cash_amount'    => $newCash,
-                                'online_amount'  => $newOnline,
+                                'amount'         => $installmentAmount,
+                                'cash_amount'    => $installmentCash,
+                                'online_amount'  => $installmentOnline,
                                 'payment_method' => $pmThis,
                                 'created_by'     => auth()->id(),
                             ]);
                         }
 
-                        $newPaidTotal = round($prevPaid + $amountThisTime, 2);
-                        $finalStatus = $newPaidTotal >= $grandTotal ? Order::PAYMENT_STATUS_PAID : Order::PAYMENT_STATUS_PARTIAL;
-
                         [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
-                            $finalStatus,
+                            $cappedStatus,
                             $grandTotal,
-                            (float)($sale->paid_cash_amount + $newCash),
-                            (float)($sale->paid_online_amount + $newOnline)
+                            $cappedCashTotal,
+                            $cappedOnlineTotal
                         );
 
                         Order::withoutActivityLogging(fn() => $sale->update([
-                            'payment_status'   => $finalStatus,
+                            'payment_status'   => $cappedStatus,
                             'payment_method'   => $paymentMethod,
                             'paid_cash_amount' => $paidCash,
                             'paid_online_amount' => $paidOnline,
@@ -1506,6 +1615,43 @@ class SaleController extends Controller
             'message' => $statusMessage,
             'pending_count' => $pendingCount
         ]);
+    }
+
+    private function capPaymentToCustomerBalance(?int $customerId, int $requestedStatus, float $grandTotal, float $cashInput, float $onlineInput, float $alreadyDebitedForThisSale = 0.0): array
+    {
+        if (!$customerId || !in_array($requestedStatus, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)) {
+            return [$requestedStatus, $cashInput, $onlineInput];
+        }
+
+        $customer = Customer::find($customerId);
+        if (!$customer || !$customer->is_credit_customer) {
+            return [$requestedStatus, $cashInput, $onlineInput];
+        }
+
+        $available = max(0.0, (float) $customer->balance + $alreadyDebitedForThisSale);
+
+        $requestedAmount = $requestedStatus === Order::PAYMENT_STATUS_PAID
+            ? $grandTotal
+            : round(max($cashInput, 0) + max($onlineInput, 0), 2);
+
+        if ($requestedAmount <= $available + 0.01) {
+            return [$requestedStatus, $cashInput, $onlineInput];
+        }
+
+        if ($available <= 0) {
+            return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
+        }
+
+        if ($requestedStatus === Order::PAYMENT_STATUS_PAID) {
+            $cappedOnline = round(min(max($onlineInput, 0), $available), 2);
+            $cappedCash = round($available - $cappedOnline, 2);
+        } else {
+            $ratio = $requestedAmount > 0 ? ($available / $requestedAmount) : 0;
+            $cappedCash = round(max($cashInput, 0) * $ratio, 2);
+            $cappedOnline = round($available - $cappedCash, 2);
+        }
+
+        return [Order::PAYMENT_STATUS_PARTIAL, $cappedCash, $cappedOnline];
     }
 
     private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $cashAmountInput = 0.0, float $onlineAmountInput = 0.0): array

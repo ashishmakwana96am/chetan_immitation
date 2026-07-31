@@ -18,6 +18,7 @@ class Customer extends Authenticatable
     const STATUS_INACTIVE = 2;
 
     protected $fillable = [
+        'location_id',
         'name',
         'email',
         'gst_no',
@@ -27,6 +28,8 @@ class Customer extends Authenticatable
         'avatar',
         'is_website',
         'status',
+        'is_credit_customer',
+        'balance',
         'otp',
         'otp_expires_at',
     ];
@@ -40,9 +43,21 @@ class Customer extends Authenticatable
     {
         return [
             'is_website' => 'boolean',
+            'is_credit_customer' => 'boolean',
+            'balance' => 'decimal:2',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
+
+    public function balanceTransactions()
+    {
+        return $this->hasMany(CustomerBalanceTransaction::class);
     }
 
     public function wishlists()

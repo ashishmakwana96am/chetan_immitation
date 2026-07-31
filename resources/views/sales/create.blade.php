@@ -738,11 +738,11 @@ $(document).ready(function () {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
-        $('#itemsBody').append(template);
+        $('#itemsBody').prepend(template);
         $('#noItemsMsg').addClass('d-none');
         $('#itemsTable').removeClass('d-none');
 
-        const row = $('#itemsBody .item-row').last();
+        const row = $('#itemsBody .item-row').first();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
         setProductImage(row.find('.product-image-container'), product);

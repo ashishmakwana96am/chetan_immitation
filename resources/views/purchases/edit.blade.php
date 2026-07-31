@@ -677,15 +677,19 @@ $(document).ready(function () {
         return sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), sizes[0].size);
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null, prependRow = true) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
-        $('#itemsBody').append(template);
+        if (prependRow) {
+            $('#itemsBody').prepend(template);
+        } else {
+            $('#itemsBody').append(template);
+        }
         $('#noItemsMsg').addClass('d-none');
         $('#itemsTable').removeClass('d-none');
 
-        const row = $('#itemsBody .item-row').last();
+        const row = prependRow ? $('#itemsBody .item-row').first() : $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
         setProductImage(row.find('.product-image-container'), product);
@@ -814,10 +818,10 @@ $(document).ready(function () {
                 }
 
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value);
+                addItemRow(product, null, item.quantity, item.purchase_price, discType, discVal, item.custom_size_value, false);
             }
         });
     }

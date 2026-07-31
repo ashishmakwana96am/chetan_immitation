@@ -795,15 +795,19 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single', customSizeValue = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
-        $('#itemsBody').append(template);
+        if (prependRow) {
+            $('#itemsBody').prepend(template);
+        } else {
+            $('#itemsBody').append(template);
+        }
         $('#noItemsMsg').addClass('d-none');
         $('#itemsTable').removeClass('d-none');
 
-        const row = $('#itemsBody .item-row').last();
+        const row = prependRow ? $('#itemsBody .item-row').first() : $('#itemsBody .item-row').last();
         row.find('.product-id-input').val(product.id);
         row.find('.product-name-display').text(product.name);
         setProductImage(row.find('.product-image-container'), product);
@@ -979,12 +983,12 @@ $(document).ready(function () {
                     }
                     
                     if (matchedVariant) {
-                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value);
+                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false);
                     }
                 });
             } else {
                 const item = itemsForProduct[0];
-                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value);
+                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false);
             }
         });
     }

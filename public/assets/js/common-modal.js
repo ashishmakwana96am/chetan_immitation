@@ -126,10 +126,13 @@ $(document).ready(function () {
     // -------------------------------------------------------
     // Open common modal
     // Trigger : [data-common-modal="url"]
-    // Optional: [data-size="modal-lg|modal-xl|modal-sm"]
+    // Optional: [data-size="half"] — widens the panel to 50vw. Used only by
+    // Customer Credit Report's sale "View" and the Purchase Import History
+    // panel; every other [data-common-modal] trigger keeps the default width.
     // -------------------------------------------------------
     window.openCommonModal = function (url, size) {
         $('#commonModalBody').html(showSpinner());
+        $('#commonModal').css('width', size === 'half' ? '50vw' : '600px');
         $('#commonModal').offcanvas('show');
 
         $.get(url)

@@ -164,7 +164,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Purchases
         Route::get('purchases/import/sample', [PurchaseImportController::class, 'sample'])->name('purchases.import.sample');
-        Route::post('purchases/import', [PurchaseImportController::class, 'store'])->name('purchases.import.store');
+        Route::post('purchases/import/preview', [PurchaseImportController::class, 'preview'])->name('purchases.import.preview');
+        Route::post('purchases/import/confirm', [PurchaseImportController::class, 'confirm'])->name('purchases.import.confirm');
+        Route::delete('purchases/import/cancel', [PurchaseImportController::class, 'cancel'])->name('purchases.import.cancel');
         Route::get('purchases/data', [PurchaseController::class, 'data'])->name('purchases.data');
         Route::get('products/{product}/price', [PurchaseController::class, 'getProductPrice'])->name('products.price');
         Route::resource('purchases', PurchaseController::class)->except('show');
@@ -199,6 +201,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
         Route::resource('customers', CustomerController::class)->except('show');
         Route::patch('customers/{customer}/toggle-status', [CustomerController::class, 'toggleStatus'])->name('customers.toggle-status');
+        Route::patch('customers/{customer}/toggle-credit-customer', [CustomerController::class, 'toggleCreditCustomer'])->name('customers.toggle-credit-customer');
 
         // Product Reviews
         Route::get('product-reviews/data', [ProductReviewController::class, 'data'])->name('product-reviews.data');
@@ -230,6 +233,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
             Route::get('daily-report/export', [ReportController::class, 'exportDailyReport'])->name('daily-report.export');
+            Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
+            Route::get('customer-report/export', [ReportController::class, 'exportCustomerReport'])->name('customer-report.export');
+            Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
+            Route::get('customer-report/sale-products', [ReportController::class, 'customerReportSaleProducts'])->name('customer-report.sale-products');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
@@ -242,6 +249,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
         Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
+        Route::delete('sales/{sale}', [SaleController::class, 'destroy'])->name('sales.destroy');
         Route::get('sales/{sale}/pdf', [SaleController::class, 'pdf'])->name('sales.pdf');
         Route::get('sales/{sale}/tax-invoice', [SaleController::class, 'taxInvoice'])->name('sales.tax-invoice');
         Route::get('sales/{sale}/thermal', [SaleController::class, 'thermal'])->name('sales.thermal');
@@ -313,6 +321,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
         Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
+        Route::get('accounting/customer-balance/create', [AccountingController::class, 'customerBalanceCreate'])->name('accounting.customer-balance.create');
+        Route::post('accounting/customer-balance/store', [AccountingController::class, 'customerBalanceStore'])->name('accounting.customer-balance.store');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');

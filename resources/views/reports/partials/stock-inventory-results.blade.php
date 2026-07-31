@@ -16,6 +16,32 @@
         $reportStockParts[] = number_format($totalLoosePcs) . ' Pcs';
     }
     $reportStockDisplay = implode('<br>', $reportStockParts);
+
+    $parentProductsForTotals = $products->where('is_parent', true);
+    $locationTotalsInit = $locations->mapWithKeys(function ($location) use ($parentProductsForTotals) {
+        $pairs = 0;
+        $pcs   = 0;
+        foreach ($parentProductsForTotals as $p) {
+            $qty = $p['stock'][$location->id] ?? 0;
+            if (!empty($p['pair_product']) && $qty > 0) {
+                $pairSize = $p['pair_size'] ?? 1;
+                $pairs += (int) floor($qty / $pairSize);
+                $pcs   += (int) ($qty % $pairSize);
+            } else {
+                $pcs += $qty;
+            }
+        }
+
+        $parts = [];
+        if ($pairs > 0) {
+            $parts[] = number_format($pairs) . ' Pair' . ($pairs > 1 ? 's' : '');
+        }
+        if ($pcs > 0 || count($parts) === 0) {
+            $parts[] = number_format($pcs) . ' Pcs';
+        }
+
+        return [$location->id => implode('<br>', $parts)];
+    });
 @endphp
 
 <!-- Stats Cards -->
@@ -246,6 +272,12 @@
                         data-product-id="{{ $product['id'] }}"
                         data-category-id="{{ $product['category_id'] }}"
                         data-total="{{ $product['total'] }}"
+                        data-pair-count="{{ $product['pair_count'] ?? 0 }}"
+                        data-loose-pcs="{{ $product['loose_pcs'] ?? $product['total'] }}"
+                        data-is-pair-product="{{ !empty($product['pair_product']) ? '1' : '0' }}"
+                        data-pair-size="{{ $product['pair_size'] ?? 1 }}"
+                        data-purchase-value="{{ $product['purchase_value'] }}"
+                        data-mrp-value="{{ $product['mrp_value'] }}"
                         data-age="{{ $product['age_sort'] }}"
                         data-has-variants="{{ $hasVariants ? '1' : '0' }}">
                         <td>{{ $index + 1 }}</td>
@@ -268,13 +300,13 @@
                         <td><code>{{ $product['barcode'] }}</code></td>
                         <td><span class="badge bg-label-primary">{{ $product['category'] }}</span></td>
                         @foreach($locations as $location)
-                            @php 
+                            @php
                                 $qty = $product['stock'][$location->id] ?? 0;
-                                $displayQty = (isset($product['product_obj']) && $product['product_obj'] instanceof \App\Models\Product) 
-                                    ? $product['product_obj']->formatStockDisplay($qty) 
+                                $displayQty = (isset($product['product_obj']) && $product['product_obj'] instanceof \App\Models\Product)
+                                    ? $product['product_obj']->formatStockDisplay($qty)
                                     : $qty;
                             @endphp
-                            <td class="text-center">
+                            <td class="text-center" data-loc-qty="{{ $qty }}">
                                 <span class="badge {{ $qty > 5 ? 'bg-label-success' : ($qty > 0 ? 'bg-label-warning' : 'bg-label-secondary') }}">
                                     {!! $displayQty !!}
                                 </span>
@@ -307,11 +339,14 @@
                 @endforeach
             </tbody>
             <tfoot>
-                <tr class="table-light fw-bold">
-                    <td colspan="{{ 5 + $locations->count() }}" class="text-end">Total:</td>
-                    <td class="text-center text-primary">{!! $reportStockDisplay !!}</td>
-                    <td class="text-end text-primary">{{ format_price($totalPurchaseValue) }}</td>
-                    <td class="text-end text-success">{{ format_price($totalMrpValue) }}</td>
+                <tr class="table-light fw-bold" id="stockTableFooterRow">
+                    <td colspan="5" class="text-end">Total:</td>
+                    @foreach($locations as $location)
+                        <td class="text-center text-primary text-nowrap" data-loc-total="{{ $location->id }}">{!! $locationTotalsInit[$location->id] !!}</td>
+                    @endforeach
+                    <td class="text-center text-primary text-nowrap" data-footer="qty">{!! $reportStockDisplay !!}</td>
+                    <td class="text-end text-primary text-nowrap" data-footer="purchase">{{ format_price($totalPurchaseValue) }}</td>
+                    <td class="text-end text-success text-nowrap" data-footer="mrp">{{ format_price($totalMrpValue) }}</td>
                     <td></td>
                 </tr>
             </tfoot>

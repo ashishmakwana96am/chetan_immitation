@@ -409,12 +409,7 @@
                     @if($product->is_variable)
                         {{-- ── VARIABLE PRODUCT STOCK ── --}}
                         @php
-                            $variantStock = $product->getVariantStock($locationId ?? null);
-                            if ($locationId && !is_null($variantStock) && isset($variantStock['location_name'])) {
-                                $variantStock = [$locationId => $variantStock];
-                            } elseif ($locationId && is_null($variantStock)) {
-                                $variantStock = [];
-                            }
+                            $variantStock = $product->getVariantStock(null);
                             $invByLocation = $product->inventories->keyBy('location_id');
                         @endphp
                         @if(count($variantStock))
@@ -467,7 +462,6 @@
                                             </tr>
                                         @endforeach
                                     </tbody>
-                                    @if(!$isRestricted)
                                     <tfoot class="table-light">
                                         <tr class="fw-bold">
                                             <td>Grand Total</td>
@@ -481,7 +475,6 @@
                                             </td>
                                         </tr>
                                     </tfoot>
-                                    @endif
                                 </table>
                             </div>
                         @else
@@ -709,12 +702,7 @@
     @if($product->is_variable && $product->variants->count())
         @php
             if (!isset($variantStock)) {
-                $variantStock = $product->getVariantStock($locationId ?? null);
-                if (($locationId ?? null) && !is_null($variantStock) && isset($variantStock['location_name'])) {
-                    $variantStock = [($locationId) => $variantStock];
-                } elseif (($locationId ?? null) && is_null($variantStock)) {
-                    $variantStock = [];
-                }
+                $variantStock = $product->getVariantStock(null);
             }
             if (!isset($invByLocation)) {
                 $invByLocation = $product->inventories->keyBy('location_id');

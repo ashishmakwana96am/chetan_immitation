@@ -53,6 +53,18 @@
                 placeholder="Enter Email Address" value="{{ $customer->email }}" />
             <div class="invalid-feedback"></div>
         </div>
+        @if($isSuperAdmin)
+            <div class="col-12">
+                <label class="form-label">Branch <span class="text-danger">*</span></label>
+                <select name="location_id" class="form-select">
+                    <option value="">-- Select Branch --</option>
+                    @foreach($locations as $location)
+                        <option value="{{ $location->id }}" {{ $customer->location_id == $location->id ? 'selected' : '' }}>{{ $location->name }}</option>
+                    @endforeach
+                </select>
+                <div class="invalid-feedback"></div>
+            </div>
+        @endif
         <div class="col-12">
             <label class="form-label">GST Number</label>
             <input type="text" name="gst_no" class="form-control text-uppercase"
@@ -77,6 +89,15 @@
                 <input class="form-check-input" type="checkbox" id="customerStatus" name="status" value="1"
                     {{ $customer->status == 1 ? 'checked' : '' }} />
                 <label class="form-check-label" for="customerStatus">Active</label>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Credit Customer</label>
+            <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" id="customerCreditCustomer" name="is_credit_customer" value="1"
+                    {{ $customer->is_credit_customer ? 'checked' : '' }} />
+                <label class="form-check-label" for="customerCreditCustomer">Credit Customer</label>
             </div>
         </div>
     </div>
