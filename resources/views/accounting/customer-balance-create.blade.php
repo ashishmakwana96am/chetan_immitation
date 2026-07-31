@@ -1,24 +1,28 @@
 <div class="text-center mb-4">
-    <h3 class="mb-2">Add Credit Balance</h3>
+    <h3 class="mb-2">Add Credit Balance{{ $lockedCustomer ? ' - ' . $lockedCustomer->name : '' }}</h3>
     <p class="text-muted">Credit or debit a customer's balance</p>
 </div>
 
 <form id="commonModalForm" action="{{ route('admin.accounting.customer-balance.store') }}" method="POST" class="d-flex flex-column flex-grow-1">
     @csrf
     <div class="row g-3">
-        <div class="col-12">
-            <label class="form-label" for="customerBalanceCustomer">Customer <span class="text-danger">*</span></label>
-            <select id="customerBalanceCustomer" name="customer_id" class="form-select">
-                <option value="">Select Customer</option>
-                @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}" {{ (string) $selectedCustomerId === (string) $customer->id ? 'selected' : '' }}>{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
-                @endforeach
-            </select>
-            <div class="invalid-feedback"></div>
-        </div>
+        @if($lockedCustomer)
+            <input type="hidden" name="customer_id" value="{{ $lockedCustomer->id }}" />
+        @else
+            <div class="col-12">
+                <label class="form-label" for="customerBalanceCustomer">Customer <span class="text-danger">*</span></label>
+                <select id="customerBalanceCustomer" name="customer_id" class="form-select">
+                    <option value="">Select Customer</option>
+                    @foreach($customers as $customer)
+                        <option value="{{ $customer->id }}" {{ (string) $selectedCustomerId === (string) $customer->id ? 'selected' : '' }}>{{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}</option>
+                    @endforeach
+                </select>
+                <div class="invalid-feedback"></div>
+            </div>
+        @endif
 
         <div class="col-12">
-            <label class="form-label" for="customerBalanceSource">Book <span class="text-danger">*</span></label>
+            <label class="form-label" for="customerBalanceSource">Balance Type <span class="text-danger">*</span></label>
             <select id="customerBalanceSource" name="source" class="form-select no-select2">
                 <option value="cash" {{ $source === 'cash' ? 'selected' : '' }}>Cash</option>
                 <option value="bank" {{ $source === 'bank' ? 'selected' : '' }}>Bank</option>

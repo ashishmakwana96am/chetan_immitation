@@ -25,7 +25,7 @@
     <div id="report-results">
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -38,7 +38,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -51,28 +51,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Balance</span>
-                                <h4 class="mb-0 mt-1 text-success">{{ format_price($totalWalletBalance) }}</h4>
+                                <h4 class="mb-0 mt-1 {{ $totalWalletBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($totalWalletBalance) }}</h4>
                             </div>
-                            <span class="badge bg-label-success rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start justify-content-between">
-                            <div>
-                                <span class="text-muted">Credit / Debit</span>
-                                <h4 class="mb-0 mt-1"><span class="text-success">{{ format_price($totalCredit) }}</span> / <span class="text-danger">{{ format_price($totalDebit) }}</span></h4>
-                            </div>
-                            <span class="badge bg-label-warning rounded p-2"><i class="ti ti-arrows-exchange ti-sm"></i></span>
+                            <span class="badge {{ $totalWalletBalance < 0 ? 'bg-label-danger' : 'bg-label-success' }} rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
@@ -148,22 +135,18 @@
                                 <td>{{ $customer->phone ?? '-' }}</td>
                                 <td class="text-end text-success fw-semibold">{{ $customer->is_credit_customer ? format_price($customer->period_credit) : '-' }}</td>
                                 <td class="text-end text-danger fw-semibold">{{ $customer->is_credit_customer ? format_price($customer->period_debit) : '-' }}</td>
-                                <td class="text-end fw-bold text-heading">{{ $customer->is_credit_customer ? format_price($customer->balance) : '-' }}</td>
+                                <td class="text-end fw-bold {{ $customer->is_credit_customer && $customer->balance < 0 ? 'text-danger' : 'text-heading' }}">{{ $customer->is_credit_customer ? format_price($customer->balance) : '-' }}</td>
                                 <td>
-                                    @if($customer->is_credit_customer)
-                                        <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                                <span>Actions</span>
-                                            </button>
-                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                                <a href="{{ route('admin.reports.customer-report.detail') }}?customer_id={{ $customer->id }}" class="dropdown-item">
-                                                    <i class="ti ti-eye me-2"></i>View
-                                                </a>
-                                            </div>
+                                    <div class="dropdown table-action-dropdown">
+                                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                            <span>Actions</span>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                            <a href="{{ route('admin.reports.customer-report.detail') }}?customer_id={{ $customer->id }}" class="dropdown-item">
+                                                <i class="ti ti-eye me-2"></i>View
+                                            </a>
                                         </div>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

@@ -1236,8 +1236,9 @@ class AccountingController extends Controller
             ? $request->source
             : CustomerBalanceTransaction::SOURCE_CASH;
         $selectedCustomerId = $request->query('customer_id');
+        $lockedCustomer = $selectedCustomerId ? $customers->firstWhere('id', (int) $selectedCustomerId) : null;
 
-        return view('accounting.customer-balance-create', compact('customers', 'source', 'selectedCustomerId'));
+        return view('accounting.customer-balance-create', compact('customers', 'source', 'selectedCustomerId', 'lockedCustomer'));
     }
 
     public function customerBalanceStore(Request $request)
@@ -1268,11 +1269,12 @@ class AccountingController extends Controller
                 $currentBalance = (float) $customer->balance;
                 $amount = (float) $request->amount;
 
-                $newBalance = $request->type === CustomerBalanceTransaction::TYPE_CREDIT
+                $isCredit = $request->type === CustomerBalanceTransaction::TYPE_CREDIT;
+                $newBalance = $isCredit
                     ? $currentBalance + $amount
                     : $currentBalance - $amount;
 
-                if ($newBalance < 0) {
+                if (!$isCredit && $newBalance < 0) {
                     throw new \RuntimeException('insufficient_balance');
                 }
 

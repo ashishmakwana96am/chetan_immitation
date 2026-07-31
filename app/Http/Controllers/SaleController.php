@@ -1402,9 +1402,17 @@ class SaleController extends Controller
                     $balanceDue = round(max(0, $grandTotal - $prevPaid), 2);
 
                     if ($newStatus === Order::PAYMENT_STATUS_PAID) {
+                        $cumulativeOnline = (float) $sale->paid_online_amount;
+
                         if ($balanceDue > 0) {
-                            $cashThis = max(0, $balanceDue - (float)$sale->paid_online_amount);
-                            $onlineThis = max(0, $balanceDue - $cashThis);
+                            $cashThis = (float) ($request->paid_cash_amount ?? 0);
+                            $onlineThis = (float) ($request->paid_online_amount ?? 0);
+
+                            if (round($cashThis + $onlineThis, 2) <= 0) {
+                                $cashThis = $balanceDue;
+                                $onlineThis = 0;
+                            }
+
                             $pmThis = ($cashThis > 0 && $onlineThis > 0) ? 'online_cash' : ($onlineThis > 0 ? 'online' : 'cash');
                             \App\Models\SalePayment::create([
                                 'order_id'       => $sale->id,
@@ -1414,12 +1422,15 @@ class SaleController extends Controller
                                 'payment_method' => $pmThis,
                                 'created_by'     => auth()->id(),
                             ]);
+
+                            $cumulativeOnline += $onlineThis;
                         }
+
                         [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
                             Order::PAYMENT_STATUS_PAID,
                             $grandTotal,
                             $grandTotal,
-                            0
+                            $cumulativeOnline
                         );
                         Order::withoutActivityLogging(fn() => $sale->update([
                             'payment_status'   => Order::PAYMENT_STATUS_PAID,

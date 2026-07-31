@@ -3,7 +3,39 @@
 @section('title', 'Customer Details')
 
 @section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
     <style>
+        #transactionsTable tbody tr.group-header td,
+        #salesTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #transactionsTable tbody tr.group-header td .group-header-inner,
+        #salesTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #transactionsTable tbody tr.group-header td .group-header-inner i,
+        #salesTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #salesTable tbody tr:not(.group-header) {
+            cursor: pointer;
+        }
         .ledger-info-row {
             display: flex;
             justify-content: space-between;
@@ -52,9 +84,11 @@
         </div>
         <div class="d-flex gap-2">
             @can('manage customer balance')
-                <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create', ['customer_id' => $customer->id]) }}">
-                    <i class="ti ti-plus me-1"></i> Add Credit Balance
-                </button>
+                @if($customer->is_credit_customer)
+                    <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create', ['customer_id' => $customer->id]) }}">
+                        <i class="ti ti-plus me-1"></i> Add Credit Balance
+                    </button>
+                @endif
             @endcan
             <a href="{{ route('admin.reports.customer-report') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back to List
@@ -86,55 +120,57 @@
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-report-money"></i></span>
-                    <h6 class="mb-0 fw-semibold">Summary</h6>
+            @if($customer->is_credit_customer)
+                <div class="card">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <span class="card-title-icon card-title-icon-success"><i class="ti ti-report-money"></i></span>
+                        <h6 class="mb-0 fw-semibold">Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="ledger-info-row">
+                            <span class="ledger-info-label">Current Balance</span>
+                            <span class="ledger-info-value {{ $customer->balance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($customer->balance) }}</span>
+                        </div>
+                        <div class="ledger-info-row">
+                            <span class="ledger-info-label">Total Credit</span>
+                            <span class="ledger-info-value text-success">{{ format_price($totalCredit) }}</span>
+                        </div>
+                        <div class="ledger-info-row">
+                            <span class="ledger-info-label">Total Debit</span>
+                            <span class="ledger-info-value text-danger">{{ format_price($totalDebit) }}</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="ledger-info-row">
-                        <span class="ledger-info-label">Current Balance</span>
-                        <span class="ledger-info-value text-primary">{{ format_price($customer->balance) }}</span>
-                    </div>
-                    <div class="ledger-info-row">
-                        <span class="ledger-info-label">Total Credit</span>
-                        <span class="ledger-info-value text-success">{{ format_price($totalCredit) }}</span>
-                    </div>
-                    <div class="ledger-info-row">
-                        <span class="ledger-info-label">Total Debit</span>
-                        <span class="ledger-info-value text-danger">{{ format_price($totalDebit) }}</span>
-                    </div>
-                </div>
-            </div>
+            @endif
         </div>
 
-        <!-- Transactions List Card (Right Column) -->
-        <div class="col-lg-8 col-md-7">
-            <div class="card">
-                <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
-                    <h6 class="mb-0 fw-semibold">Transactions</h6>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0">
+        @if($customer->is_credit_customer)
+            <!-- Transactions List Card (Right Column) -->
+            <div class="col-lg-8 col-md-7">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
+                        <h6 class="mb-0 fw-semibold">Transactions</h6>
+                    </div>
+                    <div class="card-datatable table-responsive">
+                        <table class="table border-top" id="transactionsTable">
                             <thead>
                                 <tr>
                                     <th style="width: 5%">#</th>
-                                    <th>Date</th>
                                     <th>Source</th>
                                     <th>Type</th>
                                     <th class="text-end">Amount</th>
                                     <th class="text-end">Balance After</th>
                                     <th>Notes</th>
                                     <th>Done By</th>
+                                    <th>date_group</th>
+                                    <th>date_sort</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($transactions as $index => $transaction)
+                                @foreach($transactions as $transaction)
                                     <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ format_date($transaction->created_at) }}</td>
+                                        <td></td>
                                         <td class="text-capitalize">{{ $transaction->source }}</td>
                                         <td>
                                             @if($transaction->type === 'credit')
@@ -146,22 +182,139 @@
                                         <td class="text-end fw-semibold {{ $transaction->type === 'credit' ? 'text-success' : 'text-danger' }}">
                                             {{ format_price($transaction->amount) }}
                                         </td>
-                                        <td class="text-end fw-semibold text-heading">{{ format_price($transaction->balance_after) }}</td>
+                                        <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
                                         <td>{{ $transaction->notes ?? '-' }}</td>
                                         <td>{{ $transaction->createdBy->name ?? '-' }}</td>
+                                        <td>{{ $transaction->created_at->format('d M Y') }}</td>
+                                        <td>{{ $transaction->created_at->format('YmdHis') }}</td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">
-                                            No transactions found.
-                                        </td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
+        @endif
+
+        <!-- Sales List Card -->
+        <div class="{{ $customer->is_credit_customer ? 'col-12' : 'col-lg-8 col-md-7' }}">
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <span class="card-title-icon"><i class="ti ti-shopping-cart"></i></span>
+                    <h6 class="mb-0 fw-semibold">Sales</h6>
+                </div>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top" id="salesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Sale No</th>
+                                <th>Location</th>
+                                <th class="text-end">Amount</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>date_group</th>
+                                <th>date_sort</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @php
+                                $statusLabels = [
+                                    \App\Models\Order::STATUS_PENDING => ['Pending', 'bg-label-secondary'],
+                                    \App\Models\Order::STATUS_APPROVE => ['Approve', 'bg-label-success'],
+                                    \App\Models\Order::STATUS_SHIPPED => ['Shipped', 'bg-label-info'],
+                                    \App\Models\Order::STATUS_OUT_FOR_DELIVERY => ['Out For Delivery', 'bg-label-info'],
+                                    \App\Models\Order::STATUS_DELIVERED => ['Delivered', 'bg-label-success'],
+                                    \App\Models\Order::STATUS_DECLINE => ['Decline', 'bg-label-danger'],
+                                ];
+                                $paymentStatusLabels = [
+                                    \App\Models\Order::PAYMENT_STATUS_PENDING => ['Pending', 'bg-label-warning'],
+                                    \App\Models\Order::PAYMENT_STATUS_PAID => ['Paid', 'bg-label-success'],
+                                    \App\Models\Order::PAYMENT_STATUS_PARTIAL => ['Partially Paid', 'bg-label-info'],
+                                ];
+                            @endphp
+                            @foreach($sales as $sale)
+                                @php
+                                    [$statusLabel, $statusClass] = $statusLabels[(int) $sale->status] ?? ['-', 'bg-label-secondary'];
+                                    [$paymentLabel, $paymentClass] = $paymentStatusLabels[(int) $sale->payment_status] ?? ['-', 'bg-label-secondary'];
+                                @endphp
+                                <tr data-href="{{ route('admin.sales.show', $sale->id) }}">
+                                    <td></td>
+                                    <td><a href="{{ route('admin.sales.show', $sale->id) }}"><code>{{ $sale->order_no }}</code></a></td>
+                                    <td>{{ $sale->location->name ?? '-' }}</td>
+                                    <td class="text-end fw-semibold text-heading">{{ format_price($sale->final_amount) }}</td>
+                                    <td><span class="badge {{ $paymentClass }}">{{ $paymentLabel }}</span></td>
+                                    <td><span class="badge {{ $statusClass }}">{{ $statusLabel }}</span></td>
+                                    <td>{{ $sale->created_at->format('d M Y') }}</td>
+                                    <td>{{ $sale->created_at->format('YmdHis') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+@endsection
+
+@section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            function initGroupedTable(selector, groupNoun) {
+                const $table = $(selector);
+                if (!$table.length) {
+                    return;
+                }
+
+                const headCols = $table.find('thead th').length;
+                const groupCol = headCols - 2;
+                const sortCol = headCols - 1;
+                const visibleColCount = groupCol;
+
+                $table.DataTable({
+                    responsive: false,
+                    order: [[sortCol, 'desc']],
+                    orderFixed: { pre: [[sortCol, 'desc']] },
+                    columnDefs: [
+                        {
+                            targets: 0,
+                            orderable: false,
+                            searchable: false,
+                            render: function (data, type, row, meta) {
+                                return meta.row + meta.settings._iDisplayStart + 1;
+                            }
+                        },
+                        { targets: [groupCol, sortCol], visible: false }
+                    ],
+                    rowGroup: {
+                        dataSrc: groupCol,
+                        startRender: function (rows, group) {
+                            return $('<tr class="group-header"/>')
+                                .append('<td colspan="' + visibleColCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' ' + groupNoun + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                        }
+                    },
+                    drawCallback: function () {
+                        const api = this.api();
+                        api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
+                            cell.innerHTML = api.page.info().start + i + 1;
+                        });
+                    }
+                });
+            }
+
+            initGroupedTable('#transactionsTable', 'transaction');
+            initGroupedTable('#salesTable', 'sale');
+
+            $('#salesTable tbody').on('dblclick', 'tr:not(.group-header)', function (e) {
+                if ($(e.target).closest('a').length) {
+                    return;
+                }
+                const href = $(this).data('href');
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+        });
+    </script>
 @endsection

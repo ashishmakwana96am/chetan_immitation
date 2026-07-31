@@ -2163,6 +2163,12 @@ class ReportController extends Controller
 
         $query = Customer::query();
 
+        if ($startDate) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
         if ($creditOnly) {
             $query->where('is_credit_customer', true);
         }
@@ -2175,15 +2181,7 @@ class ReportController extends Controller
 
         $customers = $query->orderBy('name')->get();
 
-        $totalsQuery = CustomerBalanceTransaction::whereIn('customer_id', $customers->pluck('id'));
-        if ($startDate) {
-            $totalsQuery->whereDate('created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $totalsQuery->whereDate('created_at', '<=', $endDate);
-        }
-
-        $totalsByCustomer = $totalsQuery
+        $totalsByCustomer = CustomerBalanceTransaction::whereIn('customer_id', $customers->pluck('id'))
             ->selectRaw('customer_id, type, SUM(amount) as total')
             ->groupBy('customer_id', 'type')
             ->get()
@@ -2260,6 +2258,12 @@ class ReportController extends Controller
         $totalCredit = $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
         $totalDebit  = $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
 
-        return view('reports.customer-report-detail', compact('customer', 'transactions', 'totalCredit', 'totalDebit'));
+        $sales = Order::with('location')
+            ->where('customer_id', $customer->id)
+            ->where('order_type', 'sale')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('reports.customer-report-detail', compact('customer', 'transactions', 'totalCredit', 'totalDebit', 'sales'));
     }
 }

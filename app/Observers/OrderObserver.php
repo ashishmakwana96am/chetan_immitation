@@ -420,9 +420,9 @@ class OrderObserver
 
     /**
      * Apply a debit (sale paid) or reversal (credit back) to a customer's
-     * wallet balance. The debit is clamped so the balance never goes
-     * negative — if the customer's balance can't cover the full amount,
-     * only what's available is debited.
+     * wallet balance. Unlike manual balance entries, this is allowed to go
+     * negative — it reflects the customer's real outstanding due when a
+     * sale's paid amount exceeds their available balance.
      */
     private function applyCustomerWalletChange(int $customerId, float $amount, string $source, string $note, ?int $userId, bool $isReversal = false, bool $isUpdateReversal = false, ?string $customLogDescription = null): void
     {
@@ -435,7 +435,18 @@ class OrderObserver
             $oldBalance = (float) $customer->balance;
 
             if ($isReversal) {
-                $newBalance = $oldBalance + $amount;
+                // Credit back exactly what was actually debited (matched by note),
+                // not a recomputed nominal amount.
+                $matching = CustomerBalanceTransaction::where('customer_id', $customerId)
+                    ->where('notes', 'LIKE', '%' . $note . '%')
+                    ->get();
+                $actualAmount = (float) $matching->sum('amount');
+
+                if ($actualAmount <= 0) {
+                    return;
+                }
+
+                $newBalance = $oldBalance + $actualAmount;
                 $customer->update(['balance' => $newBalance]);
 
                 CustomerBalanceTransaction::where('customer_id', $customerId)->where('notes', 'LIKE', '%' . $note . '%')->delete();
@@ -447,33 +458,31 @@ class OrderObserver
                         null,
                         ['balance' => $oldBalance],
                         ['balance' => $newBalance],
-                        'Balance reversed for ' . $note . ' (' . format_price($amount) . ')'
+                        'Balance reversed for ' . $note . ' (' . format_price($actualAmount) . ')'
                     );
                 }
 
                 return;
             }
 
-            // Debit, clamped so balance never goes negative.
-            $newBalance = max(0, $oldBalance - $amount);
-            $actualAmount = $oldBalance - $newBalance;
-            if ($actualAmount <= 0) {
+            if ($amount <= 0) {
                 return;
             }
 
+            $newBalance = $oldBalance - $amount;
             $customer->update(['balance' => $newBalance]);
 
             $transaction = CustomerBalanceTransaction::create([
                 'customer_id'   => $customerId,
                 'source'        => $source,
                 'type'          => CustomerBalanceTransaction::TYPE_DEBIT,
-                'amount'        => $actualAmount,
+                'amount'        => $amount,
                 'balance_after' => $newBalance,
                 'notes'         => $note,
                 'created_by'    => CustomerBalanceTransaction::getFallbackUserId($userId),
             ]);
 
-            $logDesc = $customLogDescription ?: ('Balance debited for ' . $note . ' (' . format_price($actualAmount) . ')');
+            $logDesc = $customLogDescription ?: ('Balance debited for ' . $note . ' (' . format_price($amount) . ')');
 
             ActivityLogger::log(
                 'Customer Balance',
