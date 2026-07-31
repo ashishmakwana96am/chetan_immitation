@@ -117,7 +117,7 @@ class PurchaseBillController extends Controller
                 'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
-                'items_count' => $this->totalPcsForTransfer($transfer),
+                'items_count' => $transfer->items->sum('quantity'),
                 'total_amount' => format_price(round($totalAmount)),
                 'total_amount_raw' => round($totalAmount),
                 'total_mrp' => format_price(round($totalMrp)),
@@ -869,18 +869,6 @@ class PurchaseBillController extends Controller
         }
 
         return 2.0;
-    }
-
-    private function totalPcsForTransfer(PurchaseBill $transfer): int
-    {
-        $totalPcs = 0;
-
-        foreach ($transfer->items as $item) {
-            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
-            $totalPcs += (int) round($item->quantity * $multiplier);
-        }
-
-        return $totalPcs;
     }
 
     private function purchaseBillTotals(PurchaseBill $transfer): array
