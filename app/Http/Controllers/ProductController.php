@@ -6,6 +6,7 @@ use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\SubCategory;
 use App\Models\Product;
+use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\OrderItem;
 use App\Models\ProductImage;
@@ -1364,7 +1365,16 @@ class ProductController extends Controller
     {
         $this->authorize('delete products');
 
-        $product->delete();
+        DB::transaction(function () use ($product) {
+            $inventories = Inventory::where('product_id', $product->id)->where('quantity', '>', 0)->get();
+            foreach ($inventories as $inventory) {
+                $oldQty = $inventory->quantity;
+                $inventory->update(['quantity' => 0]);
+                ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => 0], 'Stock cleared for deleted product ' . $product->name);
+            }
+
+            $product->delete();
+        });
 
         return response()->json([
             'status'  => 'success',
