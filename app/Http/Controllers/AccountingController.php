@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
+use App\Models\CustomerBalanceTransaction;
 use App\Models\Expense;
 use App\Models\Location;
 use App\Models\LocationBalance;
@@ -1218,6 +1220,96 @@ class AccountingController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Balance transferred successfully.',
+        ]);
+    }
+
+    // ============================================================
+    // CUSTOMER BALANCE (accessible from Cash Book / Bank Book)
+    // ============================================================
+
+    public function customerBalanceCreate(Request $request)
+    {
+        $this->authorize('manage customer balance');
+
+        $customers = Customer::where('is_credit_customer', true)->orderBy('name')->get();
+        $source = in_array($request->source, [CustomerBalanceTransaction::SOURCE_BANK, CustomerBalanceTransaction::SOURCE_CASH])
+            ? $request->source
+            : CustomerBalanceTransaction::SOURCE_CASH;
+
+        return view('accounting.customer-balance-create', compact('customers', 'source'));
+    }
+
+    public function customerBalanceStore(Request $request)
+    {
+        $this->authorize('manage customer balance');
+
+        $validator = Validator::make($request->all(), [
+            'customer_id' => ['required', 'integer', 'exists:customers,id,is_credit_customer,1'],
+            'source'      => ['required', 'string', 'in:' . CustomerBalanceTransaction::SOURCE_CASH . ',' . CustomerBalanceTransaction::SOURCE_BANK],
+            'type'        => ['required', 'string', 'in:' . CustomerBalanceTransaction::TYPE_CREDIT . ',' . CustomerBalanceTransaction::TYPE_DEBIT],
+            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'notes'       => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $customerId = (int) $request->customer_id;
+
+        try {
+            DB::transaction(function () use ($request, $customerId) {
+                $customer = Customer::where('id', $customerId)->lockForUpdate()->firstOrFail();
+
+                $currentBalance = (float) $customer->balance;
+                $amount = (float) $request->amount;
+
+                $newBalance = $request->type === CustomerBalanceTransaction::TYPE_CREDIT
+                    ? $currentBalance + $amount
+                    : $currentBalance - $amount;
+
+                if ($newBalance < 0) {
+                    throw new \RuntimeException('insufficient_balance');
+                }
+
+                $customer->update(['balance' => $newBalance]);
+
+                $transaction = CustomerBalanceTransaction::create([
+                    'customer_id'   => $customerId,
+                    'source'        => $request->source,
+                    'type'          => $request->type,
+                    'amount'        => $amount,
+                    'balance_after' => $newBalance,
+                    'notes'         => !empty($request->notes) ? $request->notes : 'Manual Customer Balance Adjustment',
+                    'created_by'    => auth()->id(),
+                ]);
+
+                ActivityLogger::log(
+                    'Customer Balance',
+                    'create',
+                    $transaction,
+                    ['balance' => $currentBalance],
+                    ['balance' => $newBalance],
+                    'Customer balance entry recorded for "' . ($customer->name ?? $customerId) . '" (' . $request->source . ', ' . $request->type . ' ' . format_price($amount) . ')'
+                );
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_balance') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient balance.']],
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Customer balance entry recorded successfully.',
         ]);
     }
 }

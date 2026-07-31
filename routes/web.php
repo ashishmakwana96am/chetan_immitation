@@ -231,6 +231,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
             Route::get('daily-report/export', [ReportController::class, 'exportDailyReport'])->name('daily-report.export');
+            Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
+            Route::get('customer-report/data', [ReportController::class, 'customerReportData'])->name('customer-report.data');
+            Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
@@ -314,6 +317,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
         Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
+        Route::get('accounting/customer-balance/create', [AccountingController::class, 'customerBalanceCreate'])->name('accounting.customer-balance.create');
+        Route::post('accounting/customer-balance/store', [AccountingController::class, 'customerBalanceStore'])->name('accounting.customer-balance.store');
 
         // States
         Route::get('states/data', [StateController::class, 'data'])->name('states.data');

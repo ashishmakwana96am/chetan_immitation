@@ -61,7 +61,6 @@
                         <th>GST No</th>
                         <th>State</th>
                         <th>Status</th>
-                        <th>Credit Customer</th>
                         <th>Created Date</th>
                         @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
                             <th>Actions</th>
@@ -92,13 +91,20 @@
                 },
                 columns    : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                    { data: 'name' },
+                    { data: 'name', render: function(data, type, row) {
+                        if (type === 'display') {
+                            var badge = row.is_credit_customer
+                                ? ' <span class="badge bg-label-info ms-1">Credit</span>'
+                                : '';
+                            return data + badge;
+                        }
+                        return data;
+                    }},
                     { data: 'phone' },
                     { data: 'email' },
                     { data: 'gst_no' },
                     { data: 'state' },
                     { data: 'status',     orderable: false },
-                    { data: 'credit_customer', orderable: false },
                     { data: 'created_at' },
                     @if(auth()->user()->can('edit customers') || auth()->user()->can('delete customers'))
                         { data: 'actions',    orderable: false },

@@ -64,19 +64,20 @@ class CustomerController extends Controller
             }
 
             return [
-                'id'         => $customer->id,
-                'index'      => $index + 1,
-                'name'       => $customer->name,
-                'phone'      => $customer->phone ?? '-',
-                'email'      => $customer->email ?? '-',
-                'gst_no'     => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
-                'state'      => $customer->state ?: '-',
-                'gst_no_raw' => $customer->gst_no ?? '',
-                'state_raw'  => $customer->state ?? '',
-                'status'     => $status,
-                'credit_customer' => $creditCustomer,
-                'created_at' => format_date($customer->created_at),
-                'actions'    => $actions,
+                'id'               => $customer->id,
+                'index'            => $index + 1,
+                'name'             => $customer->name,
+                'is_credit_customer' => (bool) $customer->is_credit_customer,
+                'phone'            => $customer->phone ?? '-',
+                'email'            => $customer->email ?? '-',
+                'gst_no'           => $customer->gst_no ? '<code>' . e($customer->gst_no) . '</code>' : '-',
+                'state'            => $customer->state ?: '-',
+                'gst_no_raw'       => $customer->gst_no ?? '',
+                'state_raw'        => $customer->state ?? '',
+                'status'           => $status,
+                'credit_customer'  => $creditCustomer,
+                'created_at'       => format_date($customer->created_at),
+                'actions'          => $actions,
             ];
         });
 

@@ -28,6 +28,7 @@ class Customer extends Authenticatable
         'is_website',
         'status',
         'is_credit_customer',
+        'balance',
         'otp',
         'otp_expires_at',
     ];
@@ -42,9 +43,15 @@ class Customer extends Authenticatable
         return [
             'is_website' => 'boolean',
             'is_credit_customer' => 'boolean',
+            'balance' => 'decimal:2',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];
+    }
+
+    public function balanceTransactions()
+    {
+        return $this->hasMany(CustomerBalanceTransaction::class);
     }
 
     public function wishlists()

@@ -60,6 +60,11 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Cash Book</h4>
+        @can('manage customer balance')
+            <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create', ['source' => 'cash']) }}">
+                <i class="ti ti-plus me-1"></i> Add Credit Balance
+            </button>
+        @endcan
     </div>
 
     <div class="row g-4 mb-4">

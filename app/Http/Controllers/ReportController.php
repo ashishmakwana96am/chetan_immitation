@@ -9,6 +9,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Customer;
+use App\Models\CustomerBalanceTransaction;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\PurchaseBill;
@@ -2167,5 +2168,87 @@ class ReportController extends Controller
             'totalTransfersCount' => $totalTransfersCount,
             'totalTransfersQty'   => $totalTransfersQty,
         ];
+    }
+
+    // ============================================================
+    // CUSTOMER REPORT
+    // ============================================================
+
+    public function customerReport()
+    {
+        $this->authorize('view customer report');
+
+        return view('reports.customer-report');
+    }
+
+    public function customerReportData(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $query = Customer::query();
+
+        if ($request->filled('credit_only') && $request->boolean('credit_only')) {
+            $query->where('is_credit_customer', true);
+        }
+
+        $customers = $query->orderBy('name')->get();
+
+        $customerIds = $customers->pluck('id');
+        $totalsByCustomer = CustomerBalanceTransaction::whereIn('customer_id', $customerIds)
+            ->selectRaw('customer_id, type, SUM(amount) as total')
+            ->groupBy('customer_id', 'type')
+            ->get()
+            ->groupBy('customer_id');
+
+        $data = $customers->values()->map(function ($customer, $index) use ($totalsByCustomer) {
+            $totals = $totalsByCustomer->get($customer->id, collect());
+            $totalCredit = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_CREDIT)->total ?? 0);
+            $totalDebit  = (float) ($totals->firstWhere('type', CustomerBalanceTransaction::TYPE_DEBIT)->total ?? 0);
+
+            return [
+                'index'               => $index + 1,
+                'customer_id'         => $customer->id,
+                'name'                => e($customer->name),
+                'phone'               => $customer->phone ?? '-',
+                'is_credit_customer'  => (bool) $customer->is_credit_customer,
+                'credit_badge'        => $customer->is_credit_customer
+                    ? '<span class="badge bg-label-success">Credit Customer</span>'
+                    : '<span class="badge bg-label-secondary">Regular</span>',
+                'balance'             => $customer->is_credit_customer ? format_price($customer->balance) : '-',
+                'total_credit'        => $customer->is_credit_customer ? format_price($totalCredit) : '-',
+                'total_debit'         => $customer->is_credit_customer ? format_price($totalDebit) : '-',
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $data,
+            'summary' => [
+                'total_customers'        => $customers->count(),
+                'total_credit_customers' => $customers->where('is_credit_customer', true)->count(),
+                'total_balance'          => format_price($customers->where('is_credit_customer', true)->sum('balance')),
+            ],
+        ]);
+    }
+
+    public function customerReportDetail(Request $request)
+    {
+        $this->authorize('view customer report');
+
+        $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+        ]);
+
+        $customer = Customer::findOrFail($request->customer_id);
+
+        $transactions = $customer->balanceTransactions()
+            ->with('createdBy')
+            ->orderByDesc('id')
+            ->get();
+
+        $totalCredit = $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
+        $totalDebit  = $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
+
+        return view('reports.customer-report-detail', compact('customer', 'transactions', 'totalCredit', 'totalDebit'));
     }
 }
