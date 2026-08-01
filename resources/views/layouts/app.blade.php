@@ -343,7 +343,7 @@
 
             var fallbackTimeout = setTimeout(function() {
                 hideLoader();
-            }, 5000);
+            }, 800);
 
             $(document).on('preInit.dt', function(e, settings) {
                 if (settings && settings.oFeatures) {
@@ -353,14 +353,10 @@
                 hasDataTables = true;
             });
 
-            $(document).on('init.dt', function(e, settings) {
+            $(document).on('init.dt xhr.dt draw.dt', function(e, settings) {
                 activeDataTables--;
-                setTimeout(function() {
-                    if (activeDataTables <= 0 && hasDataTables) {
-                        clearTimeout(fallbackTimeout);
-                        hideLoader();
-                    }
-                }, 50);
+                clearTimeout(fallbackTimeout);
+                hideLoader();
             });
 
             setTimeout(function() {
@@ -368,7 +364,7 @@
                     clearTimeout(fallbackTimeout);
                     hideLoader();
                 }
-            }, 200);
+            }, 100);
 
             $('.flatpickr').each(function() {
                 let config = {

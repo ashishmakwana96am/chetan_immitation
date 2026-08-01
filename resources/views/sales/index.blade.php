@@ -338,7 +338,7 @@
                     { data: 'order_no' },
                     { data: 'customer' },
                     ...(isSuperAdmin ? [{ data: 'location' }] : []),
-                    { data: 'source' },
+                    { data: 'source', orderable: false },
                     { data: 'final_amount' },
                     { data: 'status', orderable: false },
                     { data: 'payment_status', orderable: false },
