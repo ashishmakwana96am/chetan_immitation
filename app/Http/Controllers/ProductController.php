@@ -91,27 +91,66 @@ class ProductController extends Controller
             $length = 25;
         }
 
-        if ($hasStockFilter) {
-            // Stock isn't a DB column, so the filter must run in PHP. Only fetch the
-            // lightweight columns/relations needed to compute it, for every row matching
-            // the other filters, then page the resulting id list before loading full rows.
+        $orderColumnMap = [
+            1 => 'id',
+            3 => 'name',
+            4 => 'barcode',
+            5 => 'category',
+            6 => 'stock',
+            7 => 'purchase_price',
+            8 => 'sale_price',
+            9 => 'mrp',
+            10 => 'status',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'id';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'category') {
+            $baseQuery->leftJoin('categories as cat', 'products.category_id', '=', 'cat.id')
+                      ->leftJoin('categories as subcat', 'products.sub_category_id', '=', 'subcat.id')
+                      ->select('products.*')
+                      ->orderByRaw("COALESCE(subcat.name, cat.name) {$sortDir}");
+        } elseif (in_array($sortKey, ['id', 'name', 'barcode', 'purchase_price', 'sale_price', 'mrp', 'status'], true)) {
+            $baseQuery->orderBy("products.{$sortKey}", $sortDir);
+        }
+
+        if ($sortKey === 'stock' || $hasStockFilter) {
             $lightProducts = (clone $baseQuery)
-                ->select(['id', 'type'])
-                ->with(['inventories' => function($q) use ($locationId) {
-                    $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                }])
-                ->orderBy('id', 'desc')
+                ->with([
+                    'inventories' => function($q) use ($locationId) {
+                        $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
+                    }
+                ])
                 ->get();
             Product::preloadVariantStock($lightProducts);
 
-            $wantInStock = $request->stock_status === 'in_stock';
-            $matchingIds = $lightProducts->filter(function ($product) use ($computeStock, $wantInStock) {
-                $stock = $computeStock($product);
-                return $wantInStock ? $stock > 0 : $stock <= 0;
-            })->pluck('id')->values();
+            $filteredProducts = $lightProducts;
+            if ($hasStockFilter) {
+                $wantInStock = $request->stock_status === 'in_stock';
+                $filteredProducts = $filteredProducts->filter(function ($product) use ($computeStock, $wantInStock) {
+                    $stock = $computeStock($product);
+                    return $wantInStock ? $stock > 0 : $stock <= 0;
+                });
+            }
 
-            $recordsFiltered = $matchingIds->count();
-            $pageIds = $matchingIds->slice($start, $length)->values();
+            if ($sortKey === 'stock') {
+                $filteredProducts = $filteredProducts->sortBy(function ($product) use ($computeStock) {
+                    return $computeStock($product);
+                }, SORT_REGULAR, $sortDir === 'desc');
+            }
+
+            $recordsFiltered = $filteredProducts->count();
+            $pageIds = $filteredProducts->pluck('id')->values()->slice($start, $length)->values();
 
             $products = Product::with([
                 'category',
@@ -137,7 +176,6 @@ class ProductController extends Controller
                         $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                     }
                 ])
-                ->orderBy('id', 'desc')
                 ->skip($start)
                 ->take($length)
                 ->get();
