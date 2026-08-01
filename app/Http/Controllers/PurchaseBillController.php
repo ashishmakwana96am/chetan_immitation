@@ -62,8 +62,7 @@ class PurchaseBillController extends Controller
 
         $user = auth()->user();
 
-        $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
-            ->withCount('items')
+        $query = PurchaseBill::query()
             ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
                 $q->where(function ($sub) use ($user) {
                     $sub->where('from_location_id', $user->location_id)
@@ -77,16 +76,109 @@ class PurchaseBillController extends Controller
             ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
             ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
             ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->when($request->input('search.value'), function ($q, $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('transfer_no', 'like', "%{$search}%")
+                        ->orWhereHas('fromLocation', fn($lq) => $lq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('toLocation', fn($lq) => $lq->where('name', 'like', "%{$search}%"));
+                });
+            });
+
+        $recordsTotal = PurchaseBill::when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
+            $q->where(function ($sub) use ($user) {
+                $sub->where('from_location_id', $user->location_id)
+                    ->orWhere('to_location_id', $user->location_id);
+            });
+        })->count();
+        $recordsFiltered = (clone $query)->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+
+        $orderColumnMap = [
+            1 => 'transfer_no',
+            2 => 'from_location',
+            3 => 'to_location',
+            4 => 'items_count',
+            9 => 'created_by',
+            12 => 'created_at',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            } elseif (in_array($colIdx, [5, 6], true)) {
+                $sortKey = $colIdx === 5 ? 'total_amount' : 'total_mrp';
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'from_location') {
+            $query->leftJoin('locations as fl', 'purchase_bills.from_location_id', '=', 'fl.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('fl.name', $sortDir);
+        } elseif ($sortKey === 'to_location') {
+            $query->leftJoin('locations as tl', 'purchase_bills.to_location_id', '=', 'tl.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('tl.name', $sortDir);
+        } elseif ($sortKey === 'created_by') {
+            $query->leftJoin('users as u', 'purchase_bills.created_by', '=', 'u.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('u.name', $sortDir);
+        } elseif ($sortKey === 'items_count') {
+            $query->withCount('items')->orderBy('items_count', $sortDir);
+        } elseif ($sortKey !== 'total_amount' && $sortKey !== 'total_mrp') {
+            $query->orderBy("purchase_bills.{$sortKey}", $sortDir);
+        }
+
+        if ($sortKey === 'total_amount' || $sortKey === 'total_mrp') {
+            // Load all candidate models to sort accurately using PHP purchaseBillTotals helper
+            $allCandidateTransfers = $query
+                ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+                ->get();
+
+            $sortedTransfers = $allCandidateTransfers->sortBy(function ($transfer) use ($sortKey) {
+                [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
+                return $sortKey === 'total_amount' ? $totalAmount : $totalMrp;
+            }, SORT_NUMERIC, $sortDir === 'desc');
+
+            $transfers = $sortedTransfers->slice($start, $length)->values();
+        } else {
+            $transfers = $query
+                ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+                ->skip($start)
+                ->take($length)
+                ->get();
+        }
+
+        // Calculate grand totals across filtered records using PHP helper to be 100% MariaDB compatible
+        $allFiltered = (clone $query)
+            ->with(['items.product', 'items.variant'])
             ->get();
+
+        $grandTotalAmount = 0.0;
+        $grandTotalMrp = 0.0;
+        foreach ($allFiltered as $t) {
+            [$amt, $mrp] = $this->purchaseBillTotals($t);
+            $grandTotalAmount += $amt;
+            $grandTotalMrp += $mrp;
+        }
 
         $canAccept = auth()->user()->can('accept purchase bills');
         $canReject = auth()->user()->can('reject purchase bills');
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
         $canEdit = auth()->user()->can('edit purchase bills');
 
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
+        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit, $start) {
             $statusBadge = $this->statusBadge($transfer->status);
             $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
 
@@ -113,7 +205,7 @@ class PurchaseBillController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index' => $index + 1,
+                'index' => $start + $index + 1,
                 'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
@@ -131,10 +223,17 @@ class PurchaseBillController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data])
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        return response()->json([
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'grand_total_amount' => format_price($grandTotalAmount),
+            'grand_total_mrp' => format_price($grandTotalMrp),
+            'data' => $data,
+        ])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function export(Request $request)
