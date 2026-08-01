@@ -88,9 +88,13 @@
                             <span class="text-muted small">Cash Balance</span>
                             <span class="fw-semibold text-success" id="cash-balance-{{ $loc->id }}">{{ format_price($loc->cash_balance) }}</span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Bank Balance</span>
                             <span class="fw-semibold text-primary" id="bank-balance-{{ $loc->id }}">{{ format_price($loc->bank_balance) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Credit Balance</span>
+                            <span class="fw-semibold text-info" id="customer-balance-{{ $loc->id }}">{{ format_price($customerBalanceByLocation->get($loc->id, 0)) }}</span>
                         </div>
                     </div>
                 </div>
@@ -278,6 +282,9 @@
                             $('#bank-balance-' + locId).text(balances.bank)
                                 .toggleClass('text-danger', balances.bank.includes('-'))
                                 .toggleClass('text-primary', !balances.bank.includes('-'));
+                            if (balances.customer_balance !== undefined) {
+                                $('#customer-balance-' + locId).text(balances.customer_balance);
+                            }
                         });
                     }
                     return json.data;

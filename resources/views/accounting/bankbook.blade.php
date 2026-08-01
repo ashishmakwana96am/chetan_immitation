@@ -81,9 +81,13 @@
                             <span class="text-muted small">Bank Out</span>
                             <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}">-</span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Bank Balance</span>
                             <span class="fw-semibold text-primary" id="balance-{{ $loc->id }}">-</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Credit Balance</span>
+                            <span class="fw-semibold text-info" id="customer-balance-{{ $loc->id }}">-</span>
                         </div>
                     </div>
                 </div>
@@ -265,6 +269,7 @@
                             $('#balance-' + locId).text(s.balance)
                                 .toggleClass('text-danger', s.balance.includes('-'))
                                 .toggleClass('text-primary', !s.balance.includes('-'));
+                            $('#customer-balance-' + locId).text(s.customer_balance);
                         });
                     }
                     return json.data;

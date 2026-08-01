@@ -152,14 +152,21 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $branchLocations->pluck('id'))
+            ->selectRaw('location_id, SUM(balance) as total')
+            ->groupBy('location_id')
+            ->pluck('total', 'location_id');
+
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
             $locTx = $transactionsByLocation->get($loc->id, collect());
 
             $branchSummary[$loc->id] = [
-                'credit'  => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
-                'debit'   => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
-                'balance' => format_price($loc->cash_balance),
+                'credit'           => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
+                'debit'            => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
+                'balance'          => format_price($loc->cash_balance),
+                'customer_balance' => format_price($customerBalanceByLocation->get($loc->id, 0)),
             ];
         }
 
@@ -294,14 +301,21 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $branchLocations->pluck('id'))
+            ->selectRaw('location_id, SUM(balance) as total')
+            ->groupBy('location_id')
+            ->pluck('total', 'location_id');
+
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
             $locTx = $transactionsByLocation->get($loc->id, collect());
 
             $branchSummary[$loc->id] = [
-                'credit'  => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
-                'debit'   => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
-                'balance' => format_price($loc->bank_balance),
+                'credit'           => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_CREDIT)->sum('amount')),
+                'debit'            => format_price($locTx->where('type', LocationBalanceTransaction::TYPE_DEBIT)->sum('amount')),
+                'balance'          => format_price($loc->bank_balance),
+                'customer_balance' => format_price($customerBalanceByLocation->get($loc->id, 0)),
             ];
         }
 
@@ -905,7 +919,13 @@ class AccountingController extends Controller
 
         $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
-        return view('accounting.branch-balances', compact('locations'));
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $locations->pluck('id'))
+            ->selectRaw('location_id, SUM(balance) as total')
+            ->groupBy('location_id')
+            ->pluck('total', 'location_id');
+
+        return view('accounting.branch-balances', compact('locations', 'customerBalanceByLocation'));
     }
 
     public function branchBalancesData(Request $request)
@@ -1004,11 +1024,19 @@ class AccountingController extends Controller
         $totalBank = LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
         $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
+
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $locations->pluck('id'))
+            ->selectRaw('location_id, SUM(balance) as total')
+            ->groupBy('location_id')
+            ->pluck('total', 'location_id');
+
         $branchBalances = [];
         foreach ($locations as $loc) {
             $branchBalances[$loc->id] = [
-                'cash' => format_price($loc->cash_balance),
-                'bank' => format_price($loc->bank_balance),
+                'cash'             => format_price($loc->cash_balance),
+                'bank'             => format_price($loc->bank_balance),
+                'customer_balance' => format_price($customerBalanceByLocation->get($loc->id, 0)),
             ];
         }
 

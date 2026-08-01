@@ -24,6 +24,7 @@
                         <div>
                             <span class="text-muted small text-nowrap">Today's Sales</span>
                             <h4 class="mb-0 mt-1 text-primary">{{ format_price($salesStats['today']) }}</h4>
+                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $customerOutstandingBalance < 0 ? 'text-danger' : 'text-info' }}">{{ format_price($customerOutstandingBalance) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
