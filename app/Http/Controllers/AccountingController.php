@@ -693,12 +693,20 @@ class AccountingController extends Controller
 
         $purchases = $purchasesQuery->get();
 
-        // Group by Supplier ID only to calculate cumulative outstanding payment due till date
-        $grouped = $purchases->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
+        // Group by Date and Supplier
+        $groupByDateSupplier = fn ($items) => $items->groupBy(function ($purchase) {
+            $date = $purchase->created_at ? $purchase->created_at->format('Y-m-d') : now()->format('Y-m-d');
+            return $date . '_' . ($purchase->supplier_id ?? 0);
+        });
+
+        $grouped = $groupByDateSupplier($purchases);
 
         $rows = collect();
+        $totalPurchase = 0.0;
+        $totalPayment = 0.0;
+        $totalOutstanding = 0.0;
 
-        foreach ($grouped as $items) {
+        foreach ($grouped as $key => $items) {
             $first = $items->first();
             $supplierName = $first->supplier->name ?? 'Unknown';
 
@@ -722,31 +730,43 @@ class AccountingController extends Controller
                 continue;
             }
 
+            $totalPurchase += $sumTotal;
+            $totalPayment += $sumPaid;
+            $totalOutstanding += $due;
+
+            $dateObj = $first->created_at ?? now();
+
             $rows->push([
                 'supplier_id'    => $first->supplier_id,
                 'supplier_name'  => $supplierName,
+                'date_raw'       => $dateObj->format('Y-m-d'),
+                'date_formatted' => format_date($dateObj),
                 'total_amount'   => $sumTotal,
                 'paid_amount'    => $sumPaid,
                 'due_amount'     => $due,
             ]);
         }
 
-        // Sort by due amount desc, then supplier name asc
+        // Sort by date desc, then supplier name asc
         $sortedRows = $rows->sort(function ($a, $b) {
-            if ($a['due_amount'] !== $b['due_amount']) {
-                return $b['due_amount'] <=> $a['due_amount'];
+            if ($a['date_raw'] !== $b['date_raw']) {
+                return strcmp($b['date_raw'], $a['date_raw']);
             }
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
         $mappedRows = $sortedRows->map(function ($row, $index) {
+            $dateObj = \Carbon\Carbon::parse($row['date_raw']);
             return [
                 'index'          => $index + 1,
                 'supplier_id'    => $row['supplier_id'],
                 'supplier'       => e($row['supplier_name']),
+                'date'           => $row['date_formatted'],
                 'total_amount'   => format_price($row['total_amount']),
                 'paid_amount'    => format_price($row['paid_amount']),
                 'due_amount'     => format_price($row['due_amount']),
+                'date_group'     => format_date($dateObj, 'd M Y'),
+                'date_sort'      => $row['date_raw'],
             ];
         });
 
@@ -765,7 +785,7 @@ class AccountingController extends Controller
             $locPayment = 0.0;
             $locOutstanding = 0.0;
 
-            $locGrouped = $purchasesByLocation->get($loc->id, collect())->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
+            $locGrouped = $groupByDateSupplier($purchasesByLocation->get($loc->id, collect()));
             foreach ($locGrouped as $items) {
                 $sumTotal = 0.0;
                 $sumPaid = 0.0;
