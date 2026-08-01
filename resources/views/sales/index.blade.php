@@ -308,14 +308,15 @@
             const dateSortColIndex = isSuperAdmin ? 11 : 10;
 
             const table = $('#ordersTable').DataTable({
-                responsive : false,
-                order      : [[dateSortColIndex, 'desc']],
-                orderFixed : { pre: [[dateSortColIndex, 'desc']] },
-                ajax       : {
+                processing: true,
+                serverSide: true,
+                responsive: false,
+                order: [[dateSortColIndex, 'desc']],
+                ajax: {
                     url: '{{ route('admin.sales.data') }}',
                     dataSrc: 'data',
                     cache: false,
-                    data: function(d) {
+                    data: function (d) {
                         d.status = $('#filter-status').val();
                         d.payment_status = $('#filter-payment-status').val();
                         d.source = $('#filter-source').val();
@@ -327,28 +328,24 @@
                         }
                     }
                 },
-                columns    : [
+                columns: [
                     {
-                        data: null,
+                        data: 'index',
                         width: '5%',
                         orderable: false,
                         searchable: false,
-                        render: function (data, type, row, meta) {
-                            const rowNumber = meta.row + meta.settings._iDisplayStart + 1;
-                            return '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' + rowNumber + (row.stock_warning || '') + (row.cancellation_warning || '') + '</span>';
-                        }
                     },
                     { data: 'order_no' },
                     { data: 'customer' },
                     ...(isSuperAdmin ? [{ data: 'location' }] : []),
                     { data: 'source' },
                     { data: 'final_amount' },
-                    { data: 'status',         orderable: false },
+                    { data: 'status', orderable: false },
                     { data: 'payment_status', orderable: false },
-                    { data: 'payment_method' },
-                    { data: 'actions',        orderable: false },
-                    { data: 'date_group',     visible: false },
-                    { data: 'date_sort',      visible: false },
+                    { data: 'payment_method', orderable: false },
+                    { data: 'actions', orderable: false },
+                    { data: 'date_group', visible: false },
+                    { data: 'date_sort', visible: false },
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',
@@ -372,6 +369,10 @@
                         return new bootstrap.Tooltip(tooltipTriggerEl);
                     });
                 }
+            });
+
+            table.on('draw.dt', function () {
+                $('#ordersTable_processing').css('display', 'none');
             });
 
             window.refreshTable = function () {

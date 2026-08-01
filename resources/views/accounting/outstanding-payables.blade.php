@@ -129,8 +129,6 @@
                         <th class="text-end">Total Paid</th>
                         <th class="text-end">Outstanding Amount</th>
                         <th style="width: 10%">Action</th>
-                        <th>Date Group</th>
-                        <th>Date Sort</th>
                     </tr>
                 </thead>
             </table>
@@ -181,17 +179,7 @@
 
             const table = $('#outstandingPayablesTable').DataTable({
                 responsive: false,
-                order: [[7, 'desc']],
-                columnDefs: [
-                    { targets: [6, 7], visible: false }
-                ],
-                rowGroup: {
-                    dataSrc: 'date_group',
-                    startRender: function (rows, group) {
-                        return $('<tr class="group-header"/>')
-                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
-                    }
-                },
+                order: [[4, 'desc']],
                 ajax: {
                     url: '{{ route('admin.accounting.outstanding-payables.data') }}',
                     cache: false,
@@ -237,7 +225,7 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
+                                        <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="dropdown-item">
                                             <i class="ti ti-eye me-2"></i>View
                                         </a>
                                     </div>
@@ -245,8 +233,6 @@
                             `;
                         }
                     },
-                    { data: 'date_group' },
-                    { data: 'date_sort' },
                 ],
                 drawCallback: function () {
                     const api = this.api();

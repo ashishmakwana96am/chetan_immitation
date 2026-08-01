@@ -46,9 +46,11 @@ class SaleController extends Controller
         $this->authorize('view sales');
 
         $user = auth()->user();
-        $orders = Order::with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        $query = Order::query()
             ->where('order_type', 'sale')
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id))
+            ->when($user->location_id && !$isSuperAdmin, fn($q) => $q->where('location_id', $user->location_id))
             ->when($request->location_id, function ($q) use ($request) {
                 $q->where('location_id', $request->location_id);
             })
@@ -72,8 +74,70 @@ class SaleController extends Controller
             ->when($request->end_date, function ($q) use ($request) {
                 $q->whereDate('created_at', '<=', $request->end_date);
             })
-            ->orderBy('id', 'desc')
+            ->when($request->input('search.value'), function ($q, $search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('order_no', 'like', "%{$search}%")
+                        ->orWhereHas('customer', fn($cq) => $cq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('location', fn($lq) => $lq->where('name', 'like', "%{$search}%"));
+                });
+            });
+
+        $recordsTotal = Order::where('order_type', 'sale')
+            ->when($user->location_id && !$isSuperAdmin, fn($q) => $q->where('location_id', $user->location_id))
+            ->count();
+        $recordsFiltered = (clone $query)->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) {
+            $length = 25;
+        }
+
+        $orderColumnMap = $isSuperAdmin ? [
+            1 => 'order_no',
+            2 => 'customer',
+            3 => 'location',
+            4 => 'source',
+            5 => 'final_amount',
+            11 => 'created_at',
+        ] : [
+            1 => 'order_no',
+            2 => 'customer',
+            3 => 'source',
+            4 => 'final_amount',
+            10 => 'created_at',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'customer') {
+            $query->leftJoin('customers as cust', 'orders.customer_id', '=', 'cust.id')
+                  ->select('orders.*')
+                  ->orderBy('cust.name', $sortDir);
+        } elseif ($sortKey === 'location') {
+            $query->leftJoin('locations as loc', 'orders.location_id', '=', 'loc.id')
+                  ->select('orders.*')
+                  ->orderBy('loc.name', $sortDir);
+        } else {
+            $query->orderBy("orders.{$sortKey}", $sortDir);
+        }
+
+        $orders = $query
+            ->with(['customer', 'location', 'user', 'items.product', 'cancellationRequest'])
+            ->skip($start)
+            ->take($length)
             ->get();
+
         $canEdit = auth()->user()->can('edit sales');
         $canEditSalesStatus = auth()->user()->can('edit sales status');
         $canEditSalesPaymentStatus = auth()->user()->can('edit sales payment status');
@@ -115,7 +179,7 @@ class SaleController extends Controller
             3 => 'Partially Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $start) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -204,17 +268,17 @@ class SaleController extends Controller
             $sourceVal = $order->source ?? 'POS';
 
             if ($sourceVal === 'POS') {
-                if ($order->status == 2) {  // 2 = Approve
+                if ($order->status == 2) {
                     $showStatusOption = false;
                 }
-                if ($order->payment_status == 2) {  // 2 = Paid
+                if ($order->payment_status == 2) {
                     $showPaymentOption = false;
                 }
             } elseif ($sourceVal === 'ONLINE') {
-                if (in_array($order->status, [5, 6])) {  // 5 = Delivered, 6 = Decline
+                if (in_array($order->status, [5, 6])) {
                     $showStatusOption = false;
                 }
-                if ($order->payment_status == 2) {  // 2 = Paid
+                if ($order->payment_status == 2) {
                     $showPaymentOption = false;
                 }
             }
@@ -235,10 +299,13 @@ class SaleController extends Controller
                 ? '<span class="badge bg-label-success">ONLINE</span>'
                 : '<span class="badge bg-label-info">POS</span>';
 
+            $rowNumber = $start + $index + 1;
+            $indexHtml = '<span class="d-inline-flex align-items-center gap-1 text-nowrap">' . $rowNumber . $stockWarningHtml . $cancellationWarningHtml . '</span>';
+
             return [
                 'cancellation_requested' => $cancellationRequested,
                 'cancellation_warning' => $cancellationWarningHtml,
-                'index' => $index + 1,
+                'index' => $indexHtml,
                 'is_default' => (bool) $order->is_default,
                 'stock_warning' => $stockWarningHtml,
                 'order_no' => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
@@ -248,20 +315,22 @@ class SaleController extends Controller
                 'final_amount' => format_price($order->final_amount),
                 'status' => $status,
                 'payment_status' => $paymentStatus,
-                'payment_method' => $order->payment_method === 'online_cash'
-                    ? 'Cash + Online'
-                    : ($order->payment_method === 'cod' ? 'COD' : ucwords(str_replace('_', ' ', $order->payment_method ?? ''))),
+                'payment_method' => ucfirst($order->payment_method ?? '-'),
                 'date_group' => $order->created_at->format('d M Y'),
-                'date_sort' => $order->created_at->format('Ymd'),
+                'date_sort' => $order->created_at->format('YmdHis'),
                 'actions' => $actions,
             ];
         });
 
-        return response()
-            ->json(['status' => 'success', 'data' => $data])
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        return response()->json([
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function create()

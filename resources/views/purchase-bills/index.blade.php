@@ -177,9 +177,10 @@
             });
 
             const table = $('#purchaseBillsTable').DataTable({
+                processing: true,
+                serverSide: true,
                 responsive: false,
                 order: [[12, 'desc']],
-                orderFixed: { pre: [[12, 'desc']] },
                 ajax: {
                     url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
@@ -195,15 +196,7 @@
                     }
                 },
                 columns: [
-                    {
-                        data: null,
-                        width: '5%',
-                        orderable: false,
-                        searchable: false,
-                        render: function (data, type, row, meta) {
-                            return meta.row + meta.settings._iDisplayStart + 1;
-                        }
-                    },
+                    { data: 'index', orderable: false, width: '5%', searchable: false },
                     { data: 'transfer_no' },
                     { data: 'from_location' },
                     { data: 'to_location' },
@@ -219,16 +212,12 @@
                     { data: 'total_amount_raw', visible: false, searchable: false },
                     { data: 'total_mrp_raw', visible: false, searchable: false },
                 ],
-                footerCallback: function () {
-                    const api = this.api();
-                    const total = api.column(13, { search: 'applied' }).data().reduce(function (a, b) {
-                        return (parseFloat(a) || 0) + (parseFloat(b) || 0);
-                    }, 0);
-                    const totalMrp = api.column(14, { search: 'applied' }).data().reduce(function (a, b) {
-                        return (parseFloat(a) || 0) + (parseFloat(b) || 0);
-                    }, 0);
-                    $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-                    $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + totalMrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                footerCallback: function (row, data, start, end, display) {
+                    const json = this.api().ajax.json();
+                    if (json && json.grand_total_amount) {
+                        $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + json.grand_total_amount);
+                        $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + json.grand_total_mrp);
+                    }
                 },
                 rowGroup: {
                     dataSrc: 'date_group',
@@ -237,6 +226,10 @@
                             .append('<td colspan="11" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
                     }
                 },
+            });
+
+            table.on('draw.dt', function () {
+                $('#purchaseBillsTable_processing').css('display', 'none');
             });
 
             window.refreshTable = function () {
