@@ -353,7 +353,7 @@
                 hasDataTables = true;
             });
 
-            $(document).on('init.dt xhr.dt draw.dt', function(e, settings) {
+            $(document).on('init.dt draw.dt', function(e, settings) {
                 activeDataTables--;
                 clearTimeout(fallbackTimeout);
                 hideLoader();

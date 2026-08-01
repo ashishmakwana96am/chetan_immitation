@@ -25,20 +25,7 @@
     <div id="report-results">
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start justify-content-between">
-                            <div>
-                                <span class="text-muted">Total Transactions</span>
-                                <h4 class="mb-0 mt-1">{{ $totalTransactions }}</h4>
-                            </div>
-                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-receipt ti-sm"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -51,7 +38,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
@@ -64,7 +51,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
+            <div class="col-sm-6 col-xl-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">

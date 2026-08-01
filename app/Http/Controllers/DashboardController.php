@@ -47,6 +47,8 @@ class DashboardController extends Controller
             'pending'    => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
+        $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->sum('balance');
+
         $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
         Product::preloadVariantStock($products);
         $totalStockUnits = 0;
@@ -149,7 +151,7 @@ class DashboardController extends Controller
             : 0;
 
         return view('dashboard.super-admin', compact(
-            'stats', 'salesStats', 'stockStats',
+            'stats', 'salesStats', 'stockStats', 'customerOutstandingBalance',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts', 'salesByLocation',
             'recentInquiries', 'todayInquiriesCount'
@@ -170,6 +172,8 @@ class DashboardController extends Controller
             'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
             'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
+
+        $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('balance');
 
         $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
         Product::preloadVariantStock($allProducts);
@@ -298,7 +302,7 @@ class DashboardController extends Controller
             : 0;
 
         return view('dashboard.location', compact(
-            'location', 'salesStats', 'stockStats',
+            'location', 'salesStats', 'stockStats', 'customerOutstandingBalance',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts',
             'recentInquiries', 'todayInquiriesCount'
