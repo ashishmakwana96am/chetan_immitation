@@ -97,13 +97,11 @@ class SaleController extends Controller
             1 => 'order_no',
             2 => 'customer',
             3 => 'location',
-            4 => 'source',
             5 => 'final_amount',
             11 => 'created_at',
         ] : [
             1 => 'order_no',
             2 => 'customer',
-            3 => 'source',
             4 => 'final_amount',
             10 => 'created_at',
         ];
