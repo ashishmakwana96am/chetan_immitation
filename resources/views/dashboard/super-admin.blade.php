@@ -17,21 +17,47 @@
 
     <!-- Stats Row 1 — Sales & Products Overview -->
     <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted small text-nowrap">Cash Balance</span>
+                            <h4 class="mb-0 mt-1 {{ $totalCashBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($totalCashBalance) }}</h4>
+                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $customerOutstandingBalance < 0 ? 'text-danger' : 'text-info' }}">{{ format_price($customerOutstandingBalance) }}</span></small>
+                        </div>
+                        <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <span class="text-muted small text-nowrap">Bank Balance</span>
+                            <h4 class="mb-0 mt-1 {{ $totalBankBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($totalBankBalance) }}</h4>
+                        </div>
+                        <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted small text-nowrap">Today's Sales</span>
                             <h4 class="mb-0 mt-1 text-primary">{{ format_price($salesStats['today']) }}</h4>
-                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $customerOutstandingBalance < 0 ? 'text-danger' : 'text-info' }}">{{ format_price($customerOutstandingBalance) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -44,7 +70,11 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-4">
+    </div>
+
+    <!-- Stats Row 2 — Stock & Inventory Overview -->
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -57,11 +87,7 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Stats Row 2 — Stock & Inventory Overview -->
-    <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -82,7 +108,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
@@ -95,7 +121,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">

@@ -48,6 +48,8 @@ class DashboardController extends Controller
         ];
 
         $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->sum('balance');
+        $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
+        $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
         $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
         Product::preloadVariantStock($products);
@@ -152,6 +154,7 @@ class DashboardController extends Controller
 
         return view('dashboard.super-admin', compact(
             'stats', 'salesStats', 'stockStats', 'customerOutstandingBalance',
+            'totalCashBalance', 'totalBankBalance',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts', 'salesByLocation',
             'recentInquiries', 'todayInquiriesCount'
