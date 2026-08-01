@@ -56,187 +56,127 @@
     <script>
     $(document).ready(function () {
         let table = null;
+        const locationCount = {{ $locations->count() }};
+        const locationIds = @json($locations->pluck('id'));
 
-        $.fn.dataTable.ext.type.order['null-last-asc'] = function (a, b) {
-            if (a === '') return 1;
-            if (b === '') return -1;
-            return a < b ? -1 : (a > b ? 1 : 0);
-        };
-        $.fn.dataTable.ext.type.order['null-last-desc'] = function (a, b) {
-            if (a === '') return 1;
-            if (b === '') return -1;
-            return a < b ? 1 : (a > b ? -1 : 0);
-        };
+        function currentFilters() {
+            let minAge = $('#filterAge').val();
+            if (minAge === 'custom') {
+                minAge = $('#filterAgeCustom').val();
+            }
+            return {
+                category_id : $('#filterCategory').val() || '',
+                stock       : $('#filterStock').val() || '',
+                min_age     : minAge || '',
+                sort_by     : $('#sortBy').val() || '',
+                from_date   : $('input[name="from_date"]').val() || '',
+                to_date     : $('input[name="to_date"]').val() || '',
+            };
+        }
+
+        function refreshTotals() {
+            $.get('{{ route('admin.reports.stock-inventory.totals') }}', currentFilters(), function (res) {
+                locationIds.forEach(function (locId) {
+                    $('#stockTableFooterRow td[data-loc-total="' + locId + '"]').html(res.location_totals[locId] ?? '0');
+                });
+                $('#stockTableFooterRow td[data-footer="qty"]').html(res.qty_total);
+                $('#stockTableFooterRow td[data-footer="purchase"]').html(res.purchase_total);
+                $('#stockTableFooterRow td[data-footer="mrp"]').html(res.mrp_total);
+            });
+        }
+
+        function renderVariantChild(variants) {
+            let html = '<div class="table-responsive" style="max-height: 300px; overflow-y: auto;">';
+            html += '<table class="table table-sm mb-0 variant-table">';
+            html += '<thead class="table-light"><tr><th style="width: 40px;">#</th><th>Variant</th><th>Last Purchase Date</th>';
+            html += '<th class="text-center" colspan="' + locationCount + '">Location Stock</th>';
+            html += '<th class="text-center">Total Qty</th><th class="text-end">Purchase Value</th><th class="text-end">MRP Value</th><th class="text-center">Inventory Age</th></tr></thead>';
+            html += '<tbody>';
+            variants.forEach(function (v) {
+                html += '<tr>';
+                html += '<td>' + v.index + '</td>';
+                html += '<td class="ps-4">' + v.name + '</td>';
+                html += '<td>' + v.last_purchase_display + '</td>';
+                html += v.loc_badges;
+                html += '<td class="text-center">' + v.total_badge + '</td>';
+                html += '<td class="text-end fw-semibold">' + v.purchase_value + '</td>';
+                html += '<td class="text-end fw-semibold text-success">' + v.mrp_value + '</td>';
+                html += '<td class="text-center">' + v.age_badge + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+            return html;
+        }
 
         function initReport() {
             if ($.fn.DataTable.isDataTable('#stockTable')) {
                 $('#stockTable').DataTable().destroy();
             }
 
-            const lastPurchaseColumnIndex = 2;
-            const ageColumnIndex = 4 + {{ $locations->count() }} + 4;
-
-            const hasDateFilter = !!($('input[name="from_date"]').val() || $('input[name="to_date"]').val());
-            const defaultOrder = hasDateFilter ? [lastPurchaseColumnIndex, 'asc'] : [lastPurchaseColumnIndex, 'desc'];
-
             table = $('#stockTable').DataTable({
                 responsive : false,
-                order      : [defaultOrder],
-                columnDefs : [
-                    {
-                        targets: 0,
-                        orderable: false,
-                    },
-                    {
-                        targets: lastPurchaseColumnIndex,
-                        type: 'null-last',
+                serverSide : true,
+                processing : false,
+                pageLength : 25,
+                ordering   : false,
+                ajax: {
+                    url: '{{ route('admin.reports.stock-inventory.data') }}',
+                    data: function (d) {
+                        Object.assign(d, currentFilters());
                     }
+                },
+                columns: [
+                    { data: 'index', orderable: false, searchable: false },
+                    { data: 'name', name: 'name' },
+                    { data: 'last_purchase_display' },
+                    { data: 'barcode' },
+                    { data: 'category' },
+                    ...Array.from({ length: locationCount }, function () {
+                        return { data: null, defaultContent: '', orderable: false, searchable: false };
+                    }),
+                    { data: 'total_badge', className: 'text-center' },
+                    { data: 'purchase_value', className: 'text-end' },
+                    { data: 'mrp_value', className: 'text-end' },
+                    { data: 'age_badge', className: 'text-center' },
                 ],
+                createdRow: function (row, data) {
+                    const $row = $(row);
+                    const $placeholders = $row.find('td').slice(5, 5 + locationCount);
+                    $placeholders.remove();
+                    $($row.find('td').eq(4)).after(data.loc_badges);
+                    $row.attr('data-product-id', data.id);
+                },
+                drawCallback: function () {
+                    refreshTotals();
+                }
             });
 
-            function formatInr(amount) {
-                return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-
-            function formatPairsPcs(pairs, pcs) {
-                const parts = [];
-                if (pairs > 0) {
-                    parts.push(pairs.toLocaleString('en-IN') + ' Pair' + (pairs > 1 ? 's' : ''));
-                }
-                if (pcs > 0 || parts.length === 0) {
-                    parts.push(pcs.toLocaleString('en-IN') + ' Pcs');
-                }
-                return parts.join('<br>');
-            }
-
-            function updateFooterTotals() {
-                const $rows = $(table.rows({ search: 'applied' }).nodes());
-
-                let pairTotal = 0, looseTotal = 0, purchaseTotal = 0, mrpTotal = 0;
-                const locPairTotals = new Array({{ $locations->count() }}).fill(0);
-                const locLooseTotals = new Array({{ $locations->count() }}).fill(0);
-
-                $rows.each(function () {
-                    const $row = $(this);
-                    pairTotal     += parseInt($row.data('pair-count'), 10) || 0;
-                    looseTotal    += parseInt($row.data('loose-pcs'), 10) || 0;
-                    purchaseTotal += parseFloat($row.data('purchase-value')) || 0;
-                    mrpTotal      += parseFloat($row.data('mrp-value')) || 0;
-
-                    const isPairProduct = $row.data('is-pair-product') == 1;
-                    const pairSize = parseFloat($row.data('pair-size')) || 1;
-
-                    $row.find('td[data-loc-qty]').each(function (idx) {
-                        const qty = parseInt($(this).data('loc-qty'), 10) || 0;
-                        if (isPairProduct && qty > 0) {
-                            locPairTotals[idx]  += Math.floor(qty / pairSize);
-                            locLooseTotals[idx] += qty % pairSize;
-                        } else {
-                            locLooseTotals[idx] += qty;
-                        }
-                    });
-                });
-
-                $('#stockTableFooterRow td[data-loc-total]').each(function (idx) {
-                    $(this).html(formatPairsPcs(locPairTotals[idx], locLooseTotals[idx]));
-                });
-
-                $('#stockTableFooterRow td[data-footer="qty"]').html(formatPairsPcs(pairTotal, looseTotal));
-                $('#stockTableFooterRow td[data-footer="purchase"]').html('₹ ' + formatInr(purchaseTotal));
-                $('#stockTableFooterRow td[data-footer="mrp"]').html('₹ ' + formatInr(mrpTotal));
-            }
-
-            table.on('draw', function () {
-                const start = table.page.info().start;
-                table.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop) {
-                    $(this.node()).find('td').eq(0).html(start + rowLoop + 1);
-                });
-                updateFooterTotals();
-            }).draw(false);
-
-            $('#stockTable tbody').off('click', '.variant-toggle').on('click', '.variant-toggle', function(e) {
+            $('#stockTable tbody').off('click', '.variant-toggle').on('click', '.variant-toggle', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 const $btn = $(this);
-                const productId = $btn.data('product-id');
-                const template = document.getElementById('variants-template-' + productId);
                 const row = table.row($btn.closest('tr'));
-
-                if (!template) {
-                    return;
-                }
+                const rowData = row.data();
 
                 if (row.child.isShown()) {
                     row.child.hide();
                     $btn.removeClass('is-open').attr('aria-expanded', 'false');
-                } else {
-                    row.child(template.innerHTML).show();
+                } else if (rowData && rowData.variants && rowData.variants.length > 0) {
+                    row.child(renderVariantChild(rowData.variants)).show();
                     $btn.addClass('is-open').attr('aria-expanded', 'true');
                 }
-
-                table.columns.adjust();
             });
-
-            function applyFilters() {
-                const cat   = $('#filterCategory').val();
-                const stock = $('#filterStock').val();
-                let minAge  = $('#filterAge').val();
-                if (minAge === 'custom') {
-                    minAge = $('#filterAgeCustom').val();
-                }
-                minAge = minAge ? parseInt(minAge) : null;
-
-                $.fn.dataTable.ext.search = [];
-                $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-                    const row   = $(table.row(dataIndex).node());
-                    const total = parseInt(row.data('total'));
-                    const age   = parseInt(row.data('age'));
-                    if (cat              && row.data('category-id') != cat) return false;
-                    if (hasDateFilter    && total <= 0)                     return false; // Last Purchase filter: only items in stock
-                    if (stock === 'in'   && total <= 0)                     return false;
-                    if (stock === 'low'  && (total === 0 || total > 5))     return false;
-                    if (stock === 'out'  && total > 0)                      return false;
-                    if (minAge !== null  && age < minAge)                   return false;
-                    return true;
-                });
-                table.draw();
-            }
 
             $('#filterAge').off('change').on('change', function () {
                 $('#customAgeWrapper').toggleClass('d-none', $(this).val() !== 'custom');
             });
-
-            function applySort() {
-                const val = $('#sortBy').val();
-                if (val === 'age_desc') {
-                    table.order([ageColumnIndex, 'desc']).draw();
-                } else if (val === 'age_asc') {
-                    table.order([ageColumnIndex, 'asc']).draw();
-                }
-                // blank ("Default") keeps the order already set above (latest/oldest by Last Purchase Date)
-            }
-
-            applyFilters();
-            applySort();
-
-            initCharts();
         }
 
         function initCharts() {
-            const locations   = @json($locations->pluck('name'));
-            const locationIds = @json($locations->pluck('id'));
-
-            const products = JSON.parse(document.getElementById('reportProductsData').textContent || '[]');
-
-            // Only use parent rows for charts — variant rows must NOT be double-counted
-            const parentProducts = products.filter(p => p.is_parent);
-
-            const locationTotals = locationIds.map(function (locId) {
-                return parentProducts.reduce(function (sum, p) {
-                    return sum + (p.stock[locId] || 0);
-                }, 0);
-            });
+            const locationChartData = JSON.parse(document.getElementById('locationChartData').textContent || '[]');
+            const stackedChartData = JSON.parse(document.getElementById('stackedChartData').textContent || '[]');
+            const locationNames = @json($locations->pluck('name'));
 
             new ApexCharts(document.getElementById('locationStockChart'), {
                 chart  : { type: 'bar', height: 380, toolbar: { show: false } },
@@ -249,9 +189,9 @@
                     }
                 },
                 colors  : ['#B4771E', '#28c76f', '#328693', '#ff9f43', '#ea5455', '#a873ff', '#4b9bfa', '#ff5c9f', '#ffc107', '#17a2b8'],
-                series : [{ name: 'Total Stock', data: locationTotals }],
+                series : [{ name: 'Total Stock', data: locationChartData.map(l => l.stock) }],
                 xaxis  : {
-                    categories: locations,
+                    categories: locationChartData.map(l => l.name),
                     labels: {
                         style: { colors: '#5d596c', fontFamily: 'Public Sans' },
                         formatter: function(val) { return parseInt(val); }
@@ -275,13 +215,10 @@
                 }
             }).render();
 
-            // Top 10 Products — only parent rows, sorted by total stock descending
-            const top10 = parentProducts.slice().sort((a, b) => b.total - a.total).slice(0, 10);
-
             const stackedSeries = locationIds.map(function (locId, i) {
                 return {
-                    name : locations[i],
-                    data : top10.map(p => p.stock[locId] || 0),
+                    name : locationNames[i],
+                    data : stackedChartData.map(p => p[locId] || 0),
                 };
             });
 
@@ -289,7 +226,7 @@
                 chart  : { type: 'bar', height: 380, stacked: true, toolbar: { show: false } },
                 series : stackedSeries,
                 xaxis  : {
-                    categories: top10.map(p => p.name),
+                    categories: stackedChartData.map(p => p.name),
                     labels: {
                         style: { colors: '#5d596c', fontFamily: 'Public Sans' },
                         formatter: function(val) { return parseInt(val); }
@@ -321,48 +258,6 @@
             }).render();
         }
 
-        function loadReport(url) {
-            $('#report-results').css('opacity', 0.5);
-            window.showAjaxLoader && window.showAjaxLoader();
-
-            // These filters (category/stock/age/sort) are applied client-side after the
-            // partial reloads — the reload re-renders fresh <select> elements with no
-            // selection, so without restoring them here the user's choice is silently lost.
-            const savedFilters = {
-                category  : $('#filterCategory').val(),
-                stock     : $('#filterStock').val(),
-                age       : $('#filterAge').val(),
-                ageCustom : $('#filterAgeCustom').val(),
-                sortBy    : $('#sortBy').val(),
-            };
-
-            $.get(url, function (html) {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const newResults = $(doc).find('#report-results').html();
-
-                $('#report-results').html(newResults);
-
-                $('#filterCategory').val(savedFilters.category);
-                $('#filterStock').val(savedFilters.stock);
-                $('#filterAge').val(savedFilters.age);
-                if (savedFilters.age === 'custom') {
-                    $('#customAgeWrapper').removeClass('d-none');
-                    $('#filterAgeCustom').val(savedFilters.ageCustom);
-                }
-                $('#sortBy').val(savedFilters.sortBy);
-
-                initReport();
-                initDatePickers();
-                updateFilterButtonsVisibility();
-            }).fail(function () {
-                toastr.error('Failed to load the report. Please try again.');
-            }).always(function () {
-                $('#report-results').css('opacity', 1);
-                window.hideAjaxLoader && window.hideAjaxLoader();
-            });
-        }
-
         function initDatePickers() {
             if (typeof $.fn.flatpickr === 'undefined') return;
 
@@ -374,18 +269,11 @@
             });
         }
 
-        let isFiltered = false;
-
         function updateFilterButtonsVisibility() {
             const hasValue = $('#filterForm').find('input, select').toArray().some(function (el) {
                 return $(el).val();
             });
             $('#filterActionButtons').toggleClass('d-none', !hasValue);
-
-            if (!hasValue && isFiltered) {
-                isFiltered = false;
-                loadReport('{{ route('admin.reports.stock-inventory') }}');
-            }
         }
 
         $(document).on('input change', '#filterForm', function () {
@@ -394,13 +282,10 @@
         updateFilterButtonsVisibility();
 
         $(document).on('click', '#applyFiltersBtn', function () {
-            isFiltered = true;
-            const form = $('#filterForm');
-            loadReport(form.attr('action') + '?' + form.serialize());
+            table.ajax.reload();
         });
 
         $(document).on('click', '#clearFiltersBtn', function() {
-            isFiltered = false;
             $('#filterCategory').val('').trigger('change.select2');
             $('#filterStock').val('').trigger('change.select2');
             $('#filterAge').val('').trigger('change.select2');
@@ -411,8 +296,15 @@
                 if (this._flatpickr) this._flatpickr.clear();
             });
             updateFilterButtonsVisibility();
+            table.ajax.reload();
+        });
 
-            loadReport('{{ route('admin.reports.stock-inventory') }}');
+        $(document).on('change', '#filterCategory, #filterStock, #filterAge, #filterAgeCustom, #sortBy', function () {
+            table.ajax.reload();
+        });
+
+        $(document).on('change', 'input[name="from_date"], input[name="to_date"]', function () {
+            table.ajax.reload();
         });
 
         $('#exportPdfBtn').on('click', function() {
@@ -432,6 +324,7 @@
         });
 
         initReport();
+        initCharts();
         initDatePickers();
     });
     </script>

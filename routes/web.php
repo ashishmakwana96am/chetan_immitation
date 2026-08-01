@@ -219,8 +219,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Reports
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('products', [ReportController::class, 'products'])->name('products');
+            Route::get('products/data', [ReportController::class, 'productsData'])->name('products.data');
             Route::get('products/export', [ReportController::class, 'exportProducts'])->name('products.export');
             Route::get('stock-inventory', [ReportController::class, 'stockInventory'])->name('stock-inventory');
+            Route::get('stock-inventory/data', [ReportController::class, 'stockInventoryData'])->name('stock-inventory.data');
+            Route::get('stock-inventory/totals', [ReportController::class, 'stockInventoryTotals'])->name('stock-inventory.totals');
             Route::get('stock-inventory/export', [ReportController::class, 'exportStockInventory'])->name('stock-inventory.export');
             Route::get('purchases', [ReportController::class, 'purchases'])->name('purchases');
             Route::get('purchases/export', [ReportController::class, 'exportPurchases'])->name('purchases.export');
