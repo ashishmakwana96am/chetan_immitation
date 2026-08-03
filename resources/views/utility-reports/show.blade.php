@@ -12,8 +12,35 @@
         }
     }
 
-    $old = $log->old_values ?? [];
-    $new = $log->new_values ?? [];
+    $oldRaw = $log->old_values ?? [];
+    $newRaw = $log->new_values ?? [];
+
+    $old = [];
+    if (is_array($oldRaw)) {
+        if (isset($oldRaw['fields']) && is_array($oldRaw['fields'])) {
+            $old = array_merge($oldRaw['fields'], \Illuminate\Support\Arr::except($oldRaw, ['fields']));
+        } elseif (isset($oldRaw['attributes']) && is_array($oldRaw['attributes'])) {
+            $old = array_merge($oldRaw['attributes'], \Illuminate\Support\Arr::except($oldRaw, ['attributes']));
+        } elseif (isset($oldRaw['data']) && is_array($oldRaw['data'])) {
+            $old = array_merge($oldRaw['data'], \Illuminate\Support\Arr::except($oldRaw, ['data']));
+        } else {
+            $old = $oldRaw;
+        }
+    }
+
+    $new = [];
+    if (is_array($newRaw)) {
+        if (isset($newRaw['fields']) && is_array($newRaw['fields'])) {
+            $new = array_merge($newRaw['fields'], \Illuminate\Support\Arr::except($newRaw, ['fields']));
+        } elseif (isset($newRaw['attributes']) && is_array($newRaw['attributes'])) {
+            $new = array_merge($newRaw['attributes'], \Illuminate\Support\Arr::except($newRaw, ['attributes']));
+        } elseif (isset($newRaw['data']) && is_array($newRaw['data'])) {
+            $new = array_merge($newRaw['data'], \Illuminate\Support\Arr::except($newRaw, ['data']));
+        } else {
+            $new = $newRaw;
+        }
+    }
+
     $keys = array_unique(array_merge(array_keys($old), array_keys($new)));
 
     // Filter out system columns we don't want to show
@@ -29,6 +56,7 @@
             'user_id' => 'User',
             'created_by' => 'Created By',
             'accepted_by' => 'Accepted By',
+            'updated_by' => 'Updated By',
             'location_id' => 'Location',
             'from_location_id' => 'From Location',
             'to_location_id' => 'To Location',
@@ -36,6 +64,18 @@
             'customer_address_id' => 'Customer Address',
             'category_id' => 'Category',
             'sub_category_id' => 'Sub Category',
+            'product_id' => 'Product',
+            'attribute_id' => 'Attribute',
+            'attribute_value_id' => 'Attribute Value',
+            'parent_id' => 'Parent Category',
+            'state_id' => 'State',
+            'role_id' => 'Role',
+            'payment_method' => 'Payment Method',
+            'payment_status' => 'Payment Status',
+            'is_gst' => 'GST Applicable',
+            'is_active' => 'Active Status',
+            'is_default' => 'Default Location',
+            'is_featured' => 'Featured',
         ];
         return $map[$key] ?? ucwords(str_replace('_', ' ', $key));
     };
@@ -60,13 +100,33 @@
         }
 
         // Handle Category Relations
-        if ($key === 'category_id') {
+        if ($key === 'category_id' || $key === 'parent_id') {
             return \App\Models\Category::withTrashed()->find($val)?->name ?? "Category #$val";
         }
 
         // Handle SubCategory Relations
         if ($key === 'sub_category_id') {
             return \App\Models\SubCategory::withTrashed()->find($val)?->name ?? "SubCategory #$val";
+        }
+
+        // Handle Product Relations
+        if ($key === 'product_id') {
+            $p = \App\Models\Product::withTrashed()->find($val);
+            return $p ? ($p->barcode ? "{$p->name} ({$p->barcode})" : $p->name) : "Product #$val";
+        }
+
+        // Handle Variant Relations
+        if (in_array($key, ['product_variant_id', 'variant_id'])) {
+            $v = \App\Models\ProductVariant::withTrashed()->find($val);
+            return $v ? $v->name : "Variant #$val";
+        }
+
+        // Handle Attribute & Attribute Value Relations
+        if ($key === 'attribute_id') {
+            return \App\Models\Attribute::withTrashed()->find($val)?->name ?? "Attribute #$val";
+        }
+        if ($key === 'attribute_value_id') {
+            return \App\Models\AttributeValue::withTrashed()->find($val)?->value ?? "Attribute Value #$val";
         }
 
         // Handle Foreign Keys
@@ -78,7 +138,10 @@
                 return \App\Models\Customer::withTrashed()->find($val)?->name ?? "Customer #$val";
             }
             if ($key === 'coupon_id') {
-                return \App\Models\Coupon::withTrashed()->find($val)?->name ?? "Coupon #$val";
+                return \App\Models\Coupon::withTrashed()->find($val)?->code ?? "Coupon #$val";
+            }
+            if ($key === 'state_id') {
+                return \App\Models\State::find($val)?->name ?? "State #$val";
             }
             if ($key === 'customer_address_id') {
                 $addr = \App\Models\CustomerAddress::withTrashed()->find($val);
@@ -86,58 +149,82 @@
             }
         }
 
+        // Handle Payment Method
+        if ($key === 'payment_method') {
+            return ucwords(str_replace('_', ' ', (string) $val));
+        }
+
         // Handle Status
         if ($key === 'status') {
+            $valStr = (string) $val;
             if ($log->module === 'Purchase') {
                 $statusMap = [
-                    1 => 'Pending',
-                    2 => 'Approved',
-                    3 => 'Declined',
+                    '1' => 'Pending',
+                    '2' => 'Approved',
+                    '3' => 'Declined',
                 ];
-                return $statusMap[$val] ?? "Status #$val";
+                return $statusMap[$valStr] ?? "Status #$val";
             }
             if ($log->module === 'Sales') {
                 $statusMap = [
-                    1 => 'Pending',
-                    2 => 'Approved',
-                    3 => 'Shipped',
-                    4 => 'Out for Delivery',
-                    5 => 'Delivered',
-                    6 => 'Declined',
+                    '1' => 'Pending',
+                    '2' => 'Approved',
+                    '3' => 'Shipped',
+                    '4' => 'Out for Delivery',
+                    '5' => 'Delivered',
+                    '6' => 'Declined',
                 ];
-                return $statusMap[$val] ?? "Status #$val";
+                return $statusMap[$valStr] ?? "Status #$val";
             }
             if ($log->module === 'Purchase Bill') {
                 $statusMap = [
-                    1 => 'Pending',
-                    2 => 'Accepted',
-                    3 => 'Rejected',
+                    '1' => 'Pending',
+                    '2' => 'Accepted',
+                    '3' => 'Rejected',
                 ];
-                return $statusMap[$val] ?? "Status #$val";
+                return $statusMap[$valStr] ?? "Status #$val";
             }
             // Master Tables Status (Active/Inactive)
             $statusMap = [
-                1 => 'Active',
-                2 => 'Inactive',
+                '1' => 'Active',
+                '2' => 'Inactive',
             ];
-            return $statusMap[$val] ?? "Status #$val";
+            return $statusMap[$valStr] ?? "Status #$val";
         }
 
         // Handle Payment Status
         if ($key === 'payment_status') {
+            $valStr = (string) $val;
             $statusMap = [
-                1 => 'Pending',
-                2 => 'Paid',
-                3 => 'Partially Paid',
+                '1' => 'Pending',
+                '2' => 'Paid',
+                '3' => 'Partially Paid',
             ];
-            return $statusMap[$val] ?? "Payment Status #$val";
+            return $statusMap[$valStr] ?? "Payment Status #$val";
+        }
+
+        // Handle Booleans
+        if (is_bool($val)) {
+            return $val ? 'Yes' : 'No';
+        }
+        if ($val === 'false' || $val === 'true') {
+            return $val === 'true' ? 'Yes' : 'No';
+        }
+
+        // Handle Monetary / Currency fields
+        if (in_array($key, ['total_amount', 'tax_amount', 'paid_amount', 'discount_amount', 'final_amount', 'shipping_charge', 'price', 'total', 'mrp', 'unit_price', 'subtotal'])) {
+            return is_numeric($val) ? format_price($val) : ($val ?: '-');
+        }
+
+        // Handle Discount Type
+        if ($key === 'discount_type') {
+            if ($val === 'percentage' || $val === 'percent') return 'Percentage (%)';
+            if ($val === 'flat' || $val === 'fixed') return 'Flat Amount';
+            return ucwords((string) $val);
         }
 
         if (is_array($val)) {
             return json_encode($val);
-        }
-        if (is_bool($val)) {
-            return $val ? 'true' : 'false';
         }
 
         // Handle Date/Datetime values (show time in 12-hour format)
@@ -147,6 +234,66 @@
         }
 
         return $val;
+    };
+
+    // Helper closure to format any array/JSON value into clean human-readable HTML (NO raw JSON dumps)
+    $renderArrayValue = function($key, $val, $log) use ($resolveValue, $renameKey) {
+        if (is_null($val) || $val === '') {
+            return '<span class="text-muted small">-</span>';
+        }
+
+        if (!is_array($val)) {
+            return e($resolveValue($key, $val, $log));
+        }
+
+        if (empty($val)) {
+            return '<span class="text-muted small">-</span>';
+        }
+
+        $isSequential = array_keys($val) === range(0, count($val) - 1);
+
+        // Sequential list of scalar items (e.g. ['Red', 'Blue'])
+        if ($isSequential && collect($val)->every(fn($i) => is_scalar($i))) {
+            $badges = array_map(fn($item) => '<span class="badge bg-label-secondary me-1 mb-1">' . e($item) . '</span>', $val);
+            return implode(' ', $badges);
+        }
+
+        // Key-value dictionary
+        if (!$isSequential) {
+            $html = '<div class="d-flex flex-column gap-1 small">';
+            foreach ($val as $subKey => $subVal) {
+                $label = $renameKey($subKey);
+                $resolved = is_array($subVal) ? implode(', ', array_map('strval', $subVal)) : $resolveValue($subKey, $subVal, $log);
+                $html .= '<div><span class="text-muted me-1">' . e($label) . ':</span> <span class="fw-semibold">' . e($resolved) . '</span></div>';
+            }
+            $html .= '</div>';
+            return $html;
+        }
+
+        // List of objects/arrays (e.g. custom sizes, options)
+        $first = $val[0] ?? [];
+        if (is_array($first)) {
+            $headers = array_keys($first);
+            $html = '<table class="table table-sm table-borderless mb-0 small">';
+            $html .= '<thead><tr class="text-muted text-uppercase fs-tiny">';
+            foreach ($headers as $h) {
+                $html .= '<th>' . e($renameKey($h)) . '</th>';
+            }
+            $html .= '</tr></thead><tbody>';
+            foreach ($val as $row) {
+                $html .= '<tr>';
+                foreach ($headers as $h) {
+                    $cellVal = $row[$h] ?? '-';
+                    $resolvedCell = is_array($cellVal) ? implode(', ', array_map('strval', $cellVal)) : $resolveValue($h, $cellVal, $log);
+                    $html .= '<td>' . e($resolvedCell) . '</td>';
+                }
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table>';
+            return $html;
+        }
+
+        return e(implode(', ', array_map('strval', $val)));
     };
 @endphp
 
@@ -499,31 +646,32 @@
                                         </td>
                                     @elseif($key === 'items' && (is_array($oldVal) || is_array($newVal)))
                                         @php
-                                            $formatItemsList = function($items) {
-                                                if (!is_array($items)) {
-                                                    return [];
-                                                }
-                                                return array_map(function($item) {
-                                                    $item = (array) $item;
-                                                    $productId = $item['product_id'] ?? null;
-                                                    $productName = $productId
-                                                        ? (\App\Models\Product::withTrashed()->find($productId)?->name ?? "Product #$productId")
-                                                        : '-';
+                                             $formatItemsList = function($items) {
+                                                 if (!is_array($items)) {
+                                                     return [];
+                                                 }
+                                                 return array_map(function($item) {
+                                                     $item = (array) $item;
+                                                     $productId = $item['product_id'] ?? null;
+                                                     $prod = $productId ? \App\Models\Product::withTrashed()->find($productId) : null;
+                                                     $productName = $prod ? ($prod->barcode ? "{$prod->name} ({$prod->barcode})" : $prod->name) : '-';
 
-                                                    if (!empty($item['product_variant_id'])) {
-                                                        $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
-                                                        if ($variant) {
-                                                            $productName .= ' (' . $variant->name . ')';
-                                                        }
-                                                    }
+                                                     if (!empty($item['product_variant_id'])) {
+                                                         $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
+                                                         if ($variant) {
+                                                             $productName .= ' (' . $variant->name . ')';
+                                                         }
+                                                     }
 
-                                                    return [
-                                                        'name' => $productName,
-                                                        'quantity' => $item['quantity'] ?? $item['qty'] ?? '-',
-                                                        'price' => isset($item['price']) ? number_format((float) $item['price'], 2) : '-',
-                                                    ];
-                                                }, $items);
-                                            };
+                                                     $priceVal = $item['price'] ?? $item['purchase_price'] ?? $item['unit_price'] ?? null;
+
+                                                     return [
+                                                         'name' => $productName,
+                                                         'quantity' => $item['quantity'] ?? $item['qty'] ?? '-',
+                                                         'price' => is_numeric($priceVal) ? format_price($priceVal) : '-',
+                                                     ];
+                                                 }, $items);
+                                             };
                                             $oldItemsList = $formatItemsList($oldVal);
                                             $newItemsList = $formatItemsList($newVal);
                                         @endphp
@@ -576,9 +724,9 @@
                                             @endif
                                         </td>
                                     @elseif(is_array($oldVal) || is_array($newVal))
-                                        <!-- Generic array/JSON attribute fields -->
-                                        <td class="text-danger fw-semibold"><pre class="mb-0 small text-danger">{{ is_array($oldVal) ? json_encode($oldVal, JSON_PRETTY_PRINT) : ($oldVal ?? '-') }}</pre></td>
-                                        <td class="text-success fw-semibold"><pre class="mb-0 small text-success">{{ is_array($newVal) ? json_encode($newVal, JSON_PRETTY_PRINT) : ($newVal ?? '-') }}</pre></td>
+                                         <!-- Generic array attribute fields formatted cleanly -->
+                                         <td class="text-danger fw-semibold">{!! $renderArrayValue($key, $oldVal, $log) !!}</td>
+                                         <td class="text-success fw-semibold">{!! $renderArrayValue($key, $newVal, $log) !!}</td>
                                     @else
                                         <!-- Standard single attribute fields with resolved names -->
                                         <td class="text-danger fw-semibold">{{ $resolveValue($key, $oldVal, $log) }}</td>
