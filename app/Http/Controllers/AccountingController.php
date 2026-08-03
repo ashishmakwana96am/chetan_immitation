@@ -1304,8 +1304,10 @@ class AccountingController extends Controller
             }
         }
 
+        $createdTransaction = null;
+
         try {
-            DB::transaction(function () use ($request, $customerId) {
+            DB::transaction(function () use ($request, $customerId, &$createdTransaction) {
                 $customer = Customer::where('id', $customerId)->lockForUpdate()->firstOrFail();
 
                 $currentBalance = (float) $customer->balance;
@@ -1332,6 +1334,8 @@ class AccountingController extends Controller
                     'created_by'    => auth()->id(),
                 ]);
 
+                $createdTransaction = $transaction;
+
                 ActivityLogger::log(
                     'Customer Balance',
                     'create',
@@ -1353,9 +1357,67 @@ class AccountingController extends Controller
         }
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Customer balance entry recorded successfully.',
+            'status'    => 'success',
+            'message'   => 'Customer balance entry recorded successfully.',
+            'print_url' => route('admin.accounting.customer-balance.thermal', ['transaction' => $createdTransaction->id, 'auto_print' => 1]),
         ]);
+    }
+
+    public function customerBalanceThermal(CustomerBalanceTransaction $transaction)
+    {
+        $this->authorize('manage customer balance');
+
+        $transaction->load(['customer', 'createdBy']);
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
+            abort(403);
+        }
+
+        if (request()->boolean('auto_print') && !request()->boolean('stream')) {
+            return view('sales.pdf-print-wrapper', [
+                'title'  => 'Customer Balance Receipt #' . $transaction->id,
+                'pdfUrl' => route('admin.accounting.customer-balance.thermal', [$transaction, 'stream' => 1]),
+            ]);
+        }
+
+        $height = $this->measureCustomerBalanceThermalHeight($transaction);
+
+        $pdf = Pdf::loadView('accounting.customer-balance-thermal', ['transaction' => $transaction, 'pdfHeight' => $height])
+            ->setPaper([0, 0, 216, $height], 'portrait');
+
+        ActivityLogger::log('Customer Balance', 'export', $transaction, null, null, 'Thermal receipt printed for customer balance entry #' . $transaction->id);
+
+        return $pdf->stream('customer-balance-receipt-' . $transaction->id . '.pdf');
+    }
+
+    private function measureCustomerBalanceThermalHeight(CustomerBalanceTransaction $transaction): int
+    {
+        $low = 150;
+        $high = 350;
+
+        $pageCount = function (int $height) use ($transaction) {
+            $pdf = Pdf::loadView('accounting.customer-balance-thermal', ['transaction' => $transaction, 'pdfHeight' => $height])
+                ->setPaper([0, 0, 216, $height], 'portrait');
+            $pdf->render();
+
+            return $pdf->getDomPDF()->getCanvas()->get_page_count();
+        };
+
+        while ($pageCount($high) > 1) {
+            $high += 100;
+        }
+
+        while ($high - $low > 1) {
+            $mid = intdiv($low + $high, 2);
+            if ($pageCount($mid) > 1) {
+                $low = $mid;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $high + 4;
     }
 }
 

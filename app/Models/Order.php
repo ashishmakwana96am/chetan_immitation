@@ -62,6 +62,7 @@ class Order extends Model
         'cancellation_reason',
         'shipped_client_url',
         'tracking_id',
+        'created_at',
     ];
 
     protected function casts(): array

@@ -379,15 +379,15 @@ class OrderObserver
                 return;
             }
 
-            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, $userId, false, false, $customLogDescription);
+            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, $userId, $customLogDescription);
             return;
         }
 
         if ($cashAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', $userId, false, false, $customLogDescription);
+            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', $userId, $customLogDescription);
         }
         if ($onlineAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', $userId, false, false, $customLogDescription);
+            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', $userId, $customLogDescription);
         }
     }
 
@@ -406,20 +406,31 @@ class OrderObserver
             return;
         }
 
-        if ($cashAmount <= 0 && $onlineAmount <= 0) {
-            if ($finalAmount <= 0) {
-                return;
-            }
+        $matching = CustomerBalanceTransaction::where('customer_id', $customerId)
+            ->where('notes', 'LIKE', '%Sale #' . $orderNo . '%')
+            ->get();
 
-            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, null, true, $isUpdateReversal);
+        if ($matching->isEmpty()) {
             return;
         }
 
-        if ($cashAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', null, true, $isUpdateReversal);
+        $actualAmount = (float) $matching->sum('amount');
+        $oldBalance = (float) $customer->balance;
+
+        foreach ($matching as $tx) {
+            $tx->delete();
         }
-        if ($onlineAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', null, true, $isUpdateReversal);
+
+        if (!$isUpdateReversal) {
+            $freshCustomer = $customer->fresh();
+            ActivityLogger::log(
+                'Customer Balance',
+                'delete',
+                null,
+                ['balance' => $oldBalance],
+                ['balance' => (float) ($freshCustomer ? $freshCustomer->balance : 0)],
+                'Balance reversed for Sale #' . $orderNo . ' (' . format_price($actualAmount) . ')'
+            );
         }
     }
 
@@ -430,53 +441,20 @@ class OrderObserver
      * before the order is saved — the floor at 0 below is just a safety net,
      * not the primary enforcement, since a wallet balance must never go negative.
      */
-    private function applyCustomerWalletChange(int $customerId, float $amount, string $source, string $note, ?int $userId, bool $isReversal = false, bool $isUpdateReversal = false, ?string $customLogDescription = null): void
+    private function applyCustomerWalletChange(int $customerId, float $amount, string $source, string $note, ?int $userId, ?string $customLogDescription = null): void
     {
-        DB::transaction(function () use ($customerId, $amount, $source, $note, $userId, $isReversal, $isUpdateReversal, $customLogDescription) {
+        if ($amount <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($customerId, $amount, $source, $note, $userId, $customLogDescription) {
             $customer = Customer::where('id', $customerId)->lockForUpdate()->first();
             if (!$customer) {
                 return;
             }
 
             $oldBalance = (float) $customer->balance;
-
-            if ($isReversal) {
-                // Credit back exactly what was actually debited (matched by note),
-                // not a recomputed nominal amount.
-                $matching = CustomerBalanceTransaction::where('customer_id', $customerId)
-                    ->where('notes', 'LIKE', '%' . $note . '%')
-                    ->get();
-                $actualAmount = (float) $matching->sum('amount');
-
-                if ($actualAmount <= 0) {
-                    return;
-                }
-
-                $newBalance = $oldBalance + $actualAmount;
-                $customer->update(['balance' => $newBalance]);
-
-                CustomerBalanceTransaction::where('customer_id', $customerId)->where('notes', 'LIKE', '%' . $note . '%')->delete();
-
-                if (!$isUpdateReversal) {
-                    ActivityLogger::log(
-                        'Customer Balance',
-                        'delete',
-                        null,
-                        ['balance' => $oldBalance],
-                        ['balance' => $newBalance],
-                        'Balance reversed for ' . $note . ' (' . format_price($actualAmount) . ')'
-                    );
-                }
-
-                return;
-            }
-
-            if ($amount <= 0) {
-                return;
-            }
-
             $newBalance = max(0.0, $oldBalance - $amount);
-            $customer->update(['balance' => $newBalance]);
 
             $transaction = CustomerBalanceTransaction::create([
                 'customer_id'   => $customerId,
@@ -495,7 +473,7 @@ class OrderObserver
                 $customLogDescription ? 'update' : 'create',
                 $transaction,
                 ['balance' => $oldBalance],
-                ['balance' => $newBalance],
+                ['balance' => (float) ($customer->fresh()?->balance ?? $newBalance)],
                 $logDesc
             );
         });

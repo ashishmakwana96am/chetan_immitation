@@ -223,8 +223,8 @@
                         <div class="row g-2">
                             <div class="col-6">
                                 <select id="orderDiscountTypeSelect" class="form-select no-select2">
-                                    <option value="flat" {{ ($purchase->discount_type ?? 'flat') === 'flat' ? 'selected' : '' }}>Flat</option>
-                                    <option value="percentage" {{ ($purchase->discount_type ?? 'flat') === 'percentage' ? 'selected' : '' }}>Percentage</option>
+                                    <option value="percentage" {{ ($purchase->discount_type ?? 'percentage') === 'percentage' ? 'selected' : '' }}>Percentage</option>
+                                    <option value="flat" {{ ($purchase->discount_type ?? 'percentage') === 'flat' ? 'selected' : '' }}>Flat</option>
                                 </select>
                             </div>
                             <div class="col-6">
@@ -372,8 +372,8 @@
             <td class="align-middle">
                 <div class="input-group flex-nowrap" style="min-width: 190px;">
                     <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 110px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="percentage" selected>Percentage</option>
                         <option value="flat">Flat</option>
-                        <option value="percentage">Percentage</option>
                     </select>
                     <input type="number" name="items[__INDEX__][discount_value]"
                         class="form-control item-discount-value"
@@ -677,7 +677,7 @@ $(document).ready(function () {
         return sizes.reduce((max, cs) => (cs.size > max ? cs.size : max), sizes[0].size);
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, selectedCustomSize = null, prependRow = true) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, selectedCustomSize = null, prependRow = true) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -803,7 +803,7 @@ $(document).ready(function () {
             const product = allProducts.find(p => p.id == item.product_id);
             if (!product) return;
 
-            const discType = item.discount_type || 'flat';
+            const discType = item.discount_type || 'percentage';
             const discVal = item.discount_value || 0;
 
             if (product.type === 'variable') {

@@ -233,10 +233,10 @@
                                             <span class="small text-muted text-nowrap">Pcs</span>
                                         @endif
                                     </td>
-                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format(round($price), 2) }}</td>
-                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format(round($lineTotal), 2) }}</td>
-                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format(round($unitMrp), 2) }}</td>
-                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format(round($lineMrp), 2) }}</td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
+                                    <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($unitMrp, 2) }}</td>
+                                    <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineMrp, 2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -245,9 +245,9 @@
                                 <td colspan="2" class="text-end fw-bold total-label">Total Qty</td>
                                 <td class="text-end fw-bold text-primary">{{ $transfer->items->sum('quantity') }}</td>
                                 <td class="text-end fw-bold total-label">Total Amount</td>
-                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format(round($totalAmount), 2) }}</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalAmount, 2) }}</td>
                                 <td class="text-end fw-bold total-label">Total MRP</td>
-                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format(round($totalMrp), 2) }}</td>
+                                <td class="text-end fw-bold text-primary money-cell">{{ currency_symbol() }} {{ number_format($totalMrp, 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>

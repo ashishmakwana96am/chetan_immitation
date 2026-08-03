@@ -27,8 +27,8 @@
         <div class="col-md-6">
             <label class="form-label" for="couponDiscountType">Discount Type <span class="text-danger">*</span></label>
             <select id="couponDiscountType" name="discount_type" class="form-select no-select2">
-                <option value="flat">Flat Amount</option>
                 <option value="percentage">Percentage (%)</option>
+                <option value="flat">Flat Amount</option>
             </select>
             <div class="invalid-feedback"></div>
         </div>

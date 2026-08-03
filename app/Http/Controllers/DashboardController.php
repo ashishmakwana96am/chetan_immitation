@@ -48,6 +48,9 @@ class DashboardController extends Controller
         ];
 
         $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->sum('balance');
+        $cashCreditBalance = (float) Customer::where('is_credit_customer', true)->sum('cash_balance');
+        $bankCreditBalance = (float) Customer::where('is_credit_customer', true)->sum('bank_balance');
+
         $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
         $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
@@ -154,6 +157,7 @@ class DashboardController extends Controller
 
         return view('dashboard.super-admin', compact(
             'stats', 'salesStats', 'stockStats', 'customerOutstandingBalance',
+            'cashCreditBalance', 'bankCreditBalance',
             'totalCashBalance', 'totalBankBalance',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts', 'salesByLocation',
@@ -177,6 +181,8 @@ class DashboardController extends Controller
         ];
 
         $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('balance');
+        $cashCreditBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('cash_balance');
+        $bankCreditBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('bank_balance');
 
         $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
         Product::preloadVariantStock($allProducts);
@@ -306,6 +312,7 @@ class DashboardController extends Controller
 
         return view('dashboard.location', compact(
             'location', 'salesStats', 'stockStats', 'customerOutstandingBalance',
+            'cashCreditBalance', 'bankCreditBalance',
             'monthlySales', 'recentSales',
             'lowStock', 'topProducts',
             'recentInquiries', 'todayInquiriesCount'

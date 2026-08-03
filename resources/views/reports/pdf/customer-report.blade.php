@@ -42,20 +42,24 @@
 
     <table class="summary-box">
         <tr>
-            <td style="width: 25%;">
-                <div class="summary-label">Total Transactions</div>
-                <div class="summary-value">{{ $totalTransactions }}</div>
-            </td>
-            <td style="width: 25%;">
+            <td style="width: 20%;">
                 <div class="summary-label">Total Credit</div>
                 <div class="summary-value">{{ format_price($totalCredit) }}</div>
             </td>
-            <td style="width: 25%;">
+            <td style="width: 20%;">
                 <div class="summary-label">Total Debit</div>
                 <div class="summary-value">{{ format_price($totalDebit) }}</div>
             </td>
-            <td style="width: 25%;">
-                <div class="summary-label">Total Balance</div>
+            <td style="width: 20%;">
+                <div class="summary-label">Cash Balance</div>
+                <div class="summary-value">{{ format_price($cashBalance) }}</div>
+            </td>
+            <td style="width: 20%;">
+                <div class="summary-label">Bank Balance</div>
+                <div class="summary-value">{{ format_price($bankBalance) }}</div>
+            </td>
+            <td style="width: 20%;">
+                <div class="summary-label">Net Balance</div>
                 <div class="summary-value">{{ format_price($totalWalletBalance) }}</div>
             </td>
         </tr>

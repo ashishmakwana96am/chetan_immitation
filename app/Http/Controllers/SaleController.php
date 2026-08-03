@@ -313,7 +313,13 @@ class SaleController extends Controller
                 'final_amount' => format_price($order->final_amount),
                 'status' => $status,
                 'payment_status' => $paymentStatus,
-                'payment_method' => ucfirst($order->payment_method ?? '-'),
+                'payment_method' => match (strtolower((string) ($order->payment_method ?? ''))) {
+                    'online_cash' => 'Online + Cash',
+                    'cod'         => 'COD',
+                    'upi'         => 'UPI',
+                    ''            => '-',
+                    default       => ucwords(str_replace('_', ' + ', (string) $order->payment_method)),
+                },
                 'date_group' => $order->created_at->format('d M Y'),
                 'date_sort' => $order->created_at->format('YmdHis'),
                 'actions' => $actions,
@@ -600,9 +606,19 @@ class SaleController extends Controller
                 'coupon_id' => $request->input('coupon_id', null),
             ]);
 
+            if ($request->filled('order_date') && auth()->user()->hasRole('super-admin')) {
+                $timeStr = now()->format('H:i:s');
+                try {
+                    $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
+                } catch (\Throwable $e) {
+                    $orderDate = \Carbon\Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
+                }
+                \Illuminate\Support\Facades\DB::table('orders')->where('id', $order->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+            }
+
             $storePaidTotal = $paidCash + $paidOnline;
             if ($storePaidTotal > 0 && $cappedStatus !== Order::PAYMENT_STATUS_PENDING) {
-                \App\Models\SalePayment::create([
+                $sp = \App\Models\SalePayment::create([
                     'order_id'       => $order->id,
                     'amount'         => $storePaidTotal,
                     'cash_amount'    => $paidCash,
@@ -610,6 +626,9 @@ class SaleController extends Controller
                     'payment_method' => $paymentMethod,
                     'created_by'     => auth()->id(),
                 ]);
+                if (isset($orderDate)) {
+                    \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                }
             }
 
             foreach ($itemsData as $item) {
@@ -1228,9 +1247,23 @@ class SaleController extends Controller
                     $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
                 }
 
+                if ($request->filled('order_date') && auth()->user()->hasRole('super-admin')) {
+                    $timeStr = $sale->created_at ? $sale->created_at->format('H:i:s') : now()->format('H:i:s');
+                    try {
+                        $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
+                    } catch (\Throwable $e) {
+                        $orderDate = \Carbon\Carbon::parse(trim($request->order_date) . ' ' . $timeStr);
+                    }
+                    $updateData['created_at'] = $orderDate;
+                }
+
                 $oldFieldsSnapshot = $sale->only(array_keys($updateData));
 
                 Order::withoutActivityLogging(fn() => $sale->update($updateData));
+
+                if (isset($orderDate)) {
+                    \Illuminate\Support\Facades\DB::table('orders')->where('id', $sale->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                }
 
                 if ($resolvedPaymentStatus === Order::PAYMENT_STATUS_PENDING) {
                     \App\Models\SalePayment::where('order_id', $sale->id)->delete();
@@ -1240,7 +1273,7 @@ class SaleController extends Controller
                     if ($editPaidTotal > 0) {
                         \App\Models\SalePayment::where('order_id', $sale->id)->delete();
                         $sale->payments()->delete();
-                        \App\Models\SalePayment::create([
+                        $sp = \App\Models\SalePayment::create([
                             'order_id'       => $sale->id,
                             'amount'         => $editPaidTotal,
                             'cash_amount'    => $paidCash,
@@ -1248,6 +1281,9 @@ class SaleController extends Controller
                             'payment_method' => $paymentMethod,
                             'created_by'     => auth()->id(),
                         ]);
+                        if (isset($orderDate)) {
+                            \Illuminate\Support\Facades\DB::table('sale_payments')->where('id', $sp->id)->update(['created_at' => $orderDate->toDateTimeString()]);
+                        }
                     }
                 }
 
@@ -1695,34 +1731,56 @@ class SaleController extends Controller
             return [$requestedStatus, $cashInput, $onlineInput];
         }
 
-        // On an edit, this sale's previous paid amount is still sitting in
-        // $customer->balance as a debit (the observer only reverses it after
-        // this save). Add it back so we're checking against what will
-        // actually be available once that reversal + new debit both apply.
-        $available = max(0.0, (float) $customer->balance + $alreadyDebitedForThisSale);
+        $availCash = max(0.0, (float) $customer->cash_balance);
+        $availBank = max(0.0, (float) $customer->bank_balance);
 
-        $requestedAmount = $requestedStatus === Order::PAYMENT_STATUS_PAID
-            ? $grandTotal
-            : round(max($cashInput, 0) + max($onlineInput, 0), 2);
-
-        if ($requestedAmount <= $available + 0.01) {
-            return [$requestedStatus, $cashInput, $onlineInput];
+        if ($alreadyDebitedForThisSale > 0) {
+            $orderNo = request()->route('sale') ? request()->route('sale')->order_no : null;
+            if ($orderNo) {
+                $prevCash = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $customerId)
+                    ->where('notes', 'LIKE', '%Sale #' . $orderNo . '%')
+                    ->where('source', 'cash')->sum('amount');
+                $prevBank = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $customerId)
+                    ->where('notes', 'LIKE', '%Sale #' . $orderNo . '%')
+                    ->where('source', 'bank')->sum('amount');
+                $availCash += $prevCash;
+                $availBank += $prevBank;
+            } else {
+                $availCash += ($cashInput > 0 ? $alreadyDebitedForThisSale : 0);
+                $availBank += ($onlineInput > 0 ? $alreadyDebitedForThisSale : 0);
+            }
         }
 
-        if ($available <= 0) {
+        $availTotal = $availCash + $availBank;
+        if ($availTotal <= 0) {
             return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
         }
 
         if ($requestedStatus === Order::PAYMENT_STATUS_PAID) {
-            $cappedOnline = round(min(max($onlineInput, 0), $available), 2);
-            $cappedCash = round($available - $cappedOnline, 2);
+            $reqCash = round(max($cashInput, 0), 2);
+            $reqBank = round(max($onlineInput, 0), 2);
+            if ($reqCash <= 0 && $reqBank <= 0) {
+                $reqCash = min($grandTotal, $availCash);
+                $reqBank = round(min(max(0, $grandTotal - $reqCash), $availBank), 2);
+            }
         } else {
-            $ratio = $requestedAmount > 0 ? ($available / $requestedAmount) : 0;
-            $cappedCash = round(max($cashInput, 0) * $ratio, 2);
-            $cappedOnline = round($available - $cappedCash, 2);
+            $reqCash = round(max($cashInput, 0), 2);
+            $reqBank = round(max($onlineInput, 0), 2);
         }
 
-        return [Order::PAYMENT_STATUS_PARTIAL, $cappedCash, $cappedOnline];
+        $cappedCash = round(min($reqCash, $availCash), 2);
+        $cappedBank = round(min($reqBank, $availBank), 2);
+        $totalCapped = round($cappedCash + $cappedBank, 2);
+
+        if ($totalCapped <= 0) {
+            return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
+        }
+
+        if ($totalCapped >= $grandTotal - 0.01) {
+            return [Order::PAYMENT_STATUS_PAID, $cappedCash, $cappedBank];
+        }
+
+        return [Order::PAYMENT_STATUS_PARTIAL, $cappedCash, $cappedBank];
     }
 
     private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $cashAmountInput = 0.0, float $onlineAmountInput = 0.0): array

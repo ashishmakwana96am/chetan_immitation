@@ -210,10 +210,10 @@ class PurchaseBillController extends Controller
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
                 'items_count' => $transfer->items->sum('quantity'),
-                'total_amount' => format_price(round($totalAmount)),
-                'total_amount_raw' => round($totalAmount),
-                'total_mrp' => format_price(round($totalMrp)),
-                'total_mrp_raw' => round($totalMrp),
+                'total_amount' => format_price($totalAmount),
+                'total_amount_raw' => round($totalAmount, 2),
+                'total_mrp' => format_price($totalMrp),
+                'total_mrp_raw' => round($totalMrp, 2),
                 'status' => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
                 'created_by' => e($transfer->createdBy->name ?? '-'),
@@ -1015,7 +1015,7 @@ class PurchaseBillController extends Controller
             return $basePrice;
         }
 
-        return round($basePrice * ($selectedSize / (float) $maxSize));
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
     }
 
     private function mrpForPurchaseBillItem(PurchaseBillItem $item, float $multiplier): float

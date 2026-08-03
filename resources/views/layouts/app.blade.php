@@ -333,18 +333,44 @@
             var hasDataTables = false;
             var loaderHidden = false;
 
-            function hideLoader() {
+            window.hideAjaxLoader = function() {
                 if (loaderHidden) return;
                 loaderHidden = true;
                 $('#pageLoader').addClass('fade-out');
                 setTimeout(function() {
                     $('#pageLoader').remove();
                 }, 350);
-            }
+            };
+
+            window.showAjaxLoader = function() {
+                if ($('#pageLoader').length === 0) {
+                    $('body').append(`
+                        <div class="page-loader" id="pageLoader">
+                            <div class="loader-card">
+                                <div class="loader-visual">
+                                    <div class="loader-ripple"></div>
+                                    <div class="loader-ring loader-ring-1"></div>
+                                    <div class="loader-ring loader-ring-2"></div>
+                                    <div class="loader-ring loader-ring-3"></div>
+                                    <div class="loader-logo-container">
+                                        <img src="{{ asset('assets/img/favicon/favicon.png') }}" alt="Logo" class="loader-logo-img" />
+                                    </div>
+                                </div>
+                                <div class="loader-text-wrapper">
+                                    <span class="loader-status">Loading</span>
+                                    <span class="loader-dots"><span>.</span><span>.</span><span>.</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+                loaderHidden = false;
+                $('#pageLoader').removeClass('fade-out');
+            };
 
             var fallbackTimeout = setTimeout(function() {
-                hideLoader();
-            }, 800);
+                window.hideAjaxLoader();
+            }, 6000);
 
             $(document).on('preInit.dt', function(e, settings) {
                 if (settings && settings.oFeatures) {
@@ -354,18 +380,24 @@
                 hasDataTables = true;
             });
 
-            $(document).on('init.dt draw.dt', function(e, settings) {
+            $(document).on('xhr.dt init.dt', function(e, settings) {
                 activeDataTables--;
-                clearTimeout(fallbackTimeout);
-                hideLoader();
+                if (activeDataTables <= 0) {
+                    clearTimeout(fallbackTimeout);
+                    setTimeout(function() {
+                        window.hideAjaxLoader();
+                    }, 100);
+                }
             });
 
-            setTimeout(function() {
-                if (!hasDataTables || activeDataTables <= 0) {
-                    clearTimeout(fallbackTimeout);
-                    hideLoader();
-                }
-            }, 100);
+            $(window).on('load', function() {
+                setTimeout(function() {
+                    if (!hasDataTables) {
+                        clearTimeout(fallbackTimeout);
+                        window.hideAjaxLoader();
+                    }
+                }, 200);
+            });
 
             $('.flatpickr').each(function() {
                 let config = {
@@ -678,6 +710,59 @@
             });
         };
     </script>
+
+    <style>
+        html.modal-open,
+        body.modal-open,
+        body.modal-open .layout-wrapper,
+        body.modal-open .layout-page,
+        body.modal-open .content-wrapper,
+        body.modal-open .menu-inner {
+            overflow: hidden !important;
+        }
+        #inUseProductsModal {
+            overflow-y: auto !important;
+        }
+        #inUseProductsModal .modal-body {
+            max-height: none !important;
+            overflow-y: visible !important;
+        }
+    </style>
+
+    <!-- Shared Bootstrap Modal for In-Use Products List (DataTables) -->
+    <div class="modal fade" id="inUseProductsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-label-danger py-3 border-bottom">
+                    <h5 class="modal-title text-danger fw-bold d-flex align-items-center" id="inUseProductsModalTitle">
+                        <i class="ti ti-alert-triangle me-2 fs-4"></i> Cannot Delete Item
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning mb-3 d-flex align-items-start" role="alert">
+                        <i class="ti ti-info-circle me-2 fs-4 mt-1 flex-shrink-0"></i>
+                        <div id="inUseProductsModalMessage" class="fw-semibold text-dark">
+                            This item cannot be deleted because it is currently in use by the products listed below. Please remove it from these products first.
+                        </div>
+                    </div>
+                    <div class="table-responsive border rounded p-2">
+                        <table class="table table-hover align-middle mb-0 text-nowrap w-100" id="inUseProductsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 8%;">#</th>
+                                    <th style="width: 62%;">Product Name</th>
+                                    <th style="width: 30%;">Barcode</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
