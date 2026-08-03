@@ -760,7 +760,7 @@ class ReportExportService
             return $basePrice;
         }
 
-        return round($basePrice * ($selectedSize / (float) $maxSize));
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
     }
 
     protected function mrpForPurchaseBillItem($item, float $multiplier): float

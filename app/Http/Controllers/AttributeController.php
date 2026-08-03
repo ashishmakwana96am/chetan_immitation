@@ -163,24 +163,56 @@ class AttributeController extends Controller
             $removedValues = $attribute->values()->get()
                 ->filter(fn ($v) => !in_array(mb_strtolower(trim($v->value)), $submittedValues, true));
 
+            $inUseProducts = collect();
+            $inUseValueNames = [];
+
             foreach ($removedValues as $value) {
-                $productNames = ProductVariant::where('attribute_value_id', $value->id)
+                $prods = ProductVariant::where('attribute_value_id', $value->id)
                     ->with('product')
                     ->get()
-                    ->pluck('product.name')
+                    ->pluck('product')
                     ->filter()
-                    ->unique();
+                    ->unique('id');
 
-                if ($productNames->isNotEmpty()) {
-                    $validator->errors()->add(
-                        'values_json',
-                        'Value "' . $value->value . '" is used in product(s): ' . $productNames->implode(', ') . '. Please remove it from there first before deleting this value.'
-                    );
+                if ($prods->isNotEmpty()) {
+                    $inUseValueNames[] = '"' . $value->value . '"';
+                    foreach ($prods as $p) {
+                        $inUseProducts->push($p);
+                    }
                 }
+            }
+
+            if ($inUseProducts->isNotEmpty()) {
+                $uniqueProds = $inUseProducts->unique('id');
+                $productData = $uniqueProds->map(function ($prod) {
+                    return [
+                        'id'      => $prod->id,
+                        'name'    => $prod->name,
+                        'barcode' => $prod->barcode ?? null,
+                        'url'     => route('admin.products.show', $prod),
+                    ];
+                })->values()->all();
+
+                $validator->errors()->add('_in_use', json_encode([
+                    'title'    => 'Cannot Update Attribute',
+                    'message'  => 'Attribute value(s) ' . implode(', ', $inUseValueNames) . ' cannot be removed because they are in use by ' . count($productData) . ' product(s). Please remove them from these products first:',
+                    'products' => $productData,
+                ]));
             }
         });
 
         if ($validator->fails()) {
+            if ($validator->errors()->has('_in_use')) {
+                $inUseData = json_decode($validator->errors()->first('_in_use'), true);
+                return response()->json([
+                    'status'   => 'error',
+                    'in_use'   => true,
+                    'title'    => $inUseData['title'],
+                    'message'  => $inUseData['message'],
+                    'products' => $inUseData['products'],
+                ], 422);
+            }
+
             return response()->json([
                 'status'  => 'error',
                 'message' => $validator->errors(),
@@ -256,28 +288,21 @@ class AttributeController extends Controller
 
         if ($variants->count() > 0) {
             $products = $variants->pluck('product')->unique('id');
-            $totalProducts = $products->count();
-            $visibleProducts = $products->take(10);
-
-            $productListHtml = '<div class="text-start mt-3" style="font-size: 15px; color: #5d596c; padding-left: 15px;">';
-            $productListHtml .= '<p class="mb-2 fw-bold text-dark" style="font-size: 15px;">Used in products:</p>';
-            $index = 1;
-            foreach ($visibleProducts as $prod) {
-                $url = route('admin.products.show', $prod);
-                $productListHtml .= '<div style="margin-bottom: 6px; display: flex; align-items: start; gap: 8px; font-size: 15px; line-height: 1.4;">';
-                $productListHtml .= '<span style="font-weight: bold; color: #5d596c; min-width: 20px;">' . $index . '.</span>';
-                $productListHtml .= '<a href="' . $url . '" target="_blank" style="color: #2f2b3d; text-decoration: none; font-weight: 500;">' . e($prod->name) . '</a>';
-                $productListHtml .= '</div>';
-                $index++;
-            }
-            if ($totalProducts > 10) {
-                $productListHtml .= '<div class="text-muted mt-2" style="font-size: 13.5px; padding-left: 28px;"><em>+ ' . ($totalProducts - 10) . ' more products</em></div>';
-            }
-            $productListHtml .= '</div>';
+            $productData = $products->map(function ($prod) {
+                return [
+                    'id'      => $prod->id,
+                    'name'    => $prod->name,
+                    'barcode' => $prod->barcode ?? null,
+                    'url'     => route('admin.products.show', $prod),
+                ];
+            })->values()->all();
 
             return response()->json([
-                'status'  => 'error',
-                'message' => "This attribute cannot be deleted because it is in use. First remove it from the products below: " . $productListHtml,
+                'status'   => 'error',
+                'in_use'   => true,
+                'title'    => 'Cannot Delete Attribute',
+                'message'  => 'This attribute cannot be deleted because it is in use by ' . count($productData) . ' product(s). Please remove it from these products first:',
+                'products' => $productData,
             ], 422);
         }
 

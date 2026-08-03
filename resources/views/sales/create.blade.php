@@ -146,6 +146,15 @@
                                 <input type="text" class="form-control" value="{{ $orderNo }}" disabled />
                                 <small class="text-muted">Auto-generated on save</small>
                             </div>
+                            @if(auth()->user()->hasRole('super-admin'))
+                            <div class="col-md-6">
+                                <label class="form-label">Sale Date <span class="text-danger">*</span></label>
+                                <input type="text" name="order_date" id="order_date" class="form-control flatpickr-date" value="{{ date('d-m-Y') }}" placeholder="DD-MM-YYYY" readonly />
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            @else
+                                <input type="hidden" name="order_date" value="{{ date('d-m-Y') }}" />
+                            @endif
                             <div class="col-md-6">
                                 <label class="form-label">Location <span class="text-danger">*</span></label>
                                 @if(auth()->user()->location_id)
@@ -246,7 +255,7 @@
                 </div>
             </div>
 
-            <input type="hidden" id="overallDiscountType" name="order_discount_type" value="flat" />
+            <input type="hidden" id="overallDiscountType" name="order_discount_type" value="percentage" />
             <input type="hidden" id="overallDiscountValue" name="order_discount_value" value="0" />
                 </div>
             </div>
@@ -262,8 +271,8 @@
                                 <div class="row g-2">
                                     <div class="col-6">
                                         <select id="orderDiscountTypeSelect" class="form-select no-select2">
+                                            <option value="percentage" selected>Percentage</option>
                                             <option value="flat">Flat</option>
-                                            <option value="percentage">Percentage</option>
                                         </select>
                                     </div>
                                     <div class="col-6">
@@ -400,8 +409,8 @@
             <td class="align-middle">
                 <div class="input-group flex-nowrap" style="min-width: 190px;">
                     <select name="items[__INDEX__][discount_type]" class="form-select item-discount-type no-select2" style="width: 110px; flex-shrink: 0; flex-grow: 0; padding-left: 8px; padding-right: 18px; background-position: right 4px center;">
+                        <option value="percentage" selected>Percentage</option>
                         <option value="flat">Flat</option>
-                        <option value="percentage">Percentage</option>
                     </select>
                     <input type="number" name="items[__INDEX__][discount_value]"
                         class="form-control item-discount-value"
@@ -484,6 +493,13 @@ $(document).ready(function () {
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
     let pendingGstFixCustomerId = null;
     updateSummary();
+
+    if ($('#order_date').length && typeof $.fn.flatpickr !== 'undefined') {
+        $('#order_date').flatpickr({
+            dateFormat: 'd-m-Y',
+            defaultDate: $('#order_date').val() || 'today'
+        });
+    }
 
     window.refreshTable = function (resData) {
         $.get('{{ route('admin.customers.data') }}?_t=' + new Date().getTime(), function (res) {
@@ -734,7 +750,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'flat', discountValue = 0, pairType = 'single', customSizeValue = null) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 

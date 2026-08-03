@@ -30,6 +30,8 @@ class Customer extends Authenticatable
         'status',
         'is_credit_customer',
         'balance',
+        'cash_balance',
+        'bank_balance',
         'otp',
         'otp_expires_at',
     ];
@@ -45,6 +47,8 @@ class Customer extends Authenticatable
             'is_website' => 'boolean',
             'is_credit_customer' => 'boolean',
             'balance' => 'decimal:2',
+            'cash_balance' => 'decimal:2',
+            'bank_balance' => 'decimal:2',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];

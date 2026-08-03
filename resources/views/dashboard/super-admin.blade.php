@@ -24,7 +24,7 @@
                         <div>
                             <span class="text-muted small text-nowrap">Cash Balance</span>
                             <h4 class="mb-0 mt-1 {{ $totalCashBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($totalCashBalance) }}</h4>
-                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $customerOutstandingBalance < 0 ? 'text-danger' : 'text-info' }}">{{ format_price($customerOutstandingBalance) }}</span></small>
+                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $cashCreditBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($cashCreditBalance) }}</span></small>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
                     </div>
@@ -38,6 +38,7 @@
                         <div>
                             <span class="text-muted small text-nowrap">Bank Balance</span>
                             <h4 class="mb-0 mt-1 {{ $totalBankBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($totalBankBalance) }}</h4>
+                            <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $bankCreditBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($bankCreditBalance) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
                     </div>

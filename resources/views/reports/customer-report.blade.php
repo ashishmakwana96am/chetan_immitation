@@ -24,40 +24,66 @@
 
     <div id="report-results">
         <!-- Stats Cards -->
-        <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-4">
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-md">
                 <div class="card">
-                    <div class="card-body">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Total Credit</span>
-                                <h4 class="mb-0 mt-1 text-success">{{ format_price($totalCredit) }}</h4>
+                                <span class="text-muted small">Total Credit</span>
+                                <h5 class="mb-0 mt-1 text-success">{{ format_price($totalCredit) }}</h5>
                             </div>
                             <span class="badge bg-label-success rounded p-2"><i class="ti ti-arrow-down-circle ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-md">
                 <div class="card">
-                    <div class="card-body">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Total Debit</span>
-                                <h4 class="mb-0 mt-1 text-danger">{{ format_price($totalDebit) }}</h4>
+                                <span class="text-muted small">Total Debit</span>
+                                <h5 class="mb-0 mt-1 text-danger">{{ format_price($totalDebit) }}</h5>
                             </div>
                             <span class="badge bg-label-danger rounded p-2"><i class="ti ti-arrow-up-circle ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-4">
+            <div class="col-sm-6 col-md">
                 <div class="card">
-                    <div class="card-body">
+                    <div class="card-body p-3">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
-                                <span class="text-muted">Total Balance</span>
-                                <h4 class="mb-0 mt-1 {{ $totalWalletBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($totalWalletBalance) }}</h4>
+                                <span class="text-muted small">Cash Credit Balance</span>
+                                <h5 class="mb-0 mt-1 {{ $cashBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($cashBalance) }}</h5>
+                            </div>
+                            <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md">
+                <div class="card">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted small">Bank Credit Balance</span>
+                                <h5 class="mb-0 mt-1 {{ $bankBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($bankBalance) }}</h5>
+                            </div>
+                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md">
+                <div class="card">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div>
+                                <span class="text-muted small">Total Net Balance</span>
+                                <h5 class="mb-0 mt-1 {{ $totalWalletBalance < 0 ? 'text-danger' : 'text-info' }}">{{ format_price($totalWalletBalance) }}</h5>
                             </div>
                             <span class="badge {{ $totalWalletBalance < 0 ? 'bg-label-danger' : 'bg-label-info' }} rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                         </div>
@@ -168,20 +194,23 @@
                                 <td>{{ $transaction->createdBy->name ?? '-' }}</td>
                                 <td>{{ $transaction->created_at->format('d M Y, h:i A') }}</td>
                                 <td>
-                                    @if($transaction->linked_order)
-                                        <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                                <span>Actions</span>
-                                            </button>
-                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                    <div class="dropdown table-action-dropdown">
+                                        <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                            <span>Actions</span>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                            @if($transaction->linked_order)
                                                 <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-size="half">
                                                     <i class="ti ti-eye me-2"></i>View
                                                 </a>
-                                            </div>
+                                            @endif
+                                            @can('manage customer balance')
+                                                <a href="{{ route('admin.accounting.customer-balance.thermal', ['transaction' => $transaction->id, 'auto_print' => 1]) }}" class="dropdown-item" target="_blank">
+                                                    <i class="ti ti-printer me-2"></i>Print Receipt
+                                                </a>
+                                            @endcan
                                         </div>
-                                    @else
-                                        -
-                                    @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

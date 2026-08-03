@@ -28,8 +28,8 @@
         <div class="col-md-6">
             <label class="form-label" for="couponDiscountType">Discount Type <span class="text-danger">*</span></label>
             <select id="couponDiscountType" name="discount_type" class="form-select no-select2">
-                <option value="flat" {{ $coupon->discount_type === 'flat' ? 'selected' : '' }}>Flat Amount</option>
                 <option value="percentage" {{ $coupon->discount_type === 'percentage' ? 'selected' : '' }}>Percentage (%)</option>
+                <option value="flat" {{ $coupon->discount_type === 'flat' ? 'selected' : '' }}>Flat Amount</option>
             </select>
             <div class="invalid-feedback"></div>
         </div>

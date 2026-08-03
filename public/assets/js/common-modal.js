@@ -231,6 +231,71 @@ $(document).ready(function () {
         $('#commonModal').offcanvas('hide');
     });
 
+    // Global Helper: Show In-Use Products in a Bootstrap Modal with DataTables
+    window.showInUseProductsModal = function (options) {
+        options = options || {};
+        var title = options.title || 'Cannot Delete Item';
+        var message = options.message || 'This item cannot be deleted because it is in use by the products listed below. Please remove it from these products first:';
+        var products = options.products || [];
+
+        $('#inUseProductsModalTitle').html('<i class="ti ti-alert-triangle me-2 fs-4"></i> ' + title);
+        $('#inUseProductsModalMessage').text(message);
+
+        if ($.fn.DataTable && $.fn.DataTable.isDataTable('#inUseProductsTable')) {
+            $('#inUseProductsTable').DataTable().destroy();
+        }
+
+        var $tbody = $('#inUseProductsTable tbody');
+        $tbody.empty();
+
+        products.forEach(function (prod, idx) {
+            var barcodeBadge = prod.barcode
+                ? '<span class="badge bg-label-primary fw-semibold">' + prod.barcode + '</span>'
+                : '<span class="text-muted small">-</span>';
+            var nameLink = prod.url
+                ? '<a href="' + prod.url + '" target="_blank" class="fw-semibold text-primary text-decoration-none">' + prod.name + '</a>'
+                : '<span class="fw-semibold text-dark">' + prod.name + '</span>';
+
+            var tr = '<tr>' +
+                '<td>' + (idx + 1) + '</td>' +
+                '<td>' + nameLink + '</td>' +
+                '<td>' + barcodeBadge + '</td>' +
+                '</tr>';
+            $tbody.append(tr);
+        });
+
+        if ($.fn.DataTable) {
+            $('#inUseProductsTable').DataTable({
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50],
+                ordering: true,
+                responsive: true,
+                destroy: true,
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search product or barcode..."
+                }
+            });
+        }
+
+        var modalEl = document.getElementById('inUseProductsModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl, {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modal.show();
+        }
+    };
+
+    $(document).on('show.bs.modal', '#inUseProductsModal', function () {
+        $('html, body, .layout-wrapper, .layout-page, .content-wrapper').addClass('modal-open').css('overflow', 'hidden');
+    });
+
+    $(document).on('hidden.bs.modal', '#inUseProductsModal', function () {
+        $('html, body, .layout-wrapper, .layout-page, .content-wrapper').removeClass('modal-open').css('overflow', '');
+    });
+
     // -------------------------------------------------------
     // Submit common modal form
     // Form must have: id="commonModalForm"
@@ -254,18 +319,33 @@ $(document).ready(function () {
                 if (res.status === 'success') {
                     $('#commonModal').offcanvas('hide');
                     toastr.success(res.message);
+                    if (res.print_url) {
+                        window.open(res.print_url, '_blank');
+                    }
                     if (typeof window.refreshTable === 'function') {
                         window.refreshTable(res);
                     } else {
                         setTimeout(() => location.reload(), 800);
                     }
+                } else if (res.status === 'error') {
+                    enableBtn(submitBtn);
+                    if (res.in_use || (res.products && res.products.length)) {
+                        window.showInUseProductsModal(res);
+                    } else {
+                        toastr.error(typeof res.message === 'string' ? res.message : 'Error updating record.');
+                    }
                 }
             },
             error : function (xhr) {
                 enableBtn(submitBtn);
-                if (xhr.status === 422) {
-                    const errors = xhr.responseJSON?.message || {};
-                    showFormErrors(form, errors);
+                const json = xhr.responseJSON;
+                if (xhr.status === 422 && json) {
+                    if (json.in_use || (json.products && json.products.length)) {
+                        window.showInUseProductsModal(json);
+                    } else {
+                        const errors = json.message || json.errors || {};
+                        showFormErrors(form, errors);
+                    }
                 } else {
                     toastr.error('Something went wrong. Please try again.');
                 }
@@ -310,35 +390,38 @@ $(document).ready(function () {
                                 $('#' + rowId).fadeOut(400, function () { $(this).remove(); });
                             }
                         } else if (res.status === 'error') {
-                            Swal.fire({
-                                title: 'Cannot Delete',
-                                html: res.message,
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                customClass: {
-                                    confirmButton: 'btn btn-primary'
-                                },
-                                buttonsStyling: false
-                            });
+                            if (res.in_use || (res.products && res.products.length)) {
+                                window.showInUseProductsModal(res);
+                            } else {
+                                Swal.fire({
+                                    title: res.title || 'Cannot Delete',
+                                    html: res.message,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    customClass: { confirmButton: 'btn btn-primary' },
+                                    buttonsStyling: false
+                                });
+                            }
                         }
                     },
                     error : function (xhr) {
                         const json = xhr.responseJSON;
                         if (xhr.status === 422 && json) {
-                            
-                            const htmlMsg = (typeof json.message === 'string')
-                                ? json.message
-                                : (json.errors ? Object.values(json.errors).flat().join('<br>') : 'Cannot delete this record.');
-                            Swal.fire({
-                                title: 'Cannot Delete',
-                                html: htmlMsg,
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                customClass: {
-                                    confirmButton: 'btn btn-primary'
-                                },
-                                buttonsStyling: false
-                            });
+                            if (json.in_use || (json.products && json.products.length)) {
+                                window.showInUseProductsModal(json);
+                            } else {
+                                const htmlMsg = (typeof json.message === 'string')
+                                    ? json.message
+                                    : (json.errors ? Object.values(json.errors).flat().join('<br>') : 'Cannot delete this record.');
+                                Swal.fire({
+                                    title: json.title || 'Cannot Delete',
+                                    html: htmlMsg,
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    customClass: { confirmButton: 'btn btn-primary' },
+                                    buttonsStyling: false
+                                });
+                            }
                         } else {
                             toastr.error('Something went wrong. Please try again.');
                         }

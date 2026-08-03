@@ -151,7 +151,17 @@
 
         // Handle Payment Method
         if ($key === 'payment_method') {
-            return ucwords(str_replace('_', ' ', (string) $val));
+            $valStr = strtolower((string) $val);
+            if ($valStr === 'online_cash') {
+                return 'Online + Cash';
+            }
+            if ($valStr === 'cod') {
+                return 'COD';
+            }
+            if ($valStr === 'upi') {
+                return 'UPI';
+            }
+            return ucwords(str_replace('_', ' + ', $valStr));
         }
 
         // Handle Status
@@ -426,8 +436,8 @@
                                         <tr>
                                             <td>
                                                 <span class="fw-semibold text-dark">{{ $item->product?->name ?? '-' }}</span>
-                                                @if($item->variant)
-                                                    <br><small class="text-muted">{{ $item->variant->name }}</small>
+                                                @if($item->variant && trim((string)$item->variant->name) !== '')
+                                                    <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
                                                 @endif
                                             </td>
                                             <td class="text-center text-dark">{{ $item->quantity }}</td>
@@ -524,8 +534,8 @@
                                         <tr>
                                             <td>
                                                 <span class="fw-semibold text-dark">{{ $item->product?->name ?? '-' }}</span>
-                                                @if($item->variant)
-                                                    <br><small class="text-muted">{{ $item->variant->name }}</small>
+                                                @if($item->variant && trim((string)$item->variant->name) !== '')
+                                                    <br><small class="text-muted">{{ trim($item->variant->name) }}</small>
                                                 @endif
                                             </td>
                                             <td class="text-center text-dark">{{ $item->quantity }}</td>
@@ -659,7 +669,10 @@
                                                      if (!empty($item['product_variant_id'])) {
                                                          $variant = \App\Models\ProductVariant::withTrashed()->find($item['product_variant_id']);
                                                          if ($variant) {
-                                                             $productName .= ' (' . $variant->name . ')';
+                                                             $variantLabel = trim((string) ($variant->name ?? $variant->attributeValue?->value ?? ''));
+                                                             if ($variantLabel !== '') {
+                                                                 $productName .= ' (' . $variantLabel . ')';
+                                                             }
                                                          }
                                                      }
 

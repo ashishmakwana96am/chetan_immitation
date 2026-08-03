@@ -522,7 +522,7 @@ $(document).ready(function () {
             multiplier = 1.0;
         }
         
-        return Math.round(basePrice * multiplier);
+        return basePrice * multiplier;
     }
 
     function updateRowPrice(row) {

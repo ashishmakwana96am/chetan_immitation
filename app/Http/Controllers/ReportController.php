@@ -2542,11 +2542,21 @@ class ReportController extends Controller
         $totalCredit = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
         $totalDebit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
 
+        $cashCredit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->where('source', CustomerBalanceTransaction::SOURCE_CASH)->sum('amount');
+        $cashDebit   = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->where('source', CustomerBalanceTransaction::SOURCE_CASH)->sum('amount');
+        $cashBalance = $cashCredit - $cashDebit;
+
+        $bankCredit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->where('source', CustomerBalanceTransaction::SOURCE_BANK)->sum('amount');
+        $bankDebit   = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->where('source', CustomerBalanceTransaction::SOURCE_BANK)->sum('amount');
+        $bankBalance = $bankCredit - $bankDebit;
+
         return [
             'transactions'       => $transactions,
             'totalTransactions'  => $transactions->count(),
             'totalCredit'        => $totalCredit,
             'totalDebit'         => $totalDebit,
+            'cashBalance'        => $cashBalance,
+            'bankBalance'        => $bankBalance,
             'type'               => $type,
             'source'             => $source,
             'startDate'          => $startDate,
