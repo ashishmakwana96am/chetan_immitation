@@ -40,6 +40,11 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'role_id');
     }
 
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
+    }
+
     public function getTypeAttribute()
     {
         return $this->roles->first()?->name;

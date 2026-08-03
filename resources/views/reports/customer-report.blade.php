@@ -5,6 +5,38 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #customerReportTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #customerReportTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+        #customerReportTable tbody tr.group-header td .group-header-inner i {
+            font-size: 1rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+        #customerReportTable tbody tr.group-header td .group-header-inner span {
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            margin-top: 2px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -164,8 +196,10 @@
                             <th class="text-end">Balance After</th>
                             <th>Notes</th>
                             <th>Done By</th>
-                            <th>Date</th>
+                            <th>Time</th>
                             <th style="width: 10%">Action</th>
+                            <th class="d-none">Date Group</th>
+                            <th class="d-none">Date Sort</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -192,7 +226,7 @@
                                 <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
                                 <td>{{ $transaction->notes ?? '-' }}</td>
                                 <td>{{ $transaction->createdBy->name ?? '-' }}</td>
-                                <td>{{ $transaction->created_at->format('d M Y, h:i A') }}</td>
+                                <td>{{ $transaction->created_at->format('h:i A') }}</td>
                                 <td>
                                     <div class="dropdown table-action-dropdown">
                                         <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
@@ -212,6 +246,8 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td class="d-none">{{ $transaction->created_at->format('d M Y') }}</td>
+                                <td class="d-none">{{ $transaction->created_at->format('YmdHis') }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -230,7 +266,7 @@
             }
             $('#customerReportTable').DataTable({
                 responsive: false,
-                order: [],
+                order: [[12, 'desc']],
                 columnDefs: [
                     {
                         targets: 0,
@@ -240,8 +276,16 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
-                    { targets: 10, orderable: false, searchable: false }
+                    { targets: 10, orderable: false, searchable: false },
+                    { targets: [11, 12], visible: false, searchable: false }
                 ],
+                rowGroup: {
+                    dataSrc: 11,
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="11"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' transaction' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
                 drawCallback: function () {
                     const api = this.api();
                     api.column(0, { page: 'current' }).nodes().each(function (cell, i) {

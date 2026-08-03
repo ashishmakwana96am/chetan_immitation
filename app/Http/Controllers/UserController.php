@@ -46,9 +46,10 @@ class UserController extends Controller
     {
         $this->authorize('view users');
 
-        $locationId = $this->getRestrictedLocationId();
+        $locationId   = $this->getRestrictedLocationId();
+        $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
-        $query = User::with('roles')
+        $query = User::with($isSuperAdmin ? ['roles', 'location'] : ['roles'])
             ->where('id', '!=', auth()->id())
             ->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
@@ -68,7 +69,7 @@ class UserController extends Controller
         $canDelete         = auth()->user()->can('delete users');
         $canChangePassword = auth()->user()->can('change users password');
 
-        $data = $users->map(function ($user, $index) use ($canEdit, $canDelete, $canChangePassword) {
+        $data = $users->map(function ($user, $index) use ($canEdit, $canDelete, $canChangePassword, $isSuperAdmin) {
             $role = $user->roles->first()
                 ? '<span class="badge bg-label-primary text-capitalize">' . $user->roles->first()->name . '</span>'
                 : '<span class="badge bg-label-secondary">No Role</span>';
@@ -97,7 +98,7 @@ class UserController extends Controller
                 $actions .= '</div></div>';
             }
 
-            return [
+            $row = [
                 'index'      => $index + 1,
                 'name'       => $user->name,
                 'email'      => $user->email,
@@ -108,6 +109,12 @@ class UserController extends Controller
                 'raw_status'  => $user->status,
                 'raw_role_id' => $user->role_id,
             ];
+
+            if ($isSuperAdmin) {
+                $row['location'] = $user->location->name ?? '-';
+            }
+
+            return $row;
         });
 
         return response()->json(['status' => 'success', 'data' => $data]);
