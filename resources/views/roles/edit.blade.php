@@ -64,6 +64,10 @@
                                                     Sales Report
                                                 @elseif(str_contains($permission->name, 'profit loss'))
                                                     Profit & Loss Report
+                                                @elseif($permission->name === 'view customer report')
+                                                    Customer Credit Report
+                                                @elseif($permission->name === 'manage customer balance')
+                                                    Manage Credit Balance
                                                 @else
                                                     {{ ucwords(str_replace('view ', '', $permission->name)) }}
                                                 @endif

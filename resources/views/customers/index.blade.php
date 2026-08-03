@@ -59,7 +59,7 @@
                         <th>Phone</th>
                         <th>Email</th>
                         @if($isSuperAdmin)
-                            <th>Branch</th>
+                            <th>Location</th>
                         @endif
                         <th>GST No</th>
                         <th>State</th>

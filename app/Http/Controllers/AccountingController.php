@@ -152,10 +152,13 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $branchLocations->pluck('id'))
-            ->selectRaw('location_id, SUM(balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalanceTransaction::query()
+            ->join('customers', 'customers.id', '=', 'customer_balance_transactions.customer_id')
+            ->where('customers.is_credit_customer', true)
+            ->whereIn('customers.location_id', $branchLocations->pluck('id'))
+            ->where('customer_balance_transactions.source', CustomerBalanceTransaction::SOURCE_CASH)
+            ->selectRaw("customers.location_id as location_id, SUM(CASE WHEN customer_balance_transactions.type = 'credit' THEN customer_balance_transactions.amount ELSE -customer_balance_transactions.amount END) as total")
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];
@@ -301,10 +304,13 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $branchLocations->pluck('id'))
-            ->selectRaw('location_id, SUM(balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalanceTransaction::query()
+            ->join('customers', 'customers.id', '=', 'customer_balance_transactions.customer_id')
+            ->where('customers.is_credit_customer', true)
+            ->whereIn('customers.location_id', $branchLocations->pluck('id'))
+            ->where('customer_balance_transactions.source', CustomerBalanceTransaction::SOURCE_BANK)
+            ->selectRaw("customers.location_id as location_id, SUM(CASE WHEN customer_balance_transactions.type = 'credit' THEN customer_balance_transactions.amount ELSE -customer_balance_transactions.amount END) as total")
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];

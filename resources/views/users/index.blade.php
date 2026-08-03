@@ -104,6 +104,9 @@
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Role</th>
+                        @if(auth()->user()->hasRole('super-admin'))
+                            <th>Location</th>
+                        @endif
                         <th>Status</th>
                         @if(auth()->user()->can('edit users') || auth()->user()->can('delete users') || auth()->user()->can('change users password'))
                             <th>Actions</th>
@@ -147,6 +150,9 @@
                     { data: 'email' },
                     { data: 'phone' },
                     { data: 'role' },
+                    @if(auth()->user()->hasRole('super-admin'))
+                        { data: 'location' },
+                    @endif
                     { data: 'status',  orderable: false },
                     @if(auth()->user()->can('edit users') || auth()->user()->can('delete users') || auth()->user()->can('change users password'))
                         { data: 'actions', orderable: false },
