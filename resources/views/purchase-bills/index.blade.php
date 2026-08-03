@@ -215,8 +215,8 @@
                 footerCallback: function (row, data, start, end, display) {
                     const json = this.api().ajax.json();
                     if (json && json.grand_total_amount) {
-                        $('#purchaseBillsTotalAmount').html('{!! currency_symbol() !!} ' + json.grand_total_amount);
-                        $('#purchaseBillsTotalMrp').html('{!! currency_symbol() !!} ' + json.grand_total_mrp);
+                        $('#purchaseBillsTotalAmount').html('<span style="white-space: nowrap;">{!! currency_symbol() !!}&nbsp;' + json.grand_total_amount + '</span>');
+                        $('#purchaseBillsTotalMrp').html('<span style="white-space: nowrap;">{!! currency_symbol() !!}&nbsp;' + json.grand_total_mrp + '</span>');
                     }
                 },
                 rowGroup: {
