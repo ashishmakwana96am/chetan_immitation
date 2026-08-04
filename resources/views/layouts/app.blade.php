@@ -334,9 +334,13 @@
             var loaderHidden = false;
 
             window.hideAjaxLoader = function() {
-                if (loaderHidden) return;
                 loaderHidden = true;
                 $('#pageLoader').addClass('fade-out');
+                var el = document.getElementById('ajaxLoaderOverlay');
+                if (el) {
+                    el.style.display = 'none';
+                }
+                document.body.style.overflow = '';
                 setTimeout(function() {
                     $('#pageLoader').remove();
                 }, 350);
@@ -370,7 +374,7 @@
 
             var fallbackTimeout = setTimeout(function() {
                 window.hideAjaxLoader();
-            }, 6000);
+            }, 3000);
 
             $(document).on('preInit.dt', function(e, settings) {
                 if (settings && settings.oFeatures) {
@@ -380,7 +384,7 @@
                 hasDataTables = true;
             });
 
-            $(document).on('xhr.dt init.dt', function(e, settings) {
+            $(document).on('xhr.dt init.dt error.dt', function(e, settings) {
                 activeDataTables--;
                 if (activeDataTables <= 0) {
                     clearTimeout(fallbackTimeout);
@@ -392,10 +396,8 @@
 
             $(window).on('load', function() {
                 setTimeout(function() {
-                    if (!hasDataTables) {
-                        clearTimeout(fallbackTimeout);
-                        window.hideAjaxLoader();
-                    }
+                    clearTimeout(fallbackTimeout);
+                    window.hideAjaxLoader();
                 }, 200);
             });
 
