@@ -7,13 +7,13 @@
 <!-- Stats Cards -->
 <div class="row g-4 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted">Total Sales</span>
                         <h4 class="mb-0 mt-1" id="totalSalesAmount">{{ format_price($totalSales) }}</h4>
-                        <small class="text-muted" id="totalSalesCount">{{ $totalSalesCount }} order{{ $totalSalesCount == 1 ? '' : 's' }}</small>
+                        <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning" id="totalPendingSalesAmount">{{ format_price($totalPendingSales ?? 0) }}</span></small>
                     </div>
                     <span class="badge bg-label-success rounded p-2"><i class="ti ti-shopping-cart ti-sm"></i></span>
                 </div>
@@ -21,13 +21,13 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted">Total Purchases</span>
                         <h4 class="mb-0 mt-1" id="totalPurchasesAmount">{{ format_price($totalPurchases) }}</h4>
-                        <small class="text-muted" id="totalPurchasesCount">{{ $totalPurchasesCount }} invoice{{ $totalPurchasesCount == 1 ? '' : 's' }}</small>
+                        <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning" id="totalPendingPurchasesAmount">{{ format_price($totalPendingPurchases ?? 0) }}</span></small>
                     </div>
                     <span class="badge bg-label-info rounded p-2"><i class="ti ti-truck-delivery ti-sm"></i></span>
                 </div>
@@ -35,13 +35,12 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted">Total Expenses</span>
                         <h4 class="mb-0 mt-1" id="totalExpensesAmount">{{ format_price($totalExpenses) }}</h4>
-                        <small class="text-muted" id="totalExpensesCount">{{ $totalExpensesCount }} entr{{ $totalExpensesCount == 1 ? 'y' : 'ies' }}</small>
                     </div>
                     <span class="badge bg-label-danger rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                 </div>
@@ -49,13 +48,12 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted">Total Purchase Bill</span>
                         <h4 class="mb-0 mt-1" id="totalTransfersCount">{{ $totalTransfersCount }}</h4>
-                        <small class="text-muted" id="totalTransfersQty">{{ $totalTransfersQty }} unit{{ $totalTransfersQty == 1 ? '' : 's' }}</small>
                     </div>
                     <span class="badge bg-label-warning rounded p-2"><i class="ti ti-file-invoice ti-sm"></i></span>
                 </div>

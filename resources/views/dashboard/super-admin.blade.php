@@ -52,6 +52,7 @@
                         <div>
                             <span class="text-muted small text-nowrap">Today's Sales</span>
                             <h4 class="mb-0 mt-1 text-primary">{{ format_price($salesStats['today']) }}</h4>
+                            <small class="text-muted d-block mt-1">Pending Payment: <span class="fw-semibold text-warning">{{ format_price($salesStats['today_pending_payment'] ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
@@ -65,6 +66,7 @@
                         <div>
                             <span class="text-muted small text-nowrap">This Month Sales</span>
                             <h4 class="mb-0 mt-1 text-success">{{ format_price($salesStats['this_month']) }}</h4>
+                            <small class="text-muted d-block mt-1">Pending Payment: <span class="fw-semibold text-warning">{{ format_price($salesStats['this_month_pending_payment'] ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
                     </div>
