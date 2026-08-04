@@ -118,7 +118,8 @@
                 serverSide : true,
                 processing : false,
                 pageLength : 25,
-                ordering   : false,
+                ordering   : true,
+                order      : [[1, 'asc']],
                 ajax: {
                     url: '{{ route('admin.reports.stock-inventory.data') }}',
                     data: function (d) {
@@ -127,17 +128,17 @@
                 },
                 columns: [
                     { data: 'index', orderable: false, searchable: false },
-                    { data: 'name', name: 'name' },
-                    { data: 'last_purchase_display' },
-                    { data: 'barcode' },
-                    { data: 'category' },
+                    { data: 'name', name: 'name', orderable: true },
+                    { data: 'last_purchase_display', name: 'last_purchase', orderable: true },
+                    { data: 'barcode', name: 'barcode', orderable: true },
+                    { data: 'category', name: 'category', orderable: false },
                     ...Array.from({ length: locationCount }, function () {
                         return { data: null, defaultContent: '', orderable: false, searchable: false };
                     }),
-                    { data: 'total_badge', className: 'text-center' },
-                    { data: 'purchase_value', className: 'text-end' },
-                    { data: 'mrp_value', className: 'text-end' },
-                    { data: 'age_badge', className: 'text-center' },
+                    { data: 'total_badge', name: 'total_qty', className: 'text-center', orderable: true },
+                    { data: 'purchase_value', name: 'purchase_value', className: 'text-end', orderable: true },
+                    { data: 'mrp_value', name: 'mrp_value', className: 'text-end', orderable: true },
+                    { data: 'age_badge', name: 'age', className: 'text-center', orderable: true },
                 ],
                 createdRow: function (row, data) {
                     const $row = $(row);

@@ -1116,7 +1116,7 @@ class SaleController extends Controller
                 }
 
                 if ($isApprove) {
-                    $stockError = $this->getStockError($request->items, (int) $request->location_id);
+                    $stockError = $this->getStockError($request->items, (int) $request->location_id, $sale);
                     if ($stockError) {
                         throw new \RuntimeException($stockError);
                     }
@@ -1582,13 +1582,14 @@ class SaleController extends Controller
                             $onlineThis = 0;
                         }
 
+                        $targetCashTotal = (float) $sale->paid_cash_amount + $cashThis;
                         $targetOnlineTotal = (float) $sale->paid_online_amount + $onlineThis;
 
                         [$cappedStatus, $cappedCashTotal, $cappedOnlineTotal] = $this->capPaymentToCustomerBalance(
                             $sale->customer_id,
                             Order::PAYMENT_STATUS_PAID,
                             $grandTotal,
-                            0.0,
+                            $targetCashTotal,
                             $targetOnlineTotal,
                             $prevPaid
                         );
@@ -1726,8 +1727,15 @@ class SaleController extends Controller
             return [$requestedStatus, $cashInput, $onlineInput];
         }
 
+        $reqCash = round(max($cashInput, 0), 2);
+        $reqBank = round(max($onlineInput, 0), 2);
+
         $customer = Customer::find($customerId);
         if (!$customer || !$customer->is_credit_customer) {
+            $totalInput = round($reqCash + $reqBank, 2);
+            if ($requestedStatus === Order::PAYMENT_STATUS_PARTIAL && $totalInput <= 0) {
+                return [Order::PAYMENT_STATUS_PARTIAL, $reqCash, $reqBank];
+            }
             return [$requestedStatus, $cashInput, $onlineInput];
         }
 
@@ -1751,21 +1759,25 @@ class SaleController extends Controller
             }
         }
 
-        $availTotal = $availCash + $availBank;
-        if ($availTotal <= 0) {
-            return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
-        }
-
         if ($requestedStatus === Order::PAYMENT_STATUS_PAID) {
-            $reqCash = round(max($cashInput, 0), 2);
-            $reqBank = round(max($onlineInput, 0), 2);
             if ($reqCash <= 0 && $reqBank <= 0) {
                 $reqCash = min($grandTotal, $availCash);
                 $reqBank = round(min(max(0, $grandTotal - $reqCash), $availBank), 2);
             }
-        } else {
-            $reqCash = round(max($cashInput, 0), 2);
-            $reqBank = round(max($onlineInput, 0), 2);
+        }
+
+        $totalInput = round($reqCash + $reqBank, 2);
+
+        if ($totalInput > 0) {
+            if ($totalInput >= $grandTotal - 0.01) {
+                return [Order::PAYMENT_STATUS_PAID, $reqCash, $reqBank];
+            }
+            return [Order::PAYMENT_STATUS_PARTIAL, $reqCash, $reqBank];
+        }
+
+        $availTotal = $availCash + $availBank;
+        if ($availTotal <= 0) {
+            return [$requestedStatus, $reqCash, $reqBank];
         }
 
         $cappedCash = round(min($reqCash, $availCash), 2);
@@ -1773,7 +1785,7 @@ class SaleController extends Controller
         $totalCapped = round($cappedCash + $cappedBank, 2);
 
         if ($totalCapped <= 0) {
-            return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
+            return [$requestedStatus, $reqCash, $reqBank];
         }
 
         if ($totalCapped >= $grandTotal - 0.01) {
@@ -1871,7 +1883,7 @@ class SaleController extends Controller
         return null;
     }
 
-    private function getStockError(iterable $items, int $locationId): ?string
+    private function getStockError(iterable $items, int $locationId, ?Order $existingSale = null): ?string
     {
         $requested = [];
 
@@ -1900,7 +1912,29 @@ class SaleController extends Controller
             $requested[$key]['quantity'] += $stockQty;
         }
 
+        // If editing an existing approved sale at the same location, offset stock check with already reserved quantities
+        if ($existingSale && ((int) $existingSale->status === Order::STATUS_APPROVE) && ((int) $existingSale->location_id === (int) $locationId)) {
+            foreach ($existingSale->items as $existingItem) {
+                $productId = (int) $existingItem->product_id;
+                $variantId = $existingItem->product_variant_id ? (int) $existingItem->product_variant_id : null;
+                $quantity = (int) $existingItem->quantity;
+                $pairType = $existingItem->pair_type ?? 'single';
+                $customSizeValue = $existingItem->custom_size_value ?? null;
+
+                $existingStockQty = (int) round($quantity * $this->stockMultiplierFor($productId, $pairType, $customSizeValue ? (float) $customSizeValue : null));
+                $key = $productId . ':' . ($variantId ?? 0);
+
+                if (isset($requested[$key])) {
+                    $requested[$key]['quantity'] -= $existingStockQty;
+                }
+            }
+        }
+
         foreach ($requested as $stockRequest) {
+            if ($stockRequest['quantity'] <= 0) {
+                continue;
+            }
+
             $product = Product::with('variants.attributeValue.attribute')
                 ->find($stockRequest['product_id']);
 

@@ -418,11 +418,33 @@ class ReportController extends Controller
         $query = $this->stockInventoryFilteredQuery($request, $locationId);
         $recordsFiltered = (clone $query)->count();
 
+        [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($locationId);
         [$lastPurchaseExprSql, $lastPurchaseExprBindings] = $this->lastPurchaseSubquery();
         $sortBy = $request->input('sort_by');
         $hasDateFilter = $request->input('from_date') || $request->input('to_date');
 
-        if ($sortBy === 'age_desc') {
+        $orderColumnIndex = $request->input('order.0.column');
+        $orderDir = strtoupper($request->input('order.0.dir', 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+        $columnName = $request->input("columns.{$orderColumnIndex}.name");
+
+        if ($columnName === 'name') {
+            $query->orderBy('name', $orderDir);
+        } elseif ($columnName === 'barcode') {
+            $query->orderBy('barcode', $orderDir);
+        } elseif ($columnName === 'total_qty') {
+            $query->orderByRaw("{$stockExprSql} {$orderDir}", $stockExprBindings);
+        } elseif ($columnName === 'purchase_value') {
+            $query->orderByRaw("({$stockExprSql} * products.purchase_price) {$orderDir}", $stockExprBindings);
+        } elseif ($columnName === 'mrp_value') {
+            $query->orderByRaw("({$stockExprSql} * COALESCE(NULLIF(products.mrp, 0), products.sale_price)) {$orderDir}", $stockExprBindings);
+        } elseif ($columnName === 'last_purchase') {
+            $query->orderByRaw("({$lastPurchaseExprSql}) IS NULL ASC, ({$lastPurchaseExprSql}) {$orderDir}",
+                array_merge($lastPurchaseExprBindings, $lastPurchaseExprBindings));
+        } elseif ($columnName === 'age') {
+            $ageDir = $orderDir === 'ASC' ? 'DESC' : 'ASC';
+            $query->orderByRaw("({$lastPurchaseExprSql}) IS NULL ASC, ({$lastPurchaseExprSql}) {$ageDir}",
+                array_merge($lastPurchaseExprBindings, $lastPurchaseExprBindings));
+        } else if ($sortBy === 'age_desc') {
             $query->orderByRaw("({$lastPurchaseExprSql}) IS NULL DESC, ({$lastPurchaseExprSql}) ASC",
                 array_merge($lastPurchaseExprBindings, $lastPurchaseExprBindings));
         } elseif ($sortBy === 'age_asc') {
