@@ -307,12 +307,6 @@ class ProductBulkImageUploadService
 
         try {
             DB::transaction(function () use ($zip, $entries, $product, $destDir, $userId, &$needsPrimary, &$primaryAdded, &$additionalAdded, &$failedImages, &$savedAny) {
-                // Create a barcode-wise subfolder: products/{barcode}/
-                $barcodeDir = $destDir . '/' . $product->barcode;
-                if (!file_exists($barcodeDir)) {
-                    mkdir($barcodeDir, 0755, true);
-                }
-
                 foreach ($entries as $entryName) {
                     $bytes = $zip->getFromName($entryName);
 
@@ -322,15 +316,15 @@ class ProductBulkImageUploadService
                     }
 
                     $extension = strtolower(pathinfo($entryName, PATHINFO_EXTENSION));
-                    $filename  = time() . '_' . uniqid() . '.' . $extension;
-                    file_put_contents($barcodeDir . '/' . $filename, $bytes);
+                    $filename = time() . '_' . uniqid() . '.' . $extension;
+                    file_put_contents($destDir . '/' . $filename, $bytes);
 
-                    $isPrimary    = $needsPrimary;
+                    $isPrimary = $needsPrimary;
                     $needsPrimary = false;
 
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => 'products/' . $product->barcode . '/' . $filename,
+                        'image_path' => 'products/' . $filename,
                         'is_primary' => $isPrimary,
                         'created_by' => $userId,
                     ]);
