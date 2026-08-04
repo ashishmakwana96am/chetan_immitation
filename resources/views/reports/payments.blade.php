@@ -77,56 +77,39 @@
 
         {{-- Stats Cards --}}
         <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-3">
-                <div class="card payment-stat-card">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card payment-stat-card h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Sales</span>
                                 <h4 class="mb-0 mt-1 text-success">{{ format_price($totalAmount) }}</h4>
-                                <small class="text-muted">{{ $totalCount }} transaction{{ $totalCount != 1 ? 's' : '' }}</small>
                             </div>
                             <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="card payment-stat-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start justify-content-between">
-                            <div>
-                                <span class="text-muted">Total Transactions</span>
-                                <h4 class="mb-0 mt-1 text-primary">{{ $totalCount }}</h4>
-                                <small class="text-muted">{{ format_price($totalAmount) }} total</small>
-                            </div>
-                            <span class="badge bg-label-primary rounded p-2"><i class="ti ti-credit-card ti-sm"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="card payment-stat-card">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card payment-stat-card h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Pending Amount</span>
                                 <h4 class="mb-0 mt-1 text-warning">{{ format_price($pendingAmount) }}</h4>
-                                <small class="text-muted">{{ $pendingCount }} pending payment{{ $pendingCount != 1 ? 's' : '' }}</small>
                             </div>
                             <span class="badge bg-label-warning rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="card payment-stat-card">
+            <div class="col-sm-6 col-xl-4">
+                <div class="card payment-stat-card h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Refunds</span>
                                 <h4 class="mb-0 mt-1 text-danger">{{ format_price($refundAmount) }}</h4>
-                                <small class="text-muted">{{ $refundCount }} refund{{ $refundCount != 1 ? 's' : '' }}</small>
                             </div>
                             <span class="badge bg-label-danger rounded p-2"><i class="ti ti-receipt-refund ti-sm"></i></span>
                         </div>

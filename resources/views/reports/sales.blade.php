@@ -56,12 +56,13 @@
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-3">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Total Sales</span>
                             <h4 class="mb-0 mt-1">{{ format_price($totalSales) }}</h4>
+                            <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-line ti-sm"></i></span>
                     </div>
@@ -69,7 +70,7 @@
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
@@ -82,7 +83,7 @@
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
@@ -95,15 +96,19 @@
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Payment Split</span>
-                            <h5 class="mb-0 mt-2 text-nowrap">
+                            <div class="d-flex flex-wrap gap-1 mt-1">
                                 <span class="badge bg-label-success">{{ $paidCount }} Paid</span>
+                                @if(($partialCount ?? 0) > 0)
+                                    <span class="badge bg-label-info">{{ $partialCount }} Partial</span>
+                                @endif
                                 <span class="badge bg-label-warning">{{ $pendingCount }} Unpaid</span>
-                            </h5>
+                            </div>
+                            <small class="text-muted d-block mt-1">Pending: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-secondary rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                     </div>

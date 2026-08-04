@@ -754,7 +754,7 @@ class ReportController extends Controller
         $isGst = $request->query('is_gst');
 
         $user = auth()->user();
-        $query = Purchase::with(['supplier', 'items.product'])
+        $query = Purchase::with(['supplier:id,name'])
             ->where('status', Purchase::STATUS_APPROVE)
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
@@ -778,9 +778,10 @@ class ReportController extends Controller
         $invoices = $query->latest()->get();
 
         // Totals
-        $totalPurchases = $invoices->sum('total_amount');
-        $invoiceCount   = $invoices->count();
-        $confirmedCount = $invoiceCount;
+        $totalPurchases     = $invoices->sum('total_amount');
+        $invoiceCount       = $invoices->count();
+        $confirmedCount     = $invoiceCount;
+        $totalPendingAmount = (float) $invoices->sum(fn($i) => max(0, (float) $i->total_amount - (float) $i->paid_amount));
 
         // Purchase by Supplier (Donut Chart)
         $supplierData = [];
@@ -815,6 +816,7 @@ class ReportController extends Controller
             'totalPurchases',
             'invoiceCount',
             'confirmedCount',
+            'totalPendingAmount',
             'supplierData',
             'purchasesTrend',
             'productPurchases',
@@ -877,8 +879,39 @@ class ReportController extends Controller
         $totalSales   = (float)$orders->sum('final_amount');
         $orderCount   = $orders->count();
         $avgOrderValue = $orderCount > 0 ? $totalSales / $orderCount : 0.0;
-        $paidCount     = $orders->where('payment_status', 2)->count();
-        $pendingCount  = $orders->where('payment_status', 1)->count();
+        $paidCount     = $orders->where('payment_status', Order::PAYMENT_STATUS_PAID)->count();
+        $partialCount  = $orders->where('payment_status', Order::PAYMENT_STATUS_PARTIAL)->count();
+        $pendingCount  = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING)->count();
+
+        // Calculate pending amount across all non-declined orders matching filter
+        $pendingQuery = Order::where('order_type', 'sale')
+            ->where('status', '!=', Order::STATUS_DECLINE)
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+
+        if ($startDate) {
+            $pendingQuery->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $pendingQuery->whereDate('created_at', '<=', $endDate);
+        }
+        if ($locationId) {
+            $pendingQuery->where('location_id', $locationId);
+        }
+        if ($paymentStatus) {
+            $pendingQuery->where('payment_status', $paymentStatus);
+        }
+        if ($paymentMethod) {
+            $pendingQuery->where('payment_method', $paymentMethod);
+        }
+        if ($isGst !== null && $isGst !== '') {
+            $pendingQuery->where('is_gst', (bool)$isGst);
+        }
+
+        $allPendingOrders = $pendingQuery->get();
+        $totalPendingAmount = (float)$allPendingOrders->sum(function($o) {
+            if ((int)$o->payment_status === Order::PAYMENT_STATUS_PAID) return 0;
+            return max(0, (float)$o->final_amount - ((float)$o->paid_cash_amount + (float)$o->paid_online_amount));
+        });
 
         // Sales Over Time
         $salesTrend = [];
@@ -895,12 +928,12 @@ class ReportController extends Controller
         $cashTotal = 0.0;
         $onlineTotal = 0.0;
         foreach ($orders as $order) {
-            if ((int) $order->payment_status !== Order::PAYMENT_STATUS_PAID) {
+            if (!in_array((int) $order->payment_status, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)) {
                 continue;
             }
             $cashAmt = (float) $order->paid_cash_amount;
             $onlineAmt = (float) $order->paid_online_amount;
-            if ($cashAmt <= 0 && $onlineAmt <= 0) {
+            if ($cashAmt <= 0 && $onlineAmt <= 0 && (int) $order->payment_status === Order::PAYMENT_STATUS_PAID) {
                 $pm = strtolower($order->payment_method ?? '');
                 if (in_array($pm, ['online', 'razorpay'])) {
                     $onlineAmt = (float) $order->final_amount;
@@ -937,7 +970,9 @@ class ReportController extends Controller
             'orderCount',
             'avgOrderValue',
             'paidCount',
+            'partialCount',
             'pendingCount',
+            'totalPendingAmount',
             'salesTrend',
             'paymentMethodData',
             'productSales',
@@ -966,7 +1001,9 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+        $salesQuery = Order::where('order_type', 'sale')
+            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -979,7 +1016,9 @@ class ReportController extends Controller
         }
 
         $sales = $salesQuery->get();
-        $totalRevenue = (float)$sales->sum('final_amount');
+        $totalRevenue = (float)$sales->sum(function($o) {
+            return (float)$o->paid_cash_amount + (float)$o->paid_online_amount;
+        });
 
         // COGS query
         $saleIds = $sales->pluck('id');
@@ -1087,7 +1126,7 @@ class ReportController extends Controller
         foreach ($allMonths as $month) {
             // Revenue
             $grp = $salesGroup->get($month);
-            $monthlyRevenue[$month] = $grp ? (float)$grp->sum('final_amount') : 0.0;
+            $monthlyRevenue[$month] = $grp ? (float)$grp->sum(fn($o) => (float)$o->paid_cash_amount + (float)$o->paid_online_amount) : 0.0;
 
             // COGS
             $grpCogs = 0.0;
@@ -1724,7 +1763,9 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate   = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+        $salesQuery = Order::where('order_type', 'sale')
+            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
         if ($startDate) {
             $salesQuery->whereDate('created_at', '>=', $startDate);
@@ -1737,7 +1778,9 @@ class ReportController extends Controller
         }
 
         $sales = $salesQuery->get();
-        $totalRevenue = (float)$sales->sum('final_amount');
+        $totalRevenue = (float)$sales->sum(function($o) {
+            return (float)$o->paid_cash_amount + (float)$o->paid_online_amount;
+        });
 
         $saleIds = $sales->pluck('id');
         $orderItems = OrderItem::with(['product', 'variant'])
@@ -2320,8 +2363,29 @@ class ReportController extends Controller
 
         $totalSales    = (float) $salesByLocation->sum('total');
         $totalSalesCount = (int) $salesByLocation->sum('cnt');
+
+        $pendingSalesOrders = Order::where('order_type', 'sale')
+            ->where('status', '!=', Order::STATUS_DECLINE)
+            ->whereDate('created_at', $date)
+            ->whereIn('location_id', $locationIds)
+            ->get();
+        $totalPendingSales = (float) $pendingSalesOrders->sum(function($o) {
+            if ((int)$o->payment_status === Order::PAYMENT_STATUS_PAID) return 0;
+            return max(0, (float)$o->final_amount - ((float)$o->paid_cash_amount + (float)$o->paid_online_amount));
+        });
+
         $totalPurchases = (float) $purchasesByLocation->sum('total');
         $totalPurchasesCount = (int) $purchasesByLocation->sum('cnt');
+
+        $approvedPurchases = Purchase::where('status', Purchase::STATUS_APPROVE)
+            ->whereDate('created_at', $date)
+            ->when($locationId, function($q) use ($locationId) {
+                $q->whereHas('items.allocations', function($sub) use ($locationId) {
+                    $sub->where('location_id', $locationId);
+                });
+            })
+            ->get();
+        $totalPendingPurchases = (float) $approvedPurchases->sum(fn($i) => max(0, (float)$i->total_amount - (float)$i->paid_amount));
         $totalExpenses = (float) $expensesByLocation->sum('total');
         $totalExpensesCount = (int) $expensesByLocation->sum('cnt');
 
@@ -2462,8 +2526,10 @@ class ReportController extends Controller
             'expenseRows'         => $expenseRows,
             'purchaseBillRows'    => $purchaseBillRows,
             'totalSales'          => $totalSales,
+            'totalPendingSales'   => $totalPendingSales,
             'totalSalesCount'     => $totalSalesCount,
             'totalPurchases'      => $totalPurchases,
+            'totalPendingPurchases' => $totalPendingPurchases,
             'totalPurchasesCount' => $totalPurchasesCount,
             'totalExpenses'       => $totalExpenses,
             'totalExpensesCount'  => $totalExpensesCount,

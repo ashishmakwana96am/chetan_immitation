@@ -34,17 +34,24 @@ class DashboardController extends Controller
     private function superAdminDashboard()
     {
         $stats = [
-            'products'   => Product::count(),
-            'customers'  => Customer::count(),
-            'suppliers'  => Supplier::count(),
-            'users'      => User::whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))->count(),
+            'products' => Product::count(),
+            'customers' => Customer::count(),
+            'suppliers' => Supplier::count(),
+            'users' => User::whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'))->count(),
         ];
 
+        $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
+
+        $todayOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->get();
+        $thisMonthOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get();
+
         $salesStats = [
-            'today'      => (float) Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->whereDate('created_at', today())->sum('final_amount'),
-            'this_month' => (float) Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
-            'total'      => (float) Order::where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->sum('final_amount'),
-            'pending'    => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
+            'today' => (float) $todayOrders->sum('final_amount'),
+            'today_pending_payment' => (float) $todayOrders->sum(fn($o) => max(0, (float) $o->final_amount - ((float) $o->paid_cash_amount + (float) $o->paid_online_amount))),
+            'this_month' => (float) $thisMonthOrders->sum('final_amount'),
+            'this_month_pending_payment' => (float) $thisMonthOrders->sum(fn($o) => max(0, (float) $o->final_amount - ((float) $o->paid_cash_amount + (float) $o->paid_online_amount))),
+            'total' => (float) Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->sum('final_amount'),
+            'pending' => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
         $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->sum('balance');
@@ -64,12 +71,13 @@ class DashboardController extends Controller
 
         foreach ($products as $p) {
             $purchasePrice = (float) $p->purchase_price;
-            $salePrice     = (float) $p->sale_price;
-            $mrpPrice      = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+            $salePrice = (float) $p->sale_price;
+            $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
             $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-            if ($pairSize <= 0) $pairSize = 1.0;
+            if ($pairSize <= 0)
+                $pairSize = 1.0;
 
             $pTotalPcs = (int) $p->totalAvailableStock();
 
@@ -79,11 +87,10 @@ class DashboardController extends Controller
                 foreach ($p->variants as $v) {
                     $vQty = 0;
                     foreach ($variantStock as $locData) {
-                        
                         $vQty += max(0, (int) ($locData['variants'][$v->id] ?? 0));
                     }
                     $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
-                    $vMrp   = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+                    $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
 
                     $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
 
@@ -125,22 +132,22 @@ class DashboardController extends Controller
         $stockDisplay = implode('<br>', $stockParts);
 
         $stockStats = [
-            'total_units'          => $totalStockUnits,
-            'total_pairs'          => $totalStockPairs,
-            'total_loose_pcs'      => $totalStockLoosePcs,
-            'stock_display'        => $stockDisplay,
-            'stock_parts'          => $stockParts,
+            'total_units' => $totalStockUnits,
+            'total_pairs' => $totalStockPairs,
+            'total_loose_pcs' => $totalStockLoosePcs,
+            'stock_display' => $stockDisplay,
+            'stock_parts' => $stockParts,
             'total_purchase_value' => $totalStockPurchaseValue,
-            'total_mrp_value'      => $totalStockMrpValue,
+            'total_mrp_value' => $totalStockMrpValue,
         ];
 
-        $monthlySales   = $this->getMonthlySales();
-        $recentSales    = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
-        $lowStock       = $products->filter(function ($p) {
+        $monthlySales = $this->getMonthlySales();
+        $recentSales = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
+        $lowStock = $products->filter(function ($p) {
             $threshold = $p->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
             return $p->totalAvailableStock() <= $threshold;
         })->take(10)->values();
-        $topProducts    = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
+        $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
         $salesByLocation = Location::withSum(['orders as total_sales' => fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])], 'final_amount')
             ->withCount(['orders as total_orders' => fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])])
             ->get()
@@ -171,13 +178,18 @@ class DashboardController extends Controller
 
         $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
 
+        $todayOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->get();
+        $thisMonthOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get();
+
         $salesStats = [
-            'today'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->sum('final_amount'),
-            'this_month' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount'),
-            'total'      => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->sum('final_amount'),
-            'pending'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
-            'approve'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
-            'decline'    => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
+            'today' => (float) $todayOrders->sum('final_amount'),
+            'today_pending_payment' => (float) $todayOrders->sum(fn($o) => max(0, (float) $o->final_amount - ((float) $o->paid_cash_amount + (float) $o->paid_online_amount))),
+            'this_month' => (float) $thisMonthOrders->sum('final_amount'),
+            'this_month_pending_payment' => (float) $thisMonthOrders->sum(fn($o) => max(0, (float) $o->final_amount - ((float) $o->paid_cash_amount + (float) $o->paid_online_amount))),
+            'total' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->sum('final_amount'),
+            'pending' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
+            'approve' => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
+            'decline' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 
         $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('balance');
@@ -222,12 +234,13 @@ class DashboardController extends Controller
 
         foreach ($allProducts as $p) {
             $purchasePrice = (float) $p->purchase_price;
-            $salePrice     = (float) $p->sale_price;
-            $mrpPrice      = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+            $salePrice = (float) $p->sale_price;
+            $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
             $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-            if ($pairSize <= 0) $pairSize = 1.0;
+            if ($pairSize <= 0)
+                $pairSize = 1.0;
 
             $pTotalPcs = 0;
 
@@ -235,9 +248,9 @@ class DashboardController extends Controller
                 $variantStock = $p->getVariantStock();
                 $locData = $variantStock[$locationId] ?? ['variants' => []];
                 foreach ($p->variants as $v) {
-                    $vQty   = (int) ($locData['variants'][$v->id] ?? 0);
+                    $vQty = (int) ($locData['variants'][$v->id] ?? 0);
                     $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
-                    $vMrp   = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+                    $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
 
                     $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
 
@@ -286,22 +299,22 @@ class DashboardController extends Controller
         $stockDisplay = implode('<br>', $stockParts);
 
         $stockStats = [
-            'total_products'       => $stockRows->count(),
-            'total_units'          => $totalStockUnits,
-            'total_pairs'          => $totalStockPairs,
-            'total_loose_pcs'      => $totalStockLoosePcs,
-            'stock_display'        => $stockDisplay,
-            'stock_parts'          => $stockParts,
+            'total_products' => $stockRows->count(),
+            'total_units' => $totalStockUnits,
+            'total_pairs' => $totalStockPairs,
+            'total_loose_pcs' => $totalStockLoosePcs,
+            'stock_display' => $stockDisplay,
+            'stock_parts' => $stockParts,
             'total_purchase_value' => $totalStockPurchaseValue,
-            'total_mrp_value'      => $totalStockMrpValue,
-            'out_of_stock'         => $stockRows->where('quantity', 0)->count(),
-            'low_stock'            => $lowStockInventories->where('quantity', '>', 0)->count(),
+            'total_mrp_value' => $totalStockMrpValue,
+            'out_of_stock' => $stockRows->where('quantity', 0)->count(),
+            'low_stock' => $lowStockInventories->where('quantity', '>', 0)->count(),
         ];
 
-        $monthlySales    = $this->getMonthlySales($locationId);
-        $recentSales     = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->latest()->take(5)->get();
-        $lowStock        = $lowStockInventories->sortBy('quantity')->take(10)->values();
-        $topProducts     = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
+        $monthlySales = $this->getMonthlySales($locationId);
+        $recentSales = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->latest()->take(5)->get();
+        $lowStock = $lowStockInventories->sortBy('quantity')->take(10)->values();
+        $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
 
         $recentInquiries = auth()->user()->can('view contact inquiries')
             ? ContactInquiry::latest()->take(5)->get()
@@ -332,7 +345,8 @@ class DashboardController extends Controller
             $query->where('location_id', $locationId);
         }
 
-        $rows = $query->selectRaw('YEAR(created_at) as y, MONTH(created_at) as m, SUM(final_amount) as amount, COUNT(*) as count')
+        $rows = $query
+            ->selectRaw('YEAR(created_at) as y, MONTH(created_at) as m, SUM(final_amount) as amount, COUNT(*) as count')
             ->groupBy('y', 'm')
             ->get()
             ->keyBy(fn($row) => $row->y . '-' . $row->m);
@@ -340,12 +354,12 @@ class DashboardController extends Controller
         $months = [];
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
-            $row  = $rows->get($date->year . '-' . $date->month);
+            $row = $rows->get($date->year . '-' . $date->month);
 
             $months[] = [
-                'month'  => $date->format('M Y'),
+                'month' => $date->format('M Y'),
                 'amount' => (float) ($row->amount ?? 0),
-                'count'  => (int) ($row->count ?? 0),
+                'count' => (int) ($row->count ?? 0),
             ];
         }
         return $months;

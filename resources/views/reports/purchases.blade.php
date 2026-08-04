@@ -56,12 +56,13 @@
         <!-- Stats Cards -->
         <div class="row g-4 mb-4">
         <div class="col-sm-6 col-xl-4">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Total Purchases</span>
                             <h4 class="mb-0 mt-1">{{ format_price($totalPurchases) }}</h4>
+                            <small class="text-muted d-block mt-1">Pending Amount: <span class="fw-semibold text-warning">{{ format_price($totalPendingAmount ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                     </div>
@@ -69,7 +70,7 @@
             </div>
         </div>
         <div class="col-sm-6 col-xl-4">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
@@ -82,7 +83,7 @@
             </div>
         </div>
         <div class="col-sm-6 col-xl-4">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
