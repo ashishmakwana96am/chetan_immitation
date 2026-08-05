@@ -12,13 +12,15 @@ class HomeController extends Controller
     public function index()
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
+            ->whereNotNull('image')
+            ->where('image', '!=', '')
             ->whereHas('products', function ($q) {
-                $q->where('status', Product::STATUS_ACTIVE)->has('images');
+                $q->forWebsite()->has('images');
             })
             ->orderBy('sort_order')
             ->get();
 
-        $lovedProducts = Product::where('status', Product::STATUS_ACTIVE)
+        $lovedProducts = Product::forWebsite()
             ->hasImages()
             ->whereHas('inventories', function($q) {
                 $q->where('quantity', '>', 0);
@@ -31,7 +33,7 @@ class HomeController extends Controller
             ->limit(8)
             ->get();
 
-        $latestProducts = Product::where('status', Product::STATUS_ACTIVE)
+        $latestProducts = Product::forWebsite()
             ->hasImages()
             ->whereHas('inventories', function($q) {
                 $q->where('quantity', '>', 0);
@@ -184,11 +186,15 @@ class HomeController extends Controller
     public function detail($slug)
     {
         $product = Product::where('slug', $slug)
-            ->where('status', Product::STATUS_ACTIVE)
+            ->forWebsite()
             ->with('primaryImage', 'images', 'variants.attributeValue.attribute', 'category', 'subCategory')
             ->withSum('inventories', 'quantity')
             ->withReviewStats()
-            ->firstOrFail();
+            ->first();
+
+        if (!$product) {
+            return redirect()->route('shop-by-category');
+        }
 
         $topReviews = $product->reviews()
             ->with('customer', 'images')
@@ -196,7 +202,7 @@ class HomeController extends Controller
             ->limit(2)
             ->get();
 
-        $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+        $relatedProducts = Product::forWebsite()
             ->hasImages()
             ->where('id', '!=', $product->id)
             ->where(function ($q) use ($product) {

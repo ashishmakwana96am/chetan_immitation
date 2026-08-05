@@ -220,11 +220,16 @@
                         </div>
 
                         @if(auth()->user()->hasRole('super-admin'))
-                            <div class="form-check form-switch">
+                            <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" id="productBypassMinPrice" name="bypass_min_price" value="1" {{ isset($clonedProduct) && $clonedProduct->bypass_min_price == 1 ? 'checked' : '' }} />
                                 <label class="form-check-label" for="productBypassMinPrice">Allow Below Cost Price on Sale</label>
                             </div>
                         @endif
+
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="productHideFromWebsite" name="hide_from_website" value="1" {{ !isset($clonedProduct) || $clonedProduct->hide_from_website ? 'checked' : '' }} />
+                            <label class="form-check-label" for="productHideFromWebsite">Hide From Website</label>
+                        </div>
                     </div>
                 </div>
 

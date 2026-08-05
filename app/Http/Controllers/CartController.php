@@ -97,7 +97,7 @@ class CartController extends Controller
 
         $productIds = $cartItems->pluck('product_id')->unique()->toArray();
 
-        $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+        $relatedProducts = Product::forWebsite()
             ->hasImages()
             ->whereNotIn('id', $productIds ?: [0])
             ->with(['primaryImage', 'variants.attributeValue'])
@@ -129,8 +129,8 @@ class CartController extends Controller
         $qty       = max(1, (int) ($request->qty ?? 1));
         $pairType  = in_array($request->pair_type, ['single', 'pair']) ? $request->pair_type : 'single';
 
-        // Verify product is active
-        $product = Product::where('status', Product::STATUS_ACTIVE)
+        // Verify product is active and visible on website
+        $product = Product::forWebsite()
             ->withSum('inventories', 'quantity')
             ->find($productId);
         if (!$product) {

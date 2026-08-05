@@ -705,6 +705,7 @@ class ProductController extends Controller
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
             'bypass_min_price'         => ['nullable', 'boolean'],
+            'hide_from_website'        => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
@@ -797,6 +798,7 @@ class ProductController extends Controller
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
                 'bypass_min_price' => $isSuperAdmin && $request->has('bypass_min_price') ? 1 : 0,
+                'hide_from_website' => $request->has('hide_from_website') ? 1 : 0,
                 'created_by'      => auth()->id(),
                 'sort_order'      => ((int) Product::max('sort_order')) + 1,
             ];
@@ -930,6 +932,7 @@ class ProductController extends Controller
             'sale'                     => ['nullable', 'boolean'],
             'pair_product'             => ['nullable', 'boolean'],
             'bypass_min_price'         => ['nullable', 'boolean'],
+            'hide_from_website'        => ['nullable', 'boolean'],
             'primary_image_base64'     => ['nullable', 'string'],
             'additional_images_base64' => ['nullable', 'array'],
             'additional_images_base64.*' => ['nullable', 'string'],
@@ -1075,6 +1078,7 @@ class ProductController extends Controller
                 'status'          => $request->has('status') ? 1 : 2,
                 'sale'            => $request->has('sale') ? 1 : 0,
                 'pair_product'    => $request->has('pair_product') ? 1 : 0,
+                'hide_from_website' => $request->has('hide_from_website') ? 1 : 0,
             ];
 
             if ($isSuperAdmin) {

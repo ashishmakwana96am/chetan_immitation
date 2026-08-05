@@ -533,9 +533,25 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
-                    { data: 'invoice_no' },
+                    {
+                        data: 'invoice_no',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_invoice_no !== undefined ? row.raw_invoice_no : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'supplier' },
-                    { data: 'total_amount' },
+                    {
+                        data: 'total_amount',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_total_amount !== undefined ? row.raw_total_amount : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'status',         orderable: false },
                     { data: 'payment_status', orderable: false },
                     { data: 'actions',        orderable: false },

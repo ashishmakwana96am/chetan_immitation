@@ -115,8 +115,10 @@ class PurchaseController extends Controller
             return [
                 'index'          => $index + 1,
                 'invoice_no'     => '<code>' . $invoice->invoice_no . '</code>' . ($invoice->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
+                'raw_invoice_no' => $invoice->invoice_no,
                 'supplier'       => $invoice->supplier->name ?? '-',
                 'total_amount'   => format_price($invoice->total_amount),
+                'raw_total_amount' => (float) $invoice->total_amount,
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
                 'date_group'     => $invoice->created_at->format('d M Y'),
