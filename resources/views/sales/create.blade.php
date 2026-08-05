@@ -1159,7 +1159,8 @@ $(document).ready(function () {
             $('#summaryDiscountAmount').closest('.d-flex').addClass('d-none');
         }
 
-        if (count > 0) {
+        const totalRows = $('#itemsBody .item-row').length;
+        if (totalRows > 0) {
             $('#itemsTotal').closest('tr').show();
             $('#taxColumn').show();
             $('#summaryColumn').show();
@@ -1303,13 +1304,21 @@ $(document).ready(function () {
     }
 
     function getClientValidationError() {
-        let activeCount = 0;
+        if ($('.item-row').length === 0) {
+            return 'Please add at least one item to the sale.';
+        }
+
+        let invalidQty = false;
         $('.item-row').each(function () {
-            if ((parseInt($(this).find('.item-qty').val()) || 0) > 0) {
-                activeCount++;
+            const qty = parseInt($(this).find('.item-qty').val()) || 0;
+            if (qty <= 0) {
+                invalidQty = true;
+                $(this).find('.item-qty').addClass('is-invalid');
+            } else {
+                $(this).find('.item-qty').removeClass('is-invalid');
             }
         });
-        if (activeCount === 0) {
+        if (invalidQty) {
             return 'Please add at least one item with quantity greater than 0.';
         }
 
@@ -1317,7 +1326,6 @@ $(document).ready(function () {
         $('.item-row').each(function () {
             const row = $(this);
             const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return;
             const product = row.data('product');
             if (product && product.type === 'variable') {
                 const vVal = row.find('.variant-select').val();
@@ -1335,7 +1343,6 @@ $(document).ready(function () {
         $('.item-row').each(function () {
             const row = $(this);
             const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return;
             const product = row.data('product');
             if (product && product.pair_product && !row.find('.custom-size-value-input').val()) {
                 sizeMissing = true;
@@ -1395,8 +1402,6 @@ $(document).ready(function () {
             const row = $(this);
             const product = row.data('product');
             const qty = parseInt(row.find('.item-qty').val()) || 0;
-            if (qty <= 0) return;
-
             const variantId = row.data('variant-id') || '';
             const price = parseFloat(row.find('.item-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
