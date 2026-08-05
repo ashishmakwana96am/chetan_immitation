@@ -1371,7 +1371,7 @@ class AccountingController extends Controller
 
     public function customerBalanceEdit(CustomerBalanceTransaction $transaction)
     {
-        $this->authorize('manage customer balance');
+        $this->authorize('edit customer balance');
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
@@ -1388,7 +1388,7 @@ class AccountingController extends Controller
 
     public function customerBalanceUpdate(Request $request, CustomerBalanceTransaction $transaction)
     {
-        $this->authorize('manage customer balance');
+        $this->authorize('edit customer balance');
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
@@ -1453,6 +1453,8 @@ class AccountingController extends Controller
                     'notes'       => !empty($request->notes) ? $request->notes : 'Manual Customer Balance Adjustment',
                 ]);
 
+                $transaction->refresh();
+
                 ActivityLogger::log(
                     'Customer Balance',
                     'update',
@@ -1481,7 +1483,7 @@ class AccountingController extends Controller
 
     public function customerBalanceDestroy(CustomerBalanceTransaction $transaction)
     {
-        $this->authorize('manage customer balance');
+        $this->authorize('delete customer balance');
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
