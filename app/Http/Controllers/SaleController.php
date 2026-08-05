@@ -1963,8 +1963,10 @@ class SaleController extends Controller
             }
 
             if ($available < $stockRequest['quantity']) {
-                return 'Product "' . $label . '" only has ' . $available
-                    . ' units in stock; ' . $stockRequest['quantity'] . ' requested.';
+                $availFormatted = format_stock_quantity($product, $available);
+                $reqFormatted   = format_stock_quantity($product, $stockRequest['quantity']);
+                return 'Product "' . $label . '" only has ' . $availFormatted
+                    . ' in stock; ' . $reqFormatted . ' requested.';
             }
         }
 

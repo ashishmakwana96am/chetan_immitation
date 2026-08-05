@@ -292,3 +292,33 @@ if (!function_exists('website_price')) {
         return '₹' . $integer . $decimal;
     }
 }
+
+if (!function_exists('format_stock_quantity')) {
+    /**
+     * Format stock quantity based on product type (Pair or Pcs).
+     */
+    function format_stock_quantity(?\App\Models\Product $product, int|float $pcs): string
+    {
+        $pcs = (int) round($pcs);
+        if (!$product || !$product->pair_product) {
+            return $pcs . ' Pcs';
+        }
+
+        $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (int)$s)->filter(fn($s) => $s > 0);
+        $pairSize = $sizes->count() > 0 ? (int) $sizes->max() : 2;
+        if ($pairSize <= 0) {
+            $pairSize = 2;
+        }
+
+        $pairs = (int) floor($pcs / $pairSize);
+        $remPcs = $pcs % $pairSize;
+
+        if ($pairs > 0 && $remPcs > 0) {
+            return $pairs . ' Pair ' . $remPcs . ' Pcs';
+        } elseif ($pairs > 0) {
+            return $pairs . ' Pair';
+        } else {
+            return $remPcs . ' Pcs';
+        }
+    }
+}
