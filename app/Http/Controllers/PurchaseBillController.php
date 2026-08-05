@@ -745,11 +745,10 @@ class PurchaseBillController extends Controller
             $neededQty = (int) round($item['quantity'] * $multiplier);
 
             if ($available < $neededQty) {
-                $requestedText = ($item['pair_type'] === 'pair') ? ($item['quantity'] . ' Pairs') : ($item['quantity'] . ' Pcs');
-                if ($product->pair_product && $item['custom_size_value']) {
-                    $requestedText = $item['quantity'] . ' Pairs (' . rtrim(rtrim(number_format((float)$item['custom_size_value'], 2), '0'), '.') . ' pcs)';
-                }
-                return 'Product "' . $label . '" only has ' . $available . ' units in source stock; ' . $requestedText . ' requested.';
+                $cSize = $item['custom_size_value'] ? (float) $item['custom_size_value'] : null;
+                $availFormatted = format_stock_quantity($product, $available, $cSize);
+                $reqFormatted   = format_stock_quantity($product, $neededQty, $cSize);
+                return 'Product "' . $label . '" only has ' . $availFormatted . ' in source stock; ' . $reqFormatted . ' requested.';
             }
         }
 

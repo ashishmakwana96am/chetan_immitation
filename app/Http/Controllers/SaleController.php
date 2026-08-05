@@ -458,6 +458,17 @@ class SaleController extends Controller
             ], 422);
         }
 
+        if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
+            $paidCash = (float) ($request->paid_cash_amount ?? 0);
+            $paidOnline = (float) ($request->paid_online_amount ?? 0);
+            if (($paidCash + $paidOnline) <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['paid_cash_amount' => ['Paid amount must be greater than 0 for Partially Paid status.']],
+                ], 422);
+            }
+        }
+
         if ($request->customer_id === '0' || $request->customer_id === '') {
             $request->merge(['customer_id' => null]);
         }
@@ -1065,6 +1076,17 @@ class SaleController extends Controller
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
         }
 
+        if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
+            $paidCash = (float) ($request->paid_cash_amount ?? 0);
+            $paidOnline = (float) ($request->paid_online_amount ?? 0);
+            if (($paidCash + $paidOnline) <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['paid_cash_amount' => ['Paid amount must be greater than 0 for Partially Paid status.']],
+                ], 422);
+            }
+        }
+
         if ($request->customer_id === '0' || $request->customer_id === '') {
             $request->merge(['customer_id' => null]);
         }
@@ -1099,24 +1121,26 @@ class SaleController extends Controller
 
                 $oldItemsSnapshot = $sale->items->map(function ($item) {
                     return [
-                        'product_id' => $item->product_id,
+                        'product_id'         => $item->product_id,
                         'product_variant_id' => $item->product_variant_id,
-                        'pair_type' => $item->pair_type ?? 'single',
-                        'quantity' => $item->quantity,
-                        'price' => (float) $item->price,
+                        'pair_type'          => $item->pair_type ?? 'single',
+                        'custom_size_value'  => $item->custom_size_value ?? null,
+                        'quantity'           => $item->quantity,
+                        'price'              => (float) $item->price,
                     ];
                 })->values()->all();
 
                 // Sale was already approved (stock deducted) — restore it before applying the edited items.
                 if ($wasApproved) {
                     foreach ($oldItemsSnapshot as $old) {
-                        $stockRestore = ($old['pair_type'] === 'pair') ? $old['quantity'] * 2 : $old['quantity'];
+                        $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
+                        $stockRestore = (int) round($old['quantity'] * $multiplier);
                         $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
                     }
                 }
 
                 if ($isApprove) {
-                    $stockError = $this->getStockError($request->items, (int) $request->location_id, $sale);
+                    $stockError = $this->getStockError($request->items, (int) $request->location_id);
                     if ($stockError) {
                         throw new \RuntimeException($stockError);
                     }
@@ -1777,7 +1801,7 @@ class SaleController extends Controller
 
         $availTotal = $availCash + $availBank;
         if ($availTotal <= 0) {
-            return [$requestedStatus, $reqCash, $reqBank];
+            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
         }
 
         $cappedCash = round(min($reqCash, $availCash), 2);
@@ -1785,7 +1809,7 @@ class SaleController extends Controller
         $totalCapped = round($cappedCash + $cappedBank, 2);
 
         if ($totalCapped <= 0) {
-            return [$requestedStatus, $reqCash, $reqBank];
+            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
         }
 
         if ($totalCapped >= $grandTotal - 0.01) {
@@ -1883,7 +1907,7 @@ class SaleController extends Controller
         return null;
     }
 
-    private function getStockError(iterable $items, int $locationId, ?Order $existingSale = null): ?string
+    private function getStockError(iterable $items, int $locationId): ?string
     {
         $requested = [];
 
@@ -1903,31 +1927,14 @@ class SaleController extends Controller
 
             if (!isset($requested[$key])) {
                 $requested[$key] = [
-                    'product_id' => $productId,
-                    'variant_id' => $variantId,
-                    'quantity' => 0,
+                    'product_id'        => $productId,
+                    'variant_id'        => $variantId,
+                    'quantity'          => 0,
+                    'custom_size_value' => $customSizeValue ? (float) $customSizeValue : null,
                 ];
             }
 
             $requested[$key]['quantity'] += $stockQty;
-        }
-
-        // If editing an existing approved sale at the same location, offset stock check with already reserved quantities
-        if ($existingSale && ((int) $existingSale->status === Order::STATUS_APPROVE) && ((int) $existingSale->location_id === (int) $locationId)) {
-            foreach ($existingSale->items as $existingItem) {
-                $productId = (int) $existingItem->product_id;
-                $variantId = $existingItem->product_variant_id ? (int) $existingItem->product_variant_id : null;
-                $quantity = (int) $existingItem->quantity;
-                $pairType = $existingItem->pair_type ?? 'single';
-                $customSizeValue = $existingItem->custom_size_value ?? null;
-
-                $existingStockQty = (int) round($quantity * $this->stockMultiplierFor($productId, $pairType, $customSizeValue ? (float) $customSizeValue : null));
-                $key = $productId . ':' . ($variantId ?? 0);
-
-                if (isset($requested[$key])) {
-                    $requested[$key]['quantity'] -= $existingStockQty;
-                }
-            }
         }
 
         foreach ($requested as $stockRequest) {
@@ -1963,8 +1970,11 @@ class SaleController extends Controller
             }
 
             if ($available < $stockRequest['quantity']) {
-                return 'Product "' . $label . '" only has ' . $available
-                    . ' units in stock; ' . $stockRequest['quantity'] . ' requested.';
+                $cSize = $stockRequest['custom_size_value'] ?? null;
+                $availFormatted = format_stock_quantity($product, $available, $cSize);
+                $reqFormatted   = format_stock_quantity($product, $stockRequest['quantity'], $cSize);
+                return 'Product "' . $label . '" only has ' . $availFormatted
+                    . ' in stock; ' . $reqFormatted . ' requested.';
             }
         }
 

@@ -142,23 +142,16 @@ class AccountingController extends Controller
             ];
         });
 
-        // Compute total credit and debit for summary cards
-        // Branch-wise summary cards: restricted users only ever get their own
-        // branch; super-admins get every active branch, narrowed to the
-        // filtered one if selected.
         $branchLocations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = CustomerBalanceTransaction::query()
-            ->join('customers', 'customers.id', '=', 'customer_balance_transactions.customer_id')
-            ->where('customers.is_credit_customer', true)
-            ->whereIn('customers.location_id', $branchLocations->pluck('id'))
-            ->where('customer_balance_transactions.source', CustomerBalanceTransaction::SOURCE_CASH)
-            ->selectRaw("customers.location_id as location_id, SUM(CASE WHEN customer_balance_transactions.type = 'credit' THEN customer_balance_transactions.amount ELSE -customer_balance_transactions.amount END) as total")
-            ->groupBy('customers.location_id')
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $branchLocations->pluck('id'))
+            ->selectRaw('location_id, SUM(cash_balance) as total')
+            ->groupBy('location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];
@@ -295,22 +288,16 @@ class AccountingController extends Controller
             ];
         });
 
-        // Branch-wise summary cards: restricted users only ever get their own
-        // branch; super-admins get every active branch, narrowed to the
-        // filtered one if selected.
         $branchLocations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = CustomerBalanceTransaction::query()
-            ->join('customers', 'customers.id', '=', 'customer_balance_transactions.customer_id')
-            ->where('customers.is_credit_customer', true)
-            ->whereIn('customers.location_id', $branchLocations->pluck('id'))
-            ->where('customer_balance_transactions.source', CustomerBalanceTransaction::SOURCE_BANK)
-            ->selectRaw("customers.location_id as location_id, SUM(CASE WHEN customer_balance_transactions.type = 'credit' THEN customer_balance_transactions.amount ELSE -customer_balance_transactions.amount END) as total")
-            ->groupBy('customers.location_id')
+        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
+            ->whereIn('location_id', $branchLocations->pluck('id'))
+            ->selectRaw('location_id, SUM(bank_balance) as total')
+            ->groupBy('location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];
@@ -401,7 +388,6 @@ class AccountingController extends Controller
         foreach ($transactions as $tx) {
             $notes = $tx->notes ?? '';
             
-            // 1. Identify the source based on transaction notes
             $detectedSource = 'general'; // default
             if (stripos($notes, 'Opening Balance') !== false || stripos($notes, 'Manual Balance Adjustment') !== false || stripos($notes, 'Manual Account Balance Adjustment') !== false) {
                 $detectedSource = 'opening_balance';
@@ -418,12 +404,14 @@ class AccountingController extends Controller
             }
 
             // 2. Apply Source Filter if selected
+            // 2. Apply Source Filter if selected
             if ($sourceFilter !== 'all' && $sourceFilter !== $detectedSource) {
                 continue;
             }
 
             $isCredit = $tx->type === LocationBalanceTransaction::TYPE_CREDIT;
             
+            // Map labels for UI display
             // Map labels for UI display
             $sourceLabels = [
                 'cash'             => 'Cash',
@@ -1373,6 +1361,10 @@ class AccountingController extends Controller
     {
         $this->authorize('edit customer balance');
 
+        if (!empty($transaction->notes) && preg_match('/Sale #/i', $transaction->notes)) {
+            abort(403, 'Sales order balance transactions cannot be edited directly.');
+        }
+
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
             abort(403);
@@ -1389,6 +1381,10 @@ class AccountingController extends Controller
     public function customerBalanceUpdate(Request $request, CustomerBalanceTransaction $transaction)
     {
         $this->authorize('edit customer balance');
+
+        if (!empty($transaction->notes) && preg_match('/Sale #/i', $transaction->notes)) {
+            return response()->json(['status' => 'error', 'message' => 'Sales order balance transactions cannot be edited directly.'], 403);
+        }
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
@@ -1484,6 +1480,10 @@ class AccountingController extends Controller
     public function customerBalanceDestroy(CustomerBalanceTransaction $transaction)
     {
         $this->authorize('delete customer balance');
+
+        if (!empty($transaction->notes) && preg_match('/Sale #/i', $transaction->notes)) {
+            return response()->json(['status' => 'error', 'message' => 'Sales order balance transactions cannot be deleted directly.'], 403);
+        }
 
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
