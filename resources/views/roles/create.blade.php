@@ -60,7 +60,11 @@
                                                 @elseif($permission->name === 'view customer report')
                                                     Customer Credit Report
                                                 @elseif($permission->name === 'manage customer balance')
-                                                    Manage Credit Balance
+                                                    Add Credit Balance
+                                                @elseif($permission->name === 'edit customer balance')
+                                                    Edit Credit Balance
+                                                @elseif($permission->name === 'delete customer balance')
+                                                    Delete Credit Balance
                                                 @else
                                                     {{ ucwords(str_replace('view ', '', $permission->name)) }}
                                                 @endif
