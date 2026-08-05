@@ -1117,6 +1117,15 @@ class ProductController extends Controller
                         'created_by' => auth()->id(),
                     ]);
                 }
+            } elseif ($request->input('remove_primary_image') == '1' || $request->input('remove_primary_image') === 1) {
+                $existing = $product->images()->where('is_primary', true)->first();
+                if ($existing) {
+                    $existingFile = public_path('uploads/' . $existing->image_path);
+                    if (file_exists($existingFile)) {
+                        @unlink($existingFile);
+                    }
+                    $existing->delete();
+                }
             }
 
             if ($request->filled('additional_images_base64')) {
@@ -1133,16 +1142,24 @@ class ProductController extends Controller
                 }
             }
 
-            if ($request->filled('deleted_additional_images')) {
-                foreach ($request->deleted_additional_images as $imageId) {
+            $deletedAdditional = $request->input('deleted_additional_images');
+            if (!empty($deletedAdditional) && is_array($deletedAdditional)) {
+                foreach ($deletedAdditional as $imageId) {
                     $image = ProductImage::find($imageId);
-                    if ($image && $image->product_id === $product->id && !$image->is_primary) {
+                    if ($image && $image->product_id === $product->id) {
                         $existingFile = public_path('uploads/' . $image->image_path);
                         if (file_exists($existingFile)) {
                             @unlink($existingFile);
                         }
                         $image->delete();
                     }
+                }
+            }
+
+            if (!$product->images()->where('is_primary', true)->exists()) {
+                $firstImg = $product->images()->first();
+                if ($firstImg) {
+                    $firstImg->update(['is_primary' => true]);
                 }
             }
 

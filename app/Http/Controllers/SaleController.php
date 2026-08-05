@@ -458,6 +458,17 @@ class SaleController extends Controller
             ], 422);
         }
 
+        if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
+            $paidCash = (float) ($request->paid_cash_amount ?? 0);
+            $paidOnline = (float) ($request->paid_online_amount ?? 0);
+            if (($paidCash + $paidOnline) <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['paid_cash_amount' => ['Paid amount must be greater than 0 for Partially Paid status.']],
+                ], 422);
+            }
+        }
+
         if ($request->customer_id === '0' || $request->customer_id === '') {
             $request->merge(['customer_id' => null]);
         }
@@ -1063,6 +1074,17 @@ class SaleController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['status' => 'error', 'message' => $validator->errors()], 422);
+        }
+
+        if ((int) ($request->payment_status ?? 0) === Order::PAYMENT_STATUS_PARTIAL) {
+            $paidCash = (float) ($request->paid_cash_amount ?? 0);
+            $paidOnline = (float) ($request->paid_online_amount ?? 0);
+            if (($paidCash + $paidOnline) <= 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['paid_cash_amount' => ['Paid amount must be greater than 0 for Partially Paid status.']],
+                ], 422);
+            }
         }
 
         if ($request->customer_id === '0' || $request->customer_id === '') {
@@ -1779,7 +1801,7 @@ class SaleController extends Controller
 
         $availTotal = $availCash + $availBank;
         if ($availTotal <= 0) {
-            return [$requestedStatus, $reqCash, $reqBank];
+            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
         }
 
         $cappedCash = round(min($reqCash, $availCash), 2);
@@ -1787,7 +1809,7 @@ class SaleController extends Controller
         $totalCapped = round($cappedCash + $cappedBank, 2);
 
         if ($totalCapped <= 0) {
-            return [$requestedStatus, $reqCash, $reqBank];
+            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
         }
 
         if ($totalCapped >= $grandTotal - 0.01) {

@@ -1479,6 +1479,16 @@ $(document).ready(function () {
             return 'Please select a size for each pair product before saving.';
         }
 
+        const payStatus = $('#paymentStatusSelect').val();
+        if (payStatus === '3') {
+            const cashAmt = parseFloat($('#paidCashAmountInput').val()) || 0;
+            const onlineAmt = parseFloat($('#paidOnlineAmountInput').val()) || 0;
+            if ((cashAmt + onlineAmt) <= 0) {
+                $('#paidCashAmountInput, #paidOnlineAmountInput').addClass('is-invalid');
+                return 'Paid amount must be greater than 0 for Partially Paid status.';
+            }
+        }
+
         return validateDiscounts();
     }
 
