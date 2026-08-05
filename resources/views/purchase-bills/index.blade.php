@@ -181,7 +181,6 @@
                 serverSide: true,
                 responsive: false,
                 order: [[12, 'desc']],
-                orderFixed: { pre: [[12, 'desc']] },
                 ajax: {
                     url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
