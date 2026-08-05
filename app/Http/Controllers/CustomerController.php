@@ -209,11 +209,13 @@ class CustomerController extends Controller
 
         $isCreditCustomer = $request->has('is_credit_customer');
 
-        if ($customer->is_credit_customer && !$isCreditCustomer && (float) $customer->balance != 0) {
+        $custBal = $customer->customerBalance ? (float) $customer->customerBalance->balance : 0.00;
+
+        if ($customer->is_credit_customer && !$isCreditCustomer && $custBal != 0) {
             return response()->json([
                 'status'  => 'error',
                 'message' => [
-                    'is_credit_customer' => ['Cannot remove credit customer status. This customer has a balance of ' . format_price($customer->balance) . '. Please clear the balance first.'],
+                    'is_credit_customer' => ['Cannot remove credit customer status. This customer has a balance of ' . format_price($custBal) . '. Please clear the balance first.'],
                 ],
             ], 422);
         }
@@ -298,10 +300,12 @@ class CustomerController extends Controller
             abort(403);
         }
 
-        if ($customer->is_credit_customer && (float) $customer->balance != 0) {
+        $custBal = $customer->customerBalance ? (float) $customer->customerBalance->balance : 0.00;
+
+        if ($customer->is_credit_customer && $custBal != 0) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Cannot remove credit customer status. This customer has a balance of ' . format_price($customer->balance) . '. Please clear the balance first.',
+                'message' => 'Cannot remove credit customer status. This customer has a balance of ' . format_price($custBal) . '. Please clear the balance first.',
             ], 422);
         }
 

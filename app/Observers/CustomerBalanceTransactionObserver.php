@@ -97,10 +97,14 @@ class CustomerBalanceTransactionObserver
         $bankBalance = $bankBal;
         $totalBalance = $cashBalance + $bankBalance;
 
-        DB::table('customers')->where('id', $customerId)->update([
-            'balance'      => $totalBalance,
-            'cash_balance' => $cashBalance,
-            'bank_balance' => $bankBalance,
-        ]);
+        DB::table('customer_balances')->updateOrInsert(
+            ['customer_id' => $customerId],
+            [
+                'balance'      => $totalBalance,
+                'cash_balance' => $cashBalance,
+                'bank_balance' => $bankBalance,
+                'updated_at'   => now(),
+            ]
+        );
     }
 }

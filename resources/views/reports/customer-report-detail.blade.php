@@ -128,8 +128,8 @@
                     </div>
                     <div class="card-body">
                         <div class="ledger-info-row">
-                            <span class="ledger-info-label">Current Balance</span>
-                            <span class="ledger-info-value {{ $customer->balance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($customer->balance) }}</span>
+                            @php $currentBal = $customer->customerBalance->balance ?? 0; @endphp
+                            <span class="ledger-info-value {{ $currentBal < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($currentBal) }}</span>
                         </div>
                         <div class="ledger-info-row">
                             <span class="ledger-info-label">Total Credit</span>
