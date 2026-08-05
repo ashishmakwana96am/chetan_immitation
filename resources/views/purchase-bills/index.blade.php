@@ -181,6 +181,7 @@
                 serverSide: true,
                 responsive: false,
                 order: [[12, 'desc']],
+                orderFixed: { pre: [[12, 'desc']] },
                 ajax: {
                     url: '{{ route('admin.purchase-bills.data') }}',
                     dataSrc: 'data',
@@ -258,17 +259,6 @@
                             .append('<td colspan="11" class="text-center bg-light fw-semibold"><i class="ti ti-calendar-event me-1"></i>' + group + ' <span class="badge bg-label-primary ms-1">' + rows.count() + '</span></td>');
                     }
                 },
-            });
-
-            table.on('order.dt', function () {
-                const order = table.order();
-                if (typeof table.rowGroup === 'function') {
-                    if (order && order.length && (order[0][0] === 12 || order[0][0] === 11)) {
-                        table.rowGroup().enable();
-                    } else {
-                        table.rowGroup().disable();
-                    }
-                }
             });
 
             table.on('draw.dt', function () {

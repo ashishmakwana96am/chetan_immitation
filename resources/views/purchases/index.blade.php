@@ -509,6 +509,7 @@
             const table = $('#purchasesTable').DataTable({
                 responsive : false,
                 order      : [[8, 'desc']],
+                orderFixed : { pre: [[8, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.purchases.data') }}',
                     dataSrc: 'data',
@@ -564,17 +565,6 @@
                             .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
-            });
-
-            table.on('order.dt', function () {
-                const order = table.order();
-                if (typeof table.rowGroup === 'function') {
-                    if (order && order.length && (order[0][0] === 8 || order[0][0] === 7)) {
-                        table.rowGroup().enable();
-                    } else {
-                        table.rowGroup().disable();
-                    }
-                }
             });
 
             window.refreshTable = function () {
