@@ -1905,9 +1905,10 @@ class SaleController extends Controller
 
             if (!isset($requested[$key])) {
                 $requested[$key] = [
-                    'product_id' => $productId,
-                    'variant_id' => $variantId,
-                    'quantity'   => 0,
+                    'product_id'        => $productId,
+                    'variant_id'        => $variantId,
+                    'quantity'          => 0,
+                    'custom_size_value' => $customSizeValue ? (float) $customSizeValue : null,
                 ];
             }
 
@@ -1947,8 +1948,9 @@ class SaleController extends Controller
             }
 
             if ($available < $stockRequest['quantity']) {
-                $availFormatted = format_stock_quantity($product, $available);
-                $reqFormatted   = format_stock_quantity($product, $stockRequest['quantity']);
+                $cSize = $stockRequest['custom_size_value'] ?? null;
+                $availFormatted = format_stock_quantity($product, $available, $cSize);
+                $reqFormatted   = format_stock_quantity($product, $stockRequest['quantity'], $cSize);
                 return 'Product "' . $label . '" only has ' . $availFormatted
                     . ' in stock; ' . $reqFormatted . ' requested.';
             }

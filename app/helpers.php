@@ -295,17 +295,22 @@ if (!function_exists('website_price')) {
 
 if (!function_exists('format_stock_quantity')) {
     /**
-     * Format stock quantity based on product type (Pair or Pcs).
+     * Format stock quantity based on product type (Pair or Pcs) and optional custom size value.
      */
-    function format_stock_quantity(?\App\Models\Product $product, int|float $pcs): string
+    function format_stock_quantity(?\App\Models\Product $product, int|float $pcs, float|int|null $customSizeValue = null): string
     {
         $pcs = (int) round($pcs);
         if (!$product || !$product->pair_product) {
             return $pcs . ' Pcs';
         }
 
-        $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (int)$s)->filter(fn($s) => $s > 0);
-        $pairSize = $sizes->count() > 0 ? (int) $sizes->max() : 2;
+        if ($customSizeValue !== null && (float) $customSizeValue > 0) {
+            $pairSize = (int) round($customSizeValue);
+        } else {
+            $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (int)$s)->filter(fn($s) => $s > 0);
+            $pairSize = $sizes->count() > 0 ? (int) $sizes->max() : 2;
+        }
+
         if ($pairSize <= 0) {
             $pairSize = 2;
         }
