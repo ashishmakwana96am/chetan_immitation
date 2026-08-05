@@ -509,7 +509,6 @@
             const table = $('#purchasesTable').DataTable({
                 responsive : false,
                 order      : [[8, 'desc']],
-                orderFixed : { pre: [[8, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.purchases.data') }}',
                     dataSrc: 'data',
@@ -547,7 +546,7 @@
                         data: 'total_amount',
                         render: function (data, type, row) {
                             if (type === 'sort' || type === 'type') {
-                                return row.raw_total_amount !== undefined ? row.raw_total_amount : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                                return row.raw_total_amount !== undefined ? parseFloat(row.raw_total_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
                             }
                             return data;
                         }
@@ -565,6 +564,17 @@
                             .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
+            });
+
+            table.on('order.dt', function () {
+                const order = table.order();
+                if (typeof table.rowGroup === 'function') {
+                    if (order && order.length && (order[0][0] === 8 || order[0][0] === 7)) {
+                        table.rowGroup().enable();
+                    } else {
+                        table.rowGroup().disable();
+                    }
+                }
             });
 
             window.refreshTable = function () {

@@ -134,21 +134,22 @@ class PurchaseBillController extends Controller
             $query->leftJoin('users as u', 'purchase_bills.created_by', '=', 'u.id')
                   ->select('purchase_bills.*')
                   ->orderBy('u.name', $sortDir);
-        } elseif ($sortKey === 'items_count') {
-            $query->withCount('items')->orderBy('items_count', $sortDir);
-        } elseif ($sortKey !== 'total_amount' && $sortKey !== 'total_mrp') {
+        } elseif (!in_array($sortKey, ['items_count', 'total_amount', 'total_mrp'], true)) {
             $query->orderBy("purchase_bills.{$sortKey}", $sortDir);
         }
 
-        if ($sortKey === 'total_amount' || $sortKey === 'total_mrp') {
-            // Load all candidate models to sort accurately using PHP purchaseBillTotals helper
+        if (in_array($sortKey, ['items_count', 'total_amount', 'total_mrp'], true)) {
+            
             $allCandidateTransfers = $query
                 ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
                 ->get();
 
             $sortedTransfers = $allCandidateTransfers->sortBy(function ($transfer) use ($sortKey) {
+                if ($sortKey === 'items_count') {
+                    return (int) $transfer->items->sum('quantity');
+                }
                 [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
-                return $sortKey === 'total_amount' ? $totalAmount : $totalMrp;
+                return $sortKey === 'total_amount' ? (float) $totalAmount : (float) $totalMrp;
             }, SORT_NUMERIC, $sortDir === 'desc');
 
             $transfers = $sortedTransfers->slice($start, $length)->values();

@@ -260,6 +260,17 @@
                 },
             });
 
+            table.on('order.dt', function () {
+                const order = table.order();
+                if (typeof table.rowGroup === 'function') {
+                    if (order && order.length && (order[0][0] === 12 || order[0][0] === 11)) {
+                        table.rowGroup().enable();
+                    } else {
+                        table.rowGroup().disable();
+                    }
+                }
+            });
+
             table.on('draw.dt', function () {
                 $('#purchaseBillsTable_processing').css('display', 'none');
             });
