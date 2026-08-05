@@ -1783,33 +1783,18 @@ class SaleController extends Controller
             }
         }
 
-        if ($requestedStatus === Order::PAYMENT_STATUS_PAID) {
-            if ($reqCash <= 0 && $reqBank <= 0) {
-                $reqCash = min($grandTotal, $availCash);
-                $reqBank = round(min(max(0, $grandTotal - $reqCash), $availBank), 2);
-            }
+        if ($requestedStatus === Order::PAYMENT_STATUS_PAID && $reqCash <= 0 && $reqBank <= 0) {
+            $cappedCash = min($grandTotal, $availCash);
+            $cappedBank = round(min(max(0.0, $grandTotal - $cappedCash), $availBank), 2);
+        } else {
+            $cappedCash = round(min($reqCash > 0 ? $reqCash : $grandTotal, $availCash), 2);
+            $cappedBank = round(min($reqBank, $availBank), 2);
         }
 
-        $totalInput = round($reqCash + $reqBank, 2);
-
-        if ($totalInput > 0) {
-            if ($totalInput >= $grandTotal - 0.01) {
-                return [Order::PAYMENT_STATUS_PAID, $reqCash, $reqBank];
-            }
-            return [Order::PAYMENT_STATUS_PARTIAL, $reqCash, $reqBank];
-        }
-
-        $availTotal = $availCash + $availBank;
-        if ($availTotal <= 0) {
-            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
-        }
-
-        $cappedCash = round(min($reqCash, $availCash), 2);
-        $cappedBank = round(min($reqBank, $availBank), 2);
         $totalCapped = round($cappedCash + $cappedBank, 2);
 
         if ($totalCapped <= 0) {
-            return [$requestedStatus === Order::PAYMENT_STATUS_PARTIAL ? Order::PAYMENT_STATUS_PARTIAL : Order::PAYMENT_STATUS_PENDING, $reqCash, $reqBank];
+            return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
         }
 
         if ($totalCapped >= $grandTotal - 0.01) {
