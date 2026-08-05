@@ -29,9 +29,6 @@ class Customer extends Authenticatable
         'is_website',
         'status',
         'is_credit_customer',
-        'balance',
-        'cash_balance',
-        'bank_balance',
         'otp',
         'otp_expires_at',
     ];
@@ -46,12 +43,62 @@ class Customer extends Authenticatable
         return [
             'is_website' => 'boolean',
             'is_credit_customer' => 'boolean',
-            'balance' => 'decimal:2',
-            'cash_balance' => 'decimal:2',
-            'bank_balance' => 'decimal:2',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
         ];
+    }
+
+    public function customerBalance()
+    {
+        return $this->hasOne(CustomerBalance::class);
+    }
+
+    public function getBalanceAttribute()
+    {
+        $bal = $this->customerBalance()->first();
+        return $bal ? (float) $bal->balance : 0.00;
+    }
+
+    public function getCashBalanceAttribute()
+    {
+        $bal = $this->customerBalance()->first();
+        return $bal ? (float) $bal->cash_balance : 0.00;
+    }
+
+    public function getBankBalanceAttribute()
+    {
+        $bal = $this->customerBalance()->first();
+        return $bal ? (float) $bal->bank_balance : 0.00;
+    }
+
+    public function setBalanceAttribute($value)
+    {
+        $bal = $this->customerBalance()->firstOrCreate([], [
+            'balance' => 0.00,
+            'cash_balance' => 0.00,
+            'bank_balance' => 0.00,
+        ]);
+        $bal->update(['balance' => $value]);
+    }
+
+    public function setCashBalanceAttribute($value)
+    {
+        $bal = $this->customerBalance()->firstOrCreate([], [
+            'balance' => 0.00,
+            'cash_balance' => 0.00,
+            'bank_balance' => 0.00,
+        ]);
+        $bal->update(['cash_balance' => $value]);
+    }
+
+    public function setBankBalanceAttribute($value)
+    {
+        $bal = $this->customerBalance()->firstOrCreate([], [
+            'balance' => 0.00,
+            'cash_balance' => 0.00,
+            'bank_balance' => 0.00,
+        ]);
+        $bal->update(['bank_balance' => $value]);
     }
 
     public function location()
@@ -119,6 +166,14 @@ class Customer extends Authenticatable
 
     protected static function booted(): void
     {
+        static::created(function (Customer $customer) {
+            $customer->customerBalance()->firstOrCreate([], [
+                'balance'      => 0.00,
+                'cash_balance' => 0.00,
+                'bank_balance' => 0.00,
+            ]);
+        });
+
         static::deleting(function (Customer $customer) {
             if (!$customer->isForceDeleting()) {
                 $customer->phones()->delete();

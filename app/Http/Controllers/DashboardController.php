@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\ContactInquiry;
 use App\Models\Customer;
+use App\Models\CustomerBalance;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Order;
@@ -54,9 +55,9 @@ class DashboardController extends Controller
             'pending' => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
-        $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->sum('balance');
-        $cashCreditBalance = (float) Customer::where('is_credit_customer', true)->sum('cash_balance');
-        $bankCreditBalance = (float) Customer::where('is_credit_customer', true)->sum('bank_balance');
+        $customerOutstandingBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true))->sum('balance');
+        $cashCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true))->sum('cash_balance');
+        $bankCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true))->sum('bank_balance');
 
         $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
         $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
@@ -192,9 +193,9 @@ class DashboardController extends Controller
             'decline' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
         ];
 
-        $customerOutstandingBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('balance');
-        $cashCreditBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('cash_balance');
-        $bankCreditBalance = (float) Customer::where('is_credit_customer', true)->where('location_id', $locationId)->sum('bank_balance');
+        $customerOutstandingBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('balance');
+        $cashCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('cash_balance');
+        $bankCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('bank_balance');
 
         $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
         Product::preloadVariantStock($allProducts);

@@ -1140,7 +1140,7 @@ class SaleController extends Controller
                 }
 
                 if ($isApprove) {
-                    $stockError = $this->getStockError($request->items, (int) $request->location_id);
+                    $stockError = $this->getStockError($request->items, (int) $request->location_id, $wasApproved ? $oldItemsSnapshot : []);
                     if ($stockError) {
                         throw new \RuntimeException($stockError);
                     }
@@ -1907,7 +1907,7 @@ class SaleController extends Controller
         return null;
     }
 
-    private function getStockError(iterable $items, int $locationId): ?string
+    private function getStockError(iterable $items, int $locationId, array $oldItems = []): ?string
     {
         $requested = [];
 
@@ -1937,6 +1937,18 @@ class SaleController extends Controller
             $requested[$key]['quantity'] += $stockQty;
         }
 
+        // Quantities restored from previously approved order items to be added back to available stock during validation
+        $restoredStock = [];
+        foreach ($oldItems as $old) {
+            $pId = (int) $old['product_id'];
+            $vId = $old['product_variant_id'] ? (int) $old['product_variant_id'] : 0;
+            $pair = $old['pair_type'] ?? 'single';
+            $cSize = $old['custom_size_value'] ? (float) $old['custom_size_value'] : null;
+            $qty = (int) round(((int) $old['quantity']) * $this->stockMultiplierFor($pId, $pair, $cSize));
+            $k = $pId . ':' . $vId;
+            $restoredStock[$k] = ($restoredStock[$k] ?? 0) + $qty;
+        }
+
         foreach ($requested as $stockRequest) {
             if ($stockRequest['quantity'] <= 0) {
                 continue;
@@ -1951,6 +1963,8 @@ class SaleController extends Controller
 
             $variantId = $stockRequest['variant_id'];
             $label = $product->name;
+            $key = $product->id . ':' . ($variantId ?? 0);
+            $extraRestored = $restoredStock[$key] ?? 0;
 
             if ($variantId) {
                 $variant = $product->variants->firstWhere('id', $variantId);
@@ -1959,14 +1973,14 @@ class SaleController extends Controller
                 }
 
                 $stockData = $product->getVariantStock($locationId);
-                $available = (int) ($stockData['variants'][$variantId] ?? 0);
+                $available = (int) ($stockData['variants'][$variantId] ?? 0) + $extraRestored;
                 $attributeName = $variant->attributeValue->attribute->name ?? 'Variant';
                 $attributeValue = $variant->attributeValue->value ?? $variantId;
                 $label .= ' (' . $attributeName . ': ' . $attributeValue . ')';
             } else {
                 $available = (int) (Inventory::where('product_id', $product->id)
                     ->where('location_id', $locationId)
-                    ->value('quantity') ?? 0);
+                    ->value('quantity') ?? 0) + $extraRestored;
             }
 
             if ($available < $stockRequest['quantity']) {

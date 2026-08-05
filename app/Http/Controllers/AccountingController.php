@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerBalance;
 use App\Models\CustomerBalanceTransaction;
 use App\Models\Expense;
 use App\Models\Location;
@@ -1302,9 +1303,12 @@ class AccountingController extends Controller
 
         try {
             DB::transaction(function () use ($request, $customerId, &$createdTransaction) {
-                $customer = Customer::where('id', $customerId)->lockForUpdate()->firstOrFail();
+                $custBalance = CustomerBalance::firstOrCreate(
+                    ['customer_id' => $customerId],
+                    ['balance' => 0.00, 'cash_balance' => 0.00, 'bank_balance' => 0.00]
+                );
 
-                $currentBalance = (float) $customer->balance;
+                $currentBalance = (float) $custBalance->balance;
                 $amount = (float) $request->amount;
 
                 $isCredit = $request->type === CustomerBalanceTransaction::TYPE_CREDIT;
@@ -1315,8 +1319,6 @@ class AccountingController extends Controller
                 if (!$isCredit && $newBalance < 0) {
                     throw new \RuntimeException('insufficient_balance');
                 }
-
-                $customer->update(['balance' => $newBalance]);
 
                 $transaction = CustomerBalanceTransaction::create([
                     'customer_id'   => $customerId,
@@ -1418,7 +1420,10 @@ class AccountingController extends Controller
 
         try {
             DB::transaction(function () use ($request, $transaction, $newCustomerId) {
-                $customer = Customer::where('id', $newCustomerId)->lockForUpdate()->firstOrFail();
+                $custBalance = CustomerBalance::firstOrCreate(
+                    ['customer_id' => $newCustomerId],
+                    ['balance' => 0.00, 'cash_balance' => 0.00, 'bank_balance' => 0.00]
+                );
 
                 $prevEffect = $transaction->type === CustomerBalanceTransaction::TYPE_CREDIT
                     ? (float) $transaction->amount
@@ -1430,9 +1435,9 @@ class AccountingController extends Controller
                     : -$newAmount;
 
                 if ((int) $transaction->customer_id === $newCustomerId) {
-                    $projectedBalance = (float) $customer->balance - $prevEffect + $newEffect;
+                    $projectedBalance = (float) $custBalance->balance - $prevEffect + $newEffect;
                 } else {
-                    $projectedBalance = (float) $customer->balance + $newEffect;
+                    $projectedBalance = (float) $custBalance->balance + $newEffect;
                 }
 
                 if ($projectedBalance < -0.001) {
@@ -1492,9 +1497,9 @@ class AccountingController extends Controller
 
         try {
             DB::transaction(function () use ($transaction) {
-                $customer = Customer::where('id', $transaction->customer_id)->lockForUpdate()->first();
-                if ($customer && $transaction->type === CustomerBalanceTransaction::TYPE_CREDIT) {
-                    $projectedBalance = (float) $customer->balance - (float) $transaction->amount;
+                $custBalance = CustomerBalance::where('customer_id', $transaction->customer_id)->first();
+                if ($custBalance && $transaction->type === CustomerBalanceTransaction::TYPE_CREDIT) {
+                    $projectedBalance = (float) $custBalance->balance - (float) $transaction->amount;
                     if ($projectedBalance < -0.001) {
                         throw new \RuntimeException('insufficient_balance_delete');
                     }

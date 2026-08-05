@@ -50,6 +50,7 @@ class ClearSalesPurchasesStock extends Command
             'purchase_bills',
             'inventories',
             'location_balance_transactions',
+            'customer_balance_transactions',
             'cart_items',
         ];
 
@@ -60,11 +61,20 @@ class ClearSalesPurchasesStock extends Command
             }
         }
 
-        $this->info('Resetting location balances to 0...');
-        Location::query()->update([
-            'cash_balance' => 0,
-            'bank_balance' => 0,
-        ]);
+        $this->info('Resetting balances to 0...');
+        if (Schema::hasTable('location_balances')) {
+            \App\Models\LocationBalance::query()->update([
+                'cash_balance' => 0,
+                'bank_balance' => 0,
+            ]);
+        }
+        if (Schema::hasTable('customer_balances')) {
+            \App\Models\CustomerBalance::query()->update([
+                'balance' => 0,
+                'cash_balance' => 0,
+                'bank_balance' => 0,
+            ]);
+        }
 
         Schema::enableForeignKeyConstraints();
 
