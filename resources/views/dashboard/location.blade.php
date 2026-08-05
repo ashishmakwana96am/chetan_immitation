@@ -27,9 +27,10 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted small text-nowrap">Cash Balance</span>
-                            <h4 class="mb-0 mt-1 {{ ($location->cash_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($location->cash_balance ?? 0) }}</h4>
+                            <span class="text-muted small text-nowrap">Total Cash Balance</span>
+                            <h4 class="mb-0 mt-1 {{ (($location->cash_balance ?? 0) + $cashCreditBalance) < 0 ? 'text-danger' : 'text-success' }}">{{ format_price(($location->cash_balance ?? 0) + $cashCreditBalance) }}</h4>
                             <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $cashCreditBalance < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($cashCreditBalance) }}</span></small>
+                            <small class="text-muted d-block">Cash Balance: <span class="fw-semibold {{ ($location->cash_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">{{ format_price($location->cash_balance ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-cash ti-sm"></i></span>
                     </div>
@@ -41,9 +42,10 @@
                 <div class="card-body">
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
-                            <span class="text-muted small text-nowrap">Bank Balance</span>
-                            <h4 class="mb-0 mt-1 {{ ($location->bank_balance ?? 0) < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($location->bank_balance ?? 0) }}</h4>
+                            <span class="text-muted small text-nowrap">Total Bank Balance</span>
+                            <h4 class="mb-0 mt-1 {{ (($location->bank_balance ?? 0) + $bankCreditBalance) < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price(($location->bank_balance ?? 0) + $bankCreditBalance) }}</h4>
                             <small class="text-muted d-block mt-1">Credit Balance: <span class="fw-semibold {{ $bankCreditBalance < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($bankCreditBalance) }}</span></small>
+                            <small class="text-muted d-block">Bank Balance: <span class="fw-semibold {{ ($location->bank_balance ?? 0) < 0 ? 'text-danger' : 'text-primary' }}">{{ format_price($location->bank_balance ?? 0) }}</span></small>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-building-bank ti-sm"></i></span>
                     </div>

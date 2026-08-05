@@ -38,6 +38,7 @@ class Product extends Model
         'pair_product',
         'custom_sizes',
         'bypass_min_price',
+        'hide_from_website',
     ];
 
     protected function casts(): array
@@ -53,7 +54,13 @@ class Product extends Model
             'pair_product'    => 'boolean',
             'custom_sizes'    => 'array',
             'bypass_min_price' => 'boolean',
+            'hide_from_website' => 'boolean',
         ];
+    }
+
+    public function scopeForWebsite($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE)->where('hide_from_website', false);
     }
 
     public function category()
@@ -246,21 +253,8 @@ class Product extends Model
         return $query->withCount('reviews')->withAvg('reviews', 'rating');
     }
 
-    /**
-     * Per-request memoization cache for getVariantStock() — this method scans
-     * a product's entire purchase/sale/transfer history (several queries) and
-     * is called once per row on list pages, so repeated calls for the same
-     * product+location within a single request must not recompute it.
-     */
     protected static array $variantStockCache = [];
 
-    /**
-     * Batch preload state for computeVariantStock() so listing pages (Dashboard,
-     * Products list) that call getVariantStock() for many products in a loop hit
-     * the DB a constant number of times instead of ~5 queries per product (N+1).
-     * Populated by preloadVariantStock(); computeVariantStock() falls back to its
-     * original per-product queries when nothing has been preloaded.
-     */
     protected static ?array $preloadedVariantsByProduct = null;
     protected static ?array $preloadedPurchaseAllocationsByProduct = null;
     protected static ?array $preloadedOrderItemsByProduct = null;
@@ -486,11 +480,6 @@ class Product extends Model
         return $locationId ? ($result[$locationId] ?? null) : $result;
     }
 
-    /**
-     * Pack-size multiplier for a purchase line (mirrors PurchaseStockService::multiplierFor):
-     * an explicit custom_size_value wins, else the largest configured pack size (the
-     * variant's own list if it has one, else the product's shared list), else 2.
-     */
     private function purchasePairMultiplier($customSizeValue, ?ProductVariant $variant = null): float
     {
         if (!$this->pair_product) {
@@ -510,10 +499,6 @@ class Product extends Model
         return 2.0;
     }
 
-    /**
-     * Pack-size multiplier for a sale/transfer line (mirrors SaleController/PurchaseBillController
-     * stockMultiplierFor): an explicit custom_size_value wins, else pair_type='pair' means 2, else 1.
-     */
     private function orderPairMultiplier(?string $pairType, $customSizeValue): float
     {
         if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {

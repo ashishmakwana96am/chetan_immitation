@@ -122,7 +122,7 @@ class CheckoutController extends Controller
 
         $productIds = $cartItems->pluck('product_id')->unique()->toArray();
 
-        $relatedProducts = Product::where('status', Product::STATUS_ACTIVE)
+        $relatedProducts = Product::forWebsite()
             ->hasImages()
             ->whereNotIn('id', $productIds ?: [0])
             ->with(['primaryImage', 'variants.attributeValue'])
@@ -728,7 +728,7 @@ class CheckoutController extends Controller
             ], 422);
         }
 
-        $product = Product::where('status', Product::STATUS_ACTIVE)
+        $product = Product::forWebsite()
             ->withSum('inventories', 'quantity')
             ->find($request->product_id);
 
@@ -1304,7 +1304,7 @@ class CheckoutController extends Controller
             $variant = $first->productVariant;
             $variantId = $variant ? $variant->id : null;
 
-            if (!$product || $product->status !== Product::STATUS_ACTIVE) {
+            if (!$product || $product->status !== Product::STATUS_ACTIVE || $product->hide_from_website) {
                 foreach ($items as $item) {
                     $item->delete();
                 }

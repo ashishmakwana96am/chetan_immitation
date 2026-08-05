@@ -81,7 +81,7 @@ class ShopCategoryController extends Controller
         $data = $this->getFilteredProducts($slug);
 
         if ($data['products']->total() === 0 && !request()->ajax() && !$request->filled('search') && !$slug) {
-            $hasAnyProducts = Product::where('status', Product::STATUS_ACTIVE)->has('images')->exists();
+            $hasAnyProducts = Product::forWebsite()->has('images')->exists();
             if (!$hasAnyProducts) {
                 return redirect()->route('home');
             }
@@ -170,18 +170,18 @@ class ShopCategoryController extends Controller
     {
         $categories = Category::where('status', Category::STATUS_ACTIVE)
             ->whereHas('products', function ($q) {
-                $q->where('status', Product::STATUS_ACTIVE)->has('images');
+                $q->forWebsite()->has('images');
             })
             ->with(['subCategories' => function ($q) {
                 $q->where('status', SubCategory::STATUS_ACTIVE)
                   ->whereHas('products', function ($pq) {
-                      $pq->where('status', Product::STATUS_ACTIVE)->has('images');
+                      $pq->forWebsite()->has('images');
                   })
                   ->orderBy('sort_order');
             }])
             ->withCount(['products' => function ($q) {
                 $q->whereNull('products.deleted_at')
-                  ->where('products.status', Product::STATUS_ACTIVE)
+                  ->forWebsite()
                   ->has('images');
             }])
             ->orderBy('sort_order')
@@ -220,6 +220,7 @@ class ShopCategoryController extends Controller
                     GROUP BY product_id
                 ) as pv'), 'pv.product_id', '=', 'products.id')
                 ->where('products.status', Product::STATUS_ACTIVE)
+                ->where('products.hide_from_website', 0)
                 ->whereExists(function ($q) {
                     $q->select(\DB::raw(1))
                       ->from('product_images')
@@ -306,7 +307,7 @@ class ShopCategoryController extends Controller
 
     private function buildFilteredQuery($slug = null, bool $applyPriceFilter = true)
     {
-        $query = Product::where('status', Product::STATUS_ACTIVE)->hasImages();
+        $query = Product::forWebsite()->hasImages();
 
         $filters = session('shop_filters', []);
 
@@ -425,7 +426,7 @@ class ShopCategoryController extends Controller
             : collect();
 
         $subProductCounts = $subIds->isNotEmpty()
-            ? Product::where('status', Product::STATUS_ACTIVE)
+            ? Product::forWebsite()
                 ->whereIn('sub_category_id', $subIds)
                 ->selectRaw('sub_category_id, COUNT(*) as total')
                 ->groupBy('sub_category_id')

@@ -197,12 +197,44 @@
                 },
                 columns: [
                     { data: 'index', orderable: false, width: '5%', searchable: false },
-                    { data: 'transfer_no' },
+                    {
+                        data: 'transfer_no',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'from_location' },
                     { data: 'to_location' },
-                    { data: 'items_count' },
-                    { data: 'total_amount' },
-                    { data: 'total_mrp' },
+                    {
+                        data: 'items_count',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return parseInt(data, 10) || 0;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'total_amount',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.total_amount_raw !== undefined ? row.total_amount_raw : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'total_mrp',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.total_mrp_raw !== undefined ? row.total_mrp_raw : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'status', orderable: false },
                     { data: 'payment_status', orderable: false },
                     { data: 'created_by' },

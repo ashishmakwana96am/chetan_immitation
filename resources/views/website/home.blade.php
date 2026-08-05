@@ -41,7 +41,10 @@
     </section>
 
     <!-- Collection Carousel -->
-    @if(isset($categories) && count($categories) > 0)
+    @php
+        $categoriesWithImage = isset($categories) ? $categories->filter(fn($c) => !empty($c->image)) : collect();
+    @endphp
+    @if($categoriesWithImage->count() > 0)
     <section class="section-space">
         <div class="container-1440">
             <div class="text-center">
@@ -49,8 +52,7 @@
                 <p class="hero-para">Discover curated jewellery for every occasion</p>
             </div>
             <div class="owl-carousel collection-slider mt-10">
-                @foreach($categories as $category)
-                @if($category->image)
+                @foreach($categoriesWithImage as $category)
                 <a href="{{ route('shop-by-category', $category->slug) }}" class="group text-center cursor-pointer block">
                     <div class="mx-auto rounded-[999px] overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] w-[207px] h-[270px]">
                         <img src="{{ $category->image_url }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
@@ -58,7 +60,6 @@
                     <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
                     <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
                 </a>
-                @endif
                 @endforeach
             </div>
         </div>
@@ -166,22 +167,23 @@
 @section('page-js')
 <script>
 $(document).ready(function(){
+    const colCount = {{ $categoriesWithImage->count() }};
     $('.collection-slider').owlCarousel({
-        loop:true,
+        loop: colCount > 6,
         margin:30,
         nav:false,
-        dots:true,
-        autoplay:true,
+        dots: colCount > 1,
+        autoplay: colCount > 1,
         autoplayTimeout:3000,
         responsive:{
             0:{
-                items:2
+                items: Math.min(colCount, 2)
             },
             768:{
-                items:3
+                items: Math.min(colCount, 3)
             },
             1200:{
-                items:6
+                items: Math.min(colCount, 6)
             }
         }
     });

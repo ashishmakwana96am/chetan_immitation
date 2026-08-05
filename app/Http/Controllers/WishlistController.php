@@ -33,7 +33,7 @@ class WishlistController extends Controller
 
         $wishlistProductIds = $wishlists->pluck('product_id')->toArray();
 
-        $relatedProducts = \App\Models\Product::where('status', 1)
+        $relatedProducts = \App\Models\Product::forWebsite()
             ->hasImages()
             ->whereNotIn('id', $wishlistProductIds)
             ->with(['primaryImage', 'variants.attributeValue'])
@@ -64,7 +64,6 @@ class WishlistController extends Controller
         $customer  = Auth::guard('customer')->user();
         $variantId = $request->input('product_variant_id') ?: null;
 
-        // Query all records including soft-deleted ones to avoid unique key constraint violations
         $rows = Wishlist::withTrashed()
             ->where('customer_id', $customer->id)
             ->where('product_id', $request->product_id)
