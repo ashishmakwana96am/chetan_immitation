@@ -2606,6 +2606,11 @@ class ReportController extends Controller
             ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))
             ->orderBy('name')->get();
 
+        $obs = new \App\Observers\CustomerBalanceTransactionObserver();
+        foreach ($creditCustomers as $c) {
+            $obs->updateCustomerBalances($c->id);
+        }
+
         $saleOrderNos = $transactions
             ->filter(fn ($t) => $t->type === CustomerBalanceTransaction::TYPE_DEBIT)
             ->map(function ($t) {
@@ -2630,13 +2635,18 @@ class ReportController extends Controller
         $totalCredit = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->sum('amount');
         $totalDebit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->sum('amount');
 
-        $cashCredit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->where('source', CustomerBalanceTransaction::SOURCE_CASH)->sum('amount');
-        $cashDebit   = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->where('source', CustomerBalanceTransaction::SOURCE_CASH)->sum('amount');
-        $cashBalance = $cashCredit - $cashDebit;
+        $customerIds = $transactions->pluck('customer_id')->unique();
+        if ($customerId) {
+            $customerIds = collect([(int) $customerId]);
+        }
+        $targetCustomers = Customer::whereIn('id', $customerIds)->get();
+        if ($targetCustomers->isEmpty()) {
+            $targetCustomers = Customer::where('is_credit_customer', true)
+                ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))->get();
+        }
 
-        $bankCredit  = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_CREDIT)->where('source', CustomerBalanceTransaction::SOURCE_BANK)->sum('amount');
-        $bankDebit   = (float) $transactions->where('type', CustomerBalanceTransaction::TYPE_DEBIT)->where('source', CustomerBalanceTransaction::SOURCE_BANK)->sum('amount');
-        $bankBalance = $bankCredit - $bankDebit;
+        $cashBalance = (float) $targetCustomers->sum('cash_balance');
+        $bankBalance = (float) $targetCustomers->sum('bank_balance');
 
         return [
             'transactions'       => $transactions,

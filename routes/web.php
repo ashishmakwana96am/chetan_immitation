@@ -326,6 +326,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
         Route::get('accounting/customer-balance/create', [AccountingController::class, 'customerBalanceCreate'])->name('accounting.customer-balance.create');
         Route::post('accounting/customer-balance/store', [AccountingController::class, 'customerBalanceStore'])->name('accounting.customer-balance.store');
+        Route::get('accounting/customer-balance/{transaction}/edit', [AccountingController::class, 'customerBalanceEdit'])->name('accounting.customer-balance.edit');
+        Route::put('accounting/customer-balance/{transaction}', [AccountingController::class, 'customerBalanceUpdate'])->name('accounting.customer-balance.update');
+        Route::delete('accounting/customer-balance/{transaction}', [AccountingController::class, 'customerBalanceDestroy'])->name('accounting.customer-balance.destroy');
         Route::get('accounting/customer-balance/{transaction}/thermal', [AccountingController::class, 'customerBalanceThermal'])->name('accounting.customer-balance.thermal');
 
         // States

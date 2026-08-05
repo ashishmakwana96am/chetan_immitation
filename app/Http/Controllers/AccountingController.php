@@ -1369,6 +1369,166 @@ class AccountingController extends Controller
         ]);
     }
 
+    public function customerBalanceEdit(CustomerBalanceTransaction $transaction)
+    {
+        $this->authorize('manage customer balance');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
+            abort(403);
+        }
+
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $customers = Customer::where('is_credit_customer', true)
+            ->when($isRestricted, fn ($q) => $q->where('location_id', $user->location_id))
+            ->orderBy('name')->get();
+
+        return view('accounting.customer-balance-edit', compact('transaction', 'customers'));
+    }
+
+    public function customerBalanceUpdate(Request $request, CustomerBalanceTransaction $transaction)
+    {
+        $this->authorize('manage customer balance');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'customer_id' => ['required', 'integer', 'exists:customers,id,is_credit_customer,1'],
+            'source'      => ['required', 'string', 'in:' . CustomerBalanceTransaction::SOURCE_CASH . ',' . CustomerBalanceTransaction::SOURCE_BANK],
+            'type'        => ['required', 'string', 'in:' . CustomerBalanceTransaction::TYPE_CREDIT . ',' . CustomerBalanceTransaction::TYPE_DEBIT],
+            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'notes'       => ['nullable', 'string', 'max:1000'],
+        ], [], [
+            'customer_id' => 'customer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $validator->errors(),
+            ], 422);
+        }
+
+        $newCustomerId = (int) $request->customer_id;
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $ownsCustomer = Customer::where('id', $newCustomerId)->where('location_id', $user->location_id)->exists();
+            if (!$ownsCustomer) {
+                return response()->json(['status' => 'error', 'message' => 'You can only manage balances for customers in your own branch.'], 403);
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($request, $transaction, $newCustomerId) {
+                $customer = Customer::where('id', $newCustomerId)->lockForUpdate()->firstOrFail();
+
+                $prevEffect = $transaction->type === CustomerBalanceTransaction::TYPE_CREDIT
+                    ? (float) $transaction->amount
+                    : -((float) $transaction->amount);
+
+                $newAmount = (float) $request->amount;
+                $newEffect = $request->type === CustomerBalanceTransaction::TYPE_CREDIT
+                    ? $newAmount
+                    : -$newAmount;
+
+                if ((int) $transaction->customer_id === $newCustomerId) {
+                    $projectedBalance = (float) $customer->balance - $prevEffect + $newEffect;
+                } else {
+                    $projectedBalance = (float) $customer->balance + $newEffect;
+                }
+
+                if ($projectedBalance < -0.001) {
+                    throw new \RuntimeException('insufficient_balance');
+                }
+
+                $oldData = $transaction->toArray();
+
+                $transaction->update([
+                    'customer_id' => $newCustomerId,
+                    'source'      => $request->source,
+                    'type'        => $request->type,
+                    'amount'      => $newAmount,
+                    'notes'       => !empty($request->notes) ? $request->notes : 'Manual Customer Balance Adjustment',
+                ]);
+
+                ActivityLogger::log(
+                    'Customer Balance',
+                    'update',
+                    $transaction,
+                    $oldData,
+                    $transaction->toArray(),
+                    'Customer balance entry updated for transaction #' . $transaction->id
+                );
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_balance') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Insufficient customer balance. Debit amount exceeds available balance.']],
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Customer balance entry updated successfully.',
+        ]);
+    }
+
+    public function customerBalanceDestroy(CustomerBalanceTransaction $transaction)
+    {
+        $this->authorize('manage customer balance');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin') && $transaction->customer && $transaction->customer->location_id !== $user->location_id) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized.'], 403);
+        }
+
+        try {
+            DB::transaction(function () use ($transaction) {
+                $customer = Customer::where('id', $transaction->customer_id)->lockForUpdate()->first();
+                if ($customer && $transaction->type === CustomerBalanceTransaction::TYPE_CREDIT) {
+                    $projectedBalance = (float) $customer->balance - (float) $transaction->amount;
+                    if ($projectedBalance < -0.001) {
+                        throw new \RuntimeException('insufficient_balance_delete');
+                    }
+                }
+
+                $oldData = $transaction->toArray();
+                $transactionId = $transaction->id;
+
+                $transaction->delete();
+
+                ActivityLogger::log(
+                    'Customer Balance',
+                    'delete',
+                    null,
+                    $oldData,
+                    [],
+                    'Customer balance entry #' . $transactionId . ' deleted'
+                );
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'insufficient_balance_delete') {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => ['amount' => ['Cannot delete this credit entry because customer has insufficient remaining balance.']],
+                ], 422);
+            }
+
+            throw $e;
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Customer balance entry deleted successfully.',
+        ]);
+    }
+
     public function customerBalanceThermal(CustomerBalanceTransaction $transaction)
     {
         $this->authorize('manage customer balance');

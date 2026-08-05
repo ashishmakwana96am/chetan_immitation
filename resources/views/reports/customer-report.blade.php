@@ -242,6 +242,12 @@
                                                 <a href="{{ route('admin.accounting.customer-balance.thermal', ['transaction' => $transaction->id, 'auto_print' => 1]) }}" class="dropdown-item" target="_blank">
                                                     <i class="ti ti-printer me-2"></i>Print Receipt
                                                 </a>
+                                                <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.accounting.customer-balance.edit', $transaction->id) }}">
+                                                    <i class="ti ti-pencil me-2"></i>Edit
+                                                </a>
+                                                <a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="{{ route('admin.accounting.customer-balance.destroy', $transaction->id) }}">
+                                                    <i class="ti ti-trash me-2"></i>Delete
+                                                </a>
                                             @endcan
                                         </div>
                                     </div>
@@ -367,6 +373,10 @@
         }
 
         $(document).ready(function () {
+            window.refreshTable = function () {
+                loadReport($('#filterForm').attr('action') + '?' + $('#filterForm').serialize());
+            };
+
             initTable();
             initDatePickers();
 

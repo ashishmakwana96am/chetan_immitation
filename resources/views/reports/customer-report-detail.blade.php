@@ -198,20 +198,29 @@
                                         <td>{{ $transaction->notes ?? '-' }}</td>
                                         <td>{{ $transaction->createdBy->name ?? '-' }}</td>
                                         <td>
-                                            @if($transaction->linked_order)
-                                                <div class="dropdown table-action-dropdown">
-                                                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                                        <span>Actions</span>
-                                                    </button>
-                                                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                            <div class="dropdown table-action-dropdown">
+                                                <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                                    <span>Actions</span>
+                                                </button>
+                                                <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                                    @if($transaction->linked_order)
                                                         <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-size="half">
                                                             <i class="ti ti-eye me-2"></i>View
                                                         </a>
-                                                    </div>
+                                                    @endif
+                                                    @can('manage customer balance')
+                                                        <a href="{{ route('admin.accounting.customer-balance.thermal', ['transaction' => $transaction->id, 'auto_print' => 1]) }}" class="dropdown-item" target="_blank">
+                                                            <i class="ti ti-printer me-2"></i>Print Receipt
+                                                        </a>
+                                                        <a href="javascript:void(0);" class="dropdown-item" data-common-modal="{{ route('admin.accounting.customer-balance.edit', $transaction->id) }}">
+                                                            <i class="ti ti-pencil me-2"></i>Edit
+                                                        </a>
+                                                        <a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="{{ route('admin.accounting.customer-balance.destroy', $transaction->id) }}">
+                                                            <i class="ti ti-trash me-2"></i>Delete
+                                                        </a>
+                                                    @endcan
                                                 </div>
-                                            @else
-                                                -
-                                            @endif
+                                            </div>
                                         </td>
                                         <td>{{ $transaction->created_at->format('d M Y') }}</td>
                                         <td>{{ $transaction->created_at->format('YmdHis') }}</td>
@@ -289,6 +298,9 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
+            window.refreshTable = function () {
+                window.location.reload();
+            };
             function initGroupedTable(selector, groupNoun) {
                 const $table = $(selector);
                 if (!$table.length) {

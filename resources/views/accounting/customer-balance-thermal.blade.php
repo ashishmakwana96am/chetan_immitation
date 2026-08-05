@@ -158,7 +158,7 @@
         </table>
 
         <div class="amount-box">
-            {{ $isCredit ? '+' : '-' }} {{ number_format((float) $transaction->amount, 2) }}
+            {{ number_format((float) $transaction->amount, 2) }}
         </div>
 
         <div class="divider-dotted"></div>
