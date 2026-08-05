@@ -59,6 +59,9 @@ class ProductController extends Controller
             ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
                 $q->where('status', $request->status);
             })
+            ->when($request->hide_from_website !== null && $request->hide_from_website !== '', function($q) use ($request) {
+                $q->where('hide_from_website', $request->hide_from_website);
+            })
             ->when($request->input('search.value'), function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('name', 'like', "%{$search}%")
