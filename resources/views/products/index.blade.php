@@ -83,6 +83,16 @@
                         </select>
                     </div>
 
+                    {{-- Hide From Website --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-hide-from-website">Website Visibility</label>
+                        <select id="filter-hide-from-website" class="form-select">
+                            <option value="">All</option>
+                            <option value="1">Hidden from Website</option>
+                            <option value="0">Visible on Website</option>
+                        </select>
+                    </div>
+
                     <div class="dropdown-divider"></div>
 
                     <div class="d-flex justify-content-between gap-2 pt-2">
@@ -266,6 +276,7 @@
                         d.category_id = $('#filter-category').val();
                         d.status = $('#filter-status').val();
                         d.stock_status = $('#filter-stock-status').val();
+                        d.hide_from_website = $('#filter-hide-from-website').val();
                         d.location_id = $('#filter-location').val();
                     }
                 },
@@ -300,6 +311,7 @@
                 $('#filter-category').val('');
                 $('#filter-status').val('');
                 $('#filter-stock-status').val('');
+                $('#filter-hide-from-website').val('');
                 $('#filter-location').val('');
                 window.refreshTable();
                 
