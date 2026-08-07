@@ -149,10 +149,13 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $branchLocations->pluck('id'))
-            ->selectRaw('location_id, SUM(cash_balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalance::whereHas('customer', function ($q) use ($branchLocations) {
+                $q->where('is_credit_customer', true)
+                  ->whereIn('location_id', $branchLocations->pluck('id'));
+            })
+            ->join('customers', 'customer_balances.customer_id', '=', 'customers.id')
+            ->selectRaw('customers.location_id, SUM(customer_balances.cash_balance) as total')
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];
@@ -295,10 +298,13 @@ class AccountingController extends Controller
 
         $transactionsByLocation = $transactions->groupBy('location_id');
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $branchLocations->pluck('id'))
-            ->selectRaw('location_id, SUM(bank_balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalance::whereHas('customer', function ($q) use ($branchLocations) {
+                $q->where('is_credit_customer', true)
+                  ->whereIn('location_id', $branchLocations->pluck('id'));
+            })
+            ->join('customers', 'customer_balances.customer_id', '=', 'customers.id')
+            ->selectRaw('customers.location_id, SUM(customer_balances.bank_balance) as total')
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         $branchSummary = [];
@@ -914,10 +920,13 @@ class AccountingController extends Controller
 
         $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $locations->pluck('id'))
-            ->selectRaw('location_id, SUM(balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalance::whereHas('customer', function ($q) use ($locations) {
+                $q->where('is_credit_customer', true)
+                  ->whereIn('location_id', $locations->pluck('id'));
+            })
+            ->join('customers', 'customer_balances.customer_id', '=', 'customers.id')
+            ->selectRaw('customers.location_id, SUM(customer_balances.balance) as total')
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         return view('accounting.branch-balances', compact('locations', 'customerBalanceByLocation'));
@@ -1020,10 +1029,13 @@ class AccountingController extends Controller
 
         $locations = Location::with('balance')->where('status', 1)->orderBy('name')->get();
 
-        $customerBalanceByLocation = Customer::where('is_credit_customer', true)
-            ->whereIn('location_id', $locations->pluck('id'))
-            ->selectRaw('location_id, SUM(balance) as total')
-            ->groupBy('location_id')
+        $customerBalanceByLocation = CustomerBalance::whereHas('customer', function ($q) use ($locations) {
+                $q->where('is_credit_customer', true)
+                  ->whereIn('location_id', $locations->pluck('id'));
+            })
+            ->join('customers', 'customer_balances.customer_id', '=', 'customers.id')
+            ->selectRaw('customers.location_id, SUM(customer_balances.balance) as total')
+            ->groupBy('customers.location_id')
             ->pluck('total', 'location_id');
 
         $branchBalances = [];

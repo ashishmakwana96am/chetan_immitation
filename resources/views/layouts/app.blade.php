@@ -373,7 +373,18 @@
 
             var fallbackTimeout = setTimeout(function() {
                 window.hideAjaxLoader();
-            }, 3000);
+            }, 6000);
+
+            function checkAndHideLoader() {
+                if (window.jQuery && $.active > 0) {
+                    return;
+                }
+                if (activeDataTables > 0) {
+                    return;
+                }
+                clearTimeout(fallbackTimeout);
+                window.hideAjaxLoader();
+            }
 
             $(document).on('preInit.dt', function(e, settings) {
                 if (settings && settings.oFeatures) {
@@ -383,21 +394,17 @@
                 hasDataTables = true;
             });
 
-            $(document).on('xhr.dt init.dt error.dt', function(e, settings) {
-                activeDataTables--;
-                if (activeDataTables <= 0) {
-                    clearTimeout(fallbackTimeout);
-                    setTimeout(function() {
-                        window.hideAjaxLoader();
-                    }, 100);
-                }
+            $(document).on('draw.dt init.dt error.dt xhr.dt', function(e, settings) {
+                activeDataTables = Math.max(0, activeDataTables - 1);
+                setTimeout(checkAndHideLoader, 150);
+            });
+
+            $(document).ajaxStop(function() {
+                setTimeout(checkAndHideLoader, 150);
             });
 
             $(window).on('load', function() {
-                setTimeout(function() {
-                    clearTimeout(fallbackTimeout);
-                    window.hideAjaxLoader();
-                }, 200);
+                setTimeout(checkAndHideLoader, 250);
             });
 
             $('.flatpickr').each(function() {

@@ -501,7 +501,6 @@
                 dropdownParent: $('#filterDropdownContainer')
             });
 
-            // Prevent Bootstrap dropdown from closing when clicking on Select2
             $('#filterDropdownContainer').on('click', '.select2-container', function (e) {
                 e.stopPropagation();
             });

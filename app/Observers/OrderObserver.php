@@ -373,21 +373,25 @@ class OrderObserver
             return;
         }
 
-        if ($cashAmount <= 0 && $onlineAmount <= 0) {
-            if ($finalAmount <= 0) {
-                return;
-            }
-
-            $this->applyCustomerWalletChange($customerId, $finalAmount, $this->resolveBalanceType($paymentMethod), 'Sale #' . $orderNo, $userId, $customLogDescription);
+        $totalAvail = max(0.0, (float) $customer->balance);
+        if ($totalAvail <= 0) {
             return;
         }
 
-        if ($cashAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $cashAmount, CustomerBalanceTransaction::SOURCE_CASH, 'Sale #' . $orderNo . ' (Cash)', $userId, $customLogDescription);
+        $targetTotal = ($cashAmount + $onlineAmount > 0) ? ($cashAmount + $onlineAmount) : $finalAmount;
+        $toDebit = min($targetTotal, $totalAvail);
+
+        if ($toDebit <= 0) {
+            return;
         }
-        if ($onlineAmount > 0) {
-            $this->applyCustomerWalletChange($customerId, $onlineAmount, CustomerBalanceTransaction::SOURCE_BANK, 'Sale #' . $orderNo . ' (Online)', $userId, $customLogDescription);
-        }
+
+        $onlineMethods = ['online', 'upi', 'razorpay', 'bank_transfer', 'bank transfer'];
+        $isOnline = in_array(strtolower($paymentMethod ?? ''), $onlineMethods, true) || $onlineAmount > 0;
+
+        $source = $isOnline ? CustomerBalanceTransaction::SOURCE_BANK : CustomerBalanceTransaction::SOURCE_CASH;
+        $label = $isOnline ? ' (Online)' : ' (Cash)';
+
+        $this->applyCustomerWalletChange($customerId, $toDebit, $source, 'Sale #' . $orderNo . $label, $userId, $customLogDescription);
     }
 
     /**

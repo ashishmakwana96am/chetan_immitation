@@ -178,7 +178,6 @@
 
             const table = $('#purchaseBillsTable').DataTable({
                 processing: true,
-                serverSide: true,
                 responsive: false,
                 order: [[12, 'desc']],
                 ajax: {
