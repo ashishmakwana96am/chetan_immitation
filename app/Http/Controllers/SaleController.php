@@ -1671,7 +1671,7 @@ class SaleController extends Controller
                             ]);
                         }
 
-                        $intendedStatus = (round($targetCashTotal + $targetOnlineTotal, 2) >= $grandTotal)
+                        $intendedStatus = (round($targetCashTotal + $targetOnlineTotal, 2) >= (round($grandTotal, 2) - 0.01))
                             ? Order::PAYMENT_STATUS_PAID
                             : Order::PAYMENT_STATUS_PARTIAL;
 
@@ -1757,6 +1757,9 @@ class SaleController extends Controller
             if ($totalAllocated <= 0) {
                 return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
             }
+            if ($totalAllocated >= (round($grandTotal, 2) - 0.01)) {
+                return [Order::PAYMENT_STATUS_PAID, $allocatedCash, $allocatedBank];
+            }
             return [Order::PAYMENT_STATUS_PARTIAL, $allocatedCash, $allocatedBank];
         }
 
@@ -1782,7 +1785,7 @@ class SaleController extends Controller
             return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
         }
 
-        $finalStatus = ($totalAllocated < $grandTotal)
+        $finalStatus = ($totalAllocated < (round($grandTotal, 2) - 0.01))
             ? Order::PAYMENT_STATUS_PARTIAL
             : Order::PAYMENT_STATUS_PAID;
 
