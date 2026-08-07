@@ -1650,15 +1650,28 @@ class SaleController extends Controller
                     } elseif ($newStatus === Order::PAYMENT_STATUS_PARTIAL) {
                         $newCash = (float) ($request->paid_cash_amount ?? 0);
                         $newOnline = (float) ($request->paid_online_amount ?? 0);
-                        $amountThisTime = $newCash + $newOnline;
+                        $amountThisTime = round($newCash + $newOnline, 2);
 
-                        if (round($amountThisTime, 2) > $balanceDue + 0.01) {
+                        if ($amountThisTime > $balanceDue + 0.01) {
                             throw new \Exception('Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').');
                         }
 
-                        $targetCashTotal = (float) $sale->paid_cash_amount + $newCash;
-                        $targetOnlineTotal = (float) $sale->paid_online_amount + $newOnline;
-                        $intendedStatus = round($targetCashTotal + $targetOnlineTotal, 2) >= $grandTotal
+                        $targetCashTotal = round((float) $sale->paid_cash_amount + $newCash, 2);
+                        $targetOnlineTotal = round((float) $sale->paid_online_amount + $newOnline, 2);
+
+                        if ($amountThisTime > 0) {
+                            $pmThis = ($newCash > 0 && $newOnline > 0) ? 'online_cash' : ($newOnline > 0 ? 'online' : 'cash');
+                            \App\Models\SalePayment::create([
+                                'order_id'       => $sale->id,
+                                'amount'         => $amountThisTime,
+                                'cash_amount'    => $newCash,
+                                'online_amount'  => $newOnline,
+                                'payment_method' => $pmThis,
+                                'created_by'     => auth()->id(),
+                            ]);
+                        }
+
+                        $intendedStatus = (round($targetCashTotal + $targetOnlineTotal, 2) >= $grandTotal)
                             ? Order::PAYMENT_STATUS_PAID
                             : Order::PAYMENT_STATUS_PARTIAL;
 
@@ -1670,23 +1683,6 @@ class SaleController extends Controller
                             $targetOnlineTotal,
                             $prevPaid
                         );
-
-                        $newPaidTotal = round($cappedCashTotal + $cappedOnlineTotal, 2);
-                        $installmentAmount = round($newPaidTotal - $prevPaid, 2);
-
-                        if ($installmentAmount > 0) {
-                            $installmentCash = round(max(0, $cappedCashTotal - $sale->paid_cash_amount), 2);
-                            $installmentOnline = round($installmentAmount - $installmentCash, 2);
-                            $pmThis = ($installmentCash > 0 && $installmentOnline > 0) ? 'online_cash' : ($installmentOnline > 0 ? 'online' : 'cash');
-                            \App\Models\SalePayment::create([
-                                'order_id'       => $sale->id,
-                                'amount'         => $installmentAmount,
-                                'cash_amount'    => $installmentCash,
-                                'online_amount'  => $installmentOnline,
-                                'payment_method' => $pmThis,
-                                'created_by'     => auth()->id(),
-                            ]);
-                        }
 
                         [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
                             $cappedStatus,
@@ -1754,54 +1750,43 @@ class SaleController extends Controller
         $reqCash = round(max($cashInput, 0), 2);
         $reqBank = round(max($onlineInput, 0), 2);
 
+        if ($requestedStatus === Order::PAYMENT_STATUS_PARTIAL) {
+            $allocatedCash = $reqCash;
+            $allocatedBank = $reqBank;
+            $totalAllocated = round($allocatedCash + $allocatedBank, 2);
+            if ($totalAllocated <= 0) {
+                return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
+            }
+            return [Order::PAYMENT_STATUS_PARTIAL, $allocatedCash, $allocatedBank];
+        }
+
         $customer = Customer::find($customerId);
         if (!$customer || !$customer->is_credit_customer) {
-            $totalInput = round($reqCash + $reqBank, 2);
-            if ($requestedStatus === Order::PAYMENT_STATUS_PARTIAL && $totalInput <= 0) {
-                return [Order::PAYMENT_STATUS_PARTIAL, $reqCash, $reqBank];
-            }
             return [$requestedStatus, $cashInput, $onlineInput];
         }
 
-        $availCash = max(0.0, (float) $customer->cash_balance);
-        $availBank = max(0.0, (float) $customer->bank_balance);
+        $totalAvail = max(0.0, (float) $customer->balance);
 
         if ($alreadyDebitedForThisSale > 0) {
-            $orderNo = request()->route('sale') ? request()->route('sale')->order_no : null;
-            if ($orderNo) {
-                $prevCash = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $customerId)
-                    ->where('notes', 'LIKE', '%Sale #' . $orderNo . '%')
-                    ->where('source', 'cash')->sum('amount');
-                $prevBank = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $customerId)
-                    ->where('notes', 'LIKE', '%Sale #' . $orderNo . '%')
-                    ->where('source', 'bank')->sum('amount');
-                $availCash += $prevCash;
-                $availBank += $prevBank;
-            } else {
-                $availCash += ($cashInput > 0 ? $alreadyDebitedForThisSale : 0);
-                $availBank += ($onlineInput > 0 ? $alreadyDebitedForThisSale : 0);
-            }
+            $totalAvail += $alreadyDebitedForThisSale;
         }
 
-        if ($requestedStatus === Order::PAYMENT_STATUS_PAID && $reqCash <= 0 && $reqBank <= 0) {
-            $cappedCash = min($grandTotal, $availCash);
-            $cappedBank = round(min(max(0.0, $grandTotal - $cappedCash), $availBank), 2);
-        } else {
-            $cappedCash = round(min($reqCash > 0 ? $reqCash : $grandTotal, $availCash), 2);
-            $cappedBank = round(min($reqBank, $availBank), 2);
-        }
+        $remNeeded = max(0.0, $grandTotal - $reqCash - $reqBank);
+        $walletCreditUsed = min($remNeeded, $totalAvail);
 
-        $totalCapped = round($cappedCash + $cappedBank, 2);
+        $allocatedCash = round($reqCash + ($reqBank > 0 ? 0 : $walletCreditUsed), 2);
+        $allocatedBank = round($reqBank + ($reqBank > 0 ? $walletCreditUsed : 0), 2);
+        $totalAllocated = round($allocatedCash + $allocatedBank, 2);
 
-        if ($totalCapped <= 0) {
+        if ($totalAllocated <= 0) {
             return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
         }
 
-        if ($totalCapped >= $grandTotal - 0.01) {
-            return [Order::PAYMENT_STATUS_PAID, $cappedCash, $cappedBank];
-        }
+        $finalStatus = ($totalAllocated < $grandTotal)
+            ? Order::PAYMENT_STATUS_PARTIAL
+            : Order::PAYMENT_STATUS_PAID;
 
-        return [Order::PAYMENT_STATUS_PARTIAL, $cappedCash, $cappedBank];
+        return [$finalStatus, $allocatedCash, $allocatedBank];
     }
 
     private function resolvePaymentSplit($paymentStatus, float $grandTotal, float $cashAmountInput = 0.0, float $onlineAmountInput = 0.0): array

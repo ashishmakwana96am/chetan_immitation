@@ -651,34 +651,35 @@
 
                             let cash = parseFloat(cashInput.value) || 0;
                             let online = parseFloat(onlineInput.value) || 0;
+                            const maxLimit = remainingDue;
 
                             if (val === 2) {
                                 if (source === 'cash') {
-                                    cash = Math.min(Math.max(cash, 0), remainingDue);
+                                    cash = Math.min(Math.max(cash, 0), maxLimit);
                                     cashInput.value = cash;
-                                    onlineInput.value = Math.round((remainingDue - cash) * 100) / 100;
+                                    onlineInput.value = Math.round((maxLimit - cash) * 100) / 100;
                                 } else {
-                                    online = Math.min(Math.max(online, 0), remainingDue);
+                                    online = Math.min(Math.max(online, 0), maxLimit);
                                     onlineInput.value = online;
-                                    cashInput.value = Math.round((remainingDue - online) * 100) / 100;
+                                    cashInput.value = Math.round((maxLimit - online) * 100) / 100;
                                 }
                             } else if (val === 3) {
                                 if (source === 'cash') {
-                                    if (cash > remainingDue) {
-                                        cash = remainingDue;
+                                    if (cash > maxLimit) {
+                                        cash = maxLimit;
                                         cashInput.value = cash;
                                     }
-                                    if (cash + online > remainingDue) {
-                                        online = Math.round((remainingDue - cash) * 100) / 100;
+                                    if (cash + online > maxLimit) {
+                                        online = Math.round((maxLimit - cash) * 100) / 100;
                                         onlineInput.value = online;
                                     }
                                 } else if (source === 'online') {
-                                    if (online > remainingDue) {
-                                        online = remainingDue;
+                                    if (online > maxLimit) {
+                                        online = maxLimit;
                                         onlineInput.value = online;
                                     }
-                                    if (cash + online > remainingDue) {
-                                        cash = Math.round((remainingDue - online) * 100) / 100;
+                                    if (cash + online > maxLimit) {
+                                        cash = Math.round((maxLimit - online) * 100) / 100;
                                         cashInput.value = cash;
                                     }
                                 }
@@ -687,7 +688,11 @@
 
                         statusSelect.addEventListener('change', () => {
                             toggleVisibility();
-                            clamp('online');
+                            const val = parseInt(statusSelect.value);
+                            if (val === 3 && (parseFloat(cashInput.value) || 0) === 0 && (parseFloat(onlineInput.value) || 0) === 0) {
+                                cashInput.value = initialCash;
+                            }
+                            clamp('cash');
                         });
                         cashInput.addEventListener('input', () => clamp('cash'));
                         onlineInput.addEventListener('input', () => clamp('online'));
