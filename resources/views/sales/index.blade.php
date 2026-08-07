@@ -699,10 +699,14 @@
                         toggleVisibility();
                     },
                     preConfirm: () => {
-                        const status = document.getElementById('swal-payment-status').value;
+                        let status = document.getElementById('swal-payment-status').value;
                         const cash = parseFloat(document.getElementById('swal-paid-cash').value) || 0;
                         const online = parseFloat(document.getElementById('swal-paid-online').value) || 0;
                         const sum = cash + online;
+
+                        if (status === '3' && sum >= (remainingDue - 0.001)) {
+                            status = '2';
+                        }
 
                         if (status === '3' && sum <= 0) {
                             Swal.showValidationMessage('Paid amount must be at least 0.01 for Partially Paid status.');
