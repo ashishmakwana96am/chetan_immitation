@@ -697,7 +697,7 @@
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E]">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
                             </svg>
-                            <a href="tel:+919876543210" class="hover:text-[#B4771E] transition">+91 98765 43210</a>
+                            <a href="tel:+917725978871" class="hover:text-[#B4771E] transition">+91 77259 78871</a>
                         </li>
                         <li class="flex items-center gap-4">
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" Box="0 0 24 24" stroke-width="1.5" stroke="currentColor"  class="w-5 h-5 text-[#B4771E]">
@@ -735,7 +735,7 @@
                         <a href="https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4" target="_blank" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
                             <i class="fa-brands fa-instagram"></i>
                         </a>
-                        <a href="https://wa.me/919876543210" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
+                        <a href="https://wa.me/917725978871" class="w-[38px] h-[38px] rounded-full border border-[#FFFFFF1A] flex items-center justify-center text-white bg-[#FFFFFF0D] hover:bg-[#B4771E] hover:border-[#B4771E] hover:text-white transition">
                             <i class="fa-brands fa-whatsapp"></i>
                         </a>
                     </div>
@@ -1249,7 +1249,7 @@ window.addEventListener('resize', function () {
     </script>
 
     <!-- Floating WhatsApp Chat Button -->
-    <a href="https://wa.me/919876543210" target="_blank" rel="noopener"
+    <a href="https://wa.me/917725978871" target="_blank" rel="noopener"
         class="fixed bottom-5 right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition"
         aria-label="Chat with us on WhatsApp">
         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75 animate-ping"></span>
