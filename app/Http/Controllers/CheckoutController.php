@@ -32,6 +32,56 @@ class CheckoutController extends Controller
         return Auth::guard('customer')->user();
     }
 
+    private function getCartSubtotal(): float
+    {
+        $customer = $this->customer();
+        if (! $customer) {
+            return 0.0;
+        }
+
+        $cartItems = CartItem::where('customer_id', $customer->id)
+            ->with(['product', 'productVariant'])
+            ->get();
+
+        $subtotal = 0.0;
+        foreach ($cartItems as $item) {
+            if ($item->product) {
+                $subtotal += $item->getPrice() * $item->qty;
+            }
+        }
+
+        return $subtotal;
+    }
+
+    private function resolveAppliedCoupon(float $subtotal): ?Coupon
+    {
+        if (! session()->has('applied_coupon_code')) {
+            return null;
+        }
+
+        $coupon = Coupon::where('code', session('applied_coupon_code'))
+            ->where('status', Coupon::STATUS_ACTIVE)
+            ->where(function ($q) {
+                $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
+            })
+            ->where(function ($q) {
+                $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
+            })
+            ->first();
+
+        if (! $coupon) {
+            session()->forget('applied_coupon_code');
+            return null;
+        }
+
+        if ($coupon->code === Coupon::FREE_SHIPPING_CODE && $subtotal < 2000) {
+            session()->forget('applied_coupon_code');
+            return null;
+        }
+
+        return $coupon;
+    }
+
     /**
      * Order Amount >= 1999 => free shipping.
      * Otherwise, use the shipping charge configured for the selected
@@ -47,7 +97,7 @@ class CheckoutController extends Controller
             return 0.0;
         }
 
-        if ($coupon && $coupon->code === Coupon::FREE_SHIPPING_CODE) {
+        if ($coupon && $coupon->code === Coupon::FREE_SHIPPING_CODE && $subtotal >= 2000) {
             return 0.0;
         }
 
@@ -138,28 +188,15 @@ class CheckoutController extends Controller
             $subtotal += $price * $item->qty;
         }
         $discount = 0.0;
-        $coupon = null;
-        if (session()->has('applied_coupon_code')) {
-            $coupon = Coupon::where('code', session('applied_coupon_code'))
-                ->where('status', Coupon::STATUS_ACTIVE)
-                ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
-                })
-                ->first();
-            if ($coupon) {
-                if ($coupon->discount_type === 'percentage') {
-                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
-                } else {
-                    $discount = (float) $coupon->discount_value;
-                }
-                if ($discount > $subtotal) {
-                    $discount = $subtotal;
-                }
+        $coupon = $this->resolveAppliedCoupon($subtotal);
+        if ($coupon) {
+            if ($coupon->discount_type === 'percentage') {
+                $discount = $subtotal * ((float) $coupon->discount_value / 100);
             } else {
-                session()->forget('applied_coupon_code');
+                $discount = (float) $coupon->discount_value;
+            }
+            if ($discount > $subtotal) {
+                $discount = $subtotal;
             }
         }
         $states = State::where('status', State::STATUS_ACTIVE)->orderBy('name')->get();
@@ -417,28 +454,15 @@ class CheckoutController extends Controller
             $subtotal += $price * $item->qty;
         }
         $discount = 0.0;
-        $coupon = null;
-        if (session()->has('applied_coupon_code')) {
-            $coupon = Coupon::where('code', session('applied_coupon_code'))
-                ->where('status', Coupon::STATUS_ACTIVE)
-                ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
-                })
-                ->first();
-            if ($coupon) {
-                if ($coupon->discount_type === 'percentage') {
-                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
-                } else {
-                    $discount = (float) $coupon->discount_value;
-                }
-                if ($discount > $subtotal) {
-                    $discount = $subtotal;
-                }
+        $coupon = $this->resolveAppliedCoupon($subtotal);
+        if ($coupon) {
+            if ($coupon->discount_type === 'percentage') {
+                $discount = $subtotal * ((float) $coupon->discount_value / 100);
             } else {
-                session()->forget('applied_coupon_code');
+                $discount = (float) $coupon->discount_value;
+            }
+            if ($discount > $subtotal) {
+                $discount = $subtotal;
             }
         }
         $shipping = $this->calculateShipping($subtotal, $address, $coupon);
@@ -948,27 +972,16 @@ class CheckoutController extends Controller
 
     public function recalculateShipping(Request $request)
     {
-        $customer = $this->customer();
-        $cartItems = CartItem::where('customer_id', $customer->id)->get();
-
-        $subtotal = 0.0;
-        foreach ($cartItems as $item) {
-            $subtotal += $item->getPrice() * $item->qty;
-        }
+        $subtotal = $this->getCartSubtotal();
 
         $discount = 0.0;
-        $coupon = null;
-        if (session()->has('applied_coupon_code')) {
-            $coupon = Coupon::where('code', session('applied_coupon_code'))
-                ->where('status', Coupon::STATUS_ACTIVE)
-                ->first();
-            if ($coupon) {
-                $discount = $coupon->discount_type === 'percentage'
-                    ? $subtotal * ((float) $coupon->discount_value / 100)
-                    : (float) $coupon->discount_value;
-                if ($discount > $subtotal) {
-                    $discount = $subtotal;
-                }
+        $coupon = $this->resolveAppliedCoupon($subtotal);
+        if ($coupon) {
+            $discount = $coupon->discount_type === 'percentage'
+                ? $subtotal * ((float) $coupon->discount_value / 100)
+                : (float) $coupon->discount_value;
+            if ($discount > $subtotal) {
+                $discount = $subtotal;
             }
         }
 
@@ -1008,6 +1021,15 @@ class CheckoutController extends Controller
             ], 422);
         }
 
+        $subtotal = $this->getCartSubtotal();
+
+        if ($coupon->code === Coupon::FREE_SHIPPING_CODE && $subtotal < 2000) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'FREESHIP coupon is valid only on orders of ₹2000 or more.',
+            ], 422);
+        }
+
         if ($coupon->usage_limit !== null) {
             $usedCount = Order::where('coupon_id', $coupon->id)
                 ->count();
@@ -1020,15 +1042,6 @@ class CheckoutController extends Controller
         }
 
         session()->put('applied_coupon_code', $coupon->code);
-
-        $customer = $this->customer();
-        $cartItems = CartItem::where('customer_id', $customer->id)->get();
-
-        $subtotal = 0.0;
-        foreach ($cartItems as $item) {
-            $price = $item->getPrice();
-            $subtotal += $price * $item->qty;
-        }
 
         $discount = 0.0;
         if ($coupon->discount_type === 'percentage') {
@@ -1065,14 +1078,7 @@ class CheckoutController extends Controller
     {
         session()->forget('applied_coupon_code');
 
-        $customer = $this->customer();
-        $cartItems = CartItem::where('customer_id', $customer->id)->get();
-
-        $subtotal = 0.0;
-        foreach ($cartItems as $item) {
-            $price = $item->getPrice();
-            $subtotal += $price * $item->qty;
-        }
+        $subtotal = $this->getCartSubtotal();
 
         $address = $this->resolveAddressForShipping($request);
         $shipping = $this->calculateShipping($subtotal, $address, null);
@@ -1152,28 +1158,15 @@ class CheckoutController extends Controller
         }
 
         $discount = 0.0;
-        $coupon = null;
-        if (session()->has('applied_coupon_code')) {
-            $coupon = Coupon::where('code', session('applied_coupon_code'))
-                ->where('status', Coupon::STATUS_ACTIVE)
-                ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
-                })
-                ->first();
-            if ($coupon) {
-                if ($coupon->discount_type === 'percentage') {
-                    $discount = $subtotal * ((float) $coupon->discount_value / 100);
-                } else {
-                    $discount = (float) $coupon->discount_value;
-                }
-                if ($discount > $subtotal) {
-                    $discount = $subtotal;
-                }
+        $coupon = $this->resolveAppliedCoupon($subtotal);
+        if ($coupon) {
+            if ($coupon->discount_type === 'percentage') {
+                $discount = $subtotal * ((float) $coupon->discount_value / 100);
             } else {
-                session()->forget('applied_coupon_code');
+                $discount = (float) $coupon->discount_value;
+            }
+            if ($discount > $subtotal) {
+                $discount = $subtotal;
             }
         }
 

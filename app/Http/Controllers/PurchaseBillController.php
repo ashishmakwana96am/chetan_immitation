@@ -471,18 +471,23 @@ class PurchaseBillController extends Controller
             }
 
             foreach ($purchaseBill->items as $item) {
-                $source = Inventory::where('product_id', $item->product_id)
-                    ->where('location_id', $purchaseBill->from_location_id)
-                    ->first();
+                $source = Inventory::firstOrCreate(
+                    [
+                        'product_id'  => $item->product_id,
+                        'location_id' => $purchaseBill->from_location_id,
+                    ],
+                    [
+                        'quantity'   => 0,
+                        'created_by' => auth()->id(),
+                    ]
+                );
 
                 $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
                 $stockQty = (int) round($item->quantity * $multiplier);
 
-                if ($source) {
-                    $oldQty = $source->quantity;
-                    $source->decrement('quantity', $stockQty);
-                    ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock issued/moved out for purchase bill #' . $purchaseBill->transfer_no);
-                }
+                $oldQty = $source->quantity;
+                $source->decrement('quantity', $stockQty);
+                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock issued/moved out for purchase bill #' . $purchaseBill->transfer_no);
 
                 $destination = Inventory::firstOrCreate(
                     [
