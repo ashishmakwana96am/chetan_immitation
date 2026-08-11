@@ -24,7 +24,7 @@
         $detailUrl .= '?variant=' . $wishlistVariantId;
     }
 @endphp
-<div class="product-card group border border-[#D5D5D5] relative cursor-pointer flex flex-col h-full" data-product-id="{{ $product->id }}">
+<div class="product-card group sm:border border-[#D5D5D5] relative cursor-pointer flex flex-col h-full rounded-[6px] overflow-hidden" data-product-id="{{ $product->id }}">
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
         <div class="absolute top-[17px] left-[-39px] z-10 rotate-[-20deg]">
@@ -36,7 +36,7 @@
         </div>
         @endif
         <a class="product-detail-link" href="{{ $detailUrl }}">
-            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $product->name }}" class="w-full h-[340px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $product->name }}" class="w-full h-[150px] sm:h-[240px] md:h-[260px] xl:h-[300px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
              {{-- Rating Badge --}}
             @php
                 $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
@@ -55,7 +55,7 @@
             @endif
         </a>
     </div>
-    <button class="wishlist-btn absolute top-2 right-2 w-[36px] h-[36px] bg-white rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
+    <button class="wishlist-btn absolute top-2 right-2 w-6 sm:w-[36px] h-6 sm:h-[36px] bg-white rounded-md sm:rounded-lg flex items-center justify-center outline-none focus:outline-none focus:ring-0"
         data-product-id="{{ $product->id }}"
         data-variant-id="{{ $wishlistVariantId ?? '' }}"
         data-login-url="{{ route('login') }}"
@@ -63,20 +63,22 @@
         data-current-url="{{ url()->current() }}"
         data-in-wishlist="{{ $inWishlist ? '1' : '0' }}">
        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"
-            class="wishlist-icon w-5 h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
+            class="wishlist-icon w-4 sm:w-5 h-4 sm:h-5 transition-all duration-300 {{ $inWishlist ? 'fill-[#E01B1B] text-[#E01B1B]' : 'fill-transparent text-[#131615]' }}">
             <path stroke-linecap="round" stroke-linejoin="round"
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
        </svg>
     </button>
  
-    <div class="p-4 2xl:p-[20px]  flex-1 flex flex-col">
-        <div class="flex justify-between flex-col  h-full">
+    <div class="p-1 sm:p-4 2xl:p-[18px] flex-1 flex flex-col">
+        <div class="flex justify-between flex-col h-full">
             <div>
-                <h3 class="product-title"><a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a></h3>
-                <div class="flex justify-between flex-wrap gap-2">
-                        <div class="mt-1 flex items-center gap-1">
-                            <span class="text-lg xl:text-[24px] text-[#131615]">{{ website_price($product->sale_price) }}</span>
-                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-sm xl:text-lg text-[#757575] line-through">{{ website_price($product->mrp) }}</span>@endif
+                <h3 class="product-title text-xs sm:text-base lg:text-[17px] leading-[1.35] font-semibold text-[#131615]">
+                    <a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a>
+                </h3>
+                <div class="flex justify-between flex-wrap gap-2 mt-1 sm:mt-2">
+                        <div class="flex items-center gap-1 flex-wrap">
+                            <span class="text-base sm:text-lg xl:text-[22px] font-semibold text-[#131615]">{{ website_price($product->sale_price) }}</span>
+                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-xs sm:text-sm xl:text-base text-[#757575] line-through">{{ website_price($product->mrp) }}</span>@endif
                         </div>
                         @php
                             $variantValues = $product->relationLoaded('variants')
@@ -100,9 +102,9 @@
                             $attribute = $firstGroup->first()->attributeValue->attribute;
                             $attributeValues = $firstGroup->unique('attribute_value_id');
                         @endphp
-                        <div class="mt-1 relative w-full max-w-[90px] sm:max-w-[100px]">
+                        <div class="relative w-full max-w-[88px] sm:max-w-[92px]">
                             <select
-                              class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-7 py-1 text-sm focus:outline-none focus:border-[#B4771E]"
+                              class="grid-variant-select appearance-none w-full border border-[#D5D5D5] px-2 pr-6 py-1 text-[11px] sm:text-xs focus:outline-none focus:border-[#B4771E]"
                               data-product-id="{{ $product->id }}">
                                 <option value="">{{ $attribute->name }}</option>
                                 @foreach($attributeValues as $variant)
@@ -128,7 +130,7 @@
                 </div>
             </div>
             
-            <button class="add-to-cart-btn w-full h-[45px] border border-[#131615] text-lg mt-[24px] transition duration-300 rounded-sm {{ $stockQty < 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white' }}"
+            <button class="add-to-cart-btn w-full h-8 sm:h-[40px] border border-[#131615] text-sm sm:text-base mt-2 sm:mt-4 transition duration-300 rounded-sm {{ $stockQty < 1 ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:border-[#B4771E] hover:bg-[#B4771E] hover:text-white' }}"
                 data-product-id="{{ $product->id }}"
                 data-login-url="{{ route('login') }}?intended={{ urlencode(route('cart')) }}"
                 {{ $stockQty < 1 ? 'disabled' : '' }}>
