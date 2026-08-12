@@ -52,11 +52,11 @@
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
                             <div class="swiper-slide">
-                                <img src="{{ $img->image_url }}" class="w-full h-[573px] object-contain ">
+                                <img src="{{ $img->image_url }}" class="w-full h-[573px] object-cover ">
                             </div>
                             @empty
                             <div class="swiper-slide">
-                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="w-full h-[573px] object-contain ">
+                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="w-full h-[573px] object-cover ">
                             </div>
                             @endforelse
                         </div>
@@ -92,7 +92,7 @@
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
                             <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
-                                <img src="{{ $img->image_url }}" class="w-full h-full object-contain">
+                                <img src="{{ $img->image_url }}" class="w-full h-full object-cover">
                             </div>
                             @empty
                             <div class="swiper-slide border border-[#D5D5D5] cursor-pointer">
