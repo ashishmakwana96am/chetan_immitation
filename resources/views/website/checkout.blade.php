@@ -966,13 +966,6 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                 </svg>
 
-                                <span>Easy Return and Exchange</span>
-                            </div>
-                             <div class="flex gap-3 text-base md:text-lg font-normal">
-                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-5 text-[#B4771E] mt-1">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                </svg>
-
                                 <span>Secure Packaging</span>
                             </div>
                         </div>
@@ -996,8 +989,20 @@ YOU MAY ALSO LIKE
         </div>
         <!-- Products -->
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-            @include('website.partials.product-grid-items', ['products' => $relatedProducts])
+        <div class="product-list-toggle-wrapper" data-product-view-toggle>
+            <div class="mb-3 flex justify-end sm:hidden">
+                <div class="inline-flex border border-[#D5D5D5] rounded-md overflow-hidden bg-white shadow-sm">
+                    <button type="button" data-grid-view="single" class="w-8 h-8 flex items-center justify-center border-r border-[#D5D5D5] bg-[#131615] text-white" aria-label="Single column view">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1.5"></rect></svg>
+                    </button>
+                    <button type="button" data-grid-view="dual" class="w-8 h-8 flex items-center justify-center bg-white text-[#131615]" aria-label="Two column view">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="4" rx="1"></rect><rect x="14" y="11" width="7" height="10" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+                    </button>
+                </div>
+            </div>
+            <div data-product-grid class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                @include('website.partials.product-grid-items', ['products' => $relatedProducts])
+            </div>
         </div>
     </div>
 </section>

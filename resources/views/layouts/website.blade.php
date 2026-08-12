@@ -648,11 +648,11 @@
     <!-- Footer -->
     <footer class="bg-[#131615]">
         <div class="container-1440">
-            <div class="grid {{ (isset($sharedCategories) && count($sharedCategories) > 0) ? 'lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr]' : 'lg:grid-cols-[1.5fr_0.8fr_1.2fr_1.8fr]' }} md:grid-cols-2 gap-9 py-10">
+            <div class="grid {{ (isset($sharedCategories) && count($sharedCategories) > 0) ? 'lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr]' : 'lg:grid-cols-[1.5fr_0.8fr_1.2fr_1.8fr]' }} md:grid-cols-2 gap-3 sm:gap-5 lg:gap-9 py-5 sm:py-10">
                 <!-- Logo -->
                 <div>
-                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-[25px]"></a>
-                    <p class="text-[#D5D5D5] text-base font-normal">
+                    <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-4 sm:mb-[25px] "></a>
+                    <p class="text-[#D5D5D5] text-sm sm:text-base font-normal">
                         Premium imitation jewellery crafted for weddings, festivals, and everyday elegance. Discover timeless designs that blend tradition, beauty, and affordability.
                     </p>
                 </div>
@@ -660,8 +660,8 @@
                 <!-- Category -->
                 @if(isset($sharedCategories) && count($sharedCategories) > 0)
                 <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Shop By Category</h3>
-                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
+                    <h3 class="text-[#B4771E] text-base sm:text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Shop By Category</h3>
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         @foreach($sharedCategories->shuffle()->take(6) as $cat)
                         <li><a href="{{ route('shop-by-category', $cat->slug) }}" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>
                         @endforeach
@@ -671,8 +671,8 @@
 
                 <!-- Company -->
                 <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Company</h3>
-                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
+                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Company</h3>
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         <li><a href="{{ route('about') }}" class="hover:text-[#B4771E] transition">About Us</a></li>
                         <li><a href="{{ route('contact') }}" class="hover:text-[#B4771E] transition">Contact Us</a></li>
                     </ul>
@@ -680,8 +680,8 @@
 
                 <!-- Customer Service -->
                 <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Customer Service</h3>
-                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-base">
+                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Customer Service</h3>
+                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         <li><a href="{{ route('terms') }}" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
                         <li><a href="{{ route('delivery-returns') }}" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
                         <li><a href="{{ route('privacy') }}" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
@@ -691,8 +691,8 @@
 
                 <!-- Contact -->
                 <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-5">Contact Us</h3>
-                    <ul class="space-y-4 text-[#D5D5D5] text-base">
+                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Contact Us</h3>
+                    <ul class="space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         <li class="flex items-center gap-4">
                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E]">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
@@ -722,8 +722,8 @@
         <!-- Bottom Footer -->
         <div class="border-t border-white/10">
             <div class="container-1440">
-                <div class="flex flex-col md:flex-row items-center justify-between gap-5 py-[20px]">
-                    <p class="text-[#D5D5D5] text-base text-center md:text-left">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-5 py-3 sm:py-[20px]">
+                    <p class="text-[#D5D5D5] text-sm sm:text-base text-center md:text-left">
                         © {{ date('Y') }} Chetan Imitation. All Rights Reserved | Developed by <a href="https://www.risingstarinfotech.com/" target="_blank" class="text-[#B4771E] hover:text-[#B4771E]">Rising Star Infotech</a>
                     </p>
 
@@ -1255,6 +1255,49 @@ window.addEventListener('resize', function () {
         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75 animate-ping"></span>
         <i class="fa-brands fa-whatsapp text-white text-[28px] relative"></i>
     </a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-product-view-toggle]').forEach(function (wrapper) {
+                const grid = wrapper.querySelector('[data-product-grid]');
+                const singleBtn = wrapper.querySelector('[data-grid-view="single"]');
+                const dualBtn = wrapper.querySelector('[data-grid-view="dual"]');
+
+                if (!grid || !singleBtn || !dualBtn) return;
+
+                function setView(view) {
+                    const isSingle = view === 'single';
+                    grid.classList.toggle('grid-cols-1', isSingle);
+                    grid.classList.toggle('grid-cols-2', !isSingle);
+                    grid.setAttribute('data-grid-view', view);
+
+                    singleBtn.classList.toggle('bg-[#131615]', isSingle);
+                    singleBtn.classList.toggle('text-white', isSingle);
+                    singleBtn.classList.toggle('border-[#131615]', isSingle);
+                    singleBtn.classList.toggle('bg-white', !isSingle);
+                    singleBtn.classList.toggle('text-[#131615]', !isSingle);
+                    singleBtn.classList.toggle('border-[#D5D5D5]', !isSingle);
+
+                    dualBtn.classList.toggle('bg-[#131615]', !isSingle);
+                    dualBtn.classList.toggle('text-white', !isSingle);
+                    dualBtn.classList.toggle('border-[#131615]', !isSingle);
+                    dualBtn.classList.toggle('bg-white', isSingle);
+                    dualBtn.classList.toggle('text-[#131615]', isSingle);
+                    dualBtn.classList.toggle('border-[#D5D5D5]', isSingle);
+                }
+
+                singleBtn.addEventListener('click', function () {
+                    setView('single');
+                });
+
+                dualBtn.addEventListener('click', function () {
+                    setView('dual');
+                });
+
+                setView('single');
+            });
+        });
+    </script>
 
     @yield('page-js')
 </body>

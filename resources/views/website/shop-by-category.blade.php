@@ -222,7 +222,7 @@
         <!-- PRODUCT GRID -->
         <div class="col-span-12 lg:col-span-8 xl:col-span-9 min-w-0">
 
-            <div class="flex flex-nowrap gap-3 items-center justify-between lg:justify-end mb-5">
+            <div class="flex flex-nowrap gap-3 items-center justify-between lg:justify-end mb-4 sm:mb-5">
                 <button id="filterBtn" class="flex items-center justify-center px-2 sm:px-4 h-[42px] lg:hidden border border-[#B4771E] text-[#B4771E] rounded-[8px] transition duration-300 hover:bg-[#B4771E]/5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
@@ -256,7 +256,24 @@
                 </div>
             </div>
 
-            <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-5">
+            <div class="mb-3 flex justify-end sm:hidden" data-product-view-toggle>
+                <div class="inline-flex border border-[#D5D5D5] rounded-md overflow-hidden bg-white shadow-sm">
+                    <button type="button" data-grid-view-toggle="single" class="w-8 h-8 flex items-center justify-center border-r border-[#D5D5D5] bg-[#131615] text-white" aria-label="Single column view">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="1.5"></rect>
+                        </svg>
+                    </button>
+                    <button type="button" data-grid-view-toggle="dual" class="w-8 h-8 flex items-center justify-center bg-white text-[#131615]" aria-label="Two column view">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="4" rx="1"></rect>
+                            <rect x="14" y="11" width="7" height="10" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="productGrid" data-product-grid data-view="single" class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-5">
                 @include('website.partials.product-grid-items')
             </div>
 
@@ -598,6 +615,33 @@
 
     let stockState = 'show';
 
+    function applyProductGridView(view) {
+        const grid = document.getElementById('productGrid');
+        if (!grid) return;
+
+        const normalizedView = (view === 'dual') ? 'dual' : 'single';
+        const singleBtn = document.querySelector('[data-grid-view-toggle="single"]');
+        const dualBtn = document.querySelector('[data-grid-view-toggle="dual"]');
+
+        grid.dataset.view = normalizedView;
+        grid.classList.remove('grid-cols-1', 'grid-cols-2');
+        grid.classList.add(normalizedView === 'single' ? 'grid-cols-1' : 'grid-cols-2');
+
+        if (singleBtn) {
+            singleBtn.classList.toggle('bg-[#131615]', normalizedView === 'single');
+            singleBtn.classList.toggle('text-white', normalizedView === 'single');
+            singleBtn.classList.toggle('bg-white', normalizedView !== 'single');
+            singleBtn.classList.toggle('text-[#131615]', normalizedView !== 'single');
+        }
+
+        if (dualBtn) {
+            dualBtn.classList.toggle('bg-[#131615]', normalizedView === 'dual');
+            dualBtn.classList.toggle('text-white', normalizedView === 'dual');
+            dualBtn.classList.toggle('bg-white', normalizedView !== 'dual');
+            dualBtn.classList.toggle('text-[#131615]', normalizedView !== 'dual');
+        }
+    }
+
     function getFilterData() {
         const cats = [];
         document.querySelectorAll('.category-checkbox:checked').forEach(cb => cats.push(cb.value));
@@ -675,6 +719,7 @@
 
             document.getElementById('productGrid').innerHTML = data.html;
             document.getElementById('paginationWrap').innerHTML = data.pagination || '';
+            applyProductGridView(document.getElementById('productGrid')?.dataset.view || 'single');
 
             if (data.price_range && typeof data.price_range.min === 'number' && typeof data.price_range.max === 'number') {
                 updateCatalogPriceRange(data.price_range.min, data.price_range.max);
@@ -771,6 +816,22 @@
         syncPriceInputBounds();
         updateRangeTrack();
         syncResetButton();
+        applyProductGridView('single');
+
+        const singleToggle = document.querySelector('[data-grid-view-toggle="single"]');
+        const dualToggle = document.querySelector('[data-grid-view-toggle="dual"]');
+
+        if (singleToggle) {
+            singleToggle.addEventListener('click', function () {
+                applyProductGridView('single');
+            });
+        }
+
+        if (dualToggle) {
+            dualToggle.addEventListener('click', function () {
+                applyProductGridView('dual');
+            });
+        }
 
         const sidebar = document.querySelector('aside');
         const filterBtn = document.getElementById('filterBtn');
