@@ -53,6 +53,8 @@ class AppServiceProvider extends ServiceProvider
                 ->orderBy('sort_order')
                 ->get();
             $view->with('sharedCategories', $categories);
+            $view->with('sharedInstagramPosts', \App\Models\Setting::getInstagramPosts());
+            $view->with('sharedInstagramProfileUrl', \App\Models\Setting::getInstagramProfileUrl());
         });
     }
 }

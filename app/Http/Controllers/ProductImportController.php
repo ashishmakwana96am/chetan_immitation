@@ -54,21 +54,21 @@ class ProductImportController extends Controller
 
         $columns = [
             'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',
-            'Purchase Multiplier', 'Sale Multiplier', 'MRP Multiplier', 'Pair Product', 'Pair Sizes',
+            'Purchase Price', 'Sale Price', 'MRP', 'Pair Product', 'Pair Sizes',
             'Product Type', 'Product Variant', 'Product Variant Value',
         ];
 
         $rows = [
             // Normal products — Pair Sizes is blank
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular',        'BAR001', '100', '2.5', '4.125', '4.575', 'F', '',    'N', '',           ''],
-            ['',         'Short Necklace (A)', 'Short Necklace Antique',         'BAR002', '110', '2.5', '4.125', '4.575', 'F', '',    'N', '',           ''],
+            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular',        'BAR001', '100', '250', '415', '460', 'F', '',    'N', '',           ''],
+            ['',         'Short Necklace (A)', 'Short Necklace Antique',         'BAR002', '110', '275', '455', '505', 'F', '',    'N', '',           ''],
             // Pair product with sizes 2 & 4 — prices auto-calculated (proportional to size)
-            ['',         'Long Necklace (R)',  'Long Necklace Regular (Pair)',   'BAR003', '150', '2.5', '4.125', '4.575', 'T', '2,4', 'V', 'Color',      'Gold,Rose Gold'],
+            ['',         'Long Necklace (R)',  'Long Necklace Regular (Pair)',   'BAR003', '150', '375', '620', '685', 'T', '2,4', 'V', 'Color',      'Gold,Rose Gold'],
             // Pair product with single size
-            ['',         'Long Necklace (A)',  'Long Necklace Antique (Pair)',   'BAR006', '180', '2.5', '4.125', '4.575', 'T', '2',   'N', '',           ''],
+            ['',         'Long Necklace (A)',  'Long Necklace Antique (Pair)',   'BAR006', '180', '450', '745', '825', 'T', '2',   'N', '',           ''],
             // Normal variable products
-            ['Bangles & Kada', 'Bangal (R)',   'Bangal Regular',                'BAR004',  '90', '2.5', '4.125', '4.575', 'F', '',    'V', 'Size',        '2.6,3.2,3.5'],
-            ['Rings',    'Fancy Ring',          'Fancy Ring Combo',              'BAR005', '120', '2.5', '4.125', '4.575', 'F', '',    'V', 'Color,Size',  'Gold,Rose Gold|2.2,2.4'],
+            ['Bangles & Kada', 'Bangal (R)',   'Bangal Regular',                'BAR004',  '90', '225', '370', '410', 'F', '',    'V', 'Size',        '2.6,3.2,3.5'],
+            ['Rings',    'Fancy Ring',          'Fancy Ring Combo',              'BAR005', '120', '300', '495', '550', 'F', '',    'V', 'Color,Size',  'Gold,Rose Gold|2.2,2.4'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -110,9 +110,9 @@ class ProductImportController extends Controller
             ['Product Name',      'Yes',       'Full product name. A new product group starts on each row that has a name.'],
             ['Barcode',           'Yes',       'Unique barcode/SKU.'],
             ['Product Code',      'Yes',       'Numeric base code used to calculate prices (e.g. 100).'],
-            ['Purchase Multiplier','No',       'Default: 2.5  — purchase_price = code x multiplier.'],
-            ['Sale Multiplier',   'No',        'Default: 4.125'],
-            ['MRP Multiplier',    'No',        'Default: 4.575'],
+            ['Purchase Price',    'No',        'Optional direct purchase price.'],
+            ['Sale Price',        'No',        'Optional direct sale price.'],
+            ['MRP',               'No',        'Optional direct MRP.'],
             ['Pair Product',      'No',        'T / TRUE / 1 / YES = pair product. Anything else = normal.'],
             ['Pair Sizes',        'No',        'Comma-separated sizes for pair products (e.g. 2,4). Prices auto-calculated — leave blank for non-pair products.'],
             ['Product Type',      'No',        'N = Normal, V = Variable.'],

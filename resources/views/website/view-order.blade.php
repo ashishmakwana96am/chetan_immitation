@@ -569,41 +569,7 @@
 </div>
 @endif
 
-<!-- Follow Our Jewellery Journey Section -->
-<section class="section-space-bottom">
-    <div class="">
-        <div class="text-center px-5">
-            <h2 class="hero-title">
-                Follow Our Jewellery Journey
-            </h2>
-        </div>
-        <div class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle1.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle2.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle3.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle4.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle5.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-            <a href="#" class="group overflow-hidden">
-                <img src="{{ asset('website/assets/images/Rectangle6.png') }}" alt="" class="w-full h-[180px] md:h-[220px] lg:h-[320px] object-cover transition duration-500 group-hover:scale-105">
-            </a>
-        </div>
-        <div class="text-center mt-8 lg:mt-10">
-            <a href="#" class="common-btn">
-                Follow Us on Instagram
-            </a>
-        </div>
-    </div>
-</section>
+@include('website.partials.instagram-journey')
 @endsection
 
 @section('page-js')

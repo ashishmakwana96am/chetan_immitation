@@ -277,8 +277,12 @@
                 @include('website.partials.product-grid-items')
             </div>
 
-            <div id="paginationWrap" class="w-full max-w-full overflow-visible">
-                {{ $products->links('vendor.pagination.tailwind') }}
+            <div id="infiniteScrollLoader" class="w-full text-center py-8 hidden col-span-full">
+                <div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div>
+                <p class="mt-2 text-sm text-[#757575] font-medium">Loading more products...</p>
+            </div>
+            <div id="allProductsLoadedMsg" class="w-full text-center py-8 hidden col-span-full">
+                <p class="text-sm text-[#8A8A8A] font-medium">All products loaded</p>
             </div>
 
         </div>
@@ -294,6 +298,9 @@
     let catalogMaxPrice = {{ $catalogMaxPrice }};
     let filterTimeout;
     let priceFilterTouched = {{ $hasPriceFilter ? 'true' : 'false' }};
+    let currentPage = {{ $products->currentPage() }};
+    let hasMorePages = {{ $products->hasMorePages() ? 'true' : 'false' }};
+    let isLoadingMore = false;
 
     function getPriceStep() {
         const range = catalogMaxPrice - catalogMinPrice;
@@ -681,11 +688,23 @@
         };
     }
 
-    function fetchProducts(page) {
-        const filterData = getFilterData();
+    function fetchProducts(page, isAppend = false) {
+        if (isAppend && (isLoadingMore || !hasMorePages)) return;
 
-        document.getElementById('productGrid').innerHTML =
-            '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
+        const filterData = getFilterData();
+        const loaderEl = document.getElementById('infiniteScrollLoader');
+        const allLoadedEl = document.getElementById('allProductsLoadedMsg');
+        const gridEl = document.getElementById('productGrid');
+
+        if (isAppend) {
+            isLoadingMore = true;
+            if (loaderEl) loaderEl.classList.remove('hidden');
+        } else {
+            if (allLoadedEl) allLoadedEl.classList.add('hidden');
+            if (loaderEl) loaderEl.classList.add('hidden');
+            gridEl.innerHTML =
+                '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
+        }
 
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
@@ -717,32 +736,52 @@
                 throw new Error('Invalid filter response');
             }
 
-            document.getElementById('productGrid').innerHTML = data.html;
-            document.getElementById('paginationWrap').innerHTML = data.pagination || '';
-            applyProductGridView(document.getElementById('productGrid')?.dataset.view || 'single');
+            currentPage = data.current_page || page;
+            hasMorePages = Boolean(data.has_more);
+
+            if (!isAppend) {
+                gridEl.innerHTML = data.html;
+                if (gridEl) {
+                    const yOffset = -150;
+                    const y = gridEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+            } else {
+                gridEl.insertAdjacentHTML('beforeend', data.html);
+            }
+
+            applyProductGridView(gridEl?.dataset.view || 'single');
 
             if (data.price_range && typeof data.price_range.min === 'number' && typeof data.price_range.max === 'number') {
                 updateCatalogPriceRange(data.price_range.min, data.price_range.max);
             }
 
-            const gridEl = document.getElementById('productGrid');
-            if (gridEl) {
-                const yOffset = -150;
-                const y = gridEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
+            if (loaderEl) loaderEl.classList.add('hidden');
+            if (allLoadedEl) {
+                if (!hasMorePages && data.count > 0) {
+                    allLoadedEl.classList.remove('hidden');
+                } else {
+                    allLoadedEl.classList.add('hidden');
+                }
             }
+
+            isLoadingMore = false;
         })
         .catch(function (err) {
+            isLoadingMore = false;
+            if (loaderEl) loaderEl.classList.add('hidden');
+
             if (err && err.message === 'csrf_expired') return;
 
             console.error('Filtering failed:', err);
-            document.getElementById('productGrid').innerHTML =
-                '<div class="col-span-full text-center py-16">' +
-                    '<svg class="mx-auto w-10 h-10 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>' +
-                    '<p class="text-gray-500 font-medium">Could not load products.</p>' +
-                    '<button onclick="fetchProducts(1)" class="mt-3 px-4 py-2 text-sm border border-[#B4771E] text-[#B4771E] rounded hover:bg-[#B4771E] hover:text-white transition">Try Again</button>' +
-                '</div>';
-            document.getElementById('paginationWrap').innerHTML = '';
+            if (!isAppend) {
+                gridEl.innerHTML =
+                    '<div class="col-span-full text-center py-16">' +
+                        '<svg class="mx-auto w-10 h-10 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>' +
+                        '<p class="text-gray-500 font-medium">Could not load products.</p>' +
+                        '<button onclick="fetchProducts(1)" class="mt-3 px-4 py-2 text-sm border border-[#B4771E] text-[#B4771E] rounded hover:bg-[#B4771E] hover:text-white transition">Try Again</button>' +
+                    '</div>';
+            }
         });
     }
 
@@ -846,6 +885,20 @@
                 sidebarOverlay.classList.add('hidden');
             });
         }
+
+        // Infinite Scroll on Page Scroll
+        window.addEventListener('scroll', function () {
+            if (!hasMorePages || isLoadingMore) return;
+            const gridEl = document.getElementById('productGrid');
+            if (!gridEl) return;
+
+            const rect = gridEl.getBoundingClientRect();
+            const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+
+            if (rect.bottom - windowHeight < 450) {
+                fetchProducts(currentPage + 1, true);
+            }
+        }, { passive: true });
     });
 
     document.addEventListener("DOMContentLoaded", function () {

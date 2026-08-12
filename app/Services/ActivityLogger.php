@@ -22,12 +22,12 @@ class ActivityLogger
         ?string $description = null
     ): void {
         try {
-            $user = auth('web')->user();
+            $user = auth()->user() ?? auth('web')->user();
 
             UtilityReport::create([
                 'user_id'       => $user?->id,
                 'user_name'     => $user?->name,
-                'user_role'     => $user?->role?->name,
+                'user_role'     => $user ? ($user->roles->first()?->name ?? 'User') : null,
                 'location_id'   => $user?->location_id,
                 'location_name' => $user?->location_id ? Location::find($user->location_id)?->name : null,
                 'module'        => $module,

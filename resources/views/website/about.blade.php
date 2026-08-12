@@ -163,4 +163,6 @@
         </div>
     </section>
 
+    @include('website.partials.instagram-journey')
+
 @endsection
