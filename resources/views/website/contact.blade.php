@@ -123,11 +123,16 @@
                             Mota Varachha, Surat, Gujarat 394101, India
                         </a>
 
-                        <a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
+                        <a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 mb-3 hover:text-[#B4771E] transition">
                             <span class="font-normal text-[#3D403F]">Branch - 2:</span>
                             Shop No. 4, Narayan Flats,
                             Narayannagar Chok, Singanpore Road,
                             Katargam, Surat, Gujarat 395004, India
+                        </a>
+
+                        <a href="https://maps.google.com/?q=SHOP+NO.+217+,+CITY+MALL,+STATION+ROAD+,BARDOLI+394601" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
+                            <span class="font-normal text-[#3D403F]">Branch - 3:</span>
+                            Shop No. 217, City Mall, Station Road, Bardoli 394601, Gujarat, India
                         </a>
                     </div>
 
@@ -217,8 +222,8 @@
     <div class="container-1440">
 
         <div class="text-center mb-10 lg:mb-12">
-            <h2 class="font-moglan hero-title">Visit Our Store</h2>
-            <p class="hero-para">Discover our latest jewellery collections and receive personalized assistance at our store.</p>
+            <h2 class="font-moglan hero-title">Visit Our Stores</h2>
+            <p class="hero-para">Discover our latest jewellery collections and receive personalized assistance at our stores.</p>
         </div>
 
         <div id="map" class="w-full h-[450px] lg:h-[500px] rounded-sm border border-[#D5D5D5] z-10"></div>
@@ -266,7 +271,11 @@
             .addTo(map)
             .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 2</strong><br><span style="color:#666;">Katargam, Surat</span><br><a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
 
-        const group = L.featureGroup([marker1, marker2]);
+        const marker3 = L.marker([21.1241, 73.1130])
+            .addTo(map)
+            .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 3</strong><br><span style="color:#666;">Station Road, Bardoli</span><br><a href="https://maps.google.com/?q=SHOP+NO.+217+,+CITY+MALL,+STATION+ROAD+,BARDOLI+394601" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
+
+        const group = L.featureGroup([marker1, marker2, marker3]);
         map.fitBounds(group.getBounds().pad(0.3));
         marker1.openPopup();
         const form = $('#contactForm');
