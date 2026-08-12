@@ -1751,4 +1751,96 @@ class ProductController extends Controller
         return response($pngData, 200)->header('Content-Type', 'image/png');
     }
 
+    public function bulkToggleWebsite(Request $request)
+    {
+        $this->authorize('edit products');
+
+        $validator = Validator::make($request->all(), [
+            'hide_from_website' => 'required|in:0,1',
+            'product_ids'       => 'nullable|array',
+            'product_ids.*'     => 'integer|exists:products,id',
+            'category_id'       => 'nullable',
+            'apply_to_all'      => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $hideFromWebsite = (int) $request->hide_from_website;
+        $productsToUpdate = collect();
+
+        if ($request->boolean('apply_to_all')) {
+            $query = Product::query();
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%")
+                        ->orWhere('product_code', 'like', "%{$search}%");
+                });
+            }
+            if ($request->status !== null && $request->status !== '') {
+                $query->where('status', $request->status);
+            }
+            $productsToUpdate = $query->get(['id', 'name', 'barcode', 'hide_from_website']);
+        } elseif ($request->filled('category_id')) {
+            $productsToUpdate = Product::where('category_id', $request->category_id)->get(['id', 'name', 'barcode', 'hide_from_website']);
+        } elseif (!empty($request->product_ids)) {
+            $productsToUpdate = Product::whereIn('id', $request->product_ids)->get(['id', 'name', 'barcode', 'hide_from_website']);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select at least one product or category to update.',
+            ], 422);
+        }
+
+        if ($productsToUpdate->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No matching products found to update.',
+            ], 422);
+        }
+
+        $productIds = $productsToUpdate->pluck('id')->toArray();
+        $count = Product::whereIn('id', $productIds)->update(['hide_from_website' => $hideFromWebsite]);
+
+        $productListInfo = $productsToUpdate->map(function ($p) {
+            $barcode = $p->barcode ? " [Barcode: {$p->barcode}]" : "";
+            return "{$p->name}{$barcode}";
+        })->toArray();
+
+        $firstFew = array_slice($productListInfo, 0, 10);
+        $detailsText = implode(', ', $firstFew);
+        if (count($productListInfo) > 10) {
+            $remaining = count($productListInfo) - 10;
+            $detailsText .= " and {$remaining} more product(s)";
+        }
+
+        $actionText = $hideFromWebsite ? 'hidden from' : 'made visible on';
+
+        ActivityLogger::log(
+            'Products',
+            'update',
+            null,
+            ['products_count' => $count],
+            [
+                'hide_from_website' => $hideFromWebsite,
+                'updated_products' => $productListInfo
+            ],
+            "Bulk updated {$count} product(s) to be {$actionText} website. Products: {$detailsText}"
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully updated {$count} product(s) to be {$actionText} the website.",
+            'count'   => $count,
+        ]);
+    }
 }

@@ -136,31 +136,49 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
-        $purchaseMultiplier = is_numeric($group['purchase_multiplier']) ? (float) $group['purchase_multiplier'] : 2.5;
-        $saleMultiplier = is_numeric($group['sale_multiplier']) ? (float) $group['sale_multiplier'] : 4.125;
-        $mrpMultiplier = is_numeric($group['mrp_multiplier']) ? (float) $group['mrp_multiplier'] : 4.575;
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
 
-        $purchasePrice = $code * $purchaseMultiplier;
-
-        if ($isPair) {
-            $salePrice = $this->roundToNearest5(($code / 2) * $saleMultiplier);
-            $mrp = $this->roundToNearest5(($code / 2) * $mrpMultiplier);
-            $pairSalePrice = $this->roundToNearest5($code * $saleMultiplier);
-            $pairMrp = $this->roundToNearest5($code * $mrpMultiplier);
+        // Purchase Price & Multiplier
+        if (isset($group['purchase_price']) && is_numeric($group['purchase_price']) && (float) $group['purchase_price'] > 0) {
+            $purchasePrice = (float) $group['purchase_price'];
+            $purchaseMultiplier = $code > 0 ? round($purchasePrice / $code, 4) : 2.5;
         } else {
-            $salePrice = $this->roundToNearest5($code * $saleMultiplier);
-            $mrp = $this->roundToNearest5($code * $mrpMultiplier);
-            $pairSalePrice = null;
-            $pairMrp = null;
+            $purchaseMultiplier = is_numeric($group['purchase_multiplier'] ?? null) ? (float) $group['purchase_multiplier'] : 2.5;
+            $purchasePrice = $code * $purchaseMultiplier;
+        }
+
+        // Sale Price & Multiplier
+        if (isset($group['sale_price']) && is_numeric($group['sale_price']) && (float) $group['sale_price'] > 0) {
+            $salePrice = (float) $group['sale_price'];
+            $saleMultiplier = $code > 0 ? round($salePrice / $code, 4) : 4.125;
+        } else {
+            $saleMultiplier = is_numeric($group['sale_multiplier'] ?? null) ? (float) $group['sale_multiplier'] : 4.125;
+            if ($isPair) {
+                $salePrice = $this->roundToNearest5(($code / 2) * $saleMultiplier);
+            } else {
+                $salePrice = $this->roundToNearest5($code * $saleMultiplier);
+            }
+        }
+
+        // MRP & Multiplier
+        if (isset($group['mrp']) && is_numeric($group['mrp']) && (float) $group['mrp'] > 0) {
+            $mrp = (float) $group['mrp'];
+            $mrpMultiplier = $code > 0 ? round($mrp / $code, 4) : 4.575;
+        } else {
+            $mrpMultiplier = is_numeric($group['mrp_multiplier'] ?? null) ? (float) $group['mrp_multiplier'] : 4.575;
+            if ($isPair) {
+                $mrp = $this->roundToNearest5(($code / 2) * $mrpMultiplier);
+            } else {
+                $mrp = $this->roundToNearest5($code * $mrpMultiplier);
+            }
         }
 
         $customSizes = null;
         if ($isPair && !empty($group['pair_sizes'])) {
             $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
 
-            if (!empty($customSizes)) {
+            if (!empty($customSizes) && (!isset($group['sale_price']) || !is_numeric($group['sale_price']))) {
                 $salePrice = $customSizes[0]['sale_price'];
                 $mrp = $customSizes[0]['mrp'];
             }
@@ -238,30 +256,48 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
-        $purchaseMultiplier = is_numeric($group['purchase_multiplier']) ? (float) $group['purchase_multiplier'] : 2.5;
-        $saleMultiplier = is_numeric($group['sale_multiplier']) ? (float) $group['sale_multiplier'] : 4.125;
-        $mrpMultiplier = is_numeric($group['mrp_multiplier']) ? (float) $group['mrp_multiplier'] : 4.575;
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
 
-        $purchasePrice = $code * $purchaseMultiplier;
-
-        if ($isPair) {
-            $salePrice = $this->roundToNearest5(($code / 2) * $saleMultiplier);
-            $mrp = $this->roundToNearest5(($code / 2) * $mrpMultiplier);
-            $pairSalePrice = $this->roundToNearest5($code * $saleMultiplier);
-            $pairMrp = $this->roundToNearest5($code * $mrpMultiplier);
+        // Purchase Price & Multiplier
+        if (isset($group['purchase_price']) && is_numeric($group['purchase_price']) && (float) $group['purchase_price'] > 0) {
+            $purchasePrice = (float) $group['purchase_price'];
+            $purchaseMultiplier = $code > 0 ? round($purchasePrice / $code, 4) : 2.5;
         } else {
-            $salePrice = $this->roundToNearest5($code * $saleMultiplier);
-            $mrp = $this->roundToNearest5($code * $mrpMultiplier);
-            $pairSalePrice = null;
-            $pairMrp = null;
+            $purchaseMultiplier = is_numeric($group['purchase_multiplier'] ?? null) ? (float) $group['purchase_multiplier'] : 2.5;
+            $purchasePrice = $code * $purchaseMultiplier;
+        }
+
+        // Sale Price & Multiplier
+        if (isset($group['sale_price']) && is_numeric($group['sale_price']) && (float) $group['sale_price'] > 0) {
+            $salePrice = (float) $group['sale_price'];
+            $saleMultiplier = $code > 0 ? round($salePrice / $code, 4) : 4.125;
+        } else {
+            $saleMultiplier = is_numeric($group['sale_multiplier'] ?? null) ? (float) $group['sale_multiplier'] : 4.125;
+            if ($isPair) {
+                $salePrice = $this->roundToNearest5(($code / 2) * $saleMultiplier);
+            } else {
+                $salePrice = $this->roundToNearest5($code * $saleMultiplier);
+            }
+        }
+
+        // MRP & Multiplier
+        if (isset($group['mrp']) && is_numeric($group['mrp']) && (float) $group['mrp'] > 0) {
+            $mrp = (float) $group['mrp'];
+            $mrpMultiplier = $code > 0 ? round($mrp / $code, 4) : 4.575;
+        } else {
+            $mrpMultiplier = is_numeric($group['mrp_multiplier'] ?? null) ? (float) $group['mrp_multiplier'] : 4.575;
+            if ($isPair) {
+                $mrp = $this->roundToNearest5(($code / 2) * $mrpMultiplier);
+            } else {
+                $mrp = $this->roundToNearest5($code * $mrpMultiplier);
+            }
         }
 
         $customSizes = null;
         if ($isPair && !empty($group['pair_sizes'] ?? '')) {
             $customSizes = $this->buildCustomSizes($group['pair_sizes'], $code, $saleMultiplier, $mrpMultiplier);
-            if (!empty($customSizes)) {
+            if (!empty($customSizes) && (!isset($group['sale_price']) || !is_numeric($group['sale_price']))) {
                 $salePrice = $customSizes[0]['sale_price'];
                 $mrp = $customSizes[0]['mrp'];
             }

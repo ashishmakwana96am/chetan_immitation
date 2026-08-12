@@ -20,6 +20,9 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
             font-size: 0.75rem;
         }
+        #bulkActionsDropdownBtn.no-caret::after {
+            display: none !important;
+        }
     </style>
 @endsection
 
@@ -27,9 +30,31 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Products List</h4>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            <button type="button" id="bulkPrintBarcodesBtn" class="btn btn-label-primary d-none">
-                <i class="ti ti-printer me-1"></i> <span id="bulkPrintBtnText">Bulk Print Barcodes</span>
-            </button>
+            {{-- Bulk Actions Dropdown (Visible only when checkboxes are checked) --}}
+            <div class="dropdown d-none" id="bulkActionsDropdownContainer">
+                <button type="button" class="btn btn-outline-primary dropdown-toggle no-caret d-inline-flex align-items-center" data-bs-toggle="dropdown" aria-expanded="false" id="bulkActionsDropdownBtn">
+                    <i class="ti ti-layers-subtract me-1 fs-5"></i>
+                    <span id="bulkActionsBtnText" class="me-1">Bulk Actions</span>
+                    <i class="ti ti-chevron-down fs-6"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-start shadow-sm" style="border-radius: 8px;">
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center py-2" href="javascript:void(0);" id="bulkActionPrintBarcodes">
+                            <i class="ti ti-printer me-2 fs-5 text-primary"></i> <span>Bulk Print Barcodes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center py-2" href="javascript:void(0);" id="bulkActionHideWebsite">
+                            <i class="ti ti-eye-off me-2 fs-5 text-danger"></i> <span>Hide from Website</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center py-2" href="javascript:void(0);" id="bulkActionShowWebsite">
+                            <i class="ti ti-eye me-2 fs-5 text-success"></i> <span>Show on Website</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
             {{-- Filter Dropdown --}}
             <div class="dropdown d-inline-block" id="filterDropdownContainer">
@@ -362,7 +387,7 @@
                     '.code-line{font-size:5.5pt !important;font-weight:normal !important;line-height:1 !important;white-space:nowrap;overflow:hidden;}' +
                     '.barcode-img{width:22mm !important;height:3.5mm !important;object-fit:fill !important;margin:0 !important;display:block;}' +
                     '</style>' +
-                    '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};<\/script>' +
+                    '<script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};setTimeout(function(){window.close();},500);},500);};</' + 'script>' +
                     '</head><body>' + body + '</body></html>';
             };
 
@@ -493,34 +518,88 @@
                 $('.product-select-checkbox').each(function() {
                     this.checked = checked;
                 });
-                toggleBulkPrintButton();
+                toggleBulkActionsDropdown();
             });
 
             $(document).on('change', '.product-select-checkbox', function() {
                 const totalCheckboxes = $('.product-select-checkbox').length;
                 const checkedCheckboxes = $('.product-select-checkbox:checked').length;
                 $('#selectAllProducts').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
-                toggleBulkPrintButton();
+                toggleBulkActionsDropdown();
             });
 
             // When Datatable redraws (e.g. pagination, sorting), reset Select All & checkboxes
             table.on('draw', function() {
                 $('#selectAllProducts').prop('checked', false);
-                toggleBulkPrintButton();
+                toggleBulkActionsDropdown();
             });
 
-            function toggleBulkPrintButton() {
+            function toggleBulkActionsDropdown() {
                 const checkedCount = $('.product-select-checkbox:checked').length;
                 if (checkedCount > 0) {
-                    $('#bulkPrintBarcodesBtn').removeClass('d-none');
-                    $('#bulkPrintBtnText').text(`Bulk Print Barcodes (${checkedCount})`);
+                    $('#bulkActionsDropdownContainer').removeClass('d-none');
+                    $('#bulkActionsBtnText').text(`Bulk Actions (${checkedCount})`);
                 } else {
-                    $('#bulkPrintBarcodesBtn').addClass('d-none');
+                    $('#bulkActionsDropdownContainer').addClass('d-none');
                 }
             }
 
-            // Bulk print modal triggers and operations
-            $(document).on('click', '#bulkPrintBarcodesBtn', function() {
+            // 1. Bulk Action: Print Barcodes
+            $(document).on('click', '#bulkActionPrintBarcodes', function() {
+                openBulkBarcodeModal();
+            });
+
+            // 2 & 3. Bulk Action: Hide from Website / Show on Website
+            $(document).on('click', '#bulkActionHideWebsite, #bulkActionShowWebsite', function() {
+                const isHide = $(this).attr('id') === 'bulkActionHideWebsite';
+                const actionLabel = isHide ? 'Hide from Website' : 'Show on Website';
+                const checkedIds = [];
+                $('.product-select-checkbox:checked').each(function() {
+                    checkedIds.push($(this).val());
+                });
+
+                if (checkedIds.length === 0) {
+                    toastr.warning('Please select at least one product.');
+                    return;
+                }
+
+                Swal.fire({
+                    title: `${actionLabel}?`,
+                    text: `Are you sure you want to ${isHide ? 'hide' : 'show'} ${checkedIds.length} selected product(s) ${isHide ? 'from' : 'on'} the website?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: `Yes, ${isHide ? 'Hide' : 'Show'}`,
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-primary me-2',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '{{ route('admin.products.bulk-toggle-website') }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                hide_from_website: isHide ? 1 : 0,
+                                product_ids: checkedIds
+                            },
+                            success: function(response) {
+                                toastr.success(response.message);
+                                table.draw(false);
+                            },
+                            error: function(xhr) {
+                                const msg = xhr.responseJSON?.message || 'Something went wrong.';
+                                toastr.error(msg);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Function to open Bulk Print Barcode modal
+            function openBulkBarcodeModal() {
                 $('#bulkBarcodeModal').remove();
                 
                 let listHtml = '';
@@ -627,7 +706,7 @@
                 $('body').append(modalHtml);
                 const modalEl = new bootstrap.Modal(document.getElementById('bulkBarcodeModal'));
                 modalEl.show();
-            });
+            }
 
             // Apply bulk quantity
             $(document).on('click', '#applyBulkDefaultQty', function() {

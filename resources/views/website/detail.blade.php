@@ -51,12 +51,12 @@
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
-                            <div class="swiper-slide">
-                                <img src="{{ $img->image_url }}" class="w-full h-[573px] object-cover ">
+                            <div class="swiper-slide overflow-hidden relative">
+                                <img src="{{ $img->image_url }}" class="zoom-main-img w-full h-[573px] object-cover transition-transform duration-150 ease-out select-none">
                             </div>
                             @empty
-                            <div class="swiper-slide">
-                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="w-full h-[573px] object-cover ">
+                            <div class="swiper-slide overflow-hidden relative">
+                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img w-full h-[573px] object-cover transition-transform duration-150 ease-out select-none">
                             </div>
                             @endforelse
                         </div>
@@ -1954,5 +1954,32 @@ Order Amount
         }
     });
 })();
+</script>
+
+<script>
+function initProductImageZoom() {
+    const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
+    slides.forEach((slide) => {
+        const img = slide.querySelector('.zoom-main-img');
+        if (!img) return;
+
+        slide.addEventListener('mousemove', (e) => {
+            const rect = slide.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            img.style.transformOrigin = `${x}% ${y}%`;
+            img.style.transform = 'scale(2.5)';
+        });
+
+        slide.addEventListener('mouseleave', () => {
+            img.style.transform = 'scale(1)';
+            img.style.transformOrigin = 'center center';
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initProductImageZoom();
+});
 </script>
 @endsection

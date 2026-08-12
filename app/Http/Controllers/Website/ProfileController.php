@@ -190,7 +190,10 @@ class ProfileController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        return view('website.view-order', compact('order', 'reviewsByProduct'));
+        $instagramPosts = \App\Models\Setting::getInstagramPosts();
+        $instagramProfileUrl = \App\Models\Setting::getInstagramProfileUrl();
+
+        return view('website.view-order', compact('order', 'reviewsByProduct', 'instagramPosts', 'instagramProfileUrl'));
     }
 
     /**

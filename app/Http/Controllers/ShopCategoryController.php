@@ -95,10 +95,12 @@ class ShopCategoryController extends Controller
             $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
 
             return response()->json([
-                'html' => $gridHtml,
-                'pagination' => (string) $data['products']->links('vendor.pagination.tailwind'),
-                'count' => $data['products']->total(),
-                'price_range' => [
+                'html'         => $gridHtml,
+                'has_more'     => $data['products']->hasMorePages(),
+                'current_page' => $data['products']->currentPage(),
+                'last_page'    => $data['products']->lastPage(),
+                'count'        => $data['products']->total(),
+                'price_range'  => [
                     'min' => $data['catalogMinPrice'],
                     'max' => $data['catalogMaxPrice'],
                 ],
@@ -144,10 +146,12 @@ class ShopCategoryController extends Controller
             $gridHtml = view('website.partials.product-grid-items', ['products' => $data['products']])->render();
 
             return response()->json([
-                'html'        => $gridHtml,
-                'pagination'  => (string) $data['products']->links('vendor.pagination.tailwind'),
-                'count'       => $data['products']->total(),
-                'price_range' => [
+                'html'         => $gridHtml,
+                'has_more'     => $data['products']->hasMorePages(),
+                'current_page' => $data['products']->currentPage(),
+                'last_page'    => $data['products']->lastPage(),
+                'count'        => $data['products']->total(),
+                'price_range'  => [
                     'min' => $data['catalogMinPrice'],
                     'max' => $data['catalogMaxPrice'],
                 ],
@@ -282,7 +286,7 @@ class ShopCategoryController extends Controller
                 $query->latest();
         }
 
-        $products = $query->paginate(9)->onEachSide(1);
+        $products = $query->paginate(12)->onEachSide(1);
 
         $sizes = $this->getSizes();
         $hasPriceFilter = !empty($filters['min_price']) || !empty($filters['max_price']);
