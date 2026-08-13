@@ -281,9 +281,6 @@
                 <div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div>
                 <p class="mt-2 text-sm text-[#757575] font-medium">Loading more products...</p>
             </div>
-            <div id="allProductsLoadedMsg" class="w-full text-center py-8 hidden col-span-full">
-                <p class="text-sm text-[#8A8A8A] font-medium">All products loaded</p>
-            </div>
 
         </div>
     </div>
@@ -308,7 +305,9 @@
     }
 
     function clampPriceValue(value, fallback) {
-        const parsed = parseInt(value);
+        if (value === null || value === undefined) return fallback;
+        const cleanVal = String(value).replace(/,/g, '').trim();
+        const parsed = parseInt(cleanVal, 10);
         if (Number.isNaN(parsed)) return fallback;
         return Math.max(catalogMinPrice, Math.min(catalogMaxPrice, parsed));
     }
@@ -432,7 +431,6 @@
         syncSubcategoriesWhenCategoryChecked(categoryCheckbox);
         syncCategoryDropdown('cat-' + categoryCheckbox.dataset.categoryId);
         clearHeaderSearch();
-        priceFilterTouched = false;
         applyFilters();
     }
 
@@ -456,7 +454,6 @@
 
         syncCategoryDropdown('cat-' + parentCatId);
         clearHeaderSearch();
-        priceFilterTouched = false;
         applyFilters();
     }
 
@@ -505,7 +502,8 @@
         const input = document.getElementById(type + 'PriceInput');
         const range = document.getElementById(type + 'Range');
         
-        let val = parseInt(input.value);
+        const cleanVal = String(input.value || '').replace(/,/g, '').trim();
+        let val = parseInt(cleanVal, 10);
         if (!isNaN(val)) {
             if (val >= catalogMinPrice && val <= catalogMaxPrice) {
                 range.value = val;
@@ -541,7 +539,7 @@
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
         const step = getPriceStep();
-        let val = clampPriceValue((parseInt(input.value) || catalogMinPrice) + step, catalogMinPrice);
+        let val = clampPriceValue(clampPriceValue(input.value, catalogMinPrice) + step, catalogMinPrice);
         const max = clampPriceValue(document.getElementById('maxPriceInput').value, catalogMaxPrice);
         if (val >= max) val = Math.max(catalogMinPrice, max - step);
         input.value = val;
@@ -555,7 +553,7 @@
         const input = document.getElementById('minPriceInput');
         const range = document.getElementById('minRange');
         const step = getPriceStep();
-        let val = clampPriceValue((parseInt(input.value) || catalogMinPrice) - step, catalogMinPrice);
+        let val = clampPriceValue(clampPriceValue(input.value, catalogMinPrice) - step, catalogMinPrice);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -567,7 +565,7 @@
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
         const step = getPriceStep();
-        let val = clampPriceValue((parseInt(input.value) || catalogMaxPrice) + step, catalogMaxPrice);
+        let val = clampPriceValue(clampPriceValue(input.value, catalogMaxPrice) + step, catalogMaxPrice);
         input.value = val;
         range.value = val;
         updateRangeTrack();
@@ -579,7 +577,7 @@
         const input = document.getElementById('maxPriceInput');
         const range = document.getElementById('maxRange');
         const step = getPriceStep();
-        let val = clampPriceValue((parseInt(input.value) || catalogMaxPrice) - step, catalogMaxPrice);
+        let val = clampPriceValue(clampPriceValue(input.value, catalogMaxPrice) - step, catalogMaxPrice);
         const min = clampPriceValue(document.getElementById('minPriceInput').value, catalogMinPrice);
         if (val <= min) val = Math.min(catalogMaxPrice, min + step);
         input.value = val;
@@ -589,8 +587,10 @@
     }
 
     function updateRangeTrack() {
-        const min = parseInt(document.getElementById('minRange').value);
-        const max = parseInt(document.getElementById('maxRange').value);
+        const minVal = String(document.getElementById('minRange').value || catalogMinPrice).replace(/,/g, '');
+        const maxVal = String(document.getElementById('maxRange').value || catalogMaxPrice).replace(/,/g, '');
+        const min = parseInt(minVal, 10) || catalogMinPrice;
+        const max = parseInt(maxVal, 10) || catalogMaxPrice;
         const total = catalogMaxPrice - catalogMinPrice || 1;
         const leftPct = ((min - catalogMinPrice) / total) * 100;
         const rightPct = 100 - ((max - catalogMinPrice) / total) * 100;
@@ -693,14 +693,12 @@
 
         const filterData = getFilterData();
         const loaderEl = document.getElementById('infiniteScrollLoader');
-        const allLoadedEl = document.getElementById('allProductsLoadedMsg');
         const gridEl = document.getElementById('productGrid');
 
         if (isAppend) {
             isLoadingMore = true;
             if (loaderEl) loaderEl.classList.remove('hidden');
         } else {
-            if (allLoadedEl) allLoadedEl.classList.add('hidden');
             if (loaderEl) loaderEl.classList.add('hidden');
             gridEl.innerHTML =
                 '<div class="col-span-full text-center py-16"><div class="inline-block w-8 h-8 border-4 border-[#B4771E] border-t-transparent rounded-full animate-spin"></div><p class="mt-3 text-gray-500">Loading...</p></div>';
@@ -757,14 +755,6 @@
             }
 
             if (loaderEl) loaderEl.classList.add('hidden');
-            if (allLoadedEl) {
-                if (!hasMorePages && data.count > 0) {
-                    allLoadedEl.classList.remove('hidden');
-                } else {
-                    allLoadedEl.classList.add('hidden');
-                }
-            }
-
             isLoadingMore = false;
         })
         .catch(function (err) {

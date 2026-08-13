@@ -24,10 +24,10 @@
                         <a href="{{ route('shop-by-category') }}" class="common-btn">
                             Explore Category
                         </a>
-                        <a href="{{ route('shop-by-category') }}"
+                        <a href="#most-loved-jewellery"
                             class="border-2 border-[#131615] common-btn font-semibold bg-transparent text-[#131615] hover:text-[#fff] hover:bg-[#B4771E] hover:border-[#B4771E]">
                             View Bridal Jewellery
-                            </a>
+                        </a>
                     </div>
                 </div>
                 <div class="col-span-12 md:hidden mt-2">
@@ -106,7 +106,7 @@
 
     <!-- Most Loved Jewellery -->
     @if(isset($lovedProducts) && count($lovedProducts) > 0)
-    <section class="section-space">
+    <section id="most-loved-jewellery" class="section-space">
         <div class="container-1440">
             <div class="text-center mb-12">
                 <h2 class="hero-title">Our Most Loved Jewellery</h2>
@@ -230,6 +230,17 @@ $(document).ready(function(){
             }
         });
     }, { threshold: 0.1 });
+
+    $('a[href="#most-loved-jewellery"]').on('click', function(e) {
+        e.preventDefault();
+        const target = $('#most-loved-jewellery');
+        if (target.length) {
+            const headerHeight = $('header').outerHeight() || 80;
+            $('html, body').animate({
+                scrollTop: target.offset().top - headerHeight
+            }, 600);
+        }
+    });
 
     stats.forEach(stat => observer.observe(stat));
 });

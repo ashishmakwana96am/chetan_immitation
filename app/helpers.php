@@ -327,3 +327,34 @@ if (!function_exists('format_stock_quantity')) {
         }
     }
 }
+
+if (!function_exists('can_modify_past_date_record')) {
+    /**
+     * Check if current authenticated user has permission to edit/delete past date records.
+     */
+    function can_modify_past_date_record($date): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->hasRole('super-admin') || $user->can('edit past date records')) {
+            return true;
+        }
+
+        if (!$date) {
+            return true;
+        }
+
+        $formattedDate = $date instanceof \Carbon\Carbon
+            ? $date->format('Y-m-d')
+            : date('Y-m-d', strtotime($date));
+
+        if ($formattedDate < date('Y-m-d')) {
+            return false;
+        }
+
+        return true;
+    }
+}

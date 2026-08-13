@@ -86,12 +86,16 @@
                                 </a>
     
                                 <div class="flex items-center gap-2 mt-3">
+                                    @php
+                                        $wlSalePrice = $prod->display_sale_price;
+                                        $wlMrp = $prod->display_mrp;
+                                    @endphp
                                     <span class="text-[#B4771E] text-base md:text-[22px] lg:text-[26px] font-bold">
-                                        {{ website_price($prod->sale_price) }}
+                                        {{ website_price($wlSalePrice) }}
                                     </span>
-                                    @if($prod->mrp && $prod->mrp > $prod->sale_price)
+                                    @if($wlMrp && $wlMrp > $wlSalePrice)
                                     <span class="text-[#757575] line-through text-base md:text-lg">
-                                        {{ website_price($prod->mrp) }}
+                                        {{ website_price($wlMrp) }}
                                     </span>
                                     @endif
                                 </div>

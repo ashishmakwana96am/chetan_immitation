@@ -49,16 +49,19 @@ class ExpenseController extends Controller
         $canDelete = $user->can('delete expenses');
 
         $data = $expenses->map(function ($expense, $index) use ($canEdit, $canDelete) {
+            $canEditRecord = $canEdit && can_modify_past_date_record($expense->expense_date ?? $expense->created_at);
+            $canDeleteRecord = $canDelete && can_modify_past_date_record($expense->expense_date ?? $expense->created_at);
+
             $actions = '';
-            if ($canEdit || $canDelete) {
+            if ($canEditRecord || $canDeleteRecord) {
                 $actions = '<div class="dropdown table-action-dropdown">';
                 $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
                 $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
-                if ($canEdit) {
+                if ($canEditRecord) {
                     $actions .= '<button class="dropdown-item" data-common-modal="' . route('admin.expenses.edit', $expense) . '"><i class="ti ti-pencil me-2"></i>Edit</button>';
                 }
-                if ($canDelete) {
-                    if ($canEdit) {
+                if ($canDeleteRecord) {
+                    if ($canEditRecord) {
                         $actions .= '<div class="dropdown-divider"></div>';
                     }
                     $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.expenses.destroy', $expense) . '" data-row-id="expense-row-' . $expense->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
@@ -151,6 +154,10 @@ class ExpenseController extends Controller
         $this->authorize('edit expenses');
         $this->guardLocationAccess($expense);
 
+        if (!can_modify_past_date_record($expense->expense_date ?? $expense->created_at)) {
+            return response('<div class="alert alert-danger m-3">You do not have permission to edit past date records.</div>', 403);
+        }
+
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $locations = $isRestricted
@@ -167,6 +174,10 @@ class ExpenseController extends Controller
     {
         $this->authorize('edit expenses');
         $this->guardLocationAccess($expense);
+
+        if (!can_modify_past_date_record($expense->expense_date ?? $expense->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
+        }
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
@@ -212,6 +223,10 @@ class ExpenseController extends Controller
     {
         $this->authorize('delete expenses');
         $this->guardLocationAccess($expense);
+
+        if (!can_modify_past_date_record($expense->expense_date ?? $expense->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to delete past date records.'], 403);
+        }
 
         $expense->delete();
 

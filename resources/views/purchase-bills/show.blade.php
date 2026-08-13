@@ -79,9 +79,11 @@
         <div class="d-flex gap-2 align-items-center flex-wrap">
             @if($transfer->status == \App\Models\PurchaseBill::STATUS_PENDING)
                 @can('edit purchase bills')
+                    @if(can_modify_past_date_record($transfer->created_at))
                     <a href="{{ route('admin.purchase-bills.edit', $transfer) }}" class="btn btn-label-primary">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
+                    @endif
                 @endcan
                 @can('accept purchase bills')
                     <button class="btn btn-success purchase-bill-action"
@@ -101,7 +103,7 @@
                 @endcan
             @endif
             @can('edit purchase bills payment status')
-                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
+                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID && can_modify_past_date_record($transfer->created_at))
                     <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
                         data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
                         data-current="{{ $currentPaymentStatus }}">

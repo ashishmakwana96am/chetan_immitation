@@ -88,6 +88,11 @@ class PurchaseBillController extends Controller
         $grandTotalMrp = 0.0;
 
         $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit, &$grandTotalAmount, &$grandTotalMrp) {
+            $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
+            $canAcceptRecord = $canAccept;
+            $canRejectRecord = $canReject;
+            $canPaymentStatusRecord = $canEditPaymentStatus && can_modify_past_date_record($transfer->created_at);
+
             $statusBadge = $this->statusBadge($transfer->status);
             $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
 
@@ -100,17 +105,17 @@ class PurchaseBillController extends Controller
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchase-bills.show', $transfer) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             if ($transfer->status == PurchaseBill::STATUS_PENDING) {
-                if ($canEdit) {
+                if ($canEditRecord) {
                     $actions .= '<a href="' . route('admin.purchase-bills.edit', $transfer) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
                 }
-                if ($canAccept) {
+                if ($canAcceptRecord) {
                     $actions .= '<button class="dropdown-item text-success purchase-bill-action" data-url="' . route('admin.purchase-bills.accept', $transfer) . '" data-method="PATCH" data-title="Accept Purchase Bill" data-text="Stock will move from source to destination location."><i class="ti ti-check me-2"></i>Accept</button>';
                 }
-                if ($canReject) {
+                if ($canRejectRecord) {
                     $actions .= '<button class="dropdown-item text-danger purchase-bill-action" data-url="' . route('admin.purchase-bills.reject', $transfer) . '" data-method="PATCH" data-title="Reject Purchase Bill" data-text="No inventory stock will be changed."><i class="ti ti-x me-2"></i>Reject</button>';
                 }
             }
-            if ($canEditPaymentStatus && $transfer->status == PurchaseBill::STATUS_ACCEPTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
+            if ($canPaymentStatusRecord && $transfer->status == PurchaseBill::STATUS_ACCEPTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
                 $actions .= '<button class="dropdown-item change-purchase-bill-payment-status-btn" data-url="' . route('admin.purchase-bills.update-payment-status', $transfer) . '" data-current="' . ((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING)) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             $actions .= '</div></div>';
@@ -282,6 +287,10 @@ class PurchaseBillController extends Controller
         $this->authorize('edit purchase bills');
         $this->guardLocationAccess($purchaseBill);
 
+        if (!can_modify_past_date_record($purchaseBill->created_at)) {
+            return redirect()->route('admin.purchase-bills.index')->with('error', 'You do not have permission to edit past date records.');
+        }
+
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return redirect()->route('admin.purchase-bills.show', $purchaseBill)->with('error', 'Only pending purchase bills can be edited.');
         }
@@ -317,6 +326,10 @@ class PurchaseBillController extends Controller
     {
         $this->authorize('edit purchase bills');
         $this->guardLocationAccess($purchaseBill);
+
+        if (!can_modify_past_date_record($purchaseBill->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
+        }
 
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be edited.'], 422);
@@ -531,6 +544,10 @@ class PurchaseBillController extends Controller
     {
         $this->authorize('edit purchase bills payment status');
         $this->guardLocationAccess($purchaseBill);
+
+        if (!can_modify_past_date_record($purchaseBill->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'payment_status' => ['required', 'integer', 'in:1,2'],

@@ -36,7 +36,7 @@
         </div>
         @endif
         <a class="product-detail-link" href="{{ $detailUrl }}">
-            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $product->name }}" class="w-full h-[150px] sm:h-[240px] md:h-[260px] xl:h-[300px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
+            <img src="{{ $product->primaryImage?->image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $product->name }}" class="w-full aspect-[3/4] sm:aspect-auto sm:h-[240px] md:h-[260px] xl:h-[300px] object-cover transform transition-all duration-700 ease-in-out group-hover:scale-105">
              {{-- Rating Badge --}}
             @php
                 $avgRating = round((float) ($product->reviews_avg_rating ?? 0), 1);
@@ -76,9 +76,13 @@
                     <a class="product-detail-link" href="{{ $detailUrl }}">{{ $product->name }}</a>
                 </h3>
                 <div class="flex justify-between flex-wrap gap-2 mt-1 sm:mt-2">
+                        @php
+                            $gridSalePrice = $product->display_sale_price;
+                            $gridMrp = $product->display_mrp;
+                        @endphp
                         <div class="flex items-center gap-1 flex-wrap">
-                            <span class="text-base sm:text-lg xl:text-[22px] font-semibold text-[#131615]">{{ website_price($product->sale_price) }}</span>
-                            @if($product->mrp && $product->mrp > $product->sale_price)<span class="text-xs sm:text-sm xl:text-base text-[#757575] line-through">{{ website_price($product->mrp) }}</span>@endif
+                            <span class="text-base sm:text-lg xl:text-[22px] font-semibold text-[#131615]">{{ website_price($gridSalePrice) }}</span>
+                            @if($gridMrp && $gridMrp > $gridSalePrice)<span class="text-xs sm:text-sm xl:text-base text-[#757575] line-through">{{ website_price($gridMrp) }}</span>@endif
                         </div>
                         @php
                             $variantValues = $product->relationLoaded('variants')

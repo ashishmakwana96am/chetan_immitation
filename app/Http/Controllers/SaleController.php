@@ -257,7 +257,12 @@ class SaleController extends Controller
             $isEditable = ($order->source ?? 'POS') === 'POS' &&
                 in_array((int) $order->status, [Order::STATUS_PENDING, Order::STATUS_APPROVE], true) &&
                 !$cancellationRequested;
-            if ($canEdit && $isEditable) {
+            $canEditRecord = $canEdit && can_modify_past_date_record($order->created_at);
+            $canEditSalesStatusRecord = $canEditSalesStatus && can_modify_past_date_record($order->created_at);
+            $canEditSalesPaymentStatusRecord = $canEditSalesPaymentStatus && can_modify_past_date_record($order->created_at);
+            $canDeleteRecord = $canDelete && can_modify_past_date_record($order->created_at);
+
+            if ($canEditRecord && $isEditable) {
                 $actions .= '<a href="' . route('admin.sales.edit', $order) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
 
@@ -281,13 +286,13 @@ class SaleController extends Controller
                 }
             }
 
-            if ($canEditSalesStatus && $showStatusOption) {
+            if ($canEditSalesStatusRecord && $showStatusOption) {
                 $actions .= '<button class="dropdown-item change-sale-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-current="' . $order->status . '" data-source="' . ($order->source ?? 'POS') . '" data-shipped-url="' . e($order->shipped_client_url ?? '') . '" data-tracking-id="' . e($order->tracking_id ?? '') . '" data-cancel-reason="' . e($order->cancellation_reason ?? '') . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditSalesPaymentStatus && $showPaymentOption) {
+            if ($canEditSalesPaymentStatusRecord && $showPaymentOption) {
                 $actions .= '<button class="dropdown-item change-payment-status-btn" data-url="' . route('admin.sales.status', $order) . '" data-history-url="' . route('admin.sales.payment-history', $order) . '" data-current="' . $order->payment_status . '" data-amount="' . $order->final_amount . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete) {
+            if ($canDeleteRecord) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<a href="javascript:void(0);" class="dropdown-item text-danger" data-common-delete="' . route('admin.sales.destroy', $order) . '"><i class="ti ti-trash me-2"></i>Delete</a>';
             }
@@ -684,6 +689,13 @@ class SaleController extends Controller
     {
         $this->authorize('delete sales');
 
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to delete past date records.',
+            ], 403);
+        }
+
         if ($sale->order_type !== 'sale') {
             abort(404);
         }
@@ -911,6 +923,12 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales');
 
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return redirect()
+                ->route('admin.sales.show', $sale)
+                ->with('error', 'You do not have permission to edit past date records.');
+        }
+
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
@@ -1019,6 +1037,13 @@ class SaleController extends Controller
     public function update(Request $request, Order $sale)
     {
         $this->authorize('edit sales');
+
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
 
         $authUser = auth()->user();
         $isRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
@@ -1362,6 +1387,13 @@ class SaleController extends Controller
 
     public function updateStatus(Request $request, Order $sale)
     {
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
+
         if ($request->filled('status')) {
             $this->authorize('edit sales status');
         }
@@ -2086,6 +2118,10 @@ class SaleController extends Controller
     {
         $this->authorize('edit sales status');
 
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
+        }
+
         $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
             ->where('status', OrderCancellationRequest::STATUS_PENDING)
             ->first();
@@ -2215,6 +2251,10 @@ class SaleController extends Controller
     public function rejectCancellation(Order $sale)
     {
         $this->authorize('edit sales status');
+
+        if (!can_modify_past_date_record($sale->created_at)) {
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
+        }
 
         $cancellationRequest = OrderCancellationRequest::where('order_id', $sale->id)
             ->where('status', OrderCancellationRequest::STATUS_PENDING)

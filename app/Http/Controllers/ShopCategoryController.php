@@ -125,8 +125,8 @@ class ShopCategoryController extends Controller
 
             $hasActiveFilters = !empty($filterData['category'])
                 || !empty($filterData['sub_category'])
-                || !empty($filterData['min_price'])
-                || !empty($filterData['max_price'])
+                || (isset($filterData['min_price']) && $filterData['min_price'] !== '')
+                || (isset($filterData['max_price']) && $filterData['max_price'] !== '')
                 || !empty($filterData['size'])
                 || !empty($filterData['sort'])
                 || !empty($filterData['search']);
@@ -202,12 +202,15 @@ class ShopCategoryController extends Controller
                        MAX(sale_price) as variant_max
                 FROM product_variants
                 WHERE status IN (1, "active")
+                  AND sale_price > 0
+                  AND deleted_at IS NULL
                 GROUP BY product_id
             ) as pv'), 'pv.product_id', '=', 'products.id')
             ->whereIn('products.id', $filteredProductIds)
+            ->whereNull('products.deleted_at')
             ->selectRaw('
-                MIN(COALESCE(pv.variant_min, products.sale_price)) as min_price,
-                MAX(COALESCE(pv.variant_max, products.sale_price)) as max_price
+                MIN(COALESCE(pv.variant_min, NULLIF(products.sale_price, 0))) as min_price,
+                MAX(COALESCE(pv.variant_max, NULLIF(products.sale_price, 0))) as max_price
             ')
             ->first();
 
@@ -220,19 +223,22 @@ class ShopCategoryController extends Controller
                            MIN(sale_price) as variant_min,
                            MAX(sale_price) as variant_max
                     FROM product_variants
-                    WHERE status = 1
+                    WHERE status IN (1, "active")
+                      AND sale_price > 0
+                      AND deleted_at IS NULL
                     GROUP BY product_id
                 ) as pv'), 'pv.product_id', '=', 'products.id')
                 ->where('products.status', Product::STATUS_ACTIVE)
                 ->where('products.hide_from_website', 0)
+                ->whereNull('products.deleted_at')
                 ->whereExists(function ($q) {
                     $q->select(\DB::raw(1))
                       ->from('product_images')
                       ->whereColumn('product_images.product_id', 'products.id');
                 })
                 ->selectRaw('
-                    MIN(COALESCE(pv.variant_min, products.sale_price)) as min_price,
-                    MAX(COALESCE(pv.variant_max, products.sale_price)) as max_price
+                    MIN(COALESCE(pv.variant_min, NULLIF(products.sale_price, 0))) as min_price,
+                    MAX(COALESCE(pv.variant_max, NULLIF(products.sale_price, 0))) as max_price
                 ')
                 ->first();
             $catalogMinPrice = (int) floor((float) ($globalRange->min_price ?? 0));
@@ -260,18 +266,22 @@ class ShopCategoryController extends Controller
                     COALESCE(
                         (SELECT MIN(sale_price) FROM product_variants
                          WHERE product_variants.product_id = products.id
-                           AND product_variants.status = 1),
-                        products.sale_price
+                           AND product_variants.status IN (1, "active")
+                           AND product_variants.sale_price > 0
+                           AND product_variants.deleted_at IS NULL),
+                        NULLIF(products.sale_price, 0)
                     ) ASC
                 ');
                 break;
             case 'price-high':
                 $query->orderByRaw('
                     COALESCE(
-                        (SELECT MIN(sale_price) FROM product_variants
+                        (SELECT MAX(sale_price) FROM product_variants
                          WHERE product_variants.product_id = products.id
-                           AND product_variants.status = 1),
-                        products.sale_price
+                           AND product_variants.status IN (1, "active")
+                           AND product_variants.sale_price > 0
+                           AND product_variants.deleted_at IS NULL),
+                        NULLIF(products.sale_price, 0)
                     ) DESC
                 ');
                 break;
@@ -366,26 +376,35 @@ class ShopCategoryController extends Controller
         }
 
         if ($applyPriceFilter) {
-            $minPrice = !empty($filters['min_price']) ? (float) $filters['min_price'] : null;
-            $maxPrice = !empty($filters['max_price']) ? (float) $filters['max_price'] : null;
+            $rawMin = (isset($filters['min_price']) && $filters['min_price'] !== '') ? str_replace(',', '', (string) $filters['min_price']) : null;
+            $rawMax = (isset($filters['max_price']) && $filters['max_price'] !== '') ? str_replace(',', '', (string) $filters['max_price']) : null;
+
+            $minPrice = ($rawMin !== null && is_numeric($rawMin)) ? (float) $rawMin : null;
+            $maxPrice = ($rawMax !== null && is_numeric($rawMax)) ? (float) $rawMax : null;
 
             if ($minPrice !== null || $maxPrice !== null) {
-                $query->whereRaw('
-                    COALESCE(
-                        (SELECT MIN(sale_price) FROM product_variants
-                         WHERE product_variants.product_id = products.id
-                           AND product_variants.status = 1),
-                        products.sale_price
-                    ) >= ?
-                ', [$minPrice ?? 0]);
+                if ($minPrice !== null) {
+                    $query->whereRaw('
+                        COALESCE(
+                            (SELECT MIN(sale_price) FROM product_variants
+                             WHERE product_variants.product_id = products.id
+                               AND product_variants.status IN (1, "active")
+                               AND product_variants.sale_price > 0
+                               AND product_variants.deleted_at IS NULL),
+                            NULLIF(products.sale_price, 0)
+                        ) >= ?
+                    ', [$minPrice]);
+                }
 
                 if ($maxPrice !== null) {
                     $query->whereRaw('
                         COALESCE(
                             (SELECT MIN(sale_price) FROM product_variants
                              WHERE product_variants.product_id = products.id
-                               AND product_variants.status = 1),
-                            products.sale_price
+                               AND product_variants.status IN (1, "active")
+                               AND product_variants.sale_price > 0
+                               AND product_variants.deleted_at IS NULL),
+                            NULLIF(products.sale_price, 0)
                         ) <= ?
                     ', [$maxPrice]);
                 }
@@ -409,20 +428,6 @@ class ShopCategoryController extends Controller
         return $query;
     }
 
-    /**
-     * Apply category / sub-category filters.
-     *
-     * Rules:
-     * - Only category selected (no subs): show all products of that category.
-     * - Subcategory(ies) selected:
-     *     - If selected sub has products → show those sub's products only.
-     *     - If selected sub has NO products → show nothing (no fallback).
-     * - Multiple subs selected → OR all the above conditions together.
-     * - If both full categories AND subs are selected:
-     *     - Full-category entries show ALL products of that category.
-     *     - Sub entries apply per-sub logic above.
-     *     - Combined with OR.
-     */
     private function applyCategorySubCategoryFilters($query, $catIds, $subIds)
     {
         $subCategories = $subIds->isNotEmpty()
@@ -490,7 +495,6 @@ class ShopCategoryController extends Controller
         $plural = \Illuminate\Support\Str::plural($searchValLower);
         $searchTerms = array_unique([$searchValLower, $singular, $plural]);
 
-        // Find if there is a matching Category
         $matchingCategory = Category::where('status', Category::STATUS_ACTIVE)
             ->where(function($q) use ($searchTerms) {
                 foreach ($searchTerms as $term) {
@@ -506,7 +510,6 @@ class ShopCategoryController extends Controller
             }
         }
 
-        // Find if there is a matching SubCategory
         $matchingSubCategory = SubCategory::where('status', SubCategory::STATUS_ACTIVE)
             ->where(function($q) use ($searchTerms) {
                 foreach ($searchTerms as $term) {

@@ -87,7 +87,7 @@
                 <i class="ti ti-file-type-pdf me-1"></i> Download PDF
             </a> -->
             @can('edit purchases')
-                @if($purchase->status == 1)
+                @if($purchase->status == 1 && can_modify_past_date_record($purchase->created_at))
                     <a href="{{ route('admin.purchases.edit', $purchase) }}" class="btn btn-label-info">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
@@ -113,7 +113,7 @@
                     </button>
                 @endif
                 @can('edit purchases payment status')
-                    @if(($purchase->payment_status ?? 1) != 2 && $purchase->status == 2)
+                    @if(($purchase->status == 1 || ($purchase->status == 2 && $purchase->payment_status != 2)) && can_modify_past_date_record($purchase->created_at))
                         <button class="btn btn-success change-purchase-payment-status-btn"
                             data-url="{{ route('admin.purchases.update-payment-status', $purchase) }}"
                             data-history-url="{{ route('admin.purchases.payment-history', $purchase) }}"
