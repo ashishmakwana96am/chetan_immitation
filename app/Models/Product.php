@@ -140,8 +140,9 @@ class Product extends Model
     {
         if ($this->pair_product) {
             $sizes = $this->custom_sizes ?? [];
-            if (empty($sizes) && $this->relationLoaded('variants')) {
-                foreach ($this->variants as $v) {
+            if (empty($sizes)) {
+                $variants = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+                foreach ($variants as $v) {
                     if (!empty($v->custom_sizes)) {
                         $sizes = array_merge($sizes, $v->custom_sizes);
                     }
@@ -166,8 +167,9 @@ class Product extends Model
     {
         if ($this->pair_product) {
             $sizes = $this->custom_sizes ?? [];
-            if (empty($sizes) && $this->relationLoaded('variants')) {
-                foreach ($this->variants as $v) {
+            if (empty($sizes)) {
+                $variants = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+                foreach ($variants as $v) {
                     if (!empty($v->custom_sizes)) {
                         $sizes = array_merge($sizes, $v->custom_sizes);
                     }

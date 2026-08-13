@@ -125,13 +125,13 @@
                     if ($queryVariantId && $product->variants->isNotEmpty()) {
                         $activeVariant = $product->variants->firstWhere('id', $queryVariantId);
                     }
-                    $firstCustomSize = $product->pair_product
-                        ? ($product->custom_sizes[0] ?? null)
-                        : null;
 
-                    if ($product->pair_product && $firstCustomSize) {
-                        $salePriceDisplay = $firstCustomSize['sale_price'];
-                        $mrpDisplay = $firstCustomSize['mrp'];
+                    $customSizesSorted = collect($product->custom_sizes ?? [])->sortBy(fn($s) => (float)($s['size'] ?? 0));
+                    $maxSizeRow = $customSizesSorted->last();
+
+                    if ($product->pair_product && $maxSizeRow) {
+                        $salePriceDisplay = $maxSizeRow['sale_price'];
+                        $mrpDisplay = $maxSizeRow['mrp'];
                     } elseif ($activeVariant) {
                         $salePriceDisplay = $activeVariant->sale_price;
                         $mrpDisplay = $activeVariant->product->mrp ?? $product->mrp;
@@ -157,8 +157,8 @@
                 
                 @if($product->pair_product && !empty($product->custom_sizes))
                 @php
-                    $minSizeRow = collect($product->custom_sizes ?? [])->sortBy(fn($s) => (float)($s['size'] ?? 0))->first();
-                    $defaultSize = $minSizeRow['size'] ?? ($product->custom_sizes[0]['size'] ?? '');
+                    $maxSizeRow = collect($product->custom_sizes ?? [])->sortBy(fn($s) => (float)($s['size'] ?? 0))->last();
+                    $defaultSize = $maxSizeRow['size'] ?? ($product->custom_sizes[0]['size'] ?? '');
                 @endphp
                 <div class="flex items-center gap-4 mt-4">
                     <span class="text-[#131615] text-base md:text-xl sm:text-[22px] leading-[22px]">Pair:</span>
@@ -665,7 +665,9 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
                 if (effectiveSizes.length) {
                     var currentSize = parseFloat(selectedCustomSizeInput.value);
                     var stillValid = effectiveSizes.some(function (s) { return s.size == currentSize; });
-                    var defSize = stillValid ? currentSize : effectiveSizes[0].size;
+                    var sortedSizes = effectiveSizes.slice().sort(function(a, b){ return parseFloat(a.size || 0) - parseFloat(b.size || 0); });
+                    var maxSize = sortedSizes.length ? sortedSizes[sortedSizes.length - 1].size : '';
+                    var defSize = stillValid ? currentSize : maxSize;
                     var html = '';
                     effectiveSizes.forEach(function (s) {
                         var isActive = s.size == defSize;

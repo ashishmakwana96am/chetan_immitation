@@ -148,7 +148,7 @@
             @endcan
 
             @can('edit sales')
-                @if(!$isOnline && in_array((int) $order->status, [1, 2], true) && !($order->cancellationRequest && $order->cancellationRequest->status === 'pending'))
+                @if(!$isOnline && in_array((int) $order->status, [1, 2], true) && !($order->cancellationRequest && $order->cancellationRequest->status === 'pending') && can_modify_past_date_record($order->created_at))
                     <a href="{{ route('admin.sales.edit', $order) }}" class="btn btn-label-warning">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
@@ -156,7 +156,7 @@
             @endcan
 
             @can('edit sales payment status')
-                @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID)
+                @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID && can_modify_past_date_record($order->created_at))
                     <button class="btn btn-success mark-as-paid-btn"
                         data-url="{{ route('admin.sales.status', $order) }}"
                         data-history-url="{{ route('admin.sales.payment-history', $order) }}"
@@ -168,6 +168,7 @@
             @endcan
 
             @can('edit sales status')
+                @if(can_modify_past_date_record($order->created_at))
                 @php
                     $cs  = (int)$order->status;
                     $isOnline = ($order->source ?? 'POS') === 'ONLINE';
@@ -201,12 +202,15 @@
                         <option value="6" {{ $order->status==6?'selected':'' }} {{ $o6 }}>Cancelled</option>
                     @endif
                 </select>
+                @endif
             @endcan
 
             @can('delete sales')
+                @if(can_modify_past_date_record($order->created_at))
                 <a href="javascript:void(0);" class="btn btn-label-danger" data-common-delete="{{ route('admin.sales.destroy', $order) }}">
                     <i class="ti ti-trash me-1"></i> Delete
                 </a>
+                @endif
             @endcan
 
             <a href="{{ route('admin.sales.index') }}" class="btn btn-label-secondary">

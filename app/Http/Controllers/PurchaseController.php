@@ -65,6 +65,11 @@ class PurchaseController extends Controller
         $canDownloadPurchases          = auth()->user()->can('download purchases');
 
         $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
+            $canEditRecord = $canEdit && can_modify_past_date_record($invoice->created_at);
+            $canDeleteRecord = $canDelete && can_modify_past_date_record($invoice->created_at);
+            $canStatusRecord = $canEditPurchasesStatus && can_modify_past_date_record($invoice->created_at);
+            $canPaymentStatusRecord = $canEditPurchasesPaymentStatus && can_modify_past_date_record($invoice->created_at);
+
             $statusColors = [
                 1 => 'bg-label-secondary',
                 2 => 'bg-label-success',
@@ -97,16 +102,16 @@ class PurchaseController extends Controller
             // if ($canDownloadPurchases) {
             //     $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
             // }
-            if ($canEdit) {
+            if ($canEditRecord) {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
-            if ($canEditPurchasesStatus && $invoice->status == 1) {
+            if ($canStatusRecord && $invoice->status == 1) {
                 $actions .= '<button class="dropdown-item change-purchase-status-btn" data-url="' . route('admin.purchases.status', $invoice) . '" data-current="' . $invoice->status . '"><i class="ti ti-adjustments-horizontal me-2"></i>Update Status</button>';
             }
-            if ($canEditPurchasesPaymentStatus && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status != 2))) {
+            if ($canPaymentStatusRecord && ($invoice->status == 1 || ($invoice->status == 2 && $invoice->payment_status != 2))) {
                 $actions .= '<button class="dropdown-item change-purchase-payment-status-btn" data-url="' . route('admin.purchases.update-payment-status', $invoice) . '" data-history-url="' . route('admin.purchases.payment-history', $invoice) . '" data-current="' . ($invoice->payment_status ?? 1) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
-            if ($canDelete) {
+            if ($canDeleteRecord) {
                 $actions .= '<div class="dropdown-divider"></div>';
                 $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.purchases.destroy', $invoice) . '" data-row-id="purchase-row-' . $invoice->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
             }
@@ -352,6 +357,10 @@ class PurchaseController extends Controller
     {
         $this->authorize('edit purchases');
 
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return redirect()->route('admin.purchases.index')->with('error', 'You do not have permission to edit past date records.');
+        }
+
         $user = auth()->user();
         if ($user->location_id && !$user->hasRole('super-admin')) {
             $hasAllocation = $purchase->items()->whereHas('allocations', function($q) use ($user) {
@@ -385,6 +394,13 @@ class PurchaseController extends Controller
     public function update(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases');
+
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'supplier_id'            => ['required', 'exists:suppliers,id'],
@@ -618,6 +634,13 @@ class PurchaseController extends Controller
     {
         $this->authorize('edit purchases status');
 
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'status' => ['required', 'in:1,2,3'],
         ]);
@@ -681,6 +704,13 @@ class PurchaseController extends Controller
     {
         if (!auth()->user()->hasRole('super-admin')) {
             abort(403);
+        }
+
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to delete past date records.',
+            ], 403);
         }
 
         $originalInvoiceNo = $purchase->invoice_no;
@@ -884,6 +914,13 @@ class PurchaseController extends Controller
     public function updatePaymentStatus(Request $request, Purchase $purchase)
     {
         $this->authorize('edit purchases payment status');
+
+        if (!can_modify_past_date_record($purchase->created_at)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You do not have permission to edit past date records.',
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'payment_status' => ['required', 'in:1,2,3'],
