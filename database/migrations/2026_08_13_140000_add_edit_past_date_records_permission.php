@@ -11,8 +11,9 @@ return new class extends Migration
         $permission = Permission::firstOrCreate([
             'name' => 'edit past date records',
         ], [
-            'module' => 'Settings',
+            'module' => 'Past Date Records',
         ]);
+        $permission->update(['module' => 'Past Date Records']);
 
         $superAdmin = Role::where('name', 'super-admin')->first();
         if ($superAdmin && !$superAdmin->hasPermissionTo($permission)) {
