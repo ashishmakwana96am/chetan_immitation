@@ -339,37 +339,6 @@
 
         if (!priceFilterTouched) {
             setPriceInputs(catalogMinPrice, catalogMaxPrice);
-        } else {
-            let currentMin = parseInt(document.getElementById('minPriceInput').value);
-            let currentMax = parseInt(document.getElementById('maxPriceInput').value);
-            if (isNaN(currentMin)) currentMin = catalogMinPrice;
-            if (isNaN(currentMax)) currentMax = catalogMaxPrice;
-
-            // Check if there is no overlap between the user's selection and the new catalog range
-            if (currentMax < catalogMinPrice || currentMin > catalogMaxPrice) {
-                // Reset price filter since it doesn't apply to the new catalog range at all
-                priceFilterTouched = false;
-                setPriceInputs(catalogMinPrice, catalogMaxPrice);
-            } else {
-                // There is some overlap, clamp the user's selection within the new bounds
-                let selectedMin = Math.max(catalogMinPrice, Math.min(catalogMaxPrice, currentMin));
-                let selectedMax = Math.max(catalogMinPrice, Math.min(catalogMaxPrice, currentMax));
-                const step = getPriceStep();
-
-                if (selectedMin >= selectedMax) {
-                    if (selectedMax === catalogMinPrice) {
-                        selectedMax = Math.min(catalogMaxPrice, selectedMin + step);
-                    } else {
-                        selectedMin = Math.max(catalogMinPrice, selectedMax - step);
-                    }
-                }
-
-                setPriceInputs(selectedMin, selectedMax);
-
-                if (isFullCatalogPriceRange(selectedMin, selectedMax)) {
-                    priceFilterTouched = false;
-                }
-            }
         }
 
         updateRangeTrack();
@@ -505,11 +474,9 @@
         const cleanVal = String(input.value || '').replace(/,/g, '').trim();
         let val = parseInt(cleanVal, 10);
         if (!isNaN(val)) {
-            if (val >= catalogMinPrice && val <= catalogMaxPrice) {
-                range.value = val;
-                updateRangeTrack();
-                applyFilters();
-            }
+            range.value = val;
+            updateRangeTrack();
+            applyFilters();
         }
     }
 
@@ -668,6 +635,7 @@
 
         const minPrice = document.getElementById('minPriceInput').value;
         const maxPrice = document.getElementById('maxPriceInput').value;
+        const isPriceTouched = priceFilterTouched || (minPrice !== '' && parseInt(minPrice) > catalogMinPrice) || (maxPrice !== '' && parseInt(maxPrice) < catalogMaxPrice);
 
         const sizes = [];
         document.querySelectorAll('.size-checkbox:checked').forEach(cb => sizes.push(cb.value));
@@ -680,8 +648,8 @@
         return {
             category: uniqueCats.join(','),
             sub_category: uniqueSubs.join(','),
-            min_price: priceFilterTouched ? minPrice : '',
-            max_price: priceFilterTouched ? maxPrice : '',
+            min_price: isPriceTouched ? minPrice : '',
+            max_price: isPriceTouched ? maxPrice : '',
             size: sizes.join(','),
             sort: sort !== 'default' ? sort : '',
             search: search

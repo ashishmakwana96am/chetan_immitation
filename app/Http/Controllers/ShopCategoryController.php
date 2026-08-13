@@ -192,58 +192,19 @@ class ShopCategoryController extends Controller
             ->get();
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
+        $candidateProducts = $catalogQuery->with('variants')->get();
+        $displayPrices = $candidateProducts->map(fn($p) => (float) $p->display_sale_price)->filter(fn($val) => $val > 0);
 
-        $filteredProductIds = (clone $catalogQuery)->pluck('products.id');
-
-        $priceRange = \DB::table('products')
-            ->leftJoin(\DB::raw('(
-                SELECT product_id,
-                       MIN(sale_price) as variant_min,
-                       MAX(sale_price) as variant_max
-                FROM product_variants
-                WHERE status IN (1, "active")
-                  AND sale_price > 0
-                  AND deleted_at IS NULL
-                GROUP BY product_id
-            ) as pv'), 'pv.product_id', '=', 'products.id')
-            ->whereIn('products.id', $filteredProductIds)
-            ->whereNull('products.deleted_at')
-            ->selectRaw('
-                MIN(COALESCE(pv.variant_min, NULLIF(products.sale_price, 0))) as min_price,
-                MAX(COALESCE(pv.variant_max, NULLIF(products.sale_price, 0))) as max_price
-            ')
-            ->first();
-
-        $catalogMinPrice = (int) floor((float) ($priceRange->min_price ?? 0));
-        $catalogMaxPrice = (int) ceil((float) ($priceRange->max_price ?? 0));
-        if ($catalogMinPrice === 0 && $catalogMaxPrice === 0) {
-            $globalRange = \DB::table('products')
-                ->leftJoin(\DB::raw('(
-                    SELECT product_id,
-                           MIN(sale_price) as variant_min,
-                           MAX(sale_price) as variant_max
-                    FROM product_variants
-                    WHERE status IN (1, "active")
-                      AND sale_price > 0
-                      AND deleted_at IS NULL
-                    GROUP BY product_id
-                ) as pv'), 'pv.product_id', '=', 'products.id')
-                ->where('products.status', Product::STATUS_ACTIVE)
-                ->where('products.hide_from_website', 0)
-                ->whereNull('products.deleted_at')
-                ->whereExists(function ($q) {
-                    $q->select(\DB::raw(1))
-                      ->from('product_images')
-                      ->whereColumn('product_images.product_id', 'products.id');
-                })
-                ->selectRaw('
-                    MIN(COALESCE(pv.variant_min, NULLIF(products.sale_price, 0))) as min_price,
-                    MAX(COALESCE(pv.variant_max, NULLIF(products.sale_price, 0))) as max_price
-                ')
-                ->first();
-            $catalogMinPrice = (int) floor((float) ($globalRange->min_price ?? 0));
-            $catalogMaxPrice = (int) ceil((float) ($globalRange->max_price ?? 0));
+        if ($displayPrices->isNotEmpty()) {
+            $catalogMinPrice = (int) floor($displayPrices->min());
+            $catalogMaxPrice = (int) ceil($displayPrices->max());
+        } else {
+            $globalProducts = Product::forWebsite()->hasImages()->with('variants')->get();
+            $globalPrices = $globalProducts->map(fn($p) => (float) $p->display_sale_price)->filter(fn($val) => $val > 0);
+            $catalogMinPrice = $globalPrices->isNotEmpty() ? (int) floor($globalPrices->min()) : 0;
+            $catalogMaxPrice = $globalPrices->isNotEmpty() ? (int) ceil($globalPrices->max()) : 0;
         }
+
         if ($catalogMaxPrice < $catalogMinPrice) {
             $catalogMaxPrice = $catalogMinPrice;
         }
@@ -383,31 +344,15 @@ class ShopCategoryController extends Controller
             $maxPrice = ($rawMax !== null && is_numeric($rawMax)) ? (float) $rawMax : null;
 
             if ($minPrice !== null || $maxPrice !== null) {
-                if ($minPrice !== null) {
-                    $query->whereRaw('
-                        COALESCE(
-                            (SELECT MIN(sale_price) FROM product_variants
-                             WHERE product_variants.product_id = products.id
-                               AND product_variants.status IN (1, "active")
-                               AND product_variants.sale_price > 0
-                               AND product_variants.deleted_at IS NULL),
-                            NULLIF(products.sale_price, 0)
-                        ) >= ?
-                    ', [$minPrice]);
-                }
+                $candidates = (clone $query)->with('variants')->get();
+                $validIds = $candidates->filter(function ($p) use ($minPrice, $maxPrice) {
+                    $price = (float) $p->display_sale_price;
+                    if ($minPrice !== null && $price < $minPrice) return false;
+                    if ($maxPrice !== null && $price > $maxPrice) return false;
+                    return true;
+                })->pluck('id')->toArray();
 
-                if ($maxPrice !== null) {
-                    $query->whereRaw('
-                        COALESCE(
-                            (SELECT MIN(sale_price) FROM product_variants
-                             WHERE product_variants.product_id = products.id
-                               AND product_variants.status IN (1, "active")
-                               AND product_variants.sale_price > 0
-                               AND product_variants.deleted_at IS NULL),
-                            NULLIF(products.sale_price, 0)
-                        ) <= ?
-                    ', [$maxPrice]);
-                }
+                $query->whereIn('products.id', count($validIds) > 0 ? $validIds : [0]);
             }
         }
 
