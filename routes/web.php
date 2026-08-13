@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\UtilityReportController;
 use App\Http\Controllers\AttributeController;
+use App\Http\Controllers\BannerController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
@@ -371,6 +372,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Website Content
         Route::get('website-content', [WebsiteContentController::class, 'index'])->name('website-content.index');
         Route::post('website-content', [WebsiteContentController::class, 'update'])->name('website-content.update');
+
+        // Banners
+        Route::get('banners/data', [BannerController::class, 'data'])->name('banners.data');
+        Route::resource('banners', BannerController::class)->except('show');
+        Route::patch('banners/{banner}/toggle-status', [BannerController::class, 'toggleStatus'])->name('banners.toggle-status');
 
         // Settings
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');

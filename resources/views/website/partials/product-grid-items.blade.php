@@ -23,12 +23,22 @@
     if ($wishlistVariantId) {
         $detailUrl .= '?variant=' . $wishlistVariantId;
     }
+    $gridSalePrice = (float) $product->display_sale_price;
+    $gridMrp = (float) $product->display_mrp;
+    $discountPercent = 0;
+    if ($gridMrp > 0 && $gridMrp > $gridSalePrice && $gridSalePrice > 0) {
+        $discountPercent = (int) round((($gridMrp - $gridSalePrice) / $gridMrp) * 100);
+    }
 @endphp
 <div class="product-card group sm:border border-[#D5D5D5] relative cursor-pointer flex flex-col h-full rounded-[6px] overflow-hidden" data-product-id="{{ $product->id }}">
     <div class="relative overflow-hidden">
         @if($stockQty < 1)
         <div class="absolute top-[17px] left-[-39px] z-10 rotate-[-20deg]">
             <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SOLD OUT</span>
+        </div>
+        @elseif($discountPercent > 0)
+        <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
+            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">{{ $discountPercent }}% OFF</span>
         </div>
         @elseif($product->sale)
         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">

@@ -138,6 +138,10 @@ class PermissionSeeder extends Seeder
             // Website Content
             'view website content' => 'Website Content',
             'edit website content' => 'Website Content',
+            'view banners' => 'Website Content',
+            'create banners' => 'Website Content',
+            'edit banners' => 'Website Content',
+            'delete banners' => 'Website Content',
 
             // Settings
             'view settings' => 'Settings',

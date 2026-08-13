@@ -6,11 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Models\Banner;
 
 class HomeController extends Controller
 {
     public function index()
     {
+        $banners = Banner::where('status', Banner::STATUS_ACTIVE)->latest()->get();
+
         $categories = Category::where('status', Category::STATUS_ACTIVE)
             ->whereNotNull('image')
             ->where('image', '!=', '')
@@ -53,7 +56,7 @@ class HomeController extends Controller
         $instagramPosts = $this->getInstagramPosts();
         $instagramProfileUrl = Setting::getValue('instagram_profile_url', 'https://www.instagram.com/chetan_imitation?igsh=Zm9lNHNoaTQ3c2t4');
 
-        return view('website.home', compact('categories', 'lovedProducts', 'latestProducts', 'instagramPosts', 'instagramProfileUrl'));
+        return view('website.home', compact('banners', 'categories', 'lovedProducts', 'latestProducts', 'instagramPosts', 'instagramProfileUrl'));
     }
 
     private function getInstagramPosts()

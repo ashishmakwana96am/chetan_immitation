@@ -140,13 +140,22 @@
                         $mrpDisplay = $product->mrp;
                     }
                 @endphp
-                <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
+                @php
+                    $detailDiscountPercent = 0;
+                    if ($mrpDisplay && $mrpDisplay > $salePriceDisplay && $salePriceDisplay > 0) {
+                        $detailDiscountPercent = (int) round((($mrpDisplay - $salePriceDisplay) / $mrpDisplay) * 100);
+                    }
+                @endphp
+                <div class="flex items-center gap-[10px] mt-4 sm:mt-6 flex-wrap">
                     <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
                         {{ website_price($salePriceDisplay) }}
                     </span>
                     @if($mrpDisplay && $mrpDisplay > $salePriceDisplay)
                     <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
                         {{ website_price($mrpDisplay) }}
+                    </span>
+                    <span id="productDiscountBadge" class="bg-[#EF1B1B] text-white text-xs sm:text-sm font-semibold px-2 py-0.5 rounded {{ $detailDiscountPercent > 0 ? '' : 'hidden' }}">
+                        {{ $detailDiscountPercent }}% OFF
                     </span>
                     @endif
                 </div>
