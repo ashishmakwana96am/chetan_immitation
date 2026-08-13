@@ -89,8 +89,8 @@ class PurchaseBillController extends Controller
 
         $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit, &$grandTotalAmount, &$grandTotalMrp) {
             $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
-            $canAcceptRecord = $canAccept && can_modify_past_date_record($transfer->created_at);
-            $canRejectRecord = $canReject && can_modify_past_date_record($transfer->created_at);
+            $canAcceptRecord = $canAccept;
+            $canRejectRecord = $canReject;
             $canPaymentStatusRecord = $canEditPaymentStatus && can_modify_past_date_record($transfer->created_at);
 
             $statusBadge = $this->statusBadge($transfer->status);
@@ -467,10 +467,6 @@ class PurchaseBillController extends Controller
         $this->authorize('accept purchase bills');
         $this->guardLocationAccess($purchaseBill);
 
-        if (!can_modify_past_date_record($purchaseBill->created_at)) {
-            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
-        }
-
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be accepted.'], 422);
         }
@@ -599,10 +595,6 @@ class PurchaseBillController extends Controller
     {
         $this->authorize('reject purchase bills');
         $this->guardLocationAccess($purchaseBill);
-
-        if (!can_modify_past_date_record($purchaseBill->created_at)) {
-            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
-        }
 
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be rejected.'], 422);

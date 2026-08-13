@@ -77,11 +77,13 @@
             <small class="text-muted">{{ format_date($transfer->created_at) }}</small>
         </div>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            @if($transfer->status == \App\Models\PurchaseBill::STATUS_PENDING && can_modify_past_date_record($transfer->created_at))
+            @if($transfer->status == \App\Models\PurchaseBill::STATUS_PENDING)
                 @can('edit purchase bills')
+                    @if(can_modify_past_date_record($transfer->created_at))
                     <a href="{{ route('admin.purchase-bills.edit', $transfer) }}" class="btn btn-label-primary">
                         <i class="ti ti-pencil me-1"></i> Edit
                     </a>
+                    @endif
                 @endcan
                 @can('accept purchase bills')
                     <button class="btn btn-success purchase-bill-action"
