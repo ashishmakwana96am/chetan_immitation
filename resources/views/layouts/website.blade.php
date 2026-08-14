@@ -238,7 +238,7 @@
                     <div class="flex items-center gap-2 sm:gap-5">
                         <!-- Mobile Search Icon -->
 
-                        <div class="search-container items-center w-[170px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-4 pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
+                        <div class="search-container items-center w-[130px] min-[400px]:w-[160px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-2 sm:pl-4 pr-2 sm:pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
                             @php
                                 $headerSearchValue = request()->routeIs('shop-by-category')
                                     ? (request('search') ?? session('shop_filters.search'))

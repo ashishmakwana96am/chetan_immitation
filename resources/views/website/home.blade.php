@@ -30,7 +30,7 @@
             vertical-align: bottom !important;
         }
     </style>
-    <section class="relative overflow-hidden hero-section p-0 m-0 leading-none">
+    <section class="relative overflow-hidden p-0 m-0 leading-none !min-h-0">
         <div class="owl-carousel hero-banner-slider w-full">
             @foreach($banners as $index => $banner)
             <div class="item">
@@ -90,11 +90,11 @@
             <div class="owl-carousel collection-slider mt-10">
                 @foreach($categoriesWithImage as $category)
                 <a href="{{ route('shop-by-category', $category->slug) }}" class="group text-center cursor-pointer block">
-                    <div class="mx-auto rounded-[999px] overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] w-[207px] h-[270px]">
+                    <div class="mx-auto rounded-[999px] overflow-hidden border-2 border-transparent transition-all duration-500 ease-out group-hover:border-[#B4771E] w-[135px] min-[380px]:w-[155px] sm:w-[207px] h-[175px] min-[380px]:h-[200px] sm:h-[270px]">
                         <img src="{{ $category->image_url }}" class="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105">
                     </div>
-                    <h3 class="mt-[30px] text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
-                    <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
+                    <h3 class="mt-3 sm:mt-[30px] text-sm sm:text-base md:text-lg lg:text-xl text-[#131615] transition-all duration-500 ease-out group-hover:text-[#B4771E] group-hover:tracking-wide">{{ $category->name }}</h3>
+                    <div class="w-0 h-[2px] bg-[#B4771E] mx-auto mt-1 sm:mt-2 transition-all duration-500 ease-out group-hover:w-16"></div>
                 </a>
                 @endforeach
             </div>
@@ -226,20 +226,31 @@ $(document).ready(function(){
     const colCount = {{ $categoriesWithImage->count() }};
     $('.collection-slider').owlCarousel({
         loop: colCount > 6,
-        margin:30,
-        nav:false,
+        margin: 30,
+        nav: false,
         dots: colCount > 1,
         autoplay: colCount > 1,
-        autoplayTimeout:3000,
-        responsive:{
-            0:{
-                items: Math.min(colCount, 2)
+        autoplayTimeout: 3000,
+        responsive: {
+            0: {
+                items: Math.min(colCount, 2),
+                margin: 10
             },
-            768:{
-                items: Math.min(colCount, 3)
+            480: {
+                items: Math.min(colCount, 2),
+                margin: 15
             },
-            1200:{
-                items: Math.min(colCount, 6)
+            640: {
+                items: Math.min(colCount, 3),
+                margin: 20
+            },
+            768: {
+                items: Math.min(colCount, 4),
+                margin: 25
+            },
+            1200: {
+                items: Math.min(colCount, 6),
+                margin: 30
             }
         }
     });
