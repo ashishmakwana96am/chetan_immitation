@@ -1304,7 +1304,7 @@ window.addEventListener('resize', function () {
                     setView('dual');
                 });
 
-                setView('single');
+                setView('dual');
             });
         });
     </script>
