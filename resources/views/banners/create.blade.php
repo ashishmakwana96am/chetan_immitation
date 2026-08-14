@@ -135,24 +135,55 @@ $(document).ready(function () {
                 $cropImage.css('max-height', maxHeight + 'px');
                 $cropModal.find('.img-container').css('max-height', maxHeight + 'px');
                 
-                let modalObj = bootstrap.Modal.getInstance($cropModal[0]);
-                if (!modalObj) {
-                    modalObj = new bootstrap.Modal($cropModal[0]);
+                let modalWidth = img.width;
+                if (img.height > maxHeight) {
+                    modalWidth = (img.width * maxHeight) / img.height;
                 }
-                modalObj.show();
+
+                const minWidth = 400;
+                const maxWidth = window.innerWidth * 0.9;
+                modalWidth = Math.max(minWidth, Math.min(modalWidth, maxWidth));
+
+                $cropModal.find('.modal-dialog').css({
+                    'max-width': modalWidth + 'px',
+                    'width': '100%'
+                });
+
+                const isShown = $cropModal.hasClass('show');
+                if (!isShown) {
+                    let modalObj = bootstrap.Modal.getInstance($cropModal[0]);
+                    if (!modalObj) {
+                        modalObj = new bootstrap.Modal($cropModal[0]);
+                    }
+                    modalObj.show();
+                } else {
+                    if (cropper) {
+                        cropper.destroy();
+                        cropper = null;
+                    }
+                    cropper = new Cropper($cropImage[0], {
+                        aspectRatio: 1920 / 750,
+                        viewMode: 1,
+                        autoCropArea: 0.8,
+                        background: false,
+                        responsive: true,
+                    });
+                }
             };
         };
         reader.readAsDataURL(file);
     });
 
     $cropModal.on('shown.bs.modal', function () {
-        cropper = new Cropper($cropImage[0], {
-            aspectRatio: 1920 / 750,
-            viewMode: 1,
-            autoCropArea: 0.95,
-            background: false,
-            responsive: true,
-        });
+        if (!cropper) {
+            cropper = new Cropper($cropImage[0], {
+                aspectRatio: 1920 / 750,
+                viewMode: 1,
+                autoCropArea: 0.8,
+                background: false,
+                responsive: true,
+            });
+        }
     }).on('hidden.bs.modal', function () {
         if (cropper) {
             cropper.destroy();
@@ -171,7 +202,7 @@ $(document).ready(function () {
             imageSmoothingQuality: 'high'
         });
         if (canvas) {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
             $base64Input.val(dataUrl);
             $previewImg.attr('src', dataUrl);
             $previewContainer.removeClass('d-none');
