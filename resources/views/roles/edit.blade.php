@@ -106,6 +106,10 @@
                                                     Bulk Upload Images
                                                 @elseif($permission->name === 'clone products')
                                                     Clone
+                                                @elseif($permission->name === 'view contact inquiries')
+                                                    View Contact Inquiry
+                                                @elseif($permission->name === 'delete contact inquiries')
+                                                    Delete Contact Inquiry
                                                 @else
                                                     {{ explode(' ', $permission->name)[0] }}
                                                 @endif

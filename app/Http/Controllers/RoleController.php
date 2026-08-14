@@ -79,7 +79,7 @@ class RoleController extends Controller
             'Users', 'Roles', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
-            'Customers', 'Sales', 'Reports'
+            'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];
         $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')
@@ -142,7 +142,7 @@ class RoleController extends Controller
             'Users', 'Roles', 'Locations', 
             'Categories', 'Sub Categories', 'Products', 
             'Suppliers', 'Purchases', 
-            'Customers', 'Sales', 'Reports'
+            'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];
         $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')

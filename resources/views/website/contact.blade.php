@@ -105,7 +105,7 @@
 
                 </div>
 
-                <div class="flex gap-4 pb-6 mb-6 border-b border-[#e5e5e5]">
+                <div id="offline-stores" class="flex gap-4 pb-6 mb-6 border-b border-[#e5e5e5]">
 
                     <div class="w-[54px] h-[54px] bg-[#B4771E] flex items-center justify-center shrink-0">
                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-9 h-9 text-white">
@@ -130,7 +130,7 @@
                             Katargam, Surat, Gujarat 395004, India
                         </a>
 
-                        <a href="https://maps.google.com/?q=SHOP+NO.+217+,+CITY+MALL,+STATION+ROAD+,BARDOLI+394601" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
+                        <a href="https://maps.app.goo.gl/NXmDHtp17yzetzRg8" target="_blank" rel="noopener noreferrer" class="block text-base md:text-lg text-[#3D403F] leading-7 hover:text-[#B4771E] transition">
                             <span class="font-normal text-[#3D403F]">Branch - 3:</span>
                             Shop No. 217, City Mall, Station Road, Bardoli 394601, Gujarat, India
                         </a>
@@ -273,7 +273,7 @@
 
         const marker3 = L.marker([21.1241, 73.1130])
             .addTo(map)
-            .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 3</strong><br><span style="color:#666;">Station Road, Bardoli</span><br><a href="https://maps.google.com/?q=SHOP+NO.+217+,+CITY+MALL,+STATION+ROAD+,BARDOLI+394601" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
+            .bindPopup('<div><strong style="font-size:14px; color:#131615;">Chetan Imitation - Branch 3</strong><br><span style="color:#666;">Station Road, Bardoli</span><br><a href="https://maps.app.goo.gl/NXmDHtp17yzetzRg8" target="_blank" style="color:#B4771E; font-weight:600; text-decoration:underline; display:inline-block; margin-top:4px;">View on Google Maps &rarr;</a></div>');
 
         const group = L.featureGroup([marker1, marker2, marker3]);
         map.fitBounds(group.getBounds().pad(0.3));
