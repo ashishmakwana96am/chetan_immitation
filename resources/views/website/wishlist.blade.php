@@ -42,6 +42,12 @@
                         $attrLabel = $attrName ? $attrName . ': ' . $attrValue : $attrValue;
                     }
                     $stockQty = $prod->totalAvailableStock($variant?->id);
+                    $wishSalePrice = (float) ($variant ? $variant->sale_price : $prod->sale_price);
+                    $wishMrp = (float) ($variant ? ($variant->product->mrp ?? $prod->mrp) : $prod->mrp);
+                    $wishDiscountPercent = 0;
+                    if ($wishMrp > 0 && $wishMrp > $wishSalePrice && $wishSalePrice > 0) {
+                        $wishDiscountPercent = (int) round((($wishMrp - $wishSalePrice) / $wishMrp) * 100);
+                    }
                 @endphp
                 <div class="wishlist-item border border-[#D5D5D5] p-3 lg:p-4" data-wishlist-id="{{ $wishlist->id }}">
                     <div class="flex flex-col sm:flex-row gap-4 group">
@@ -50,6 +56,10 @@
                             @if($stockQty < 1)
                             <div class="absolute top-[17px] left-[-39px] z-10 rotate-[-20deg]">
                                 <span class="bg-[#EF1B1B] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SOLD OUT</span>
+                            </div>
+                            @elseif($wishDiscountPercent > 0)
+                            <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
+                                <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">{{ $wishDiscountPercent }}% OFF</span>
                             </div>
                             @elseif($prod->sale)
                             <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">

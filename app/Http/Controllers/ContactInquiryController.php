@@ -61,13 +61,6 @@ class ContactInquiryController extends Controller
 
         $query = ContactInquiry::orderBy('id', 'desc');
 
-        if ($request->filled('emailed')) {
-            if ($request->emailed == '1') {
-                $query->whereNotNull('emailed_at');
-            } else {
-                $query->whereNull('emailed_at');
-            }
-        }
         if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
         }
@@ -82,10 +75,6 @@ class ContactInquiryController extends Controller
         $data = $inquiries->map(function ($inquiry, $index) use ($canDelete) {
             $emailHtml = '<a href="mailto:' . e($inquiry->email) . '" class="text-decoration-none">' . e($inquiry->email) . '</a>';
             $phoneHtml = '<a href="tel:' . e($inquiry->phone) . '" class="text-decoration-none">' . e($inquiry->phone) . '</a>';
-
-            $emailedHtml = $inquiry->emailed_at
-                ? '<span class="badge bg-label-success">Sent</span>'
-                : '<span class="badge bg-label-warning">Pending</span>';
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
@@ -104,7 +93,6 @@ class ContactInquiryController extends Controller
                 'email'       => $emailHtml,
                 'phone'       => $phoneHtml,
                 'subject'     => e($inquiry->subject),
-                'emailed'     => $emailedHtml,
                 'created_at'  => format_date($inquiry->created_at, 'd M Y H:i'),
                 'actions'     => $actions,
             ];

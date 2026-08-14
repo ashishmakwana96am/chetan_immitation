@@ -648,7 +648,7 @@
     <!-- Footer -->
     <footer class="bg-[#131615]">
         <div class="container-1440">
-            <div class="grid {{ (isset($sharedCategories) && count($sharedCategories) > 0) ? 'lg:grid-cols-[1.5fr_0.9fr_0.6fr_1.1fr_1.8fr]' : 'lg:grid-cols-[1.5fr_0.8fr_1.2fr_1.8fr]' }} md:grid-cols-2 gap-3 sm:gap-5 lg:gap-9 py-5 sm:py-10">
+            <div class="grid {{ (isset($sharedCategories) && count($sharedCategories) > 0) ? 'lg:grid-cols-[1.5fr_1fr_1.2fr_1.8fr]' : 'lg:grid-cols-[1.5fr_1.2fr_1.8fr]' }} md:grid-cols-2 gap-3 sm:gap-5 lg:gap-9 py-5 sm:py-10">
                 <!-- Logo -->
                 <div>
                     <a href="{{ url('/') }}"><img src="{{ asset('website/assets/images/footer_logo.png') }}" alt="Logo" class="mb-4 sm:mb-[25px] "></a>
@@ -669,19 +669,12 @@
                 </div>
                 @endif
 
-                <!-- Company -->
+                <!-- Quick Links -->
                 <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Company</h3>
+                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Quick Links</h3>
                     <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         <li><a href="{{ route('about') }}" class="hover:text-[#B4771E] transition">About Us</a></li>
                         <li><a href="{{ route('contact') }}" class="hover:text-[#B4771E] transition">Contact Us</a></li>
-                    </ul>
-                </div>
-
-                <!-- Customer Service -->
-                <div>
-                    <h3 class="text-[#B4771E] text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Customer Service</h3>
-                    <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         <li><a href="{{ route('terms') }}" class="hover:text-[#B4771E] transition">Terms & Conditions</a></li>
                         <li><a href="{{ route('delivery-returns') }}" class="hover:text-[#B4771E] transition">Deliveries & Returns</a></li>
                         <li><a href="{{ route('privacy') }}" class="hover:text-[#B4771E] transition">Privacy Policy</a></li>
@@ -706,13 +699,30 @@
                             <a href="mailto:rawalshaitan@gmail.com" class="hover:text-[#B4771E] transition">rawalshaitan@gmail.com</a>
                         </li>
                         <li class="flex items-start gap-4">
-                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E] shrink-0 mt-2">
+                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-[#B4771E] shrink-0 mt-1">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
                             </svg>
-                            <a href="https://maps.app.goo.gl/aAs5DaPUi4WsVdxM7" target="_blank" class="hover:text-[#B4771E] transition">
-                                G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat, Gujarat 394101, India
-                            </a>
+                            <div class="space-y-3">
+                                <div>
+                                    <span class="block text-[#B4771E] font-semibold text-xs uppercase tracking-wider mb-0.5">Branch - 1:</span>
+                                    <a href="https://maps.app.goo.gl/aAs5DaPUi4WsVdxM7" target="_blank" rel="noopener noreferrer" class="hover:text-[#B4771E] transition block leading-snug">
+                                        G-14 Abc market, Abc circle, Sudama chowk, Mota Varachha, Surat 394101
+                                    </a>
+                                </div>
+                                <div>
+                                    <span class="block text-[#B4771E] font-semibold text-xs uppercase tracking-wider mb-0.5">Branch - 2:</span>
+                                    <a href="https://maps.app.goo.gl/XnRf9ToFDSEdEGRv9" target="_blank" rel="noopener noreferrer" class="hover:text-[#B4771E] transition block leading-snug">
+                                        Shop No. 4, Narayan Flats, Narayannagar Chok, Singanpore Road, Katargam, Surat 395004
+                                    </a>
+                                </div>
+                                <div>
+                                    <span class="block text-[#B4771E] font-semibold text-xs uppercase tracking-wider mb-0.5">Branch - 3:</span>
+                                    <a href="https://maps.app.goo.gl/NXmDHtp17yzetzRg8" target="_blank" rel="noopener noreferrer" class="hover:text-[#B4771E] transition block leading-snug">
+                                        Shop No. 217, City Mall, Station Road, Bardoli 394601
+                                    </a>
+                                </div>
+                            </div>
                         </li>
                     </ul>
                 </div>

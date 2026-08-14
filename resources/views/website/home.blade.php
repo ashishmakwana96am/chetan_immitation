@@ -5,6 +5,41 @@
 @section('content')
 
     <!-- Hero Section -->
+    @if(isset($banners) && $banners->count() > 0)
+    <style>
+        .hero-banner-slider:not(.owl-loaded) {
+            display: block !important;
+        }
+        .hero-banner-slider:not(.owl-loaded) > :not(:first-child) {
+            display: none !important;
+        }
+        .hero-banner-slider,
+        .hero-banner-slider .owl-stage-outer,
+        .hero-banner-slider .owl-stage,
+        .hero-banner-slider .owl-item,
+        .hero-banner-slider .item {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 0 !important;
+            font-size: 0 !important;
+        }
+        .hero-banner-slider img {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            vertical-align: bottom !important;
+        }
+    </style>
+    <section class="relative overflow-hidden hero-section p-0 m-0 leading-none">
+        <div class="owl-carousel hero-banner-slider w-full">
+            @foreach($banners as $index => $banner)
+            <div class="item">
+                <img src="{{ $banner->image_url }}" alt="Hero Banner" class="w-full h-auto object-cover max-h-[750px] block" @if($index === 0) fetchpriority="high" loading="eager" @else loading="lazy" @endif>
+            </div>
+            @endforeach
+        </div>
+    </section>
+    @else
     <section
         class="bg-gradient-to-r from-[#F7F4EF] via-[#F7F4EF] to-[#F7F4EF] md:bg-[url('website/assets/images/hero_Banner.png')] sm:bg-no-repeat sm:bg-center sm:bg-[length:100%_100%] min-h-[calc(80vh-158px)] 2xl:!min-h-[calc(100vh-158px)] flex items-center relative overflow-hidden hero-section">
 
@@ -39,6 +74,7 @@
             </div>
         </div>
     </section>
+    @endif
 
     <!-- Collection Carousel -->
     @php
@@ -172,6 +208,21 @@
 @section('page-js')
 <script>
 $(document).ready(function(){
+    const bannerCount = {{ isset($banners) ? $banners->count() : 0 }};
+    if (bannerCount > 0) {
+        $('.hero-banner-slider').owlCarousel({
+            items: 1,
+            loop: bannerCount > 1,
+            margin: 0,
+            nav: false,
+            dots: bannerCount > 1,
+            autoplay: bannerCount > 1,
+            autoplayTimeout: 3500,
+            autoplayHoverPause: false,
+            smartSpeed: 800
+        });
+    }
+
     const colCount = {{ $categoriesWithImage->count() }};
     $('.collection-slider').owlCarousel({
         loop: colCount > 6,

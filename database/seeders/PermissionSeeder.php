@@ -131,13 +131,21 @@ class PermissionSeeder extends Seeder
             'edit coupons' => 'Coupons',
             'delete coupons' => 'Coupons',
 
+            // Contact Inquiries & Website Content
+            'view contact inquiries' => 'Website Content',
+            'delete contact inquiries' => 'Website Content',
+            'view website content' => 'Website Content',
+            'edit website content' => 'Website Content',
+
+            // Hero Section
+            'view banners' => 'Hero Section',
+            'create banners' => 'Hero Section',
+            'edit banners' => 'Hero Section',
+            'delete banners' => 'Hero Section',
+
             // Product Reviews
             'view product reviews' => 'Product Reviews',
             'delete product reviews' => 'Product Reviews',
-
-            // Website Content
-            'view website content' => 'Website Content',
-            'edit website content' => 'Website Content',
 
             // Settings
             'view settings' => 'Settings',

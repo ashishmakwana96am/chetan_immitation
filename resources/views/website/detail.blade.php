@@ -140,13 +140,22 @@
                         $mrpDisplay = $product->mrp;
                     }
                 @endphp
-                <div class="flex items-center gap-[10px] mt-4 sm:mt-6 ">
+                @php
+                    $detailDiscountPercent = 0;
+                    if ($mrpDisplay && $mrpDisplay > $salePriceDisplay && $salePriceDisplay > 0) {
+                        $detailDiscountPercent = (int) round((($mrpDisplay - $salePriceDisplay) / $mrpDisplay) * 100);
+                    }
+                @endphp
+                <div class="flex items-center gap-[10px] mt-4 sm:mt-6 flex-wrap">
                     <span id="productSalePrice" class="text-[#B4771E] text-[22px] leading-[24px] sm:text-[30px] font-bold">
                         {{ website_price($salePriceDisplay) }}
                     </span>
                     @if($mrpDisplay && $mrpDisplay > $salePriceDisplay)
                     <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
                         {{ website_price($mrpDisplay) }}
+                    </span>
+                    <span id="productDiscountBadge" class="bg-[#EF1B1B] text-white text-xs sm:text-sm font-semibold px-2 py-0.5 rounded {{ $detailDiscountPercent > 0 ? '' : 'hidden' }}">
+                        {{ $detailDiscountPercent }}% OFF
                     </span>
                     @endif
                 </div>
@@ -1965,17 +1974,85 @@ function initProductImageZoom() {
         const img = slide.querySelector('.zoom-main-img');
         if (!img) return;
 
-        slide.addEventListener('mousemove', (e) => {
+        let isPinnedZoomed = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let isTouchDragging = false;
+
+        function updateZoom(clientX, clientY, scale = 2.5) {
             const rect = slide.getBoundingClientRect();
-            const x = ((e.clientX - rect.left) / rect.width) * 100;
-            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+            const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
             img.style.transformOrigin = `${x}% ${y}%`;
-            img.style.transform = 'scale(2.5)';
+            img.style.transform = `scale(${scale})`;
+        }
+
+        function resetZoom() {
+            img.style.transform = 'scale(1)';
+            img.style.transformOrigin = 'center center';
+            isPinnedZoomed = false;
+        }
+
+        // Desktop Mouse Events
+        slide.addEventListener('mousemove', (e) => {
+            updateZoom(e.clientX, e.clientY);
         });
 
         slide.addEventListener('mouseleave', () => {
-            img.style.transform = 'scale(1)';
-            img.style.transformOrigin = 'center center';
+            resetZoom();
+        });
+
+        // Mobile Touch Events
+        slide.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchStartTime = Date.now();
+                isTouchDragging = false;
+                updateZoom(touch.clientX, touch.clientY);
+            }
+        }, { passive: true });
+
+        slide.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const diffX = Math.abs(touch.clientX - touchStartX);
+                const diffY = Math.abs(touch.clientY - touchStartY);
+                if (diffX > 8 || diffY > 8) {
+                    isTouchDragging = true;
+                }
+                updateZoom(touch.clientX, touch.clientY);
+            }
+        }, { passive: true });
+
+        slide.addEventListener('touchend', (e) => {
+            const touchDuration = Date.now() - touchStartTime;
+
+            // If it's a quick tap without drag, toggle pinned zoom
+            if (touchDuration < 250 && !isTouchDragging) {
+                if (isPinnedZoomed) {
+                    resetZoom();
+                } else {
+                    const changedTouch = e.changedTouches[0];
+                    if (changedTouch) {
+                        updateZoom(changedTouch.clientX, changedTouch.clientY);
+                    }
+                    isPinnedZoomed = true;
+                }
+            } else {
+                // If it was a hold/drag, reset when finger lifts unless pinned
+                if (!isPinnedZoomed) {
+                    resetZoom();
+                }
+            }
+        });
+
+        slide.addEventListener('touchcancel', () => {
+            if (!isPinnedZoomed) {
+                resetZoom();
+            }
         });
     });
 }

@@ -314,9 +314,18 @@ class ModuleSeeder extends Seeder
             'name'           => 'Website Content',
             'icon'           => null,
             'route'          => null,
-            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*,admin/coupons*',
+            'active_pattern' => 'admin/website-content*,admin/contact-inquiries*,admin/coupons*,admin/banners*',
             'permission'     => null,
             'sort_order'     => 8,
+        ]);
+        Module::create([
+            'parent_id'      => $websiteCategory->id,
+            'name'           => 'Hero Banners',
+            'icon'           => 'ti ti-photo',
+            'route'          => 'admin.banners.index',
+            'active_pattern' => 'admin/banners*',
+            'permission'     => 'view banners',
+            'sort_order'     => 1,
         ]);
         Module::create([
             'parent_id'      => $websiteCategory->id,
@@ -325,7 +334,7 @@ class ModuleSeeder extends Seeder
             'route'          => 'admin.website-content.index',
             'active_pattern' => 'admin/website-content*',
             'permission'     => 'view website content',
-            'sort_order'     => 1,
+            'sort_order'     => 2,
         ]);
         Module::create([
             'parent_id'      => $websiteCategory->id,
@@ -334,7 +343,7 @@ class ModuleSeeder extends Seeder
             'route'          => 'admin.contact-inquiries.index',
             'active_pattern' => 'admin/contact-inquiries*',
             'permission'     => 'view contact inquiries',
-            'sort_order'     => 2,
+            'sort_order'     => 3,
         ]);
 
         // 9. Settings
