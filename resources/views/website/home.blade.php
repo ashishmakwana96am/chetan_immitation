@@ -34,7 +34,7 @@
         <div class="owl-carousel hero-banner-slider w-full">
             @foreach($banners as $index => $banner)
             <div class="item">
-                <img src="{{ $banner->image_url }}" alt="Hero Banner" class="w-full h-auto object-cover max-h-[750px] block" @if($index === 0) fetchpriority="high" loading="eager" @else loading="lazy" @endif>
+                <img src="{{ $banner->image_url }}" alt="Hero Banner" class="w-full h-auto block" @if($index === 0) fetchpriority="high" loading="eager" @else loading="lazy" @endif>
             </div>
             @endforeach
         </div>

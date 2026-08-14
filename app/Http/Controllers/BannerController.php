@@ -24,7 +24,7 @@ class BannerController extends Controller
 
         $data = $banners->map(function ($banner, $index) use ($canEdit, $canDelete) {
             $image = $banner->image
-                ? '<img src="' . $banner->image_url . '" width="140" height="55" class="rounded object-fit-cover shadow-sm banner-img-preview" style="cursor:pointer;" alt="Banner ' . ($index + 1) . '">'
+                ? '<img src="' . $banner->image_url . '" style="max-width:140px; max-height:55px; width:auto; height:auto; cursor:pointer;" class="rounded shadow-sm banner-img-preview" alt="Banner ' . ($index + 1) . '">'
                 : '<span class="badge bg-label-secondary">No Image</span>';
 
             $status = $canEdit
