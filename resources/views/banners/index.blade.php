@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Hero Banners')
+@section('title', 'Banners')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -10,7 +10,7 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">Hero Banners List</h4>
+        <h4 class="fw-semibold mb-0">Banners List</h4>
         <div class="d-flex gap-2 align-items-center flex-wrap">
             @can('create banners')
                 <button class="btn btn-primary" data-common-modal="{{ route('admin.banners.create') }}">

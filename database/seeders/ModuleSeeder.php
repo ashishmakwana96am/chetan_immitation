@@ -320,7 +320,7 @@ class ModuleSeeder extends Seeder
         ]);
         Module::create([
             'parent_id'      => $websiteCategory->id,
-            'name'           => 'Hero Banners',
+            'name'           => 'Banners',
             'icon'           => 'ti ti-photo',
             'route'          => 'admin.banners.index',
             'active_pattern' => 'admin/banners*',
