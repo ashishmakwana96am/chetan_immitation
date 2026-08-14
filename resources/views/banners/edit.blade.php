@@ -198,14 +198,25 @@ $(document).ready(function () {
 
     $cropSaveBtn.on('click', function () {
         if (!cropper) return;
-        const canvas = cropper.getCroppedCanvas({
-            width: 1920,
-            height: 750,
+        
+        let canvasOptions = {
             imageSmoothingEnabled: true,
             imageSmoothingQuality: 'high'
-        });
+        };
+
+        const imageData = cropper.getImageData();
+        const cropData = cropper.getCropBoxData();
+        const scale = imageData.naturalWidth / (imageData.width || 1);
+        const actualCropWidth = (cropData.width || 0) * scale;
+
+        if (actualCropWidth >= 1920) {
+            canvasOptions.width = 1920;
+            canvasOptions.height = 750;
+        }
+
+        const canvas = cropper.getCroppedCanvas(canvasOptions);
         if (canvas) {
-            const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+            const dataUrl = canvas.toDataURL('image/png');
             $base64Input.val(dataUrl);
             $removeInput.val('0');
             $previewImg.attr('src', dataUrl);

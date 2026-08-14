@@ -18,8 +18,8 @@ class BannerController extends Controller
     {
         $this->authorize('view banners');
 
-        $banners   = Banner::with('createdBy')->orderBy('id', 'desc')->get();
-        $canEdit   = auth()->user()->can('edit banners');
+        $banners = Banner::with('createdBy')->orderBy('id', 'desc')->get();
+        $canEdit = auth()->user()->can('edit banners');
         $canDelete = auth()->user()->can('delete banners');
 
         $data = $banners->map(function ($banner, $index) use ($canEdit, $canDelete) {
@@ -49,13 +49,13 @@ class BannerController extends Controller
             }
 
             return [
-                'id'         => $banner->id,
-                'index'      => $index + 1,
-                'image'      => $image,
-                'status'     => $status,
+                'id' => $banner->id,
+                'index' => $index + 1,
+                'image' => $image,
+                'status' => $status,
                 'created_by' => $banner->createdBy ? e($banner->createdBy->name) : 'System',
                 'created_at' => format_date($banner->created_at),
-                'actions'    => $actions,
+                'actions' => $actions,
             ];
         });
 
@@ -80,7 +80,7 @@ class BannerController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
@@ -94,7 +94,7 @@ class BannerController extends Controller
 
                 if (!in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => ['image' => ['The image must be a file of type: jpg, jpeg, png, webp.']],
                     ], 422);
                 }
@@ -102,7 +102,7 @@ class BannerController extends Controller
                 $decodedData = base64_decode($dataString);
                 if ($decodedData === false) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => ['image' => ['Failed to decode image.']],
                     ], 422);
                 }
@@ -119,13 +119,13 @@ class BannerController extends Controller
         }
 
         Banner::create([
-            'image'      => $imagePath,
-            'status'     => $request->has('status') ? Banner::STATUS_ACTIVE : Banner::STATUS_INACTIVE,
+            'image' => $imagePath,
+            'status' => $request->has('status') ? Banner::STATUS_ACTIVE : Banner::STATUS_INACTIVE,
             'created_by' => auth()->id(),
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Banner created successfully.',
         ]);
     }
@@ -156,7 +156,7 @@ class BannerController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
@@ -171,7 +171,7 @@ class BannerController extends Controller
 
                 if (!in_array($type, ['jpg', 'jpeg', 'png', 'webp'])) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => ['image' => ['The image must be a file of type: jpg, jpeg, png, webp.']],
                     ], 422);
                 }
@@ -179,7 +179,7 @@ class BannerController extends Controller
                 $decodedData = base64_decode($dataString);
                 if ($decodedData === false) {
                     return response()->json([
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => ['image' => ['Failed to decode image.']],
                     ], 422);
                 }
@@ -203,12 +203,12 @@ class BannerController extends Controller
         }
 
         $banner->update([
-            'image'  => $imagePath,
+            'image' => $imagePath,
             'status' => $request->has('status') ? Banner::STATUS_ACTIVE : Banner::STATUS_INACTIVE,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Banner updated successfully.',
         ]);
     }
@@ -222,7 +222,7 @@ class BannerController extends Controller
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Banner status updated successfully.',
         ]);
     }
@@ -241,7 +241,7 @@ class BannerController extends Controller
         $banner->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Banner deleted successfully.',
         ]);
     }
