@@ -961,7 +961,7 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
 @php
     $states = \App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->orderBy('name')->get();
 @endphp
-<div id="buyNowAddressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+<div id="buyNowAddressModal" class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-y-auto p-4">
     <div class="min-h-full flex items-center justify-center py-5">
         <div class="relative w-full max-w-[620px] bg-white rounded-[8px] p-5 md:p-7 border border-[#D5D5D5] overflow-visible shadow-xl">
             <button onclick="closeBuyNowAddressModal()" class="absolute top-4 right-4 text-[32px] leading-none text-[#131615] hover:text-[#B4771E] transition">&times;</button>
@@ -1085,7 +1085,7 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
 
 {{-- ══ ADDRESS DETAILS MODAL (Add/Edit) ══ --}}
 <div id="addressModal"
-   class="fixed inset-0 z-[100] hidden bg-black/50 overflow-hidden p-4 !mt-0">
+   class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-hidden p-4 !mt-0">
     <div class="min-h-full flex items-center justify-center !mt-0 py-5">
         <div class="relative w-full max-w-[750px] bg-white rounded-[8px] p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5] overflow-y-auto scrollbar-hide">
             <button onclick="closeModal()" class="absolute top-4 right-4 md:top-6 md:right-6 text-[35px] leading-none text-[#131615]">&times;</button>
@@ -1208,7 +1208,7 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
 </div>
 
 {{-- ══ BUY NOW — Payment Loader ══ --}}
-<div id="buyNowLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm !mt-0">
+<div id="buyNowLoader" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-black/60 backdrop-blur-sm !mt-0">
     <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center !mt-0">
         <div class="relative w-20 h-20">
             <svg class="animate-spin w-20 h-20 text-[#B4771E]" viewBox="0 0 50 50" fill="none">
@@ -1244,7 +1244,7 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
 </div>
 
 {{-- ══ BUY NOW — Success Modal ══ --}}
-<div id="buyNowSuccessModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4 !mt-0">
+<div id="buyNowSuccessModal" class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-y-auto p-4 !mt-0">
     <div class="min-h-full flex items-center justify-center py-5 !mt-0">
         <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onclick="closeBuyNowSuccessModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>
@@ -1340,7 +1340,7 @@ Order Amount
 </div>
 
 {{-- ══ BUY NOW — Failure Modal ══ --}}
-<div id="buyNowFailureModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4 !mt-0">
+<div id="buyNowFailureModal" class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-y-auto p-4 !mt-0">
     <div class="min-h-full flex items-center justify-center !mt-0">
         <div class="relative w-full max-w-[720px] bg-white rounded-[8px] p-4 sm:p-6 md:p-[33px] max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onclick="closeBuyNowFailureModal()" class="absolute top-4 right-4 text-[32px] text-[#131615]">&times;</button>

@@ -69,7 +69,7 @@
 }
 </style>
 <div id="addressModal"
-   class="fixed inset-0 z-50 hidden bg-black/50 overflow-hidden p-4 !mt-0">
+   class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-hidden p-4 !mt-0">
     <div class="min-h-full flex items-center justify-center !mt-0 py-5">
         <!-- Modal Box -->
 
@@ -708,7 +708,7 @@
                     </button>
                 </div>
 <!-- ── PAYMENT VERIFYING LOADER ── -->
-<div id="paymentLoader" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm !mt-0">
+<div id="paymentLoader" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-black/60 backdrop-blur-sm !mt-0">
     <div class="flex flex-col items-center gap-6 px-8 py-10 bg-white rounded-2xl shadow-2xl max-w-[340px] w-full mx-4 text-center !mt-0">
         <!-- Spinner -->
         <div class="relative w-20 h-20">
@@ -749,7 +749,7 @@
 
 <div
     id="successModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    class="fixed inset-0 z-[9999] hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
     <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
 
@@ -884,7 +884,7 @@
 <!-- Failure Modal -->
 <div
     id="failureModal"
-    class="fixed inset-0 z-50 hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
+    class="fixed inset-0 z-[9999] hidden bg-black/50 p-4 !mt-0 overflow-y-auto ">
     <div class="min-h-full flex items-center justify-center !mt-0">
         <!-- Modal -->
         <div

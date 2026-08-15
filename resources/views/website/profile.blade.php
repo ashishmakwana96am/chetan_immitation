@@ -289,7 +289,7 @@
 </div>
  
 <!-- ── ORDER VIEW MODAL ── -->
-<div id="orderModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
+<div id="orderModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/40 px-4">
   <div class="bg-white rounded-sm w-full max-w-md p-6 shadow-xl">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-[#131615]">Order Details</h3>
@@ -301,7 +301,7 @@
 </div>
  
 <!-- ── ADD/EDIT ADDRESS MODAL (copied from checkout.address) ── -->
-<div id="addressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
+<div id="addressModal" class="fixed inset-0 z-[9999] hidden bg-black/50 overflow-y-auto p-4">
     <div class="min-h-full flex items-center justify-center !mt-0 py-5">
         <div class="relative w-full max-w-[750px] bg-white rounded-[8px] p-4 sm:p-5 max-h-[90vh] border border-[#D5D5D5] overflow-y-auto scrollbar-hide">
             
