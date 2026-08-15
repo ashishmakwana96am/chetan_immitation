@@ -50,14 +50,6 @@
             <h4 class="fw-semibold mb-0">Outstanding Payables</h4>
             <small class="text-muted">Consolidated outstanding amounts due to suppliers</small>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
-                <i class="ti ti-history me-1"></i> Payment History
-            </a>
-            <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#bulkPayOffcanvas">
-                <i class="ti ti-cash me-1"></i> Make Payment
-            </button>
-        </div>
     </div>
 
     <div class="row g-4 mb-4">
@@ -145,35 +137,6 @@
         </div>
     </div>
 
-    <!-- Make Payment Offcanvas Sidepanel -->
-    <div class="offcanvas offcanvas-end" id="bulkPayOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title fw-bold" id="bulkPayOffcanvasLabel">Make Payment</h5>
-            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
-            <form id="bulkPayForm" class="d-flex flex-column h-100 m-0">
-                @csrf
-                <input type="hidden" id="bulk-pay-location-id" name="location_id">
-                <div class="flex-grow-1 p-4" style="overflow-y: auto;">
-                    <div class="mb-3">
-                        <label class="form-label required fw-semibold">Enter Amount to Pay (₹)</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₹</span>
-                            <input type="number" step="0.01" min="0.01" id="bulk-pay-amount" name="amount" class="form-control form-control-lg" placeholder="e.g. 500000" required autofocus />
-                        </div>
-                        <small class="text-muted d-block mt-2" id="bulk-pay-max-hint">Payable balance: <strong class="text-danger" id="bulk-pay-max-val">-</strong></small>
-                    </div>
-                </div>
-                <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
-                    <button type="submit" id="bulkPaySubmitBtn" class="btn btn-primary flex-fill w-50 m-0">
-                        <i class="ti ti-check me-1"></i> Make Payment
-                    </button>
-                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
 @endsection
 
 @section('page-js')
@@ -275,10 +238,10 @@
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
                                         <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
-                                             <i class="ti ti-eye me-2"></i>View
-                                         </a>
-                                     </div>
-                                 </div>
+                                            <i class="ti ti-eye me-2"></i>View
+                                        </a>
+                                    </div>
+                                </div>
                             `;
                         }
                     },
@@ -329,104 +292,6 @@
                 $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
-            });
-
-            // Set location filter ID & max payable amount when Bulk Pay offcanvas opens
-            $('#bulkPayOffcanvas').on('show.bs.offcanvas', function () {
-                const locationId = $('#filter-location').val() || '';
-                $('#bulk-pay-location-id').val(locationId);
-                $('#bulk-pay-amount').val('');
-
-                // Calculate current total due from datatable data
-                let totalDue = 0.0;
-                if (typeof table !== 'undefined' && table.rows) {
-                    table.rows({ filter: 'applied' }).data().each(function (row) {
-                        if (row.due_amount) {
-                            const raw = parseFloat(String(row.due_amount).replace(/[^0-9.-]+/g, ''));
-                            if (!isNaN(raw)) totalDue += raw;
-                        }
-                    });
-                }
-                totalDue = Math.round(totalDue * 100) / 100;
-
-                if (totalDue > 0) {
-                    $('#bulk-pay-amount').attr('max', totalDue);
-                    $('#bulk-pay-max-val').text('₹' + totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 }));
-                    $('#bulk-pay-max-hint').show();
-                } else {
-                    $('#bulk-pay-amount').removeAttr('max');
-                    $('#bulk-pay-max-hint').hide();
-                }
-            });
-
-            // Handle Bulk Pay Submit
-            $('#bulkPayForm').on('submit', function (e) {
-                e.preventDefault();
-                const $btn = $('#bulkPaySubmitBtn');
-                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...');
-
-                $.ajax({
-                    url: '{{ route('admin.accounting.outstanding-payables.bulk-pay') }}',
-                    type: 'POST',
-                    data: $(this).serialize(),
-                    success: function (res) {
-                        const offcanvasEl = document.getElementById('bulkPayOffcanvas');
-                        if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
-                            bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
-                        } else {
-                            $('#bulkPayOffcanvas').removeClass('show');
-                        }
-                        if (typeof toastr !== 'undefined') {
-                            toastr.success(res.message);
-                        } else if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Success',
-                                text: res.message,
-                                customClass: { confirmButton: 'btn btn-primary' }
-                            });
-                        } else {
-                            alert(res.message);
-                        }
-                        window.refreshTable();
-                    },
-                    error: function (xhr) {
-                        let errorMsg = 'Failed to process bulk payment.';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            if (typeof xhr.responseJSON.message === 'string') {
-                                errorMsg = xhr.responseJSON.message;
-                            } else if (typeof xhr.responseJSON.message === 'object') {
-                                const keys = Object.keys(xhr.responseJSON.message);
-                                if (keys.length) {
-                                    const val = xhr.responseJSON.message[keys[0]];
-                                    errorMsg = Array.isArray(val) ? val[0] : String(val);
-                                }
-                            }
-                        } else if (xhr.responseJSON && xhr.responseJSON.errors) {
-                            const keys = Object.keys(xhr.responseJSON.errors);
-                            if (keys.length) {
-                                const val = xhr.responseJSON.errors[keys[0]];
-                                errorMsg = Array.isArray(val) ? val[0] : String(val);
-                            }
-                        }
-
-                        if (typeof toastr !== 'undefined') {
-                            toastr.error(errorMsg);
-                        } else if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: errorMsg,
-                                customClass: { confirmButton: 'btn btn-primary' }
-                            });
-                        } else {
-                            alert(errorMsg);
-                        }
-                    },
-                    complete: function () {
-                        $btn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Make Payment');
-                    }
-                });
             });
 
             // Double click anywhere on row to navigate to details page

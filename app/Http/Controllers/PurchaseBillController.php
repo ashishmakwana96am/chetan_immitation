@@ -116,7 +116,7 @@ class PurchaseBillController extends Controller
                 }
             }
             if ($canPaymentStatusRecord && $transfer->status == PurchaseBill::STATUS_ACCEPTED && (int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING) !== PurchaseBill::PAYMENT_STATUS_PAID) {
-                $actions .= '<button class="dropdown-item change-purchase-bill-payment-status-btn" data-url="' . route('admin.purchase-bills.update-payment-status', $transfer) . '" data-history-url="' . route('admin.purchase-bills.payment-history', $transfer) . '" data-current="' . ((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING)) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
+                $actions .= '<button class="dropdown-item change-purchase-bill-payment-status-btn" data-url="' . route('admin.purchase-bills.update-payment-status', $transfer) . '" data-current="' . ((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING)) . '"><i class="ti ti-credit-card me-2"></i>Update Payment Status</button>';
             }
             $actions .= '</div></div>';
 
@@ -233,7 +233,7 @@ class PurchaseBillController extends Controller
             'from_location_id' => ['required', 'exists:locations,id'],
             'to_location_id' => ['required', 'exists:locations,id', 'different:from_location_id'],
             'payment_method' => ['required', 'string', 'in:cash,online'],
-            'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -350,7 +350,7 @@ class PurchaseBillController extends Controller
             'from_location_id' => ['required', 'exists:locations,id'],
             'to_location_id' => ['required', 'exists:locations,id', 'different:from_location_id'],
             'payment_method' => ['required', 'string', 'in:cash,online'],
-            'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
+            'payment_status' => ['nullable', 'integer', 'in:1,2'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
@@ -435,7 +435,6 @@ class PurchaseBillController extends Controller
             'toLocation',
             'createdBy',
             'acceptedBy',
-            'payments.createdBy',
             'items.product.primaryImage',
             'items.product.variants.attributeValue.attribute',
             'items.variant.attributeValue.attribute',
@@ -541,49 +540,17 @@ class PurchaseBillController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Purchase bill accepted successfully.']);
     }
 
-    public function paymentHistory(PurchaseBill $purchaseBill)
-    {
-        $this->authorize('view purchase bills');
-
-        $purchaseBill->load(['items.product', 'items.variant']);
-        [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
-        $paidAmount = (float) ($purchaseBill->paid_amount ?? 0);
-        $balanceDue = max(0.0, round($totalAmount - $paidAmount, 2));
-
-        $payments = $purchaseBill->payments()->with('createdBy')->get()->map(function ($payment) {
-            return [
-                'amount' => format_price($payment->amount),
-                'date'   => $payment->created_at->format('d M Y, h:i A'),
-            ];
-        });
-
-        return response()->json([
-            'status' => 'success',
-            'data'   => [
-                'total_amount'    => format_price($totalAmount),
-                'paid_amount'     => format_price($paidAmount),
-                'balance_due'     => format_price($balanceDue),
-                'balance_due_raw' => $balanceDue,
-                'payments'        => $payments,
-            ],
-        ]);
-    }
-
     public function updatePaymentStatus(Request $request, PurchaseBill $purchaseBill)
     {
         $this->authorize('edit purchase bills payment status');
         $this->guardLocationAccess($purchaseBill);
 
         if (!can_modify_past_date_record($purchaseBill->created_at)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'You do not have permission to edit past date records.',
-            ], 403);
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit past date records.'], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'payment_status' => ['required', 'in:1,2,3'],
-            'amount'         => ['nullable', 'numeric', 'min:0.01', 'required_if:payment_status,3'],
+            'payment_status' => ['required', 'integer', 'in:1,2'],
         ]);
 
         if ($validator->fails()) {
@@ -594,71 +561,30 @@ class PurchaseBillController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Only accepted purchase bills can have their payment status updated.'], 422);
         }
 
-        $purchaseBill->load(['items.product', 'items.variant']);
-        [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
-        $currentPaidAmount = (float) ($purchaseBill->paid_amount ?? 0);
-        $balanceDue = round($totalAmount - $currentPaidAmount, 2);
-
         $newStatus = (int) $request->payment_status;
         $currentStatus = (int) ($purchaseBill->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING);
 
-        if ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL && round((float) $request->amount, 2) > $balanceDue) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Paid amount cannot be greater than the remaining balance due (' . format_price($balanceDue) . ').',
-            ], 422);
+        if ($newStatus === $currentStatus) {
+            return response()->json(['status' => 'error', 'message' => 'Payment status is already updated.'], 422);
         }
 
-        DB::transaction(function () use ($purchaseBill, $newStatus, $request, $totalAmount, $balanceDue, $currentPaidAmount) {
-            if ($newStatus === PurchaseBill::PAYMENT_STATUS_PAID) {
-                \App\Models\PurchaseBillPayment::create([
-                    'purchase_bill_id' => $purchaseBill->id,
-                    'amount'           => $balanceDue,
-                    'created_by'       => auth()->id(),
-                ]);
+        DB::transaction(function () use ($purchaseBill, $newStatus) {
+            $purchaseBill->load(['items.product', 'items.variant']);
+            [$totalAmount] = $this->purchaseBillTotals($purchaseBill);
 
-                $this->applyLocationBalanceTransfer($purchaseBill, $balanceDue, false);
+            $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount, $newStatus === PurchaseBill::PAYMENT_STATUS_PENDING);
 
-                PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
-                    'payment_status' => PurchaseBill::PAYMENT_STATUS_PAID,
-                    'paid_amount'    => $totalAmount,
-                ]));
-            } elseif ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL) {
-                $amount = (float) $request->amount;
-                $newPaidAmount = round($currentPaidAmount + $amount, 2);
-                $finalStatus = $newPaidAmount >= $totalAmount ? PurchaseBill::PAYMENT_STATUS_PAID : PurchaseBill::PAYMENT_STATUS_PARTIAL;
-
-                \App\Models\PurchaseBillPayment::create([
-                    'purchase_bill_id' => $purchaseBill->id,
-                    'amount'           => $amount,
-                    'created_by'       => auth()->id(),
-                ]);
-
-                $this->applyLocationBalanceTransfer($purchaseBill, $amount, false);
-
-                PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
-                    'payment_status' => $finalStatus,
-                    'paid_amount'    => min($newPaidAmount, $totalAmount),
-                ]));
-            } else {
-                $purchaseBill->payments()->delete();
-                $this->applyLocationBalanceTransfer($purchaseBill, $currentPaidAmount, true);
-
-                PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
-                    'payment_status' => PurchaseBill::PAYMENT_STATUS_PENDING,
-                    'paid_amount'    => 0,
-                ]));
-            }
+            PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update(['payment_status' => $newStatus]));
         });
 
-        $label = $newStatus === PurchaseBill::PAYMENT_STATUS_PAID ? 'Paid' : ($newStatus === PurchaseBill::PAYMENT_STATUS_PARTIAL ? 'Partially Paid' : 'Pending');
+        $label = $newStatus === PurchaseBill::PAYMENT_STATUS_PAID ? 'Paid' : 'Pending';
 
         ActivityLogger::log(
             'Purchase Bill',
             'update',
             $purchaseBill,
-            ['payment_status' => $currentStatus, 'paid_amount' => $currentPaidAmount],
-            ['payment_status' => (int) $purchaseBill->payment_status, 'paid_amount' => (float) $purchaseBill->paid_amount],
+            ['payment_status' => $currentStatus],
+            ['payment_status' => $newStatus],
             'Purchase Bill #' . $purchaseBill->transfer_no . ' payment status updated to ' . $label
         );
 
@@ -835,13 +761,11 @@ class PurchaseBillController extends Controller
     {
         $colors = [
             PurchaseBill::PAYMENT_STATUS_PENDING => 'bg-label-warning',
-            PurchaseBill::PAYMENT_STATUS_PAID    => 'bg-label-info',
-            PurchaseBill::PAYMENT_STATUS_PARTIAL => 'bg-label-primary',
+            PurchaseBill::PAYMENT_STATUS_PAID => 'bg-label-success',
         ];
         $labels = [
             PurchaseBill::PAYMENT_STATUS_PENDING => 'Pending',
-            PurchaseBill::PAYMENT_STATUS_PAID    => 'Paid',
-            PurchaseBill::PAYMENT_STATUS_PARTIAL => 'Partially Paid',
+            PurchaseBill::PAYMENT_STATUS_PAID => 'Paid',
         ];
 
         return '<span class="badge ' . ($colors[$status] ?? 'bg-label-warning') . '">' . ($labels[$status] ?? 'Pending') . '</span>';

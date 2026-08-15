@@ -66,11 +66,9 @@
     @php
         $statusColors = [1 => 'bg-label-secondary', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
         $statusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
-        $paymentStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-info', 3 => 'bg-label-primary'];
-        $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
+        $paymentStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success'];
+        $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid'];
         $currentPaymentStatus = (int) ($transfer->payment_status ?? 1);
-        $paidAmount = (float) ($transfer->paid_amount ?? 0);
-        $balanceDue = max(0.0, (float) $totalAmount - $paidAmount);
     @endphp
 
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
@@ -108,7 +106,6 @@
                 @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID && can_modify_past_date_record($transfer->created_at))
                     <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
                         data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
-                        data-history-url="{{ route('admin.purchase-bills.payment-history', $transfer) }}"
                         data-current="{{ $currentPaymentStatus }}">
                         <i class="ti ti-credit-card me-1"></i> Update Payment Status
                     </button>
@@ -153,20 +150,6 @@
                         <span class="badge {{ $paymentStatusColors[$currentPaymentStatus] ?? 'bg-label-warning' }}">{{ $paymentStatusLabels[$currentPaymentStatus] ?? 'Pending' }}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Total Amount</span>
-                        <span class="info-value fw-bold text-primary">{{ format_price($totalAmount) }}</span>
-                    </div>
-                    @if($currentPaymentStatus != 1)
-                        <div class="info-row">
-                            <span class="info-label">Paid Amount</span>
-                            <span class="info-value fw-semibold text-success">{{ format_price($paidAmount) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Balance Due</span>
-                            <span class="info-value fw-semibold text-danger">{{ format_price($balanceDue) }}</span>
-                        </div>
-                    @endif
-                    <div class="info-row">
                         <span class="info-label">Created By</span>
                         <span class="info-value">{{ $transfer->createdBy->name ?? '-' }}</span>
                     </div>
@@ -184,33 +167,6 @@
                     @endif
                 </div>
             </div>
-
-            @if($transfer->payments && $transfer->payments->isNotEmpty())
-                <div class="card mb-3">
-                    <div class="card-header d-flex align-items-center gap-2 py-3">
-                        <span class="card-title-icon text-success"><i class="ti ti-history"></i></span>
-                        <h6 class="mb-0 fw-semibold">Payment History</h6>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Date & Time</th>
-                                    <th class="text-end">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($transfer->payments as $payment)
-                                    <tr>
-                                        <td class="small text-nowrap">{{ format_date($payment->created_at, 'd-m-Y H:i A') }}</td>
-                                        <td class="text-end small fw-semibold text-success">{{ format_price($payment->amount) }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
 
             @if($transfer->remarks)
                 <div class="card">
@@ -322,68 +278,20 @@ $(document).ready(function () {
             }
         });
     }
-    function buildPurchaseBillPaymentHistoryHtml(historyData) {
-        if (!historyData || !historyData.payments || historyData.payments.length === 0) {
-            return '';
-        }
-
-        let rows = historyData.payments.map(function (p) {
-            return `<tr><td class="text-nowrap">${p.date}</td><td class="text-end">${p.amount}</td></tr>`;
-        }).join('');
-
-        return `
-            <div class="mb-3 text-start" style="font-size: 0.8rem;">
-                <div class="d-flex justify-content-between text-muted mb-2">
-                    <span>Total: <strong>${historyData.total_amount}</strong></span>
-                    <span>Paid: <strong class="text-success">${historyData.paid_amount}</strong></span>
-                    <span>Balance: <strong class="text-danger">${historyData.balance_due}</strong></span>
-                </div>
-                <label class="form-label fw-semibold mb-1" style="font-size: 0.8rem;">Payment History</label>
-                <div class="table-responsive border rounded" style="max-height:150px; overflow-y:auto;">
-                    <table class="table table-sm mb-0" style="font-size: 0.75rem;">
-                        <thead class="table-light"><tr><th>Date</th><th class="text-end">Amount</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    }
-
     $(document).on('click', '.change-purchase-bill-payment-status-btn', function (e) {
         e.preventDefault();
         const url = $(this).data('url');
-        const historyUrl = $(this).data('history-url');
         const currentPaymentStatus = $(this).data('current');
 
-        if (historyUrl) {
-            $.get(historyUrl)
-                .done(function (res) {
-                    openPurchaseBillPaymentStatusModal(url, currentPaymentStatus, res.data);
-                })
-                .fail(function () {
-                    openPurchaseBillPaymentStatusModal(url, currentPaymentStatus, null);
-                });
-        } else {
-            openPurchaseBillPaymentStatusModal(url, currentPaymentStatus, null);
-        }
-    });
-
-    function openPurchaseBillPaymentStatusModal(url, currentPaymentStatus, historyData) {
         Swal.fire({
             title: 'Update Payment Status',
             html: `
-                ${buildPurchaseBillPaymentHistoryHtml(historyData)}
                 <div class="mb-3 text-start">
-                    <label for="swal-pb-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
-                    <select id="swal-pb-payment-status" class="form-select form-select-md">
-                        <option value="1" ${currentPaymentStatus == 1 ? 'selected' : 'disabled'}>Pending</option>
-                        <option value="3" ${currentPaymentStatus == 3 ? 'selected' : ''}>Partially Paid</option>
+                    <label for="swal-purchase-bill-payment-status" class="form-label fw-semibold mb-2">Select Payment Status</label>
+                    <select id="swal-purchase-bill-payment-status" class="form-select form-select-lg">
+                        <option value="1" ${currentPaymentStatus == 1 ? 'selected' : ''}>Pending</option>
                         <option value="2" ${currentPaymentStatus == 2 ? 'selected' : ''}>Paid</option>
                     </select>
-                </div>
-                <div class="mb-3 text-start d-none" id="swal-pb-amount-wrapper">
-                    <label for="swal-pb-payment-amount" class="form-label fw-semibold mb-2">Amount Paid Now</label>
-                    <input type="number" id="swal-pb-payment-amount" class="form-control form-control-md" min="0.01" step="0.01" placeholder="Enter amount paid" />
                 </div>
             `,
             showCancelButton: true,
@@ -394,53 +302,31 @@ $(document).ready(function () {
                 cancelButton: 'btn btn-label-secondary'
             },
             buttonsStyling: false,
-            didOpen: () => {
-                const statusSelect = document.getElementById('swal-pb-payment-status');
-                const amountWrapper = document.getElementById('swal-pb-amount-wrapper');
-                const toggleAmount = () => {
-                    amountWrapper.classList.toggle('d-none', statusSelect.value !== '3');
-                };
-                toggleAmount();
-                statusSelect.addEventListener('change', toggleAmount);
-            },
-            showLoaderOnConfirm: true,
             preConfirm: () => {
-                const status = document.getElementById('swal-pb-payment-status').value;
-                const amount = document.getElementById('swal-pb-payment-amount').value;
-                if (status === '3') {
-                    if (!amount || parseFloat(amount) <= 0) {
-                        Swal.showValidationMessage('The amount field must be at least 0.01.');
-                        return false;
-                    }
-                    const balanceDue = historyData ? parseFloat(historyData.balance_due_raw) : null;
-                    if (balanceDue !== null && !isNaN(balanceDue) && parseFloat(amount) > balanceDue) {
-                        Swal.showValidationMessage(`Paid amount cannot be greater than the remaining balance due (${historyData.balance_due}).`);
-                        return false;
-                    }
-                }
-
-                return $.ajax({
-                    url: url,
-                    type: 'PATCH',
-                    data: {
-                        _token: $('meta[name="csrf-token"]').attr('content'),
-                        payment_status: status,
-                        amount: amount
-                    }
-                }).then(function (res) {
-                    if (res.status === 'success') {
-                        toastr.success(res.message);
-                        setTimeout(() => window.location.reload(), 600);
-                    } else {
-                        Swal.showValidationMessage(res.message || 'Something went wrong.');
-                    }
-                }).catch(function (xhr) {
-                    const msg = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
-                    Swal.showValidationMessage(typeof msg === 'string' ? msg : Object.values(msg)[0][0]);
-                });
+                return document.getElementById('swal-purchase-bill-payment-status').value;
             }
+        }).then((result) => {
+            if (!result.isConfirmed || !result.value) return;
+            window.showAjaxLoader();
+            $.ajax({
+                url: url,
+                type: 'PATCH',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    payment_status: result.value
+                },
+                success: function (res) {
+                    window.hideAjaxLoader();
+                    toastr.success(res.message);
+                    setTimeout(() => window.location.reload(), 600);
+                },
+                error: function (xhr) {
+                    window.hideAjaxLoader();
+                    toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
+                }
+            });
         });
-    }
+    });
 
     $(document).on('click', '.purchase-bill-action', function () {
         const button = $(this);

@@ -421,7 +421,6 @@ class ReportExportService
         $paymentStatusLabels = [
             1 => 'Pending',
             2 => 'Paid',
-            3 => 'Partially Paid',
         ];
 
         $row = 2;

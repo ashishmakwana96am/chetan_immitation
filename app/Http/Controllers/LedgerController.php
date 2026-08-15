@@ -707,7 +707,7 @@ class LedgerController extends Controller
             ->where('from_location_id', $request->from_location_id)
             ->where('to_location_id', $request->to_location_id)
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
             ->orderByDesc('accepted_at')
             ->get()
             ->map(function ($bill) use ($stockMultiplierFor, $formatStockQtyText) {
@@ -750,19 +750,16 @@ class LedgerController extends Controller
         $getTransferAmount = function ($transferCollection) {
             $total = 0.0;
             foreach ($transferCollection as $transfer) {
-                $billTotal = 0.0;
                 foreach ($transfer->items as $item) {
-                    $billTotal += $this->purchasePriceForLedgerItem($item) * $item->quantity;
+                    $total += $this->purchasePriceForLedgerItem($item) * $item->quantity;
                 }
-                $paid = (float) ($transfer->paid_amount ?? 0);
-                $total += max(0.0, $billTotal - $paid);
             }
             return (float) $total;
         };
 
         // One row per bill (not per in/out side) — a transfer between two of the
         // filtered locations only needs listing once, naming both branches.
-        // Only unpaid/partial bills belong here; once marked Paid it drops off, same as
+        // Only unpaid bills belong here; once marked Paid it drops off, same as
         // the Pending Payments Between Branches summary below.
         $transfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
@@ -770,7 +767,7 @@ class LedgerController extends Controller
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
             ->orderByDesc('accepted_at')
@@ -807,14 +804,14 @@ class LedgerController extends Controller
         })->values();
 
         // Pending Payments Between Branches — same date-range/location filters
-        // as the table above, but scoped to accepted + unpaid/partial bills only.
+        // as the table above, but scoped to accepted+unpaid bills only.
         $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
+            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
             ->get();
