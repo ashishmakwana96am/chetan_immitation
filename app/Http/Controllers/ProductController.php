@@ -62,6 +62,17 @@ class ProductController extends Controller
             ->when($request->hide_from_website !== null && $request->hide_from_website !== '', function($q) use ($request) {
                 $q->where('hide_from_website', $request->hide_from_website);
             })
+            ->when($request->sale_product !== null && $request->sale_product !== '', function($q) use ($request) {
+                if ($request->sale_product == '1') {
+                    $q->whereColumn('mrp', '>', 'sale_price')->where('mrp', '>', 0);
+                } elseif ($request->sale_product == '0') {
+                    $q->where(function($sub) {
+                        $sub->whereColumn('mrp', '<=', 'sale_price')
+                            ->orWhereNull('mrp')
+                            ->orWhere('mrp', 0);
+                    });
+                }
+            })
             ->when($request->input('search.value'), function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('name', 'like', "%{$search}%")

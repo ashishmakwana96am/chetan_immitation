@@ -716,6 +716,63 @@ class CheckoutController extends Controller
         ]);
     }
 
+    public function validateBuyNowCoupon(Request $request)
+    {
+        $request->validate([
+            'code' => ['required', 'string'],
+            'subtotal' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $code = trim($request->code);
+        $subtotal = (float) $request->subtotal;
+
+        $coupon = Coupon::where('code', $code)
+            ->where('status', Coupon::STATUS_ACTIVE)
+            ->where(function ($q) {
+                $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
+            })
+            ->where(function ($q) {
+                $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
+            })
+            ->first();
+
+        if (! $coupon) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid or expired coupon code.'], 422);
+        }
+
+        if ($coupon->code === Coupon::FREE_SHIPPING_CODE && $subtotal < 2000) {
+            return response()->json(['status' => 'error', 'message' => 'FREESHIP coupon is valid only on orders of ₹2000 or more.'], 422);
+        }
+
+        if ($coupon->usage_limit !== null) {
+            $usedCount = Order::where('coupon_id', $coupon->id)->count();
+            if ($usedCount >= $coupon->usage_limit) {
+                return response()->json(['status' => 'error', 'message' => 'This coupon has reached its usage limit.'], 422);
+            }
+        }
+
+        $discount = 0.0;
+        if ($coupon->discount_type === 'percentage') {
+            $discount = $subtotal * ((float) $coupon->discount_value / 100);
+        } else {
+            $discount = (float) $coupon->discount_value;
+        }
+        if ($discount > $subtotal) {
+            $discount = $subtotal;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Coupon applied successfully!',
+            'coupon' => [
+                'code' => $coupon->code,
+                'discount_type' => $coupon->discount_type,
+                'discount_value' => (float) $coupon->discount_value,
+                'discount_amount' => round($discount, 2),
+            ],
+        ]);
+    }
+
     public function buyNowInitialize(Request $request)
     {
         $request->validate([
@@ -725,6 +782,7 @@ class CheckoutController extends Controller
             'qty' => ['nullable', 'integer', 'min:1'],
             'pair_type' => ['nullable', 'string', 'in:single,pair'],
             'custom_size_value' => ['nullable', 'numeric'],
+            'coupon_code' => ['nullable', 'string'],
         ]);
 
         if (! (bool) Setting::getValue('payment_method_razorpay', true)) {
@@ -807,8 +865,48 @@ class CheckoutController extends Controller
         ]))->setRelation('product', $product)->setRelation('productVariant', $variant)->getPrice();
 
         $subtotal = round((float) $price * $qty, 2);
-        $shipping = $this->calculateShipping($subtotal, $address, null);
-        $total = round($subtotal + $shipping, 2);
+
+        $discount = 0.0;
+        $coupon = null;
+        if ($request->filled('coupon_code')) {
+            $couponCode = trim($request->coupon_code);
+            $coupon = Coupon::where('code', $couponCode)
+                ->where('status', Coupon::STATUS_ACTIVE)
+                ->where(function ($q) {
+                    $q->whereNull('start_date')->orWhereDate('start_date', '<=', today());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('end_date')->orWhereDate('end_date', '>=', today());
+                })
+                ->first();
+
+            if (! $coupon) {
+                return response()->json(['status' => 'error', 'message' => 'Invalid or expired coupon code.'], 422);
+            }
+
+            if ($coupon->code === Coupon::FREE_SHIPPING_CODE && $subtotal < 2000) {
+                return response()->json(['status' => 'error', 'message' => 'FREESHIP coupon is valid only on orders of ₹2000 or more.'], 422);
+            }
+
+            if ($coupon->usage_limit !== null) {
+                $usedCount = Order::where('coupon_id', $coupon->id)->count();
+                if ($usedCount >= $coupon->usage_limit) {
+                    return response()->json(['status' => 'error', 'message' => 'This coupon has reached its usage limit.'], 422);
+                }
+            }
+
+            if ($coupon->discount_type === 'percentage') {
+                $discount = $subtotal * ((float) $coupon->discount_value / 100);
+            } else {
+                $discount = (float) $coupon->discount_value;
+            }
+            if ($discount > $subtotal) {
+                $discount = $subtotal;
+            }
+        }
+
+        $shipping = $this->calculateShipping($subtotal, $address, $coupon);
+        $total = round(max(0, $subtotal - $discount + $shipping), 2);
 
         $fulfillment = $this->isDefaultLocationWithStock([[
             'product_id' => $product->id,
@@ -862,8 +960,8 @@ class CheckoutController extends Controller
                 'is_default' => $hasStock,
                 'total' => $total,
                 'shipping_charge' => $shipping,
-                'coupon_id' => null,
-                'discount_type' => 'MANUAL',
+                'coupon_id' => $coupon ? $coupon->id : null,
+                'discount_type' => $coupon ? 'COUPON' : 'MANUAL',
                 'cart_items' => [[
                     'product_id' => $product->id,
                     'variant_id' => $variantId,

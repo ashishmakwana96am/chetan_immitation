@@ -96,6 +96,7 @@ Route::middleware('auth:customer')->group(function () {
     Route::post('/checkout/shipping/recalculate', [CheckoutController::class, 'recalculateShipping'])->name('checkout.shipping.recalculate');
     Route::post('/checkout/payment/cod', [CheckoutController::class, 'placeCodOrder'])->name('checkout.payment.cod');
     Route::post('/buy-now/payment/initialize', [CheckoutController::class, 'buyNowInitialize'])->name('buynow.payment.initialize');
+    Route::post('/buy-now/coupon/validate', [CheckoutController::class, 'validateBuyNowCoupon'])->name('buynow.coupon.validate');
 });
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart');

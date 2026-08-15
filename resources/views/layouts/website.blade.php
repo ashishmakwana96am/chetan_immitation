@@ -151,7 +151,7 @@
     </style>
     @yield('page-css')
 </head>
-<body>
+<body class="pb-16 lg:pb-0">
 
     <!-- Header -->
     <header class="relative z-50">
@@ -1087,10 +1087,17 @@ window.addEventListener('resize', function () {
         // Cart badge update
         function updateCartBadge(count) {
             var badge = document.getElementById('cartBadge');
-            if (!badge) return;
-            badge.textContent = count;
-            if (count > 0) badge.classList.remove('hidden');
-            else badge.classList.add('hidden');
+            if (badge) {
+                badge.textContent = count;
+                if (count > 0) badge.classList.remove('hidden');
+                else badge.classList.add('hidden');
+            }
+            var mobileBadge = document.getElementById('mobileBottomCartBadge');
+            if (mobileBadge) {
+                mobileBadge.textContent = count;
+                if (count > 0) mobileBadge.classList.remove('hidden');
+                else mobileBadge.classList.add('hidden');
+            }
         }
         window.updateCartBadge = updateCartBadge;
 
@@ -1258,9 +1265,86 @@ window.addEventListener('resize', function () {
     };
     </script>
 
+    <!-- Mobile Bottom Navigation Bar -->
+    <div class="fixed bottom-0 left-0 right-0 z-[990] bg-white border-t border-[#E5E7EB] shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+        @php
+            $isHomeActive = request()->routeIs('home');
+            $isShopActive = request()->routeIs('shop-by-category');
+            $isCartActive = request()->routeIs('cart');
+            $isProfileActive = request()->routeIs('customer.profile') || request()->routeIs('login') || request()->routeIs('register') || request()->routeIs('forgot-password') || request()->routeIs('reset-password') || request()->routeIs('otp-verification');
+
+            if (auth('customer')->check()) {
+                $cartCount = \App\Models\CartItem::where('customer_id', auth('customer')->id())->sum('qty');
+            } else {
+                $guestCart = session()->get('guest_cart', []);
+                $cartCount = array_sum(array_column($guestCart, 'qty'));
+            }
+        @endphp
+        <div class="grid grid-cols-4 h-[60px]">
+            <!-- 1. Home -->
+            <a href="{{ route('home') }}" class="flex flex-col items-center justify-center relative transition-colors duration-200 {{ $isHomeActive ? 'text-[#B4771E]' : 'text-[#757575] hover:text-[#B4771E]' }}">
+                @if($isHomeActive)
+                    <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-[#B4771E] rounded-b-full"></span>
+                @endif
+                <svg xmlns="http://www.w3.org/2000/svg" fill="{{ $isHomeActive ? 'currentColor' : 'none' }}" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+                <span class="text-[11px] mt-0.5 {{ $isHomeActive ? 'font-bold text-[#B4771E]' : 'font-medium text-[#757575]' }}">Home</span>
+            </a>
+
+            <!-- 2. Explore -->
+            <a href="{{ route('shop-by-category') }}" class="flex flex-col items-center justify-center relative transition-colors duration-200 {{ $isShopActive ? 'text-[#B4771E]' : 'text-[#757575] hover:text-[#B4771E]' }}">
+                @if($isShopActive)
+                    <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-[#B4771E] rounded-b-full"></span>
+                @endif
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h8.25m-8.25 5.25h8.25M17.25 14.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 0 2.25 2.25" />
+                </svg>
+                <span class="text-[11px] mt-0.5 {{ $isShopActive ? 'font-bold text-[#B4771E]' : 'font-medium text-[#757575]' }}">Explore</span>
+            </a>
+
+            <!-- 3. Cart -->
+            <a href="{{ route('cart') }}" class="flex flex-col items-center justify-center relative transition-colors duration-200 {{ $isCartActive ? 'text-[#B4771E]' : 'text-[#757575] hover:text-[#B4771E]' }}">
+                @if($isCartActive)
+                    <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-[#B4771E] rounded-b-full"></span>
+                @endif
+                <div class="relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                    </svg>
+                    <span id="mobileBottomCartBadge" class="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[#B4771E] text-white text-[10px] font-bold flex items-center justify-center {{ $cartCount > 0 ? '' : 'hidden' }}">{{ $cartCount }}</span>
+                </div>
+                <span class="text-[11px] mt-0.5 {{ $isCartActive ? 'font-bold text-[#B4771E]' : 'font-medium text-[#757575]' }}">Cart</span>
+            </a>
+
+            <!-- 4. Profile -->
+            @auth('customer')
+                <a href="{{ route('customer.profile') }}" class="flex flex-col items-center justify-center relative transition-colors duration-200 {{ $isProfileActive ? 'text-[#B4771E]' : 'text-[#757575] hover:text-[#B4771E]' }}">
+                    @if($isProfileActive)
+                        <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-[#B4771E] rounded-b-full"></span>
+                    @endif
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="{{ $isProfileActive ? 'currentColor' : 'none' }}" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                    <span class="text-[11px] mt-0.5 {{ $isProfileActive ? 'font-bold text-[#B4771E]' : 'font-medium text-[#757575]' }}">Profile</span>
+                </a>
+            @else
+                <a href="{{ route('login') }}?intended={{ urlencode(route('customer.profile')) }}" class="flex flex-col items-center justify-center relative transition-colors duration-200 {{ $isProfileActive ? 'text-[#B4771E]' : 'text-[#757575] hover:text-[#B4771E]' }}">
+                    @if($isProfileActive)
+                        <span class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-[#B4771E] rounded-b-full"></span>
+                    @endif
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                    <span class="text-[11px] mt-0.5 {{ $isProfileActive ? 'font-bold text-[#B4771E]' : 'font-medium text-[#757575]' }}">Login</span>
+                </a>
+            @endauth
+        </div>
+    </div>
+
     <!-- Floating WhatsApp Chat Button -->
     <a href="https://wa.me/917725978871" target="_blank" rel="noopener"
-        class="fixed bottom-5 right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition"
+        class="fixed bottom-20 lg:bottom-5 right-4 sm:right-5 z-[999] w-[56px] h-[56px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg hover:scale-110 transition"
         aria-label="Chat with us on WhatsApp">
         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75 animate-ping"></span>
         <i class="fa-brands fa-whatsapp text-white text-[28px] relative"></i>

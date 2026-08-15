@@ -963,12 +963,32 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
 @endphp
 <div id="buyNowAddressModal" class="fixed inset-0 z-50 hidden bg-black/50 overflow-y-auto p-4">
     <div class="min-h-full flex items-center justify-center py-5">
-        <div class="relative w-full max-w-[560px] bg-white rounded-[8px] p-5 md:p-7 border border-[#D5D5D5] overflow-visible">
-            <button onclick="closeBuyNowAddressModal()" class="absolute top-4 right-4 text-[32px] leading-none text-[#131615]">&times;</button>
+        <div class="relative w-full max-w-[620px] bg-white rounded-[8px] p-5 md:p-7 border border-[#D5D5D5] overflow-visible shadow-xl">
+            <button onclick="closeBuyNowAddressModal()" class="absolute top-4 right-4 text-[32px] leading-none text-[#131615] hover:text-[#B4771E] transition">&times;</button>
             
-            <div class="flex justify-between items-center mb-5 mr-6">
-                <h2 class="text-xl md:text-[24px] font-medium text-[#131615] mb-0">Select Delivery Address</h2>
-                <button class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-xs sm:text-sm font-medium px-3 py-1.5 transition flex gap-2 items-center rounded-sm" onclick="openAddAddressModal()">
+            <h2 class="text-xl md:text-[22px] font-semibold text-[#131615] mb-4 pb-3 border-b border-[#E5E7EB]">Direct Checkout</h2>
+
+            <!-- 2. Coupon Code Section -->
+            <div class="mb-5 bg-white border border-[#D5D5D5] p-4 rounded-md">
+                <label class="block text-xs font-semibold text-[#131615] uppercase tracking-wider mb-2">Have a Coupon Code?</label>
+                <div id="buyNowCouponForm" class="flex gap-2">
+                    <input type="text" id="buyNowCouponInput" placeholder="Enter coupon code" class="flex-1 border border-[#D5D5D5] rounded px-3 py-2 text-sm uppercase outline-none focus:border-[#B4771E]">
+                    <button type="button" id="buyNowApplyCouponBtn" onclick="applyBuyNowCoupon()" class="bg-[#131615] hover:bg-[#B4771E] text-white text-xs font-semibold px-4 py-2 rounded transition">Apply</button>
+                </div>
+                <div id="buyNowCouponMsg" class="mt-2 text-xs hidden"></div>
+                <div id="buyNowCouponAppliedTag" class="hidden mt-2 p-2.5 bg-[#F0FDF4] border border-[#BBF7D0] text-[#166534] text-xs rounded flex items-center justify-between">
+                    <span class="font-medium flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span id="buyNowCouponAppliedText"></span>
+                    </span>
+                    <button type="button" onclick="removeBuyNowCoupon()" class="text-red-600 hover:underline font-semibold text-xs ml-2">Remove</button>
+                </div>
+            </div>
+
+            <!-- 3. Delivery Address Selection -->
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xs font-semibold text-[#131615] uppercase tracking-wider">Select Delivery Address</h3>
+                <button class="bg-[#B4771E] hover:bg-[#b67d1f] text-white text-xs font-medium px-3 py-1.5 transition flex gap-1.5 items-center rounded-sm" onclick="openAddAddressModal()">
                     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M7 1.16663V12.8333M1.16663 7H12.8333" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -980,13 +1000,13 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
                 $addressesCount = auth('customer')->check() ? \App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->count() : 0;
             @endphp
 
-            <div id="buyNowAddressList" class="space-y-3 mb-6">
+            <div id="buyNowAddressList" class="space-y-3 mb-5 max-h-[220px] overflow-y-auto pr-1">
                 @if($addressesCount === 0)
                 <p class="text-[#757575] text-base mb-5" id="noAddressesPlaceholder">No saved addresses. Please click "New Address" to add one.</p>
                 @else
                 @if(auth('customer')->check())
                 @foreach(\App\Models\CustomerAddress::where('customer_id', auth('customer')->id())->orderByDesc('is_default')->get() as $addr)
-                <div class="address-card border border-[#D5D5D5] p-4 rounded relative hover:border-[#B4771E] has-[:checked]:border-[#B4771E] has-[:checked]:bg-[#B4771E0A]" data-address-id="{{ $addr->id }}">
+                <div class="address-card border border-[#D5D5D5] p-4 rounded relative hover:border-[#B4771E] has-[:checked]:border-[#B4771E] has-[:checked]:bg-[#B4771E0A]" data-address-id="{{ $addr->id }}" data-state="{{ $addr->state }}">
                     <div class="flex justify-between items-start">
                         <label class="flex-1 flex items-start gap-3 cursor-pointer min-w-0">
                             <input type="radio" name="buynow_address" value="{{ $addr->id }}" class="mt-1 accent-[#B4771E] address-radio" {{ $addr->is_default ? 'checked' : '' }}>
@@ -1034,9 +1054,29 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
                 @endif
                 @endif
             </div>
+
+            <!-- 4. Price Breakdown Summary -->
+            <div class="border-t border-b border-[#E5E7EB] py-3 mb-5 space-y-1.5 text-sm">
+                <div class="flex justify-between text-[#757575]">
+                    <span>Item Subtotal</span>
+                    <span id="buyNowSubtotalTxt" class="font-medium text-[#131615]">₹0.00</span>
+                </div>
+                <div id="buyNowDiscountRow" class="flex justify-between text-green-600 hidden">
+                    <span>Coupon Discount</span>
+                    <span id="buyNowDiscountTxt" class="font-medium">-₹0.00</span>
+                </div>
+                <div class="flex justify-between text-[#757575]">
+                    <span>Shipping Charge</span>
+                    <span id="buyNowShippingTxt" class="font-medium text-[#131615]">Calculated at checkout</span>
+                </div>
+                <div class="flex justify-between text-base font-bold text-[#131615] pt-2 border-t border-[#E5E7EB]">
+                    <span>Total Amount</span>
+                    <span id="buyNowTotalTxt" class="text-[#B4771E]">₹0.00</span>
+                </div>
+            </div>
             
             <button onclick="startBuyNowPayment()" id="buyNowProceedBtn"
-                class="w-full h-[50px] bg-[#B4771E] hover:bg-[#9d6719] text-white text-lg font-medium transition rounded-sm {{ $addressesCount === 0 ? 'hidden' : '' }}">
+                class="w-full h-[50px] bg-[#B4771E] hover:bg-[#9d6719] text-white text-base font-semibold transition rounded-sm flex items-center justify-center gap-2 {{ $addressesCount === 0 ? 'hidden' : '' }}">
                 Proceed to Pay
             </button>
         </div>
@@ -1364,7 +1404,179 @@ Order Amount
         document.body.classList.remove('overflow-hidden');
     }
 
+    var currentBuyNowCouponCode = null;
+    var currentBuyNowCouponDiscount = 0;
+
+    window.applyBuyNowCoupon = function() {
+        var input = document.getElementById('buyNowCouponInput');
+        var msg = document.getElementById('buyNowCouponMsg');
+        var code = (input.value || '').trim();
+
+        if (!code) {
+            msg.textContent = 'Please enter a coupon code.';
+            msg.className = 'mt-2 text-xs text-red-600';
+            msg.classList.remove('hidden');
+            return;
+        }
+
+        var price = getBuyNowUnitPrice();
+        var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+        var subtotal = price * qty;
+
+        var btn = document.getElementById('buyNowApplyCouponBtn');
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        fetch('{{ route('buynow.coupon.validate') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                code: code,
+                subtotal: subtotal
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Apply';
+
+            if (data.status === 'success') {
+                currentBuyNowCouponCode = data.coupon.code;
+                currentBuyNowCouponDiscount = data.coupon.discount_amount;
+
+                msg.classList.add('hidden');
+                document.getElementById('buyNowCouponForm').classList.add('hidden');
+                document.getElementById('buyNowCouponAppliedTag').classList.remove('hidden');
+                document.getElementById('buyNowCouponAppliedText').textContent = 'Coupon (' + data.coupon.code + ') Applied: -₹' + data.coupon.discount_amount.toFixed(2);
+
+                updateBuyNowCalculations();
+            } else {
+                msg.textContent = data.message || 'Invalid coupon code.';
+                msg.className = 'mt-2 text-xs text-red-600';
+                msg.classList.remove('hidden');
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Apply';
+            msg.textContent = err.message || 'Could not validate coupon.';
+            msg.className = 'mt-2 text-xs text-red-600';
+            msg.classList.remove('hidden');
+        });
+    };
+
+    window.removeBuyNowCoupon = function() {
+        currentBuyNowCouponCode = null;
+        currentBuyNowCouponDiscount = 0;
+
+        document.getElementById('buyNowCouponInput').value = '';
+        document.getElementById('buyNowCouponMsg').classList.add('hidden');
+        document.getElementById('buyNowCouponForm').classList.remove('hidden');
+        document.getElementById('buyNowCouponAppliedTag').classList.add('hidden');
+
+        updateBuyNowCalculations();
+    };
+
+    @php
+        $shippingMap = [];
+        foreach (\App\Models\State::where('status', \App\Models\State::STATUS_ACTIVE)->get() as $st) {
+            $shippingMap[$st->name] = (float) $st->shipping_charge;
+        }
+    @endphp
+    var stateShippingCharges = @json($shippingMap);
+
+    function getSelectedAddressState() {
+        var selectedAddrRadio = document.querySelector('input[name="buynow_address"]:checked');
+        if (!selectedAddrRadio) return null;
+        var card = selectedAddrRadio.closest('.address-card');
+        return card ? (card.dataset.state || null) : null;
+    }
+
+    function getBuyNowUnitPrice() {
+        var activeVariantBtn = document.querySelector('.variant-selector.active');
+        if (activeVariantBtn && activeVariantBtn.dataset.salePrice) {
+            return parseFloat(activeVariantBtn.dataset.salePrice) || 0;
+        }
+        var activeSizeBtn = document.querySelector('.custom-size-btn[style*="background:#B4771E"]');
+        if (activeSizeBtn && activeSizeBtn.dataset.price) {
+            return parseFloat(activeSizeBtn.dataset.price) || 0;
+        }
+        var priceEl = document.getElementById('productSalePrice');
+        if (priceEl) {
+            var rawText = priceEl.innerText.replace(/[^0-9.]/g, '');
+            return parseFloat(rawText) || 0;
+        }
+        return 0;
+    }
+
+    function updateBuyNowCalculations() {
+        var price = getBuyNowUnitPrice();
+        var qty = parseInt(document.getElementById('qty')?.innerText || 1) || 1;
+        var subtotal = price * qty;
+
+        if (document.getElementById('buyNowSubtotalTxt')) document.getElementById('buyNowSubtotalTxt').textContent = '₹' + subtotal.toFixed(2);
+        if (document.getElementById('buyNowUnitPrice')) document.getElementById('buyNowUnitPrice').textContent = '₹' + price.toFixed(2);
+        if (document.getElementById('buyNowQtyBadge')) document.getElementById('buyNowQtyBadge').textContent = 'Qty: ' + qty;
+
+        var variantDetailText = '';
+        var activeVariantBtn = document.querySelector('.variant-selector.active');
+        if (activeVariantBtn) {
+            variantDetailText = activeVariantBtn.innerText.trim();
+        }
+        var pairType = document.getElementById('selectedPairType')?.value;
+        var customSize = document.getElementById('selectedCustomSize')?.value;
+        if (customSize) {
+            variantDetailText += (variantDetailText ? ' | ' : '') + customSize + ' pcs set';
+        } else if (pairType === 'pair') {
+            variantDetailText += (variantDetailText ? ' | ' : '') + 'Pair';
+        }
+        if (document.getElementById('buyNowVariantDetail')) document.getElementById('buyNowVariantDetail').textContent = variantDetailText || 'Standard Item';
+
+        if (currentBuyNowCouponDiscount > 0) {
+            document.getElementById('buyNowDiscountRow').classList.remove('hidden');
+            document.getElementById('buyNowDiscountTxt').textContent = '-₹' + currentBuyNowCouponDiscount.toFixed(2);
+        } else {
+            document.getElementById('buyNowDiscountRow').classList.add('hidden');
+        }
+
+        var shipping = 0;
+        if (subtotal < 1999 && !(currentBuyNowCouponCode === 'FREESHIP' && subtotal >= 2000)) {
+            var state = getSelectedAddressState();
+            if (state && typeof stateShippingCharges !== 'undefined' && stateShippingCharges[state]) {
+                shipping = parseFloat(stateShippingCharges[state]) || 0;
+            }
+        }
+
+        if (shipping > 0) {
+            document.getElementById('buyNowShippingTxt').textContent = '₹' + shipping.toFixed(2);
+            document.getElementById('buyNowShippingTxt').className = 'font-medium text-[#131615]';
+        } else if (subtotal > 0) {
+            document.getElementById('buyNowShippingTxt').textContent = 'FREE Shipping';
+            document.getElementById('buyNowShippingTxt').className = 'font-semibold text-green-600';
+        } else {
+            document.getElementById('buyNowShippingTxt').textContent = 'Calculated at checkout';
+            document.getElementById('buyNowShippingTxt').className = 'font-medium text-[#131615]';
+        }
+
+        var total = Math.max(0, subtotal - currentBuyNowCouponDiscount + shipping);
+        document.getElementById('buyNowTotalTxt').textContent = '₹' + total.toFixed(2);
+        document.getElementById('buyNowProceedBtn').textContent = 'Proceed to Pay (₹' + total.toFixed(2) + ')';
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.name === 'buynow_address') {
+            updateBuyNowCalculations();
+        }
+    });
+
     window.openBuyNowAddressModal = function () {
+        removeBuyNowCoupon();
+        updateBuyNowCalculations();
         document.getElementById('buyNowAddressModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     };
@@ -1446,7 +1658,8 @@ Order Amount
                 variant_id: variantId || null,
                 qty: qty,
                 pair_type: pairType,
-                custom_size_value: customSizeValue
+                custom_size_value: customSizeValue,
+                coupon_code: currentBuyNowCouponCode || null
             })
         })
         .then(function (r) {
