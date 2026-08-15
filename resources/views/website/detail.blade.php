@@ -971,9 +971,9 @@ window.productCustomSizes = @json($product->pair_product ? ($product->custom_siz
             <!-- 2. Coupon Code Section -->
             <div class="mb-5 bg-white border border-[#D5D5D5] p-4 rounded-md">
                 <label class="block text-xs font-semibold text-[#131615] uppercase tracking-wider mb-2">Have a Coupon Code?</label>
-                <div id="buyNowCouponForm" class="flex gap-2">
-                    <input type="text" id="buyNowCouponInput" placeholder="Enter coupon code" class="flex-1 border border-[#D5D5D5] rounded px-3 py-2 text-sm uppercase outline-none focus:border-[#B4771E]">
-                    <button type="button" id="buyNowApplyCouponBtn" onclick="applyBuyNowCoupon()" class="bg-[#131615] hover:bg-[#B4771E] text-white text-xs font-semibold px-4 py-2 rounded transition">Apply</button>
+                <div id="buyNowCouponForm" class="flex gap-2 min-w-0">
+                    <input type="text" id="buyNowCouponInput" placeholder="Enter coupon code" class="flex-1 min-w-0 border border-[#D5D5D5] rounded px-3 py-2 text-sm uppercase outline-none focus:border-[#B4771E]">
+                    <button type="button" id="buyNowApplyCouponBtn" onclick="applyBuyNowCoupon()" class="bg-[#B4771E] hover:bg-[#9d6719] text-white text-xs font-semibold px-4 py-2 rounded transition shrink-0">Apply</button>
                 </div>
                 <div id="buyNowCouponMsg" class="mt-2 text-xs hidden"></div>
                 <div id="buyNowCouponAppliedTag" class="hidden mt-2 p-2.5 bg-[#F0FDF4] border border-[#BBF7D0] text-[#166534] text-xs rounded flex items-center justify-between">
