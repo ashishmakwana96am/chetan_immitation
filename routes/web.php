@@ -187,6 +187,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('purchase-bills/{purchaseBill}/accept', [PurchaseBillController::class, 'accept'])->name('purchase-bills.accept');
         Route::patch('purchase-bills/{purchaseBill}/reject', [PurchaseBillController::class, 'reject'])->name('purchase-bills.reject');
         Route::patch('purchase-bills/{purchaseBill}/payment-status', [PurchaseBillController::class, 'updatePaymentStatus'])->name('purchase-bills.update-payment-status');
+        Route::get('purchase-bills/{purchaseBill}/payment-history', [PurchaseBillController::class, 'paymentHistory'])->name('purchase-bills.payment-history');
         Route::resource('purchase-bills', PurchaseBillController::class)
             ->parameters(['purchase-bills' => 'purchaseBill'])
             ->only(['index', 'create', 'store', 'show', 'edit', 'update']);
@@ -321,6 +322,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounting/outstanding-payables', [AccountingController::class, 'outstandingPayables'])->name('accounting.outstanding-payables');
         Route::get('accounting/outstanding-payables/data', [AccountingController::class, 'outstandingPayablesData'])->name('accounting.outstanding-payables.data');
         Route::get('accounting/outstanding-payables/detail', [AccountingController::class, 'outstandingPayablesDetail'])->name('accounting.outstanding-payables.detail');
+        Route::post('accounting/outstanding-payables/bulk-pay', [AccountingController::class, 'bulkPaySupplier'])->name('accounting.outstanding-payables.bulk-pay');
+        Route::get('accounting/outstanding-payables/payment-history', [AccountingController::class, 'payablePaymentHistory'])->name('accounting.outstanding-payables.payment-history');
+        Route::get('accounting/outstanding-payables/payment-history/data', [AccountingController::class, 'payablePaymentHistoryData'])->name('accounting.outstanding-payables.payment-history.data');
         Route::get('accounting/opening-balances', [AccountingController::class, 'branchBalances'])->name('accounting.opening-balances');
         Route::get('accounting/opening-balances/data', [AccountingController::class, 'branchBalancesData'])->name('accounting.opening-balances.data');
         Route::get('accounting/opening-balances/create', [AccountingController::class, 'branchBalancesCreate'])->name('accounting.opening-balances.create');

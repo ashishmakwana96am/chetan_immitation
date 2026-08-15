@@ -20,6 +20,7 @@ class PurchaseBill extends Model
 
     const PAYMENT_STATUS_PENDING = 1;
     const PAYMENT_STATUS_PAID = 2;
+    const PAYMENT_STATUS_PARTIAL = 3;
 
     protected $fillable = [
         'transfer_no',
@@ -28,6 +29,7 @@ class PurchaseBill extends Model
         'status',
         'payment_method',
         'payment_status',
+        'paid_amount',
         'remarks',
         'created_by',
         'accepted_by',
@@ -39,8 +41,14 @@ class PurchaseBill extends Model
         return [
             'status' => 'integer',
             'payment_status' => 'integer',
+            'paid_amount' => 'decimal:2',
             'accepted_at' => 'datetime',
         ];
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(PurchaseBillPayment::class, 'purchase_bill_id');
     }
 
     public function fromLocation()
