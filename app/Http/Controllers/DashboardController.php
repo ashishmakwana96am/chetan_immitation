@@ -57,12 +57,20 @@ class DashboardController extends Controller
             return max(0.0, (float) $o->final_amount - $paid);
         };
 
+        $calcReceived = function ($o) use ($calcPending) {
+            return max(0.0, (float) $o->final_amount - $calcPending($o));
+        };
+
+        $allApprovedOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->get();
+
         $salesStats = [
             'today' => (float) $todayOrders->sum('final_amount'),
             'today_pending_payment' => (float) $todayOrders->sum($calcPending),
             'this_month' => (float) $thisMonthOrders->sum('final_amount'),
             'this_month_pending_payment' => (float) $thisMonthOrders->sum($calcPending),
-            'total' => (float) Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->sum('final_amount'),
+            'total' => (float) $allApprovedOrders->sum('final_amount'),
+            'total_received' => (float) $allApprovedOrders->sum($calcReceived),
+            'total_pending_payment' => (float) $allApprovedOrders->sum($calcPending),
             'pending' => Order::where('order_type', 'sale')->where('status', Order::STATUS_PENDING)->count(),
         ];
 
@@ -207,12 +215,20 @@ class DashboardController extends Controller
             return max(0.0, (float) $o->final_amount - $paid);
         };
 
+        $calcReceived = function ($o) use ($calcPending) {
+            return max(0.0, (float) $o->final_amount - $calcPending($o));
+        };
+
+        $allApprovedOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->get();
+
         $salesStats = [
             'today' => (float) $todayOrders->sum('final_amount'),
             'today_pending_payment' => (float) $todayOrders->sum($calcPending),
             'this_month' => (float) $thisMonthOrders->sum('final_amount'),
             'this_month_pending_payment' => (float) $thisMonthOrders->sum($calcPending),
-            'total' => (float) Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->sum('final_amount'),
+            'total' => (float) $allApprovedOrders->sum('final_amount'),
+            'total_received' => (float) $allApprovedOrders->sum($calcReceived),
+            'total_pending_payment' => (float) $allApprovedOrders->sum($calcPending),
             'pending' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_PENDING)->count(),
             'approve' => Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', [2, 3, 4, 5])->count(),
             'decline' => Order::where('order_type', 'sale')->where('location_id', $locationId)->where('status', Order::STATUS_DECLINE)->count(),
@@ -363,6 +379,17 @@ class DashboardController extends Controller
         $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
         $rangeStart = now()->subMonths(5)->startOfMonth();
 
+        $calcPending = function ($o) {
+            if ((int) $o->payment_status === Order::PAYMENT_STATUS_PAID) {
+                return 0.0;
+            }
+            $paid = (float) $o->paid_cash_amount + (float) $o->paid_online_amount;
+            if ($paid <= 0) {
+                $paid = (float) $o->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+            }
+            return max(0.0, (float) $o->final_amount - $paid);
+        };
+
         $query = Order::where('order_type', 'sale')
             ->whereIn('status', $approvedStatuses)
             ->where('created_at', '>=', $rangeStart);
@@ -371,21 +398,25 @@ class DashboardController extends Controller
             $query->where('location_id', $locationId);
         }
 
-        $rows = $query
-            ->selectRaw('YEAR(created_at) as y, MONTH(created_at) as m, SUM(final_amount) as amount, COUNT(*) as count')
-            ->groupBy('y', 'm')
-            ->get()
-            ->keyBy(fn($row) => $row->y . '-' . $row->m);
+        $allOrders = $query->get();
+        $grouped = $allOrders->groupBy(fn($o) => $o->created_at->format('Y-n'));
 
         $months = [];
         for ($i = 5; $i >= 0; $i--) {
             $date = now()->subMonths($i);
-            $row = $rows->get($date->year . '-' . $date->month);
+            $key = $date->year . '-' . $date->month;
+            $monthOrders = $grouped->get($key, collect());
+
+            $amount = (float) $monthOrders->sum('final_amount');
+            $pending = (float) $monthOrders->sum($calcPending);
+            $received = max(0.0, $amount - $pending);
 
             $months[] = [
-                'month' => $date->format('M Y'),
-                'amount' => (float) ($row->amount ?? 0),
-                'count' => (int) ($row->count ?? 0),
+                'month'    => $date->format('M Y'),
+                'amount'   => $amount,
+                'received' => $received,
+                'pending'  => $pending,
+                'count'    => (int) $monthOrders->count(),
             ];
         }
         return $months;

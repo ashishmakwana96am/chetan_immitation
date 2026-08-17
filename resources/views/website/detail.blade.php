@@ -51,12 +51,16 @@
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
-                            <div class="swiper-slide overflow-hidden relative">
-                                <img src="{{ $img->image_url }}" class="zoom-main-img w-full h-[573px] object-cover transition-transform duration-150 ease-out select-none">
+                            <div class="swiper-slide relative flex items-center justify-center">
+                                <div class="swiper-zoom-container w-full h-[573px] flex items-center justify-center">
+                                    <img src="{{ $img->image_url }}" class="zoom-main-img max-w-full max-h-[573px] object-contain mx-auto select-none">
+                                </div>
                             </div>
                             @empty
-                            <div class="swiper-slide overflow-hidden relative">
-                                <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img w-full h-[573px] object-cover transition-transform duration-150 ease-out select-none">
+                            <div class="swiper-slide relative flex items-center justify-center">
+                                <div class="swiper-zoom-container w-full h-[573px] flex items-center justify-center">
+                                    <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img max-w-full max-h-[573px] object-contain mx-auto select-none">
+                                </div>
                             </div>
                             @endforelse
                         </div>
@@ -451,6 +455,11 @@ const thumbSwiper = new Swiper(".thumbSwiper", {
 const mainSwiper = new Swiper(".mainSwiper", {
     spaceBetween: 10,
     loop: true,
+    zoom: {
+        maxRatio: 4,
+        minRatio: 1,
+        toggle: true,
+    },
     thumbs: { swiper: thumbSwiper },
 });
 
@@ -2183,133 +2192,26 @@ Order Amount
 <script>
 function initProductImageZoom() {
     const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
-    const mainSwiperEl = document.querySelector('.mainSwiper');
 
     slides.forEach((slide) => {
         const img = slide.querySelector('.zoom-main-img');
         if (!img) return;
 
-        let isZoomed = false;
-        let currentScale = 1;
-        let initialDist = 0;
-        let initialScale = 1;
-        let lastTapTime = 0;
-        let lastTapX = 0;
-        let lastTapY = 0;
-
-        function updateZoom(clientX, clientY, scale = 2.5) {
-            const rect = slide.getBoundingClientRect();
-            const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-            const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
-            img.style.transformOrigin = `${x}% ${y}%`;
-            img.style.transform = `scale(${scale})`;
-            currentScale = scale;
-            isZoomed = scale > 1.05;
-        }
-
-        function resetZoom() {
-            img.style.transform = 'scale(1)';
-            img.style.transformOrigin = 'center center';
-            currentScale = 1;
-            isZoomed = false;
-            if (mainSwiperEl && mainSwiperEl.swiper) {
-                mainSwiperEl.swiper.allowTouchMove = true;
-            }
-        }
-
+        // Desktop fine pointer hover zoom
         slide.addEventListener('mousemove', (e) => {
-            if (window.matchMedia('(pointer: fine)').matches && !isZoomed) {
-                updateZoom(e.clientX, e.clientY);
+            if (window.matchMedia('(pointer: fine)').matches) {
+                const rect = slide.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                img.style.transformOrigin = `${x}% ${y}%`;
+                img.style.transform = 'scale(2.2)';
             }
         });
 
         slide.addEventListener('mouseleave', () => {
-            if (window.matchMedia('(pointer: fine)').matches && !isZoomed) {
-                resetZoom();
-            }
-        });
-
-        slide.addEventListener('dblclick', (e) => {
-            if (isZoomed) {
-                resetZoom();
-            } else {
-                updateZoom(e.clientX, e.clientY);
-                if (mainSwiperEl && mainSwiperEl.swiper) {
-                    mainSwiperEl.swiper.allowTouchMove = false;
-                }
-            }
-        });
-
-        slide.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                initialDist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                initialScale = currentScale;
-
-                const rect = slide.getBoundingClientRect();
-                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                const x = Math.max(0, Math.min(100, ((centerX - rect.left) / rect.width) * 100));
-                const y = Math.max(0, Math.min(100, ((centerY - rect.top) / rect.height) * 100));
-                img.style.transformOrigin = `${x}% ${y}%`;
-
-                if (mainSwiperEl && mainSwiperEl.swiper) {
-                    mainSwiperEl.swiper.allowTouchMove = false;
-                }
-            } else if (e.touches.length === 1) {
-                const touch = e.touches[0];
-                const now = Date.now();
-                const timeDiff = now - lastTapTime;
-                const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
-
-                if (timeDiff > 0 && timeDiff < 300 && dist < 30) {
-                    e.preventDefault();
-                    if (isZoomed) {
-                        resetZoom();
-                    } else {
-                        updateZoom(touch.clientX, touch.clientY, 2.5);
-                        if (mainSwiperEl && mainSwiperEl.swiper) {
-                            mainSwiperEl.swiper.allowTouchMove = false;
-                        }
-                    }
-                    lastTapTime = 0;
-                } else {
-                    lastTapTime = now;
-                    lastTapX = touch.clientX;
-                    lastTapY = touch.clientY;
-                }
-            }
-        }, { passive: false });
-
-        slide.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && initialDist > 0) {
-                e.preventDefault();
-                const dist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                let scale = initialScale * (dist / initialDist);
-                scale = Math.max(1, Math.min(scale, 4));
-
-                img.style.transform = `scale(${scale})`;
-                currentScale = scale;
-                isZoomed = scale > 1.05;
-            } else if (e.touches.length === 1 && isZoomed) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                updateZoom(touch.clientX, touch.clientY, currentScale);
-            }
-        }, { passive: false });
-
-        slide.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) {
-                initialDist = 0;
-                if (currentScale <= 1.05) {
-                    resetZoom();
-                }
+            if (window.matchMedia('(pointer: fine)').matches) {
+                img.style.transform = 'scale(1)';
+                img.style.transformOrigin = 'center center';
             }
         });
     });
