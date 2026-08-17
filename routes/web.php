@@ -310,6 +310,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/branch/detail', [LedgerController::class, 'branchLedgerDetail'])->name('ledgers.branch.detail');
         Route::get('ledgers/branch/dues-bills', [LedgerController::class, 'branchDuesBills'])->name('ledgers.branch.dues-bills');
         Route::get('ledgers/branch/export', [LedgerController::class, 'exportBranchLedger'])->name('ledgers.branch.export');
+        Route::get('ledgers/branch/pending-count', [LedgerController::class, 'branchLedgerPendingCount'])->name('ledgers.branch.pending-count');
 
         // Accounting
         Route::get('accounting/cashbook', [AccountingController::class, 'cashBook'])->name('accounting.cashbook');
@@ -331,6 +332,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounting/opening-balances/store', [AccountingController::class, 'branchBalancesStore'])->name('accounting.opening-balances.store');
         Route::get('accounting/opening-balances/transfer', [AccountingController::class, 'branchBalancesTransferCreate'])->name('accounting.opening-balances.transfer');
         Route::post('accounting/opening-balances/transfer-store', [AccountingController::class, 'branchBalancesTransferStore'])->name('accounting.opening-balances.transfer-store');
+        Route::post('accounting/opening-balances/transfer/{transfer}/accept', [AccountingController::class, 'branchBalancesTransferAccept'])->name('accounting.opening-balances.transfer-accept');
+        Route::post('accounting/opening-balances/transfer/{transfer}/reject', [AccountingController::class, 'branchBalancesTransferReject'])->name('accounting.opening-balances.transfer-reject');
+        Route::get('accounting/opening-balances/transfer/{transfer}/edit', [AccountingController::class, 'branchBalancesTransferEdit'])->name('accounting.opening-balances.transfer-edit');
+        Route::put('accounting/opening-balances/transfer/{transfer}', [AccountingController::class, 'branchBalancesTransferUpdate'])->name('accounting.opening-balances.transfer-update');
+        Route::delete('accounting/opening-balances/transfer/{transfer}', [AccountingController::class, 'branchBalancesTransferDestroy'])->name('accounting.opening-balances.transfer-destroy');
         Route::get('accounting/customer-balance/create', [AccountingController::class, 'customerBalanceCreate'])->name('accounting.customer-balance.create');
         Route::post('accounting/customer-balance/store', [AccountingController::class, 'customerBalanceStore'])->name('accounting.customer-balance.store');
         Route::get('accounting/customer-balance/{transaction}/edit', [AccountingController::class, 'customerBalanceEdit'])->name('accounting.customer-balance.edit');

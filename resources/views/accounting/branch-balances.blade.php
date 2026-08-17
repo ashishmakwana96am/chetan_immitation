@@ -64,9 +64,6 @@
             <small class="text-muted">Overview of balance adjustments for all locations</small>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-outline-primary" data-common-modal="{{ route('admin.accounting.opening-balances.transfer') }}">
-                <i class="ti ti-arrows-exchange me-1"></i> Transfer Balance
-            </button>
             <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.opening-balances.create') }}">
                 <i class="ti ti-plus me-1"></i> Add Opening Balance
             </button>

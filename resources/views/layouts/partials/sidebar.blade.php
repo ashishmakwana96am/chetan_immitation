@@ -133,6 +133,28 @@
                     @endphp
                     <span id="purchase-bill-pending-badge" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="{{ $pendingTransfersCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $pendingTransfersCount }}</span>
                   @endif
+                  @if($child->route === 'admin.ledgers.branch')
+                    @php
+                      try {
+                          $authUser = auth()->user();
+                          $isBtRestricted = $authUser->location_id && !$authUser->hasRole('super-admin');
+                          $pendingBtCacheKey = 'admin_sidebar_pending_bt_count_' . ($isBtRestricted ? $authUser->location_id : 'all');
+                          $pendingBtCount = \Illuminate\Support\Facades\Cache::remember($pendingBtCacheKey, 30, function () use ($authUser, $isBtRestricted) {
+                              return \App\Models\BranchBalanceTransfer::where('status', \App\Models\BranchBalanceTransfer::STATUS_PENDING)
+                                  ->when($isBtRestricted, function ($q) use ($authUser) {
+                                      $q->where(function ($sub) use ($authUser) {
+                                          $sub->where('from_location_id', $authUser->location_id)
+                                              ->orWhere('to_location_id', $authUser->location_id);
+                                      });
+                                  })
+                                  ->count();
+                          });
+                      } catch (\Exception $e) {
+                          $pendingBtCount = 0;
+                      }
+                    @endphp
+                    <span id="branch-ledger-pending-badge" class="badge bg-primary rounded-pill ms-auto notranslate" translate="no" style="{{ $pendingBtCount > 0 ? 'display: inline-flex !important;' : 'display: none !important;' }} background-color: #B78326 !important; color: #fff !important; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;">{{ $pendingBtCount }}</span>
+                  @endif
                 </a>
               </li>
             @endif
@@ -220,6 +242,25 @@
         const badge = document.getElementById('purchase-bill-pending-badge');
         if (!badge) return;
         fetch('{{ route('admin.purchase-bills.pending-count') }}', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.status !== 'success') return;
+                badge.textContent = res.count;
+                badge.style.display = res.count > 0 ? 'inline-flex' : 'none';
+            })
+            .catch(() => {});
+    };
+</script>
+@endif
+
+@if(Route::has('admin.ledgers.branch.pending-count'))
+<script>
+    window.refreshBranchLedgerBadge = function () {
+        const badge = document.getElementById('branch-ledger-pending-badge');
+        if (!badge) return;
+        fetch('{{ route('admin.ledgers.branch.pending-count') }}', {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(res => res.json())

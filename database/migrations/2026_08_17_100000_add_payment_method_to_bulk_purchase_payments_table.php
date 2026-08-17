@@ -13,6 +13,12 @@ return new class extends Migration
                 $table->string('payment_method')->nullable()->after('location_id');
             });
         }
+
+        if (!Schema::hasColumn('bulk_purchase_payments', 'supplier_id')) {
+            Schema::table('bulk_purchase_payments', function (Blueprint $table) {
+                $table->unsignedBigInteger('supplier_id')->nullable()->after('location_id');
+            });
+        }
     }
 
     public function down(): void
@@ -20,6 +26,12 @@ return new class extends Migration
         if (Schema::hasColumn('bulk_purchase_payments', 'payment_method')) {
             Schema::table('bulk_purchase_payments', function (Blueprint $table) {
                 $table->dropColumn('payment_method');
+            });
+        }
+
+        if (Schema::hasColumn('bulk_purchase_payments', 'supplier_id')) {
+            Schema::table('bulk_purchase_payments', function (Blueprint $table) {
+                $table->dropColumn('supplier_id');
             });
         }
     }

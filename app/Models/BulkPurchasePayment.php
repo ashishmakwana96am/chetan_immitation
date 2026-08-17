@@ -9,6 +9,7 @@ class BulkPurchasePayment extends Model
     protected $fillable = [
         'total_amount',
         'location_id',
+        'supplier_id',
         'payment_method',
         'created_by',
     ];
@@ -23,6 +24,11 @@ class BulkPurchasePayment extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function createdBy()

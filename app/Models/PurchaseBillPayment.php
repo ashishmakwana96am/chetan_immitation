@@ -8,6 +8,7 @@ class PurchaseBillPayment extends Model
 {
     protected $fillable = [
         'purchase_bill_id',
+        'branch_balance_transfer_id',
         'amount',
         'created_by',
     ];

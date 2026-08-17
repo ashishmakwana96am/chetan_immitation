@@ -64,7 +64,9 @@
                     <tr>
                         <th style="width: 5%">#</th>
                         <th>Date & Time</th>
+                        <th>Supplier</th>
                         <th class="text-end">Paid Amount</th>
+                        <th>Payment Method</th>
                         <th>Location</th>
                         <th>Paid By</th>
                     </tr>
@@ -128,9 +130,17 @@
                 columns: [
                     { data: 'index', orderable: false },
                     { data: 'date', className: 'fw-semibold text-heading' },
+                    { data: 'supplier', className: 'fw-semibold' },
                     { 
                         data: 'amount', 
                         className: 'text-end fw-bold text-success' 
+                    },
+                    { 
+                        data: 'payment_method',
+                        render: function(data) {
+                            const isOnline = String(data).toLowerCase() === 'online';
+                            return `<span class="badge ${isOnline ? 'bg-label-primary' : 'bg-label-success'}">${data}</span>`;
+                        }
                     },
                     { 
                         data: 'location',
