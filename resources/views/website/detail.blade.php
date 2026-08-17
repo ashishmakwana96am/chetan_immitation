@@ -2190,6 +2190,9 @@ function initProductImageZoom() {
         if (!img) return;
 
         let isZoomed = false;
+        let currentScale = 1;
+        let initialDist = 0;
+        let initialScale = 1;
         let lastTapTime = 0;
         let lastTapX = 0;
         let lastTapY = 0;
@@ -2200,11 +2203,14 @@ function initProductImageZoom() {
             const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
             img.style.transformOrigin = `${x}% ${y}%`;
             img.style.transform = `scale(${scale})`;
+            currentScale = scale;
+            isZoomed = scale > 1.05;
         }
 
         function resetZoom() {
             img.style.transform = 'scale(1)';
             img.style.transformOrigin = 'center center';
+            currentScale = 1;
             isZoomed = false;
             if (mainSwiperEl && mainSwiperEl.swiper) {
                 mainSwiperEl.swiper.allowTouchMove = true;
@@ -2228,45 +2234,84 @@ function initProductImageZoom() {
                 resetZoom();
             } else {
                 updateZoom(e.clientX, e.clientY);
-                isZoomed = true;
+                if (mainSwiperEl && mainSwiperEl.swiper) {
+                    mainSwiperEl.swiper.allowTouchMove = false;
+                }
             }
         });
 
         slide.addEventListener('touchstart', (e) => {
-            if (e.touches.length !== 1) return;
-
-            const touch = e.touches[0];
-            const now = Date.now();
-            const timeDiff = now - lastTapTime;
-            const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
-
-            if (timeDiff > 0 && timeDiff < 300 && dist < 30) {
+            if (e.touches.length === 2) {
                 e.preventDefault();
-                if (isZoomed) {
-                    resetZoom();
-                } else {
-                    updateZoom(touch.clientX, touch.clientY);
-                    isZoomed = true;
-                    if (mainSwiperEl && mainSwiperEl.swiper) {
-                        mainSwiperEl.swiper.allowTouchMove = false;
-                    }
+                initialDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialScale = currentScale;
+
+                const rect = slide.getBoundingClientRect();
+                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const x = Math.max(0, Math.min(100, ((centerX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((centerY - rect.top) / rect.height) * 100));
+                img.style.transformOrigin = `${x}% ${y}%`;
+
+                if (mainSwiperEl && mainSwiperEl.swiper) {
+                    mainSwiperEl.swiper.allowTouchMove = false;
                 }
-                lastTapTime = 0;
-            } else {
-                lastTapTime = now;
-                lastTapX = touch.clientX;
-                lastTapY = touch.clientY;
+            } else if (e.touches.length === 1) {
+                const touch = e.touches[0];
+                const now = Date.now();
+                const timeDiff = now - lastTapTime;
+                const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
+
+                if (timeDiff > 0 && timeDiff < 300 && dist < 30) {
+                    e.preventDefault();
+                    if (isZoomed) {
+                        resetZoom();
+                    } else {
+                        updateZoom(touch.clientX, touch.clientY, 2.5);
+                        if (mainSwiperEl && mainSwiperEl.swiper) {
+                            mainSwiperEl.swiper.allowTouchMove = false;
+                        }
+                    }
+                    lastTapTime = 0;
+                } else {
+                    lastTapTime = now;
+                    lastTapX = touch.clientX;
+                    lastTapY = touch.clientY;
+                }
             }
         }, { passive: false });
 
         slide.addEventListener('touchmove', (e) => {
-            
-            if (isZoomed && e.touches.length === 1) {
+            if (e.touches.length === 2 && initialDist > 0) {
+                e.preventDefault();
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                let scale = initialScale * (dist / initialDist);
+                scale = Math.max(1, Math.min(scale, 4));
+
+                img.style.transform = `scale(${scale})`;
+                currentScale = scale;
+                isZoomed = scale > 1.05;
+            } else if (e.touches.length === 1 && isZoomed) {
                 e.preventDefault();
                 const touch = e.touches[0];
-                updateZoom(touch.clientX, touch.clientY);
+                updateZoom(touch.clientX, touch.clientY, currentScale);
             }
         }, { passive: false });
+
+        slide.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialDist = 0;
+                if (currentScale <= 1.05) {
+                    resetZoom();
+                }
+            }
+        });
     });
 }
 
