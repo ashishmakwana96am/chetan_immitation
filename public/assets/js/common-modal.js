@@ -327,6 +327,12 @@ $(document).ready(function () {
                     } else {
                         setTimeout(() => location.reload(), 800);
                     }
+                    if (typeof window.refreshPurchaseBillBadge === 'function') {
+                        window.refreshPurchaseBillBadge();
+                    }
+                    if (typeof window.refreshBranchLedgerBadge === 'function') {
+                        window.refreshBranchLedgerBadge();
+                    }
                 } else if (res.status === 'error') {
                     enableBtn(submitBtn);
                     if (res.in_use || (res.products && res.products.length)) {
