@@ -403,7 +403,7 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/cropper/cropper.min.css') }}" />
     <style>
         .attribute-chip { background:#f5f5f5; border:1px solid #e0e0e0; border-radius:20px; font-size:.82rem; }
         .attribute-chip:hover { border-color:#B4771E; background:#fcf6ed; }
@@ -434,7 +434,7 @@
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/quill/katex.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/quill/quill.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script src="{{ asset('assets/vendor/libs/cropper/cropper.min.js') }}"></script>
     <script>
         $(document).ready(function () {
 

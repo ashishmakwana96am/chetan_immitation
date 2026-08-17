@@ -674,8 +674,8 @@ class ProductController extends Controller
     public function create(Request $request)
     {
         $this->authorize('create products');
-        $categories = Category::where('status', 1)->orderBy('name')->get();
-        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
+        $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
+        $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
 
         $clonedProduct = null;
         $subCategories = collect();
@@ -912,12 +912,12 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $this->authorize('edit products');
-        $categories = Category::where('status', 1)->orderBy('name')->get();
+        $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
         $subCategories = SubCategory::where('category_id', $product->category_id)
             ->where('status', 1)
             ->orderBy('name')
             ->get();
-        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
+        $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
         $product->load('images', 'variants.attributeValue');
         return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
     }
