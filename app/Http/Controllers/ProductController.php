@@ -84,18 +84,11 @@ class ProductController extends Controller
         $recordsTotal = Product::count();
 
         $computeStock = function ($product) use ($locationId) {
-            if ($product->type === 'variable') {
-                $stockData = $product->getVariantStock($locationId);
-                if ($locationId) {
-                    return $stockData ? array_sum($stockData['variants']) : 0;
-                }
-                $total = 0;
-                foreach ($stockData as $locData) {
-                    $total += array_sum($locData['variants']);
-                }
-                return $total;
+            if ($locationId) {
+                $inv = $product->inventories->firstWhere('location_id', $locationId);
+                return (int) ($inv ? $inv->quantity : 0);
             }
-            return $product->inventories->sum('quantity');
+            return (int) $product->inventories->sum('quantity');
         };
 
         $hasStockFilter = in_array($request->stock_status, ['in_stock', 'out_of_stock'], true);
@@ -146,7 +139,6 @@ class ProductController extends Controller
                     }
                 ])
                 ->get();
-            Product::preloadVariantStock($lightProducts);
 
             $filteredProducts = $lightProducts;
             if ($hasStockFilter) {
@@ -194,8 +186,6 @@ class ProductController extends Controller
                 ->take($length)
                 ->get();
         }
-
-        Product::preloadVariantStock($products);
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');

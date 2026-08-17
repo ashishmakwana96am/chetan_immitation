@@ -95,8 +95,7 @@ class DashboardController extends Controller
             $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
             $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
-            $products = Product::with(['inventories', 'variants', 'category', 'primaryImage'])->get();
-            Product::preloadVariantStock($products);
+            $products = Product::with(['inventories', 'category', 'primaryImage'])->get();
             $totalStockUnits = 0;
             $totalStockPairs = 0;
             $totalStockLoosePcs = 0;
@@ -113,40 +112,12 @@ class DashboardController extends Controller
                 if ($pairSize <= 0)
                     $pairSize = 1.0;
 
-                $pTotalPcs = (int) $p->totalAvailableStock();
+                $pTotalPcs = (int) $p->inventories->sum('quantity');
+                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
-                if ($p->type === 'variable') {
-                    $variantStock = $p->getVariantStock();
-                    $vSum = 0;
-                    foreach ($p->variants as $v) {
-                        $vQty = 0;
-                        foreach ($variantStock as $locData) {
-                            $vQty += max(0, (int) ($locData['variants'][$v->id] ?? 0));
-                        }
-                        $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
-                        $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
-
-                        $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
-
-                        $vSum += $vQty;
-                        $totalStockUnits += $vQty;
-                        $totalStockPurchaseValue += ($vEffectiveQty * $vPrice);
-                        $totalStockMrpValue += ($vEffectiveQty * $vMrp);
-                    }
-
-                    if ($vSum === 0 && $pTotalPcs > 0) {
-                        $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
-                        $totalStockUnits += $pTotalPcs;
-                        $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
-                        $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                    }
-                } else {
-                    $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
-
-                    $totalStockUnits += $pTotalPcs;
-                    $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
-                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                }
+                $totalStockUnits += $pTotalPcs;
+                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
 
                 if ($p->pair_product && $pTotalPcs > 0) {
                     $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
@@ -264,29 +235,15 @@ class DashboardController extends Controller
             $cashCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('cash_balance');
             $bankCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('bank_balance');
 
-            $allProducts = Product::with(['category', 'primaryImage', 'inventories', 'variants'])->get();
-            Product::preloadVariantStock($allProducts);
-
+            $allProducts = Product::with(['category', 'primaryImage', 'inventories'])->get();
             $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
             $stockRows = collect();
             foreach ($allProducts as $product) {
-                if ($product->type === 'variable') {
-                    $stockData = $product->getVariantStock($locationId);
-                    if (!$stockData) {
-                        continue;
-                    }
-                    $qty = array_sum($stockData['variants']);
-                    if ($qty === 0) {
-                        $qty = (int) ($stockData['parent'] ?? 0);
-                    }
-                } else {
-                    $inv = $invByProduct->get($product->id);
-                    if (!$inv) {
-                        continue;
-                    }
-                    $qty = $inv->quantity;
+                $inv = $invByProduct->get($product->id);
+                if (!$inv) {
+                    continue;
                 }
-                $stockRows->push((object) ['product' => $product, 'quantity' => $qty]);
+                $stockRows->push((object) ['product' => $product, 'quantity' => $inv->quantity]);
             }
 
             $lowStockInventories = $stockRows->filter(function ($row) {
@@ -310,44 +267,13 @@ class DashboardController extends Controller
                 if ($pairSize <= 0)
                     $pairSize = 1.0;
 
-                $pTotalPcs = 0;
+                $inventory = $p->inventories->firstWhere('location_id', $locationId);
+                $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
+                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
-                if ($p->type === 'variable') {
-                    $variantStock = $p->getVariantStock();
-                    $locData = $variantStock[$locationId] ?? ['variants' => []];
-                    foreach ($p->variants as $v) {
-                        $vQty = (int) ($locData['variants'][$v->id] ?? 0);
-                        $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
-                        $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
-
-                        $vEffectiveQty = $p->pair_product ? ($vQty / $pairSize) : (float) $vQty;
-
-                        $pTotalPcs += $vQty;
-                        $totalStockUnits += $vQty;
-                        $totalStockPurchaseValue += ($vEffectiveQty * $vPrice);
-                        $totalStockMrpValue += ($vEffectiveQty * $vMrp);
-                    }
-
-                    if ($pTotalPcs === 0) {
-                        $inventory = $p->inventories->firstWhere('location_id', $locationId);
-                        $invQty = (int) ($inventory ? $inventory->quantity : 0);
-                        if ($invQty > 0) {
-                            $pTotalPcs = $invQty;
-                            $effectiveQty = $p->pair_product ? ($invQty / $pairSize) : (float) $invQty;
-                            $totalStockUnits += $invQty;
-                            $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
-                            $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                        }
-                    }
-                } else {
-                    $inventory = $p->inventories->firstWhere('location_id', $locationId);
-                    $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
-                    $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
-
-                    $totalStockUnits += $pTotalPcs;
-                    $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
-                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                }
+                $totalStockUnits += $pTotalPcs;
+                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
+                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
 
                 if ($p->pair_product && $pTotalPcs > 0) {
                     $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
