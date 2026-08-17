@@ -177,10 +177,9 @@ class PurchaseController extends Controller
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $mappedProducts = $this->getMappedProducts();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $invoiceNo = generate_invoice_no('PS', Purchase::class);
-        return view('purchases.create', compact('suppliers', 'mappedProducts', 'locations', 'invoiceNo'));
+        return view('purchases.create', compact('suppliers', 'locations', 'invoiceNo'));
     }
 
     public function store(Request $request)
@@ -386,7 +385,6 @@ class PurchaseController extends Controller
         }
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $mappedProducts = $this->getMappedProducts();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $purchase->load('items.product');
 
@@ -402,7 +400,7 @@ class PurchaseController extends Controller
             ];
         })->values();
 
-        return view('purchases.edit', compact('purchase', 'suppliers', 'mappedProducts', 'locations', 'existingItems'));
+        return view('purchases.edit', compact('purchase', 'suppliers', 'locations', 'existingItems'));
     }
 
     public function update(Request $request, Purchase $purchase)
@@ -1010,6 +1008,11 @@ class PurchaseController extends Controller
             'status'  => 'success',
             'message' => 'Supplier payment status updated successfully.',
         ]);
+    }
+
+    public function getMappedProductsJson()
+    {
+        return response()->json($this->getMappedProducts());
     }
 
     private function getMappedProducts()

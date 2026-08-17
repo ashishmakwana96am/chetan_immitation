@@ -210,10 +210,9 @@ class PurchaseBillController extends Controller
             ? Location::where('status', 1)->orderBy('name')->get()
             : collect([$defaultLocation]);
         $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
-        $mappedProducts = $this->getMappedProductsForPurchaseBills();
         $transferNo = generate_invoice_no('ST', PurchaseBill::class, 'transfer_no');
 
-        return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'mappedProducts', 'transferNo'));
+        return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'transferNo'));
     }
 
     public function store(Request $request)
@@ -301,7 +300,6 @@ class PurchaseBillController extends Controller
             ? Location::where('status', 1)->orderBy('name')->get()
             : collect([$defaultLocation]);
         $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
-        $mappedProducts = $this->getMappedProductsForPurchaseBills();
 
         $purchaseBill->load('items.product', 'items.variant');
         $existingItems = $purchaseBill->items->map(function ($item) {
@@ -314,7 +312,7 @@ class PurchaseBillController extends Controller
             ];
         })->values();
 
-        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'mappedProducts', 'existingItems'));
+        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'existingItems'));
     }
 
     public function update(Request $request, PurchaseBill $purchaseBill)
@@ -1048,6 +1046,11 @@ class PurchaseBillController extends Controller
         }
 
         return (float) ($product->mrp ?? 0);
+    }
+
+    public function getMappedProductsJson()
+    {
+        return response()->json($this->getMappedProductsForPurchaseBills());
     }
 
     private function getMappedProductsForPurchaseBills(): array

@@ -355,10 +355,9 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $allProducts = $this->getAllMappedProductsForSales();
         $orderNo = generate_invoice_no('SA', Order::class, 'order_no');
         $defaultLocationId = $isRestricted ? $user->location_id : null;
-        return view('sales.create', compact('customers', 'locations', 'orderNo', 'allProducts', 'isRestricted', 'defaultLocationId'));
+        return view('sales.create', compact('customers', 'locations', 'orderNo', 'isRestricted', 'defaultLocationId'));
     }
 
     public function store(Request $request)
@@ -911,7 +910,6 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $allProducts = $this->getAllMappedProductsForSales();
         $sale->load(['items.product.variants.attributeValue.attribute', 'salePayments']);
         $defaultLocationId = $isRestricted ? $user->location_id : null;
 
@@ -928,7 +926,7 @@ class SaleController extends Controller
             ];
         })->values();
 
-        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'allProducts' => $allProducts, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
+        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
     }
 
     public function update(Request $request, Order $sale)
@@ -2235,6 +2233,11 @@ class SaleController extends Controller
                 'payments'        => $payments,
             ],
         ]);
+    }
+
+    public function getAllMappedProductsJson()
+    {
+        return response()->json($this->getAllMappedProductsForSales());
     }
 
     private function getAllMappedProductsForSales()

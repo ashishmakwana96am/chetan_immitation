@@ -167,6 +167,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
         // Purchases
+        Route::get('purchases/products-json', [PurchaseController::class, 'getMappedProductsJson'])->name('purchases.products-json');
         Route::get('purchases/import/sample', [PurchaseImportController::class, 'sample'])->name('purchases.import.sample');
         Route::post('purchases/import/preview', [PurchaseImportController::class, 'preview'])->name('purchases.import.preview');
         Route::post('purchases/import/confirm', [PurchaseImportController::class, 'confirm'])->name('purchases.import.confirm');
@@ -182,6 +183,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchases/{purchase}/barcode-items', [PurchaseController::class, 'barcodeItems'])->name('purchases.barcode-items');
 
         // Purchase Bills
+        Route::get('purchase-bills/products-json', [PurchaseBillController::class, 'getMappedProductsJson'])->name('purchase-bills.products-json');
         Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
         Route::get('purchase-bills/export', [PurchaseBillController::class, 'export'])->name('purchase-bills.export');
         Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
@@ -254,6 +256,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // Sales
+        Route::get('sales/products-json', [SaleController::class, 'getAllMappedProductsJson'])->name('sales.products-json');
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
         Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');

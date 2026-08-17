@@ -247,7 +247,10 @@
 $(document).ready(function () {
     let itemIndex = 0;
 
-    const allProducts = @json($mappedProducts);
+    let allProducts = [];
+    $.getJSON('{{ route("admin.purchase-bills.products-json") }}', function(res) {
+        allProducts = res || [];
+    });
     const symbol = '{{ currency_symbol() }}';
     const searchInput = $('#productSearchInput');
     const searchResults = $('#productSearchResults');

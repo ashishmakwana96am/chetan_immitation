@@ -547,7 +547,10 @@ $(document).ready(function () {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
     }
-    const allProducts = @json($allProducts);
+    let allProducts = [];
+    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
+        allProducts = res || [];
+    });
     const locations = @json($locations);
     const existingItems = @json($existingItems);
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
