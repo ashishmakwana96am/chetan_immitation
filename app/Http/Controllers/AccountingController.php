@@ -920,12 +920,15 @@ class AccountingController extends Controller
         $this->authorize('view outstanding payables');
 
         $request->validate([
-            'amount'      => ['required', 'numeric', 'min:0.01'],
-            'location_id' => ['nullable', 'integer'],
+            'amount'         => ['required', 'numeric', 'min:0.01'],
+            'location_id'    => ['nullable', 'integer'],
+            'payment_method' => ['required', 'string', 'in:cash,online'],
         ]);
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $paymentMethod = $request->input('payment_method', 'cash');
 
         $purchasesQuery = \App\Models\Purchase::whereIn('payment_status', [
                 \App\Models\Purchase::PAYMENT_STATUS_PENDING,
@@ -981,6 +984,7 @@ class AccountingController extends Controller
         \Illuminate\Support\Facades\DB::transaction(function () use (
             $purchases,
             $enteredAmount,
+            $paymentMethod,
             $request,
             &$remainingPayment,
             &$totalPaidAllocated,
@@ -988,9 +992,10 @@ class AccountingController extends Controller
         ) {
             // Record single consolidated lump sum payment entry
             \App\Models\BulkPurchasePayment::create([
-                'total_amount' => $enteredAmount,
-                'location_id'  => $request->filled('location_id') ? (int)$request->location_id : auth()->user()->location_id,
-                'created_by'   => auth()->id(),
+                'total_amount'   => $enteredAmount,
+                'location_id'    => $request->filled('location_id') ? (int)$request->location_id : auth()->user()->location_id,
+                'payment_method' => $paymentMethod,
+                'created_by'     => auth()->id(),
             ]);
 
             foreach ($purchases as $purchase) {
@@ -1026,6 +1031,7 @@ class AccountingController extends Controller
                 \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
+                    'payment_method' => $paymentMethod,
                 ]));
 
                 \App\Services\ActivityLogger::log(

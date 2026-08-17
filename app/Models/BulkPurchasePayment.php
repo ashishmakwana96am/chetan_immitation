@@ -9,6 +9,7 @@ class BulkPurchasePayment extends Model
     protected $fillable = [
         'total_amount',
         'location_id',
+        'payment_method',
         'created_by',
     ];
 

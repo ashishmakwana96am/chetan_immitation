@@ -149,13 +149,30 @@ class PurchaseObserver
             }
 
             $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
-            $transaction = $existingTx;
-            if ($existingTx) {
+            $transaction = null;
+
+            if ($existingTx && $oldCol === $newCol && $oldPaid > 0) {
+                $diff = $newPaid - $oldPaid;
+                if ($diff > 0) {
+                    $transaction = LocationBalanceTransaction::create([
+                        'location_id'  => $locationId,
+                        'balance_type' => $newType,
+                        'type'         => LocationBalanceTransaction::TYPE_DEBIT,
+                        'amount'       => $diff,
+                        'balance_after'=> $newBalanceVal,
+                        'notes'        => 'Purchase Payment #' . $purchase->invoice_no,
+                        'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
+                    ]);
+                } else {
+                    $transaction = $existingTx;
+                }
+            } else if ($existingTx) {
                 $existingTx->update([
                     'balance_type' => $newType,
                     'amount'       => $newPaid,
                     'balance_after'=> $newBalanceVal,
                 ]);
+                $transaction = $existingTx;
             } else if ($newPaid > 0) {
                 $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $locationId,
