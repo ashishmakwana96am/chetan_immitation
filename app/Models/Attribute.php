@@ -22,6 +22,12 @@ class Attribute extends Model
         'index',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('active_attributes_list'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('active_attributes_list'));
+    }
+
     public function values()
     {
         return $this->hasMany(AttributeValue::class);

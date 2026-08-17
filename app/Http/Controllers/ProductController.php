@@ -132,43 +132,45 @@ class ProductController extends Controller
         }
 
         if ($sortKey === 'stock' || $hasStockFilter) {
-            $lightProducts = (clone $baseQuery)
+            $stockSub = Inventory::query()
+                ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+                ->selectRaw('product_id, SUM(quantity) as total_stock')
+                ->groupBy('product_id');
+
+            $filteredQuery = (clone $baseQuery)
+                ->leftJoinSub($stockSub, 'inv_sum', 'products.id', '=', 'inv_sum.product_id');
+
+            if ($hasStockFilter) {
+                if ($request->stock_status === 'in_stock') {
+                    $filteredQuery->where('inv_sum.total_stock', '>', 0);
+                } else {
+                    $filteredQuery->where(function($sub) {
+                        $sub->whereNull('inv_sum.total_stock')
+                            ->orWhere('inv_sum.total_stock', '<=', 0);
+                    });
+                }
+            }
+
+            if ($sortKey === 'stock') {
+                $filteredQuery->orderByRaw("COALESCE(inv_sum.total_stock, 0) {$sortDir}");
+            }
+
+            $recordsFiltered = (clone $filteredQuery)->count();
+
+            $products = $filteredQuery
+                ->select('products.*')
                 ->with([
+                    'category',
+                    'subCategory',
+                    'primaryImage',
+                    'variants.attributeValue',
                     'inventories' => function($q) use ($locationId) {
                         $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                     }
                 ])
+                ->skip($start)
+                ->take($length)
                 ->get();
-
-            $filteredProducts = $lightProducts;
-            if ($hasStockFilter) {
-                $wantInStock = $request->stock_status === 'in_stock';
-                $filteredProducts = $filteredProducts->filter(function ($product) use ($computeStock, $wantInStock) {
-                    $stock = $computeStock($product);
-                    return $wantInStock ? $stock > 0 : $stock <= 0;
-                });
-            }
-
-            if ($sortKey === 'stock') {
-                $filteredProducts = $filteredProducts->sortBy(function ($product) use ($computeStock) {
-                    return $computeStock($product);
-                }, SORT_REGULAR, $sortDir === 'desc');
-            }
-
-            $recordsFiltered = $filteredProducts->count();
-            $pageIds = $filteredProducts->pluck('id')->values()->slice($start, $length)->values();
-
-            $products = Product::with([
-                'category',
-                'subCategory',
-                'primaryImage',
-                'variants.attributeValue',
-                'inventories' => function($q) use ($locationId) {
-                    $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                }
-            ])->whereIn('id', $pageIds)->get();
-
-            $products = $pageIds->map(fn($id) => $products->firstWhere('id', $id))->filter()->values();
         } else {
             $recordsFiltered = (clone $baseQuery)->count();
 

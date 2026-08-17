@@ -329,7 +329,6 @@
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/typography.css') }}" />
-    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/katex.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/quill/editor.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/cropper/cropper.min.css') }}" />
     <style>
@@ -359,7 +358,6 @@
 @endsection
 
 @section('page-js')
-    <script src="{{ asset('assets/vendor/libs/quill/katex.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/quill/quill.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/cropper/cropper.min.js') }}"></script>
     <script>

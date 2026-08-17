@@ -89,7 +89,7 @@ class DashboardController extends Controller
             $totalCashBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('cash_balance');
             $totalBankBalance = (float) \App\Models\LocationBalance::whereHas('location', fn($q) => $q->where('status', 1))->sum('bank_balance');
 
-            $products = Product::with(['inventories', 'category', 'primaryImage'])->get();
+            $products = Product::whereHas('inventories', fn($q) => $q->where('quantity', '>', 0))->with(['inventories', 'category'])->get();
             $totalStockUnits = 0;
             $totalStockPairs = 0;
             $totalStockLoosePcs = 0;
@@ -142,10 +142,7 @@ class DashboardController extends Controller
 
             $monthlySales = $this->getMonthlySales();
             $recentSales = Order::with(['customer', 'location'])->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->latest()->take(5)->get();
-            $lowStock = $products->filter(function ($p) {
-                $threshold = $p->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
-                return $p->totalAvailableStock() <= $threshold;
-            })->take(10)->values();
+            $lowStock = Inventory::where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get()->pluck('product')->filter()->unique('id')->values();
             $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
             $locationSalesData = Order::where('order_type', 'sale')
                 ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
@@ -223,21 +220,8 @@ class DashboardController extends Controller
             $cashCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('cash_balance');
             $bankCreditBalance = (float) CustomerBalance::whereHas('customer', fn($q) => $q->where('is_credit_customer', true)->where('location_id', $locationId))->sum('bank_balance');
 
-            $allProducts = Product::with(['category', 'primaryImage', 'inventories'])->get();
-            $invByProduct = Inventory::where('location_id', $locationId)->get()->keyBy('product_id');
-            $stockRows = collect();
-            foreach ($allProducts as $product) {
-                $inv = $invByProduct->get($product->id);
-                if (!$inv) {
-                    continue;
-                }
-                $stockRows->push((object) ['product' => $product, 'quantity' => $inv->quantity]);
-            }
-
-            $lowStockInventories = $stockRows->filter(function ($row) {
-                $threshold = $row->product->category->low_stock_threshold ?? Category::DEFAULT_LOW_STOCK_THRESHOLD;
-                return $row->quantity <= $threshold;
-            });
+            $allProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['category', 'primaryImage', 'inventories'])->get();
+            $lowStockInventories = Inventory::where('location_id', $locationId)->where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get();
 
             $totalStockPurchaseValue = 0.0;
             $totalStockMrpValue = 0.0;
@@ -281,7 +265,7 @@ class DashboardController extends Controller
             $stockDisplay = implode('<br>', $stockParts);
 
             $stockStats = [
-                'total_products' => $stockRows->count(),
+                'total_products' => $allProducts->count(),
                 'total_units' => $totalStockUnits,
                 'total_pairs' => $totalStockPairs,
                 'total_loose_pcs' => $totalStockLoosePcs,
@@ -289,13 +273,13 @@ class DashboardController extends Controller
                 'stock_parts' => $stockParts,
                 'total_purchase_value' => $totalStockPurchaseValue,
                 'total_mrp_value' => $totalStockMrpValue,
-                'out_of_stock' => $stockRows->where('quantity', 0)->count(),
+                'out_of_stock' => Inventory::where('location_id', $locationId)->where('quantity', 0)->count(),
                 'low_stock' => $lowStockInventories->where('quantity', '>', 0)->count(),
             ];
 
             $monthlySales = $this->getMonthlySales($locationId);
             $recentSales = Order::with(['customer'])->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->latest()->take(5)->get();
-            $lowStock = $lowStockInventories->sortBy('quantity')->take(10)->values();
+            $lowStock = $lowStockInventories->pluck('product')->filter()->unique('id')->values();
             $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
 
             Product::clearPreloadedVariantStock();
