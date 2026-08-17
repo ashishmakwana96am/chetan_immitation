@@ -610,6 +610,8 @@ class CheckoutController extends Controller
                     'confirmed_at' => $isDefault ? now() : null,
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'payment_method' => 'online',
+                    'paid_cash_amount' => 0,
+                    'paid_online_amount' => $totalVal,
                     'is_gst' => false,
                     'tax_amount' => 0,
                     'final_amount' => $totalVal,

@@ -126,6 +126,12 @@ class PurchaseController extends Controller
                 'raw_total_amount' => (float) $invoice->total_amount,
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
+                'payment_method' => match (strtolower((string) ($invoice->payment_method ?? ''))) {
+                    'cash'  => 'Cash',
+                    'online', 'bank', 'upi', 'online_cash' => 'Online',
+                    ''      => '-',
+                    default => 'Online',
+                },
                 'date_group'     => $invoice->created_at->format('d M Y'),
                 'date_sort'      => $invoice->created_at->format('Ymd'),
                 'actions'        => $actions,

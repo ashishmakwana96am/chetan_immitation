@@ -2183,15 +2183,16 @@ Order Amount
 <script>
 function initProductImageZoom() {
     const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
+    const mainSwiperEl = document.querySelector('.mainSwiper');
+
     slides.forEach((slide) => {
         const img = slide.querySelector('.zoom-main-img');
         if (!img) return;
 
-        let isPinnedZoomed = false;
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchStartTime = 0;
-        let isTouchDragging = false;
+        let isZoomed = false;
+        let lastTapTime = 0;
+        let lastTapX = 0;
+        let lastTapY = 0;
 
         function updateZoom(clientX, clientY, scale = 2.5) {
             const rect = slide.getBoundingClientRect();
@@ -2204,69 +2205,68 @@ function initProductImageZoom() {
         function resetZoom() {
             img.style.transform = 'scale(1)';
             img.style.transformOrigin = 'center center';
-            isPinnedZoomed = false;
+            isZoomed = false;
+            if (mainSwiperEl && mainSwiperEl.swiper) {
+                mainSwiperEl.swiper.allowTouchMove = true;
+            }
         }
 
-        // Desktop Mouse Events
         slide.addEventListener('mousemove', (e) => {
-            updateZoom(e.clientX, e.clientY);
+            if (window.matchMedia('(pointer: fine)').matches && !isZoomed) {
+                updateZoom(e.clientX, e.clientY);
+            }
         });
 
         slide.addEventListener('mouseleave', () => {
-            resetZoom();
-        });
-
-        // Mobile Touch Events
-        slide.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                const touch = e.touches[0];
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
-                touchStartTime = Date.now();
-                isTouchDragging = false;
-                updateZoom(touch.clientX, touch.clientY);
-            }
-        }, { passive: true });
-
-        slide.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1) {
-                const touch = e.touches[0];
-                const diffX = Math.abs(touch.clientX - touchStartX);
-                const diffY = Math.abs(touch.clientY - touchStartY);
-                if (diffX > 8 || diffY > 8) {
-                    isTouchDragging = true;
-                }
-                updateZoom(touch.clientX, touch.clientY);
-            }
-        }, { passive: true });
-
-        slide.addEventListener('touchend', (e) => {
-            const touchDuration = Date.now() - touchStartTime;
-
-            // If it's a quick tap without drag, toggle pinned zoom
-            if (touchDuration < 250 && !isTouchDragging) {
-                if (isPinnedZoomed) {
-                    resetZoom();
-                } else {
-                    const changedTouch = e.changedTouches[0];
-                    if (changedTouch) {
-                        updateZoom(changedTouch.clientX, changedTouch.clientY);
-                    }
-                    isPinnedZoomed = true;
-                }
-            } else {
-                // If it was a hold/drag, reset when finger lifts unless pinned
-                if (!isPinnedZoomed) {
-                    resetZoom();
-                }
-            }
-        });
-
-        slide.addEventListener('touchcancel', () => {
-            if (!isPinnedZoomed) {
+            if (window.matchMedia('(pointer: fine)').matches && !isZoomed) {
                 resetZoom();
             }
         });
+
+        slide.addEventListener('dblclick', (e) => {
+            if (isZoomed) {
+                resetZoom();
+            } else {
+                updateZoom(e.clientX, e.clientY);
+                isZoomed = true;
+            }
+        });
+
+        slide.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+
+            const touch = e.touches[0];
+            const now = Date.now();
+            const timeDiff = now - lastTapTime;
+            const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
+
+            if (timeDiff > 0 && timeDiff < 300 && dist < 30) {
+                e.preventDefault();
+                if (isZoomed) {
+                    resetZoom();
+                } else {
+                    updateZoom(touch.clientX, touch.clientY);
+                    isZoomed = true;
+                    if (mainSwiperEl && mainSwiperEl.swiper) {
+                        mainSwiperEl.swiper.allowTouchMove = false;
+                    }
+                }
+                lastTapTime = 0;
+            } else {
+                lastTapTime = now;
+                lastTapX = touch.clientX;
+                lastTapY = touch.clientY;
+            }
+        }, { passive: false });
+
+        slide.addEventListener('touchmove', (e) => {
+            
+            if (isZoomed && e.touches.length === 1) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                updateZoom(touch.clientX, touch.clientY);
+            }
+        }, { passive: false });
     });
 }
 

@@ -1411,14 +1411,11 @@ class LedgerController extends Controller
 
         $orders = $ordersQuery->get();
 
-        // Group by Date portion and Customer ID
-        $grouped = $orders->groupBy(function ($order) {
-            $date = $order->created_at ? $order->created_at->format('Y-m-d') : now()->format('Y-m-d');
-            return $date . '_' . ($order->customer_id ?? 0);
-        });
+        // Group by Customer ID only — cumulative total per customer
+        $grouped = $orders->groupBy(fn ($order) => $order->customer_id ?? 0);
 
         $rows = collect();
-        foreach ($grouped as $key => $items) {
+        foreach ($grouped as $customerId => $items) {
             $first = $items->first();
             $totalAmount = 0.0;
             $paidAmount  = 0.0;
@@ -1436,22 +1433,25 @@ class LedgerController extends Controller
 
             $dueAmount = max(0.0, $totalAmount - $paidAmount);
 
-            // Determine aggregate status
+            // Hide 0 balance customers: Only show customers with outstanding payment due
             if ($dueAmount <= 0) {
-                $status = \App\Models\Order::PAYMENT_STATUS_PAID;
-            } elseif ($paidAmount <= 0) {
+                continue;
+            }
+
+            // Determine aggregate status
+            if ($paidAmount <= 0) {
                 $status = \App\Models\Order::PAYMENT_STATUS_PENDING;
             } else {
                 $status = 3; // Partial
             }
 
-            $dateObj = $first->created_at ?? now();
+            $lastOrderDate = $items->max('created_at') ?? now();
 
             $rows->push([
                 'customer_id'    => $first->customer_id ?? 0,
                 'customer_name'  => $first->customer->name ?? 'Walk-in',
-                'date_raw'       => $dateObj->format('Y-m-d'),
-                'date_formatted' => format_date($dateObj),
+                'date_raw'       => $lastOrderDate->format('Y-m-d'),
+                'date_formatted' => format_date($lastOrderDate),
                 'total_amount'   => $totalAmount,
                 'paid_amount'    => $paidAmount,
                 'due_amount'     => $dueAmount,
@@ -1460,8 +1460,8 @@ class LedgerController extends Controller
         }
 
         $sortedRows = $rows->sort(function ($a, $b) {
-            if ($a['date_raw'] !== $b['date_raw']) {
-                return strcmp($b['date_raw'], $a['date_raw']);
+            if ($a['due_amount'] !== $b['due_amount']) {
+                return $b['due_amount'] <=> $a['due_amount'];
             }
             return strcmp($a['customer_name'], $b['customer_name']);
         })->values();
@@ -1482,9 +1482,7 @@ class LedgerController extends Controller
             ];
         });
 
-        // Branch-wise summary cards: restricted users only ever get their own
-        // branch; super-admins get every active branch, narrowed to the
-        // filtered one if selected.
+        // Branch-wise summary cards
         $branchLocations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
@@ -1546,10 +1544,7 @@ class LedgerController extends Controller
 
         $orders = $ordersQuery->get();
 
-        $grouped = $orders->groupBy(function ($order) {
-            $date = $order->created_at ? $order->created_at->format('Y-m-d') : now()->format('Y-m-d');
-            return $date . '_' . ($order->customer_id ?? 0);
-        });
+        $grouped = $orders->groupBy(fn ($order) => $order->customer_id ?? 0);
 
         $rows = collect();
         foreach ($grouped as $items) {
@@ -1570,9 +1565,16 @@ class LedgerController extends Controller
 
             $dueAmount = max(0.0, $totalAmount - $paidAmount);
 
+            // Hide 0 balance customers
+            if ($dueAmount <= 0) {
+                continue;
+            }
+
+            $lastOrderDate = $items->max('created_at') ?? now();
+
             $rows->push([
                 'customer_name' => $first->customer->name ?? 'Walk-in',
-                'date'          => $first->created_at ?? now(),
+                'date'          => $lastOrderDate,
                 'total_amount'  => $totalAmount,
                 'paid_amount'   => $paidAmount,
                 'due_amount'    => $dueAmount,
@@ -1580,8 +1582,8 @@ class LedgerController extends Controller
         }
 
         $rows = $rows->sort(function ($a, $b) {
-            if ($a['date']->format('Y-m-d') !== $b['date']->format('Y-m-d')) {
-                return $b['date'] <=> $a['date'];
+            if ($a['due_amount'] !== $b['due_amount']) {
+                return $b['due_amount'] <=> $a['due_amount'];
             }
             return strcmp($a['customer_name'], $b['customer_name']);
         })->values();
@@ -1622,11 +1624,11 @@ class LedgerController extends Controller
 
         $request->validate([
             'customer_id' => ['required', 'integer'],
-            'date'        => ['required', 'date_format:Y-m-d'],
+            'date'        => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         $customerId = (int) $request->customer_id;
-        $date = \Carbon\Carbon::parse($request->date);
+        $date = $request->filled('date') ? \Carbon\Carbon::parse($request->date) : null;
 
         if ($customerId === 0) {
             $customer = new \App\Models\Customer();
@@ -1639,12 +1641,23 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::whereDate('created_at', $request->date);
+        $ordersQuery = \App\Models\Order::query();
 
         if ($customerId === 0) {
             $ordersQuery->whereNull('customer_id');
         } else {
             $ordersQuery->where('customer_id', $customerId);
+        }
+
+        if ($request->filled('date')) {
+            $ordersQuery->whereDate('created_at', $request->date);
+        } else {
+            if ($request->filled('start_date')) {
+                $ordersQuery->whereDate('created_at', '>=', $request->start_date);
+            }
+            if ($request->filled('end_date')) {
+                $ordersQuery->whereDate('created_at', '<=', $request->end_date);
+            }
         }
 
         if ($isRestricted) {
@@ -1655,7 +1668,7 @@ class LedgerController extends Controller
             }
         }
 
-        $orders = $ordersQuery->get();
+        $orders = $ordersQuery->orderByDesc('created_at')->get();
 
         $totalSales = 0.0;
         $totalPayment = 0.0;

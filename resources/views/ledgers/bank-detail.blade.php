@@ -39,6 +39,18 @@
             background-color: rgba(40, 199, 111, 0.08);
             color: #28c76f;
         }
+        .card-title-icon-danger {
+            background-color: rgba(234, 84, 85, 0.08);
+            color: #ea5455;
+        }
+        .card-datatable .dataTables_wrapper .row:first-child {
+            padding: 1.25rem 1.5rem 0.75rem;
+            margin: 0;
+        }
+        .card-datatable .dataTables_wrapper .row:last-child {
+            padding: 0.75rem 1.5rem 1.25rem;
+            margin: 0;
+        }
     </style>
 @endsection
 
@@ -108,55 +120,53 @@
                     <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
                     <h6 class="mb-0 fw-semibold">Credit / Debit Transactions</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0" id="bankTransactionsTable">
-                            <thead>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top table-hover mb-0" id="bankTransactionsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Time</th>
+                                @if(!$location)
+                                    <th>Location</th>
+                                @endif
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th class="text-end">Amount</th>
+                                <th class="text-end">Balance After</th>
+                                <th>By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($transactions as $index => $transaction)
                                 <tr>
-                                    <th style="width: 5%">#</th>
-                                    <th>Time</th>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $transaction->created_at->format('h:i A') }}</td>
                                     @if(!$location)
-                                        <th>Location</th>
+                                        <td>{{ $transaction->location->name ?? '-' }}</td>
                                     @endif
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th class="text-end">Amount</th>
-                                    <th class="text-end">Balance After</th>
-                                    <th>By</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($transactions as $index => $transaction)
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $transaction->created_at->format('h:i A') }}</td>
-                                        @if(!$location)
-                                            <td>{{ $transaction->location->name ?? '-' }}</td>
+                                    <td>{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}</td>
+                                    <td>
+                                        @if($transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT)
+                                            <span class="badge bg-label-success">Credit</span>
+                                        @else
+                                            <span class="badge bg-label-danger">Debit</span>
                                         @endif
-                                        <td>{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}</td>
-                                        <td>
-                                            @if($transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT)
-                                                <span class="badge bg-label-success">Credit</span>
-                                            @else
-                                                <span class="badge bg-label-danger">Debit</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}">
-                                            {{ format_price($transaction->amount) }}
-                                        </td>
-                                        <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
-                                        <td>{{ $transaction->createdBy->name ?? '-' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="{{ $location ? 7 : 8 }}" class="text-center py-4 text-muted">
-                                            No transactions found for this date.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                    </td>
+                                    <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}">
+                                        {{ format_price($transaction->amount) }}
+                                    </td>
+                                    <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
+                                    <td>{{ $transaction->createdBy->name ?? '-' }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="{{ $location ? 7 : 8 }}" class="text-center py-4 text-muted">
+                                        No transactions found for this date.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

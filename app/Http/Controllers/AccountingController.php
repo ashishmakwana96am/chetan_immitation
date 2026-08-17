@@ -955,7 +955,7 @@ class AccountingController extends Controller
         if ($purchases->isEmpty()) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'No outstanding purchases found.',
+                'message' => 'There are no pending payable balances to process.',
             ], 422);
         }
 
@@ -969,11 +969,18 @@ class AccountingController extends Controller
         }
         $totalOutstandingDue = round($totalOutstandingDue, 2);
 
+        if ($totalOutstandingDue <= 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'There are no pending payable balances to process.',
+            ], 422);
+        }
+
         $enteredAmount = round((float) $request->amount, 2);
         if ($enteredAmount > $totalOutstandingDue) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Paid amount cannot be greater than the total outstanding balance due (' . format_price($totalOutstandingDue) . ').',
+                'message' => 'Payment amount cannot exceed the total outstanding balance due (' . format_price($totalOutstandingDue) . ').',
             ], 422);
         }
 
