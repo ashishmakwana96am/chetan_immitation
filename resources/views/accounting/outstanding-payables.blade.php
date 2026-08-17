@@ -172,14 +172,6 @@
                             <option value="online">Online</option>
                         </select>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label required fw-semibold">Payment Method</label>
-                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg" required>
-                            <option value="cash" selected>Cash</option>
-                            <option value="online">Online</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
                     <button type="submit" id="bulkPaySubmitBtn" class="btn btn-primary flex-fill w-50 m-0">
