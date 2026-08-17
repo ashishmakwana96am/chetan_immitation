@@ -168,13 +168,20 @@ class DashboardController extends Controller
             return $p->totalAvailableStock() <= $threshold;
         })->take(10)->values();
         $topProducts = OrderItem::with('product.primaryImage')->whereHas('order', fn($q) => $q->where('order_type', 'sale')->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]))->selectRaw('product_id, SUM(quantity) as total_qty, SUM(total) as total_revenue')->groupBy('product_id')->orderByDesc('total_qty')->take(5)->get();
-        $salesByLocation = Location::where('status', 1)->get()->map(function ($loc) {
-            $locOrders = Order::where('order_type', 'sale')->where('location_id', $loc->id)->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])->get();
+        $locationSalesData = Order::where('order_type', 'sale')
+            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->selectRaw('location_id, SUM(final_amount) as total_sales, COUNT(*) as order_count')
+            ->groupBy('location_id')
+            ->get()
+            ->keyBy('location_id');
+
+        $salesByLocation = Location::where('status', 1)->get()->map(function ($loc) use ($locationSalesData) {
+            $data = $locationSalesData->get($loc->id);
             return [
                 'id' => $loc->id,
                 'name' => $loc->name,
-                'total_sales' => (float) $locOrders->sum('final_amount'),
-                'order_count' => $locOrders->count(),
+                'total_sales' => (float) ($data->total_sales ?? 0),
+                'order_count' => (int) ($data->order_count ?? 0),
             ];
         });
 
@@ -385,7 +392,7 @@ class DashboardController extends Controller
             }
             $paid = (float) $o->paid_cash_amount + (float) $o->paid_online_amount;
             if ($paid <= 0) {
-                $paid = (float) $o->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                $paid = (float) $o->payments->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
             }
             return max(0.0, (float) $o->final_amount - $paid);
         };
@@ -398,7 +405,7 @@ class DashboardController extends Controller
             $query->where('location_id', $locationId);
         }
 
-        $allOrders = $query->get();
+        $allOrders = $query->with(['payments'])->get();
         $grouped = $allOrders->groupBy(fn($o) => $o->created_at->format('Y-n'));
 
         $months = [];

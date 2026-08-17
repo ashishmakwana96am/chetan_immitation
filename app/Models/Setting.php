@@ -18,22 +18,29 @@ class Setting extends Model
 
     protected $fillable = ['key', 'value'];
 
+    protected static array $settingsCache = [];
+
     public static function getValue(string $key, mixed $default = null): mixed
     {
+        if (array_key_exists($key, self::$settingsCache)) {
+            return self::$settingsCache[$key];
+        }
+
         $setting = self::where('key', $key)->first();
         if (! $setting) {
-            return $default;
+            return self::$settingsCache[$key] = $default;
         }
         $value = $setting->value;
         $decoded = json_decode($value, true);
 
-        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+        return self::$settingsCache[$key] = (json_last_error() === JSON_ERROR_NONE ? $decoded : $value);
     }
 
     public static function setValue(string $key, mixed $value): void
     {
         $stored = is_array($value) ? json_encode($value) : $value;
         self::updateOrCreate(['key' => $key], ['value' => $stored]);
+        self::$settingsCache[$key] = $value;
     }
 
     public static function getInstagramProfileUrl(): string
