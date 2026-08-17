@@ -2043,11 +2043,10 @@ class AccountingController extends Controller
                     'message' => 'Cannot delete accepted transfer because To Location has insufficient balance to revert.',
                 ], 422);
             }
-                $this->clearBalanceTransferCache($fromLocationId, $toLocationId);
-            });
-        } catch (\RuntimeException $e) {
             throw $e;
         }
+
+        $this->clearBalanceTransferCache($fromLocationId, $toLocationId);
 
         return response()->json([
             'status'  => 'success',
