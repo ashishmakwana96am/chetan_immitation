@@ -15,6 +15,12 @@ class Purchase extends Model
         return 'Purchase';
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \App\Http\Controllers\DashboardController::clearDashboardCaches());
+        static::deleted(fn () => \App\Http\Controllers\DashboardController::clearDashboardCaches());
+    }
+
     const STATUS_PENDING = 1;
 
     const STATUS_APPROVE = 2;

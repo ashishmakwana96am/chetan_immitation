@@ -19,6 +19,7 @@ class Product extends Model
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_sales');
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_purchases');
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_bills');
+        \App\Http\Controllers\DashboardController::clearDashboardCaches();
     }
 
     protected static function booted(): void
@@ -143,7 +144,7 @@ class Product extends Model
             }
         }
 
-        return (int) $this->inventories()->sum('quantity');
+        return (int) ($this->relationLoaded('inventories') ? $this->inventories->sum('quantity') : $this->inventories()->sum('quantity'));
     }
 
     /**
