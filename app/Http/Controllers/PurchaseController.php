@@ -12,6 +12,7 @@ use App\Models\PurchasePayment;
 use App\Models\Supplier;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Services\PurchaseStockService;
@@ -1013,64 +1014,66 @@ class PurchaseController extends Controller
 
     private function getMappedProducts()
     {
-        $products = Product::with([
-            'variants.attributeValue.attribute',
-            'primaryImage',
-            'inventories',
-        ])->where('status', 1)->orderBy('name')->get();
+        return Cache::remember('all_mapped_products_purchases', 1800, function () {
+            $products = Product::with([
+                'variants.attributeValue.attribute',
+                'primaryImage',
+                'inventories',
+            ])->where('status', 1)->orderBy('name')->get();
 
-        Product::preloadVariantStock($products);
+            Product::preloadVariantStock($products);
 
-        $mapped = $products->map(function ($p) {
-            $data = [
-                'id'             => $p->id,
-                'name'           => $p->name,
-                'barcode'        => $p->barcode,
-                'type'           => $p->type,
-                'purchase_price' => $p->purchase_price,
-                'image'          => $p->primary_image_url,
-                'pair_product'   => (bool) $p->pair_product,
-                'pair_mode'      => $p->pair_mode,
-                'custom_sizes'   => $p->custom_sizes ?? [],
-            ];
+            $mapped = $products->map(function ($p) {
+                $data = [
+                    'id'             => $p->id,
+                    'name'           => $p->name,
+                    'barcode'        => $p->barcode,
+                    'type'           => $p->type,
+                    'purchase_price' => $p->purchase_price,
+                    'image'          => $p->primary_image_url,
+                    'pair_product'   => (bool) $p->pair_product,
+                    'pair_mode'      => $p->pair_mode,
+                    'custom_sizes'   => $p->custom_sizes ?? [],
+                ];
 
-            if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function ($v) {
-                    return $v->status == 1;
-                })->values()->map(function ($v) {
-                    return [
-                        'id'                 => $v->id,
-                        'attribute_value_id' => $v->attribute_value_id,
-                        'purchase_price'     => $v->purchase_price,
-                        'sale_price'         => $v->sale_price,
-                        'custom_sizes'       => $v->custom_sizes ?? [],
-                        'attr_name'          => $v->attributeValue->attribute->name ?? '',
-                        'value_name'         => $v->attributeValue->value ?? '',
-                    ];
-                })->all();
-            }
-
-            $stockByLocation = [];
-            if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
-                foreach ($variantStock as $locId => $locData) {
-                    $stockByLocation[$locId] = [
-                        'parent'   => $locData['parent'],
-                        'variants' => $locData['variants'],
-                    ];
+                if ($p->type === 'variable') {
+                    $data['variants'] = $p->variants->filter(function ($v) {
+                        return $v->status == 1;
+                    })->values()->map(function ($v) {
+                        return [
+                            'id'                 => $v->id,
+                            'attribute_value_id' => $v->attribute_value_id,
+                            'purchase_price'     => $v->purchase_price,
+                            'sale_price'         => $v->sale_price,
+                            'custom_sizes'       => $v->custom_sizes ?? [],
+                            'attr_name'          => $v->attributeValue->attribute->name ?? '',
+                            'value_name'         => $v->attributeValue->value ?? '',
+                        ];
+                    })->all();
                 }
-            } else {
-                foreach ($p->inventories as $inv) {
-                    $stockByLocation[$inv->location_id] = $inv->quantity;
+
+                $stockByLocation = [];
+                if ($p->type === 'variable') {
+                    $variantStock = $p->getVariantStock();
+                    foreach ($variantStock as $locId => $locData) {
+                        $stockByLocation[$locId] = [
+                            'parent'   => $locData['parent'],
+                            'variants' => $locData['variants'],
+                        ];
+                    }
+                } else {
+                    foreach ($p->inventories as $inv) {
+                        $stockByLocation[$inv->location_id] = $inv->quantity;
+                    }
                 }
-            }
-            $data['stock_by_location'] = $stockByLocation;
+                $data['stock_by_location'] = $stockByLocation;
 
-            return $data;
-        })->values()->all();
+                return $data;
+            })->values()->all();
 
-        Product::clearPreloadedVariantStock();
+            Product::clearPreloadedVariantStock();
 
-        return $mapped;
+            return $mapped;
+        });
     }
 }

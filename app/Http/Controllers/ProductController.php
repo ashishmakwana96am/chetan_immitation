@@ -911,6 +911,8 @@ class ProductController extends Controller
             }
         });
 
+        self::clearMappedProductCaches();
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Product created successfully.',
@@ -1853,5 +1855,12 @@ class ProductController extends Controller
             'message' => "Successfully updated {$count} product(s) to be {$actionText} the website.",
             'count'   => $count,
         ]);
+    }
+
+    public static function clearMappedProductCaches(): void
+    {
+        Cache::forget('all_mapped_products_sales');
+        Cache::forget('all_mapped_products_purchases');
+        Cache::forget('all_mapped_products_bills');
     }
 }

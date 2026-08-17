@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Inventory extends Model
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Product::clearMappedCaches());
+        static::deleted(fn () => Product::clearMappedCaches());
+    }
     protected $fillable = [
         'product_id',
         'location_id',

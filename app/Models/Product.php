@@ -14,6 +14,19 @@ class Product extends Model
 
     const STATUS_INACTIVE = 2;
 
+    public static function clearMappedCaches(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_sales');
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_purchases');
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_bills');
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => static::clearMappedCaches());
+        static::deleted(fn () => static::clearMappedCaches());
+    }
+
     protected $fillable = [
         'name',
         'slug',
