@@ -43,6 +43,14 @@
             background-color: rgba(234, 84, 85, 0.08);
             color: #ea5455;
         }
+        .card-datatable .dataTables_wrapper .row:first-child {
+            padding: 1.25rem 1.5rem 0.75rem;
+            margin: 0;
+        }
+        .card-datatable .dataTables_wrapper .row:last-child {
+            padding: 0.75rem 1.5rem 1.25rem;
+            margin: 0;
+        }
     </style>
 @endsection
 
@@ -108,41 +116,39 @@
                     <span class="card-title-icon card-title-icon-success"><i class="ti ti-arrow-down"></i></span>
                     <h6 class="mb-0 fw-semibold">Transfer In (Stock Received)</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0" id="transferInTable">
-                            <thead>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top table-hover mb-0" id="transferInTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Transfer No</th>
+                                <th>From Branch</th>
+                                <th class="text-end">Amount (Qty)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($transferIn as $index => $transfer)
                                 <tr>
-                                    <th style="width: 5%">#</th>
-                                    <th>Transfer No</th>
-                                    <th>From Branch</th>
-                                    <th class="text-end">Amount (Qty)</th>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>
+                                        <a href="{{ route('admin.purchase-bills.show', $transfer->id) }}" class="fw-bold">
+                                            {{ $transfer->transfer_no }}
+                                        </a>
+                                    </td>
+                                    <td>{{ $transfer->fromLocation->name ?? '-' }}</td>
+                                    <td class="text-end fw-semibold text-success">
+                                        {{ format_price(($transferAmount)($transfer)) }} ({{ ($singleTransferQtyText)($transfer) }})
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($transferIn as $index => $transfer)
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>
-                                            <a href="{{ route('admin.purchase-bills.show', $transfer->id) }}" class="fw-bold">
-                                                {{ $transfer->transfer_no }}
-                                            </a>
-                                        </td>
-                                        <td>{{ $transfer->fromLocation->name ?? '-' }}</td>
-                                        <td class="text-end fw-semibold text-success">
-                                            {{ format_price(($transferAmount)($transfer)) }} ({{ ($singleTransferQtyText)($transfer) }})
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center py-4 text-muted">
-                                            No incoming transfers for this date.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">
+                                        No incoming transfers for this date.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -151,42 +157,41 @@
                     <span class="card-title-icon card-title-icon-danger"><i class="ti ti-arrow-up"></i></span>
                     <h6 class="mb-0 fw-semibold">Transfer Out (Stock Sent)</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0" id="transferOutTable">
-                            <thead>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top table-hover mb-0" id="transferOutTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Transfer No</th>
+                                <th>To Branch</th>
+                                <th class="text-end">Amount (Qty)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($transferOut as $index => $transfer)
                                 <tr>
-                                    <th style="width: 5%">#</th>
-                                    <th>Transfer No</th>
-                                    <th>To Branch</th>
-                                    <th class="text-end">Amount (Qty)</th>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>
+                                        <a href="{{ route('admin.purchase-bills.show', $transfer->id) }}" class="fw-bold">
+                                            {{ $transfer->transfer_no }}
+                                        </a>
+                                    </td>
+                                    <td>{{ $transfer->toLocation->name ?? '-' }}</td>
+                                    <td class="text-end fw-semibold text-danger">
+                                        {{ format_price(($transferAmount)($transfer)) }} ({{ ($singleTransferQtyText)($transfer) }})
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($transferOut as $index => $transfer)
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>
-                                            <a href="{{ route('admin.purchase-bills.show', $transfer->id) }}" class="fw-bold">
-                                                {{ $transfer->transfer_no }}
-                                            </a>
-                                        </td>
-                                        <td>{{ $transfer->toLocation->name ?? '-' }}</td>
-                                        <td class="text-end fw-semibold text-danger">
-                                            {{ format_price(($transferAmount)($transfer)) }} ({{ ($singleTransferQtyText)($transfer) }})
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center py-4 text-muted">
-                                            No outgoing transfers for this date.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">
+                                        No outgoing transfers for this date.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
+            </div>
             </div>
         </div>
     </div>

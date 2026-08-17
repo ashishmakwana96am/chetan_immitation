@@ -166,6 +166,18 @@
                     </div>
 
                     <div class="sale-info-row">
+                        <span class="sale-info-label">Payment Method</span>
+                        <span class="sale-info-value">
+                            {{ match (strtolower((string) ($purchase->payment_method ?? ''))) {
+                                'cash'  => 'Cash',
+                                'online', 'bank', 'upi', 'online_cash' => 'Online',
+                                ''      => '-',
+                                default => 'Online',
+                            } }}
+                        </span>
+                    </div>
+
+                    <div class="sale-info-row">
                         <span class="sale-info-label">Total Amount</span>
                         <span class="sale-info-value fw-bold text-primary">{{ format_price($purchase->total_amount) }}</span>
                     </div>

@@ -162,7 +162,15 @@
                             <span class="input-group-text">₹</span>
                             <input type="number" step="0.01" min="0.01" id="bulk-pay-amount" name="amount" class="form-control form-control-lg" placeholder="e.g. 500000" required autofocus />
                         </div>
-                        <small class="text-muted d-block mt-2" id="bulk-pay-max-hint">Payable balance: <strong class="text-danger" id="bulk-pay-max-val">-</strong></small>
+                        <small class="text-muted d-block mt-2" id="bulk-pay-max-hint">Payable balance: <strong class="text-danger" id="bulk-pay-max-val">₹ 0.00</strong></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label required fw-semibold">Payment Method</label>
+                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg" required>
+                            <option value="cash" selected>Cash</option>
+                            <option value="online">Online</option>
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -253,7 +261,7 @@
                     },
                 },
                 columns: [
-                    { data: 'index', orderable: false },
+                    { data: 'index', orderable: false, width: '5%' },
                     { data: 'supplier' },
                     { data: 'total_amount', className: 'text-end fw-semibold text-heading' },
                     { 
@@ -357,19 +365,48 @@
                 }
                 totalDue = Math.round(totalDue * 100) / 100;
 
+                const formatted = '₹ ' + totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                $('#bulk-pay-max-val').text(formatted);
+                $('#bulk-pay-max-hint').show();
+
                 if (totalDue > 0) {
                     $('#bulk-pay-amount').attr('max', totalDue);
-                    $('#bulk-pay-max-val').text('₹' + totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 }));
-                    $('#bulk-pay-max-hint').show();
                 } else {
                     $('#bulk-pay-amount').removeAttr('max');
-                    $('#bulk-pay-max-hint').hide();
                 }
             });
 
             // Handle Bulk Pay Submit
             $('#bulkPayForm').on('submit', function (e) {
                 e.preventDefault();
+
+                const amountVal = parseFloat($('#bulk-pay-amount').val()) || 0;
+                const maxVal = parseFloat($('#bulk-pay-amount').attr('max')) || 0;
+
+                if (maxVal <= 0) {
+                    const msg = 'There are no pending payable balances to process.';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(msg);
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: msg, customClass: { confirmButton: 'btn btn-primary' } });
+                    } else {
+                        alert(msg);
+                    }
+                    return false;
+                }
+
+                if (amountVal > maxVal) {
+                    const msg = 'Payment amount cannot exceed the total outstanding balance due (' + $('#bulk-pay-max-val').text() + ').';
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error(msg);
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: msg, customClass: { confirmButton: 'btn btn-primary' } });
+                    } else {
+                        alert(msg);
+                    }
+                    return false;
+                }
+
                 const $btn = $('#bulkPaySubmitBtn');
                 $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...');
 

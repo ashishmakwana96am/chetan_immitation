@@ -270,6 +270,7 @@
                         <th>Total Amount</th>
                         <th>Status</th>
                         <th>Payment Status</th>
+                        <th>Payment Method</th>
                         <th>Actions</th>
                         <th class="d-none">Date Group</th>
                         <th class="d-none">Date Sort</th>
@@ -552,6 +553,7 @@
                     },
                     { data: 'status',         orderable: false },
                     { data: 'payment_status', orderable: false },
+                    { data: 'payment_method', orderable: false },
                     { data: 'actions',        orderable: false },
                     { data: 'date_group',     visible: false },
                     { data: 'date_sort',      visible: false },
@@ -560,7 +562,7 @@
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="9"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
             });

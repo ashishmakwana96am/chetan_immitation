@@ -182,17 +182,10 @@
 
             const table = $('#customerLedgerTable').DataTable({
                 responsive: false,
-                order: [[7, 'desc']],
+                order: [[4, 'desc']],
                 columnDefs: [
                     { targets: [6, 7], visible: false }
                 ],
-                rowGroup: {
-                    dataSrc: 'date_group',
-                    startRender: function (rows, group) {
-                        return $('<tr class="group-header"/>')
-                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
-                    }
-                },
                 ajax: {
                     url: '{{ route('admin.ledgers.customer.data') }}',
                     cache: false,
@@ -236,8 +229,8 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.ledgers.customer.detail') }}?customer_id=${row.customer_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
-                                            <i class="ti ti-eye me-2"></i>View
+                                        <a href="{{ route('admin.ledgers.customer.detail') }}?customer_id=${row.customer_id}${locationQuery}" class="dropdown-item">
+                                            <i class="ti ti-eye me-2"></i>View History
                                         </a>
                                     </div>
                                 </div>
@@ -306,7 +299,7 @@
             });
 
             // Double click anywhere on row to navigate to details page
-            $('#customerLedgerTable tbody').on('dblclick', 'tr:not(.group-header)', function (e) {
+            $('#customerLedgerTable tbody').on('dblclick', 'tr', function (e) {
                 if ($(e.target).closest('.dropdown').length || $(e.target).closest('button').length || $(e.target).closest('a').length) {
                     return;
                 }
@@ -314,7 +307,7 @@
                 if (data) {
                     const locationVal = $('#filter-location').val() || '';
                     const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                    window.location.href = `{{ route('admin.ledgers.customer.detail') }}?customer_id=${data.customer_id}&date=${data.date_sort}${locationQuery}`;
+                    window.location.href = `{{ route('admin.ledgers.customer.detail') }}?customer_id=${data.customer_id}${locationQuery}`;
                 }
             });
         });

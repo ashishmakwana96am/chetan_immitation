@@ -43,6 +43,14 @@
             background-color: rgba(234, 84, 85, 0.08);
             color: #ea5455;
         }
+        .card-datatable .dataTables_wrapper .row:first-child {
+            padding: 1.25rem 1.5rem 0.75rem;
+            margin: 0;
+        }
+        .card-datatable .dataTables_wrapper .row:last-child {
+            padding: 0.75rem 1.5rem 1.25rem;
+            margin: 0;
+        }
     </style>
 @endsection
 
@@ -50,7 +58,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
             <h4 class="fw-semibold mb-0">Customer Ledger Details</h4>
-            <small class="text-muted">Breakdown of sales for <strong>{{ $customer->name }}</strong> on <strong>{{ format_date($date) }}</strong></small>
+            <small class="text-muted">Breakdown of sales for <strong>{{ $customer->name }}</strong>{{ $date ? ' on ' . format_date($date) : '' }}</small>
         </div>
         <div>
             <a href="{{ route('admin.ledgers.customer') }}" class="btn btn-label-secondary">
@@ -77,8 +85,8 @@
                         <span class="ledger-info-value">{{ $customer->phone ?? '-' }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Date</span>
-                        <span class="ledger-info-value">{{ format_date($date) }}</span>
+                        <span class="ledger-info-label">Date Filter</span>
+                        <span class="ledger-info-value">{{ $date ? format_date($date) : 'All Time' }}</span>
                     </div>
                 </div>
             </div>
@@ -112,45 +120,43 @@
                     <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
                     <h6 class="mb-0 fw-semibold">Orders & Sales</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0" id="customerOrdersTable">
-                            <thead>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top table-hover mb-0" id="customerOrdersTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Order No</th>
+                                <th class="text-end">Total Amount</th>
+                                <th class="text-end">Paid Amount</th>
+                                <th class="text-end">Remaining Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($orders as $index => $order)
+                                @php
+                                    if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                                        $paid = (float) $order->final_amount;
+                                    } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                                        $paid = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                                    } else {
+                                        $paid = (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                                    }
+                                    $remaining = max(0.0, $order->final_amount - $paid);
+                                @endphp
                                 <tr>
-                                    <th style="width: 5%">#</th>
-                                    <th>Order No</th>
-                                    <th class="text-end">Total Amount</th>
-                                    <th class="text-end">Paid Amount</th>
-                                    <th class="text-end">Remaining Amount</th>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>
+                                        <a href="{{ route('admin.sales.show', $order->id) }}" class="fw-bold">
+                                            {{ $order->order_no }}
+                                        </a>
+                                    </td>
+                                    <td class="text-end fw-semibold text-heading">{{ format_price($order->final_amount) }}</td>
+                                    <td class="text-end text-success fw-semibold">{{ format_price($paid) }}</td>
+                                    <td class="text-end text-danger fw-semibold">{{ format_price($remaining) }}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($orders as $index => $order)
-                                    @php
-                                        if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
-                                            $paid = (float) $order->final_amount;
-                                        } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
-                                            $paid = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
-                                        } else {
-                                            $paid = (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
-                                        }
-                                        $remaining = max(0.0, $order->final_amount - $paid);
-                                    @endphp
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>
-                                            <a href="{{ route('admin.sales.show', $order->id) }}" class="fw-bold">
-                                                {{ $order->order_no }}
-                                            </a>
-                                        </td>
-                                        <td class="text-end fw-semibold text-heading">{{ format_price($order->final_amount) }}</td>
-                                        <td class="text-end text-success fw-semibold">{{ format_price($paid) }}</td>
-                                        <td class="text-end text-danger fw-semibold">{{ format_price($remaining) }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

@@ -41,6 +41,14 @@
             background-color: rgba(234, 84, 85, 0.08);
             color: #ea5455;
         }
+        .card-datatable .dataTables_wrapper .row:first-child {
+            padding: 1.25rem 1.5rem 0.75rem;
+            margin: 0;
+        }
+        .card-datatable .dataTables_wrapper .row:last-child {
+            padding: 0.75rem 1.5rem 1.25rem;
+            margin: 0;
+        }
     </style>
 @endsection
 
@@ -106,43 +114,41 @@
                     <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
                     <h6 class="mb-0 fw-semibold">Unpaid Purchases</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive text-nowrap">
-                        <table class="table border-top table-hover mb-0">
-                            <thead>
+                <div class="card-datatable table-responsive">
+                    <table class="table border-top table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th>Invoice No</th>
+                                <th>Date</th>
+                                <th class="text-end">Total Amount</th>
+                                <th class="text-end">Paid Amount</th>
+                                <th class="text-end">Outstanding Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                             @forelse($purchases as $index => $purchase)
+                                 <tr>
+                                     <td>{{ $index + 1 }}</td>
+                                     <td>
+                                         <a href="{{ route('admin.purchases.show', $purchase->id) }}" class="fw-bold">
+                                             {{ $purchase->invoice_no }}
+                                         </a>
+                                     </td>
+                                     <td>{{ format_date($purchase->created_at) }}</td>
+                                     <td class="text-end fw-semibold text-heading">{{ format_price($purchase->total_amount) }}</td>
+                                     <td class="text-end text-success fw-semibold">{{ format_price($purchase->calculated_paid) }}</td>
+                                     <td class="text-end text-danger fw-semibold">{{ format_price($purchase->calculated_due) }}</td>
+                                 </tr>
+                            @empty
                                 <tr>
-                                    <th style="width: 5%">#</th>
-                                    <th>Invoice No</th>
-                                    <th>Date</th>
-                                    <th class="text-end">Total Amount</th>
-                                    <th class="text-end">Paid Amount</th>
-                                    <th class="text-end">Outstanding Amount</th>
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        No outstanding purchases found.
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                 @forelse($purchases as $index => $purchase)
-                                     <tr>
-                                         <td>{{ $index + 1 }}</td>
-                                         <td>
-                                             <a href="{{ route('admin.purchases.show', $purchase->id) }}" class="fw-bold">
-                                                 {{ $purchase->invoice_no }}
-                                             </a>
-                                         </td>
-                                         <td>{{ format_date($purchase->created_at) }}</td>
-                                         <td class="text-end fw-semibold text-heading">{{ format_price($purchase->total_amount) }}</td>
-                                         <td class="text-end text-success fw-semibold">{{ format_price($purchase->calculated_paid) }}</td>
-                                         <td class="text-end text-danger fw-semibold">{{ format_price($purchase->calculated_due) }}</td>
-                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="6" class="text-center py-4 text-muted">
-                                            No outstanding purchases found.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

@@ -321,9 +321,12 @@
                                     <span id="summarySGSTAmount" class="fw-semibold">0.00</span>
                                 </div>
                                 <hr />
-                                <div class="d-flex justify-content-between">
+                                <div class="d-flex justify-content-between align-items-center">
                                     <span class="fw-semibold">Final Amount</span>
-                                    <span id="summaryFinal" class="fw-bold text-primary fs-5">{{ format_price($order->final_amount) }}</span>
+                                    <div class="input-group input-group-sm" style="max-width: 170px;">
+                                        <span class="input-group-text fw-bold text-primary px-2">{{ currency_symbol() }}</span>
+                                        <input type="number" id="summaryFinalInput" class="form-control text-end fw-bold text-primary fs-5 py-1 px-2" value="{{ (float) $order->final_amount }}" min="0" step="0.01" placeholder="0.00" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1184,7 +1187,7 @@ $(document).ready(function () {
         updateSummary();
     }
 
-    function updateSummary() {
+    function updateSummary(isFromFinalInput = false) {
         let subtotalSum = 0;
         let discountSum = 0;
         let minFloorTotal = 0;
@@ -1269,10 +1272,13 @@ $(document).ready(function () {
         window.currentGrandTotal = grandTotalAmount;
         updatePaymentSplit();
 
-        $('#itemsTotal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
+        $('#itemsTotal').text(symbol + ' ' + formatPrice(itemsTotal));
         $('#summaryItemsTotal').text(symbol + ' ' + formatPrice(subtotalSum));
         $('#summaryDiscountAmount').text(symbol + ' ' + formatPrice(totalDiscount));
         $('#summaryFinal').text(symbol + ' ' + formatPriceNoDecimals(grandTotalAmount));
+        if (!isFromFinalInput && !$('#summaryFinalInput').is(':focus')) {
+            $('#summaryFinalInput').val(grandTotalAmount);
+        }
 
         if (totalDiscount > 0) {
             $('#summaryDiscountAmount').closest('.d-flex').removeClass('d-none');
@@ -1299,6 +1305,51 @@ $(document).ready(function () {
             $('#itemsTable').addClass('d-none');
         }
     }
+
+    $(document).on('input', '#summaryFinalInput', function () {
+        const targetGrandTotal = parseFloat($(this).val()) || 0;
+
+        let subtotalSum = 0;
+        let discountSum = 0;
+        $('#itemsBody .item-row').each(function () {
+            const qty = parseInt($(this).find('.item-qty').val()) || 0;
+            if (qty <= 0) return;
+
+            const price = parseFloat($(this).find('.item-price').val()) || 0;
+            const discVal = parseFloat($(this).find('.item-discount-value').val()) || 0;
+            const discType = $(this).find('.item-discount-type').val() || 'flat';
+
+            const subtotal = price * qty;
+            let discount = 0;
+            if (discType === 'flat') {
+                discount = discVal;
+            } else if (discType === 'percentage') {
+                discount = subtotal * (discVal / 100);
+            }
+            if (discount > subtotal) discount = subtotal;
+
+            subtotalSum += subtotal;
+            discountSum += discount;
+        });
+
+        const itemsTotal = subtotalSum - discountSum;
+        const isOnlineOrder = @json(($order->source ?? 'POS') === 'ONLINE');
+        const isGst = !isOnlineOrder && $('#is_gst_switch').is(':checked');
+        const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
+        const taxMultiplier = isGst ? (1 + (parseFloat(gstRate) / 100)) : 1.0;
+
+        const targetNetAmount = targetGrandTotal / taxMultiplier;
+        let requiredDiscount = itemsTotal - targetNetAmount;
+        if (requiredDiscount < 0) requiredDiscount = 0;
+        if (requiredDiscount > itemsTotal) requiredDiscount = itemsTotal;
+
+        $('#orderDiscountTypeSelect').val('flat');
+        $('#orderDiscountValueInput').val(requiredDiscount > 0 ? requiredDiscount.toFixed(2) : 0);
+        $('#overallDiscountType').val('flat');
+        $('#overallDiscountValue').val(requiredDiscount > 0 ? requiredDiscount : 0);
+
+        updateSummary(true);
+    });
 
     $(document).on('change', '#is_gst_switch', function () {
         updateSummary();
