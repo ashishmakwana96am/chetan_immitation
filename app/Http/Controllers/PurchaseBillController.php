@@ -209,13 +209,10 @@ class PurchaseBillController extends Controller
             ? Location::where('status', 1)->orderBy('name')->get()
             : collect([$defaultLocation]);
         $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
-        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])
-            ->where('status', 1)
-            ->orderBy('name')
-            ->get();
+        [$products, $mappedProducts] = $this->getMappedProductsForPurchaseBills();
         $transferNo = generate_invoice_no('ST', PurchaseBill::class, 'transfer_no');
 
-        return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'transferNo'));
+        return view('purchase-bills.create', compact('defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'mappedProducts', 'transferNo'));
     }
 
     public function store(Request $request)
@@ -303,10 +300,7 @@ class PurchaseBillController extends Controller
             ? Location::where('status', 1)->orderBy('name')->get()
             : collect([$defaultLocation]);
         $destinationLocations = Location::where('status', 1)->orderBy('name')->get();
-        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])
-            ->where('status', 1)
-            ->orderBy('name')
-            ->get();
+        [$products, $mappedProducts] = $this->getMappedProductsForPurchaseBills();
 
         $purchaseBill->load('items.product', 'items.variant');
         $existingItems = $purchaseBill->items->map(function ($item) {
@@ -319,7 +313,7 @@ class PurchaseBillController extends Controller
             ];
         })->values();
 
-        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'existingItems'));
+        return view('purchase-bills.edit', compact('purchaseBill', 'defaultLocation', 'sourceLocations', 'canChooseSource', 'destinationLocations', 'products', 'mappedProducts', 'existingItems'));
     }
 
     public function update(Request $request, PurchaseBill $purchaseBill)
@@ -1053,5 +1047,40 @@ class PurchaseBillController extends Controller
         }
 
         return (float) ($product->mrp ?? 0);
+    }
+
+    private function getMappedProductsForPurchaseBills(): array
+    {
+        $products = Product::with([
+            'variants.attributeValue.attribute',
+            'primaryImage',
+        ])->where('status', 1)->orderBy('name')->get();
+
+        $mapped = $products->map(function ($p) {
+            $data = [
+                'id'             => $p->id,
+                'name'           => $p->name,
+                'barcode'        => $p->barcode,
+                'type'           => $p->type,
+                'pair_product'   => (bool) $p->pair_product,
+                'custom_sizes'   => $p->custom_sizes ?? [],
+                'purchase_price' => $p->purchase_price,
+                'image'          => $p->primary_image_url,
+            ];
+            if ($p->type === 'variable') {
+                $data['variants'] = $p->variants->filter(fn ($v) => $v->status == 1)->values()->map(function ($v) {
+                    return [
+                        'id'             => $v->id,
+                        'purchase_price' => $v->purchase_price,
+                        'custom_sizes'   => $v->custom_sizes ?? [],
+                        'attr_name'      => $v->attributeValue->attribute->name ?? '',
+                        'value_name'     => $v->attributeValue->value ?? '',
+                    ];
+                })->all();
+            }
+            return $data;
+        })->values()->all();
+
+        return [$products, $mapped];
     }
 }

@@ -252,33 +252,6 @@
 $(document).ready(function () {
     let itemIndex = 0;
 
-    @php
-        $mappedProducts = $products->map(function($p) {
-            $data = [
-                'id' => $p->id,
-                'name' => $p->name,
-                'barcode' => $p->barcode,
-                'type' => $p->type,
-                'pair_product' => $p->pair_product,
-                'custom_sizes' => $p->custom_sizes ?? [],
-                'purchase_price' => $p->purchase_price,
-                'image' => $p->primary_image_url,
-            ];
-            if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(fn($v) => $v->status == 1)->values()->map(function($v) {
-                    return [
-                        'id' => $v->id,
-                        'purchase_price' => $v->purchase_price,
-                        'custom_sizes' => $v->custom_sizes ?? [],
-                        'attr_name' => $v->attributeValue->attribute->name ?? '',
-                        'value_name' => $v->attributeValue->value ?? '',
-                    ];
-                })->all();
-            }
-            return $data;
-        })->values()->all();
-    @endphp
-
     const allProducts = @json($mappedProducts);
     const existingItems = @json($existingItems);
     const symbol = '{{ currency_symbol() }}';

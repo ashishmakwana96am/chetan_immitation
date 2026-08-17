@@ -423,55 +423,6 @@ $(document).ready(function () {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
     }
-    @php
-        $mappedProducts = $products->map(function($p) {
-            $data = [
-                'id' => $p->id,
-                'name' => $p->name,
-                'barcode' => $p->barcode,
-                'type' => $p->type,
-                'purchase_price' => $p->purchase_price,
-                'image' => $p->primary_image_url,
-                'pair_product' => (bool) $p->pair_product,
-                'pair_mode' => $p->pair_mode,
-                'custom_sizes' => $p->custom_sizes ?? [],
-            ];
-            if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function($v) {
-                    return $v->status == 1;
-                })->values()->map(function($v) {
-                    return [
-                        'id' => $v->id,
-                        'attribute_value_id' => $v->attribute_value_id,
-                        'purchase_price' => $v->purchase_price,
-                        'sale_price' => $v->sale_price,
-                        'custom_sizes' => $v->custom_sizes ?? [],
-                        'attr_name' => $v->attributeValue->attribute->name ?? '',
-                        'value_name' => $v->attributeValue->value ?? '',
-                    ];
-                })->all();
-            }
-
-            // Calculate stock by location
-            $stockByLocation = [];
-            if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
-                foreach ($variantStock as $locId => $locData) {
-                    $stockByLocation[$locId] = [
-                        'parent' => $locData['parent'],
-                        'variants' => $locData['variants']
-                    ];
-                }
-            } else {
-                foreach ($p->inventories as $inv) {
-                    $stockByLocation[$inv->location_id] = $inv->quantity;
-                }
-            }
-            $data['stock_by_location'] = $stockByLocation;
-
-            return $data;
-        })->values()->all();
-    @endphp
     const allProducts = @json($mappedProducts);
     const locations = @json($locations->map(fn ($l) => ['id' => $l->id, 'name' => $l->name])->values());
     updateGrandTotal();

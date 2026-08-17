@@ -30,7 +30,14 @@ class PurchaseController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        $invoices = Purchase::with(['supplier', 'createdBy'])
+        $invoices = Purchase::select([
+                'id', 'supplier_id', 'created_by', 'invoice_no', 'is_gst',
+                'total_amount', 'status', 'payment_status', 'payment_method', 'created_at'
+            ])
+            ->with([
+                'supplier:id,name',
+                'createdBy:id,name'
+            ])
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
                 $q->whereHas('items.allocations', function($sub) use ($user) {
                     $sub->where('location_id', $user->location_id);
@@ -169,10 +176,10 @@ class PurchaseController extends Controller
     {
         $this->authorize('create purchases');
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $mappedProducts = $this->getMappedProducts();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $invoiceNo = generate_invoice_no('PS', Purchase::class);
-        return view('purchases.create', compact('suppliers', 'products', 'locations', 'invoiceNo'));
+        return view('purchases.create', compact('suppliers', 'mappedProducts', 'locations', 'invoiceNo'));
     }
 
     public function store(Request $request)
@@ -378,7 +385,7 @@ class PurchaseController extends Controller
         }
 
         $suppliers = Supplier::where('status', 1)->orderBy('name')->get();
-        $products  = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
+        $mappedProducts = $this->getMappedProducts();
         $locations = Location::where('status', 1)->orderBy('name')->get(['id', 'name']);
         $purchase->load('items.product');
 
@@ -394,7 +401,7 @@ class PurchaseController extends Controller
             ];
         })->values();
 
-        return view('purchases.edit', compact('purchase', 'suppliers', 'products', 'locations', 'existingItems'));
+        return view('purchases.edit', compact('purchase', 'suppliers', 'mappedProducts', 'locations', 'existingItems'));
     }
 
     public function update(Request $request, Purchase $purchase)
@@ -1002,5 +1009,68 @@ class PurchaseController extends Controller
             'status'  => 'success',
             'message' => 'Supplier payment status updated successfully.',
         ]);
+    }
+
+    private function getMappedProducts()
+    {
+        $products = Product::with([
+            'variants.attributeValue.attribute',
+            'primaryImage',
+            'inventories',
+        ])->where('status', 1)->orderBy('name')->get();
+
+        Product::preloadVariantStock($products);
+
+        $mapped = $products->map(function ($p) {
+            $data = [
+                'id'             => $p->id,
+                'name'           => $p->name,
+                'barcode'        => $p->barcode,
+                'type'           => $p->type,
+                'purchase_price' => $p->purchase_price,
+                'image'          => $p->primary_image_url,
+                'pair_product'   => (bool) $p->pair_product,
+                'pair_mode'      => $p->pair_mode,
+                'custom_sizes'   => $p->custom_sizes ?? [],
+            ];
+
+            if ($p->type === 'variable') {
+                $data['variants'] = $p->variants->filter(function ($v) {
+                    return $v->status == 1;
+                })->values()->map(function ($v) {
+                    return [
+                        'id'                 => $v->id,
+                        'attribute_value_id' => $v->attribute_value_id,
+                        'purchase_price'     => $v->purchase_price,
+                        'sale_price'         => $v->sale_price,
+                        'custom_sizes'       => $v->custom_sizes ?? [],
+                        'attr_name'          => $v->attributeValue->attribute->name ?? '',
+                        'value_name'         => $v->attributeValue->value ?? '',
+                    ];
+                })->all();
+            }
+
+            $stockByLocation = [];
+            if ($p->type === 'variable') {
+                $variantStock = $p->getVariantStock();
+                foreach ($variantStock as $locId => $locData) {
+                    $stockByLocation[$locId] = [
+                        'parent'   => $locData['parent'],
+                        'variants' => $locData['variants'],
+                    ];
+                }
+            } else {
+                foreach ($p->inventories as $inv) {
+                    $stockByLocation[$inv->location_id] = $inv->quantity;
+                }
+            }
+            $data['stock_by_location'] = $stockByLocation;
+
+            return $data;
+        })->values()->all();
+
+        Product::clearPreloadedVariantStock();
+
+        return $mapped;
     }
 }

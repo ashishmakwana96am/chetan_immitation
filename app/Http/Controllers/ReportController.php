@@ -1210,7 +1210,9 @@ class ReportController extends Controller
             $query->where('status', $status);
         }
 
+        $query->with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
         $products = $query->orderBy('name')->get();
+        Product::preloadVariantStock($products);
 
         $productsList = collect();
         foreach ($products as $product) {
@@ -1383,6 +1385,7 @@ class ReportController extends Controller
         }
 
         $products = $query->orderBy('name')->get();
+        Product::preloadVariantStock($products);
 
         $productsList = collect();
         foreach ($products as $product) {

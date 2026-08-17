@@ -360,7 +360,7 @@
                             $editGrandTotal = (float)($order->final_amount ?? 0);
                             $editDue = max(0, $editGrandTotal - $editPrevPaid);
 
-                            $editPayments = $order->salePayments()->get();
+                            $editPayments = $order->salePayments;
                         @endphp
 
                         @if(in_array(($order->payment_status ?? 1), [2, 3]) && $editPrevPaid > 0)

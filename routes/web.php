@@ -133,6 +133,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Authenticated routes
     Route::middleware(['auth:web', 'active.user'])->group(function () {
+        Route::get('/ping', fn () => response()->json(['status' => 'pong', 'time' => time()]))->name('ping');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

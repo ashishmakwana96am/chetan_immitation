@@ -43,8 +43,8 @@ class DashboardController extends Controller
 
         $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
 
-        $todayOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->get();
-        $thisMonthOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get();
+        $todayOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->with(['payments'])->get();
+        $thisMonthOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->with(['payments'])->get();
 
         $calcPending = function ($o) {
             if ((int) $o->payment_status === Order::PAYMENT_STATUS_PAID) {
@@ -52,7 +52,7 @@ class DashboardController extends Controller
             }
             $paid = (float) $o->paid_cash_amount + (float) $o->paid_online_amount;
             if ($paid <= 0) {
-                $paid = (float) $o->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                $paid = (float) $o->payments->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
             }
             return max(0.0, (float) $o->final_amount - $paid);
         };
@@ -61,7 +61,7 @@ class DashboardController extends Controller
             return max(0.0, (float) $o->final_amount - $calcPending($o));
         };
 
-        $allApprovedOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->get();
+        $allApprovedOrders = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses)->with(['payments'])->get();
 
         $salesStats = [
             'today' => (float) $todayOrders->sum('final_amount'),
@@ -201,8 +201,8 @@ class DashboardController extends Controller
 
         $approvedStatuses = [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED];
 
-        $todayOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->get();
-        $thisMonthOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get();
+        $todayOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereDate('created_at', today())->with(['payments'])->get();
+        $thisMonthOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->with(['payments'])->get();
 
         $calcPending = function ($o) {
             if ((int) $o->payment_status === Order::PAYMENT_STATUS_PAID) {
@@ -210,7 +210,7 @@ class DashboardController extends Controller
             }
             $paid = (float) $o->paid_cash_amount + (float) $o->paid_online_amount;
             if ($paid <= 0) {
-                $paid = (float) $o->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
+                $paid = (float) $o->payments->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
             }
             return max(0.0, (float) $o->final_amount - $paid);
         };
@@ -219,7 +219,7 @@ class DashboardController extends Controller
             return max(0.0, (float) $o->final_amount - $calcPending($o));
         };
 
-        $allApprovedOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->get();
+        $allApprovedOrders = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses)->with(['payments'])->get();
 
         $salesStats = [
             'today' => (float) $todayOrders->sum('final_amount'),
