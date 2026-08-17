@@ -190,9 +190,13 @@
         <!-- Monthly Sales Chart -->
         <div class="col-lg-8">
             <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0">Sales — Last 6 Months</h5>
-                    <span class="badge bg-label-primary">{{ format_price($salesStats['total']) }} Total</span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="badge bg-label-success">{{ format_price($salesStats['total_received'] ?? 0) }} Received</span>
+                        <span class="badge bg-label-warning">{{ format_price($salesStats['total_pending_payment'] ?? 0) }} Pending</span>
+                        <span class="badge bg-label-primary">{{ format_price($salesStats['total']) }} Total</span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div id="monthlySalesChart"></div>
@@ -391,21 +395,33 @@
 
         // Monthly Sales Chart
         new ApexCharts(document.getElementById('monthlySalesChart'), {
-            chart   : { type: 'area', height: 250, toolbar: { show: false }, sparkline: { enabled: false } },
+            chart   : { type: 'area', height: 260, toolbar: { show: false }, sparkline: { enabled: false } },
             series  : [
-                { name: 'Revenue', data: monthlySales.map(m => m.amount) },
-                { name: 'Orders',  data: monthlySales.map(m => m.count) },
+                { name: 'Received', data: monthlySales.map(m => m.received) },
+                { name: 'Pending',  data: monthlySales.map(m => m.pending) },
+                { name: 'Revenue',  data: monthlySales.map(m => m.amount) },
+                { name: 'Orders',   data: monthlySales.map(m => m.count) },
             ],
             xaxis   : { categories: monthlySales.map(m => m.month) },
-            colors  : ['#B4771E', '#28c76f'],
+            colors  : ['#28c76f', '#ff9f43', '#B4771E', '#7367f0'],
             stroke  : { curve: 'smooth', width: 2 },
-            fill    : { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+            fill    : { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
             dataLabels: { enabled: false },
             legend  : { position: 'top' },
             yaxis   : [
-                { title: { text: 'Revenue' } },
+                { title: { text: 'Amount (₹)' } },
                 { opposite: true, title: { text: 'Orders' } },
             ],
+            tooltip : {
+                y: {
+                    formatter: function(val, { seriesIndex }) {
+                        if (seriesIndex === 3) {
+                            return val + ' orders';
+                        }
+                        return '₹' + val.toLocaleString('en-IN');
+                    }
+                }
+            }
         }).render();
 
         // Sales by Location Pie Chart
