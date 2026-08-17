@@ -133,7 +133,7 @@ class PurchaseController extends Controller
                     default => 'Online',
                 },
                 'date_group'     => $invoice->created_at->format('d M Y'),
-                'date_sort'      => $invoice->created_at->format('Ymd'),
+                'date_sort'      => $invoice->created_at->format('YmdHis'),
                 'actions'        => $actions,
             ];
         });
