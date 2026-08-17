@@ -167,7 +167,7 @@
 
                     <div class="mb-3">
                         <label class="form-label required fw-semibold">Payment Method</label>
-                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg" required>
+                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg no-select2" required>
                             <option value="cash" selected>Cash</option>
                             <option value="online">Online</option>
                         </select>
