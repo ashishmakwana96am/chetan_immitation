@@ -1465,6 +1465,7 @@ class AccountingController extends Controller
                 $transfer->toArray(),
                 'Created pending balance transfer request ' . $transferNo . ' of ' . format_price($amount)
             );
+            $this->clearBalanceTransferCache($fromLocationId, $toLocationId);
         } catch (\Exception $e) {
             return response()->json([
                 'status'  => 'error',
@@ -1618,6 +1619,7 @@ class AccountingController extends Controller
                     ['from' => $fromNew, 'to' => $toNew],
                     'Accepted balance transfer ' . $transfer->transfer_no . ' of ' . format_price($amount)
                 );
+                $this->clearBalanceTransferCache($fromLocationId, $toLocationId);
             });
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'insufficient_balance') {
@@ -1672,6 +1674,8 @@ class AccountingController extends Controller
             ['status' => 'rejected'],
             'Rejected balance transfer ' . $transfer->transfer_no
         );
+
+        $this->clearBalanceTransferCache($transfer->from_location_id, $transfer->to_location_id);
 
         return response()->json([
             'status'  => 'success',
@@ -1930,6 +1934,8 @@ class AccountingController extends Controller
                     $transfer->toArray(),
                     'Updated balance transfer ' . $transfer->transfer_no
                 );
+                $this->clearBalanceTransferCache($oldFromId, $oldToId);
+                $this->clearBalanceTransferCache($newFromId, $newToId);
             });
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'insufficient_balance_revert') {
@@ -2037,6 +2043,9 @@ class AccountingController extends Controller
                     'message' => 'Cannot delete accepted transfer because To Location has insufficient balance to revert.',
                 ], 422);
             }
+                $this->clearBalanceTransferCache($fromLocationId, $toLocationId);
+            });
+        } catch (\RuntimeException $e) {
             throw $e;
         }
 
@@ -2044,6 +2053,20 @@ class AccountingController extends Controller
             'status'  => 'success',
             'message' => 'Balance transfer deleted successfully.',
         ]);
+    }
+
+    private function clearBalanceTransferCache($fromLocationId = null, $toLocationId = null)
+    {
+        try {
+            \Illuminate\Support\Facades\Cache::forget('admin_sidebar_pending_bt_count_all');
+            if ($fromLocationId) {
+                \Illuminate\Support\Facades\Cache::forget('admin_sidebar_pending_bt_count_' . $fromLocationId);
+            }
+            if ($toLocationId) {
+                \Illuminate\Support\Facades\Cache::forget('admin_sidebar_pending_bt_count_' . $toLocationId);
+            }
+        } catch (\Exception $e) {
+        }
     }
 
     // ============================================================
