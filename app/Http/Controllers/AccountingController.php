@@ -673,7 +673,9 @@ class AccountingController extends Controller
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        return view('accounting.outstanding-payables', compact('locations', 'isRestricted'));
+        $suppliers = \App\Models\Supplier::orderBy('name')->get();
+
+        return view('accounting.outstanding-payables', compact('locations', 'isRestricted', 'suppliers'));
     }
 
     public function outstandingPayablesData(Request $request)
@@ -911,6 +913,199 @@ class AccountingController extends Controller
             'totalOutstanding',
             'date'
         ));
+    }
+
+    public function bulkPaySupplier(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $request->validate([
+            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'location_id' => ['nullable', 'integer'],
+        ]);
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $purchasesQuery = \App\Models\Purchase::whereIn('payment_status', [
+                \App\Models\Purchase::PAYMENT_STATUS_PENDING,
+                \App\Models\Purchase::PAYMENT_STATUS_PARTIAL,
+            ]);
+
+        if ($isRestricted) {
+            $locationId = $user->location_id;
+            $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                $aq->where('location_id', $locationId);
+            });
+        } else {
+            if ($request->filled('location_id')) {
+                $locationId = (int) $request->location_id;
+                $purchasesQuery->whereHas('items.allocations', function ($aq) use ($locationId) {
+                    $aq->where('location_id', $locationId);
+                });
+            }
+        }
+
+        // FIFO: Oldest purchases first across suppliers (or selected supplier)
+        $purchases = $purchasesQuery->orderBy('created_at', 'asc')->get();
+
+        if ($purchases->isEmpty()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'No outstanding purchases found.',
+            ], 422);
+        }
+
+        // Calculate total outstanding balance for validation
+        $totalOutstandingDue = 0.0;
+        foreach ($purchases as $p) {
+            $cPaid = $p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID
+                ? (float) $p->total_amount
+                : ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $p->paid_amount);
+            $totalOutstandingDue += max(0.0, (float) $p->total_amount - $cPaid);
+        }
+        $totalOutstandingDue = round($totalOutstandingDue, 2);
+
+        $enteredAmount = round((float) $request->amount, 2);
+        if ($enteredAmount > $totalOutstandingDue) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Paid amount cannot be greater than the total outstanding balance due (' . format_price($totalOutstandingDue) . ').',
+            ], 422);
+        }
+
+        $remainingPayment = $enteredAmount;
+        $totalPaidAllocated = 0.0;
+        $billsPaidCount = 0;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use (
+            $purchases,
+            $enteredAmount,
+            $request,
+            &$remainingPayment,
+            &$totalPaidAllocated,
+            &$billsPaidCount
+        ) {
+            // Record single consolidated lump sum payment entry
+            \App\Models\BulkPurchasePayment::create([
+                'total_amount' => $enteredAmount,
+                'location_id'  => $request->filled('location_id') ? (int)$request->location_id : auth()->user()->location_id,
+                'created_by'   => auth()->id(),
+            ]);
+
+            foreach ($purchases as $purchase) {
+                if ($remainingPayment <= 0) {
+                    break;
+                }
+
+                $currentPaid = $purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID
+                    ? (float) $purchase->total_amount
+                    : ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
+
+                $due = round((float) $purchase->total_amount - $currentPaid, 2);
+                if ($due <= 0) {
+                    continue;
+                }
+
+                $payForThisBill = min($due, $remainingPayment);
+                $newPaidAmount = round($currentPaid + $payForThisBill, 2);
+
+                $finalStatus = ($newPaidAmount >= (float) $purchase->total_amount)
+                    ? \App\Models\Purchase::PAYMENT_STATUS_PAID
+                    : \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+
+                $oldStatus = (int) $purchase->payment_status;
+                $oldPaid = (float) $purchase->paid_amount;
+
+                \App\Models\PurchasePayment::create([
+                    'purchase_id' => $purchase->id,
+                    'amount'      => $payForThisBill,
+                    'created_by'  => auth()->id(),
+                ]);
+
+                \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                    'payment_status' => $finalStatus,
+                    'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
+                ]));
+
+                \App\Services\ActivityLogger::log(
+                    'Purchase',
+                    'update',
+                    $purchase,
+                    ['payment_status' => $oldStatus, 'paid_amount' => $oldPaid],
+                    ['payment_status' => (int) $purchase->payment_status, 'paid_amount' => (float) $purchase->paid_amount],
+                    'Purchase #' . $purchase->invoice_no . ' payment status updated via bulk payment'
+                );
+
+                $remainingPayment = round($remainingPayment - $payForThisBill, 2);
+                $totalPaidAllocated = round($totalPaidAllocated + $payForThisBill, 2);
+                $billsPaidCount++;
+            }
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Successfully allocated ' . format_price($totalPaidAllocated) . ' across ' . $billsPaidCount . ' bill(s).',
+        ]);
+    }
+
+    public function payablePaymentHistory(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $locations = $isRestricted
+            ? Location::where('id', $user->location_id)->get()
+            : Location::where('status', 1)->orderBy('name')->get();
+
+        return view('accounting.payable-payment-history', compact('locations', 'isRestricted'));
+    }
+
+    public function payablePaymentHistoryData(Request $request)
+    {
+        $this->authorize('view outstanding payables');
+
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $paymentsQuery = \App\Models\BulkPurchasePayment::with(['location', 'createdBy']);
+
+        if ($isRestricted) {
+            $paymentsQuery->where('location_id', $user->location_id);
+        } else {
+            if ($request->filled('location_id')) {
+                $paymentsQuery->where('location_id', (int) $request->location_id);
+            }
+        }
+
+        if ($request->filled('start_date')) {
+            $paymentsQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $paymentsQuery->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        $payments = $paymentsQuery->orderBy('created_at', 'desc')->get();
+
+        $rows = $payments->map(function ($payment, $index) {
+            return [
+                'index'        => $index + 1,
+                'id'           => $payment->id,
+                'date'         => format_date($payment->created_at, 'd-m-Y H:i A'),
+                'date_sort'    => $payment->created_at ? $payment->created_at->format('Y-m-d H:i:s') : '',
+                'amount'       => format_price($payment->total_amount),
+                'amount_raw'   => (float) $payment->total_amount,
+                'location'     => e($payment->location->name ?? 'All Locations'),
+                'created_by'   => e($payment->createdBy->name ?? 'System'),
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $rows,
+        ]);
     }
 
     public function branchBalances()
@@ -1231,6 +1426,57 @@ class AccountingController extends Controller
                     'notes'         => 'Transfer from ' . $fromLocName . $userNotes,
                     'created_by'    => auth()->id(),
                 ]);
+
+                $fromUnpaidBills = \App\Models\PurchaseBill::with('items.product', 'items.variant')
+                    ->where('from_location_id', $toLocationId)
+                    ->where('to_location_id', $fromLocationId)
+                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
+                    ->whereIn('payment_status', [
+                        \App\Models\PurchaseBill::PAYMENT_STATUS_PENDING,
+                        \App\Models\PurchaseBill::PAYMENT_STATUS_PARTIAL
+                    ])
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                $remAmt = $amount;
+                foreach ($fromUnpaidBills as $pBill) {
+                    if ($remAmt <= 0) break;
+
+                    [$billTotal] = $this->purchaseBillTotals($pBill);
+                    if ($billTotal <= 0) {
+                        $pBill->update([
+                            'payment_status' => \App\Models\PurchaseBill::PAYMENT_STATUS_PAID,
+                        ]);
+                        continue;
+                    }
+
+                    $currentPaid = $pBill->payment_status == \App\Models\PurchaseBill::PAYMENT_STATUS_PAID
+                        ? (float) $billTotal
+                        : ($pBill->payment_status == \App\Models\PurchaseBill::PAYMENT_STATUS_PENDING ? 0.0 : (float) $pBill->paid_amount);
+
+                    $dueAmt = round((float) $billTotal - $currentPaid, 2);
+                    if ($dueAmt <= 0) continue;
+
+                    $payAmt = min($dueAmt, $remAmt);
+                    $newPaid = round($currentPaid + $payAmt, 2);
+
+                    $finalStatus = ($newPaid >= (float) $billTotal)
+                        ? \App\Models\PurchaseBill::PAYMENT_STATUS_PAID
+                        : \App\Models\PurchaseBill::PAYMENT_STATUS_PARTIAL;
+
+                    \App\Models\PurchaseBillPayment::create([
+                        'purchase_bill_id' => $pBill->id,
+                        'amount'           => $payAmt,
+                        'created_by'       => auth()->id(),
+                    ]);
+
+                    $pBill->update([
+                        'payment_status' => $finalStatus,
+                        'paid_amount'    => min($newPaid, (float) $billTotal),
+                    ]);
+
+                    $remAmt = round($remAmt - $payAmt, 2);
+                }
 
                 ActivityLogger::log(
                     'Balance Transfer',
@@ -1603,6 +1849,105 @@ class AccountingController extends Controller
         }
 
         return $high + 4;
+    }
+
+    private function purchaseBillTotals(\App\Models\PurchaseBill $transfer): array
+    {
+        $totalAmount = 0.0;
+        $totalMrp = 0.0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierForPurchaseBill($item->product, $item->pair_type, $item->custom_size_value);
+            $quantity = (int) $item->quantity;
+
+            $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $quantity;
+            $totalMrp += $this->mrpForPurchaseBillItem($item, $multiplier) * $quantity;
+        }
+
+        return [$totalAmount, $totalMrp];
+    }
+
+    private function stockMultiplierForPurchaseBill(?\App\Models\Product $product, ?string $pairType, $customSizeValue = null): float
+    {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
+        if (!$product || !$product->pair_product) {
+            return 1.0;
+        }
+
+        $customSizes = $product->custom_sizes;
+        if (is_array($customSizes) && count($customSizes) > 0) {
+            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            if ($sizes->count() > 0) {
+                return (float) $sizes->max();
+            }
+        }
+
+        return 2.0;
+    }
+
+    private function purchasePriceForPurchaseBillItem(\App\Models\PurchaseBillItem $item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
+    }
+
+    private function mrpForPurchaseBillItem(\App\Models\PurchaseBillItem $item, float $multiplier): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0.0;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        if (!empty($sizes)) {
+            $value = (float) $item->custom_size_value;
+            $matched = null;
+            foreach ($sizes as $s) {
+                if (abs((float) ($s['size'] ?? 0) - $value) < 0.01) {
+                    $matched = $s;
+                    break;
+                }
+            }
+
+            if ($matched && !empty($matched['mrp']) && (float) $matched['mrp'] > 0) {
+                return (float) $matched['mrp'];
+            }
+        }
+
+        $variantMrp = (float) ($item->variant->mrp ?? 0);
+
+        return $variantMrp > 0 ? $variantMrp : (float) ($product->mrp ?? 0);
     }
 }
 

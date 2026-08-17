@@ -111,6 +111,7 @@
                                 <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
                                     <option value="1" {{ (int) ($purchaseBill->payment_status ?? 1) === 1 ? 'selected' : '' }}>Pending</option>
                                     <option value="2" {{ (int) ($purchaseBill->payment_status ?? 1) === 2 ? 'selected' : '' }}>Paid</option>
+                                    <option value="3" {{ (int) ($purchaseBill->payment_status ?? 1) === 3 ? 'selected' : '' }}>Partial</option>
                                 </select>
                                 <div class="invalid-feedback"></div>
                             </div>
