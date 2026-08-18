@@ -326,6 +326,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounting/outstanding-payables/bulk-pay', [AccountingController::class, 'bulkPaySupplier'])->name('accounting.outstanding-payables.bulk-pay');
         Route::get('accounting/outstanding-payables/payment-history', [AccountingController::class, 'payablePaymentHistory'])->name('accounting.outstanding-payables.payment-history');
         Route::get('accounting/outstanding-payables/payment-history/data', [AccountingController::class, 'payablePaymentHistoryData'])->name('accounting.outstanding-payables.payment-history.data');
+        Route::put('accounting/outstanding-payables/payment-history/{payment}', [AccountingController::class, 'payablePaymentUpdate'])->name('accounting.outstanding-payables.payment-history.update');
+        Route::delete('accounting/outstanding-payables/payment-history/{payment}', [AccountingController::class, 'payablePaymentDestroy'])->name('accounting.outstanding-payables.payment-history.destroy');
         Route::get('accounting/opening-balances', [AccountingController::class, 'branchBalances'])->name('accounting.opening-balances');
         Route::get('accounting/opening-balances/data', [AccountingController::class, 'branchBalancesData'])->name('accounting.opening-balances.data');
         Route::get('accounting/opening-balances/create', [AccountingController::class, 'branchBalancesCreate'])->name('accounting.opening-balances.create');

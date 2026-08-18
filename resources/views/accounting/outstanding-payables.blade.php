@@ -51,12 +51,21 @@
             <small class="text-muted">Consolidated outstanding amounts due to suppliers</small>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
-                <i class="ti ti-history me-1"></i> Payment History
-            </a>
-            <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#bulkPayOffcanvas">
-                <i class="ti ti-cash me-1"></i> Make Payment
-            </button>
+            @php
+                $isMainBranchUser = auth()->user()->hasRole('super-admin') || !auth()->user()->location_id;
+                $canViewPaymentHistory = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('view purchase payments'));
+                $canMakePayment = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('create purchase payment'));
+            @endphp
+            @if($canViewPaymentHistory)
+                <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
+                    <i class="ti ti-history me-1"></i> Payment History
+                </a>
+            @endif
+            @if($canMakePayment)
+                <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#bulkPayOffcanvas">
+                    <i class="ti ti-cash me-1"></i> Make Payment
+                </button>
+            @endif
         </div>
     </div>
 
@@ -152,7 +161,6 @@
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
             <form id="bulkPayForm" class="d-flex flex-column h-100 m-0">
                 @csrf
-                <input type="hidden" id="bulk-pay-location-id" name="location_id">
                 <div class="flex-grow-1 p-4" style="overflow-y: auto;">
                     <div class="mb-3">
                         <label class="form-label required fw-semibold">Select Supplier</label>

@@ -901,7 +901,12 @@ class AccountingController extends Controller
 
     public function bulkPaySupplier(Request $request)
     {
-        $this->authorize('view outstanding payables');
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('create purchase payment'))) {
+            return response()->json(['status' => 'error', 'message' => 'Make Payment is only available for Main Branch users or Super Admin.'], 403);
+        }
 
         $request->validate([
             'amount'         => ['required', 'numeric', 'min:0.01'],
@@ -989,7 +994,6 @@ class AccountingController extends Controller
             // Record single consolidated lump sum payment entry
             $bulkPayRecord = BulkPurchasePayment::create([
                 'total_amount'   => $enteredAmount,
-                'location_id'    => $request->filled('location_id') ? (int)$request->location_id : auth()->user()->location_id,
                 'supplier_id'    => $request->filled('supplier_id') ? (int)$request->supplier_id : null,
                 'payment_method' => $paymentMethod,
                 'created_by'     => auth()->id(),
@@ -1029,9 +1033,10 @@ class AccountingController extends Controller
                 $oldPaid = (float) $purchase->paid_amount;
 
                 \App\Models\PurchasePayment::create([
-                    'purchase_id' => $purchase->id,
-                    'amount'      => $payForThisBill,
-                    'created_by'  => auth()->id(),
+                    'purchase_id'              => $purchase->id,
+                    'bulk_purchase_payment_id' => $bulkPayRecord->id,
+                    'amount'                   => $payForThisBill,
+                    'created_by'               => auth()->id(),
                 ]);
 
                 \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
@@ -1063,34 +1068,30 @@ class AccountingController extends Controller
 
     public function payablePaymentHistory(Request $request)
     {
-        $this->authorize('view outstanding payables');
-
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $locations = $isRestricted
-            ? Location::where('id', $user->location_id)->get()
-            : Location::where('status', 1)->orderBy('name')->get();
+        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('view purchase payments'))) {
+            abort(403, 'Payment History is only available for Main Branch users or Super Admin.');
+        }
+
+        $locations = Location::where('status', 1)->orderBy('name')->get();
 
         return view('accounting.payable-payment-history', compact('locations', 'isRestricted'));
     }
 
     public function payablePaymentHistoryData(Request $request)
     {
-        $this->authorize('view outstanding payables');
-
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $paymentsQuery = BulkPurchasePayment::with(['location', 'supplier', 'createdBy']);
-
-        if ($isRestricted) {
-            $paymentsQuery->where('location_id', $user->location_id);
-        } else {
-            if ($request->filled('location_id')) {
-                $paymentsQuery->where('location_id', (int) $request->location_id);
-            }
+        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('view purchase payments'))) {
+            return response()->json(['status' => 'error', 'message' => 'Payment History is only available for Main Branch users or Super Admin.'], 403);
         }
+
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
+        $paymentsQuery = BulkPurchasePayment::with(['supplier', 'createdBy']);
 
         if ($request->filled('start_date')) {
             $paymentsQuery->whereDate('created_at', '>=', $request->start_date);
@@ -1101,7 +1102,28 @@ class AccountingController extends Controller
 
         $payments = $paymentsQuery->orderBy('created_at', 'desc')->get();
 
-        $rows = $payments->map(function ($payment, $index) {
+        $canEdit = $user->hasRole('super-admin') || $user->can('edit purchase payment');
+        $canDelete = $user->hasRole('super-admin') || $user->can('delete purchase payment');
+
+        $rows = $payments->map(function ($payment, $index) use ($canEdit, $canDelete) {
+            $items = '';
+            if ($canEdit) {
+                $items .= '<a href="javascript:void(0)" class="dropdown-item edit-payable-payment-btn" data-id="' . $payment->id . '" data-amount="' . $payment->total_amount . '" data-method="' . e($payment->payment_method ?? 'cash') . '" data-supplier="' . ($payment->supplier_id ?? '') . '"><i class="ti ti-pencil me-2"></i>Edit</a>';
+            }
+            if ($canDelete) {
+                $items .= '<button type="button" class="dropdown-item text-danger delete-payable-payment-btn" data-id="' . $payment->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+            }
+
+            if (empty($items)) {
+                $actions = '-';
+            } else {
+                $actions = '<div class="dropdown table-action-dropdown">
+                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                        <span>Actions</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">' . $items . '</div></div>';
+            }
+
             return [
                 'index'          => $index + 1,
                 'id'             => $payment->id,
@@ -1111,14 +1133,190 @@ class AccountingController extends Controller
                 'amount'         => format_price($payment->total_amount),
                 'amount_raw'     => (float) $payment->total_amount,
                 'payment_method' => ucfirst($payment->payment_method ?? 'cash'),
-                'location'       => e($payment->location->name ?? 'All Locations'),
                 'created_by'     => e($payment->createdBy->name ?? 'System'),
+                'actions'        => $actions,
             ];
         });
 
         return response()->json([
             'status' => 'success',
             'data'   => $rows,
+        ]);
+    }
+
+    public function payablePaymentUpdate(Request $request, BulkPurchasePayment $payment)
+    {
+        $user = auth()->user();
+        $canEdit = $user->hasRole('super-admin') || $user->can('edit purchase payment');
+
+        if (!$canEdit) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unauthorized to edit this payment record.',
+            ], 403);
+        }
+
+        $request->validate([
+            'amount'         => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'in:cash,online'],
+        ]);
+
+        $newAmount = round((float) $request->amount, 2);
+        $newPaymentMethod = $request->payment_method;
+
+        try {
+            DB::transaction(function () use ($payment, $newAmount, $newPaymentMethod) {
+                // 1. Revert previous purchase payments for this bulk payment
+                $linkedPayments = \App\Models\PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
+                foreach ($linkedPayments as $pPayment) {
+                    $purchase = \App\Models\Purchase::find($pPayment->purchase_id);
+                    if ($purchase) {
+                        $newPaid = max(0, round((float) $purchase->paid_amount - (float) $pPayment->amount, 2));
+                        $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PENDING;
+                        if ($newPaid >= (float) $purchase->total_amount && (float) $purchase->total_amount > 0) {
+                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PAID;
+                        } elseif ($newPaid > 0) {
+                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                        }
+                        \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                            'paid_amount'    => $newPaid,
+                            'payment_status' => $newStatus,
+                        ]));
+                    }
+                    $pPayment->delete();
+                }
+
+                // 2. Re-allocate new amount FIFO
+                $supplierId = $payment->supplier_id;
+                $purchasesQuery = \App\Models\Purchase::whereIn('payment_status', [
+                    \App\Models\Purchase::PAYMENT_STATUS_PENDING,
+                    \App\Models\Purchase::PAYMENT_STATUS_PARTIAL,
+                ]);
+
+                if ($supplierId) {
+                    $purchasesQuery->where('supplier_id', $supplierId);
+                }
+
+                $purchases = $purchasesQuery->orderBy('created_at', 'asc')->get();
+
+                $remainingPayment = $newAmount;
+                foreach ($purchases as $purchase) {
+                    if ($remainingPayment <= 0) break;
+
+                    $currentPaid = $purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID
+                        ? (float) $purchase->total_amount
+                        : ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
+
+                    $due = round((float) $purchase->total_amount - $currentPaid, 2);
+                    if ($due <= 0) continue;
+
+                    $payForThisBill = min($due, $remainingPayment);
+                    $newPaidAmount = round($currentPaid + $payForThisBill, 2);
+
+                    $finalStatus = ($newPaidAmount >= (float) $purchase->total_amount)
+                        ? \App\Models\Purchase::PAYMENT_STATUS_PAID
+                        : \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+
+                    \App\Models\PurchasePayment::create([
+                        'purchase_id'              => $purchase->id,
+                        'bulk_purchase_payment_id' => $payment->id,
+                        'amount'                   => $payForThisBill,
+                        'created_by'               => auth()->id(),
+                    ]);
+
+                    \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                        'payment_status' => $finalStatus,
+                        'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
+                        'payment_method' => $newPaymentMethod,
+                    ]));
+
+                    $remainingPayment = round($remainingPayment - $payForThisBill, 2);
+                }
+
+                $oldData = $payment->toArray();
+                $payment->update([
+                    'total_amount'   => $newAmount,
+                    'payment_method' => $newPaymentMethod,
+                ]);
+
+                ActivityLogger::log(
+                    'Bulk Purchase Payment',
+                    'update',
+                    $payment,
+                    $oldData,
+                    $payment->toArray(),
+                    'Updated bulk purchase payment #' . $payment->id
+                );
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to update payment record: ' . $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Payable payment updated successfully.',
+        ]);
+    }
+
+    public function payablePaymentDestroy(BulkPurchasePayment $payment)
+    {
+        $user = auth()->user();
+        $canDelete = $user->hasRole('super-admin') || $user->can('delete purchase payment');
+
+        if (!$canDelete) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unauthorized to delete this payment record.',
+            ], 403);
+        }
+
+        try {
+            DB::transaction(function () use ($payment) {
+                // Revert linked purchase payments
+                $linkedPayments = \App\Models\PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
+                foreach ($linkedPayments as $pPayment) {
+                    $purchase = \App\Models\Purchase::find($pPayment->purchase_id);
+                    if ($purchase) {
+                        $newPaid = max(0, round((float) $purchase->paid_amount - (float) $pPayment->amount, 2));
+                        $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PENDING;
+                        if ($newPaid >= (float) $purchase->total_amount && (float) $purchase->total_amount > 0) {
+                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PAID;
+                        } elseif ($newPaid > 0) {
+                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                        }
+                        \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                            'paid_amount'    => $newPaid,
+                            'payment_status' => $newStatus,
+                        ]));
+                    }
+                    $pPayment->delete();
+                }
+
+                $oldData = $payment->toArray();
+                $payment->delete();
+
+                ActivityLogger::log(
+                    'Bulk Purchase Payment',
+                    'delete',
+                    $payment,
+                    $oldData,
+                    null,
+                    'Deleted bulk purchase payment #' . $payment->id
+                );
+            });
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to delete payment record: ' . $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Payable payment entry deleted and purchase bill balances updated successfully.',
         ]);
     }
 

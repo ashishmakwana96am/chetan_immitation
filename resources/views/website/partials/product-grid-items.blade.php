@@ -38,11 +38,11 @@
         </div>
         @elseif($discountPercent > 0)
         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
-            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">{{ $discountPercent }}% OFF</span>
+            <span class="bg-[#16a34a] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">{{ $discountPercent }}% OFF</span>
         </div>
         @elseif($product->sale)
         <div class="absolute top-[10px] left-[-35px] z-10 rotate-[-20deg]">
-            <span class="bg-[#ef1b1b] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
+            <span class="bg-[#16a34a] text-white text-[12px] font-semibold px-10 py-1 block tracking-wide">SALE</span>
         </div>
         @endif
         <a class="product-detail-link" href="{{ $detailUrl }}">

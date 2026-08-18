@@ -26,25 +26,14 @@
         </div>
         <div class="card-body">
             <form id="filterForm" class="row g-3" onsubmit="return false;">
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <label class="form-label">Start Date</label>
                     <input type="text" id="filter-start-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <label class="form-label">End Date</label>
                     <input type="text" id="filter-end-date" class="form-control flatpickr-log" placeholder="DD-MM-YYYY" readonly />
                 </div>
-                @if(!$isRestricted)
-                <div class="col-md-4">
-                    <label class="form-label">Location</label>
-                    <select id="filter-location" class="form-select">
-                        <option value="">All Locations</option>
-                        @foreach($locations as $loc)
-                            <option value="{{ $loc->id }}">{{ $loc->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                @endif
                 <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
                     <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                         <i class="ti ti-refresh me-1"></i> Clear
@@ -67,17 +56,58 @@
                         <th>Supplier</th>
                         <th class="text-end">Paid Amount</th>
                         <th>Payment Method</th>
-                        <th>Location</th>
                         <th>Paid By</th>
+                        <th style="width: 10%">Actions</th>
                     </tr>
                 </thead>
             </table>
+        </div>
+    </div>
+
+    <!-- Edit Payable Payment Modal -->
+    <div class="modal fade" id="editPaymentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold">Edit Payment Entry</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="editPaymentForm">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" id="edit-payment-id" name="payment_id">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label required fw-semibold">Paid Amount (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₹</span>
+                                <input type="number" step="0.01" min="0.01" id="edit-payment-amount" name="amount" class="form-control" required />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label required fw-semibold">Payment Method</label>
+                            <select id="edit-payment-method" name="payment_method" class="form-select" required>
+                                <option value="cash">Cash</option>
+                                <option value="online">Online</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top">
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="editPaymentSubmitBtn" class="btn btn-primary">
+                            <i class="ti ti-check me-1"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 @endsection
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         $(document).ready(function () {
             const startPicker = $('#filter-start-date').flatpickr({
@@ -112,7 +142,6 @@
                 return {
                     start_date: $('#filter-start-date').val(),
                     end_date: $('#filter-end-date').val(),
-                    location_id: $('#filter-location').val() || '',
                 };
             }
 
@@ -133,7 +162,7 @@
                     { data: 'supplier', className: 'fw-semibold' },
                     { 
                         data: 'amount', 
-                        className: 'text-end fw-bold text-success' 
+                        className: 'text-end fw-semibold' 
                     },
                     { 
                         data: 'payment_method',
@@ -143,17 +172,12 @@
                         }
                     },
                     { 
-                        data: 'location',
-                        render: function(data) {
-                            return `<span class="badge bg-label-info">${data}</span>`;
-                        }
-                    },
-                    { 
                         data: 'created_by',
                         render: function(data) {
                             return `<span class="badge bg-label-secondary">${data}</span>`;
                         }
                     },
+                    { data: 'actions', orderable: false, searchable: false },
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -184,9 +208,115 @@
                 startPicker.set('maxDate', 'today');
                 endPicker.set('minDate', null);
                 $('#filter-supplier').val(null).trigger('change');
-                $('#filter-location').val(null).trigger('change');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
+            });
+
+            // Edit Modal Handler
+            $(document).on('click', '.edit-payable-payment-btn', function () {
+                const id = $(this).data('id');
+                const amount = $(this).data('amount');
+                const method = $(this).data('method');
+
+                $('#edit-payment-id').val(id);
+                $('#edit-payment-amount').val(amount);
+                $('#edit-payment-method').val(method.toLowerCase());
+
+                const modal = new bootstrap.Modal(document.getElementById('editPaymentModal'));
+                modal.show();
+            });
+
+            // Submit Edit Form AJAX
+            $('#editPaymentForm').on('submit', function (e) {
+                e.preventDefault();
+                const id = $('#edit-payment-id').val();
+                const submitBtn = $('#editPaymentSubmitBtn');
+                submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...');
+
+                let updateUrl = '{{ route('admin.accounting.outstanding-payables.payment-history.update', ':id') }}';
+                updateUrl = updateUrl.replace(':id', id);
+
+                $.ajax({
+                    url: updateUrl,
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    headers: { 'X-HTTP-Method-Override': 'PUT' },
+                    success: function (res) {
+                        submitBtn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Save Changes');
+                        if (res.status === 'success') {
+                            bootstrap.Modal.getInstance(document.getElementById('editPaymentModal')).hide();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success',
+                                text: res.message || 'Payment entry updated successfully.',
+                                customClass: { confirmButton: 'btn btn-primary' }
+                            });
+                            window.refreshTable();
+                        }
+                    },
+                    error: function (xhr) {
+                        submitBtn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Save Changes');
+                        const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'An error occurred while updating.';
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: typeof msg === 'object' ? Object.values(msg).flat().join('\n') : msg,
+                            customClass: { confirmButton: 'btn btn-primary' }
+                        });
+                    }
+                });
+            });
+
+            // Delete Handler
+            $(document).on('click', '.delete-payable-payment-btn', function () {
+                const id = $(this).data('id');
+
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: 'Deleting this payment will revert the paid balance on associated purchase bills!',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-danger me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        let deleteUrl = '{{ route('admin.accounting.outstanding-payables.payment-history.destroy', ':id') }}';
+                        deleteUrl = deleteUrl.replace(':id', id);
+
+                        $.ajax({
+                            url: deleteUrl,
+                            type: 'DELETE',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function (res) {
+                                if (res.status === 'success') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Deleted!',
+                                        text: res.message || 'Payment entry deleted successfully.',
+                                        customClass: { confirmButton: 'btn btn-primary' }
+                                    });
+                                    window.refreshTable();
+                                }
+                            },
+                            error: function (xhr) {
+                                const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to delete payment entry.';
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: msg,
+                                    customClass: { confirmButton: 'btn btn-primary' }
+                                });
+                            }
+                        });
+                    }
+                });
             });
         });
     </script>

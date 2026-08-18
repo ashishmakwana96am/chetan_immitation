@@ -158,7 +158,7 @@
                     <span id="productMrp" class="line-through text-[#757575] text-[22px] md:text-2xl leading-[24px]">
                         {{ website_price($mrpDisplay) }}
                     </span>
-                    <span id="productDiscountBadge" class="bg-[#EF1B1B] text-white text-xs sm:text-sm font-semibold px-2 py-0.5 rounded {{ $detailDiscountPercent > 0 ? '' : 'hidden' }}">
+                    <span id="productDiscountBadge" class="bg-[#16a34a] text-white text-xs sm:text-sm font-semibold px-2 py-0.5 rounded {{ $detailDiscountPercent > 0 ? '' : 'hidden' }}">
                         {{ $detailDiscountPercent }}% OFF
                     </span>
                     @endif

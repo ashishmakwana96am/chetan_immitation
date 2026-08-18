@@ -34,7 +34,7 @@ class RoleController extends Controller
             ->with('permissions')
             ->orderBy('id', 'desc')
             ->get();
-        $canEdit   = auth()->user()->can('edit roles');
+        $canEdit = auth()->user()->can('edit roles');
         $canDelete = auth()->user()->can('delete roles');
 
         $data = $roles->map(function ($role, $index) use ($canEdit, $canDelete) {
@@ -60,12 +60,12 @@ class RoleController extends Controller
             }
 
             return [
-                'index'       => $index + 1,
-                'name'        => '<span class="text-capitalize">' . $role->name . '</span>',
+                'index' => $index + 1,
+                'name' => '<span class="text-capitalize">' . $role->name . '</span>',
                 'permissions' => $permissions,
-                'users'       => '<span class="badge bg-label-info">' . $role->users_count . ' user(s)</span>',
-                'created_at'  => format_date($role->created_at),
-                'actions'     => $actions,
+                'users' => '<span class="badge bg-label-info">' . $role->users_count . ' user(s)</span>',
+                'created_at' => format_date($role->created_at),
+                'actions' => $actions,
             ];
         });
 
@@ -76,29 +76,31 @@ class RoleController extends Controller
     {
         $this->authorize('create roles');
         $customOrder = [
-            'Users', 'Roles', 'Locations', 
-            'Categories', 'Sub Categories', 'Products', 
-            'Suppliers', 'Purchases', 
+            'Users', 'Roles', 'Locations',
+            'Categories', 'Sub Categories', 'Products',
+            'Suppliers', 'Purchases', 'Purchase Payments',
             'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];
         $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')
-            ->get()->groupBy(function ($permission) {
-            if (!empty($permission->module)) {
-                return $permission->module;
-            }
-            if (str_contains($permission->name, 'sub categories')) {
-                return 'Sub Categories';
-            }
-            if (str_contains($permission->name, 'password')) {
-                return 'Users';
-            }
-            $parts = explode(' ', $permission->name);
-            return ucfirst(end($parts));
-        })->sortBy(function ($val, $key) use ($customOrder) {
-            $idx = array_search($key, $customOrder);
-            return $idx !== false ? $idx : 999;
-        });
+            ->get()
+            ->groupBy(function ($permission) {
+                if (!empty($permission->module)) {
+                    return $permission->module;
+                }
+                if (str_contains($permission->name, 'sub categories')) {
+                    return 'Sub Categories';
+                }
+                if (str_contains($permission->name, 'password')) {
+                    return 'Users';
+                }
+                $parts = explode(' ', $permission->name);
+                return ucfirst(end($parts));
+            })
+            ->sortBy(function ($val, $key) use ($customOrder) {
+                $idx = array_search($key, $customOrder);
+                return $idx !== false ? $idx : 999;
+            });
         return view('roles.create', compact('permissions'));
     }
 
@@ -107,14 +109,14 @@ class RoleController extends Controller
         $this->authorize('create roles');
 
         $validator = Validator::make($request->all(), [
-            'name'          => ['required', 'string', 'max:100', 'unique:roles,name'],
-            'permissions'   => ['nullable', 'array'],
+            'name' => ['required', 'string', 'max:100', 'unique:roles,name'],
+            'permissions' => ['nullable', 'array'],
             'permissions.*' => ['exists:permissions,id'],
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
@@ -130,7 +132,7 @@ class RoleController extends Controller
         ActivityLogger::log('Role Management', 'create', $role, null, ['name' => $role->name, 'permissions' => $permissionNames], 'Role "' . $role->name . '" created');
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role created successfully.',
         ]);
     }
@@ -139,29 +141,31 @@ class RoleController extends Controller
     {
         $this->authorize('edit roles');
         $customOrder = [
-            'Users', 'Roles', 'Locations', 
-            'Categories', 'Sub Categories', 'Products', 
-            'Suppliers', 'Purchases', 
+            'Users', 'Roles', 'Locations',
+            'Categories', 'Sub Categories', 'Products',
+            'Suppliers', 'Purchases', 'Purchase Payments',
             'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];
         $permissions = Permission::whereNotIn('module', ['Permissions', 'Modules', 'Settings'])
             ->where('name', '!=', 'manage branch balances')
-            ->get()->groupBy(function ($permission) {
-            if (!empty($permission->module)) {
-                return $permission->module;
-            }
-            if (str_contains($permission->name, 'sub categories')) {
-                return 'Sub Categories';
-            }
-            if (str_contains($permission->name, 'password')) {
-                return 'Users';
-            }
-            $parts = explode(' ', $permission->name);
-            return ucfirst(end($parts));
-        })->sortBy(function ($val, $key) use ($customOrder) {
-            $idx = array_search($key, $customOrder);
-            return $idx !== false ? $idx : 999;
-        });
+            ->get()
+            ->groupBy(function ($permission) {
+                if (!empty($permission->module)) {
+                    return $permission->module;
+                }
+                if (str_contains($permission->name, 'sub categories')) {
+                    return 'Sub Categories';
+                }
+                if (str_contains($permission->name, 'password')) {
+                    return 'Users';
+                }
+                $parts = explode(' ', $permission->name);
+                return ucfirst(end($parts));
+            })
+            ->sortBy(function ($val, $key) use ($customOrder) {
+                $idx = array_search($key, $customOrder);
+                return $idx !== false ? $idx : 999;
+            });
         $rolePermissionIds = $role->permissions->pluck('id')->toArray();
         return view('roles.edit', compact('role', 'permissions', 'rolePermissionIds'));
     }
@@ -171,14 +175,14 @@ class RoleController extends Controller
         $this->authorize('edit roles');
 
         $validator = Validator::make($request->all(), [
-            'name'          => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id],
-            'permissions'   => ['nullable', 'array'],
+            'name' => ['required', 'string', 'max:100', 'unique:roles,name,' . $role->id],
+            'permissions' => ['nullable', 'array'],
             'permissions.*' => ['exists:permissions,id'],
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $validator->errors(),
             ], 422);
         }
@@ -201,7 +205,7 @@ class RoleController extends Controller
         );
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role updated successfully.',
         ]);
     }
@@ -212,7 +216,7 @@ class RoleController extends Controller
 
         if ($role->users()->count() > 0) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Cannot delete role. ' . $role->users()->count() . ' user(s) are assigned to this role.',
             ], 422);
         }
@@ -223,7 +227,7 @@ class RoleController extends Controller
         ActivityLogger::log('Role Management', 'delete', null, ['name' => $roleName], null, 'Role "' . $roleName . '" deleted');
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Role deleted successfully.',
         ]);
     }
