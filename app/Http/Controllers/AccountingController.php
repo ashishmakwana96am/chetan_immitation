@@ -63,21 +63,7 @@ class AccountingController extends Controller
 
         $transactions = $query->orderBy('id', 'desc')->get();
 
-        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
-        $transactions = $transactions->filter(function ($tx) {
-            $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $invoiceNo = $matches[1];
-                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
-                if (!$exists) return false;
-            }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $orderNo = $matches[1];
-                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
-                if (!$exists) return false;
-            }
-            return true;
-        });
+        $transactions = $this->filterActiveTransactions($transactions);
 
         $data = $transactions->filter(function ($tx) use ($sourceFilter) {
             if ($sourceFilter === 'all') {
@@ -222,21 +208,7 @@ class AccountingController extends Controller
 
         $transactions = $query->orderBy('id', 'desc')->get();
 
-        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
-        $transactions = $transactions->filter(function ($tx) {
-            $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $invoiceNo = $matches[1];
-                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
-                if (!$exists) return false;
-            }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $orderNo = $matches[1];
-                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
-                if (!$exists) return false;
-            }
-            return true;
-        });
+        $transactions = $this->filterActiveTransactions($transactions);
 
         $data = $transactions->filter(function ($tx) use ($sourceFilter) {
             if ($sourceFilter === 'all') {
@@ -380,21 +352,7 @@ class AccountingController extends Controller
 
         $transactions = $txQuery->orderBy('id', 'desc')->get();
 
-        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
-        $transactions = $transactions->filter(function ($tx) {
-            $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $invoiceNo = $matches[1];
-                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
-                if (!$exists) return false;
-            }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $orderNo = $matches[1];
-                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
-                if (!$exists) return false;
-            }
-            return true;
-        });
+        $transactions = $this->filterActiveTransactions($transactions);
 
         $entries = collect();
 
@@ -549,21 +507,7 @@ class AccountingController extends Controller
 
         $transactions = $txQuery->orderBy('id', 'desc')->get();
 
-        // Exclude any transactions for deleted Purchases / Sales / Expenses / Purchase Bills
-        $transactions = $transactions->filter(function ($tx) {
-            $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $invoiceNo = $matches[1];
-                $exists = \App\Models\Purchase::where('invoice_no', $invoiceNo)->exists();
-                if (!$exists) return false;
-            }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
-                $orderNo = $matches[1];
-                $exists = \App\Models\Order::where('order_no', $orderNo)->exists();
-                if (!$exists) return false;
-            }
-            return true;
-        });
+        $transactions = $this->filterActiveTransactions($transactions);
 
         $sourceLabels = [
             'cash'             => 'Cash',
@@ -2728,5 +2672,45 @@ class AccountingController extends Controller
 
         return $variantMrp > 0 ? $variantMrp : (float) ($product->mrp ?? 0);
     }
+
+    private function filterActiveTransactions($transactions)
+    {
+        $purchasesToCheck = [];
+        $ordersToCheck = [];
+
+        foreach ($transactions as $tx) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $purchasesToCheck[$matches[1]] = true;
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                $ordersToCheck[$matches[1]] = true;
+            }
+        }
+
+        $existingPurchases = !empty($purchasesToCheck)
+            ? \App\Models\Purchase::whereIn('invoice_no', array_keys($purchasesToCheck))->pluck('invoice_no')->flip()
+            : collect();
+
+        $existingOrders = !empty($ordersToCheck)
+            ? \App\Models\Order::whereIn('order_no', array_keys($ordersToCheck))->pluck('order_no')->flip()
+            : collect();
+
+        return $transactions->filter(function ($tx) use ($existingPurchases, $existingOrders) {
+            $notes = $tx->notes ?? '';
+            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+                if (!$existingPurchases->has($matches[1])) {
+                    return false;
+                }
+            }
+            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+                if (!$existingOrders->has($matches[1])) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
 }
+
 
