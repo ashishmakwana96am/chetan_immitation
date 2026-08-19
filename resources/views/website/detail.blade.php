@@ -29,33 +29,35 @@
     }
 
     .mainSwiper {
-        width: fit-content !important;
+        width: 100% !important;
         max-width: 100% !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        background: transparent !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+        background: #f8f9fa !important;
     }
 
     .swiper-zoom-container {
-        width: fit-content !important;
-        max-width: 100% !important;
-        height: auto !important;
-        max-height: 573px !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        background: transparent !important;
+        width: 100% !important;
+        height: 100% !important;
+        aspect-ratio: 1 / 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
     }
 
     .zoom-main-img {
-        width: auto !important;
-        height: auto !important;
-        max-width: 100% !important;
-        max-height: 573px !important;
-        object-fit: contain !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
         display: block !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        border-radius: 8px;
+        border-radius: 16px !important;
+    }
+
+    .thumbSwiper .swiper-slide {
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        aspect-ratio: 1 / 1 !important;
     }
 </style>
 @endsection
