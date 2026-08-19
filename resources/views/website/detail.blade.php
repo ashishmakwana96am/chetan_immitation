@@ -31,17 +31,19 @@
     .mainSwiper {
         width: 100% !important;
         max-width: 100% !important;
+        aspect-ratio: 1 / 1 !important;
         border-radius: 16px !important;
         overflow: hidden !important;
         background: #f8f9fa !important;
         position: relative !important;
     }
 
+    .mainSwiper .swiper-wrapper,
     .mainSwiper .swiper-slide {
-        overflow: hidden !important;
-        border-radius: 16px !important;
         width: 100% !important;
         height: 100% !important;
+        overflow: hidden !important;
+        border-radius: 16px !important;
     }
 
     .swiper-zoom-container {
@@ -60,25 +62,6 @@
         object-fit: cover !important;
         display: block !important;
         border-radius: 16px !important;
-        max-width: 100% !important;
-        max-height: 100% !important;
-    }
-
-    /* Taller height in mobile responsive view */
-    @media (max-width: 767px) {
-        .mainSwiper,
-        .swiper-zoom-container,
-        .zoom-main-img {
-            aspect-ratio: 4 / 5 !important;
-        }
-    }
-
-    @media (min-width: 768px) {
-        .mainSwiper,
-        .swiper-zoom-container,
-        .zoom-main-img {
-            aspect-ratio: 1 / 1 !important;
-        }
     }
 
     .thumbSwiper .swiper-slide {
