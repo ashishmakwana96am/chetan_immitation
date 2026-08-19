@@ -55,7 +55,7 @@
         .label-table td.zone-front {
             width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 2.2pt 2pt 0.5pt 2pt !important;
+            padding: 2.8pt 2pt 2.5pt 2pt !important;
             overflow: hidden !important;
         }
         .label-table td.zone-back {
@@ -87,26 +87,26 @@
             max-width: 72pt !important;
             text-align: left !important;
             margin-bottom: 0.5pt !important;
-            padding-left: 5pt !important;
+            padding-left: 8pt !important;
         }
         .barcode-container {
             width: 100% !important;
-            height: 13.5pt !important;
+            height: 11.5pt !important;
             overflow: hidden;
             text-align: left;
-            padding-left: 5pt !important;
+            padding-left: 8pt !important;
             padding-right: 5pt !important;
         }
         .barcode-img {
-            width: 62pt !important;
-            height: 13.5pt !important;
+            width: 60pt !important;
+            height: 11.5pt !important;
             display: block;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
             image-rendering: pixelated;
         }
         .category-line {
-            font-size: 8.0pt !important;
+            font-size: 7.5pt !important;
             font-weight: bold !important;
             line-height: 1.0 !important;
             text-transform: uppercase;
@@ -114,18 +114,18 @@
             overflow: hidden;
             text-align: left !important;
             margin-top: 0.5pt !important;
-            padding-left: 5pt !important;
+            padding-left: 8pt !important;
         }
         .variant-line {
-            font-size: 7.5pt !important;
+            font-size: 7.2pt !important;
             font-weight: bold !important;
-            line-height: 1.1 !important;
+            line-height: 1.0 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-align: left !important;
-            margin-top: 1pt !important;
-            padding-left: 5pt !important;
+            margin-top: 0.5pt !important;
+            padding-left: 8pt !important;
             letter-spacing: 0.2pt;
         }
         .mrp-line {
