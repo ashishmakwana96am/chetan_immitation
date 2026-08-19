@@ -507,6 +507,8 @@
             });
 
             const table = $('#purchasesTable').DataTable({
+                processing : true,
+                serverSide : true,
                 responsive : false,
                 order      : [[9, 'desc']],
                 ajax       : {
