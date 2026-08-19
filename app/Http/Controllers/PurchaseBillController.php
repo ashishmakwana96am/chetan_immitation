@@ -95,14 +95,76 @@ class PurchaseBillController extends Controller
         $length = (int) $request->input('length', 25);
         if ($length <= 0) $length = 25;
 
+        $orderColumnMap = [
+            1  => 'transfer_no',
+            2  => 'from_location',
+            3  => 'to_location',
+            4  => 'items_count',
+            5  => 'total_amount',
+            6  => 'total_mrp',
+            9  => 'created_by',
+            11 => 'created_at',
+            12 => 'created_at',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'from_location') {
+            $query->leftJoin('locations as from_loc', 'purchase_bills.from_location_id', '=', 'from_loc.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('from_loc.name', $sortDir);
+        } elseif ($sortKey === 'to_location') {
+            $query->leftJoin('locations as to_loc', 'purchase_bills.to_location_id', '=', 'to_loc.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('to_loc.name', $sortDir);
+        } elseif ($sortKey === 'created_by') {
+            $query->leftJoin('users as u', 'purchase_bills.created_by', '=', 'u.id')
+                  ->select('purchase_bills.*')
+                  ->orderBy('u.name', $sortDir);
+        } elseif ($sortKey === 'items_count') {
+            $query->orderBy(
+                DB::raw('(SELECT COALESCE(SUM(quantity), 0) FROM purchase_bill_items WHERE purchase_bill_items.purchase_bill_id = purchase_bills.id)'),
+                $sortDir
+            );
+        } elseif ($sortKey === 'total_amount') {
+            $query->orderBy(
+                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pv.purchase_price, p.purchase_price, 0)), 0) 
+                          FROM purchase_bill_items pbi 
+                          LEFT JOIN products p ON p.id = pbi.product_id 
+                          LEFT JOIN product_variants pv ON pv.id = pbi.product_variant_id 
+                          WHERE pbi.purchase_bill_id = purchase_bills.id)'),
+                $sortDir
+            );
+        } elseif ($sortKey === 'total_mrp') {
+            $query->orderBy(
+                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(p.mrp, 0)), 0) 
+                          FROM purchase_bill_items pbi 
+                          LEFT JOIN products p ON p.id = pbi.product_id 
+                          WHERE pbi.purchase_bill_id = purchase_bills.id)'),
+                $sortDir
+            );
+        } else {
+            $query->orderBy("purchase_bills.{$sortKey}", $sortDir);
+        }
+        $query->orderBy('purchase_bills.id', 'desc');
+
         $transfers = (clone $query)
             ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
-            ->orderBy('id', 'desc')
             ->skip($start)
             ->take($length)
             ->get();
 
-        $allFilteredIds = (clone $query)->pluck('id');
+        $allFilteredIds = (clone $query)->pluck('purchase_bills.id');
         $grandTotals = DB::table('purchase_bill_items')
             ->leftJoin('products', 'products.id', '=', 'purchase_bill_items.product_id')
             ->leftJoin('product_variants', 'product_variants.id', '=', 'purchase_bill_items.product_variant_id')
