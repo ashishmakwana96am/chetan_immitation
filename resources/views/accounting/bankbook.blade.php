@@ -278,6 +278,7 @@
                     d.start_date  = $('#filter-start-date').val();
                     d.end_date    = $('#filter-end-date').val();
                     d.location_id = $('#filter-location').val() || '';
+                    d.source      = $('#filter-source').val() || 'all';
                 }
             },
             columns     : [
