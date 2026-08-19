@@ -143,15 +143,10 @@ class SaleController extends Controller
         $canDelete = auth()->user()->can('delete sales');
 
         $productIds = $orders->flatMap(fn($o) => $o->items->pluck('product_id'))->filter()->unique()->values();
-        $variantIds = $orders->flatMap(fn($o) => $o->items->pluck('product_variant_id'))->filter()->unique()->values();
         $inventoryByProduct = Inventory::whereIn('product_id', $productIds)
             ->with('location')
             ->get()
             ->groupBy('product_id');
-        $inventoryByVariant = Inventory::whereIn('product_variant_id', $variantIds)
-            ->with('location')
-            ->get()
-            ->groupBy('product_variant_id');
 
         $statusColors = [
             1 => 'bg-label-secondary',
@@ -181,7 +176,7 @@ class SaleController extends Controller
             3 => 'Partially Paid',
         ];
 
-        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $inventoryByVariant, $start) {
+        $data = $orders->map(function ($order, $index) use ($canEdit, $canEditSalesStatus, $canEditSalesPaymentStatus, $canDownloadSales, $canDelete, $statusColors, $statusLabels, $paymentColors, $paymentLabels, $inventoryByProduct, $start) {
             $cancellationRequested = false;
             $cancellationWarningHtml = '';
             if ($order->cancellationRequest && $order->cancellationRequest->status === 'pending') {
@@ -195,21 +190,12 @@ class SaleController extends Controller
             if ($isFallbackOrder && (int) $order->status === Order::STATUS_PENDING) {
                 $issueBlocks = [];
                 foreach ($order->items as $item) {
-                    if ($item->product_variant_id) {
-                        $invRows = $inventoryByVariant->get($item->product_variant_id, collect());
-                        $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
-                        $otherLocations = $invRows
-                            ->where('location_id', '!=', $order->location_id)
-                            ->filter(fn($inv) => $inv->quantity > 0)
-                            ->map(fn($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
-                    } else {
-                        $invRows = $inventoryByProduct->get($item->product_id, collect());
-                        $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
-                        $otherLocations = $invRows
-                            ->where('location_id', '!=', $order->location_id)
-                            ->filter(fn($inv) => $inv->quantity > 0)
-                            ->map(fn($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
-                    }
+                    $invRows = $inventoryByProduct->get($item->product_id, collect());
+                    $qtyAtLocation = (int) ($invRows->firstWhere('location_id', $order->location_id)->quantity ?? 0);
+                    $otherLocations = $invRows
+                        ->where('location_id', '!=', $order->location_id)
+                        ->filter(fn($inv) => $inv->quantity > 0)
+                        ->map(fn($inv) => ['name' => $inv->location->name ?? 'Unknown', 'qty' => (int) $inv->quantity]);
 
                     if ($qtyAtLocation < $item->quantity) {
                         $otherRows = $otherLocations
