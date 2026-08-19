@@ -44,9 +44,10 @@
         height: 100% !important;
         overflow: hidden !important;
         border-radius: 16px !important;
+        position: relative !important;
     }
 
-    .swiper-zoom-container {
+    .mainSwiper .swiper-zoom-container {
         width: 100% !important;
         height: 100% !important;
         display: flex !important;
@@ -56,12 +57,13 @@
         border-radius: 16px !important;
     }
 
-    .zoom-main-img {
+    .mainSwiper .zoom-main-img {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
         display: block !important;
         border-radius: 16px !important;
+        transform-origin: center center !important;
     }
 
     .thumbSwiper .swiper-slide {
@@ -93,14 +95,14 @@
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
-                            <div class="swiper-slide relative flex items-center justify-center">
-                                <div class="swiper-zoom-container flex items-center justify-center">
+                            <div class="swiper-slide relative">
+                                <div class="swiper-zoom-container">
                                     <img src="{{ $img->image_url }}" class="zoom-main-img select-none">
                                 </div>
                             </div>
                             @empty
-                            <div class="swiper-slide relative flex items-center justify-center">
-                                <div class="swiper-zoom-container flex items-center justify-center">
+                            <div class="swiper-slide relative">
+                                <div class="swiper-zoom-container">
                                     <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img select-none">
                                 </div>
                             </div>
@@ -2231,36 +2233,5 @@ Order Amount
 })();
 </script>
 
-<script>
-function initProductImageZoom() {
-    const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
 
-    slides.forEach((slide) => {
-        const img = slide.querySelector('.zoom-main-img');
-        if (!img) return;
-
-        // Desktop fine pointer hover zoom
-        slide.addEventListener('mousemove', (e) => {
-            if (window.matchMedia('(pointer: fine)').matches) {
-                const rect = slide.getBoundingClientRect();
-                const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-                img.style.transformOrigin = `${x}% ${y}%`;
-                img.style.transform = 'scale(2.2)';
-            }
-        });
-
-        slide.addEventListener('mouseleave', () => {
-            if (window.matchMedia('(pointer: fine)').matches) {
-                img.style.transform = 'scale(1)';
-                img.style.transformOrigin = 'center center';
-            }
-        });
-    });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initProductImageZoom();
-});
-</script>
 @endsection
