@@ -355,61 +355,9 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
         $orderNo = generate_invoice_no('SA', Order::class, 'order_no');
-        $allProducts = $products->map(function ($p) {
-            $data = [
-                'id' => $p->id,
-                'name' => $p->name,
-                'price' => $p->sale_price,
-                'barcode' => $p->barcode,
-                'label' => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
-                'type' => $p->type,
-                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
-                'pair_product' => (bool) $p->pair_product,
-                'pair_mode' => $p->pair_mode,
-                'custom_sizes' => $p->custom_sizes ?? [],
-                'single_price' => $p->sale_price,
-                'purchase_price' => $p->purchase_price,
-                'bypass_min_price' => (bool) $p->bypass_min_price,
-            ];
-            if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function ($v) {
-                    return $v->status == 1;
-                })->values()->map(function ($v) {
-                    return [
-                        'id' => $v->id,
-                        'attribute_value_id' => $v->attribute_value_id,
-                        'purchase_price' => $v->purchase_price,
-                        'sale_price' => $v->sale_price,
-                        'custom_sizes' => $v->custom_sizes ?? [],
-                        'attr_name' => $v->attributeValue->attribute->name ?? '',
-                        'value_name' => $v->attributeValue->value ?? '',
-                    ];
-                })->all();
-            }
-
-            // Calculate stock by location
-            $stockByLocation = [];
-            if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
-                foreach ($variantStock as $locId => $locData) {
-                    $stockByLocation[$locId] = [
-                        'parent' => $locData['parent'],
-                        'variants' => $locData['variants']
-                    ];
-                }
-            } else {
-                foreach ($p->inventories as $inv) {
-                    $stockByLocation[$inv->location_id] = $inv->quantity;
-                }
-            }
-            $data['stock_by_location'] = $stockByLocation;
-
-            return $data;
-        })->values();
         $defaultLocationId = $isRestricted ? $user->location_id : null;
-        return view('sales.create', compact('customers', 'locations', 'products', 'orderNo', 'allProducts', 'isRestricted', 'defaultLocationId'));
+        return view('sales.create', compact('customers', 'locations', 'orderNo', 'isRestricted', 'defaultLocationId'));
     }
 
     public function store(Request $request)
@@ -962,61 +910,8 @@ class SaleController extends Controller
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
-        $products = Product::with(['variants.attributeValue.attribute', 'primaryImage'])->where('status', 1)->orderBy('name')->get();
-        $sale->load(['items.product.variants.attributeValue.attribute']);
+        $sale->load(['items.product.variants.attributeValue.attribute', 'salePayments']);
         $defaultLocationId = $isRestricted ? $user->location_id : null;
-
-        $allProducts = $products->map(function ($p) {
-            $data = [
-                'id' => $p->id,
-                'name' => $p->name,
-                'price' => $p->sale_price,
-                'barcode' => $p->barcode,
-                'label' => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
-                'type' => $p->type,
-                'image' => $p->primaryImage ? $p->primaryImage->image_url : null,
-                'pair_product' => (bool) $p->pair_product,
-                'pair_mode' => $p->pair_mode,
-                'custom_sizes' => $p->custom_sizes ?? [],
-                'single_price' => $p->sale_price,
-                'purchase_price' => $p->purchase_price,
-                'bypass_min_price' => (bool) $p->bypass_min_price,
-            ];
-            if ($p->type === 'variable') {
-                $data['variants'] = $p->variants->filter(function ($v) {
-                    return $v->status == 1;
-                })->values()->map(function ($v) {
-                    return [
-                        'id' => $v->id,
-                        'attribute_value_id' => $v->attribute_value_id,
-                        'purchase_price' => $v->purchase_price,
-                        'sale_price' => $v->sale_price,
-                        'custom_sizes' => $v->custom_sizes ?? [],
-                        'attr_name' => $v->attributeValue->attribute->name ?? '',
-                        'value_name' => $v->attributeValue->value ?? '',
-                    ];
-                })->all();
-            }
-
-            // Calculate stock by location
-            $stockByLocation = [];
-            if ($p->type === 'variable') {
-                $variantStock = $p->getVariantStock();
-                foreach ($variantStock as $locId => $locData) {
-                    $stockByLocation[$locId] = [
-                        'parent' => $locData['parent'],
-                        'variants' => $locData['variants']
-                    ];
-                }
-            } else {
-                foreach ($p->inventories as $inv) {
-                    $stockByLocation[$inv->location_id] = $inv->quantity;
-                }
-            }
-            $data['stock_by_location'] = $stockByLocation;
-
-            return $data;
-        })->values();
 
         $existingItems = $sale->items->map(function ($item) {
             return [
@@ -1031,7 +926,7 @@ class SaleController extends Controller
             ];
         })->values();
 
-        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'products' => $products, 'allProducts' => $allProducts, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
+        return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
     }
 
     public function update(Request $request, Order $sale)
@@ -2338,5 +2233,79 @@ class SaleController extends Controller
                 'payments'        => $payments,
             ],
         ]);
+    }
+
+    public function getAllMappedProductsJson()
+    {
+        return response()->json($this->getAllMappedProductsForSales());
+    }
+
+    private function getAllMappedProductsForSales()
+    {
+        return Cache::remember('all_mapped_products_sales', 1800, function () {
+            $products = Product::with([
+                'variants.attributeValue.attribute',
+                'primaryImage',
+                'inventories',
+            ])->where('status', 1)->orderBy('name')->get();
+
+            Product::preloadVariantStock($products);
+
+            $allProducts = $products->map(function ($p) {
+                $data = [
+                    'id'               => $p->id,
+                    'name'             => $p->name,
+                    'price'            => $p->sale_price,
+                    'barcode'          => $p->barcode,
+                    'label'            => $p->barcode ? ($p->name . ' (' . $p->barcode . ')') : $p->name,
+                    'type'             => $p->type,
+                    'image'            => $p->primaryImage ? $p->primaryImage->image_url : null,
+                    'pair_product'     => (bool) $p->pair_product,
+                    'pair_mode'        => $p->pair_mode,
+                    'custom_sizes'     => $p->custom_sizes ?? [],
+                    'single_price'     => $p->sale_price,
+                    'purchase_price'   => $p->purchase_price,
+                    'bypass_min_price' => (bool) $p->bypass_min_price,
+                ];
+
+                if ($p->type === 'variable') {
+                    $data['variants'] = $p->variants->filter(function ($v) {
+                        return $v->status == 1;
+                    })->values()->map(function ($v) {
+                        return [
+                            'id'                 => $v->id,
+                            'attribute_value_id' => $v->attribute_value_id,
+                            'purchase_price'     => $v->purchase_price,
+                            'sale_price'         => $v->sale_price,
+                            'custom_sizes'       => $v->custom_sizes ?? [],
+                            'attr_name'          => $v->attributeValue->attribute->name ?? '',
+                            'value_name'         => $v->attributeValue->value ?? '',
+                        ];
+                    })->all();
+                }
+
+                $stockByLocation = [];
+                if ($p->type === 'variable') {
+                    $variantStock = $p->getVariantStock();
+                    foreach ($variantStock as $locId => $locData) {
+                        $stockByLocation[$locId] = [
+                            'parent'   => $locData['parent'],
+                            'variants' => $locData['variants'],
+                        ];
+                    }
+                } else {
+                    foreach ($p->inventories as $inv) {
+                        $stockByLocation[$inv->location_id] = $inv->quantity;
+                    }
+                }
+                $data['stock_by_location'] = $stockByLocation;
+
+                return $data;
+            })->values()->all();
+
+            Product::clearPreloadedVariantStock();
+
+            return $allProducts;
+        });
     }
 }

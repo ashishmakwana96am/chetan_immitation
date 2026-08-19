@@ -14,6 +14,20 @@ class Product extends Model
 
     const STATUS_INACTIVE = 2;
 
+    public static function clearMappedCaches(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_sales');
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_purchases');
+        \Illuminate\Support\Facades\Cache::forget('all_mapped_products_bills');
+        \App\Http\Controllers\DashboardController::clearDashboardCaches();
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => static::clearMappedCaches());
+        static::deleted(fn () => static::clearMappedCaches());
+    }
+
     protected $fillable = [
         'name',
         'slug',
@@ -88,6 +102,14 @@ class Product extends Model
      */
     public function getPrimaryImageUrlAttribute(): string
     {
+        if ($this->relationLoaded('primaryImage')) {
+            $img = $this->getRelation('primaryImage');
+            return $img?->image_url ?? asset('website/assets/images/placeholder.png');
+        }
+        if ($this->relationLoaded('images')) {
+            $img = $this->images->first();
+            return $img?->image_url ?? asset('website/assets/images/placeholder.png');
+        }
         return $this->primaryImage?->image_url ?? asset('website/assets/images/placeholder.png');
     }
 
@@ -130,7 +152,7 @@ class Product extends Model
             }
         }
 
-        return (int) $this->inventories()->sum('quantity');
+        return (int) ($this->relationLoaded('inventories') ? $this->inventories->sum('quantity') : $this->inventories()->sum('quantity'));
     }
 
     /**

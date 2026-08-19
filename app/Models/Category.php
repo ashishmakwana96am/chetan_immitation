@@ -27,6 +27,12 @@ class Category extends Model
         'low_stock_threshold',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('active_categories_list'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('active_categories_list'));
+    }
+
     protected $casts = [
         'is_featured' => 'boolean',
         'low_stock_threshold' => 'integer',

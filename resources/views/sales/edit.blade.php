@@ -360,7 +360,7 @@
                             $editGrandTotal = (float)($order->final_amount ?? 0);
                             $editDue = max(0, $editGrandTotal - $editPrevPaid);
 
-                            $editPayments = $order->salePayments()->get();
+                            $editPayments = $order->salePayments;
                         @endphp
 
                         @if(in_array(($order->payment_status ?? 1), [2, 3]) && $editPrevPaid > 0)
@@ -547,7 +547,10 @@ $(document).ready(function () {
             container.html(`<div class="rounded bg-label-secondary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="ti ti-photo text-muted" style="font-size: 1.25rem;"></i></div>`);
         }
     }
-    const allProducts = @json($allProducts);
+    let allProducts = [];
+    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
+        allProducts = res || [];
+    });
     const locations = @json($locations);
     const existingItems = @json($existingItems);
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';

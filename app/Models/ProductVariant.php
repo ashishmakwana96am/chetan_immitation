@@ -12,6 +12,12 @@ class ProductVariant extends Model
 
     const STATUS_INACTIVE = 2;
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => Product::clearMappedCaches());
+        static::deleted(fn () => Product::clearMappedCaches());
+    }
+
     protected $fillable = [
         'product_id',
         'attribute_value_id',

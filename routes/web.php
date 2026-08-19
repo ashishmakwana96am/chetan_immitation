@@ -133,6 +133,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Authenticated routes
     Route::middleware(['auth:web', 'active.user'])->group(function () {
+        Route::get('/ping', fn () => response()->json(['status' => 'pong', 'time' => time()]))->name('ping');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -166,6 +167,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('products/images/{image}/primary', [ProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
         // Purchases
+        Route::get('purchases/products-json', [PurchaseController::class, 'getMappedProductsJson'])->name('purchases.products-json');
         Route::get('purchases/import/sample', [PurchaseImportController::class, 'sample'])->name('purchases.import.sample');
         Route::post('purchases/import/preview', [PurchaseImportController::class, 'preview'])->name('purchases.import.preview');
         Route::post('purchases/import/confirm', [PurchaseImportController::class, 'confirm'])->name('purchases.import.confirm');
@@ -181,6 +183,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('purchases/{purchase}/barcode-items', [PurchaseController::class, 'barcodeItems'])->name('purchases.barcode-items');
 
         // Purchase Bills
+        Route::get('purchase-bills/products-json', [PurchaseBillController::class, 'getMappedProductsJson'])->name('purchase-bills.products-json');
         Route::get('purchase-bills/data', [PurchaseBillController::class, 'data'])->name('purchase-bills.data');
         Route::get('purchase-bills/export', [PurchaseBillController::class, 'export'])->name('purchase-bills.export');
         Route::get('purchase-bills/pending-count', [PurchaseBillController::class, 'pendingCount'])->name('purchase-bills.pending-count');
@@ -230,10 +233,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('stock-inventory/totals', [ReportController::class, 'stockInventoryTotals'])->name('stock-inventory.totals');
             Route::get('stock-inventory/export', [ReportController::class, 'exportStockInventory'])->name('stock-inventory.export');
             Route::get('purchases', [ReportController::class, 'purchases'])->name('purchases');
+            Route::get('purchases/data', [ReportController::class, 'purchasesData'])->name('purchases.data');
+            Route::get('purchases/products-data', [ReportController::class, 'purchasesProductsData'])->name('purchases.products-data');
             Route::get('purchases/export', [ReportController::class, 'exportPurchases'])->name('purchases.export');
             Route::get('sales', [ReportController::class, 'sales'])->name('sales');
+            Route::get('sales/data', [ReportController::class, 'salesData'])->name('sales.data');
+            Route::get('sales/products-data', [ReportController::class, 'salesProductsData'])->name('sales.products-data');
             Route::get('sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
+            Route::get('profit-loss/data', [ReportController::class, 'profitLossData'])->name('profit-loss.data');
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
             Route::get('payments/export', [ReportController::class, 'exportPayments'])->name('payments.export');
@@ -253,6 +261,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // Sales
+        Route::get('sales/products-json', [SaleController::class, 'getAllMappedProductsJson'])->name('sales.products-json');
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
         Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');

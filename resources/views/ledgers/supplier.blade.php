@@ -36,15 +36,15 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Purchase</span>
-                            <span class="fw-semibold" id="purchase-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold" id="purchase-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Payment</span>
-                            <span class="fw-semibold text-success" id="payment-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-success" id="payment-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Outstanding</span>
-                            <span class="fw-semibold text-danger" id="outstanding-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-danger" id="outstanding-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                     </div>
                 </div>

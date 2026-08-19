@@ -84,18 +84,11 @@ class ProductController extends Controller
         $recordsTotal = Product::count();
 
         $computeStock = function ($product) use ($locationId) {
-            if ($product->type === 'variable') {
-                $stockData = $product->getVariantStock($locationId);
-                if ($locationId) {
-                    return $stockData ? array_sum($stockData['variants']) : 0;
-                }
-                $total = 0;
-                foreach ($stockData as $locData) {
-                    $total += array_sum($locData['variants']);
-                }
-                return $total;
+            if ($locationId) {
+                $inv = $product->inventories->firstWhere('location_id', $locationId);
+                return (int) ($inv ? $inv->quantity : 0);
             }
-            return $product->inventories->sum('quantity');
+            return (int) $product->inventories->sum('quantity');
         };
 
         $hasStockFilter = in_array($request->stock_status, ['in_stock', 'out_of_stock'], true);
@@ -139,44 +132,45 @@ class ProductController extends Controller
         }
 
         if ($sortKey === 'stock' || $hasStockFilter) {
-            $lightProducts = (clone $baseQuery)
+            $stockSub = Inventory::query()
+                ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+                ->selectRaw('product_id, SUM(quantity) as total_stock')
+                ->groupBy('product_id');
+
+            $filteredQuery = (clone $baseQuery)
+                ->leftJoinSub($stockSub, 'inv_sum', 'products.id', '=', 'inv_sum.product_id');
+
+            if ($hasStockFilter) {
+                if ($request->stock_status === 'in_stock') {
+                    $filteredQuery->where('inv_sum.total_stock', '>', 0);
+                } else {
+                    $filteredQuery->where(function($sub) {
+                        $sub->whereNull('inv_sum.total_stock')
+                            ->orWhere('inv_sum.total_stock', '<=', 0);
+                    });
+                }
+            }
+
+            if ($sortKey === 'stock') {
+                $filteredQuery->orderByRaw("COALESCE(inv_sum.total_stock, 0) {$sortDir}");
+            }
+
+            $recordsFiltered = (clone $filteredQuery)->count();
+
+            $products = $filteredQuery
+                ->select('products.*')
                 ->with([
+                    'category',
+                    'subCategory',
+                    'primaryImage',
+                    'variants.attributeValue',
                     'inventories' => function($q) use ($locationId) {
                         $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
                     }
                 ])
+                ->skip($start)
+                ->take($length)
                 ->get();
-            Product::preloadVariantStock($lightProducts);
-
-            $filteredProducts = $lightProducts;
-            if ($hasStockFilter) {
-                $wantInStock = $request->stock_status === 'in_stock';
-                $filteredProducts = $filteredProducts->filter(function ($product) use ($computeStock, $wantInStock) {
-                    $stock = $computeStock($product);
-                    return $wantInStock ? $stock > 0 : $stock <= 0;
-                });
-            }
-
-            if ($sortKey === 'stock') {
-                $filteredProducts = $filteredProducts->sortBy(function ($product) use ($computeStock) {
-                    return $computeStock($product);
-                }, SORT_REGULAR, $sortDir === 'desc');
-            }
-
-            $recordsFiltered = $filteredProducts->count();
-            $pageIds = $filteredProducts->pluck('id')->values()->slice($start, $length)->values();
-
-            $products = Product::with([
-                'category',
-                'subCategory',
-                'primaryImage',
-                'variants.attributeValue',
-                'inventories' => function($q) use ($locationId) {
-                    $q->when($locationId, fn($sub) => $sub->where('location_id', $locationId));
-                }
-            ])->whereIn('id', $pageIds)->get();
-
-            $products = $pageIds->map(fn($id) => $products->firstWhere('id', $id))->filter()->values();
         } else {
             $recordsFiltered = (clone $baseQuery)->count();
 
@@ -194,8 +188,6 @@ class ProductController extends Controller
                 ->take($length)
                 ->get();
         }
-
-        Product::preloadVariantStock($products);
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
@@ -684,8 +676,8 @@ class ProductController extends Controller
     public function create(Request $request)
     {
         $this->authorize('create products');
-        $categories = Category::where('status', 1)->orderBy('name')->get();
-        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
+        $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
+        $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
 
         $clonedProduct = null;
         $subCategories = collect();
@@ -911,6 +903,8 @@ class ProductController extends Controller
             }
         });
 
+        self::clearMappedProductCaches();
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Product created successfully.',
@@ -920,12 +914,12 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $this->authorize('edit products');
-        $categories = Category::where('status', 1)->orderBy('name')->get();
+        $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
         $subCategories = SubCategory::where('category_id', $product->category_id)
             ->where('status', 1)
             ->orderBy('name')
             ->get();
-        $attributes = Attribute::with('values')->where('status', 1)->orderBy('name')->get();
+        $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
         $product->load('images', 'variants.attributeValue');
         return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
     }
@@ -1853,5 +1847,12 @@ class ProductController extends Controller
             'message' => "Successfully updated {$count} product(s) to be {$actionText} the website.",
             'count'   => $count,
         ]);
+    }
+
+    public static function clearMappedProductCaches(): void
+    {
+        Cache::forget('all_mapped_products_sales');
+        Cache::forget('all_mapped_products_purchases');
+        Cache::forget('all_mapped_products_bills');
     }
 }
