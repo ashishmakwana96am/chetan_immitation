@@ -43,7 +43,8 @@ class AccountingController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $query = LocationBalanceTransaction::with(['location', 'createdBy'])
+        $query = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
+            ->with(['location:id,name', 'createdBy:id,name'])
             ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_CASH);
 
         if ($isRestricted) {
@@ -188,7 +189,8 @@ class AccountingController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $query = LocationBalanceTransaction::with(['location', 'createdBy'])
+        $query = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
+            ->with(['location:id,name', 'createdBy:id,name'])
             ->where('balance_type', LocationBalanceTransaction::BALANCE_TYPE_BANK);
 
         if ($isRestricted) {
@@ -335,7 +337,8 @@ class AccountingController extends Controller
         $sourceFilter      = $request->filled('source') ? $request->source : 'all';
         $balanceTypeFilter = $request->filled('balance_type') ? $request->balance_type : null;
 
-        $txQuery = LocationBalanceTransaction::with(['location', 'createdBy']);
+        $txQuery = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
+            ->with(['location:id,name', 'createdBy:id,name']);
 
         if ($filterLocationId) {
             $txQuery->where('location_id', $filterLocationId);
@@ -490,7 +493,8 @@ class AccountingController extends Controller
         $sourceFilter      = $request->filled('source') ? $request->source : 'all';
         $balanceTypeFilter = $request->filled('balance_type') ? $request->balance_type : null;
 
-        $txQuery = LocationBalanceTransaction::with(['location', 'createdBy']);
+        $txQuery = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
+            ->with(['location:id,name', 'createdBy:id,name']);
 
         if ($filterLocationId) {
             $txQuery->where('location_id', $filterLocationId);
@@ -1298,7 +1302,8 @@ class AccountingController extends Controller
         abort_unless(auth()->user()->hasRole('super-admin'), 403);
         $this->authorize('manage branch balances');
 
-        $query = LocationBalanceTransaction::with(['location', 'createdBy']);
+        $query = LocationBalanceTransaction::select('id', 'location_id', 'balance_type', 'type', 'amount', 'balance_after', 'notes', 'created_by', 'created_at')
+            ->with(['location:id,name', 'createdBy:id,name']);
 
         if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
@@ -2675,17 +2680,27 @@ class AccountingController extends Controller
 
     private function filterActiveTransactions($transactions)
     {
+        if ($transactions->isEmpty()) {
+            return $transactions;
+        }
+
         $purchasesToCheck = [];
         $ordersToCheck = [];
 
         foreach ($transactions as $tx) {
             $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+            if (preg_match('/Purchase\s+#([^\s\[\]]+)/i', $notes, $matches)) {
                 $purchasesToCheck[$matches[1]] = true;
+            } elseif (preg_match('/\[Inv:\s*([^\]]+)\]/i', $notes, $matches)) {
+                $purchasesToCheck[trim($matches[1])] = true;
             }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+            if (preg_match('/Sale\s+#([^\s\[\]]+)/i', $notes, $matches)) {
                 $ordersToCheck[$matches[1]] = true;
             }
+        }
+
+        if (empty($purchasesToCheck) && empty($ordersToCheck)) {
+            return $transactions;
         }
 
         $existingPurchases = !empty($purchasesToCheck)
@@ -2698,12 +2713,16 @@ class AccountingController extends Controller
 
         return $transactions->filter(function ($tx) use ($existingPurchases, $existingOrders) {
             $notes = $tx->notes ?? '';
-            if (preg_match('/Purchase #([A-Z0-9-]+)/i', $notes, $matches)) {
+            if (preg_match('/Purchase\s+#([^\s\[\]]+)/i', $notes, $matches)) {
                 if (!$existingPurchases->has($matches[1])) {
                     return false;
                 }
+            } elseif (preg_match('/\[Inv:\s*([^\]]+)\]/i', $notes, $matches)) {
+                if (!$existingPurchases->has(trim($matches[1]))) {
+                    return false;
+                }
             }
-            if (preg_match('/Sale #([A-Z0-9-]+)/i', $notes, $matches)) {
+            if (preg_match('/Sale\s+#([^\s\[\]]+)/i', $notes, $matches)) {
                 if (!$existingOrders->has($matches[1])) {
                     return false;
                 }
