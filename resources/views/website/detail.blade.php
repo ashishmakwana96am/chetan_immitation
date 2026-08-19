@@ -537,9 +537,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let lastTap = 0;
         let initialPinchDist = 0;
         let currentScale = 1;
+        let panX = 0, panY = 0;
+        let startPanX = 0, startPanY = 0;
+        let isPanning = false;
 
         img.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
+                isPanning = false;
                 initialPinchDist = Math.hypot(
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
@@ -561,9 +565,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
 
                     currentScale = currentScale > 1.2 ? 1 : 2.5;
+                    panX = 0;
+                    panY = 0;
                     img.style.transformOrigin = currentScale > 1 ? `${x}% ${y}%` : 'center center';
                     img.style.transition = 'transform 0.3s ease-in-out, transform-origin 0.3s ease-in-out';
-                    img.style.transform = `scale(${currentScale})`;
+                    img.style.transform = `scale(${currentScale}) translate(0px, 0px)`;
+                } else if (currentScale > 1.1) {
+                    isPanning = true;
+                    startPanX = e.touches[0].clientX - panX;
+                    startPanY = e.touches[0].clientY - panY;
                 }
                 lastTap = now;
             }
@@ -586,22 +596,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 img.style.transformOrigin = `${x}% ${y}%`;
                 img.style.transition = 'none';
-                img.style.transform = `scale(${newScale})`;
+                img.style.transform = `scale(${newScale}) translate(${panX / newScale}px, ${panY / newScale}px)`;
+            } else if (e.touches.length === 1 && isPanning && currentScale > 1.1) {
+                e.preventDefault();
+                panX = e.touches[0].clientX - startPanX;
+                panY = e.touches[0].clientY - startPanY;
+
+                const maxPan = (currentScale - 1) * 150;
+                panX = Math.max(-maxPan, Math.min(maxPan, panX));
+                panY = Math.max(-maxPan, Math.min(maxPan, panY));
+
+                img.style.transition = 'none';
+                img.style.transform = `scale(${currentScale}) translate(${panX / currentScale}px, ${panY / currentScale}px)`;
             }
         });
 
         img.addEventListener('touchend', (e) => {
             if (e.touches.length < 2) {
                 initialPinchDist = 0;
+                isPanning = false;
                 const match = img.style.transform.match(/scale\(([^)]+)\)/);
                 if (match) {
                     currentScale = parseFloat(match[1]) || 1;
                 }
                 if (currentScale < 1.1) {
                     currentScale = 1;
+                    panX = 0;
+                    panY = 0;
                     img.style.transformOrigin = 'center center';
                     img.style.transition = 'transform 0.3s ease-in-out';
-                    img.style.transform = 'scale(1)';
+                    img.style.transform = 'scale(1) translate(0px, 0px)';
                 }
             }
         });
