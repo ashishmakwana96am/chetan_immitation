@@ -265,7 +265,7 @@
                         render: function (data, type, row) {
                             const locationVal = $('#filter-location').val() || '';
                             const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                            return `<a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="fw-semibold text-body">${data}</a>`;
+                            return `<a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="fw-semibold text-body">${data}</a>`;
                         }
                     },
                     { data: 'total_amount', className: 'text-end fw-semibold text-heading' },
@@ -295,7 +295,7 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="dropdown-item">
+                                        <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="dropdown-item">
                                              <i class="ti ti-eye me-2"></i>View
                                          </a>
                                      </div>
@@ -492,10 +492,10 @@
                     return;
                 }
                 const data = table.row(this).data();
-                if (data) {
+                if (data && data.supplier_id) {
                     const locationVal = $('#filter-location').val() || '';
                     const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                    window.location.href = `{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
+                    window.location.href = `{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${data.supplier_id}${locationQuery}`;
                 }
             });
         });

@@ -869,7 +869,7 @@ class AccountingController extends Controller
             $date = null;
         }
 
-        $allPurchases = $purchasesQuery->get();
+        $allPurchases = $purchasesQuery->orderBy('invoice_no', 'desc')->get();
 
         $purchases = $allPurchases->map(function($p) {
             if ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID) {
