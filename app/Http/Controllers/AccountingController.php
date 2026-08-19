@@ -1129,7 +1129,7 @@ class AccountingController extends Controller
             return [
                 'index'          => $index + 1,
                 'id'             => $payment->id,
-                'date'           => format_date($payment->created_at, 'd-m-Y h:i A'),
+                'date'           => format_date($payment->created_at, 'h:i A'),
                 'date_group'     => format_date($payment->created_at, 'd-m-Y'),
                 'date_sort'      => $payment->created_at ? $payment->created_at->format('Y-m-d H:i:s') : '',
                 'supplier'       => e($payment->supplier->name ?? 'All Suppliers'),

@@ -72,7 +72,7 @@
                 <thead>
                     <tr>
                         <th style="width: 5%">#</th>
-                        <th>Date & Time</th>
+                        <th>Time</th>
                         <th>Supplier</th>
                         <th class="text-end">Paid Amount</th>
                         <th>Payment Method</th>
