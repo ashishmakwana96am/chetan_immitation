@@ -534,7 +534,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 2. Mobile Touch Gestures (Pinch-to-zoom & Double Tap)
         let lastTap = 0;
         let initialPinchDist = 0;
         let currentScale = 1;
@@ -545,13 +544,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.touches[0].clientX - e.touches[1].clientX,
                     e.touches[0].clientY - e.touches[1].clientY
                 );
+
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const rect = slide.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((midX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((midY - rect.top) / rect.height) * 100));
+                img.style.transformOrigin = `${x}% ${y}%`;
             } else if (e.touches.length === 1) {
                 const now = Date.now();
                 if (now - lastTap < 300) {
                     e.preventDefault();
-                    currentScale = currentScale > 1.2 ? 1 : 2;
-                    img.style.transformOrigin = 'center center';
-                    img.style.transition = 'transform 0.3s ease-in-out';
+                    const touch = e.touches[0];
+                    const rect = slide.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+                    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
+
+                    currentScale = currentScale > 1.2 ? 1 : 2.5;
+                    img.style.transformOrigin = currentScale > 1 ? `${x}% ${y}%` : 'center center';
+                    img.style.transition = 'transform 0.3s ease-in-out, transform-origin 0.3s ease-in-out';
                     img.style.transform = `scale(${currentScale})`;
                 }
                 lastTap = now;
@@ -566,7 +577,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 const zoomFactor = dist / initialPinchDist;
                 let newScale = Math.max(1, Math.min(3, currentScale * zoomFactor));
-                img.style.transformOrigin = 'center center';
+
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const rect = slide.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((midX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((midY - rect.top) / rect.height) * 100));
+
+                img.style.transformOrigin = `${x}% ${y}%`;
                 img.style.transition = 'none';
                 img.style.transform = `scale(${newScale})`;
             }
