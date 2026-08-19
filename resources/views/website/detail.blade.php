@@ -27,6 +27,36 @@
     .product-detail-content p {
         margin: 0 0 10px;
     }
+
+    .mainSwiper {
+        width: fit-content !important;
+        max-width: 100% !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        background: transparent !important;
+    }
+
+    .swiper-zoom-container {
+        width: fit-content !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: 573px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        background: transparent !important;
+    }
+
+    .zoom-main-img {
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 573px !important;
+        object-fit: contain !important;
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        border-radius: 8px;
+    }
 </style>
 @endsection
 
@@ -47,19 +77,19 @@
 
             <!-- LEFT SIDE -->
             <div class="lg:col-span-5 w-full  lg:sticky lg:top-[80px]">
-                    <div class="swiper mainSwiper relative 2xl:min-h-[60vh]">
+                    <div class="swiper mainSwiper relative">
 
                         <div class="swiper-wrapper">
                             @forelse($product->images as $img)
                             <div class="swiper-slide relative flex items-center justify-center">
-                                <div class="swiper-zoom-container w-full h-[573px] flex items-center justify-center">
-                                    <img src="{{ $img->image_url }}" class="zoom-main-img max-w-full max-h-[573px] object-contain mx-auto select-none">
+                                <div class="swiper-zoom-container flex items-center justify-center">
+                                    <img src="{{ $img->image_url }}" class="zoom-main-img select-none">
                                 </div>
                             </div>
                             @empty
                             <div class="swiper-slide relative flex items-center justify-center">
-                                <div class="swiper-zoom-container w-full h-[573px] flex items-center justify-center">
-                                    <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img max-w-full max-h-[573px] object-contain mx-auto select-none">
+                                <div class="swiper-zoom-container flex items-center justify-center">
+                                    <img src="{{ asset('website/assets/images/no-image.svg') }}" class="zoom-main-img select-none">
                                 </div>
                             </div>
                             @endforelse
