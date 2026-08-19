@@ -534,15 +534,57 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 2. Mobile Touch Tap Zoom
-        let isZoomed = false;
-        img.addEventListener('click', function (e) {
-            if (window.matchMedia('(pointer: coarse)').matches) {
-                e.preventDefault();
-                isZoomed = !isZoomed;
-                this.style.transformOrigin = 'center center';
-                this.style.transition = 'transform 0.3s ease-in-out';
-                this.style.transform = isZoomed ? 'scale(1.8)' : 'scale(1)';
+        // 2. Mobile Touch Gestures (Pinch-to-zoom & Double Tap)
+        let lastTap = 0;
+        let initialPinchDist = 0;
+        let currentScale = 1;
+
+        img.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                initialPinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            } else if (e.touches.length === 1) {
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    e.preventDefault();
+                    currentScale = currentScale > 1.2 ? 1 : 2;
+                    img.style.transformOrigin = 'center center';
+                    img.style.transition = 'transform 0.3s ease-in-out';
+                    img.style.transform = `scale(${currentScale})`;
+                }
+                lastTap = now;
+            }
+        });
+
+        img.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && initialPinchDist > 0) {
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const zoomFactor = dist / initialPinchDist;
+                let newScale = Math.max(1, Math.min(3, currentScale * zoomFactor));
+                img.style.transformOrigin = 'center center';
+                img.style.transition = 'none';
+                img.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        img.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialPinchDist = 0;
+                const match = img.style.transform.match(/scale\(([^)]+)\)/);
+                if (match) {
+                    currentScale = parseFloat(match[1]) || 1;
+                }
+                if (currentScale < 1.1) {
+                    currentScale = 1;
+                    img.style.transformOrigin = 'center center';
+                    img.style.transition = 'transform 0.3s ease-in-out';
+                    img.style.transform = 'scale(1)';
+                }
             }
         });
     });
