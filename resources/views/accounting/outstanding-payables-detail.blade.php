@@ -3,6 +3,8 @@
 @section('title', 'Outstanding Payables Details')
 
 @section('page-css')
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
     <style>
         .ledger-info-row {
             display: flex;
@@ -115,7 +117,7 @@
                     <h6 class="mb-0 fw-semibold">Unpaid Purchases</h6>
                 </div>
                 <div class="card-datatable table-responsive">
-                    <table class="table border-top table-hover mb-0">
+                    <table class="table border-top table-hover mb-0" id="unpaidPurchasesTable">
                         <thead>
                             <tr>
                                 <th style="width: 5%">#</th>
@@ -127,7 +129,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                             @forelse($purchases as $index => $purchase)
+                             @foreach($purchases as $index => $purchase)
                                  <tr>
                                      <td>{{ $index + 1 }}</td>
                                      <td>
@@ -140,17 +142,29 @@
                                      <td class="text-end text-success fw-semibold">{{ format_price($purchase->calculated_paid) }}</td>
                                      <td class="text-end text-danger fw-semibold">{{ format_price($purchase->calculated_due) }}</td>
                                  </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">
-                                        No outstanding purchases found.
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+@endsection
+
+@section('page-js')
+    <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            $('#unpaidPurchasesTable').DataTable({
+                responsive: false,
+                order: [[1, 'desc']],
+                drawCallback: function () {
+                    const api = this.api();
+                    api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
+                        cell.innerHTML = i + 1;
+                    });
+                }
+            });
+        });
+    </script>
 @endsection

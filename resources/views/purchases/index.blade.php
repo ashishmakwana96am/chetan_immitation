@@ -508,7 +508,7 @@
 
             const table = $('#purchasesTable').DataTable({
                 responsive : false,
-                order      : [[8, 'desc']],
+                order      : [[9, 'desc']],
                 ajax       : {
                     url: '{{ route('admin.purchases.data') }}',
                     dataSrc: 'data',

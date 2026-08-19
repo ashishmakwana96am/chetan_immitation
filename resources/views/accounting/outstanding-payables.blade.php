@@ -51,12 +51,21 @@
             <small class="text-muted">Consolidated outstanding amounts due to suppliers</small>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
-                <i class="ti ti-history me-1"></i> Payment History
-            </a>
-            <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#bulkPayOffcanvas">
-                <i class="ti ti-cash me-1"></i> Make Payment
-            </button>
+            @php
+                $isMainBranchUser = auth()->user()->hasRole('super-admin') || !auth()->user()->location_id;
+                $canViewPaymentHistory = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('view purchase payments'));
+                $canMakePayment = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('create purchase payment'));
+            @endphp
+            @if($canViewPaymentHistory)
+                <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
+                    <i class="ti ti-history me-1"></i> Payment History
+                </a>
+            @endif
+            @if($canMakePayment)
+                <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#bulkPayOffcanvas">
+                    <i class="ti ti-cash me-1"></i> Make Payment
+                </button>
+            @endif
         </div>
     </div>
 
@@ -137,8 +146,6 @@
                         <th class="text-end">Total Paid</th>
                         <th class="text-end">Outstanding Amount</th>
                         <th style="width: 10%">Action</th>
-                        <th>Date Group</th>
-                        <th>Date Sort</th>
                     </tr>
                 </thead>
             </table>
@@ -154,8 +161,17 @@
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
             <form id="bulkPayForm" class="d-flex flex-column h-100 m-0">
                 @csrf
-                <input type="hidden" id="bulk-pay-location-id" name="location_id">
                 <div class="flex-grow-1 p-4" style="overflow-y: auto;">
+                    <div class="mb-3">
+                        <label class="form-label required fw-semibold">Select Supplier</label>
+                        <select id="bulk-pay-supplier-id" name="supplier_id" class="form-select form-select-lg no-select2" required>
+                            <option value="">Select Supplier</option>
+                            @foreach($suppliers as $sup)
+                                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label required fw-semibold">Enter Amount to Pay (₹)</label>
                         <div class="input-group">
@@ -167,7 +183,7 @@
 
                     <div class="mb-3">
                         <label class="form-label required fw-semibold">Payment Method</label>
-                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg" required>
+                        <select id="bulk-pay-payment-method" name="payment_method" class="form-select form-select-lg no-select2" required>
                             <option value="cash" selected>Cash</option>
                             <option value="online">Online</option>
                         </select>
@@ -226,17 +242,7 @@
 
             const table = $('#outstandingPayablesTable').DataTable({
                 responsive: false,
-                order: [[7, 'desc']],
-                columnDefs: [
-                    { targets: [6, 7], visible: false }
-                ],
-                rowGroup: {
-                    dataSrc: 'date_group',
-                    startRender: function (rows, group) {
-                        return $('<tr class="group-header"/>')
-                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
-                    }
-                },
+                order: [[1, 'asc']],
                 ajax: {
                     url: '{{ route('admin.accounting.outstanding-payables.data') }}',
                     cache: false,
@@ -254,7 +260,14 @@
                 },
                 columns: [
                     { data: 'index', orderable: false, width: '5%' },
-                    { data: 'supplier' },
+                    { 
+                        data: 'supplier',
+                        render: function (data, type, row) {
+                            const locationVal = $('#filter-location').val() || '';
+                            const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
+                            return `<a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="fw-semibold text-body">${data}</a>`;
+                        }
+                    },
                     { data: 'total_amount', className: 'text-end fw-semibold text-heading' },
                     { 
                         data: 'paid_amount', 
@@ -282,7 +295,7 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}&date=${row.date_sort}${locationQuery}" class="dropdown-item">
+                                        <a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="dropdown-item">
                                              <i class="ti ti-eye me-2"></i>View
                                          </a>
                                      </div>
@@ -290,8 +303,6 @@
                             `;
                         }
                     },
-                    { data: 'date_group' },
-                    { data: 'date_sort' },
                 ],
                 drawCallback: function () {
                     const api = this.api();
@@ -339,19 +350,16 @@
                 window.refreshTable();
             });
 
-            // Set location filter ID & max payable amount when Bulk Pay offcanvas opens
-            $('#bulkPayOffcanvas').on('show.bs.offcanvas', function () {
-                const locationId = $('#filter-location').val() || '';
-                $('#bulk-pay-location-id').val(locationId);
-                $('#bulk-pay-amount').val('');
-
-                // Calculate current total due from datatable data
+            function updateBulkPayMax() {
+                const selectedSupplierId = $('#bulk-pay-supplier-id').val();
                 let totalDue = 0.0;
                 if (typeof table !== 'undefined' && table.rows) {
                     table.rows({ filter: 'applied' }).data().each(function (row) {
-                        if (row.due_amount) {
-                            const raw = parseFloat(String(row.due_amount).replace(/[^0-9.-]+/g, ''));
-                            if (!isNaN(raw)) totalDue += raw;
+                        if (!selectedSupplierId || String(row.supplier_id) === String(selectedSupplierId)) {
+                            if (row.due_amount) {
+                                const raw = parseFloat(String(row.due_amount).replace(/[^0-9.-]+/g, ''));
+                                if (!isNaN(raw)) totalDue += raw;
+                            }
                         }
                     });
                 }
@@ -366,6 +374,18 @@
                 } else {
                     $('#bulk-pay-amount').removeAttr('max');
                 }
+            }
+
+            $('#bulkPayOffcanvas').on('show.bs.offcanvas', function () {
+                const locationId = $('#filter-location').val() || '';
+                $('#bulk-pay-location-id').val(locationId);
+                $('#bulk-pay-amount').val('');
+                $('#bulk-pay-supplier-id').val('');
+                updateBulkPayMax();
+            });
+
+            $(document).on('change', '#bulk-pay-supplier-id', function () {
+                updateBulkPayMax();
             });
 
             // Handle Bulk Pay Submit
@@ -472,10 +492,10 @@
                     return;
                 }
                 const data = table.row(this).data();
-                if (data) {
+                if (data && data.supplier_id) {
                     const locationVal = $('#filter-location').val() || '';
                     const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                    window.location.href = `{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${data.supplier_id}&date=${data.date_sort}${locationQuery}`;
+                    window.location.href = `{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${data.supplier_id}${locationQuery}`;
                 }
             });
         });

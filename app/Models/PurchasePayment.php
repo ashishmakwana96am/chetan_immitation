@@ -8,6 +8,7 @@ class PurchasePayment extends Model
 {
     protected $fillable = [
         'purchase_id',
+        'bulk_purchase_payment_id',
         'amount',
         'created_by',
     ];

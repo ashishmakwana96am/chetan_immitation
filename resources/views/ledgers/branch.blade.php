@@ -42,9 +42,16 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Branch Ledger</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
-        </button>
+        <div class="d-flex gap-2">
+            @can('create balance transfer')
+            <button class="btn btn-outline-primary" data-common-modal="{{ route('admin.accounting.opening-balances.transfer') }}">
+                <i class="ti ti-arrows-exchange me-1"></i> Transfer Balance
+            </button>
+            @endcan
+            <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
+                <i class="ti ti-file-text me-1"></i> Export to PDF
+            </button>
+        </div>
     </div>
 
     <div class="card mb-4">
@@ -118,6 +125,7 @@
                         <th>#</th>
                         <th>Bill No</th>
                         <th>From &rarr; To</th>
+                        <th>Status</th>
                         <th>Amount</th>
                         <th>Action</th>
                         <th class="d-none">date_group</th>
@@ -202,16 +210,16 @@
 
             const table = $('#branchLedgerTable').DataTable({
                 responsive: false,
-                order: [[6, 'desc']],
+                order: [[7, 'desc']],
                 columnDefs: [
-                    { targets: [1, 2, 3, 4], orderable: false },
-                    { targets: [5, 6], visible: false }
+                    { targets: [1, 2, 3, 4, 5], orderable: false },
+                    { targets: [6, 7], visible: false }
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="5"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
+                            .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' entr' + (rows.count() > 1 ? 'ies' : 'y') + '</span></div></td>');
                     }
                 },
                 ajax: {
@@ -227,6 +235,7 @@
                     { data: 'index',       orderable: false, width: '5%' },
                     { data: 'transfer_no', orderable: false },
                     { data: 'branch',      orderable: false },
+                    { data: 'status',      orderable: false },
                     { data: 'amount',      orderable: false },
                     { data: 'actions',     orderable: false },
                     { data: 'date_group',  visible: false },
@@ -275,6 +284,129 @@
                 });
                 params.append('auto_print', '1');
                 window.open("{{ route('admin.ledgers.branch.export') }}?" + params.toString(), '_blank');
+            });
+
+            // Accept Balance Transfer
+            $(document).on('click', '.accept-bt-btn', function (e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const acceptUrl = '{{ route("admin.accounting.opening-balances.transfer-accept", ":id") }}'.replace(':id', id);
+                Swal.fire({
+                    title: 'Accept Balance Transfer?',
+                    text: 'This will update cash/bank balances and adjust pending purchase bills.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Accept',
+                    customClass: { confirmButton: 'btn btn-success me-3', cancelButton: 'btn btn-label-secondary' },
+                    buttonsStyling: false
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        window.showAjaxLoader && window.showAjaxLoader();
+                        $.ajax({
+                            url: acceptUrl,
+                            type: 'POST',
+                            data: { _token: '{{ csrf_token() }}' },
+                            success: function (res) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                toastr.success(res.message || 'Balance transfer accepted successfully.');
+                                window.refreshTable();
+                                if (typeof window.refreshBranchLedgerBadge === 'function') window.refreshBranchLedgerBadge();
+                            },
+                            error: function (xhr) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Action failed.';
+                                toastr.error(typeof msg === 'object' ? Object.values(msg).flat().join('<br>') : msg);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Reject Balance Transfer
+            $(document).on('click', '.reject-bt-btn', function (e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const rejectUrl = '{{ route("admin.accounting.opening-balances.transfer-reject", ":id") }}'.replace(':id', id);
+                Swal.fire({
+                    title: 'Reject Balance Transfer?',
+                    text: 'This transfer request will be rejected.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Reject',
+                    customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+                    buttonsStyling: false
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        window.showAjaxLoader && window.showAjaxLoader();
+                        $.ajax({
+                            url: rejectUrl,
+                            type: 'POST',
+                            data: { _token: '{{ csrf_token() }}' },
+                            success: function (res) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                toastr.success(res.message || 'Balance transfer rejected.');
+                                window.refreshTable();
+                                if (typeof window.refreshBranchLedgerBadge === 'function') window.refreshBranchLedgerBadge();
+                            },
+                            error: function (xhr) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Action failed.';
+                                toastr.error(typeof msg === 'object' ? Object.values(msg).flat().join('<br>') : msg);
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Edit Balance Transfer (offcanvas form)
+            $(document).on('click', '.edit-bt-btn', function (e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const editUrl = '{{ route("admin.accounting.opening-balances.transfer-edit", ":id") }}'.replace(':id', id);
+                
+                // Trigger standard common modal / offcanvas loader
+                $(this).attr('data-common-modal', editUrl);
+                if (window.openCommonModal) {
+                    window.openCommonModal(editUrl);
+                } else {
+                    window.location.href = editUrl;
+                }
+            });
+
+            // Delete Balance Transfer
+            $(document).on('click', '.delete-bt-btn', function (e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const deleteUrl = '{{ route("admin.accounting.opening-balances.transfer-destroy", ":id") }}'.replace(':id', id);
+                Swal.fire({
+                    title: 'Delete Balance Transfer?',
+                    text: 'Are you sure you want to delete this balance transfer?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Delete',
+                    customClass: { confirmButton: 'btn btn-danger me-3', cancelButton: 'btn btn-label-secondary' },
+                    buttonsStyling: false
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        window.showAjaxLoader && window.showAjaxLoader();
+                        $.ajax({
+                            url: deleteUrl,
+                            type: 'DELETE',
+                            data: { _token: '{{ csrf_token() }}' },
+                            success: function (res) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                toastr.success(res.message || 'Balance transfer deleted.');
+                                window.refreshTable();
+                                if (typeof window.refreshBranchLedgerBadge === 'function') window.refreshBranchLedgerBadge();
+                            },
+                            error: function (xhr) {
+                                window.hideAjaxLoader && window.hideAjaxLoader();
+                                const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Action failed.';
+                                toastr.error(typeof msg === 'object' ? Object.values(msg).flat().join('<br>') : msg);
+                            }
+                        });
+                    }
+                });
             });
         });
     </script>

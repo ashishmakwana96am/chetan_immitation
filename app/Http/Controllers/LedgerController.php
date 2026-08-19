@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BranchBalanceTransfer;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\LocationBalance;
@@ -662,6 +663,22 @@ class LedgerController extends Controller
         return view('ledgers.branch', compact('locations', 'isRestricted'));
     }
 
+    public function branchLedgerPendingCount()
+    {
+        $user = auth()->user();
+
+        $count = BranchBalanceTransfer::where('status', BranchBalanceTransfer::STATUS_PENDING)
+            ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
+                $q->where(function ($sub) use ($user) {
+                    $sub->where('from_location_id', $user->location_id)
+                        ->orWhere('to_location_id', $user->location_id);
+                });
+            })
+            ->count();
+
+        return response()->json(['status' => 'success', 'count' => $count]);
+    }
+
     public function branchDuesBills(Request $request)
     {
         $this->authorizeLedger('view branch ledger');
@@ -764,7 +781,7 @@ class LedgerController extends Controller
         // filtered locations only needs listing once, naming both branches.
         // Only unpaid/partial bills belong here; once marked Paid it drops off, same as
         // the Pending Payments Between Branches summary below.
-        $transfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+        $stockTransfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
@@ -773,23 +790,32 @@ class LedgerController extends Controller
             ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
-            ->orderByDesc('accepted_at')
             ->get();
 
-        $rows = $transfers->values()->map(function ($transfer, $index) use ($getTransferAmount) {
+        $stockRows = $stockTransfers->map(function ($transfer) use ($getTransferAmount) {
             $amount = $getTransferAmount([$transfer]);
             $date = $transfer->accepted_at->format('Y-m-d');
+            $rawDate = $transfer->accepted_at->format('Y-m-d H:i:s');
 
             $branchLabel = e($transfer->fromLocation->name ?? '-')
                 . ' <i class="ti ti-arrow-right mx-1 text-muted"></i> '
                 . e($transfer->toLocation->name ?? '-');
 
+            $transferNo = str_starts_with($transfer->transfer_no, 'ST-') ? $transfer->transfer_no : 'ST-' . $transfer->transfer_no;
+
+            $statusBadge = match ((int) $transfer->status) {
+                PurchaseBill::STATUS_ACCEPTED => '<span class="badge bg-label-success">Accepted</span>',
+                PurchaseBill::STATUS_REJECTED => '<span class="badge bg-label-danger">Rejected</span>',
+                default                       => '<span class="badge bg-label-warning">Pending</span>',
+            };
+
             return [
-                'index'       => $index + 1,
+                'raw_date'    => $rawDate,
                 'date'        => format_date($date),
                 'date_sort'   => $date,
                 'date_group'  => format_date($date),
-                'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
+                'transfer_no' => '<code>' . e($transferNo) . '</code>',
+                'status'      => $statusBadge,
                 'branch'      => $branchLabel,
                 'amount'      => '<span class="fw-semibold">' . format_price($amount) . '</span>',
                 'actions'     => '
@@ -804,10 +830,95 @@ class LedgerController extends Controller
                         </div>
                     </div>',
             ];
-        })->values();
+        });
 
-        // Pending Payments Between Branches — same date-range/location filters
-        // as the table above, but scoped to accepted + unpaid/partial bills only.
+        // Balance transfers from BranchBalanceTransfer table
+        $btTransfers = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
+            })
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->get();
+
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+        $hasAcceptPermission = $user->can('accept balance transfer');
+        $hasRejectPermission = $user->can('reject balance transfer') || $hasAcceptPermission;
+        $hasEditPermission   = $user->can('edit balance transfer');
+        $hasDeletePermission = $user->can('delete balance transfer');
+
+        $btRows = $btTransfers->map(function ($bt) use ($user, $isSuperAdmin, $hasAcceptPermission, $hasRejectPermission, $hasEditPermission, $hasDeletePermission) {
+            $date = $bt->created_at->format('Y-m-d');
+            $rawDate = $bt->created_at->format('Y-m-d H:i:s');
+
+            $branchLabel = e($bt->fromLocation->name ?? '-')
+                . ' <i class="ti ti-arrow-right mx-1 text-muted"></i> '
+                . e($bt->toLocation->name ?? '-');
+
+            $statusBadge = match ((int) $bt->status) {
+                BranchBalanceTransfer::STATUS_ACCEPTED => '<span class="badge bg-label-success">Accepted</span>',
+                BranchBalanceTransfer::STATUS_REJECTED => '<span class="badge bg-label-danger">Rejected</span>',
+                default                                => '<span class="badge bg-label-warning">Pending</span>',
+            };
+
+            $isUserRestricted       = (bool) $user->location_id;
+            $isReceivingBranchAdmin = $isUserRestricted && (int) $user->location_id === (int) $bt->to_location_id;
+            $isSenderBranchAdmin    = $isUserRestricted && (int) $user->location_id === (int) $bt->from_location_id;
+
+            $canAccept = $isSuperAdmin || ($isUserRestricted ? $isReceivingBranchAdmin : $hasAcceptPermission);
+            $canReject = $isSuperAdmin || ($isUserRestricted ? $isReceivingBranchAdmin : ($hasRejectPermission || $hasAcceptPermission));
+            $canEdit   = $isSuperAdmin || ($isUserRestricted ? $isSenderBranchAdmin : $hasEditPermission);
+            $canDelete = $isSuperAdmin || ($isUserRestricted ? $isSenderBranchAdmin : $hasDeletePermission);
+
+            $items = '';
+            if ((int) $bt->status === BranchBalanceTransfer::STATUS_PENDING) {
+                if ($canAccept) {
+                    $items .= '<a href="javascript:void(0)" class="dropdown-item text-success accept-bt-btn" data-id="' . $bt->id . '"><i class="ti ti-check me-2"></i>Accept</a>';
+                }
+                if ($canReject) {
+                    $items .= '<a href="javascript:void(0)" class="dropdown-item text-warning reject-bt-btn" data-id="' . $bt->id . '"><i class="ti ti-x me-2"></i>Reject</a>';
+                }
+            }
+
+            if ($canEdit) {
+                $items .= '<a href="javascript:void(0)" class="dropdown-item edit-bt-btn" data-id="' . $bt->id . '" data-amount="' . $bt->amount . '" data-notes="' . e($bt->notes) . '"><i class="ti ti-pencil me-2"></i>Edit</a>';
+            }
+            if ($canDelete) {
+                $items .= '<button class="dropdown-item text-danger delete-bt-btn" data-id="' . $bt->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
+            }
+
+            if (empty($items)) {
+                $actionBtns = '-';
+            } else {
+                $actionBtns = '<div class="dropdown table-action-dropdown">
+                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                        <span>Actions</span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">' . $items . '</div></div>';
+            }
+
+            return [
+                'raw_date'    => $rawDate,
+                'date'        => format_date($date),
+                'date_sort'   => $date,
+                'date_group'  => format_date($date),
+                'transfer_no' => '<code>' . e($bt->transfer_no) . '</code>',
+                'status'      => $statusBadge,
+                'branch'      => $branchLabel,
+                'amount'      => '<span class="fw-semibold text-primary">' . format_price($bt->amount) . '</span>',
+                'actions'     => $actionBtns,
+            ];
+        });
+
+        $allMerged = $stockRows->concat($btRows)->sortByDesc('raw_date')->values();
+
+        $rows = $allMerged->map(function ($r, $idx) {
+            $r['index'] = $idx + 1;
+            return $r;
+        });
+
         $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)

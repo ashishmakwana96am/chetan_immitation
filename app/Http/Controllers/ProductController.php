@@ -492,7 +492,7 @@ class ProductController extends Controller
                         ? '<span class="badge ' . ($statusColors[$invoice->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$invoice->status] ?? 'Pending') . '</span>'
                         : '',
                     'date_group' => $invoice && $invoice->created_at ? $invoice->created_at->format('d M Y') : '-',
-                    'date_sort'  => $invoice && $invoice->created_at ? $invoice->created_at->format('Ymd') : '00000000',
+                    'date_sort'  => $invoice && $invoice->created_at ? $invoice->created_at->format('YmdHis') : '00000000000000',
                 ];
             })
             ->values();
@@ -530,7 +530,7 @@ class ProductController extends Controller
                         ? '<span class="badge ' . ($statusColors[$transfer->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$transfer->status] ?? 'Pending') . '</span>'
                         : '',
                     'date_group'   => ($transfer && ($transfer->accepted_at ?? $transfer->created_at)) ? ($transfer->accepted_at ?? $transfer->created_at)->format('d M Y') : '-',
-                    'date_sort'    => ($transfer && ($transfer->accepted_at ?? $transfer->created_at)) ? ($transfer->accepted_at ?? $transfer->created_at)->format('Ymd') : '00000000',
+                    'date_sort'    => ($transfer && ($transfer->accepted_at ?? $transfer->created_at)) ? ($transfer->accepted_at ?? $transfer->created_at)->format('YmdHis') : '00000000000000',
                 ];
             })
             ->values();
@@ -570,7 +570,7 @@ class ProductController extends Controller
                         ? '<span class="badge ' . ($statusColors[$order->status] ?? 'bg-label-secondary') . ' stock-badge">' . ($statusLabels[$order->status] ?? 'Pending') . '</span>'
                         : '',
                     'date_group' => $order && $order->created_at ? $order->created_at->format('d M Y') : '-',
-                    'date_sort'  => $order && $order->created_at ? $order->created_at->format('Ymd') : '00000000',
+                    'date_sort'  => $order && $order->created_at ? $order->created_at->format('YmdHis') : '00000000000000',
                 ];
             })
             ->values();
