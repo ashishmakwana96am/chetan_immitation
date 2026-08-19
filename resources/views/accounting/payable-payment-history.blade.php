@@ -64,43 +64,41 @@
         </div>
     </div>
 
-    <!-- Edit Payable Payment Modal -->
-    <div class="modal fade" id="editPaymentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-bottom">
-                    <h5 class="modal-title fw-bold">Edit Payment Entry</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="editPaymentForm">
-                    @csrf
-                    @method('PUT')
-                    <input type="hidden" id="edit-payment-id" name="payment_id">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label required fw-semibold">Paid Amount (₹)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">₹</span>
-                                <input type="number" step="0.01" min="0.01" id="edit-payment-amount" name="amount" class="form-control" required />
-                            </div>
+    <!-- Edit Payable Payment Offcanvas Sidepanel -->
+    <div class="offcanvas offcanvas-end" id="editPaymentOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-bold" id="editPaymentOffcanvasLabel">Edit Payment Entry</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
+            <form id="editPaymentForm" class="d-flex flex-column h-100 m-0">
+                @csrf
+                @method('PUT')
+                <input type="hidden" id="edit-payment-id" name="payment_id">
+                <div class="flex-grow-1 p-4" style="overflow-y: auto;">
+                    <div class="mb-3">
+                        <label class="form-label required fw-semibold">Paid Amount (₹)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₹</span>
+                            <input type="number" step="0.01" min="0.01" id="edit-payment-amount" name="amount" class="form-control form-control-lg" placeholder="e.g. 50000" required autofocus />
                         </div>
+                    </div>
 
-                        <div class="mb-3">
-                            <label class="form-label required fw-semibold">Payment Method</label>
-                            <select id="edit-payment-method" name="payment_method" class="form-select" required>
-                                <option value="cash">Cash</option>
-                                <option value="online">Online</option>
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label required fw-semibold">Payment Method</label>
+                        <select id="edit-payment-method" name="payment_method" class="form-select form-select-lg no-select2" required>
+                            <option value="cash">Cash</option>
+                            <option value="online">Online</option>
+                        </select>
                     </div>
-                    <div class="modal-footer border-top">
-                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" id="editPaymentSubmitBtn" class="btn btn-primary">
-                            <i class="ti ti-check me-1"></i> Save Changes
-                        </button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
+                    <button type="submit" id="editPaymentSubmitBtn" class="btn btn-primary flex-fill w-50 m-0">
+                        <i class="ti ti-check me-1"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -212,7 +210,7 @@
                 window.refreshTable();
             });
 
-            // Edit Modal Handler
+            // Edit Offcanvas Handler
             $(document).on('click', '.edit-payable-payment-btn', function () {
                 const id = $(this).data('id');
                 const amount = $(this).data('amount');
@@ -222,8 +220,9 @@
                 $('#edit-payment-amount').val(amount);
                 $('#edit-payment-method').val(method.toLowerCase());
 
-                const modal = new bootstrap.Modal(document.getElementById('editPaymentModal'));
-                modal.show();
+                const offcanvasEl = document.getElementById('editPaymentOffcanvas');
+                const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+                offcanvas.show();
             });
 
             // Submit Edit Form AJAX
@@ -244,7 +243,8 @@
                     success: function (res) {
                         submitBtn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Save Changes');
                         if (res.status === 'success') {
-                            bootstrap.Modal.getInstance(document.getElementById('editPaymentModal')).hide();
+                            const offcanvasEl = document.getElementById('editPaymentOffcanvas');
+                            bootstrap.Offcanvas.getInstance(offcanvasEl)?.hide();
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Success',
