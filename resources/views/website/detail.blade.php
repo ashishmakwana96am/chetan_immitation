@@ -38,7 +38,12 @@
         position: relative !important;
     }
 
-    .mainSwiper .swiper-wrapper,
+    @media (max-width: 767px) {
+        .mainSwiper {
+            aspect-ratio: 1 / 1.15 !important;
+        }
+    }
+
     .mainSwiper .swiper-slide {
         width: 100% !important;
         height: 100% !important;
@@ -63,7 +68,6 @@
         object-fit: cover !important;
         display: block !important;
         border-radius: 16px !important;
-        transform-origin: center center !important;
     }
 
     .thumbSwiper .swiper-slide {
@@ -486,12 +490,13 @@ function fmtPrice(amount) {
 <script>
 
 const thumbSwiper = new Swiper(".thumbSwiper", {
-    spaceBetween: 15,
+    spaceBetween: 12,
     slidesPerView: 5,
+    freeMode: true,
     watchSlidesProgress: true,
     breakpoints: {
-        0: { slidesPerView: 3 },
-        992: { slidesPerView: 3 },
+        0: { slidesPerView: 4 },
+        768: { slidesPerView: 5 },
         1199: { slidesPerView: 5 }
     }
 });
@@ -499,12 +504,57 @@ const thumbSwiper = new Swiper(".thumbSwiper", {
 const mainSwiper = new Swiper(".mainSwiper", {
     spaceBetween: 10,
     loop: true,
-    zoom: {
-        maxRatio: 4,
-        minRatio: 1,
-        toggle: true,
-    },
     thumbs: { swiper: thumbSwiper },
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const slides = document.querySelectorAll('.mainSwiper .swiper-slide');
+
+    slides.forEach(slide => {
+        const img = slide.querySelector('.zoom-main-img');
+        if (!img) return;
+
+        // 1. Desktop Mouse Hover Zoom (follows mouse position dynamically)
+        slide.addEventListener('mousemove', (e) => {
+            if (window.matchMedia('(pointer: fine)').matches) {
+                const rect = slide.getBoundingClientRect();
+                const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                img.style.transformOrigin = `${x}% ${y}%`;
+                img.style.transition = 'none';
+                img.style.transform = 'scale(2.5)';
+            }
+        });
+
+        slide.addEventListener('mouseleave', () => {
+            if (window.matchMedia('(pointer: fine)').matches) {
+                img.style.transition = 'transform 0.3s ease-out, transform-origin 0.3s ease-out';
+                img.style.transform = 'scale(1)';
+                img.style.transformOrigin = 'center center';
+            }
+        });
+
+        // 2. Mobile Touch Tap Zoom
+        let isZoomed = false;
+        img.addEventListener('click', function (e) {
+            if (window.matchMedia('(pointer: coarse)').matches) {
+                e.preventDefault();
+                isZoomed = !isZoomed;
+                this.style.transformOrigin = 'center center';
+                this.style.transition = 'transform 0.3s ease-in-out';
+                this.style.transform = isZoomed ? 'scale(1.8)' : 'scale(1)';
+            }
+        });
+    });
+
+    if (mainSwiper && typeof mainSwiper.on === 'function') {
+        mainSwiper.on('slideChange', function () {
+            document.querySelectorAll('.mainSwiper .zoom-main-img').forEach(img => {
+                img.style.transform = 'scale(1)';
+                img.style.transformOrigin = 'center center';
+            });
+        });
+    }
 });
 
 </script>
