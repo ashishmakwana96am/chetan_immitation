@@ -55,7 +55,7 @@
         .label-table td.zone-front {
             width: 76.54pt !important; /* 2.7cm */
             height: 34.02pt !important;
-            padding: 1pt 2pt 0.8pt 2pt !important;
+            padding: 2.2pt 2pt 0.5pt 2pt !important;
             overflow: hidden !important;
         }
         .label-table td.zone-back {
@@ -77,16 +77,16 @@
             overflow: hidden !important;
         }
         .code-line {
-            font-size: 8.2pt !important;
+            font-size: 8.0pt !important;
             font-weight: bold !important;
-            line-height: 1.05 !important;
+            line-height: 1.0 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden !important;
             text-overflow: clip !important;
             max-width: 72pt !important;
             text-align: left !important;
-            margin-bottom: 1pt !important;
+            margin-bottom: 0.5pt !important;
             padding-left: 5pt !important;
         }
         .barcode-container {
@@ -106,14 +106,14 @@
             image-rendering: pixelated;
         }
         .category-line {
-            font-size: 8.2pt !important;
+            font-size: 8.0pt !important;
             font-weight: bold !important;
-            line-height: 1.05 !important;
+            line-height: 1.0 !important;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-align: left !important;
-            margin-top: 1pt !important;
+            margin-top: 0.5pt !important;
             padding-left: 5pt !important;
         }
         .variant-line {
