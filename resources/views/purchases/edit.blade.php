@@ -433,8 +433,10 @@ $(document).ready(function () {
         }
     }
     let allProducts = [];
+    let isExistingItemsLoaded = false;
     $.getJSON('{{ route("admin.purchases.products-json") }}', function(res) {
         allProducts = res || [];
+        loadExistingItems();
     });
     const locations = @json($locations->map(fn ($l) => ['id' => $l->id, 'name' => $l->name])->values());
     updateGrandTotal();
@@ -749,12 +751,16 @@ $(document).ready(function () {
     // Pre-populate existing items correctly
     function loadExistingItems() {
         const existingItems = @json($existingItems);
-        if (!existingItems || existingItems.length === 0) return;
+        if (!existingItems || existingItems.length === 0 || isExistingItemsLoaded) return;
+        isExistingItemsLoaded = true;
 
         existingItems.forEach(function(item) {
             if (parseInt(item.quantity) <= 0) return;
 
-            const product = allProducts.find(p => p.id == item.product_id);
+            let product = allProducts.find(p => p.id == item.product_id);
+            if (!product && item.product) {
+                product = item.product;
+            }
             if (!product) return;
 
             const discType = item.discount_type || 'percentage';

@@ -253,8 +253,10 @@ $(document).ready(function () {
     let itemIndex = 0;
 
     let allProducts = [];
+    let isExistingItemsLoaded = false;
     $.getJSON('{{ route("admin.purchase-bills.products-json") }}', function(res) {
         allProducts = res || [];
+        loadExistingItems();
     });
     const existingItems = @json($existingItems);
     const symbol = '{{ currency_symbol() }}';
@@ -736,12 +738,16 @@ $(document).ready(function () {
 
     // Pre-populate items already on this purchase bill
     function loadExistingItems() {
-        if (!existingItems || !existingItems.length) return;
+        if (!existingItems || !existingItems.length || isExistingItemsLoaded) return;
+        isExistingItemsLoaded = true;
 
         existingItems.forEach(function (item) {
             if (parseInt(item.quantity) <= 0) return;
 
-            const product = allProducts.find(p => p.id == item.product_id);
+            let product = allProducts.find(p => p.id == item.product_id);
+            if (!product && item.product) {
+                product = item.product;
+            }
             if (!product) return;
 
             if (product.type === 'variable') {

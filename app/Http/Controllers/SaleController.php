@@ -903,6 +903,7 @@ class SaleController extends Controller
         $defaultLocationId = $isRestricted ? $user->location_id : null;
 
         $existingItems = $sale->items->map(function ($item) {
+            $product = $item->product;
             return [
                 'product_id' => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
@@ -912,6 +913,25 @@ class SaleController extends Controller
                 'quantity' => $item->quantity,
                 'discount_type' => $item->discount_type ?? 'flat',
                 'discount_value' => $item->discount_value ?? 0,
+                'product' => $product ? [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'barcode' => $product->barcode,
+                    'label' => $product->name . ' (' . ($product->barcode ?? '-') . ')',
+                    'price' => (float) $product->sale_price,
+                    'purchase_price' => (float) $product->purchase_price,
+                    'image' => $product->primary_image_url,
+                    'type' => $product->type ?? ($product->is_variable ? 'variable' : 'simple'),
+                    'pair_product' => (bool) $product->pair_product,
+                    'custom_sizes' => $product->custom_sizes ?? [],
+                    'variants' => $product->variants->map(fn($v) => [
+                        'id' => $v->id,
+                        'attr_name' => $v->attributeValue->attribute->name ?? 'Attribute',
+                        'value_name' => $v->attributeValue->value ?? '',
+                        'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
+                        'purchase_price' => (float) ($v->purchase_price ?? $product->purchase_price),
+                    ])->values()->toArray(),
+                ] : null,
             ];
         })->values();
 

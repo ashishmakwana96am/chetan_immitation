@@ -333,12 +333,32 @@ class PurchaseBillController extends Controller
 
         $purchaseBill->load('items.product', 'items.variant');
         $existingItems = $purchaseBill->items->map(function ($item) {
+            $product = $item->product;
             return [
                 'product_id' => $item->product_id,
                 'product_variant_id' => $item->product_variant_id,
                 'pair_type' => $item->pair_type ?? 'single',
                 'custom_size_value' => $item->custom_size_value,
                 'quantity' => $item->quantity,
+                'product' => $product ? [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'barcode' => $product->barcode,
+                    'label' => $product->name . ' (' . ($product->barcode ?? '-') . ')',
+                    'price' => (float) $product->sale_price,
+                    'purchase_price' => (float) $product->purchase_price,
+                    'image' => $product->primary_image_url,
+                    'type' => $product->type ?? ($product->is_variable ? 'variable' : 'simple'),
+                    'pair_product' => (bool) $product->pair_product,
+                    'custom_sizes' => $product->custom_sizes ?? [],
+                    'variants' => $product->variants->map(fn($v) => [
+                        'id' => $v->id,
+                        'attr_name' => $v->attributeValue->attribute->name ?? 'Attribute',
+                        'value_name' => $v->attributeValue->value ?? '',
+                        'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
+                        'purchase_price' => (float) ($v->purchase_price ?? $product->purchase_price),
+                    ])->values()->toArray(),
+                ] : null,
             ];
         })->values();
 

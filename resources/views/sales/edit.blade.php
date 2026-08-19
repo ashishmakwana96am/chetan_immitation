@@ -548,8 +548,10 @@ $(document).ready(function () {
         }
     }
     let allProducts = [];
+    let isExistingItemsLoaded = false;
     $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
         allProducts = res || [];
+        loadExistingItems();
     });
     const locations = @json($locations);
     const existingItems = @json($existingItems);
@@ -970,7 +972,8 @@ $(document).ready(function () {
 
     // Pre-populate existing items correctly grouping under their parent products
     function loadExistingItems() {
-        if (!existingItems || existingItems.length === 0) return;
+        if (!existingItems || existingItems.length === 0 || isExistingItemsLoaded) return;
+        isExistingItemsLoaded = true;
 
         // Group existing items by product_id
         const grouped = {};
@@ -983,10 +986,12 @@ $(document).ready(function () {
 
         // For each unique product_id
         Object.keys(grouped).forEach(function(productId) {
-            const product = allProducts.find(p => p.id == productId);
-            if (!product) return;
-
             const itemsForProduct = grouped[productId];
+            let product = allProducts.find(p => p.id == productId);
+            if (!product && itemsForProduct[0] && itemsForProduct[0].product) {
+                product = itemsForProduct[0].product;
+            }
+            if (!product) return;
 
             if (product.type === 'variable') {
                 const variantItems = itemsForProduct.filter(item => item.product_variant_id != null);
