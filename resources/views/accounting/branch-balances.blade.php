@@ -257,7 +257,6 @@
         const table = $('#branchBalancesTable').DataTable({
             responsive : false,
             order      : [[11, 'desc']],
-            orderFixed : { pre: [[11, 'desc']] },
             columnDefs : [
                 { targets: [10, 11], visible: false }
             ],
@@ -297,13 +296,23 @@
             },
             columns     : [
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'source_type', orderable: false, render: function (data) { return sourceBadge(data); } },
+                { data: 'source_type', render: function (data) { return sourceBadge(data); } },
                 { data: 'time' },
                 { data: 'branch_name' },
-                { data: 'balance_type', orderable: false },
-                { data: 'type', orderable: false },
-                { data: 'amount', className: 'fw-semibold text-nowrap' },
-                { data: 'balance_after', className: 'fw-semibold text-nowrap', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
+                { data: 'balance_type', render: function (data, type, row) { return type === 'sort' ? String(data).replace(/<[^>]*>/g, '') : data; } },
+                { data: 'type', render: function (data, type, row) { return type === 'sort' ? String(data).replace(/<[^>]*>/g, '') : data; } },
+                { data: 'amount', className: 'fw-semibold text-nowrap', render: function (data, type, row) {
+                    if (type === 'sort' || type === 'type') {
+                        return row.amount_raw !== undefined ? row.amount_raw : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                    }
+                    return data;
+                } },
+                { data: 'balance_after', className: 'fw-semibold text-nowrap', render: function(d, type, row) {
+                    if (type === 'sort' || type === 'type') {
+                        return row.balance_after_raw !== undefined ? row.balance_after_raw : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
+                    }
+                    return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
+                } },
                 { data: 'notes' },
                 { data: 'created_by' },
                 { data: 'date_group', visible: false },

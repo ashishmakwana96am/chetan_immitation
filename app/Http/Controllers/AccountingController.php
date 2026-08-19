@@ -136,12 +136,14 @@ class AccountingController extends Controller
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
                 'type'          => $isCredit ? 'credit' : 'debit',
                 'type_badge'    => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
-                'amount'        => format_price($tx->amount),
-                'is_credit'     => $isCredit,
-                'credit'        => $isCredit ? format_price($tx->amount) : '-',
-                'debit'         => !$isCredit ? format_price($tx->amount) : '-',
-                'balance_after' => format_price($tx->balance_after),
-                'done_by'       => $tx->createdBy->name ?? '-',
+                'amount'            => format_price($tx->amount),
+                'amount_raw'        => (float) $tx->amount,
+                'is_credit'         => $isCredit,
+                'credit'            => $isCredit ? format_price($tx->amount) : '-',
+                'debit'             => !$isCredit ? format_price($tx->amount) : '-',
+                'balance_after'     => format_price($tx->balance_after),
+                'balance_after_raw' => (float) $tx->balance_after,
+                'done_by'           => $tx->createdBy->name ?? '-',
             ];
         });
 
@@ -285,12 +287,14 @@ class AccountingController extends Controller
                 'particulars'   => !empty($tx->notes) ? $tx->notes : 'Manual Balance Adjustment',
                 'type'          => $isCredit ? 'credit' : 'debit',
                 'type_badge'    => $isCredit ? '<span class="badge bg-label-success">Credit</span>' : '<span class="badge bg-label-danger">Debit</span>',
-                'amount'        => format_price($tx->amount),
-                'is_credit'     => $isCredit,
-                'credit'        => $isCredit ? format_price($tx->amount) : '-',
-                'debit'         => !$isCredit ? format_price($tx->amount) : '-',
-                'balance_after' => format_price($tx->balance_after),
-                'done_by'       => $tx->createdBy->name ?? '-',
+                'amount'            => format_price($tx->amount),
+                'amount_raw'        => (float) $tx->amount,
+                'is_credit'         => $isCredit,
+                'credit'            => $isCredit ? format_price($tx->amount) : '-',
+                'debit'             => !$isCredit ? format_price($tx->amount) : '-',
+                'balance_after'     => format_price($tx->balance_after),
+                'balance_after_raw' => (float) $tx->balance_after,
+                'done_by'           => $tx->createdBy->name ?? '-',
             ];
         });
 
@@ -762,12 +766,15 @@ class AccountingController extends Controller
 
         $mappedRows = $sortedRows->map(function ($row, $index) {
             return [
-                'index'        => $index + 1,
-                'supplier_id'  => $row['supplier_id'],
-                'supplier'     => e($row['supplier_name']),
-                'total_amount' => format_price($row['total_amount']),
-                'paid_amount'  => format_price($row['paid_amount']),
-                'due_amount'   => format_price($row['due_amount']),
+                'index'            => $index + 1,
+                'supplier_id'      => $row['supplier_id'],
+                'supplier'         => e($row['supplier_name']),
+                'total_amount'     => format_price($row['total_amount']),
+                'raw_total_amount' => (float) $row['total_amount'],
+                'paid_amount'      => format_price($row['paid_amount']),
+                'raw_paid_amount'  => (float) $row['paid_amount'],
+                'due_amount'       => format_price($row['due_amount']),
+                'raw_due_amount'   => (float) $row['due_amount'],
             ];
         });
 
@@ -1424,10 +1431,12 @@ class AccountingController extends Controller
                 'branch_name'   => $tx->location->name ?? '-',
                 'source_type'   => $detectedSource,
                 'balance_type'  => $balanceTypeBadge,
-                'type'          => $typeBadge,
-                'amount'        => $amountSpan,
-                'balance_after' => format_price($tx->balance_after),
-                'notes'         => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
+                'type'              => $typeBadge,
+                'amount'            => $amountSpan,
+                'amount_raw'        => (float) $tx->amount,
+                'balance_after'     => format_price($tx->balance_after),
+                'balance_after_raw' => (float) $tx->balance_after,
+                'notes'             => (!empty($tx->notes) && $tx->notes !== 'Manual Account Balance Adjustment') ? e($tx->notes) : 'Opening Balance Added',
                 'created_by'    => e($tx->createdBy->name ?? '-'),
                 'date_group'    => $tx->created_at->format('d M Y'),
                 'date_sort'     => $tx->created_at->format('YmdHis'),

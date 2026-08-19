@@ -277,7 +277,6 @@
         const table = $('#generalLedgerTable').DataTable({
             responsive: false,
             order:      [[dateSortCol, 'desc']],
-            orderFixed: { pre: [[dateSortCol, 'desc']] },
             columnDefs: [
                 { targets: [dateGroupCol, dateSortCol], visible: false },
             ],
@@ -320,16 +319,19 @@
             },
             columns: [
                 { data: 'index', orderable: false, width: '4%' },
-                { data: 'source_type', orderable: false,
+                { data: 'source_type',
                   render: function (data) { return sourceBadge(data); }
                 },
-                { data: 'balance_type_badge', orderable: false },
+                { data: 'balance_type', render: function (data, type, row) { return type === 'sort' ? data : row.balance_type_badge; } },
                 @if(!$isRestricted)
                 { data: 'location' },
                 @endif
                 { data: 'particulars' },
-                { data: 'type_badge', orderable: false },
-                { data: 'amount', orderable: false, className: 'fw-bold text-nowrap', render: function (data, type, row) {
+                { data: 'type', render: function (data, type, row) { return type === 'sort' ? data : row.type_badge; } },
+                { data: 'amount', className: 'fw-bold text-nowrap', render: function (data, type, row) {
+                    if (type === 'sort' || type === 'type') {
+                        return row.raw_credit || row.raw_debit || (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                    }
                     return row.is_credit ? '<span class="text-success">' + data + '</span>' : '<span class="text-danger">' + data + '</span>';
                 } },
                 { data: 'done_by' },

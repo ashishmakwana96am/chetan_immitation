@@ -73,10 +73,13 @@ class ExpenseController extends Controller
                 'index' => $index + 1,
                 'title' => e($expense->title),
                 'category' => '<span class="badge bg-label-secondary">' . e($expense->category) . '</span>',
+                'raw_category' => e($expense->category),
                 'amount' => format_price($expense->amount),
+                'raw_amount' => (float) $expense->amount,
                 'payment_method' => e($expense->payment_method),
                 'location' => e($expense->location->name ?? '-'),
                 'expense_date' => format_date($expense->expense_date),
+                'expense_date_sort' => $expense->expense_date ? $expense->expense_date->format('Ymd') : '',
                 'created_by' => e($expense->createdBy->name ?? '-'),
                 'actions' => $actions,
             ];

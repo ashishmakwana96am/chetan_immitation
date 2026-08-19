@@ -390,7 +390,6 @@
         $('#paymentsTable').DataTable({
             responsive : false,
             order      : [[9, 'desc']],
-            orderFixed : { pre: [[9, 'desc']] },
             columnDefs : [
                 {
                     targets: 0,

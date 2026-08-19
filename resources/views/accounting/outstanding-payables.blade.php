@@ -268,11 +268,23 @@
                             return `<a href="{{ route('admin.accounting.outstanding-payables.detail') }}?supplier_id=${row.supplier_id}${locationQuery}" class="fw-semibold text-body">${data}</a>`;
                         }
                     },
-                    { data: 'total_amount', className: 'text-end fw-semibold text-heading' },
+                    { 
+                        data: 'total_amount', 
+                        className: 'text-end fw-semibold text-heading',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_total_amount !== undefined ? row.raw_total_amount : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
                     { 
                         data: 'paid_amount', 
                         className: 'text-end fw-semibold text-heading',
                         render: function(data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_paid_amount !== undefined ? row.raw_paid_amount : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
                             return `<span class="text-success fw-semibold">${data}</span>`;
                         }
                     },
@@ -280,6 +292,9 @@
                         data: 'due_amount', 
                         className: 'text-end fw-semibold text-heading',
                         render: function(data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_due_amount !== undefined ? row.raw_due_amount : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
                             return `<span class="text-danger fw-semibold">${data}</span>`;
                         }
                     },

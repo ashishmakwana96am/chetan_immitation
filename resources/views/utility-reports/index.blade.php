@@ -212,7 +212,6 @@
                 processing : false,
                 serverSide : true,
                 order      : [[9, 'desc']],
-                orderFixed : { pre: [[9, 'desc']] },
                 ajax       : {
                     url: '{{ route('admin.reports.utility.data') }}',
                     dataSrc: 'data',

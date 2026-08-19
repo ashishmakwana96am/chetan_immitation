@@ -125,13 +125,23 @@
                 columns: [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                     { data: 'title' },
-                    { data: 'category', orderable: false },
-                    { data: 'amount' },
+                    { data: 'category', render: function (data, type, row) { return type === 'sort' ? (row.raw_category || String(data).replace(/<[^>]*>/g, '')) : data; } },
+                    { data: 'amount', render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_amount !== undefined ? row.raw_amount : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    } },
                     { data: 'payment_method' },
                     @if(!$isRestricted)
                         { data: 'location' },
                     @endif
-                    { data: 'expense_date' },
+                    { data: 'expense_date', render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.expense_date_sort || data;
+                        }
+                        return data;
+                    } },
                     { data: 'created_by' },
                     @if(auth()->user()->can('edit expenses') || auth()->user()->can('delete expenses'))
                         { data: 'actions', orderable: false },

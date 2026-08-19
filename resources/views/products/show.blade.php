@@ -946,7 +946,6 @@
             const purchaseTable = $('#purchaseHistoryTable').DataTable({
                 responsive: false,
                 order: [[{{ $purchaseDateSortIdx }}, 'desc']],
-                orderFixed: { pre: [[{{ $purchaseDateSortIdx }}, 'desc']] },
                 language: { emptyTable: 'No purchase history found for this product.' },
                 ajax: { url: '{{ route('admin.products.purchase-history', $product) }}', dataSrc: 'data', cache: false },
                 columns: purchaseColumns,
@@ -981,7 +980,6 @@
             const transferTable = $('#transferHistoryTable').DataTable({
                 responsive: false,
                 order: [[{{ $transferDateSortIdx }}, 'desc']],
-                orderFixed: { pre: [[{{ $transferDateSortIdx }}, 'desc']] },
                 language: { emptyTable: 'No purchase bill history found for this product.' },
                 ajax: { url: '{{ route('admin.products.transfer-history', $product) }}', dataSrc: 'data', cache: false },
                 columns: transferColumns,
@@ -1016,7 +1014,6 @@
             const saleTable = $('#saleHistoryTable').DataTable({
                 responsive: false,
                 order: [[{{ $saleDateSortIdx }}, 'desc']],
-                orderFixed: { pre: [[{{ $saleDateSortIdx }}, 'desc']] },
                 language: { emptyTable: 'No sales history found for this product.' },
                 ajax: { url: '{{ route('admin.products.sale-history', $product) }}', dataSrc: 'data', cache: false },
                 columns: saleColumns,

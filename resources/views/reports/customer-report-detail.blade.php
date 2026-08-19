@@ -321,7 +321,6 @@
                 $table.DataTable({
                     responsive: false,
                     order: [[sortCol, 'desc']],
-                    orderFixed: { pre: [[sortCol, 'desc']] },
                     columnDefs: [
                         {
                             targets: 0,

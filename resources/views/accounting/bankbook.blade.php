@@ -248,7 +248,6 @@
         const table = $('#bankBookTable').DataTable({
             responsive : false,
             order      : [[{{ auth()->user()->hasRole('super-admin') ? 9 : 8 }}, 'desc']],
-            orderFixed : { pre: [[{{ auth()->user()->hasRole('super-admin') ? 9 : 8 }}, 'desc']] },
             columnDefs : [
                 { targets: {{ auth()->user()->hasRole('super-admin') ? '[8, 9]' : '[7, 8]' }}, visible: false }
             ],
@@ -283,16 +282,24 @@
             },
             columns     : [
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'source_type', orderable: false, render: function (data) { return sourceBadge(data); } },
+                { data: 'source_type', render: function (data) { return sourceBadge(data); } },
                 @if(auth()->user()->hasRole('super-admin'))
                     { data: 'location' },
                 @endif
                 { data: 'particulars' },
-                { data: 'type_badge', orderable: false },
+                { data: 'type', render: function (data, type, row) { return type === 'sort' ? data : row.type_badge; } },
                 { data: 'amount', className: 'fw-bold text-nowrap', render: function (data, type, row) {
+                    if (type === 'sort' || type === 'type') {
+                        return row.amount_raw !== undefined ? row.amount_raw : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                    }
                     return row.is_credit ? '<span class="text-success">' + data + '</span>' : '<span class="text-danger">' + data + '</span>';
                 } },
-                { data: 'balance_after', className: 'fw-bold text-nowrap', render: function(d) { return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d; } },
+                { data: 'balance_after', className: 'fw-bold text-nowrap', render: function(d, type, row) {
+                    if (type === 'sort' || type === 'type') {
+                        return row.balance_after_raw !== undefined ? row.balance_after_raw : (parseFloat(String(d).replace(/[^0-9.-]+/g, '')) || 0);
+                    }
+                    return d.includes('-') ? '<span class="text-danger">' + d + '</span>' : d;
+                } },
                 { data: 'done_by' },
                 { data: 'date_group', visible: false },
                 { data: 'date_sort', visible: false },
