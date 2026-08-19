@@ -129,13 +129,13 @@
             letter-spacing: 0.2pt;
         }
         .mrp-line {
-            font-size: 11.5pt !important;
+            font-size: 10.5pt !important;
             font-weight: bold !important;
             line-height: 1.05 !important;
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 22pt !important;
+            padding-left: 15pt !important;
             margin-bottom: 1.2pt !important;
         }
         .mrp-code-line {
@@ -146,7 +146,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 22pt !important;
+            padding-left: 15pt !important;
             margin-top: 1pt !important;
         }
     </style>
@@ -174,7 +174,16 @@
                         </td>
                         <!-- Zone 2: MRP (Center Section) -->
                         <td class="zone-back">
-                            <div class="mrp-line">MRP:{{ $item['mrp'] }}</div>
+                            @php
+                                $mrpStr = 'MRP:' . $item['mrp'];
+                                $mrpLen = strlen($mrpStr);
+                                $mrpFontSize = match(true) {
+                                    $mrpLen >= 9 => 9.2,
+                                    $mrpLen >= 8 => 10.0,
+                                    default => 10.8,
+                                };
+                            @endphp
+                            <div class="mrp-line" style="font-size: {{ $mrpFontSize }}pt !important;">MRP:{{ $item['mrp'] }}</div>
                             <div class="mrp-code-line">{{ $item['productCode'] }}</div>
                             @if(!empty($item['customSizeLabel']))
                                 <div class="mrp-code-line">{{ $item['customSizeLabel'] }}</div>
