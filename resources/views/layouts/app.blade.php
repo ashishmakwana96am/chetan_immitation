@@ -47,11 +47,32 @@
         display: flex; 
         align-items: center; 
         justify-content: center;
-        transition: opacity 0.35s ease;
+        transition: opacity 0.15s ease;
     }
     .page-loader.fade-out { 
         opacity: 0; 
         pointer-events: none; 
+    }
+
+    div.dataTables_processing {
+        position: absolute !important;
+        top: 45px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #5d596c !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        margin: 0 !important;
+        z-index: 10 !important;
+    }
+    div.dataTables_processing > div,
+    div.dataTables_processing .spinner-border,
+    div.dataTables_processing .spinner-grow {
+        display: none !important;
     }
 
     .loader-card {
@@ -159,6 +180,17 @@
             </div>
         </div>
     </div>
+    <script>
+        (function() {
+            var loader = document.getElementById('pageLoader');
+            if (loader) {
+                document.addEventListener('DOMContentLoaded', function() {
+                    loader.classList.add('fade-out');
+                    setTimeout(function() { if (loader && loader.parentNode) loader.parentNode.removeChild(loader); }, 150);
+                });
+            }
+        })();
+    </script>
 
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
@@ -243,12 +275,28 @@
     <script src="{{ asset('assets/vendor/libs/flatpickr/flatpickr.js') }}"></script>
     <script src="{{ asset('assets/js/common-modal.js') }}"></script>
     <script>
+        if (window.jQuery && $.fn && $.fn.dataTable) {
+            $.extend(true, $.fn.dataTable.defaults, {
+                language: {
+                    processing: '<span class="text-muted fw-semibold">Loading...</span>'
+                }
+            });
+        }
         $(document).ready(function() {
-            var activeDataTables = 0;
-            var hasDataTables = false;
+            if (window.jQuery && $.fn && $.fn.dataTable) {
+                $.extend(true, $.fn.dataTable.defaults, {
+                    language: {
+                        processing: '<span class="text-muted fw-semibold">Loading...</span>'
+                    }
+                });
+            }
             var loaderHidden = false;
 
-            window.hideAjaxLoader = function() {
+            window.hideAjaxLoader = function(btn) {
+                if (btn && typeof enableBtn === 'function') {
+                    enableBtn($(btn));
+                }
+                if (loaderHidden) return;
                 loaderHidden = true;
                 $('#pageLoader').addClass('fade-out');
                 var el = document.getElementById('ajaxLoaderOverlay');
@@ -261,64 +309,53 @@
                 }, 350);
             };
 
-            window.showAjaxLoader = function() {
-                if ($('#pageLoader').length === 0) {
-                    $('body').append(`
-                        <div class="page-loader" id="pageLoader">
-                            <div class="loader-card">
-                                <div class="loader-visual">
-                                    <div class="loader-ring"></div>
-                                    <div class="loader-logo-container">
-                                        <img src="{{ asset('assets/img/favicon/favicon.png') }}" alt="Logo" class="loader-logo-img" />
-                                    </div>
-                                </div>
-                                <div class="loader-text-wrapper">
-                                    <span class="loader-status">Loading</span>
-                                    <span class="loader-dots"><span>.</span><span>.</span><span>.</span></span>
-                                </div>
-                            </div>
-                        </div>
-                    `);
+            window.showAjaxLoader = function(btn) {
+                if (btn && typeof disableBtn === 'function') {
+                    disableBtn($(btn), 'Processing...');
+                } else {
+                    var el = document.getElementById('ajaxLoaderOverlay');
+                    if (el) {
+                        el.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                    } else if ($('#pageLoader').length) {
+                        $('#pageLoader').removeClass('fade-out').css('display', 'flex');
+                        document.body.style.overflow = 'hidden';
+                    }
                 }
                 loaderHidden = false;
-                $('#pageLoader').removeClass('fade-out');
             };
+
+            var hasDataTable = ($('.card-datatable').length > 0 || $('.table-responsive table').length > 0 || $('table[id]').length > 0);
 
             var fallbackTimeout = setTimeout(function() {
                 window.hideAjaxLoader();
-            }, 6000);
+            }, hasDataTable ? 1200 : 400);
 
             function checkAndHideLoader() {
                 if (window.jQuery && $.active > 0) {
-                    return;
-                }
-                if (activeDataTables > 0) {
                     return;
                 }
                 clearTimeout(fallbackTimeout);
                 window.hideAjaxLoader();
             }
 
-            $(document).on('preInit.dt', function(e, settings) {
-                if (settings && settings.oFeatures) {
-                    settings.oFeatures.bProcessing = false;
-                }
-                activeDataTables++;
-                hasDataTables = true;
-            });
-
             $(document).on('draw.dt init.dt error.dt xhr.dt', function(e, settings) {
-                activeDataTables = Math.max(0, activeDataTables - 1);
-                setTimeout(checkAndHideLoader, 150);
+                checkAndHideLoader();
             });
 
             $(document).ajaxStop(function() {
-                setTimeout(checkAndHideLoader, 150);
+                checkAndHideLoader();
             });
 
             $(window).on('load', function() {
-                setTimeout(checkAndHideLoader, 250);
+                if (!hasDataTable || (window.jQuery && $.active === 0)) {
+                    checkAndHideLoader();
+                }
             });
+
+            if (!hasDataTable) {
+                checkAndHideLoader();
+            }
 
             $('.flatpickr').each(function() {
                 let config = {
@@ -589,17 +626,6 @@
         </div>
     </div>
     <script>
-        window.showAjaxLoader = function () {
-            var el = document.getElementById('ajaxLoaderOverlay');
-            el.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        };
-        window.hideAjaxLoader = function () {
-            var el = document.getElementById('ajaxLoaderOverlay');
-            el.style.display = 'none';
-            document.body.style.overflow = '';
-        };
-
         // Shared barcode-print launcher: stashes the item list server-side and
         // opens the print tab with a short token instead of a giant query
         // string, since long item lists can exceed the server's max URL length.

@@ -209,7 +209,7 @@
 
             const table = $('#activityLogTable').DataTable({
                 responsive : false,
-                processing : true,
+                processing : false,
                 serverSide : true,
                 order      : [[9, 'desc']],
                 orderFixed : { pre: [[9, 'desc']] },

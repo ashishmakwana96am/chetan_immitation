@@ -36,6 +36,8 @@
                     }
                     $(id).DataTable({
                         responsive: false,
+                        deferRender: true,
+                        pageLength: 25,
                         order: [],
                         columnDefs: [
                             { targets: 0, orderable: false, searchable: false },

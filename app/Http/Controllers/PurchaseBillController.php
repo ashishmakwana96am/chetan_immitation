@@ -63,7 +63,7 @@ class PurchaseBillController extends Controller
 
         $user = auth()->user();
 
-        $transfers = PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+        $query = PurchaseBill::query()
             ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
                 $q->where(function ($sub) use ($user) {
                     $sub->where('from_location_id', $user->location_id)
@@ -76,19 +76,52 @@ class PurchaseBillController extends Controller
             ->when($request->payment_status, fn ($q) => $q->where('payment_status', $request->payment_status))
             ->when($request->product_id, fn ($q) => $q->whereHas('items', fn ($iq) => $iq->where('product_id', $request->product_id)))
             ->when($request->start_date, fn ($q) => $q->whereDate('created_at', '>=', $request->start_date))
-            ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date))
+            ->when($request->end_date, fn ($q) => $q->whereDate('created_at', '<=', $request->end_date));
+
+        $searchValue = $request->input('search.value');
+        if ($searchValue) {
+            $query->where(function ($sq) use ($searchValue) {
+                $sq->where('transfer_no', 'like', "%{$searchValue}%")
+                   ->orWhereHas('fromLocation', fn($lq) => $lq->where('name', 'like', "%{$searchValue}%"))
+                   ->orWhereHas('toLocation', fn($lq) => $lq->where('name', 'like', "%{$searchValue}%"))
+                   ->orWhereHas('createdBy', fn($uq) => $uq->where('name', 'like', "%{$searchValue}%"));
+            });
+        }
+
+        $recordsTotal = PurchaseBill::count();
+        $recordsFiltered = (clone $query)->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) $length = 25;
+
+        $transfers = (clone $query)
+            ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
             ->orderBy('id', 'desc')
+            ->skip($start)
+            ->take($length)
             ->get();
+
+        $allFilteredIds = (clone $query)->pluck('id');
+        $grandTotals = DB::table('purchase_bill_items')
+            ->leftJoin('products', 'products.id', '=', 'purchase_bill_items.product_id')
+            ->leftJoin('product_variants', 'product_variants.id', '=', 'purchase_bill_items.product_variant_id')
+            ->whereIn('purchase_bill_items.purchase_bill_id', $allFilteredIds)
+            ->selectRaw('
+                SUM(purchase_bill_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as grand_total_amount,
+                SUM(purchase_bill_items.quantity * COALESCE(products.mrp, 0)) as grand_total_mrp
+            ')
+            ->first();
+
+        $grandTotalAmount = (float) ($grandTotals->grand_total_amount ?? 0);
+        $grandTotalMrp    = (float) ($grandTotals->grand_total_mrp ?? 0);
 
         $canAccept = auth()->user()->can('accept purchase bills');
         $canReject = auth()->user()->can('reject purchase bills');
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
         $canEdit = auth()->user()->can('edit purchase bills');
 
-        $grandTotalAmount = 0.0;
-        $grandTotalMrp = 0.0;
-
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit, &$grandTotalAmount, &$grandTotalMrp) {
+        $data = $transfers->map(function ($transfer, $index) use ($start, $canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
             $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
             $canAcceptRecord = $canAccept;
             $canRejectRecord = $canReject;
@@ -98,8 +131,6 @@ class PurchaseBillController extends Controller
             $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
 
             [$totalAmount, $totalMrp] = $this->purchaseBillTotals($transfer);
-            $grandTotalAmount += $totalAmount;
-            $grandTotalMrp += $totalMrp;
 
             $actions = '<div class="dropdown table-action-dropdown">';
             $actions .= '<button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"><span>Actions</span></button>';
@@ -122,7 +153,7 @@ class PurchaseBillController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index' => $index + 1,
+                'index' => $start + $index + 1,
                 'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
                 'from_location' => e($transfer->fromLocation->name ?? '-'),
                 'to_location' => e($transfer->toLocation->name ?? '-'),
@@ -141,14 +172,13 @@ class PurchaseBillController extends Controller
         });
 
         return response()->json([
-            'status' => 'success',
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
             'grand_total_amount' => format_price($grandTotalAmount),
             'grand_total_mrp' => format_price($grandTotalMrp),
             'data' => $data,
-        ])
-        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-        ->header('Pragma', 'no-cache')
-        ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        ]);
     }
 
     public function export(Request $request)

@@ -63,19 +63,19 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Opening</span>
-                            <span class="fw-semibold" id="opening-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold" id="opening-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Sale</span>
-                            <span class="fw-semibold text-success" id="sale-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-success" id="sale-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Expense</span>
-                            <span class="fw-semibold text-danger" id="expense-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-danger" id="expense-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Closing</span>
-                            <span class="fw-semibold" id="closing-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold" id="closing-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                     </div>
                 </div>

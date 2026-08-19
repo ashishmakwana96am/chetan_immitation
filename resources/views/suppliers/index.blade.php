@@ -69,6 +69,7 @@
     <script>
         $(document).ready(function () {
             const table = $('#suppliersTable').DataTable({
+                processing : true,
                 responsive : false,
                 order      : [],
                 ajax       : {

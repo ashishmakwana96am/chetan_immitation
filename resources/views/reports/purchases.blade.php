@@ -200,44 +200,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($invoices as $index => $invoice)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td><code>{{ $invoice->invoice_no }}</code></td>
-                                    <td><span class="fw-semibold">{{ $invoice->supplier->name ?? 'Unknown' }}</span></td>
-                                    <td>
-                                        @php
-                                            $statusColors = [
-                                                1 => 'bg-label-secondary',
-                                                2 => 'bg-label-success',
-                                                3 => 'bg-label-danger',
-                                            ];
-                                            $statusLabels = [
-                                                1 => 'Pending',
-                                                2 => 'Approve',
-                                                3 => 'Decline',
-                                            ];
-                                            $badgeColor = $statusColors[$invoice->status] ?? 'bg-label-secondary';
-                                        @endphp
-                                        <span class="badge {{ $badgeColor }}">{{ $statusLabels[$invoice->status] ?? 'Pending' }}</span>
-                                    </td>
-                                    <td class="text-end text-nowrap fw-semibold">{{ format_price($invoice->total_amount) }}</td>
-                                    <td>
-                                        <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                                <span>Actions</span>
-                                            </button>
-                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                                <a href="{{ route('admin.purchases.show', $invoice->id) }}" class="dropdown-item">
-                                                    <i class="ti ti-eye me-2"></i>View
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="d-none">{{ $invoice->created_at->format('d M Y') }}</td>
-                                    <td class="d-none">{{ $invoice->created_at->format('Ymd') }}</td>
-                                </tr>
-                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -257,22 +219,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($productPurchases as $index => $item)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $item->product->name ?? '' }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
-                                                {{ $item->product->name ?? 'Unknown' }}
-                                            </a>
-                                        </div>
-                                    </td>
-                                    <td><code>{{ $item->product->barcode ?? '-' }}</code></td>
-                                    <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_purchased }}</td>
-                                    <td class="text-end text-nowrap fw-bold text-success">{{ format_price($item->total_cost) }}</td>
-                                </tr>
-                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -303,7 +249,6 @@
     }
 
     function initReport() {
-        // Initialize DataTables (destroy first if already exists)
         if ($.fn.DataTable.isDataTable('#purchasesReportTable')) {
             $('#purchasesReportTable').DataTable().destroy();
         }
@@ -312,42 +257,74 @@
         }
 
         $('#purchasesReportTable').DataTable({
-            responsive : false,
-            order      : [[7, 'desc']],
-            orderFixed : { pre: [[7, 'desc']] },
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    searchable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
-                    }
-                },
-                { targets: [6, 7], visible: false }
+            processing: true,
+            serverSide: true,
+            responsive: false,
+            pageLength: 25,
+            ajax: {
+                url: '{{ route("admin.reports.purchases.data") }}',
+                data: function (d) {
+                    d.start_date  = $('input[name="start_date"]').val();
+                    d.end_date    = $('input[name="end_date"]').val();
+                    d.supplier_id = $('select[name="supplier_id"]').val();
+                    d.is_gst      = $('select[name="is_gst"]').val();
+                }
+            },
+            columns: [
+                { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { data: 'invoice_no' },
+                { data: 'supplier' },
+                { data: 'status' },
+                { data: 'total_amount', className: 'text-end text-nowrap fw-semibold' },
+                { data: 'actions', orderable: false, searchable: false },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false }
             ],
-            rowGroup   : {
-                dataSrc: 6,
+            order: [[7, 'desc']],
+            rowGroup: {
+                dataSrc: 'date_group',
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
                         .append('<td colspan="6"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' purchase</span></div></td>');
                 }
-            },
+            }
         });
 
-        $('#purchasedProductsTable').DataTable({
-            responsive : false,
-            order      : [[3, 'desc']],
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
-                    }
-                }
-            ],
-        });
+        if ($('#tab-products').hasClass('active')) {
+            initProductsTable();
+        } else {
+            $(document).off('shown.bs.tab', 'button[data-bs-target="#tab-products"]').one('shown.bs.tab', 'button[data-bs-target="#tab-products"]', function () {
+                initProductsTable();
+            });
+        }
+
+        function initProductsTable() {
+            if (!$.fn.DataTable.isDataTable('#purchasedProductsTable')) {
+                $('#purchasedProductsTable').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    responsive: false,
+                    pageLength: 25,
+                    ajax: {
+                        url: '{{ route("admin.reports.purchases.products-data") }}',
+                        data: function (d) {
+                            d.start_date  = $('input[name="start_date"]').val();
+                            d.end_date    = $('input[name="end_date"]').val();
+                            d.supplier_id = $('select[name="supplier_id"]').val();
+                            d.is_gst      = $('select[name="is_gst"]').val();
+                        }
+                    },
+                    columns: [
+                        { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                        { data: 'product' },
+                        { data: 'barcode' },
+                        { data: 'qty_purchased', className: 'text-end text-nowrap' },
+                        { data: 'total_cost', className: 'text-end text-nowrap' }
+                    ],
+                    order: [[3, 'desc']]
+                });
+            }
+        }
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache
         const chartDataEl = $('#chart-data');

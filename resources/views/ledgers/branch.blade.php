@@ -72,7 +72,7 @@
                     </thead>
                     <tbody id="branchDuesBody">
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">Loading...</td>
+                            <td colspan="5" class="text-center py-4 text-muted fw-semibold">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -249,7 +249,12 @@
                 }
             });
 
+            function showBranchDuesLoader() {
+                $('#branchDuesBody').html('<tr><td colspan="5" class="text-center py-4 text-muted fw-semibold">Loading...</td></tr>');
+            }
+
             window.refreshTable = function () {
+                showBranchDuesLoader();
                 window.showAjaxLoader && window.showAjaxLoader();
                 table.ajax.reload(function () {
                     window.hideAjaxLoader && window.hideAjaxLoader();

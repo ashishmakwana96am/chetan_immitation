@@ -75,19 +75,19 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Cash In</span>
-                            <span class="fw-semibold text-success" id="credit-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-success" id="credit-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Cash Out</span>
-                            <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-danger" id="debit-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="text-muted small">Cash Balance</span>
-                            <span class="fw-semibold text-primary" id="balance-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-primary" id="balance-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted small">Credit Balance</span>
-                            <span class="fw-semibold text-info" id="customer-balance-{{ $loc->id }}">-</span>
+                            <span class="fw-semibold text-info" id="customer-balance-{{ $loc->id }}"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></span>
                         </div>
                     </div>
                 </div>

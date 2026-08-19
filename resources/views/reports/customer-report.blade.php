@@ -278,6 +278,8 @@
             }
             $('#customerReportTable').DataTable({
                 responsive: false,
+                deferRender: true,
+                pageLength: 25,
                 order: [[12, 'desc']],
                 columnDefs: [
                     {

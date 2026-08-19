@@ -258,36 +258,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $counter = 1; @endphp
-                    @foreach($productProfitability as $prodId => $data)
-                        @php
-                            $prodProfit = $data['total_revenue'] - $data['total_cost'];
-                            $prodMargin = $data['total_revenue'] > 0 ? ($prodProfit / $data['total_revenue']) * 100 : 0;
-                        @endphp
-                        <tr>
-                            <td>{{ $counter++ }}</td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img src="{{ $data['image_url'] }}" alt="{{ $data['name'] }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                    <a href="{{ route('admin.products.show', $prodId) }}" class="fw-semibold">
-                                        {{ $data['name'] }}
-                                    </a>
-                                </div>
-                            </td>
-                            <td><code>{{ $data['barcode'] }}</code></td>
-                            <td class="text-end fw-semibold">{{ $data['qty_sold'] }}</td>
-                            <td class="text-end text-success fw-semibold">{{ format_price($data['total_revenue']) }}</td>
-                            <td class="text-end text-danger fw-semibold">{{ format_price($data['total_cost']) }}</td>
-                            <td class="text-end {{ $prodProfit >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
-                                {{ format_price($prodProfit) }}
-                            </td>
-                            <td class="text-end">
-                                <span class="badge {{ $prodProfit >= 0 ? 'bg-label-success' : 'bg-label-danger' }}">
-                                    {{ round($prodMargin, 1) }}%
-                                </span>
-                            </td>
-                        </tr>
-                    @endforeach
                 </tbody>
             </table>
         </div>
@@ -307,17 +277,29 @@
         }
 
         $('#profitabilityTable').DataTable({
-            responsive : false,
-            order      : [],
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
-                    }
+            processing: true,
+            serverSide: true,
+            responsive: false,
+            pageLength: 25,
+            ajax: {
+                url: '{{ route("admin.reports.profit-loss.data") }}',
+                data: function (d) {
+                    d.start_date  = $('input[name="start_date"]').val();
+                    d.end_date    = $('input[name="end_date"]').val();
+                    d.location_id = $('select[name="location_id"]').val();
                 }
+            },
+            columns: [
+                { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { data: 'product' },
+                { data: 'barcode' },
+                { data: 'qty_sold', className: 'text-end' },
+                { data: 'total_revenue', className: 'text-end' },
+                { data: 'total_cost', className: 'text-end' },
+                { data: 'profit', className: 'text-end' },
+                { data: 'margin', className: 'text-end' }
             ],
+            order: []
         });
 
         const chartDataEl = $('#chart-data');
@@ -416,7 +398,6 @@
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
-            window.showAjaxLoader && window.showAjaxLoader();
 
             $.get(url, function (html) {
                 const parser = new DOMParser();
@@ -429,7 +410,6 @@
                 updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
-                window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 

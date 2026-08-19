@@ -239,52 +239,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($orders as $index => $order)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td><code>{{ $order->order_no }}</code></td>
-                                    <td><span class="fw-semibold">{{ $order->customer->name ?? 'Walk-in' }}</span></td>
-                                    <td><span class="badge bg-label-secondary">{{ $order->location->name ?? '-' }}</span></td>
-                                    <td>
-                                        @php
-                                            $payColors = [
-                                                1 => 'bg-label-warning',
-                                                2 => 'bg-label-success',
-                                                3 => 'bg-label-primary',
-                                            ];
-                                            $payLabels = [
-                                                1 => 'Pending',
-                                                2 => 'Paid',
-                                                3 => 'Partially Paid',
-                                            ];
-                                            $badgeColor = $payColors[$order->payment_status] ?? 'bg-label-secondary';
-                                        @endphp
-                                        <span class="badge {{ $badgeColor }}">{{ $payLabels[$order->payment_status] ?? 'Pending' }}</span>
-                                    </td>
-                                    <td>
-                                        @if($order->payment_method === 'online_cash')
-                                            <span class="small fw-semibold">Cash: {{ format_price($order->paid_cash_amount) }}, Online: {{ format_price($order->paid_online_amount) }}</span>
-                                        @else
-                                            <span class="text-uppercase small fw-semibold">{{ str_replace('_', ' ', $order->payment_method ?? '-') }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-end text-nowrap fw-semibold">{{ format_price($order->final_amount) }}</td>
-                                    <td>
-                                        <div class="dropdown table-action-dropdown">
-                                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                                <span>Actions</span>
-                                            </button>
-                                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                                <a href="{{ route('admin.sales.show', $order->id) }}" class="dropdown-item">
-                                                    <i class="ti ti-eye me-2"></i>View
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
-                                    <td class="d-none">{{ $order->created_at->format('Ymd') }}</td>
-                                </tr>
-                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -304,22 +258,6 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($productSales as $index => $item)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="{{ $item->product?->primary_image_url ?? asset('website/assets/images/no-image.svg') }}" alt="{{ $item->product->name ?? '' }}" class="rounded me-3 product-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">
-                                            <a href="{{ route('admin.products.show', $item->product_id) }}" class="fw-semibold">
-                                                {{ $item->product->name ?? 'Unknown' }}
-                                            </a>
-                                        </div>
-                                    </td>
-                                    <td><code>{{ $item->product->barcode ?? '-' }}</code></td>
-                                    <td class="text-end text-nowrap fw-bold text-info">{{ $item->qty_sold }}</td>
-                                    <td class="text-end text-nowrap fw-bold text-success">{{ format_price($item->total_revenue) }}</td>
-                                </tr>
-                            @endforeach
                         </tbody>
                     </table>
                 </div>
@@ -337,7 +275,6 @@
     let paymentMethodChart = null;
 
     function initReport() {
-        // Initialize DataTables (destroy first if already exists)
         if ($.fn.DataTable.isDataTable('#salesReportTable')) {
             $('#salesReportTable').DataTable().destroy();
         }
@@ -346,42 +283,80 @@
         }
 
         $('#salesReportTable').DataTable({
-            responsive : false,
-            order      : [[9, 'desc']],
-            orderFixed : { pre: [[9, 'desc']] },
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    searchable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
-                    }
-                },
-                { targets: [8, 9], visible: false }
+            processing: true,
+            serverSide: true,
+            responsive: false,
+            pageLength: 25,
+            ajax: {
+                url: '{{ route("admin.reports.sales.data") }}',
+                data: function (d) {
+                    d.start_date     = $('input[name="start_date"]').val();
+                    d.end_date       = $('input[name="end_date"]').val();
+                    d.location_id    = $('select[name="location_id"]').val();
+                    d.payment_status = $('select[name="payment_status"]').val();
+                    d.payment_method = $('select[name="payment_method"]').val();
+                    d.is_gst         = $('select[name="is_gst"]').val();
+                }
+            },
+            columns: [
+                { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                { data: 'invoice_no' },
+                { data: 'customer' },
+                { data: 'location' },
+                { data: 'payment_status' },
+                { data: 'payment_method' },
+                { data: 'final_amount', className: 'text-end text-nowrap fw-semibold' },
+                { data: 'actions', orderable: false, searchable: false },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false }
             ],
-            rowGroup   : {
-                dataSrc: 8,
+            order: [[9, 'desc']],
+            rowGroup: {
+                dataSrc: 'date_group',
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
                         .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' sale' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                 }
-            },
+            }
         });
 
-        $('#productsReportTable').DataTable({
-            responsive : false,
-            order      : [[3, 'desc']],
-            columnDefs : [
-                {
-                    targets: 0,
-                    orderable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
-                    }
-                }
-            ],
-        });
+        if ($('#tab-products').hasClass('active')) {
+            initProductsReportTable();
+        } else {
+            $(document).off('shown.bs.tab', 'button[data-bs-target="#tab-products"]').one('shown.bs.tab', 'button[data-bs-target="#tab-products"]', function () {
+                initProductsReportTable();
+            });
+        }
+
+        function initProductsReportTable() {
+            if (!$.fn.DataTable.isDataTable('#productsReportTable')) {
+                $('#productsReportTable').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    responsive: false,
+                    pageLength: 25,
+                    ajax: {
+                        url: '{{ route("admin.reports.sales.products-data") }}',
+                        data: function (d) {
+                            d.start_date     = $('input[name="start_date"]').val();
+                            d.end_date       = $('input[name="end_date"]').val();
+                            d.location_id    = $('select[name="location_id"]').val();
+                            d.payment_status = $('select[name="payment_status"]').val();
+                            d.payment_method = $('select[name="payment_method"]').val();
+                            d.is_gst         = $('select[name="is_gst"]').val();
+                        }
+                    },
+                    columns: [
+                        { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
+                        { data: 'product' },
+                        { data: 'barcode' },
+                        { data: 'qty_sold', className: 'text-end text-nowrap' },
+                        { data: 'total_revenue', className: 'text-end text-nowrap' }
+                    ],
+                    order: [[3, 'desc']]
+                });
+            }
+        }
 
         // Fetch Chart Data from DOM attributes to bypass jQuery cache
         const chartDataEl = $('#chart-data');
@@ -512,7 +487,6 @@
 
         function loadReport(url) {
             $('#report-results').css('opacity', 0.5);
-            window.showAjaxLoader && window.showAjaxLoader();
 
             $.get(url, function (html) {
                 const parser = new DOMParser();
@@ -525,7 +499,6 @@
                 updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
-                window.hideAjaxLoader && window.hideAjaxLoader();
             });
         }
 

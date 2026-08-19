@@ -65,13 +65,21 @@ $(document).ready(function () {
     window.hideAjaxLoader = function (btn) {
         if (btn) {
             enableBtn($(btn));
-        } else {
-            var el = document.getElementById('ajaxLoaderOverlay');
-            if (el) {
-                el.style.display = 'none';
-                document.body.style.overflow = '';
-            }
         }
+        var el = document.getElementById('ajaxLoaderOverlay');
+        if (el) {
+            el.style.display = 'none';
+        }
+        var pageLoader = document.getElementById('pageLoader');
+        if (pageLoader) {
+            pageLoader.classList.add('fade-out');
+            setTimeout(function() {
+                if (pageLoader && pageLoader.parentNode) {
+                    pageLoader.parentNode.removeChild(pageLoader);
+                }
+            }, 350);
+        }
+        document.body.style.overflow = '';
     };
 
     // -------------------------------------------------------

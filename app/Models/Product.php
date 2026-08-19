@@ -102,6 +102,14 @@ class Product extends Model
      */
     public function getPrimaryImageUrlAttribute(): string
     {
+        if ($this->relationLoaded('primaryImage')) {
+            $img = $this->getRelation('primaryImage');
+            return $img?->image_url ?? asset('website/assets/images/placeholder.png');
+        }
+        if ($this->relationLoaded('images')) {
+            $img = $this->images->first();
+            return $img?->image_url ?? asset('website/assets/images/placeholder.png');
+        }
         return $this->primaryImage?->image_url ?? asset('website/assets/images/placeholder.png');
     }
 
