@@ -272,24 +272,23 @@
                         if (res.status === 'success') {
                             const offcanvasEl = document.getElementById('editPaymentOffcanvas');
                             bootstrap.Offcanvas.getInstance(offcanvasEl)?.hide();
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Success',
-                                text: res.message || 'Payment entry updated successfully.',
-                                customClass: { confirmButton: 'btn btn-primary' }
-                            });
+                            if (typeof toastr !== 'undefined') {
+                                toastr.success(res.message || 'Payment record updated successfully.');
+                            } else {
+                                alert(res.message || 'Payment record updated successfully.');
+                            }
                             window.refreshTable();
                         }
                     },
                     error: function (xhr) {
                         submitBtn.prop('disabled', false).html('<i class="ti ti-check me-1"></i> Save Changes');
                         const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'An error occurred while updating.';
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: typeof msg === 'object' ? Object.values(msg).flat().join('\n') : msg,
-                            customClass: { confirmButton: 'btn btn-primary' }
-                        });
+                        const textMsg = typeof msg === 'object' ? Object.values(msg).flat().join('\n') : msg;
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error(textMsg);
+                        } else {
+                            alert(textMsg);
+                        }
                     }
                 });
             });
@@ -323,23 +322,22 @@
                             },
                             success: function (res) {
                                 if (res.status === 'success') {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Deleted!',
-                                        text: res.message || 'Payment entry deleted successfully.',
-                                        customClass: { confirmButton: 'btn btn-primary' }
-                                    });
+                                    if (typeof toastr !== 'undefined') {
+                                        toastr.success(res.message || 'Payment entry deleted successfully.');
+                                    } else {
+                                        alert(res.message || 'Payment entry deleted successfully.');
+                                    }
                                     window.refreshTable();
                                 }
                             },
                             error: function (xhr) {
                                 const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to delete payment entry.';
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error',
-                                    text: msg,
-                                    customClass: { confirmButton: 'btn btn-primary' }
-                                });
+                                const textMsg = typeof msg === 'object' ? Object.values(msg).flat().join('\n') : msg;
+                                if (typeof toastr !== 'undefined') {
+                                    toastr.error(textMsg);
+                                } else {
+                                    alert(textMsg);
+                                }
                             }
                         });
                     }

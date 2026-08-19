@@ -384,10 +384,16 @@
                 $('#bulk-pay-max-val').text(formatted);
                 $('#bulk-pay-max-hint').show();
 
-                if (totalDue > 0) {
-                    $('#bulk-pay-amount').attr('max', totalDue);
-                } else {
+                if (selectedSupplierId) {
                     $('#bulk-pay-amount').removeAttr('max');
+                    $('#bulk-pay-max-hint').html('Pending Due: <strong class="text-danger" id="bulk-pay-max-val">' + formatted + '</strong>');
+                } else {
+                    if (totalDue > 0) {
+                        $('#bulk-pay-amount').attr('max', totalDue);
+                    } else {
+                        $('#bulk-pay-amount').removeAttr('max');
+                    }
+                    $('#bulk-pay-max-hint').html('Payable balance: <strong class="text-danger" id="bulk-pay-max-val">' + formatted + '</strong>');
                 }
             }
 
@@ -407,10 +413,11 @@
             $('#bulkPayForm').on('submit', function (e) {
                 e.preventDefault();
 
+                const selectedSupplierId = $('#bulk-pay-supplier-id').val();
                 const amountVal = parseFloat($('#bulk-pay-amount').val()) || 0;
                 const maxVal = parseFloat($('#bulk-pay-amount').attr('max')) || 0;
 
-                if (maxVal <= 0) {
+                if (!selectedSupplierId && maxVal <= 0) {
                     const msg = 'There are no pending payable balances to process.';
                     if (typeof toastr !== 'undefined') {
                         toastr.error(msg);
@@ -422,8 +429,8 @@
                     return false;
                 }
 
-                if (amountVal > maxVal) {
-                    const msg = 'Payment amount cannot exceed the total outstanding balance due (' + $('#bulk-pay-max-val').text() + ').';
+                if (!selectedSupplierId && amountVal > maxVal) {
+                    const msg = 'Payment amount cannot exceed the total outstanding balance due (' + $('#bulk-pay-max-val').text() + '). Select a supplier to pay advance.';
                     if (typeof toastr !== 'undefined') {
                         toastr.error(msg);
                     } else if (typeof Swal !== 'undefined') {

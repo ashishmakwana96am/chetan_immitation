@@ -14,11 +14,17 @@ use App\Models\LocationBalanceTransaction;
 use App\Models\Order;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
+use App\Models\PurchasePayment;
+use App\Models\Supplier;
+use App\Models\SupplierAdvancePayment;
+use App\Models\SupplierBalance;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class AccountingController extends Controller
 {
@@ -920,38 +926,44 @@ class AccountingController extends Controller
         }
         $totalOutstandingDue = round($totalOutstandingDue, 2);
 
-        if ($totalOutstandingDue <= 0) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'There are no pending payable balances to process.',
-            ], 422);
-        }
-
         $enteredAmount = round((float) $request->amount, 2);
-        if ($enteredAmount > $totalOutstandingDue) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Payment amount cannot exceed the total outstanding balance due (' . format_price($totalOutstandingDue) . ').',
-            ], 422);
+
+        if (!$request->filled('supplier_id')) {
+            if ($totalOutstandingDue <= 0) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'There are no pending payable balances to process.',
+                ], 422);
+            }
+            if ($enteredAmount > $totalOutstandingDue) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Payment amount cannot exceed total outstanding balance due (' . format_price($totalOutstandingDue) . '). Select a specific supplier to make an advance payment.',
+                ], 422);
+            }
         }
 
         $remainingPayment = $enteredAmount;
         $totalPaidAllocated = 0.0;
         $billsPaidCount = 0;
+        $advanceAmount = 0.0;
 
         \Illuminate\Support\Facades\DB::transaction(function () use (
             $purchases,
             $enteredAmount,
             $paymentMethod,
             $request,
+            $user,
             &$remainingPayment,
             &$totalPaidAllocated,
-            &$billsPaidCount
+            &$billsPaidCount,
+            &$advanceAmount
         ) {
-            // Record single consolidated lump sum payment entry
+            $supplierId = $request->filled('supplier_id') ? (int) $request->supplier_id : null;
+
             $bulkPayRecord = BulkPurchasePayment::create([
                 'total_amount'   => $enteredAmount,
-                'supplier_id'    => $request->filled('supplier_id') ? (int)$request->supplier_id : null,
+                'supplier_id'    => $supplierId,
                 'payment_method' => $paymentMethod,
                 'created_by'     => auth()->id(),
             ]);
@@ -965,14 +977,15 @@ class AccountingController extends Controller
                 'Created bulk purchase payment of ' . format_price($enteredAmount) . ' via ' . ucfirst($paymentMethod)
             );
 
+            // FIFO: Settle pending purchase bills
             foreach ($purchases as $purchase) {
                 if ($remainingPayment <= 0) {
                     break;
                 }
 
-                $currentPaid = $purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID
+                $currentPaid = $purchase->payment_status == Purchase::PAYMENT_STATUS_PAID
                     ? (float) $purchase->total_amount
-                    : ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
+                    : ($purchase->payment_status == Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
 
                 $due = round((float) $purchase->total_amount - $currentPaid, 2);
                 if ($due <= 0) {
@@ -983,26 +996,26 @@ class AccountingController extends Controller
                 $newPaidAmount = round($currentPaid + $payForThisBill, 2);
 
                 $finalStatus = ($newPaidAmount >= (float) $purchase->total_amount)
-                    ? \App\Models\Purchase::PAYMENT_STATUS_PAID
-                    : \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                    ? Purchase::PAYMENT_STATUS_PAID
+                    : Purchase::PAYMENT_STATUS_PARTIAL;
 
                 $oldStatus = (int) $purchase->payment_status;
                 $oldPaid = (float) $purchase->paid_amount;
 
-                \App\Models\PurchasePayment::create([
+                PurchasePayment::create([
                     'purchase_id'              => $purchase->id,
                     'bulk_purchase_payment_id' => $bulkPayRecord->id,
                     'amount'                   => $payForThisBill,
                     'created_by'               => auth()->id(),
                 ]);
 
-                \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
                     'payment_method' => $paymentMethod,
-                ]));
+                ])));
 
-                \App\Services\ActivityLogger::log(
+                ActivityLogger::log(
                     'Purchase',
                     'update',
                     $purchase,
@@ -1015,11 +1028,84 @@ class AccountingController extends Controller
                 $totalPaidAllocated = round($totalPaidAllocated + $payForThisBill, 2);
                 $billsPaidCount++;
             }
+
+            // Handle any remaining payment amount as Supplier Advance Payment
+            if ($remainingPayment > 0 && $supplierId) {
+                $advanceAmount = $remainingPayment;
+
+                SupplierAdvancePayment::create([
+                    'supplier_id'              => $supplierId,
+                    'bulk_purchase_payment_id' => $bulkPayRecord->id,
+                    'total_amount'             => $advanceAmount,
+                    'used_amount'              => 0.00,
+                    'remaining_amount'         => $advanceAmount,
+                    'payment_method'           => $paymentMethod,
+                    'notes'                    => 'Supplier Advance Payment',
+                    'created_by'               => auth()->id(),
+                ]);
+
+                $suppBal = SupplierBalance::firstOrCreate(['supplier_id' => $supplierId]);
+                $suppBal->balance = round((float) $suppBal->balance + $advanceAmount, 2);
+                if ($paymentMethod === 'cash') {
+                    $suppBal->cash_balance = round((float) $suppBal->cash_balance + $advanceAmount, 2);
+                } else {
+                    $suppBal->bank_balance = round((float) $suppBal->bank_balance + $advanceAmount, 2);
+                }
+                $suppBal->save();
+            }
+
+            // Record Location Cash/Bank debit transactions
+            $defaultLoc = Location::where('is_default', true)->first() ?? Location::first();
+            $locId = $user->location_id ?: ($defaultLoc ? $defaultLoc->id : 1);
+            $balanceType = $paymentMethod === 'cash' ? LocationBalanceTransaction::BALANCE_TYPE_CASH : LocationBalanceTransaction::BALANCE_TYPE_BANK;
+            $balCol = $paymentMethod === 'cash' ? 'cash_balance' : 'bank_balance';
+
+            $supplierObj = $supplierId ? Supplier::find($supplierId) : null;
+            $suppName = $supplierObj ? $supplierObj->name : 'Supplier';
+
+            // 1. Transaction for Purchase Bill Payment (if any allocated to bills)
+            if ($totalPaidAllocated > 0) {
+                $locBal = LocationBalance::firstOrCreate(['location_id' => $locId]);
+                $newBal = round((float) $locBal->{$balCol} - $totalPaidAllocated, 2);
+                $locBal->update([$balCol => $newBal]);
+
+                LocationBalanceTransaction::create([
+                    'location_id'   => $locId,
+                    'balance_type'  => $balanceType,
+                    'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $totalPaidAllocated,
+                    'balance_after' => $newBal,
+                    'notes'         => 'Purchase Payment (' . format_price($totalPaidAllocated) . ') to ' . $suppName,
+                    'created_by'    => auth()->id(),
+                ]);
+            }
+
+            // 2. Transaction for Advance Payment (if any remaining as advance)
+            if ($remainingPayment > 0) {
+                $locBal = LocationBalance::firstOrCreate(['location_id' => $locId]);
+                $newBal = round((float) $locBal->{$balCol} - $remainingPayment, 2);
+                $locBal->update([$balCol => $newBal]);
+
+                LocationBalanceTransaction::create([
+                    'location_id'   => $locId,
+                    'balance_type'  => $balanceType,
+                    'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $remainingPayment,
+                    'balance_after' => $newBal,
+                    'notes'         => 'Advance Payment (' . format_price($remainingPayment) . ') to ' . $suppName,
+                    'created_by'    => auth()->id(),
+                ]);
+            }
         });
+
+        $msg = 'Successfully allocated ' . format_price($totalPaidAllocated) . ' across ' . $billsPaidCount . ' bill(s).';
+        if ($advanceAmount > 0) {
+            $msg = 'Successfully paid ' . format_price($enteredAmount) . ' (' . format_price($totalPaidAllocated) . ' allocated to ' . $billsPaidCount . ' bill(s), ' . format_price($advanceAmount) . ' added as Supplier Advance Credit).';
+        }
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Successfully allocated ' . format_price($totalPaidAllocated) . ' across ' . $billsPaidCount . ' bill(s).',
+            'message' => $msg,
         ]);
     }
 
@@ -1125,18 +1211,18 @@ class AccountingController extends Controller
         try {
             DB::transaction(function () use ($payment, $newAmount, $newPaymentMethod) {
                 // 1. Revert previous purchase payments for this bulk payment
-                $linkedPayments = \App\Models\PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
+                $linkedPayments = PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
                 foreach ($linkedPayments as $pPayment) {
-                    $purchase = \App\Models\Purchase::find($pPayment->purchase_id);
+                    $purchase = Purchase::find($pPayment->purchase_id);
                     if ($purchase) {
                         $newPaid = max(0, round((float) $purchase->paid_amount - (float) $pPayment->amount, 2));
-                        $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PENDING;
+                        $newStatus = Purchase::PAYMENT_STATUS_PENDING;
                         if ($newPaid >= (float) $purchase->total_amount && (float) $purchase->total_amount > 0) {
-                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PAID;
+                            $newStatus = Purchase::PAYMENT_STATUS_PAID;
                         } elseif ($newPaid > 0) {
-                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                            $newStatus = Purchase::PAYMENT_STATUS_PARTIAL;
                         }
-                        \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                        Purchase::withoutActivityLogging(fn () => $purchase->update([
                             'paid_amount'    => $newPaid,
                             'payment_status' => $newStatus,
                         ]));
@@ -1146,9 +1232,9 @@ class AccountingController extends Controller
 
                 // 2. Re-allocate new amount FIFO
                 $supplierId = $payment->supplier_id;
-                $purchasesQuery = \App\Models\Purchase::whereIn('payment_status', [
-                    \App\Models\Purchase::PAYMENT_STATUS_PENDING,
-                    \App\Models\Purchase::PAYMENT_STATUS_PARTIAL,
+                $purchasesQuery = Purchase::whereIn('payment_status', [
+                    Purchase::PAYMENT_STATUS_PENDING,
+                    Purchase::PAYMENT_STATUS_PARTIAL,
                 ]);
 
                 if ($supplierId) {
@@ -1161,9 +1247,9 @@ class AccountingController extends Controller
                 foreach ($purchases as $purchase) {
                     if ($remainingPayment <= 0) break;
 
-                    $currentPaid = $purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID
+                    $currentPaid = $purchase->payment_status == Purchase::PAYMENT_STATUS_PAID
                         ? (float) $purchase->total_amount
-                        : ($purchase->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
+                        : ($purchase->payment_status == Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
 
                     $due = round((float) $purchase->total_amount - $currentPaid, 2);
                     if ($due <= 0) continue;
@@ -1172,21 +1258,21 @@ class AccountingController extends Controller
                     $newPaidAmount = round($currentPaid + $payForThisBill, 2);
 
                     $finalStatus = ($newPaidAmount >= (float) $purchase->total_amount)
-                        ? \App\Models\Purchase::PAYMENT_STATUS_PAID
-                        : \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                        ? Purchase::PAYMENT_STATUS_PAID
+                        : Purchase::PAYMENT_STATUS_PARTIAL;
 
-                    \App\Models\PurchasePayment::create([
+                    PurchasePayment::create([
                         'purchase_id'              => $purchase->id,
                         'bulk_purchase_payment_id' => $payment->id,
                         'amount'                   => $payForThisBill,
                         'created_by'               => auth()->id(),
                     ]);
 
-                    \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                    Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update([
                         'payment_status' => $finalStatus,
                         'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
                         'payment_method' => $newPaymentMethod,
-                    ]));
+                    ])));
 
                     $remainingPayment = round($remainingPayment - $payForThisBill, 2);
                 }
@@ -1233,25 +1319,67 @@ class AccountingController extends Controller
 
         try {
             DB::transaction(function () use ($payment) {
-                // Revert linked purchase payments
-                $linkedPayments = \App\Models\PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
+                // 1. Revert linked purchase payments & update purchase bills
+                $linkedPayments = PurchasePayment::where('bulk_purchase_payment_id', $payment->id)->get();
                 foreach ($linkedPayments as $pPayment) {
-                    $purchase = \App\Models\Purchase::find($pPayment->purchase_id);
+                    $purchase = Purchase::find($pPayment->purchase_id);
                     if ($purchase) {
                         $newPaid = max(0, round((float) $purchase->paid_amount - (float) $pPayment->amount, 2));
-                        $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PENDING;
+                        $newStatus = Purchase::PAYMENT_STATUS_PENDING;
                         if ($newPaid >= (float) $purchase->total_amount && (float) $purchase->total_amount > 0) {
-                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PAID;
+                            $newStatus = Purchase::PAYMENT_STATUS_PAID;
                         } elseif ($newPaid > 0) {
-                            $newStatus = \App\Models\Purchase::PAYMENT_STATUS_PARTIAL;
+                            $newStatus = Purchase::PAYMENT_STATUS_PARTIAL;
                         }
-                        \App\Models\Purchase::withoutActivityLogging(fn () => $purchase->update([
+                        Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update([
                             'paid_amount'    => $newPaid,
                             'payment_status' => $newStatus,
-                        ]));
+                        ])));
                     }
                     $pPayment->delete();
                 }
+
+                // 2. Revert linked supplier advance payments & supplier balances
+                $advances = SupplierAdvancePayment::where('bulk_purchase_payment_id', $payment->id)->get();
+                foreach ($advances as $adv) {
+                    $suppBal = SupplierBalance::where('supplier_id', $adv->supplier_id)->first();
+                    if ($suppBal) {
+                        $rem = (float) $adv->remaining_amount;
+                        $suppBal->balance = max(0.0, round((float) $suppBal->balance - $rem, 2));
+                        if ($adv->payment_method === 'cash') {
+                            $suppBal->cash_balance = max(0.0, round((float) $suppBal->cash_balance - $rem, 2));
+                        } else {
+                            $suppBal->bank_balance = max(0.0, round((float) $suppBal->bank_balance - $rem, 2));
+                        }
+                        $suppBal->save();
+                    }
+                    $adv->delete();
+                }
+
+                // 3. Delete matching LocationBalanceTransaction entry
+                $supplierObj = $payment->supplier_id ? Supplier::find($payment->supplier_id) : null;
+                $suppName = $supplierObj ? $supplierObj->name : '';
+
+                $matchingTxs = LocationBalanceTransaction::where('type', LocationBalanceTransaction::TYPE_DEBIT)
+                    ->where(function ($q) use ($suppName) {
+                        $q->where('notes', 'like', '%Purchase Payment%')
+                          ->orWhere('notes', 'like', '%Advance Payment%');
+                        if ($suppName) {
+                            $q->orWhere('notes', 'like', '%' . $suppName . '%');
+                        }
+                    })
+                    ->whereBetween('created_at', [
+                        $payment->created_at->copy()->subMinutes(15),
+                        $payment->created_at->copy()->addMinutes(15)
+                    ])
+                    ->get();
+
+                foreach ($matchingTxs as $mTx) {
+                    $mTx->delete();
+                }
+
+                // Recalculate all location balances & running transaction balances
+                Artisan::call('recalculate:location-balances');
 
                 $oldData = $payment->toArray();
                 $payment->delete();
@@ -1274,7 +1402,7 @@ class AccountingController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Payable payment entry deleted and purchase bill balances updated successfully.',
+            'message' => 'Payable payment entry deleted and all related balances reverted successfully.',
         ]);
     }
 

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Supplier Ledger Details')
+@section('title', 'Supplier Advance Payment History')
 
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
@@ -39,10 +39,6 @@
             background-color: rgba(40, 199, 111, 0.08);
             color: #28c76f;
         }
-        .card-title-icon-danger {
-            background-color: rgba(234, 84, 85, 0.08);
-            color: #ea5455;
-        }
         .card-datatable .dataTables_wrapper .row:first-child {
             padding: 1.25rem 1.5rem 0.75rem;
             margin: 0;
@@ -57,8 +53,8 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h4 class="fw-semibold mb-0">Supplier Ledger Details</h4>
-            <small class="text-muted">Breakdown of purchases for <strong>{{ $supplier->name }}</strong> as on <strong>{{ format_date($asOnDate) }}</strong></small>
+            <h4 class="fw-semibold mb-0">Supplier Advance Payment History</h4>
+            <small class="text-muted">Advance credit payment logs for <strong>{{ $supplier->name }}</strong></small>
         </div>
         <div>
             <a href="{{ route('admin.ledgers.supplier') }}" class="btn btn-label-secondary">
@@ -85,80 +81,71 @@
                         <span class="ledger-info-value">{{ $supplier->mobile ?? '-' }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">As on Date</span>
-                        <span class="ledger-info-value">{{ format_date($asOnDate) }}</span>
+                        <span class="ledger-info-label">GST No</span>
+                        <span class="ledger-info-value">{{ $supplier->gst_no ?? '-' }}</span>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-calculator"></i></span>
-                    <h6 class="mb-0 fw-semibold">Summary</h6>
+                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-wallet"></i></span>
+                    <h6 class="mb-0 fw-semibold">Advance Summary</h6>
                 </div>
                 <div class="card-body">
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Total Purchases</span>
-                        <span class="ledger-info-value text-primary">{{ format_price($totalPurchase) }}</span>
+                        <span class="ledger-info-label">Total Advance Paid</span>
+                        <span class="ledger-info-value text-primary">{{ format_price($totalAdvancePaid) }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Total Paid</span>
-                        <span class="ledger-info-value text-success">{{ format_price($totalPayment) }}</span>
+                        <span class="ledger-info-label">Used in Purchases</span>
+                        <span class="ledger-info-value text-warning">{{ format_price($totalAdvanceUsed) }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Total Remaining</span>
-                        <span class="ledger-info-value text-danger">{{ format_price($totalOutstanding) }}</span>
-                    </div>
-                    @if($canManageAdvance)
-                    <div class="ledger-info-row">
-                        <span class="ledger-info-label">Advance Balance</span>
+                        <span class="ledger-info-label">Current Advance Balance</span>
                         <span class="ledger-info-value text-success fw-bold fs-6">{{ format_price($supplier->advance_balance) }}</span>
                     </div>
-                    @endif
                 </div>
             </div>
         </div>
 
-        <!-- Invoices List Card (Right Column) -->
+        <!-- Advance Payments Table Card (Right Column) -->
         <div class="col-lg-8 col-md-7">
             <div class="card">
                 <div class="card-header d-flex align-items-center gap-2">
-                    <span class="card-title-icon"><i class="ti ti-receipt"></i></span>
-                    <h6 class="mb-0 fw-semibold">Purchases & Invoices</h6>
+                    <span class="card-title-icon card-title-icon-success"><i class="ti ti-history"></i></span>
+                    <h6 class="mb-0 fw-semibold">Advance Payment Transactions</h6>
                 </div>
                 <div class="card-datatable table-responsive">
-                    <table class="table border-top table-hover mb-0" id="purchasesInvoicesTable">
+                    <table class="table border-top table-hover mb-0" id="advancePaymentsTable">
                         <thead>
                             <tr>
                                 <th style="width: 5%">#</th>
-                                <th>Invoice No</th>
                                 <th>Date</th>
-                                <th class="text-end">Total Amount</th>
+                                <th>Method</th>
                                 <th class="text-end">Paid Amount</th>
-                                <th class="text-end">Remaining Amount</th>
+                                <th class="text-end">Used Amount</th>
+                                <th class="text-end">Remaining Balance</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($purchases as $index => $purchase)
-                                @php
-                                    $remaining = max(0.0, $purchase->total_amount - $purchase->paid_amount);
-                                @endphp
+                            @forelse($advancePayments as $index => $adv)
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
+                                    <td>{{ format_date($adv->created_at) }}</td>
                                     <td>
-                                        <a href="{{ route('admin.purchases.show', $purchase->id) }}" class="fw-bold">
-                                            {{ $purchase->invoice_no }}
-                                        </a>
+                                        <span class="badge bg-label-info text-capitalize">
+                                            {{ $adv->payment_method ?? 'Cash' }}
+                                        </span>
                                     </td>
-                                    <td>{{ format_date($purchase->created_at) }}</td>
-                                    <td class="text-end fw-semibold text-heading">{{ format_price($purchase->total_amount) }}</td>
-                                    <td class="text-end text-success fw-semibold">{{ format_price($purchase->paid_amount) }}</td>
-                                    <td class="text-end text-danger fw-semibold">{{ format_price($remaining) }}</td>
+                                    <td class="text-end fw-semibold text-heading">{{ format_price($adv->total_amount) }}</td>
+                                    <td class="text-end text-warning fw-semibold">{{ format_price($adv->used_amount) }}</td>
+                                    <td class="text-end text-success fw-bold">{{ format_price($adv->remaining_amount) }}</td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="6" class="text-center py-4 text-muted">
-                                        No purchases found up to this date.
+                                        No advance payment transactions found for this supplier.
                                     </td>
                                 </tr>
                             @endforelse
@@ -174,8 +161,8 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
-            if ($('#purchasesInvoicesTable tbody tr').length > 0 && !$('#purchasesInvoicesTable tbody tr td').hasClass('dataTables_empty') && $('#purchasesInvoicesTable tbody tr td[colspan]').length === 0) {
-                $('#purchasesInvoicesTable').DataTable({
+            if ($('#advancePaymentsTable tbody tr').length > 0 && !$('#advancePaymentsTable tbody tr td').hasClass('dataTables_empty') && $('#advancePaymentsTable tbody tr td[colspan]').length === 0) {
+                $('#advancePaymentsTable').DataTable({
                     responsive: true,
                     order: [],
                     columnDefs: [{ targets: 0, orderable: false }],
@@ -184,4 +171,3 @@
         });
     </script>
 @endsection
-

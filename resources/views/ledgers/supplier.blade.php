@@ -95,6 +95,9 @@
                         <th>Total Amount</th>
                         <th>Paid Amount</th>
                         <th>Due Amount</th>
+                        @if($canManageAdvance)
+                            <th>Advance Balance</th>
+                        @endif
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -108,6 +111,7 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script>
         $(document).ready(function () {
+            const canManageAdvance = @json($canManageAdvance);
             const asOnDatePicker = $('#filter-as-on-date').flatpickr({
                 altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                 defaultDate: 'today'
@@ -119,6 +123,63 @@
                     location_id: $('#filter-location').val() || '',
                 };
             }
+
+            const columns = [
+                { data: 'index', orderable: false, width: '5%' },
+                { data: 'supplier' },
+                { data: 'total_amount' },
+                { 
+                    data: 'paid_amount',
+                    render: function (data, type, row) {
+                        return `<span class="text-success fw-semibold">${data}</span>`;
+                    }
+                },
+                { 
+                    data: 'due_amount',
+                    render: function (data, type, row) {
+                        return `<span class="text-danger fw-semibold">${data}</span>`;
+                    }
+                }
+            ];
+
+            if (canManageAdvance) {
+                columns.push({
+                    data: 'advance_balance',
+                    render: function (data, type, row) {
+                        if (row.raw_advance_balance > 0) {
+                            return `<span class="badge bg-label-success fw-bold fs-6">${data}</span>`;
+                        }
+                        return `<span class="text-muted">${data}</span>`;
+                    }
+                });
+            }
+
+            columns.push({ 
+                data: null, 
+                orderable: false, 
+                render: function (data, type, row) {
+                    const locationVal = $('#filter-location').val() || '';
+                    const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
+                    const asOnDate = $('#filter-as-on-date').val() || '';
+                    return `
+                        <div class="dropdown table-action-dropdown">
+                            <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                                <span>Actions</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
+                                <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}&as_on_date=${asOnDate}${locationQuery}" class="dropdown-item">
+                                    <i class="ti ti-eye me-2"></i>View
+                                </a>
+                                ${canManageAdvance ? `
+                                <a href="{{ route('admin.ledgers.supplier.advance-history') }}?supplier_id=${row.supplier_id}" class="dropdown-item">
+                                    <i class="ti ti-history me-2"></i>Advance History
+                                </a>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
 
             const table = $('#supplierLedgerTable').DataTable({
                 responsive: false,
@@ -138,44 +199,7 @@
                         return json.data;
                     },
                 },
-                columns: [
-                    { data: 'index', orderable: false, width: '5%' },
-                    { data: 'supplier' },
-                    { data: 'total_amount' },
-                    { 
-                        data: 'paid_amount',
-                        render: function (data, type, row) {
-                            return `<span class="text-success fw-semibold">${data}</span>`;
-                        }
-                    },
-                    { 
-                        data: 'due_amount',
-                        render: function (data, type, row) {
-                            return `<span class="text-danger fw-semibold">${data}</span>`;
-                        }
-                    },
-                    { 
-                        data: null, 
-                        orderable: false, 
-                        render: function (data, type, row) {
-                            const locationVal = $('#filter-location').val() || '';
-                            const locationQuery = locationVal ? `&location_id=${locationVal}` : '';
-                            const asOnDate = $('#filter-as-on-date').val() || '';
-                            return `
-                                <div class="dropdown table-action-dropdown">
-                                    <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
-                                        <span>Actions</span>
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">
-                                        <a href="{{ route('admin.ledgers.supplier.detail') }}?supplier_id=${row.supplier_id}&as_on_date=${asOnDate}${locationQuery}" class="dropdown-item">
-                                            <i class="ti ti-eye me-2"></i>View
-                                        </a>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    },
-                ],
+                columns: columns,
                 drawCallback: function () {
                     const api = this.api();
                     api.column(0, { page: 'current' }).nodes().each(function (cell, i) {

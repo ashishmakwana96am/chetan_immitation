@@ -204,6 +204,9 @@ class PurchaseImportService
                     ]);
                 }
 
+                // Auto-adjust supplier advance balance if available
+                \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
+
                 foreach ($items as $itemData) {
                     $item = PurchaseItem::create([
                         'purchase_id'        => $purchase->id,

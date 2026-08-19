@@ -17,7 +17,19 @@ class PurchaseObserver
     public function created(Purchase $purchase): void
     {
         if ($purchase->paid_amount > 0) {
-            $this->deductBalance($purchase, (float) $purchase->paid_amount);
+            if ($purchase->supplier_id) {
+                $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
+                if ($suppBal && $suppBal->balance > 0) {
+                    \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
+                }
+            }
+
+            $bulkOrAdvancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
+            $netDirectPaid = max(0.0, round((float) $purchase->paid_amount - $bulkOrAdvancePaid, 2));
+
+            if ($netDirectPaid > 0) {
+                $this->deductBalance($purchase, $netDirectPaid);
+            }
         }
     }
 
@@ -26,9 +38,18 @@ class PurchaseObserver
         if (
             !$purchase->wasChanged('paid_amount') &&
             !$purchase->wasChanged('payment_method') &&
-            !$purchase->wasChanged('location_id')
+            !$purchase->wasChanged('location_id') &&
+            !$purchase->wasChanged('payment_status')
         ) {
             return;
+        }
+
+        // If supplier has advance balance and bill has due amount, adjust advance first
+        if ($purchase->supplier_id && $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
+            $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
+            if ($suppBal && $suppBal->balance > 0) {
+                \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
+            }
         }
 
         $oldPaid   = (float) $purchase->getOriginal('paid_amount');
@@ -96,7 +117,7 @@ class PurchaseObserver
                 'Balance deducted for Purchase #' . $purchase->invoice_no . ' (' . format_price($amount) . ')'
             );
         });
-     }
+    }
 
     private function updatePurchaseBalance(float $oldPaid, ?string $oldMethod, Purchase $purchase): void
     {
@@ -118,22 +139,24 @@ class PurchaseObserver
         $newType = $this->resolveBalanceType($purchase->payment_method);
         $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
         $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
-        $newPaid = (float) $purchase->paid_amount;
-        $note    = 'Purchase #' . $purchase->invoice_no;
+
+        // Calculate how much was paid via Bulk Payments or Advance Payments vs Direct Cashbook
+        $bulkOrAdvancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
+        $newPaid = max(0.0, round((float) $purchase->paid_amount - $bulkOrAdvancePaid, 2));
+
+        $note = 'Purchase #' . $purchase->invoice_no;
 
         DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
 
             if ($balance) {
                 if ($oldCol === $newCol) {
-                    // Same balance type (e.g. Cash -> Cash), update net difference
                     $diff = $newPaid - $oldPaid;
                     $newBalanceVal = (float) $balance->{$newCol} - $diff;
                     $balance->update([
                         $newCol => $newBalanceVal
                     ]);
                 } else {
-                    // Method changed (e.g. Cash -> Bank), refund old column and deduct from new column
                     if ($oldPaid > 0) {
                         $balance->update([
                             $oldCol => (float) $balance->{$oldCol} + $oldPaid
@@ -151,28 +174,18 @@ class PurchaseObserver
             $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
             $transaction = null;
 
-            if ($existingTx && $oldCol === $newCol && $oldPaid > 0) {
-                $diff = $newPaid - $oldPaid;
-                if ($diff > 0) {
-                    $transaction = LocationBalanceTransaction::create([
+            if ($existingTx) {
+                if ($newPaid <= 0) {
+                    $existingTx->delete();
+                } else {
+                    $existingTx->update([
                         'location_id'  => $locationId,
                         'balance_type' => $newType,
-                        'type'         => LocationBalanceTransaction::TYPE_DEBIT,
-                        'amount'       => $diff,
+                        'amount'       => $newPaid,
                         'balance_after'=> $newBalanceVal,
-                        'notes'        => 'Purchase Payment #' . $purchase->invoice_no,
-                        'created_by'   => LocationBalanceTransaction::getFallbackUserId($purchase->created_by),
                     ]);
-                } else {
                     $transaction = $existingTx;
                 }
-            } else if ($existingTx) {
-                $existingTx->update([
-                    'balance_type' => $newType,
-                    'amount'       => $newPaid,
-                    'balance_after'=> $newBalanceVal,
-                ]);
-                $transaction = $existingTx;
             } else if ($newPaid > 0) {
                 $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $locationId,
@@ -185,14 +198,16 @@ class PurchaseObserver
                 ]);
             }
 
-            ActivityLogger::log(
-                'Accounting',
-                'update',
-                $transaction,
-                [$oldCol => $oldPaid],
-                [$newCol => $newPaid],
-                'Balance adjusted for updated Purchase #' . $purchase->invoice_no
-            );
+            if ($transaction) {
+                ActivityLogger::log(
+                    'Accounting',
+                    'update',
+                    $transaction,
+                    [$oldCol => $oldPaid],
+                    [$newCol => $newPaid],
+                    'Balance adjusted for updated Purchase #' . $purchase->invoice_no
+                );
+            }
         });
     }
 

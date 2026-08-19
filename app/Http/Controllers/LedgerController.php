@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BranchBalanceTransfer;
+use App\Models\BulkPurchasePayment;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\LocationBalance;
@@ -11,6 +12,10 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
+use App\Models\PurchasePayment;
+use App\Models\Supplier;
+use App\Models\SupplierAdvancePayment;
+use App\Models\SupplierBalance;
 use App\Services\ActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -26,8 +31,10 @@ class LedgerController extends Controller
         $this->authorizeLedger('view supplier ledger');
 
         [$locations, $isRestricted] = $this->resolveLocations();
+        $user = auth()->user();
+        $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
-        return view('ledgers.supplier', compact('locations', 'isRestricted'));
+        return view('ledgers.supplier', compact('locations', 'isRestricted', 'canManageAdvance'));
     }
 
     public function supplierLedgerData(Request $request)
@@ -38,6 +45,7 @@ class LedgerController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
         $purchasesQuery = Purchase::with('supplier')
             ->whereDate('created_at', '<=', $asOnDate);
@@ -94,14 +102,19 @@ class LedgerController extends Controller
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
-        $mappedRows = $sortedRows->map(function ($row, $index) {
+        $mappedRows = $sortedRows->map(function ($row, $index) use ($canManageAdvance) {
+            $suppObj = Supplier::find($row['supplier_id']);
+            $advBal = ($suppObj && $canManageAdvance) ? (float) $suppObj->advance_balance : 0.0;
+
             return [
-                'index'          => $index + 1,
-                'supplier_id'    => $row['supplier_id'],
-                'supplier'       => e($row['supplier_name']),
-                'total_amount'   => format_price($row['total_amount']),
-                'paid_amount'    => format_price($row['paid_amount']),
-                'due_amount'     => format_price($row['due_amount']),
+                'index'               => $index + 1,
+                'supplier_id'         => $row['supplier_id'],
+                'supplier'            => e($row['supplier_name']),
+                'total_amount'        => format_price($row['total_amount']),
+                'paid_amount'         => format_price($row['paid_amount']),
+                'due_amount'          => format_price($row['due_amount']),
+                'advance_balance'     => format_price($advBal),
+                'raw_advance_balance' => $advBal,
             ];
         });
 
@@ -125,9 +138,10 @@ class LedgerController extends Controller
         }
 
         return response()->json([
-            'status'         => 'success',
-            'data'           => $mappedRows,
-            'branch_summary' => $branchSummary,
+            'status'             => 'success',
+            'data'               => $mappedRows,
+            'branch_summary'     => $branchSummary,
+            'can_manage_advance' => $canManageAdvance,
         ]);
     }
 
@@ -140,11 +154,12 @@ class LedgerController extends Controller
             'as_on_date'  => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $supplier = \App\Models\Supplier::findOrFail($request->supplier_id);
+        $supplier = Supplier::findOrFail($request->supplier_id);
         $asOnDate = \Carbon\Carbon::parse($request->as_on_date);
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
         $purchasesQuery = Purchase::where('supplier_id', $request->supplier_id)
             ->whereDate('created_at', '<=', $request->as_on_date)
@@ -170,14 +185,191 @@ class LedgerController extends Controller
         $totalPayment = $purchases->sum('paid_amount');
         $totalOutstanding = max(0.0, $totalPurchase - $totalPayment);
 
+        $advancePayments = $canManageAdvance
+            ? SupplierAdvancePayment::where('supplier_id', $supplier->id)->orderByDesc('created_at')->get()
+            : collect();
+
         return view('ledgers.supplier-detail', compact(
             'supplier',
             'asOnDate',
             'purchases',
             'totalPurchase',
             'totalPayment',
-            'totalOutstanding'
+            'totalOutstanding',
+            'advancePayments',
+            'canManageAdvance'
         ));
+    }
+
+    public function supplierAdvanceHistory(Request $request)
+    {
+        $this->authorizeLedger('view supplier ledger');
+
+        $request->validate([
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
+        ]);
+
+        $supplier = Supplier::findOrFail($request->supplier_id);
+        $user = auth()->user();
+        $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
+
+        if (!$canManageAdvance) {
+            abort(403, 'Unauthorized access to supplier advance history.');
+        }
+
+        $advancePayments = SupplierAdvancePayment::where('supplier_id', $supplier->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $totalAdvancePaid = $advancePayments->sum('total_amount');
+        $totalAdvanceUsed = $advancePayments->sum('used_amount');
+        $totalRemainingAdvance = $advancePayments->sum('remaining_amount');
+
+        return view('ledgers.supplier-advance-history', compact(
+            'supplier',
+            'advancePayments',
+            'totalAdvancePaid',
+            'totalAdvanceUsed',
+            'totalRemainingAdvance'
+        ));
+    }
+
+    public function paySupplierAdvance(Request $request)
+    {
+        $user = auth()->user();
+        $isMainBranchUser = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
+
+        if (!$isMainBranchUser) {
+            return response()->json(['status' => 'error', 'message' => 'Advance payments are only accessible for Main Branch users or Super Admin.'], 403);
+        }
+
+        $request->validate([
+            'supplier_id'    => ['required', 'integer', 'exists:suppliers,id'],
+            'amount'         => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'in:cash,online'],
+            'notes'          => ['nullable', 'string'],
+        ]);
+
+        $supplierId = (int) $request->supplier_id;
+        $enteredAmount = round((float) $request->amount, 2);
+        $paymentMethod = $request->payment_method;
+        $supplier = Supplier::findOrFail($supplierId);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($supplier, $supplierId, $enteredAmount, $paymentMethod, $request, $user) {
+            $purchases = Purchase::where('supplier_id', $supplierId)
+                ->whereIn('payment_status', [Purchase::PAYMENT_STATUS_PENDING, Purchase::PAYMENT_STATUS_PARTIAL])
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $bulkPayRecord = BulkPurchasePayment::create([
+                'total_amount'   => $enteredAmount,
+                'supplier_id'    => $supplierId,
+                'payment_method' => $paymentMethod,
+                'created_by'     => auth()->id(),
+            ]);
+
+            $remaining = $enteredAmount;
+            $totalPaidAllocated = 0.0;
+
+            foreach ($purchases as $purchase) {
+                if ($remaining <= 0) break;
+
+                $currentPaid = $purchase->payment_status == Purchase::PAYMENT_STATUS_PAID
+                    ? (float) $purchase->total_amount
+                    : ($purchase->payment_status == Purchase::PAYMENT_STATUS_PENDING ? 0.0 : (float) $purchase->paid_amount);
+
+                $due = round((float) $purchase->total_amount - $currentPaid, 2);
+                if ($due <= 0) continue;
+
+                $payForThisBill = min($due, $remaining);
+                $newPaidAmount = round($currentPaid + $payForThisBill, 2);
+                $finalStatus = ($newPaidAmount >= (float) $purchase->total_amount)
+                    ? Purchase::PAYMENT_STATUS_PAID
+                    : Purchase::PAYMENT_STATUS_PARTIAL;
+
+                PurchasePayment::create([
+                    'purchase_id'              => $purchase->id,
+                    'bulk_purchase_payment_id' => $bulkPayRecord->id,
+                    'amount'                   => $payForThisBill,
+                    'created_by'               => auth()->id(),
+                ]);
+
+                Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update([
+                    'payment_status' => $finalStatus,
+                    'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
+                    'payment_method' => $paymentMethod,
+                ])));
+
+                $remaining = round($remaining - $payForThisBill, 2);
+                $totalPaidAllocated = round($totalPaidAllocated + $payForThisBill, 2);
+            }
+
+            if ($remaining > 0) {
+                SupplierAdvancePayment::create([
+                    'supplier_id'              => $supplierId,
+                    'bulk_purchase_payment_id' => $bulkPayRecord->id,
+                    'total_amount'             => $remaining,
+                    'used_amount'              => 0.00,
+                    'remaining_amount'         => $remaining,
+                    'payment_method'           => $paymentMethod,
+                    'notes'                    => $request->notes ?? 'Supplier Advance Payment',
+                    'created_by'               => auth()->id(),
+                ]);
+
+                $suppBal = SupplierBalance::firstOrCreate(['supplier_id' => $supplierId]);
+                $suppBal->balance = round((float) $suppBal->balance + $remaining, 2);
+                if ($paymentMethod === 'cash') {
+                    $suppBal->cash_balance = round((float) $suppBal->cash_balance + $remaining, 2);
+                } else {
+                    $suppBal->bank_balance = round((float) $suppBal->bank_balance + $remaining, 2);
+                }
+                $suppBal->save();
+            }
+
+            $defaultLoc = Location::where('is_default', true)->first() ?? Location::first();
+            $locId = $user->location_id ?: ($defaultLoc ? $defaultLoc->id : 1);
+            $balanceType = $paymentMethod === 'cash' ? LocationBalanceTransaction::BALANCE_TYPE_CASH : LocationBalanceTransaction::BALANCE_TYPE_BANK;
+            $balCol = $paymentMethod === 'cash' ? 'cash_balance' : 'bank_balance';
+
+            // 1. Transaction for Purchase Bill Payment (if any allocated to bills)
+            if ($totalPaidAllocated > 0) {
+                $locBal = LocationBalance::firstOrCreate(['location_id' => $locId]);
+                $newBal = round((float) $locBal->{$balCol} - $totalPaidAllocated, 2);
+                $locBal->update([$balCol => $newBal]);
+
+                LocationBalanceTransaction::create([
+                    'location_id'   => $locId,
+                    'balance_type'  => $balanceType,
+                    'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $totalPaidAllocated,
+                    'balance_after' => $newBal,
+                    'notes'         => 'Purchase Payment (' . format_price($totalPaidAllocated) . ') to ' . $supplier->name,
+                    'created_by'    => auth()->id(),
+                ]);
+            }
+
+            // 2. Transaction for Advance Payment (if any remaining as advance)
+            if ($remaining > 0) {
+                $locBal = LocationBalance::firstOrCreate(['location_id' => $locId]);
+                $newBal = round((float) $locBal->{$balCol} - $remaining, 2);
+                $locBal->update([$balCol => $newBal]);
+
+                LocationBalanceTransaction::create([
+                    'location_id'   => $locId,
+                    'balance_type'  => $balanceType,
+                    'type'          => LocationBalanceTransaction::TYPE_DEBIT,
+                    'amount'        => $remaining,
+                    'balance_after' => $newBal,
+                    'notes'         => 'Advance Payment (' . format_price($remaining) . ') to ' . $supplier->name,
+                    'created_by'    => auth()->id(),
+                ]);
+            }
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Advance payment of ' . format_price($enteredAmount) . ' processed successfully for ' . $supplier->name . '.',
+        ]);
     }
 
     public function exportSupplierLedger(Request $request)

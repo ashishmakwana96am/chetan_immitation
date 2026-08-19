@@ -28,4 +28,19 @@ class Supplier extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function balanceRecord()
+    {
+        return $this->hasOne(SupplierBalance::class);
+    }
+
+    public function advancePayments()
+    {
+        return $this->hasMany(SupplierAdvancePayment::class, 'supplier_id');
+    }
+
+    public function getAdvanceBalanceAttribute()
+    {
+        return (float) ($this->balanceRecord->balance ?? 0.00);
+    }
 }

@@ -302,6 +302,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('ledgers/supplier/data', [LedgerController::class, 'supplierLedgerData'])->name('ledgers.supplier.data');
         Route::get('ledgers/supplier/detail', [LedgerController::class, 'supplierLedgerDetail'])->name('ledgers.supplier.detail');
         Route::get('ledgers/supplier/export', [LedgerController::class, 'exportSupplierLedger'])->name('ledgers.supplier.export');
+        Route::get('ledgers/supplier/advance-history', [LedgerController::class, 'supplierAdvanceHistory'])->name('ledgers.supplier.advance-history');
+        Route::post('ledgers/supplier/pay-advance', [LedgerController::class, 'paySupplierAdvance'])->name('ledgers.supplier.pay-advance');
         Route::get('ledgers/customer', [LedgerController::class, 'customerLedger'])->name('ledgers.customer');
         Route::get('ledgers/customer/data', [LedgerController::class, 'customerLedgerData'])->name('ledgers.customer.data');
         Route::get('ledgers/customer/detail', [LedgerController::class, 'customerLedgerDetail'])->name('ledgers.customer.detail');
