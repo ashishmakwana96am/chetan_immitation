@@ -24,11 +24,31 @@ class SupplierController extends Controller
             $query->where('status', $request->status);
         }
 
-        $suppliers = $query->get();
+        $searchValue = $request->input('search.value');
+        if ($searchValue) {
+            $query->where(function($q) use ($searchValue) {
+                $q->where('name', 'like', "%{$searchValue}%")
+                  ->orWhere('phone', 'like', "%{$searchValue}%")
+                  ->orWhere('gst_no', 'like', "%{$searchValue}%");
+            });
+        }
+
+        $recordsTotal = Supplier::count();
+        $recordsFiltered = (clone $query)->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) $length = 25;
+
+        $suppliers = (clone $query)
+            ->skip($start)
+            ->take($length)
+            ->get();
+
         $canEdit   = auth()->user()->can('edit suppliers');
         $canDelete = auth()->user()->can('delete suppliers');
 
-        $data = $suppliers->map(function ($supplier, $index) use ($canEdit, $canDelete) {
+        $data = $suppliers->map(function ($supplier, $index) use ($start, $canEdit, $canDelete) {
             $status = $canEdit
                 ? '<div class="form-check form-switch mb-0"><input class="form-check-input supplier-status-toggle" type="checkbox" role="switch" data-url="' . route('admin.suppliers.toggle-status', $supplier) . '" ' . ($supplier->status == 1 ? 'checked' : '') . ' /></div>'
                 : status_badge($supplier->status);
@@ -51,7 +71,7 @@ class SupplierController extends Controller
             }
 
             return [
-                'index'      => $index + 1,
+                'index'      => $start + $index + 1,
                 'name'       => $supplier->name,
                 'phone'      => $supplier->phone ?? '-',
                 'state'      => $supplier->state ?? '-',
@@ -63,7 +83,12 @@ class SupplierController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        return response()->json([
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
     }
 
     public function create()

@@ -31,12 +31,9 @@ class PurchaseController extends Controller
         $this->authorize('view purchases');
 
         $user = auth()->user();
-        $invoices = Purchase::select([
-                'id', 'supplier_id', 'created_by', 'invoice_no', 'is_gst',
-                'total_amount', 'status', 'payment_status', 'payment_method', 'created_at'
-            ])
-            ->with([
+        $query = Purchase::with([
                 'supplier:id,name',
+                'items.product:id,name',
                 'createdBy:id,name'
             ])
             ->when($user->location_id && !$user->hasRole('super-admin'), function($q) use ($user) {
@@ -63,16 +60,37 @@ class PurchaseController extends Controller
             })
             ->when($request->end_date, function($q) use ($request) {
                 $q->whereDate('created_at', '<=', $request->end_date);
-            })
+            });
+
+        $searchValue = $request->input('search.value');
+        if ($searchValue) {
+            $query->where(function ($sq) use ($searchValue) {
+                $sq->where('invoice_no', 'like', "%{$searchValue}%")
+                   ->orWhereHas('supplier', fn($lq) => $lq->where('name', 'like', "%{$searchValue}%"))
+                   ->orWhereHas('createdBy', fn($uq) => $uq->where('name', 'like', "%{$searchValue}%"));
+            });
+        }
+
+        $recordsTotal = Purchase::count();
+        $recordsFiltered = (clone $query)->count();
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) $length = 25;
+
+        $invoices = (clone $query)
             ->orderBy('id', 'desc')
+            ->skip($start)
+            ->take($length)
             ->get();
+
         $canEdit                       = auth()->user()->can('edit purchases');
         $canDelete                     = auth()->user()->hasRole('super-admin');
         $canEditPurchasesStatus        = auth()->user()->can('edit purchases status');
         $canEditPurchasesPaymentStatus = auth()->user()->can('edit purchases payment status');
         $canDownloadPurchases          = auth()->user()->can('download purchases');
 
-        $data = $invoices->map(function ($invoice, $index) use ($canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
+        $data = $invoices->map(function ($invoice, $index) use ($start, $canEdit, $canDelete, $canEditPurchasesStatus, $canEditPurchasesPaymentStatus, $canDownloadPurchases) {
             $canEditRecord = $canEdit && can_modify_past_date_record($invoice->created_at);
             $canDeleteRecord = $canDelete && can_modify_past_date_record($invoice->created_at);
             $canStatusRecord = $canEditPurchasesStatus && can_modify_past_date_record($invoice->created_at);
@@ -107,9 +125,6 @@ class PurchaseController extends Controller
             $actions .= '<div class="dropdown-menu dropdown-menu-end action-dropdown-menu m-0">';
             $actions .= '<a href="' . route('admin.purchases.show', $invoice) . '" class="dropdown-item"><i class="ti ti-eye me-2"></i>View</a>';
             $actions .= '<button class="dropdown-item purchase-print-barcode-btn" data-purchase-ids="' . $invoice->id . '"><i class="ti ti-printer me-2"></i>Print Barcode</button>';
-            // if ($canDownloadPurchases) {
-            //     $actions .= '<a href="' . route('admin.purchases.pdf', $invoice) . '" class="dropdown-item" target="_blank"><i class="ti ti-file-text me-2"></i>PDF</a>';
-            // }
             if ($canEditRecord) {
                 $actions .= '<a href="' . route('admin.purchases.edit', $invoice) . '" class="dropdown-item"><i class="ti ti-pencil me-2"></i>Edit</a>';
             }
@@ -126,19 +141,20 @@ class PurchaseController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index'          => $index + 1,
-                'invoice_no'     => '<code>' . $invoice->invoice_no . '</code>' . ($invoice->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
-                'raw_invoice_no' => $invoice->invoice_no,
-                'supplier'       => $invoice->supplier->name ?? '-',
-                'total_amount'   => format_price($invoice->total_amount),
-                'raw_total_amount' => (float) $invoice->total_amount,
+                'index'          => $start + $index + 1,
+                'invoice_no'     => '<code>' . e($invoice->invoice_no) . '</code>',
+                'supplier'       => e($invoice->supplier->name ?? '-'),
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
+                'total_amount'   => format_price($invoice->grand_total ?? 0),
+                'created_by'     => e($invoice->createdBy->name ?? '-'),
                 'payment_method' => match (strtolower((string) ($invoice->payment_method ?? ''))) {
-                    'cash'  => 'Cash',
-                    'online', 'bank', 'upi', 'online_cash' => 'Online',
-                    ''      => '-',
-                    default => 'Online',
+                    'online_cash' => 'Online + Cash',
+                    'cash'        => 'Cash',
+                    'bank'        => 'Bank Transfer',
+                    'cheque'      => 'Cheque',
+                    ''            => '-',
+                    default       => 'Online',
                 },
                 'date_group'     => $invoice->created_at->format('d M Y'),
                 'date_sort'      => $invoice->created_at->format('YmdHis'),
@@ -146,10 +162,12 @@ class PurchaseController extends Controller
             ];
         });
 
-        return response()->json(['status' => 'success', 'data' => $data])
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        return response()->json([
+            'draw' => (int) $request->input('draw', 1),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
     }
 
     public function show(Purchase $purchase)
