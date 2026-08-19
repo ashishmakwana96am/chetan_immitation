@@ -5,6 +5,26 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #paymentHistoryTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #paymentHistoryTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            line-height: 1;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -177,6 +197,13 @@
                     },
                     { data: 'actions', orderable: false, searchable: false },
                 ],
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="7"><div class="group-header-inner"><i class="ti ti-calendar-event me-1"></i><span>' + group + '</span><span class="badge bg-label-primary ms-2">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                },
                 drawCallback: function () {
                     const api = this.api();
                     api.column(0, { page: 'current' }).nodes().each(function (cell, i) {

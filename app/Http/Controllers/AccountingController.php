@@ -871,7 +871,7 @@ class AccountingController extends Controller
 
         $allPurchases = $purchasesQuery->orderBy('invoice_no', 'desc')->get();
 
-        $purchases = $allPurchases->map(function($p) {
+        $mappedPurchases = $allPurchases->map(function($p) {
             if ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PAID) {
                 $p->calculated_paid = (float) $p->total_amount;
             } elseif ($p->payment_status == \App\Models\Purchase::PAYMENT_STATUS_PENDING) {
@@ -881,13 +881,15 @@ class AccountingController extends Controller
             }
             $p->calculated_due = max(0.0, (float) $p->total_amount - $p->calculated_paid);
             return $p;
-        })->filter(function($p) {
+        });
+
+        $totalPurchase = $mappedPurchases->sum('total_amount');
+        $totalPayment = $mappedPurchases->sum('calculated_paid');
+        $totalOutstanding = max(0.0, $totalPurchase - $totalPayment);
+
+        $purchases = $mappedPurchases->filter(function($p) {
             return $p->calculated_due > 0;
         })->values();
-
-        $totalPurchase = $purchases->sum('total_amount');
-        $totalPayment = $purchases->sum('calculated_paid');
-        $totalOutstanding = max(0.0, $totalPurchase - $totalPayment);
 
         return view('accounting.outstanding-payables-detail', compact(
             'supplier',
@@ -1127,7 +1129,8 @@ class AccountingController extends Controller
             return [
                 'index'          => $index + 1,
                 'id'             => $payment->id,
-                'date'           => format_date($payment->created_at, 'd-m-Y H:i A'),
+                'date'           => format_date($payment->created_at, 'd-m-Y h:i A'),
+                'date_group'     => format_date($payment->created_at, 'd-m-Y'),
                 'date_sort'      => $payment->created_at ? $payment->created_at->format('Y-m-d H:i:s') : '',
                 'supplier'       => e($payment->supplier->name ?? 'All Suppliers'),
                 'amount'         => format_price($payment->total_amount),
