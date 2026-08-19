@@ -273,3 +273,12 @@
     };
 </script>
 @endif
+
+<script>
+    (function() {
+        setInterval(function() {
+            if (typeof window.refreshPurchaseBillBadge === 'function') window.refreshPurchaseBillBadge();
+            if (typeof window.refreshBranchLedgerBadge === 'function') window.refreshBranchLedgerBadge();
+        }, 15000);
+    })();
+</script>

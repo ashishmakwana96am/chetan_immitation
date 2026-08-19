@@ -1637,15 +1637,19 @@ class AccountingController extends Controller
                 ], 422);
             }
 
-            $maxId = BranchBalanceTransfer::max('id') ?? 0;
-            $nextNum = $maxId + 1;
+            $nextNum = 1;
             do {
                 $transferNo = 'BT-' . str_pad($nextNum, 2, '0', STR_PAD_LEFT);
-                $exists = BranchBalanceTransfer::where('transfer_no', $transferNo)->exists();
-                if ($exists) {
+                $activeExists = BranchBalanceTransfer::where('transfer_no', $transferNo)->exists();
+                if ($activeExists) {
                     $nextNum++;
                 }
-            } while ($exists);
+            } while ($activeExists);
+
+            $softDeletedConflict = BranchBalanceTransfer::onlyTrashed()->where('transfer_no', $transferNo)->first();
+            if ($softDeletedConflict) {
+                $softDeletedConflict->update(['transfer_no' => $transferNo . '_del_' . $softDeletedConflict->id]);
+            }
 
             $transfer = BranchBalanceTransfer::create([
                 'transfer_no'      => $transferNo,
@@ -2226,6 +2230,7 @@ class AccountingController extends Controller
                 }
 
                 $oldData = $transfer->toArray();
+                $transfer->update(['transfer_no' => $transfer->transfer_no . '_del_' . $transfer->id]);
                 $transfer->delete();
 
                 ActivityLogger::log(

@@ -818,6 +818,8 @@ $(document).ready(function () {
             type: 'POST',
             data: form.serialize(),
             success: function (res) {
+                if (typeof window.refreshPurchaseBillBadge === 'function') window.refreshPurchaseBillBadge();
+                if (typeof window.refreshBranchLedgerBadge === 'function') window.refreshBranchLedgerBadge();
                 toastr.success(res.message);
                 setTimeout(() => window.location.href = '{{ route('admin.purchase-bills.index') }}', 800);
             },
