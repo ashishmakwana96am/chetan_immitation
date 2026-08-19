@@ -72,7 +72,7 @@
                     </thead>
                     <tbody id="branchDuesBody">
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted fw-semibold">Loading...</td>
+                            <td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td>
                         </tr>
                     </tbody>
                 </table>
@@ -250,7 +250,7 @@
             });
 
             function showBranchDuesLoader() {
-                $('#branchDuesBody').html('<tr><td colspan="5" class="text-center py-4 text-muted fw-semibold">Loading...</td></tr>');
+                $('#branchDuesBody').html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></td></tr>');
             }
 
             window.refreshTable = function () {

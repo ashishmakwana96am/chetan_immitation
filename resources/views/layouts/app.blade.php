@@ -54,24 +54,21 @@
         pointer-events: none; 
     }
 
-    div.dataTables_processing {
+    div.dataTables_processing,
+    div.dataTables_processing.card {
         position: absolute !important;
-        top: 45px !important;
+        top: 50% !important;
         left: 50% !important;
-        transform: translateX(-50%) !important;
+        transform: translate(-50%, -50%) !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
-        color: #5d596c !important;
-        font-size: 0.95rem !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1rem !important;
+        padding: 0 !important;
         margin: 0 !important;
         z-index: 10 !important;
+        text-align: center !important;
     }
-    div.dataTables_processing > div,
-    div.dataTables_processing .spinner-border,
-    div.dataTables_processing .spinner-grow {
+    div.dataTables_processing > div:not(.spinner-border) {
         display: none !important;
     }
 
@@ -278,7 +275,8 @@
         if (window.jQuery && $.fn && $.fn.dataTable) {
             $.extend(true, $.fn.dataTable.defaults, {
                 language: {
-                    processing: '<span class="text-muted fw-semibold">Loading...</span>'
+                    processing: '<div class="spinner-border text-primary" role="status" style="width: 1.75rem; height: 1.75rem; border-width: 0.2em;"><span class="visually-hidden">Loading...</span></div>',
+                    loadingRecords: '<div class="text-center py-4"><div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem; border-width: 0.2em;"><span class="visually-hidden">Loading...</span></div></div>'
                 }
             });
         }
@@ -286,7 +284,8 @@
             if (window.jQuery && $.fn && $.fn.dataTable) {
                 $.extend(true, $.fn.dataTable.defaults, {
                     language: {
-                        processing: '<span class="text-muted fw-semibold">Loading...</span>'
+                        processing: '<div class="spinner-border text-primary" role="status" style="width: 1.75rem; height: 1.75rem; border-width: 0.2em;"><span class="visually-hidden">Loading...</span></div>',
+                        loadingRecords: '<div class="text-center py-4"><div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem; border-width: 0.2em;"><span class="visually-hidden">Loading...</span></div></div>'
                     }
                 });
             }
