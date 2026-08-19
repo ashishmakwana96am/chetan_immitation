@@ -87,7 +87,7 @@
             max-width: 72pt !important;
             text-align: left !important;
             margin-bottom: 1pt !important;
-            padding-left: 2pt !important;
+            padding-left: 5pt !important;
         }
         .barcode-container {
             width: 100% !important;
@@ -114,7 +114,7 @@
             overflow: hidden;
             text-align: left !important;
             margin-top: 1pt !important;
-            padding-left: 2pt !important;
+            padding-left: 5pt !important;
         }
         .variant-line {
             font-size: 7.5pt !important;
@@ -125,7 +125,7 @@
             overflow: hidden;
             text-align: left !important;
             margin-top: 1pt !important;
-            padding-left: 2pt !important;
+            padding-left: 5pt !important;
             letter-spacing: 0.2pt;
         }
         .mrp-line {
@@ -135,7 +135,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 6pt !important;
+            padding-left: 22pt !important;
             margin-bottom: 1.2pt !important;
         }
         .mrp-code-line {
@@ -146,7 +146,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-align: left;
-            padding-left: 6pt !important;
+            padding-left: 22pt !important;
             margin-top: 1pt !important;
         }
     </style>
