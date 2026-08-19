@@ -78,8 +78,39 @@ class PurchaseController extends Controller
         $length = (int) $request->input('length', 25);
         if ($length <= 0) $length = 25;
 
+        $orderColumnMap = [
+            1 => 'invoice_no',
+            2 => 'supplier',
+            3 => 'total_amount',
+            4 => 'status',
+            5 => 'payment_status',
+            6 => 'payment_method',
+            8 => 'created_at',
+            9 => 'created_at',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'supplier') {
+            $query->leftJoin('suppliers as supp', 'purchases.supplier_id', '=', 'supp.id')
+                  ->select('purchases.*')
+                  ->orderBy('supp.name', $sortDir);
+        } else {
+            $query->orderBy("purchases.{$sortKey}", $sortDir);
+        }
+        $query->orderBy('purchases.id', 'desc');
+
         $invoices = (clone $query)
-            ->orderBy('id', 'desc')
             ->skip($start)
             ->take($length)
             ->get();
@@ -146,7 +177,8 @@ class PurchaseController extends Controller
                 'supplier'       => e($invoice->supplier->name ?? '-'),
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,
-                'total_amount'   => format_price($invoice->grand_total ?? 0),
+                'total_amount'     => format_price($invoice->total_amount ?? 0),
+                'raw_total_amount' => (float) ($invoice->total_amount ?? 0),
                 'created_by'     => e($invoice->createdBy->name ?? '-'),
                 'payment_method' => match (strtolower((string) ($invoice->payment_method ?? ''))) {
                     'online_cash' => 'Online + Cash',
