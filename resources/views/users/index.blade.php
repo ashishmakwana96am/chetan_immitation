@@ -17,7 +17,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Total Users</span>
-                            <h4 class="mb-0 mt-1" id="statTotal">-</h4>
+                            <h4 class="mb-0 mt-1" id="statTotal"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></h4>
                         </div>
                         <span class="badge bg-label-primary rounded p-2"><i class="ti ti-users ti-sm"></i></span>
                     </div>
@@ -30,7 +30,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Active Users</span>
-                            <h4 class="mb-0 mt-1" id="statActive">-</h4>
+                            <h4 class="mb-0 mt-1" id="statActive"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></h4>
                         </div>
                         <span class="badge bg-label-success rounded p-2"><i class="ti ti-user-check ti-sm"></i></span>
                     </div>
@@ -43,7 +43,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Inactive Users</span>
-                            <h4 class="mb-0 mt-1" id="statInactive">-</h4>
+                            <h4 class="mb-0 mt-1" id="statInactive"><span class="spinner-border spinner-border-sm text-secondary" style="width: 0.75rem; height: 0.75rem;" role="status"></span></h4>
                         </div>
                         <span class="badge bg-label-danger rounded p-2"><i class="ti ti-user-off ti-sm"></i></span>
                     </div>
