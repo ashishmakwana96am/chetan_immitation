@@ -227,10 +227,10 @@
 
                         <!-- Shop By Collection -->
                         @if(isset($sharedCollections) && count($sharedCollections) > 0)
-                        <div class="group relative">
+                        <div class="group relative" onmouseenter="setHeaderCategoryArrow(true, 'desktopCollectionArrow')" onmouseleave="setHeaderCategoryArrow(false, 'desktopCollectionArrow')" onfocusin="setHeaderCategoryArrow(true, 'desktopCollectionArrow')" onfocusout="setHeaderCategoryArrow(false, 'desktopCollectionArrow')">
                             <a href="{{ route('shop-by-category', ['collection' => '']) }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
-                                Shop By Collection
-                                <i class="fa-solid fa-angle-down text-xl transition-transform duration-300"></i>
+                                Collections
+                                <i id="desktopCollectionArrow" class="fa-solid fa-angle-down text-xl transition-transform duration-300 group-hover:rotate-180"></i>
                             </a>
                             <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300 z-50">
                                 <div class="w-[200px] border border-[#D5D5D5] p-3.5 bg-white shadow-lg">
@@ -643,7 +643,7 @@
             @if(isset($sharedCollections) && count($sharedCollections) > 0)
             <div class="border-b">
                 <button onclick="toggleMenu('collectionMenu','collectionArrow')" class="w-full py-4 md:py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
-                    <span>Shop By Collection</span>
+                    <span>Collections</span>
                     <i id="collectionArrow" class="fa-solid fa-angle-down transition duration-300"></i>
                 </button>
                 <div id="collectionMenu" class="hidden">

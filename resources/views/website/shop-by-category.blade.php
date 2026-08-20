@@ -115,7 +115,7 @@
             <div class="sidebar-section overflow-hidden">
                 <button onclick="toggleSection('col-section','col-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
-                    <span>Shop By Collection</span>
+                    <span>Collections</span>
                     <svg id="col-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
