@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Category;
+use App\Models\Collection;
 use App\Models\CustomerBalanceTransaction;
 use App\Models\Expense;
 use App\Models\Order;
@@ -54,7 +55,13 @@ class AppServiceProvider extends ServiceProvider
                 }])
                 ->orderBy('sort_order')
                 ->get();
+            $collections = Collection::where('status', Collection::STATUS_ACTIVE)
+                ->whereNotNull('name')
+                ->where('name', '!=', '')
+                ->orderBy('name')
+                ->get();
             $view->with('sharedCategories', $categories);
+            $view->with('sharedCollections', $collections);
             $view->with('sharedInstagramPosts', \App\Models\Setting::getInstagramPosts());
             $view->with('sharedInstagramProfileUrl', \App\Models\Setting::getInstagramProfileUrl());
         });

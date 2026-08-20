@@ -172,7 +172,7 @@
                     </a>
 
                     <!-- Desktop Menu -->
-                    <nav class="hidden lg:flex items-center gap-4 xl:gap-10">
+                    <nav class="hidden lg:flex items-center gap-3 xl:gap-6 2xl:gap-8">
                         <a href="{{ url('/') }}" class="{{ request()->routeIs('home') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             Home
                         </a>
@@ -225,6 +225,26 @@
                         </div>
                         @endif
 
+                        <!-- Shop By Collection -->
+                        @if(isset($sharedCollections) && count($sharedCollections) > 0)
+                        <div class="group relative">
+                            <a href="{{ route('shop-by-category', ['collection' => '']) }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
+                                Shop By Collection
+                                <i class="fa-solid fa-angle-down text-xl transition-transform duration-300"></i>
+                            </a>
+                            <!-- Dropdown -->
+                            <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300 z-50">
+                                <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white shadow-lg">
+                                    @foreach($sharedCollections as $col)
+                                        <a href="{{ route('shop-by-category', ['collection' => $col->short_name]) }}" class="block w-full {{ $loop->last ? 'py-[10px]' : 'py-[10px] border-b border-[#D5D5D5]' }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
+                                            <span>{{ $col->display_name }}</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                         <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-white' }} hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
                             About Us
                         </a>
@@ -238,7 +258,7 @@
                     <div class="flex items-center gap-2 sm:gap-5">
                         <!-- Mobile Search Icon -->
 
-                        <div class="search-container items-center w-[130px] min-[400px]:w-[160px] sm:w-[200px] 2xl:w-[370px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-2 sm:pl-4 pr-2 sm:pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
+                        <div class="search-container items-center w-[130px] min-[400px]:w-[150px] sm:w-[170px] xl:w-[200px] 2xl:w-[240px] rounded-sm h-[34px] lg:h-[40px] border border-[#D5D5D533] pl-2 sm:pl-4 pr-2 sm:pr-3 bg-[#FFFFFF08] focus-within:border-[#B4771E] transition-all duration-300 flex">
                             @php
                                 $headerSearchValue = request()->routeIs('shop-by-category')
                                     ? (request('search') ?? session('shop_filters.search'))
@@ -606,6 +626,25 @@
                     @endforeach
                 </div>
             </div>
+
+            <!-- Shop By Collection (Mobile) -->
+            @if(isset($sharedCollections) && count($sharedCollections) > 0)
+            <div class="border-b">
+                <button onclick="toggleMenu('collectionMenu','collectionArrow')" class="w-full py-4 md:py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
+                    <span>Shop By Collection</span>
+                    <i id="collectionArrow" class="fa-solid fa-angle-down transition duration-300"></i>
+                </button>
+                <div id="collectionMenu" class="hidden">
+                    <div class="py-2 pl-4">
+                        @foreach($sharedCollections as $col)
+                            <a href="{{ route('shop-by-category', ['collection' => $col->short_name]) }}" class="block py-2 text-[#131615] hover:text-[#B4771E] font-medium text-base transition-colors duration-300">
+                                {{ $col->display_name }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <a href="{{ route('about') }}" class="block py-4 border-b {{ request()->routeIs('about') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">About Us</a>
             <a href="{{ route('contact') }}" class="block py-4 {{ request()->routeIs('contact') ? 'text-[#B4771E]' : 'text-[#131615]' }} hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">Contact Us</a>

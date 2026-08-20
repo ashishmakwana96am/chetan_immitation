@@ -116,6 +116,11 @@ class ProductImportService
             'productvarientvalue'    => 'product_variant_value',
             'barcode'                => 'barcode',
             'category'               => 'category',
+            'collection'             => 'collection',
+            'collectionname'         => 'collection',
+            'collectionshortname'    => 'collection',
+            'collectionshort'        => 'collection',
+            'collectioncode'         => 'collection',
         ];
 
         $normalized = [];
@@ -172,6 +177,7 @@ class ProductImportService
                     'first_row_num'       => $rowNum,
                     'category_name'       => $categoryName,
                     'sub_category_name'   => trim($row['sub_category'] ?? ''),
+                    'collection'          => trim($row['collection'] ?? ''),
                     'product_name'        => $productName,
                     'barcode'             => trim($row['barcode'] ?? ''),
                     'product_code'        => trim($row['product_code'] ?? ''),

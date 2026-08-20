@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attribute;
 use App\Models\Category;
+use App\Models\Collection;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Inventory;
@@ -28,6 +29,7 @@ class ProductController extends Controller
     {
         $this->authorize('view products');
         $categories = Category::orderBy('name')->get();
+        $collections = Collection::where('status', 1)->orderBy('name')->get();
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
@@ -37,7 +39,7 @@ class ProductController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        return view('products.index', compact('categories', 'locations', 'isRestricted'));
+        return view('products.index', compact('categories', 'collections', 'locations', 'isRestricted'));
     }
 
     public function data(Request $request)
@@ -55,6 +57,9 @@ class ProductController extends Controller
         $baseQuery = Product::query()
             ->when($request->category_id, function($q) use ($request) {
                 $q->where('category_id', $request->category_id);
+            })
+            ->when($request->collection_id, function($q) use ($request) {
+                $q->where('collection_id', $request->collection_id);
             })
             ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
                 $q->where('status', $request->status);
@@ -444,6 +449,8 @@ class ProductController extends Controller
 
         $product->load([
             'category',
+            'subCategory',
+            'collection',
             'images',
             'createdBy',
             'variants.attributeValue',
@@ -677,6 +684,7 @@ class ProductController extends Controller
     {
         $this->authorize('create products');
         $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
+        $collections = Collection::where('status', 1)->orderBy('name')->get();
         $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
 
         $clonedProduct = null;
@@ -690,7 +698,7 @@ class ProductController extends Controller
                 ->get();
         }
 
-        return view('products.create', compact('categories', 'clonedProduct', 'subCategories', 'attributes'));
+        return view('products.create', compact('categories', 'collections', 'clonedProduct', 'subCategories', 'attributes'));
     }
 
     public function store(Request $request)
@@ -703,6 +711,7 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
+            'collection_id'            => ['required', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
@@ -791,6 +800,7 @@ class ProductController extends Controller
                 'slug'            => generate_slug(Product::class, $request->name),
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
+                'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
                 'purchase_multiplier' => $request->purchase_multiplier,
@@ -915,13 +925,14 @@ class ProductController extends Controller
     {
         $this->authorize('edit products');
         $categories = \Cache::remember('active_categories_list', 3600, fn() => Category::where('status', 1)->orderBy('name')->get());
+        $collections = Collection::where('status', 1)->orderBy('name')->get();
         $subCategories = SubCategory::where('category_id', $product->category_id)
             ->where('status', 1)
             ->orderBy('name')
             ->get();
         $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
         $product->load('images', 'variants.attributeValue');
-        return view('products.edit', compact('product', 'categories', 'subCategories', 'attributes'));
+        return view('products.edit', compact('product', 'categories', 'collections', 'subCategories', 'attributes'));
     }
 
     public function update(Request $request, Product $product)
@@ -932,6 +943,7 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
+            'collection_id'            => ['required', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
@@ -1074,6 +1086,7 @@ class ProductController extends Controller
                 'name'            => $request->name,
                 'category_id'     => $request->category_id,
                 'sub_category_id' => $request->sub_category_id,
+                'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
                 'purchase_multiplier' => $request->purchase_multiplier,

@@ -75,6 +75,17 @@
                         </select>
                     </div>
 
+                    {{-- Collection --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-collection">Collection</label>
+                        <select id="filter-collection" class="form-select">
+                            <option value="">All Collections</option>
+                            @foreach($collections as $collection)
+                                <option value="{{ $collection->id }}">{{ $collection->display_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     {{-- Location (Only for non-restricted users) --}}
                     @if(!$isRestricted)
                         <div class="mb-3 text-start">
@@ -309,6 +320,7 @@
                     cache: false,
                     data: function(d) {
                         d.category_id = $('#filter-category').val();
+                        d.collection_id = $('#filter-collection').val();
                         d.status = $('#filter-status').val();
                         d.stock_status = $('#filter-stock-status').val();
                         d.hide_from_website = $('#filter-hide-from-website').val();
@@ -345,6 +357,7 @@
             $(document).on('click', '#btnClearFilter', function (e) {
                 e.preventDefault();
                 $('#filter-category').val('');
+                $('#filter-collection').val('');
                 $('#filter-status').val('');
                 $('#filter-stock-status').val('');
                 $('#filter-hide-from-website').val('');

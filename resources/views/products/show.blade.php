@@ -258,6 +258,12 @@
                         </span>
                     </div>
                     <div class="info-row">
+                        <span class="info-label">Collection</span>
+                        <span class="info-value">
+                            <span class="badge bg-label-warning">{{ $product->collection->display_name ?? '-' }}</span>
+                        </span>
+                    </div>
+                    <div class="info-row">
                         <span class="info-label">Product Code</span>
                         <span class="info-value fw-semibold">{{ number_format($product->product_code ?? 0, 2) }}</span>
                     </div>

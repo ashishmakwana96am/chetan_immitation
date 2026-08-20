@@ -72,22 +72,34 @@
                                   <div class="invalid-feedback"></div>
                               </div>
                               <div class="col-md-6">
+                                  <label class="form-label">Collection <span class="text-danger">*</span></label>
+                                  <select name="collection_id" id="productCollection" class="form-select">
+                                      <option value="">Select Collection</option>
+                                      @foreach($collections as $collection)
+                                          <option value="{{ $collection->id }}" {{ $product->collection_id === $collection->id ? 'selected' : '' }}>
+                                              {{ $collection->display_name }}
+                                          </option>
+                                      @endforeach
+                                  </select>
+                                  <div class="invalid-feedback"></div>
+                              </div>
+                              <div class="col-md-6">
                                   <label class="form-label">Product Code <span class="text-danger">*</span></label>
                                   <input type="number" name="product_code" id="productCodeInput" class="form-control"
                                       placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ $product->product_code }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
-                              <div class="col-md-4">
+                              <div class="col-md-6">
                                   <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
                                   <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ $product->purchase_multiplier }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
-                              <div class="col-md-4">
+                              <div class="col-md-6">
                                   <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
                                   <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ $product->sale_multiplier }}" required />
                                   <div class="invalid-feedback"></div>
                               </div>
-                              <div class="col-md-4">
+                              <div class="col-md-6">
                                   <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
                                   <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ $product->mrp_multiplier }}" required />
                                   <div class="invalid-feedback"></div>

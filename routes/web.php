@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ContactInquiryController;
 use App\Http\Controllers\CouponController;
@@ -285,6 +286,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('sub-categories/data', [SubCategoryController::class, 'data'])->name('sub-categories.data');
         Route::resource('sub-categories', SubCategoryController::class)->except('show');
         Route::patch('sub-categories/{sub_category}/toggle-status', [SubCategoryController::class, 'toggleStatus'])->name('sub-categories.toggle-status');
+
+        // Collections
+        Route::get('collections/data', [CollectionController::class, 'data'])->name('collections.data');
+        Route::resource('collections', CollectionController::class)->except('show');
+        Route::patch('collections/{collection}/toggle-status', [CollectionController::class, 'toggleStatus'])->name('collections.toggle-status');
 
         // Locations
         Route::get('locations/data', [LocationController::class, 'data'])->name('locations.data');

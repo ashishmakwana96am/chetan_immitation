@@ -33,6 +33,7 @@ class Product extends Model
         'slug',
         'category_id',
         'sub_category_id',
+        'collection_id',
         'barcode',
         'product_code',
         'purchase_multiplier',
@@ -85,6 +86,11 @@ class Product extends Model
     public function subCategory()
     {
         return $this->belongsTo(SubCategory::class)->withTrashed();
+    }
+
+    public function collection()
+    {
+        return $this->belongsTo(Collection::class)->withTrashed();
     }
 
     public function images()

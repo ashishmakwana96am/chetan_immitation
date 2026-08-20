@@ -143,22 +143,22 @@ class PurchaseImportController extends Controller
         $this->authorize('create purchases');
 
         $columns = [
-            'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',
+            'Category', 'Sub Category', 'Collection Name', 'Product Name', 'Barcode', 'Product Code',
             'Purchase Price', 'Sale Price', 'MRP', 'Pair Product', 'Pair Sizes',
             'Product Type', 'Supplier Name', 'Variant', 'Variant Value', 'Quantity',
             'Purchase Status', 'Payment Status', 'Payment Method',
         ];
 
         $rows = [
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular', 'BAR001', '100', '250', '415', '460', 'F', '', 'N', 'Arihant Tools', '', '', '100', 'Approve', 'Pending', 'Cash'],
-            ['', 'Short Necklace (A)', 'Short Necklace Antique', 'BAR002', '110', '275', '455', '505', 'F', '', 'N', 'Arihant Tools', '', '', '80', 'Approve', 'Pending', 'Cash'],
-            ['', 'Long Necklace (R)', 'Long Necklace Regular', 'BAR003', '150', '375', '620', '685', 'T', '2,4', 'V', 'Balaji Electroplaters', 'Color', 'Gold', '40', 'Approve', 'Pending', 'Online'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '20', 'Approve', 'Paid', 'Online'],
-            ['Bangles & Kada', 'Bangal (R)', 'Bangal Regular', 'BAR004', '90', '225', '370', '410', 'F', '', 'V', 'Arihant Tools', 'Size', '2.6', '120', 'Approve', 'Paid', 'Cash'],
-            ['', '', '', '', '', '', '', '', '', '', '', 'Star Platers', 'Size', '3.2', '30', 'Approve', 'Pending', 'Cash'],
-            ['Rings', 'Fancy Ring', 'Fancy Ring Combo', 'BAR005', '120', '300', '495', '550', 'F', '', 'V', 'Arihant Tools', 'Color', 'Gold', '25', 'Approve', 'Pending', 'Cash'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '15', 'Approve', 'Pending', 'Cash'],
-            ['', '', '', '', '', '', '', '', '', '', '', '', '1', 'Gold', '10', 'Approve', 'Pending', 'Cash'],
+            ['Necklace', 'Short Necklace (R)', 'NK-S', 'Short Necklace Regular', 'BAR001', '100', '250', '415', '460', 'F', '', 'N', 'Arihant Tools', '', '', '100', 'Approve', 'Pending', 'Cash'],
+            ['', 'Short Necklace (A)', 'NK-A', 'Short Necklace Antique', 'BAR002', '110', '275', '455', '505', 'F', '', 'N', 'Arihant Tools', '', '', '80', 'Approve', 'Pending', 'Cash'],
+            ['', 'Long Necklace (R)', 'NK-L', 'Long Necklace Regular', 'BAR003', '150', '375', '620', '685', 'T', '2,4', 'V', 'Balaji Electroplaters', 'Color', 'Gold', '40', 'Approve', 'Pending', 'Online'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '20', 'Approve', 'Paid', 'Online'],
+            ['Bangles & Kada', 'Bangal (R)', 'BG-R', 'Bangal Regular', 'BAR004', '90', '225', '370', '410', 'F', '', 'V', 'Arihant Tools', 'Size', '2.6', '120', 'Approve', 'Paid', 'Cash'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', 'Star Platers', 'Size', '3.2', '30', 'Approve', 'Pending', 'Cash'],
+            ['Rings', 'Fancy Ring', 'RG-F', 'Fancy Ring Combo', 'BAR005', '120', '300', '495', '550', 'F', '', 'V', 'Arihant Tools', 'Color', 'Gold', '25', 'Approve', 'Pending', 'Cash'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Rose Gold', '15', 'Approve', 'Pending', 'Cash'],
+            ['', '', '', '', '', '', '', '', '', '', '', '', '', '1', 'Gold', '10', 'Approve', 'Pending', 'Cash'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -168,7 +168,8 @@ class PurchaseImportController extends Controller
         $sheet->fromArray($columns, null, 'A1');
         $sheet->fromArray($rows, null, 'A2');
 
-        $lastColumn = chr(ord('A') + count($columns) - 1);
+        $colCount = count($columns);
+        $lastColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
         $dataEndRow = 1 + count($rows);
 
         $sheet->getStyle('A1:' . $lastColumn . '1')->getFont()->setBold(true);

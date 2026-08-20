@@ -77,7 +77,7 @@ class RoleController extends Controller
         $this->authorize('create roles');
         $customOrder = [
             'Users', 'Roles', 'Locations',
-            'Categories', 'Sub Categories', 'Products',
+            'Categories', 'Sub Categories', 'Collections', 'Products',
             'Suppliers', 'Purchases', 'Purchase Payments',
             'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];
@@ -142,7 +142,7 @@ class RoleController extends Controller
         $this->authorize('edit roles');
         $customOrder = [
             'Users', 'Roles', 'Locations',
-            'Categories', 'Sub Categories', 'Products',
+            'Categories', 'Sub Categories', 'Collections', 'Products',
             'Suppliers', 'Purchases', 'Purchase Payments',
             'Customers', 'Sales', 'Website Content', 'Hero Section', 'Reports'
         ];

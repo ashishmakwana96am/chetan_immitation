@@ -53,22 +53,22 @@ class ProductImportController extends Controller
         $this->authorize('create products');
 
         $columns = [
-            'Category', 'Sub Category', 'Product Name', 'Barcode', 'Product Code',
+            'Category', 'Sub Category', 'Collection Name', 'Product Name', 'Barcode', 'Product Code',
             'Purchase Price', 'Sale Price', 'MRP', 'Pair Product', 'Pair Sizes',
             'Product Type', 'Product Variant', 'Product Variant Value',
         ];
 
         $rows = [
             // Normal products — Pair Sizes is blank
-            ['Necklace', 'Short Necklace (R)', 'Short Necklace Regular',        'BAR001', '100', '250', '415', '460', 'F', '',    'N', '',           ''],
-            ['',         'Short Necklace (A)', 'Short Necklace Antique',         'BAR002', '110', '275', '455', '505', 'F', '',    'N', '',           ''],
+            ['Necklace', 'Short Necklace (R)', 'NK-S', 'Short Necklace Regular',        'BAR001', '100', '250', '415', '460', 'F', '',    'N', '',           ''],
+            ['',         'Short Necklace (A)', 'NK-A', 'Short Necklace Antique',         'BAR002', '110', '275', '455', '505', 'F', '',    'N', '',           ''],
             // Pair product with sizes 2 & 4 — prices auto-calculated (proportional to size)
-            ['',         'Long Necklace (R)',  'Long Necklace Regular (Pair)',   'BAR003', '150', '375', '620', '685', 'T', '2,4', 'V', 'Color',      'Gold,Rose Gold'],
+            ['',         'Long Necklace (R)',  'NK-L', 'Long Necklace Regular (Pair)',   'BAR003', '150', '375', '620', '685', 'T', '2,4', 'V', 'Color',      'Gold,Rose Gold'],
             // Pair product with single size
-            ['',         'Long Necklace (A)',  'Long Necklace Antique (Pair)',   'BAR006', '180', '450', '745', '825', 'T', '2',   'N', '',           ''],
+            ['',         'Long Necklace (A)',  'NK-L', 'Long Necklace Antique (Pair)',   'BAR006', '180', '450', '745', '825', 'T', '2',   'N', '',           ''],
             // Normal variable products
-            ['Bangles & Kada', 'Bangal (R)',   'Bangal Regular',                'BAR004',  '90', '225', '370', '410', 'F', '',    'V', 'Size',        '2.6,3.2,3.5'],
-            ['Rings',    'Fancy Ring',          'Fancy Ring Combo',              'BAR005', '120', '300', '495', '550', 'F', '',    'V', 'Color,Size',  'Gold,Rose Gold|2.2,2.4'],
+            ['Bangles & Kada', 'Bangal (R)',   'BG-R', 'Bangal Regular',                'BAR004',  '90', '225', '370', '410', 'F', '',    'V', 'Size',        '2.6,3.2,3.5'],
+            ['Rings',    'Fancy Ring',         'RG-F', 'Fancy Ring Combo',              'BAR005', '120', '300', '495', '550', 'F', '',    'V', 'Color,Size',  'Gold,Rose Gold|2.2,2.4'],
         ];
 
         $spreadsheet = new Spreadsheet();
@@ -94,7 +94,6 @@ class ProductImportController extends Controller
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-
         // Borders
         $sheet->getStyle('A1:' . $lastColumn . $dataEndRow)
             ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
@@ -107,6 +106,7 @@ class ProductImportController extends Controller
             ['Column',            'Required?', 'Description'],
             ['Category',          'Yes',       'Category name. Leave blank to inherit from the row above (for merged cells).'],
             ['Sub Category',      'No',        'Sub-category name.'],
+            ['Collection Name',   'No',        'Collection short name (e.g. NK-S). If found, it will be assigned; if not, a new collection with blank name will be created.'],
             ['Product Name',      'Yes',       'Full product name. A new product group starts on each row that has a name.'],
             ['Barcode',           'Yes',       'Unique barcode/SKU.'],
             ['Product Code',      'Yes',       'Numeric base code used to calculate prices (e.g. 100).'],

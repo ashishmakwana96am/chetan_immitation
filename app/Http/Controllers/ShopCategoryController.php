@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Category;
+use App\Models\Collection;
 use App\Models\SubCategory;
 use App\Models\Product;
 use App\Models\Attribute;
@@ -30,6 +31,11 @@ class ShopCategoryController extends Controller
 
             if ($request->filled('sub_category')) {
                 $filters['sub_category'] = $request->input('sub_category');
+                $redirect = true;
+            }
+
+            if ($request->filled('collection')) {
+                $filters['collection'] = $request->input('collection');
                 $redirect = true;
             }
 
@@ -116,6 +122,7 @@ class ShopCategoryController extends Controller
             $filterData = [
                 'category'    => $request->input('category'),
                 'sub_category'=> $request->input('sub_category'),
+                'collection'  => $request->input('collection'),
                 'min_price'   => $request->input('min_price'),
                 'max_price'   => $request->input('max_price'),
                 'size'        => $request->input('size'),
@@ -125,6 +132,7 @@ class ShopCategoryController extends Controller
 
             $hasActiveFilters = !empty($filterData['category'])
                 || !empty($filterData['sub_category'])
+                || !empty($filterData['collection'])
                 || (isset($filterData['min_price']) && $filterData['min_price'] !== '')
                 || (isset($filterData['max_price']) && $filterData['max_price'] !== '')
                 || !empty($filterData['size'])
@@ -189,6 +197,16 @@ class ShopCategoryController extends Controller
                   ->has('images');
             }])
             ->orderBy('sort_order')
+            ->get();
+
+        $collections = Collection::where('status', Collection::STATUS_ACTIVE)
+            ->whereNotNull('name')
+            ->where('name', '!=', '')
+            ->withCount(['products' => function ($q) {
+                $q->whereNull('products.deleted_at')
+                  ->forWebsite();
+            }])
+            ->orderBy('name')
             ->get();
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
@@ -270,6 +288,7 @@ class ShopCategoryController extends Controller
 
         return compact(
             'categories',
+            'collections',
             'products',
             'sizes',
             'catalogMinPrice',
@@ -314,6 +333,16 @@ class ShopCategoryController extends Controller
 
         if ($catIds->isNotEmpty() || $subIds->isNotEmpty()) {
             $this->applyCategorySubCategoryFilters($query, $catIds, $subIds);
+        }
+
+        if (!empty($filters['collection'])) {
+            $colValues = array_values(array_filter(array_map('trim', explode(',', $filters['collection']))));
+            if (!empty($colValues)) {
+                $query->whereHas('collection', function ($cq) use ($colValues) {
+                    $cq->whereIn('id', $colValues)
+                       ->orWhereIn('short_name', $colValues);
+                });
+            }
         }
 
         if (!empty($filters['search'])) {

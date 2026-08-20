@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\Category;
+use App\Models\Collection;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SubCategory;
@@ -136,6 +137,22 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
+        $collectionId = null;
+        $collectionShortName = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
+        if ($collectionShortName !== '') {
+            $collection = Collection::withTrashed()->firstOrCreate(
+                ['short_name' => $collectionShortName],
+                ['name' => '', 'status' => 1, 'created_by' => $userId]
+            );
+            if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
+                $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+            }
+            if ($collection->trashed()) {
+                $collection->restore();
+            }
+            $collectionId = $collection->id;
+        }
+
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
 
@@ -193,6 +210,7 @@ class ProductCreationService
             'slug'                   => generate_slug(Product::class, $group['product_name']),
             'category_id'            => $category->id,
             'sub_category_id'        => $subCategoryId,
+            'collection_id'          => $collectionId,
             'barcode'                => $group['barcode'],
             'product_code'           => $code,
             'purchase_multiplier'    => $purchaseMultiplier,
@@ -256,6 +274,22 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
+        $collectionId = null;
+        $collectionShortName = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
+        if ($collectionShortName !== '') {
+            $collection = Collection::withTrashed()->firstOrCreate(
+                ['short_name' => $collectionShortName],
+                ['name' => '', 'status' => 1, 'created_by' => $userId]
+            );
+            if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
+                $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+            }
+            if ($collection->trashed()) {
+                $collection->restore();
+            }
+            $collectionId = $collection->id;
+        }
+
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
 
@@ -306,7 +340,7 @@ class ProductCreationService
         $oldType = $product->type;
         $newType = $group['product_type'];
 
-        $product->update([
+        $updateData = [
             'name'                   => $group['product_name'],
             'category_id'            => $category->id,
             'sub_category_id'        => $subCategoryId,
@@ -320,7 +354,12 @@ class ProductCreationService
             'pair_product'           => $isPair,
             'custom_sizes'           => $customSizes,
             'type'                   => $newType,
-        ]);
+        ];
+        if ($collectionId) {
+            $updateData['collection_id'] = $collectionId;
+        }
+
+        $product->update($updateData);
 
         if ($oldType === 'variable' && $newType === 'normal') {
             $product->variants()->delete();

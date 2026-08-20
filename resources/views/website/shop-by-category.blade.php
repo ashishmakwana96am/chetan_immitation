@@ -110,6 +110,44 @@
                 </div>
             </div>
 
+            <!-- Shop By Collection -->
+            @if(isset($collections) && count($collections) > 0)
+            <div class="sidebar-section overflow-hidden">
+                <button onclick="toggleSection('col-section','col-arrow')"
+                    class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
+                    <span>Shop By Collection</span>
+                    <svg id="col-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <div id="col-section" class="px-3 2xl:px-5 py-[20px]">
+                    @foreach($collections as $col)
+                    @php
+                        $sessionFilters = session('shop_filters', []);
+                        $selectedCols = !empty($sessionFilters['collection']) ? explode(',', $sessionFilters['collection']) : (!empty(request('collection')) ? [request('collection')] : []);
+                        $isColChecked = in_array((string)$col->id, $selectedCols, true) || in_array((string)$col->short_name, $selectedCols, true);
+                    @endphp
+                    <div class="{{ $loop->last ? 'border-b-0 py-3' : 'border-b border-[#D5D5D5] py-3' }}">
+                        <label class="flex items-center gap-[15px] cursor-pointer select-none">
+                            <span class="custom-checkbox shrink-0">
+                                <input type="checkbox" class="collection-checkbox" value="{{ $col->short_name }}" {{ $isColChecked ? 'checked' : '' }} onchange="handleCollectionFilterChange(this)">
+                                <span></span>
+                            </span>
+                            <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">
+                                {{ $col->display_name }}
+                                @if(isset($col->products_count) && $col->products_count > 0)
+                                    <span class="text-[#757575]">({{ $col->products_count }})</span>
+                                @endif
+                            </h3>
+                        </label>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <!-- Shop By Price -->
             <div class="sidebar-section pb-0">
                 <button onclick="toggleSection('price-section','price-arrow')"
@@ -633,6 +671,10 @@
         });
         const uniqueSubs = [...new Set(subs)];
 
+        const cols = [];
+        document.querySelectorAll('.collection-checkbox:checked').forEach(cb => cols.push(cb.value));
+        const uniqueCols = [...new Set(cols)];
+
         const minPrice = document.getElementById('minPriceInput').value;
         const maxPrice = document.getElementById('maxPriceInput').value;
         const isPriceTouched = priceFilterTouched || (minPrice !== '' && parseInt(minPrice) > catalogMinPrice) || (maxPrice !== '' && parseInt(maxPrice) < catalogMaxPrice);
@@ -648,12 +690,17 @@
         return {
             category: uniqueCats.join(','),
             sub_category: uniqueSubs.join(','),
+            collection: uniqueCols.join(','),
             min_price: isPriceTouched ? minPrice : '',
             max_price: isPriceTouched ? maxPrice : '',
             size: sizes.join(','),
             sort: sort !== 'default' ? sort : '',
             search: search
         };
+    }
+
+    function handleCollectionFilterChange(el) {
+        applyFilters();
     }
 
     function fetchProducts(page, isAppend = false) {
@@ -779,7 +826,7 @@
         const sortSelect = document.getElementById('sortSelect');
         if (sortSelect) sortSelect.value = 'default';
 
-        document.querySelectorAll('.category-checkbox, .subcategory-checkbox, .size-checkbox').forEach(cb => {
+        document.querySelectorAll('.category-checkbox, .subcategory-checkbox, .collection-checkbox, .size-checkbox').forEach(cb => {
             cb.checked = false;
         });
 
