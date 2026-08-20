@@ -1042,9 +1042,13 @@ class AccountingController extends Controller
 
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
+        $canEdit = $user->hasRole('super-admin') || $user->can('edit purchase payment');
+        $canDelete = $user->hasRole('super-admin') || $user->can('delete purchase payment');
+        $hasActionPermission = $canEdit || $canDelete;
+
         $locations = Location::where('status', 1)->orderBy('name')->get();
 
-        return view('accounting.payable-payment-history', compact('locations', 'isRestricted'));
+        return view('accounting.payable-payment-history', compact('locations', 'isRestricted', 'hasActionPermission'));
     }
 
     public function payablePaymentHistoryData(Request $request)

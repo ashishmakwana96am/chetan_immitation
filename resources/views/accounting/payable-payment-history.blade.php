@@ -77,7 +77,9 @@
                         <th class="text-end">Paid Amount</th>
                         <th>Payment Method</th>
                         <th>Paid By</th>
-                        <th style="width: 10%">Actions</th>
+                        @if($hasActionPermission)
+                            <th style="width: 10%">Actions</th>
+                        @endif
                     </tr>
                 </thead>
             </table>
@@ -163,6 +165,35 @@
                 };
             }
 
+            const hasActionPermission = {{ $hasActionPermission ? 'true' : 'false' }};
+
+            const columns = [
+                { data: 'index', orderable: false },
+                { data: 'date', className: 'fw-semibold text-heading' },
+                { data: 'supplier', className: 'fw-semibold' },
+                { 
+                    data: 'amount', 
+                    className: 'text-end fw-semibold' 
+                },
+                { 
+                    data: 'payment_method',
+                    render: function(data) {
+                        const isOnline = String(data).toLowerCase() === 'online';
+                        return `<span class="badge ${isOnline ? 'bg-label-primary' : 'bg-label-success'}">${data}</span>`;
+                    }
+                },
+                { 
+                    data: 'created_by',
+                    render: function(data) {
+                        return `<span class="badge bg-label-secondary">${data}</span>`;
+                    }
+                }
+            ];
+
+            if (hasActionPermission) {
+                columns.push({ data: 'actions', orderable: false, searchable: false });
+            }
+
             const table = $('#paymentHistoryTable').DataTable({
                 responsive: false,
                 order: [[1, 'desc']],
@@ -174,34 +205,13 @@
                         return json.data;
                     },
                 },
-                columns: [
-                    { data: 'index', orderable: false },
-                    { data: 'date', className: 'fw-semibold text-heading' },
-                    { data: 'supplier', className: 'fw-semibold' },
-                    { 
-                        data: 'amount', 
-                        className: 'text-end fw-semibold' 
-                    },
-                    { 
-                        data: 'payment_method',
-                        render: function(data) {
-                            const isOnline = String(data).toLowerCase() === 'online';
-                            return `<span class="badge ${isOnline ? 'bg-label-primary' : 'bg-label-success'}">${data}</span>`;
-                        }
-                    },
-                    { 
-                        data: 'created_by',
-                        render: function(data) {
-                            return `<span class="badge bg-label-secondary">${data}</span>`;
-                        }
-                    },
-                    { data: 'actions', orderable: false, searchable: false },
-                ],
+                columns: columns,
                 rowGroup: {
                     dataSrc: 'date_group',
                     startRender: function (rows, group) {
+                        const colSpanCount = hasActionPermission ? 7 : 6;
                         return $('<tr class="group-header"/>')
-                            .append('<td colspan="7"><div class="group-header-inner"><i class="ti ti-calendar-event me-1"></i><span>' + group + '</span><span class="badge bg-label-primary ms-2">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                            .append('<td colspan="' + colSpanCount + '"><div class="group-header-inner"><i class="ti ti-calendar-event me-1"></i><span>' + group + '</span><span class="badge bg-label-primary ms-2">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
                 drawCallback: function () {
