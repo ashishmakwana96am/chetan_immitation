@@ -859,10 +859,14 @@ class AccountingController extends Controller
     public function bulkPaySupplier(Request $request)
     {
         $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if (!$user->hasRole('super-admin')) {
+            $isDefaultBranch = !$user->location_id
+                || (int) $user->location_id === 1
+                || (bool) optional($user->location)->is_default;
 
-        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('create purchase payment'))) {
-            return response()->json(['status' => 'error', 'message' => 'Make Payment is only available for Main Branch users or Super Admin.'], 403);
+            if (!$isDefaultBranch || !$user->can('create purchase payment')) {
+                return response()->json(['status' => 'error', 'message' => 'Make Payment is only available for Default Branch users with purchase payment permissions.'], 403);
+            }
         }
 
         $request->validate([
@@ -1026,10 +1030,14 @@ class AccountingController extends Controller
     public function payablePaymentHistory(Request $request)
     {
         $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if (!$user->hasRole('super-admin')) {
+            $isDefaultBranch = !$user->location_id
+                || (int) $user->location_id === 1
+                || (bool) optional($user->location)->is_default;
 
-        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('view purchase payments'))) {
-            abort(403, 'Payment History is only available for Main Branch users or Super Admin.');
+            if (!$isDefaultBranch || !$user->can('view purchase payments')) {
+                abort(403, 'Payment History is only available for Default Branch users with purchase payment permissions.');
+            }
         }
 
         $locations = Location::where('status', 1)->orderBy('name')->get();
@@ -1040,10 +1048,14 @@ class AccountingController extends Controller
     public function payablePaymentHistoryData(Request $request)
     {
         $user = auth()->user();
-        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        if (!$user->hasRole('super-admin')) {
+            $isDefaultBranch = !$user->location_id
+                || (int) $user->location_id === 1
+                || (bool) optional($user->location)->is_default;
 
-        if ($isRestricted || (!$user->hasRole('super-admin') && !$user->can('view purchase payments'))) {
-            return response()->json(['status' => 'error', 'message' => 'Payment History is only available for Main Branch users or Super Admin.'], 403);
+            if (!$isDefaultBranch || !$user->can('view purchase payments')) {
+                return response()->json(['status' => 'error', 'message' => 'Payment History is only available for Default Branch users with purchase payment permissions.'], 403);
+            }
         }
 
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
