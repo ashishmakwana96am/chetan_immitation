@@ -181,7 +181,7 @@
                         @if(isset($sharedCategories) && count($sharedCategories) > 0)
                         <div class="group relative" onmouseenter="setHeaderCategoryArrow(true)" onmouseleave="resetSubmenus(); setHeaderCategoryArrow(false)" onfocusin="setHeaderCategoryArrow(true)" onfocusout="setHeaderCategoryArrow(false)">
                             <a href="{{ route('shop-by-category') }}" class="flex items-center gap-2 text-white hover:text-[#B4771E] text-base 2xl:text-lg pb-1 transition-colors duration-300">
-                                Shop By Category
+                                Categories
                                 <i id="desktopShopArrow" class="fa-solid fa-angle-down text-xl transition-transform duration-300"></i>
                             </a>                            <!-- Dropdown -->
                             <!-- Dropdown -->
@@ -570,7 +570,7 @@
             <!-- Shop By Category -->
             <div class="border-b">
                 <button onclick="toggleMenu('shopMenu','shopArrow')" class="w-full py-4 md:py-5 flex justify-between items-center text-[#131615] hover:text-[#B4771E] text-lg leading-[18px] transition-colors duration-300">
-                    <span>Shop By Category</span>
+                    <span>Categories</span>
                     <i id="shopArrow" class="fa-solid fa-angle-down transition duration-300"></i>
                 </button>
 
@@ -660,7 +660,7 @@
                 <!-- Category -->
                 @if(isset($sharedCategories) && count($sharedCategories) > 0)
                 <div>
-                    <h3 class="text-[#B4771E] text-base sm:text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Shop By Category</h3>
+                    <h3 class="text-[#B4771E] text-base sm:text-[18px] lg:text-lg font-semibold mb-3 sm:mb-5">Categories</h3>
                     <ul class="space-y-3 md:space-y-4 text-[#D5D5D5] text-sm sm:text-base">
                         @foreach($sharedCategories->shuffle()->take(6) as $cat)
                         <li><a href="{{ route('shop-by-category', $cat->slug) }}" class="hover:text-[#B4771E] transition">{{ $cat->name }}</a></li>

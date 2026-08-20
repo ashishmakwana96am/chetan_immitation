@@ -1,6 +1,6 @@
 @extends('layouts.website')
 
-@section('title', 'Shop By Category - Chetan Imitation')
+@section('title', 'Categories - Chetan Imitation')
 
 @section('content')
 
@@ -47,7 +47,7 @@
 
                 <button onclick="toggleSection('cat-section','cat-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
-                    <span>Shop By Category</span>
+                    <span>Categories</span>
                     <svg id="cat-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -114,7 +114,7 @@
             <div class="sidebar-section pb-0">
                 <button onclick="toggleSection('price-section','price-arrow')"
                     class="flex items-center justify-between w-full pb-[17px] pt-[22px] px-3 2xl:px-5 font-semibold text-lg leading-[18px] text-[#131615] border-b border-[#D5D5D5]">
-                    <span>Shop By Price</span>
+                    <span>Price Range</span>
                     <svg id="price-arrow" class="collapse-arrow w-5 h-5 text-[#131615]" style="transform: rotate(180deg);" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
