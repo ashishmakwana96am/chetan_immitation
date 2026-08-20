@@ -232,11 +232,23 @@
                                 Shop By Collection
                                 <i class="fa-solid fa-angle-down text-xl transition-transform duration-300"></i>
                             </a>
-                            <!-- Dropdown -->
                             <div class="absolute top-full left-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-300 z-50">
-                                <div class="w-[270px] border border-[#D5D5D5] p-4 bg-white shadow-lg">
-                                    @foreach($sharedCollections as $col)
-                                        <a href="{{ route('shop-by-category', ['collection' => $col->short_name]) }}" class="block w-full {{ $loop->last ? 'py-[10px]' : 'py-[10px] border-b border-[#D5D5D5]' }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
+                                <div class="w-[200px] border border-[#D5D5D5] p-3.5 bg-white shadow-lg">
+                                    @foreach($sharedCollections as $index => $col)
+                                        @php
+                                            $isFirst = ($index === 0);
+                                            $isLast = ($index === count($sharedCollections) - 1);
+                                            if ($isFirst && $isLast) {
+                                                $itemClass = 'py-1';
+                                            } elseif ($isFirst) {
+                                                $itemClass = 'pb-[10px] border-b border-[#D5D5D5]';
+                                            } elseif ($isLast) {
+                                                $itemClass = 'pt-[10px]';
+                                            } else {
+                                                $itemClass = 'py-[10px] border-b border-[#D5D5D5]';
+                                            }
+                                        @endphp
+                                        <a href="{{ route('shop-by-category', ['collection' => $col->short_name]) }}" class="block w-full {{ $itemClass }} text-base text-[#131615] hover:text-[#B4771E] transition-colors duration-300">
                                             <span>{{ $col->display_name }}</span>
                                         </a>
                                     @endforeach
@@ -794,7 +806,7 @@
     </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="{{ asset('website/assets/js/main.js') }}?v=1.0.1"></script>
+    <script src="{{ asset('website/assets/js/main.js') }}?v=1.0.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js" integrity="sha512-bPs7Ae6pVvhOSiIcyUClR7/q2OAsRiovw4vAkX+zJbw3ShAeeqezq50RIIcIURq7Oa20rW2n2q+fyXBNcU9lrw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
    <script>
     const mobileMenu = document.getElementById('mobileMenu');

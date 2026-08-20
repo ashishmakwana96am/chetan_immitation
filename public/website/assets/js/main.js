@@ -453,13 +453,11 @@ function toggleMenu(menuId, iconId){
         //         icon.innerHTML = '<i class="fa-solid fa-minus"></i>';
         //     }
         // }
-        if (iconId === 'shopArrow') {
-
+        if (iconId === 'shopArrow' || iconId === 'collectionArrow') {
     setHeaderCategoryArrow(
         !menu.classList.contains("hidden"),
         iconId
     );
-
 } else if (iconId === 'userArrow') {
 
     if (menu.classList.contains("hidden")) {

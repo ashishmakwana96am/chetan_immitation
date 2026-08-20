@@ -202,9 +202,13 @@ class ShopCategoryController extends Controller
         $collections = Collection::where('status', Collection::STATUS_ACTIVE)
             ->whereNotNull('name')
             ->where('name', '!=', '')
+            ->whereHas('products', function ($q) {
+                $q->forWebsite()->has('images');
+            })
             ->withCount(['products' => function ($q) {
                 $q->whereNull('products.deleted_at')
-                  ->forWebsite();
+                  ->forWebsite()
+                  ->has('images');
             }])
             ->orderBy('name')
             ->get();
