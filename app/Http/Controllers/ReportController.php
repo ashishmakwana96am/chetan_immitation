@@ -2256,6 +2256,320 @@ class ReportController extends Controller
         return $pdf->stream('sales_report_' . now()->format('Ymd_His') . '.pdf');
     }
 
+    public function exportGstJson(Request $request)
+    {
+        $this->authorize('view sale reports');
+
+        $monthInput = $request->query('month'); // e.g. "2026-07"
+        if ($monthInput && preg_match('/^(\d{4})-(\d{2})$/', $monthInput, $m)) {
+            $year = (int) $m[1];
+            $month = (int) $m[2];
+        } elseif ($monthInput && preg_match('/^(\d{2})-(\d{4})$/', $monthInput, $m)) {
+            $month = (int) $m[1];
+            $year = (int) $m[2];
+        } else {
+            $month = (int) now()->format('m');
+            $year = (int) now()->format('Y');
+        }
+
+        $fp = sprintf('%02d%04d', $month, $year);
+
+        $companyGstin = Location::whereNotNull('gst_number')
+            ->where('gst_number', '!=', '')
+            ->value('gst_number') ?? '24SCOPS0159A1ZB';
+        $companyGstin = strtoupper(trim($companyGstin));
+        if (!$companyGstin) {
+            $companyGstin = '24SCOPS0159A1ZB';
+        }
+
+        $businessStateCode = (strlen($companyGstin) >= 2 && is_numeric(substr($companyGstin, 0, 2)))
+            ? substr($companyGstin, 0, 2)
+            : '24';
+
+        $defaultGstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
+        if ($defaultGstRate <= 0) {
+            $defaultGstRate = 3.0;
+        }
+
+        $orders = Order::with(['customer', 'items.product', 'items.variant'])
+            ->where('order_type', 'sale')
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED
+            ])
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $allMonthOrders = Order::where('order_type', 'sale')
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $b2bOrders = [];
+        $b2cOrders = [];
+
+        foreach ($orders as $order) {
+            $hasGstNo = $order->customer && !empty(trim($order->customer->gst_no ?? ''));
+            if ($hasGstNo) {
+                $b2bOrders[] = $order;
+            } else {
+                $b2cOrders[] = $order;
+            }
+        }
+
+        $getStateCode = function ($order) use ($businessStateCode) {
+            if ($order->customer && !empty(trim($order->customer->gst_no ?? ''))) {
+                $gstNo = strtoupper(trim($order->customer->gst_no));
+                if (strlen($gstNo) >= 2 && is_numeric(substr($gstNo, 0, 2))) {
+                    return substr($gstNo, 0, 2);
+                }
+            }
+            return $businessStateCode;
+        };
+
+        $b2bGrouped = [];
+        foreach ($b2bOrders as $order) {
+            $ctin = strtoupper(trim($order->customer->gst_no));
+            $pos = $getStateCode($order);
+
+            $invVal = (float) round((float) $order->final_amount, 2);
+            $invDate = $order->created_at->format('d-m-Y');
+
+            $orderTax = (float) ($order->tax_amount ?? 0);
+            if ($orderTax > 0) {
+                $taxableVal = (float) round($invVal - $orderTax, 2);
+                $taxAmt = $orderTax;
+                $taxRate = $taxableVal > 0 ? (float) round(($taxAmt / $taxableVal) * 100, 1) : $defaultGstRate;
+            } else {
+                $taxRate = $defaultGstRate;
+                $taxableVal = (float) round($invVal / (1 + ($taxRate / 100)), 2);
+                $taxAmt = (float) round($invVal - $taxableVal, 2);
+            }
+
+            $isInterState = ($pos !== $businessStateCode);
+            $iamt = $isInterState ? $taxAmt : 0.0;
+            $camt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+            $samt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+
+            $itmNum = (int) round($taxRate * 100) + 1;
+
+            if (!isset($b2bGrouped[$ctin])) {
+                $b2bGrouped[$ctin] = [
+                    'ctin' => $ctin,
+                    'inv' => []
+                ];
+            }
+
+            $itmDet = [
+                'txval' => $taxableVal,
+                'rt' => (float) $taxRate,
+            ];
+            if ($isInterState) {
+                $itmDet['iamt'] = $iamt;
+            } else {
+                $itmDet['camt'] = $camt;
+                $itmDet['samt'] = $samt;
+            }
+            $itmDet['csamt'] = 0.0;
+
+            $b2bGrouped[$ctin]['inv'][] = [
+                'inum' => $order->order_no,
+                'idt' => $invDate,
+                'val' => $invVal,
+                'pos' => $pos,
+                'rchrg' => 'N',
+                'inv_typ' => 'R',
+                'itms' => [
+                    [
+                        'num' => $itmNum,
+                        'itm_det' => $itmDet
+                    ]
+                ]
+            ];
+        }
+        $b2bList = array_values($b2bGrouped);
+
+        $b2cGrouped = [];
+        foreach ($b2cOrders as $order) {
+            $pos = $getStateCode($order);
+            $splyTy = ($pos === $businessStateCode) ? 'INTRA' : 'INTER';
+
+            $invVal = (float) round((float) $order->final_amount, 2);
+            $orderTax = (float) ($order->tax_amount ?? 0);
+            if ($orderTax > 0) {
+                $taxableVal = (float) round($invVal - $orderTax, 2);
+                $taxAmt = $orderTax;
+                $taxRate = $taxableVal > 0 ? (float) round(($taxAmt / $taxableVal) * 100, 1) : $defaultGstRate;
+            } else {
+                $taxRate = $defaultGstRate;
+                $taxableVal = (float) round($invVal / (1 + ($taxRate / 100)), 2);
+                $taxAmt = (float) round($invVal - $taxableVal, 2);
+            }
+
+            $isInterState = ($splyTy === 'INTER');
+            $iamt = $isInterState ? $taxAmt : 0.0;
+            $camt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+            $samt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+
+            $key = $splyTy . '_' . $pos . '_' . number_format($taxRate, 4, '.', '');
+
+            if (!isset($b2cGrouped[$key])) {
+                $b2cGrouped[$key] = [
+                    'sply_ty' => $splyTy,
+                    'pos' => $pos,
+                    'typ' => 'OE',
+                    'txval' => 0.0,
+                    'rt' => (float) $taxRate,
+                    'camt' => 0.0,
+                    'samt' => 0.0,
+                    'iamt' => 0.0,
+                    'csamt' => 0.0
+                ];
+            }
+
+            $b2cGrouped[$key]['txval'] = (float) round($b2cGrouped[$key]['txval'] + $taxableVal, 2);
+            $b2cGrouped[$key]['camt'] = (float) round($b2cGrouped[$key]['camt'] + $camt, 2);
+            $b2cGrouped[$key]['samt'] = (float) round($b2cGrouped[$key]['samt'] + $samt, 2);
+            $b2cGrouped[$key]['iamt'] = (float) round($b2cGrouped[$key]['iamt'] + $iamt, 2);
+        }
+        $b2cList = array_values($b2cGrouped);
+
+        $buildHsn = function ($ordersList) use ($getStateCode, $businessStateCode, $defaultGstRate) {
+            $hsnGrouped = [];
+            foreach ($ordersList as $order) {
+                $pos = $getStateCode($order);
+                $isInterState = ($pos !== $businessStateCode);
+
+                foreach ($order->items as $item) {
+                    $product = $item->product;
+                    $hsnCode = !empty($product?->hsn) ? (string) $product->hsn : (!empty($product?->hsn_code) ? (string) $product->hsn_code : '7117');
+                    $uqc = !empty($product?->uqc) ? (string) $product->uqc : 'UNT';
+                    $qty = (float) $item->quantity;
+                    $itemTotal = (float) $item->total;
+
+                    $taxRate = $defaultGstRate;
+                    $taxableVal = (float) round($itemTotal / (1 + ($taxRate / 100)), 2);
+                    $taxAmt = (float) round($itemTotal - $taxableVal, 2);
+
+                    $iamt = $isInterState ? $taxAmt : 0.0;
+                    $camt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+                    $samt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
+
+                    $key = $hsnCode . '_' . $uqc . '_' . number_format($taxRate, 2, '.', '');
+
+                    if (!isset($hsnGrouped[$key])) {
+                        $hsnGrouped[$key] = [
+                            'hsn_sc' => $hsnCode,
+                            'uqc' => $uqc,
+                            'qty' => 0.0,
+                            'txval' => 0.0,
+                            'iamt' => 0.0,
+                            'camt' => 0.0,
+                            'samt' => 0.0,
+                            'csamt' => 0.0,
+                            'rt' => (float) $taxRate
+                        ];
+                    }
+
+                    $hsnGrouped[$key]['qty'] += $qty;
+                    $hsnGrouped[$key]['txval'] = (float) round($hsnGrouped[$key]['txval'] + $taxableVal, 2);
+                    $hsnGrouped[$key]['iamt'] = (float) round($hsnGrouped[$key]['iamt'] + $iamt, 2);
+                    $hsnGrouped[$key]['camt'] = (float) round($hsnGrouped[$key]['camt'] + $camt, 2);
+                    $hsnGrouped[$key]['samt'] = (float) round($hsnGrouped[$key]['samt'] + $samt, 2);
+                }
+            }
+
+            $result = [];
+            $num = 1;
+            foreach ($hsnGrouped as $row) {
+                $result[] = [
+                    'num' => $num++,
+                    'hsn_sc' => $row['hsn_sc'],
+                    'uqc' => $row['uqc'],
+                    'qty' => (float) $row['qty'],
+                    'txval' => (float) $row['txval'],
+                    'iamt' => (float) $row['iamt'],
+                    'camt' => (float) $row['camt'],
+                    'samt' => (float) $row['samt'],
+                    'csamt' => 0.0,
+                    'rt' => (float) $row['rt'],
+                ];
+            }
+            return $result;
+        };
+
+        $hsnB2b = $buildHsn($b2bOrders);
+        $hsnB2c = $buildHsn($b2cOrders);
+
+        $docsList = [];
+        if ($allMonthOrders->isNotEmpty()) {
+            $groupedByPrefix = [];
+            foreach ($allMonthOrders as $ord) {
+                $no = (string) $ord->order_no;
+                preg_match('/^([A-Za-z_-]*)(.*)$/', $no, $matches);
+                $prefix = $matches[1] ?? 'ORD';
+                $groupedByPrefix[$prefix][] = $ord;
+            }
+
+            $docNum = 1;
+            foreach ($groupedByPrefix as $prefix => $ordersInGroup) {
+                $fromOrd = $ordersInGroup[0]->order_no;
+                $toOrd = $ordersInGroup[count($ordersInGroup) - 1]->order_no;
+                $totnum = count($ordersInGroup);
+                $cancel = collect($ordersInGroup)->where('status', Order::STATUS_DECLINE)->count();
+                $netIssue = $totnum - $cancel;
+
+                $docsList[] = [
+                    'num' => $docNum++,
+                    'from' => $fromOrd,
+                    'to' => $toOrd,
+                    'totnum' => $totnum,
+                    'cancel' => $cancel,
+                    'net_issue' => $netIssue,
+                ];
+            }
+        }
+
+        $docIssue = [
+            'doc_det' => [
+                [
+                    'doc_num' => 1,
+                    'doc_typ' => 'Invoices for outward supply',
+                    'docs' => $docsList
+                ]
+            ]
+        ];
+
+        $jsonPayload = [
+            'gstin' => $companyGstin,
+            'fp' => $fp,
+            'b2b' => $b2bList,
+            'b2cs' => $b2cList,
+            'hsn' => [
+                'hsn_b2b' => $hsnB2b,
+                'hsn_b2c' => $hsnB2c,
+            ],
+            'doc_issue' => $docIssue
+        ];
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'GSTR-1 JSON exported for period ' . $fp);
+
+        $filename = 'CHETAN IMITATION_' . $year . ' - ' . ($year + 1) . '_' . $month . '.json';
+        $jsonContent = json_encode($jsonPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+
+        return response()->streamDownload(function () use ($jsonContent) {
+            echo $jsonContent;
+        }, $filename, [
+            'Content-Type' => 'application/json',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
     public function exportProfitLoss(Request $request)
     {
         $this->authorize('view profit loss reports');

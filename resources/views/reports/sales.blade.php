@@ -42,9 +42,14 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales Report</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-warning report-export-btn" data-bs-toggle="modal" data-bs-target="#gstJsonModal">
+                <i class="ti ti-file-code me-1"></i> Download GST JSON
+            </button>
+            <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
+                <i class="ti ti-file-text me-1"></i> Export to PDF
+            </button>
+        </div>
     </div>
 
     <div id="report-results">
@@ -262,8 +267,34 @@
                     </table>
                 </div>
             </div>
-        </div>
     </div>
+    </div>
+
+    <!-- GST JSON Export Modal -->
+    <div class="modal fade" id="gstJsonModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold">Download GST JSON (GSTR-1)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label font-semibold">Select Return Period (Month & Year)</label>
+                        <input type="month" id="gstJsonMonth" class="form-control" value="{{ date('Y-m') }}" max="{{ date('Y-m') }}">
+                    </div>
+                    <div class="alert alert-warning mb-0 py-2 small" role="alert">
+                        <i class="ti ti-info-circle me-1"></i> Generates GSTR-1 JSON file directly from database sales records for CA / GST portal filing.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" id="confirmGstJsonDownload" class="btn btn-warning">
+                        <i class="ti ti-download me-1"></i> Download JSON
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
@@ -552,6 +583,21 @@
             const form = $('#filterForm');
             const url = "{{ route('admin.reports.sales.export') }}?auto_print=1&" + form.serialize();
             window.open(url, '_blank');
+        });
+
+        $(document).on('click', '#confirmGstJsonDownload', function () {
+            const monthVal = $('#gstJsonMonth').val();
+            if (!monthVal) {
+                alert('Please select a month');
+                return;
+            }
+            const url = "{{ route('admin.reports.sales.gst-json') }}?month=" + monthVal;
+            window.location.href = url;
+            const modalEl = document.getElementById('gstJsonModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
         });
     });
     </script>
