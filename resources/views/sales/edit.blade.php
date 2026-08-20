@@ -462,8 +462,9 @@
                     placeholder="1" min="1" value="1" />
             </td>
             <td class="align-middle">
-                <span class="item-price-display fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
-                <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
+                <input type="number" name="items[__INDEX__][price]"
+                    class="form-control item-price"
+                    placeholder="0.00" min="0" step="0.01" value="0" style="min-width: 105px;" />
             </td>
             <td class="align-middle">
                 <div class="input-group flex-nowrap" style="min-width: 190px;">
@@ -477,7 +478,8 @@
                 </div>
             </td>
             <td class="align-middle">
-                <span class="item-total fw-semibold text-nowrap">{{ currency_symbol() }} 0.00</span>
+                <input type="number" class="form-control item-total-input"
+                    placeholder="0.00" min="0" step="0.01" value="0" style="min-width: 110px;" />
             </td>
             <td class="align-middle">
                 <button type="button" class="btn btn-sm btn-icon btn-label-danger remove-item-btn" title="Remove Item">
@@ -502,8 +504,7 @@ $(document).ready(function () {
     }
     function setItemPrice(row, price) {
         const val = parseFloat(price) || 0;
-        row.find('.item-price').val(val);
-        row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
+        row.find('.item-price').val(val > 0 ? val.toFixed(2) : '0.00');
     }
     function getMinAllowedTotal(row) {
         if (row.data('bypass-min-price')) return 0;
@@ -1149,6 +1150,22 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('input change', '.item-total-input', function () {
+        const row = $(this).closest('.item-row');
+        const enteredTotal = parseFloat($(this).val()) || 0;
+        const price = parseFloat(row.find('.item-price').val()) || 0;
+        const qty = parseInt(row.find('.item-qty').val()) || 0;
+        const subtotal = price * qty;
+
+        let diff = subtotal - enteredTotal;
+        if (diff < 0) diff = 0;
+
+        row.find('.item-discount-type').val('flat');
+        row.find('.item-discount-value').val(diff > 0 ? diff.toFixed(2) : 0);
+
+        updateRowTotal(row, true);
+    });
+
     $(document).on('input change', '#orderDiscountTypeSelect, #orderDiscountValueInput', function () {
         const discType = $('#orderDiscountTypeSelect').val();
         const valInput = $('#orderDiscountValueInput');
@@ -1162,7 +1179,7 @@ $(document).ready(function () {
 
     $('#orderDiscountTypeSelect').trigger('change');
 
-    function updateRowTotal(row) {
+    function updateRowTotal(row, isFromTotalInput = false) {
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
         const discVal  = parseFloat(row.find('.item-discount-value').val()) || 0;
@@ -1179,6 +1196,10 @@ $(document).ready(function () {
         if (discount > subtotal) discount = subtotal;
 
         const total = subtotal - discount;
+        if (!isFromTotalInput) {
+            row.find('.item-total-input').val(total > 0 ? total.toFixed(2) : '0.00');
+        }
+
         let violatesFloor = false;
         if (row.data('bypass-min-price')) {
             violatesFloor = total < 0;
@@ -1315,7 +1336,7 @@ $(document).ready(function () {
     }
 
     $(document).on('input', '#summaryFinalInput', function () {
-        const targetGrandTotal = parseFloat($(this).val()) || 0;
+        let targetGrandTotal = parseFloat($(this).val()) || 0;
 
         let subtotalSum = 0;
         let discountSum = 0;
@@ -1345,6 +1366,12 @@ $(document).ready(function () {
         const isGst = !isOnlineOrder && $('#is_gst_switch').is(':checked');
         const gstRate = @json(\App\Models\Setting::getValue('purchase_gst_rate', 3));
         const taxMultiplier = isGst ? (1 + (parseFloat(gstRate) / 100)) : 1.0;
+
+        const maxAllowedGrandTotal = Math.round(itemsTotal * taxMultiplier);
+        if (targetGrandTotal > maxAllowedGrandTotal) {
+            targetGrandTotal = maxAllowedGrandTotal;
+            $(this).val(maxAllowedGrandTotal);
+        }
 
         const targetNetAmount = targetGrandTotal / taxMultiplier;
         let requiredDiscount = itemsTotal - targetNetAmount;
