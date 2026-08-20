@@ -1040,6 +1040,8 @@ class AccountingController extends Controller
             }
         }
 
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+
         $locations = Location::where('status', 1)->orderBy('name')->get();
 
         return view('accounting.payable-payment-history', compact('locations', 'isRestricted'));
