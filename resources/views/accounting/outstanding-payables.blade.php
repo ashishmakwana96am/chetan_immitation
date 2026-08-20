@@ -52,9 +52,18 @@
         </div>
         <div class="d-flex gap-2">
             @php
-                $isMainBranchUser = auth()->user()->hasRole('super-admin') || !auth()->user()->location_id;
-                $canViewPaymentHistory = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('view purchase payments'));
-                $canMakePayment = $isMainBranchUser && (auth()->user()->hasRole('super-admin') || auth()->user()->can('create purchase payment'));
+                $user = auth()->user();
+                if ($user->hasRole('super-admin')) {
+                    $canViewPaymentHistory = true;
+                    $canMakePayment = true;
+                } else {
+                    $isDefaultBranch = !$user->location_id
+                        || (int) $user->location_id === 1
+                        || (bool) optional($user->location)->is_default;
+
+                    $canViewPaymentHistory = $isDefaultBranch && $user->can('view purchase payments');
+                    $canMakePayment = $isDefaultBranch && $user->can('create purchase payment');
+                }
             @endphp
             @if($canViewPaymentHistory)
                 <a href="{{ route('admin.accounting.outstanding-payables.payment-history') }}" class="btn btn-outline-primary">
