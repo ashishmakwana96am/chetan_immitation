@@ -550,12 +550,26 @@ $(document).ready(function () {
     }
     let allProducts = [];
     let isExistingItemsLoaded = false;
-    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
-        allProducts = res || [];
-        loadExistingItems();
-    });
+
     const locations = @json($locations);
     const existingItems = @json($existingItems);
+
+    loadExistingItems();
+
+    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
+        allProducts = res || [];
+        $('#itemsBody .item-row').each(function () {
+            const row = $(this);
+            const pId = row.find('.product-id-input').val();
+            if (pId) {
+                const freshProduct = allProducts.find(p => p.id == pId);
+                if (freshProduct) {
+                    row.data('product', freshProduct);
+                }
+            }
+            updateStockInfo(row);
+        });
+    });
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
     let pendingGstFixCustomerId = null;
     updateSummary();
@@ -975,6 +989,11 @@ $(document).ready(function () {
             let product = allProducts.find(p => p.id == productId);
             if (!product && itemsForProduct[0] && itemsForProduct[0].product) {
                 product = itemsForProduct[0].product;
+            } else if (product && itemsForProduct[0] && itemsForProduct[0].product && itemsForProduct[0].product.stock_by_location) {
+                
+                if (!product.stock_by_location) {
+                    product.stock_by_location = itemsForProduct[0].product.stock_by_location;
+                }
             }
             if (!product) return;
 
@@ -1047,12 +1066,17 @@ $(document).ready(function () {
         const stockByLocation = product.stock_by_location || {};
 
         function rawQtyAt(locId) {
-            const locData = stockByLocation[locId];
+            const locData = stockByLocation[locId] ?? stockByLocation[String(locId)] ?? stockByLocation[Number(locId)];
             if (locData == null) return 0;
-            const raw = product.type === 'variable'
-                ? (variantId ? (locData.variants?.[variantId] ?? 0) : (locData.parent ?? 0))
-                : locData;
-            return Math.ceil(raw);
+            let raw = 0;
+            if (typeof locData === 'object' && locData !== null) {
+                raw = product.type === 'variable'
+                    ? (variantId ? (locData.variants?.[variantId] ?? locData.variants?.[String(variantId)] ?? 0) : (locData.parent ?? 0))
+                    : (locData.parent ?? locData.quantity ?? 0);
+            } else {
+                raw = locData;
+            }
+            return Math.ceil(parseFloat(raw) || 0);
         }
         function displayQtyAt(locId) {
             const raw = rawQtyAt(locId);
