@@ -1042,36 +1042,37 @@ class SaleController extends Controller
                 'message' => ['items' => [$minPriceError]],
             ], 422);
         }
+        $wasApproved = ((int) $sale->status === Order::STATUS_APPROVE);
+        $oldLocationId = (int) $sale->location_id;
+        $oldItemsSnapshot = $sale->items->map(function ($item) {
+            return [
+                'product_id'         => $item->product_id,
+                'product_variant_id' => $item->product_variant_id,
+                'pair_type'          => $item->pair_type ?? 'single',
+                'custom_size_value'  => $item->custom_size_value ?? null,
+                'quantity'           => $item->quantity,
+                'price'              => (float) $item->price,
+            ];
+        })->values()->all();
+
+        if ($isApprove) {
+            $stockError = $this->getStockError($request->items, (int) $request->location_id, ($wasApproved && $oldLocationId === (int) $request->location_id) ? $oldItemsSnapshot : []);
+            if ($stockError) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => ['items' => [$stockError]],
+                ], 422);
+            }
+        }
 
         try {
-            DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale) {
-                $wasApproved = ((int) $sale->status === Order::STATUS_APPROVE);
-                $oldLocationId = (int) $sale->location_id;
-
-                $oldItemsSnapshot = $sale->items->map(function ($item) {
-                    return [
-                        'product_id'         => $item->product_id,
-                        'product_variant_id' => $item->product_variant_id,
-                        'pair_type'          => $item->pair_type ?? 'single',
-                        'custom_size_value'  => $item->custom_size_value ?? null,
-                        'quantity'           => $item->quantity,
-                        'price'              => (float) $item->price,
-                    ];
-                })->values()->all();
-
+            DB::transaction(function () use ($request, $isApprove, $isCancelled, $sale, $wasApproved, $oldLocationId, $oldItemsSnapshot) {
                 // Sale was already approved (stock deducted) — restore it before applying the edited items.
                 if ($wasApproved) {
                     foreach ($oldItemsSnapshot as $old) {
                         $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
                         $stockRestore = (int) round($old['quantity'] * $multiplier);
                         $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
-                    }
-                }
-
-                if ($isApprove) {
-                    $stockError = $this->getStockError($request->items, (int) $request->location_id, $wasApproved ? $oldItemsSnapshot : []);
-                    if ($stockError) {
-                        throw new \RuntimeException($stockError);
                     }
                 }
 
