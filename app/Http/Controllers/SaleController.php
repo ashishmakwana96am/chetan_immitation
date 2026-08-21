@@ -931,10 +931,10 @@ class SaleController extends Controller
                         'sale_price' => (float) ($v->sale_price ?? $product->sale_price),
                         'purchase_price' => (float) ($v->purchase_price ?? $product->purchase_price),
                     ])->values()->toArray(),
+                    'stock_by_location' => $product->getVariantStock() ?: $product->inventories->pluck('quantity', 'location_id')->all(),
                 ] : null,
             ];
         })->values();
-
         return view('sales.edit', ['order' => $sale, 'customers' => $customers, 'locations' => $locations, 'existingItems' => $existingItems, 'isRestricted' => $isRestricted, 'defaultLocationId' => $defaultLocationId]);
     }
 

@@ -553,6 +553,7 @@ $(document).ready(function () {
     $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
         allProducts = res || [];
         loadExistingItems();
+        $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
     });
     const locations = @json($locations);
     const existingItems = @json($existingItems);
@@ -973,8 +974,12 @@ $(document).ready(function () {
         Object.keys(grouped).forEach(function(productId) {
             const itemsForProduct = grouped[productId];
             let product = allProducts.find(p => p.id == productId);
-            if (!product && itemsForProduct[0] && itemsForProduct[0].product) {
-                product = itemsForProduct[0].product;
+            if (itemsForProduct[0] && itemsForProduct[0].product) {
+                if (!product) {
+                    product = itemsForProduct[0].product;
+                } else if (!product.stock_by_location && itemsForProduct[0].product.stock_by_location) {
+                    product.stock_by_location = itemsForProduct[0].product.stock_by_location;
+                }
             }
             if (!product) return;
 
@@ -1049,10 +1054,15 @@ $(document).ready(function () {
         function rawQtyAt(locId) {
             const locData = stockByLocation[locId] ?? stockByLocation[String(locId)] ?? stockByLocation[Number(locId)];
             if (locData == null) return 0;
-            const raw = product.type === 'variable'
-                ? (variantId ? (locData.variants?.[variantId] ?? locData.variants?.[String(variantId)] ?? 0) : (locData.parent ?? 0))
-                : locData;
-            return Math.ceil(raw);
+            let raw = 0;
+            if (typeof locData === 'object' && locData !== null) {
+                raw = product.type === 'variable'
+                    ? (variantId ? (locData.variants?.[variantId] ?? locData.variants?.[String(variantId)] ?? 0) : (locData.parent ?? 0))
+                    : (locData.parent ?? locData.quantity ?? 0);
+            } else {
+                raw = locData;
+            }
+            return Math.ceil(parseFloat(raw) || 0);
         }
         function displayQtyAt(locId) {
             const raw = rawQtyAt(locId);
