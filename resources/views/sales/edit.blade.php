@@ -550,13 +550,26 @@ $(document).ready(function () {
     }
     let allProducts = [];
     let isExistingItemsLoaded = false;
-    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
-        allProducts = res || [];
-        loadExistingItems();
-        $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
-    });
+
     const locations = @json($locations);
     const existingItems = @json($existingItems);
+
+    loadExistingItems();
+
+    $.getJSON('{{ route("admin.sales.products-json") }}', function(res) {
+        allProducts = res || [];
+        $('#itemsBody .item-row').each(function () {
+            const row = $(this);
+            const pId = row.find('.product-id-input').val();
+            if (pId) {
+                const freshProduct = allProducts.find(p => p.id == pId);
+                if (freshProduct) {
+                    row.data('product', freshProduct);
+                }
+            }
+            updateStockInfo(row);
+        });
+    });
     const customerEditUrlTemplate = '{{ route('admin.customers.edit', ['customer' => '__ID__']) }}';
     let pendingGstFixCustomerId = null;
     updateSummary();
@@ -974,10 +987,11 @@ $(document).ready(function () {
         Object.keys(grouped).forEach(function(productId) {
             const itemsForProduct = grouped[productId];
             let product = allProducts.find(p => p.id == productId);
-            if (itemsForProduct[0] && itemsForProduct[0].product) {
-                if (!product) {
-                    product = itemsForProduct[0].product;
-                } else if (!product.stock_by_location && itemsForProduct[0].product.stock_by_location) {
+            if (!product && itemsForProduct[0] && itemsForProduct[0].product) {
+                product = itemsForProduct[0].product;
+            } else if (product && itemsForProduct[0] && itemsForProduct[0].product && itemsForProduct[0].product.stock_by_location) {
+                
+                if (!product.stock_by_location) {
                     product.stock_by_location = itemsForProduct[0].product.stock_by_location;
                 }
             }
