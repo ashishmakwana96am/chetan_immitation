@@ -67,16 +67,22 @@
             border-color: #e2e8f0 !important;
         }
         .gst-flatpickr-month-grid button:not(:disabled):hover {
-            background: #B4771E;
-            color: #fff;
-            border-color: #B4771E;
+            background: #7367f0 !important;
+            color: #fff !important;
+            border-color: #7367f0 !important;
         }
         .gst-flatpickr-month-grid button.active {
-            background: #B4771E;
-            color: #fff;
-            border-color: #B4771E;
+            background: #7367f0 !important;
+            color: #fff !important;
+            border-color: #7367f0 !important;
             font-weight: 600;
-            box-shadow: 0 2px 4px rgba(180, 119, 30, 0.4);
+            box-shadow: 0 2px 4px rgba(115, 103, 240, 0.4);
+        }
+        #confirmGstJsonDownload:focus,
+        #confirmGstJsonDownload:active,
+        #confirmGstJsonDownload.active {
+            box-shadow: none !important;
+            outline: none !important;
         }
     </style>
 @endsection
@@ -319,18 +325,20 @@
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
-            <div class="flex-grow-1 p-4" style="overflow-y: auto;">
-                <div class="mb-3">
-                    <label class="form-label font-semibold">Select Return Period (Month & Year)</label>
-                    <input type="text" id="gstJsonMonth" class="form-control" value="{{ date('m-Y') }}" placeholder="MM-YYYY" readonly>
+            <form id="gstReportDownloadForm" class="d-flex flex-column h-100 m-0">
+                <div class="flex-grow-1 p-4" style="overflow-y: auto;">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Return Period (Month & Year)</label>
+                        <input type="text" id="gstJsonMonth" class="form-control" value="{{ date('m-Y') }}" placeholder="MM-YYYY" readonly>
+                    </div>
                 </div>
-            </div>
-            <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
-                <button type="button" id="confirmGstJsonDownload" class="btn btn-warning flex-fill w-50 m-0">
-                    <i class="ti ti-download me-1"></i> Download JSON
-                </button>
-                <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
-            </div>
+                <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
+                    <button type="submit" id="confirmGstJsonDownload" class="btn btn-primary flex-fill w-50 m-0">
+                        <i class="ti ti-download me-1"></i> Download JSON
+                    </button>
+                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -708,7 +716,8 @@
 
         initGstJsonMonthPicker();
 
-        $(document).on('click', '#confirmGstJsonDownload', function () {
+        $(document).on('submit', '#gstReportDownloadForm', function (e) {
+            e.preventDefault();
             const monthVal = $('#gstJsonMonth').val();
             if (!monthVal) {
                 if (typeof toastr !== 'undefined') {
@@ -719,7 +728,7 @@
                 return;
             }
 
-            const btn = $(this);
+            const btn = $('#confirmGstJsonDownload');
             const originalHtml = btn.html();
             btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Downloading...');
 
@@ -731,24 +740,42 @@
                 }
             })
             .then(async response => {
-                const contentType = response.headers.get('content-type') || '';
-                if (!response.ok || contentType.includes('application/json')) {
-                    const data = await response.json().catch(() => null);
-                    if (data && data.message) {
-                        throw new Error(data.message);
-                    }
-                    if (!response.ok) {
-                        throw new Error('No GST sales records found for the selected period.');
+                if (!response.ok) {
+                    let errorMsg = 'No GST sales records found for the selected period.';
+                    try {
+                        const data = await response.json();
+                        if (data && data.message) errorMsg = data.message;
+                    } catch (e) {}
+                    throw new Error(errorMsg);
+                }
+                const disposition = response.headers.get('Content-Disposition') || response.headers.get('content-disposition') || '';
+                let filename = '';
+                if (disposition && disposition.indexOf('filename=') !== -1) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
                     }
                 }
-                return response.blob();
+                if (!filename) {
+                    const parts = monthVal.split('-');
+                    if (parts.length === 2) {
+                        const mNum = parseInt(parts[0], 10);
+                        const yNum = parseInt(parts[1], 10);
+                        const startYear = mNum >= 4 ? yNum : yNum - 1;
+                        filename = `CHETAN IMITATION_${startYear} - ${startYear + 1}_${mNum}.json`;
+                    } else {
+                        filename = `CHETAN IMITATION_${monthVal}.json`;
+                    }
+                }
+                const blob = await response.blob();
+                return { blob, filename };
             })
-            .then(blob => {
+            .then(({ blob, filename }) => {
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = downloadUrl;
-                a.download = `GSTR1_${monthVal}.json`;
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(downloadUrl);
@@ -759,9 +786,8 @@
                 }
 
                 const offcanvasEl = document.getElementById('gstReportOffcanvas');
-                if (offcanvasEl) {
-                    const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasEl);
-                    if (offcanvas) offcanvas.hide();
+                if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
+                    bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
                 }
             })
             .catch(error => {
@@ -773,7 +799,14 @@
             })
             .finally(() => {
                 btn.prop('disabled', false).html(originalHtml);
+                btn.find('.waves-ripple').remove();
             });
+        });
+
+        $('#gstReportOffcanvas').on('hidden.bs.offcanvas', function () {
+            const btn = $('#confirmGstJsonDownload');
+            btn.prop('disabled', false).removeClass('active focus').blur();
+            btn.find('.waves-ripple').remove();
         });
     });
     </script>

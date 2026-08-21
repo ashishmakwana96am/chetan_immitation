@@ -2340,17 +2340,7 @@ class ReportController extends Controller
 
         $allMonthOrders = $allMonthOrdersQuery->orderBy('id', 'asc')->get();
 
-        $b2bOrders = [];
-        $b2cOrders = [];
-
-        foreach ($orders as $order) {
-            $hasGstNo = $order->customer && !empty(trim($order->customer->gst_no ?? ''));
-            if ($hasGstNo) {
-                $b2bOrders[] = $order;
-            } else {
-                $b2cOrders[] = $order;
-            }
-        }
+        $b2cOrders = $orders->all();
 
         $getStateCode = function ($order) use ($businessStateCode) {
             if ($order->customer && !empty(trim($order->customer->gst_no ?? ''))) {
@@ -2362,84 +2352,15 @@ class ReportController extends Controller
             return $businessStateCode;
         };
 
-        $b2bGrouped = [];
-        foreach ($b2bOrders as $order) {
-            $ctin = strtoupper(trim($order->customer->gst_no));
-            $pos = $getStateCode($order);
-
-            $invVal = (float) round((float) $order->final_amount, 2);
-            $invDate = $order->created_at->format('d-m-Y');
-
-            $orderTax = (float) ($order->tax_amount ?? 0);
-            if ($orderTax > 0) {
-                $taxableVal = (float) round($invVal - $orderTax, 2);
-                $taxAmt = $orderTax;
-                $taxRate = $taxableVal > 0 ? (float) round(($taxAmt / $taxableVal) * 100, 1) : $defaultGstRate;
-            } else {
-                $taxRate = $defaultGstRate;
-                $taxableVal = (float) round($invVal / (1 + ($taxRate / 100)), 2);
-                $taxAmt = (float) round($invVal - $taxableVal, 2);
-            }
-
-            $isInterState = ($pos !== $businessStateCode);
-            $iamt = $isInterState ? $taxAmt : 0.0;
-            $camt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
-            $samt = $isInterState ? 0.0 : (float) round($taxAmt / 2, 2);
-
-            $itmNum = (int) round($taxRate * 100) + 1;
-
-            if (!isset($b2bGrouped[$ctin])) {
-                $b2bGrouped[$ctin] = [
-                    'ctin' => $ctin,
-                    'inv' => []
-                ];
-            }
-
-            $itmDet = [
-                'txval' => $taxableVal,
-                'rt' => (float) $taxRate,
-            ];
-            if ($isInterState) {
-                $itmDet['iamt'] = $iamt;
-            } else {
-                $itmDet['camt'] = $camt;
-                $itmDet['samt'] = $samt;
-            }
-            $itmDet['csamt'] = 0.0;
-
-            $b2bGrouped[$ctin]['inv'][] = [
-                'inum' => $order->order_no,
-                'idt' => $invDate,
-                'val' => $invVal,
-                'pos' => $pos,
-                'rchrg' => 'N',
-                'inv_typ' => 'R',
-                'itms' => [
-                    [
-                        'num' => $itmNum,
-                        'itm_det' => $itmDet
-                    ]
-                ]
-            ];
-        }
-        $b2bList = array_values($b2bGrouped);
-
         $b2cGrouped = [];
         foreach ($b2cOrders as $order) {
             $pos = $getStateCode($order);
             $splyTy = ($pos === $businessStateCode) ? 'INTRA' : 'INTER';
 
             $invVal = (float) round((float) $order->final_amount, 2);
-            $orderTax = (float) ($order->tax_amount ?? 0);
-            if ($orderTax > 0) {
-                $taxableVal = (float) round($invVal - $orderTax, 2);
-                $taxAmt = $orderTax;
-                $taxRate = $taxableVal > 0 ? (float) round(($taxAmt / $taxableVal) * 100, 1) : $defaultGstRate;
-            } else {
-                $taxRate = $defaultGstRate;
-                $taxableVal = (float) round($invVal / (1 + ($taxRate / 100)), 2);
-                $taxAmt = (float) round($invVal - $taxableVal, 2);
-            }
+            $taxRate = $defaultGstRate;
+            $taxableVal = (float) round($invVal / (1 + ($taxRate / 100)), 2);
+            $taxAmt = (float) round($invVal - $taxableVal, 2);
 
             $isInterState = ($splyTy === 'INTER');
             $iamt = $isInterState ? $taxAmt : 0.0;
@@ -2533,7 +2454,6 @@ class ReportController extends Controller
             return $result;
         };
 
-        $hsnB2b = $buildHsn($b2bOrders);
         $hsnB2c = $buildHsn($b2cOrders);
 
         $docsList = [];
@@ -2582,10 +2502,8 @@ class ReportController extends Controller
         $jsonPayload = [
             'gstin' => $companyGstin,
             'fp' => $fp,
-            'b2b' => $b2bList,
-            'b2cs' => $b2cList,
+            'b2c' => $b2cList,
             'hsn' => [
-                'hsn_b2b' => $hsnB2b,
                 'hsn_b2c' => $hsnB2c,
             ],
             'doc_issue' => $docIssue
@@ -2593,7 +2511,10 @@ class ReportController extends Controller
 
         ActivityLogger::log('Reports', 'export', null, null, null, 'GSTR-1 JSON exported for period ' . $fp);
 
-        $filename = 'CHETAN IMITATION_' . $year . ' - ' . ($year + 1) . '_' . $month . '.json';
+        $monthInt = (int) $month;
+        $startYear = $monthInt >= 4 ? (int) $year : ((int) $year - 1);
+        $endYear = $startYear + 1;
+        $filename = 'CHETAN IMITATION_' . $startYear . ' - ' . $endYear . '_' . $monthInt . '.json';
         $jsonContent = json_encode($jsonPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
 
         return response()->streamDownload(function () use ($jsonContent) {
