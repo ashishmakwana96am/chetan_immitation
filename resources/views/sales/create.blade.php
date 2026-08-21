@@ -921,12 +921,17 @@ $(document).ready(function () {
         const stockByLocation = product.stock_by_location || {};
 
         function rawQtyAt(locId) {
-            const locData = stockByLocation[locId];
+            const locData = stockByLocation[locId] ?? stockByLocation[String(locId)] ?? stockByLocation[Number(locId)];
             if (locData == null) return 0;
-            const raw = product.type === 'variable'
-                ? (variantId ? (locData.variants?.[variantId] ?? 0) : (locData.parent ?? 0))
-                : locData;
-            return Math.ceil(raw);
+            let raw = 0;
+            if (typeof locData === 'object' && locData !== null) {
+                raw = product.type === 'variable'
+                    ? (variantId ? (locData.variants?.[variantId] ?? locData.variants?.[String(variantId)] ?? 0) : (locData.parent ?? 0))
+                    : (locData.parent ?? locData.quantity ?? 0);
+            } else {
+                raw = locData;
+            }
+            return Math.ceil(parseFloat(raw) || 0);
         }
         function displayQtyAt(locId) {
             const raw = rawQtyAt(locId);
