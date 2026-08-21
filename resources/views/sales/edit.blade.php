@@ -602,22 +602,6 @@ $(document).ready(function () {
 
     // Helper: check if selected customer has GST details when GST bill is enabled
     function checkCustomerGstDetails() {
-        const isGst = $('#is_gst_switch').is(':checked');
-        if (!isGst) return true;
-
-        const customerId = $('#customerSelect').val();
-        if (!customerId || customerId === '0') return true; // walk-in, skip
-
-        const selectedOpt = $('#customerSelect').find('option:selected');
-        const state  = selectedOpt.attr('data-state') || '';
-        const gstNo  = selectedOpt.attr('data-gst')   || '';
-
-        if (!state || !gstNo) {
-            toastr.warning('This customer is missing State or GST Number. Please update them before creating a GST bill.');
-            pendingGstFixCustomerId = customerId;
-            window.openCommonModal(customerEditUrlTemplate.replace('__ID__', customerId));
-            return false;
-        }
         return true;
     }
 
@@ -1517,6 +1501,12 @@ $(document).ready(function () {
     }
 
     function getClientValidationError() {
+        const customerId = $('#customerSelect').val();
+        if (customerId === null || customerId === '') {
+            $('#customerSelect').next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+            return 'Please select a customer.';
+        }
+
         if ($('.item-row').length === 0) {
             return 'Please add at least one item to the sale.';
         }
@@ -1584,8 +1574,10 @@ $(document).ready(function () {
         const validationError = getClientValidationError();
         if (validationError) {
             e.preventDefault();
+            e.stopPropagation();
             toastr.error(validationError);
-            return;
+            closePendingPrintTab();
+            return false;
         }
 
         printWindowRef = printAfterSave ? window.open('', '_blank') : null;
