@@ -36,6 +36,48 @@
             display: flex;
             align-items: center;
         }
+        .flatpickr-calendar.flatpickr-month-only .flatpickr-monthDropdown-months,
+        .flatpickr-calendar.flatpickr-month-only .flatpickr-innerContainer {
+            display: none !important;
+        }
+        .flatpickr-calendar.flatpickr-month-only .flatpickr-months {
+            padding-bottom: 0 !important;
+        }
+        .gst-flatpickr-month-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 8px 10px 10px 10px;
+        }
+        .gst-flatpickr-month-grid button {
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 8px 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .gst-flatpickr-month-grid button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f1f5f9 !important;
+            color: #94a3b8 !important;
+            border-color: #e2e8f0 !important;
+        }
+        .gst-flatpickr-month-grid button:not(:disabled):hover {
+            background: #B4771E;
+            color: #fff;
+            border-color: #B4771E;
+        }
+        .gst-flatpickr-month-grid button.active {
+            background: #B4771E;
+            color: #fff;
+            border-color: #B4771E;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(180, 119, 30, 0.4);
+        }
     </style>
 @endsection
 
@@ -43,8 +85,8 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Sales Report</h4>
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-warning report-export-btn" data-bs-toggle="modal" data-bs-target="#gstJsonModal">
-                <i class="ti ti-file-code me-1"></i> Download GST JSON
+            <button type="button" class="btn btn-warning report-export-btn" data-bs-toggle="offcanvas" data-bs-target="#gstReportOffcanvas">
+                <i class="ti ti-file-code me-1"></i> Download GST Report
             </button>
             <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
                 <i class="ti ti-file-text me-1"></i> Export to PDF
@@ -267,32 +309,27 @@
                     </table>
                 </div>
             </div>
-    </div>
+        </div>
     </div>
 
-    <!-- GST JSON Export Modal -->
-    <div class="modal fade" id="gstJsonModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-semibold">Download GST JSON (GSTR-1)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- GST Report Export Offcanvas Sidepanel -->
+    <div class="offcanvas offcanvas-end" id="gstReportOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-semibold">Download GST Report (GSTR-1)</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
+            <div class="flex-grow-1 p-4" style="overflow-y: auto;">
+                <div class="mb-3">
+                    <label class="form-label font-semibold">Select Return Period (Month & Year)</label>
+                    <input type="text" id="gstJsonMonth" class="form-control" value="{{ date('m-Y') }}" placeholder="MM-YYYY" readonly>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label font-semibold">Select Return Period (Month & Year)</label>
-                        <input type="month" id="gstJsonMonth" class="form-control" value="{{ date('Y-m') }}" max="{{ date('Y-m') }}">
-                    </div>
-                    <div class="alert alert-warning mb-0 py-2 small" role="alert">
-                        <i class="ti ti-info-circle me-1"></i> Generates GSTR-1 JSON file directly from database sales records for CA / GST portal filing.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" id="confirmGstJsonDownload" class="btn btn-warning">
-                        <i class="ti ti-download me-1"></i> Download JSON
-                    </button>
-                </div>
+            </div>
+            <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
+                <button type="button" id="confirmGstJsonDownload" class="btn btn-warning flex-fill w-50 m-0">
+                    <i class="ti ti-download me-1"></i> Download JSON
+                </button>
+                <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
             </div>
         </div>
     </div>
@@ -527,6 +564,7 @@
                 $('#report-results').html(newResults);
                 initReport();
                 initDatePickers();
+                initGstJsonMonthPicker();
                 updateFilterButtonsVisibility();
             }).always(function () {
                 $('#report-results').css('opacity', 1);
@@ -585,19 +623,157 @@
             window.open(url, '_blank');
         });
 
+        function initGstJsonMonthPicker() {
+            const inputEl = document.getElementById('gstJsonMonth');
+            if (!inputEl || typeof $.fn.flatpickr === 'undefined') return;
+            if (inputEl._flatpickr) inputEl._flatpickr.destroy();
+
+            const monthsNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const today = new Date();
+            const nowYear = today.getFullYear();
+            const nowMonthIdx = today.getMonth();
+
+            function updateMonthGridButtons(instance) {
+                const calendarContainer = $(instance.calendarContainer);
+                const currentVal = instance.input.value || '';
+                const selectedMonthIdx = currentVal ? parseInt(currentVal.split('-')[0], 10) - 1 : null;
+                const selectedYear = currentVal ? parseInt(currentVal.split('-')[1], 10) : null;
+                const activeYear = instance.currentYear;
+
+                calendarContainer.find('.gst-flatpickr-month-grid button').each(function(idx) {
+                    const isFuture = (activeYear > nowYear) || (activeYear === nowYear && idx > nowMonthIdx);
+                    $(this).prop('disabled', isFuture);
+                    $(this).toggleClass('active', activeYear === selectedYear && idx === selectedMonthIdx);
+                });
+
+                calendarContainer.find('.flatpickr-next-month').css({
+                    'opacity': activeYear >= nowYear ? '0.3' : '1',
+                    'pointer-events': activeYear >= nowYear ? 'none' : 'auto'
+                });
+            }
+
+            $('#gstJsonMonth').flatpickr({
+                dateFormat: 'm-Y',
+                maxDate: 'today',
+                allowInput: false,
+                onOpen: function(selectedDates, dateStr, instance) {
+                    const calendarContainer = $(instance.calendarContainer);
+                    calendarContainer.addClass('flatpickr-month-only');
+                    calendarContainer.find('.flatpickr-days, .flatpickr-weekdaycontainer, .flatpickr-innerContainer').hide();
+                    
+                    calendarContainer.find('.flatpickr-prev-month').off('click.yearOnly').on('click.yearOnly', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        instance.changeYear(instance.currentYear - 1);
+                        updateMonthGridButtons(instance);
+                    });
+                    
+                    calendarContainer.find('.flatpickr-next-month').off('click.yearOnly').on('click.yearOnly', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (instance.currentYear < nowYear) {
+                            instance.changeYear(instance.currentYear + 1);
+                            updateMonthGridButtons(instance);
+                        }
+                    });
+
+                    if (calendarContainer.find('.gst-flatpickr-month-grid').length === 0) {
+                        const grid = $('<div class="gst-flatpickr-month-grid"></div>');
+
+                        monthsNames.forEach((mName, idx) => {
+                            const btn = $('<button type="button"></button>').text(mName);
+                            
+                            btn.on('click', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if ($(this).is(':disabled')) return;
+
+                                const year = instance.currentYear;
+                                const monthStr = String(idx + 1).padStart(2, '0');
+                                const selectedVal = monthStr + '-' + year;
+                                instance.setDate(selectedVal, true);
+                                instance.close();
+                            });
+                            grid.append(btn);
+                        });
+                        calendarContainer.append(grid);
+                    }
+                    updateMonthGridButtons(instance);
+                },
+                onYearChange: function(selectedDates, dateStr, instance) {
+                    updateMonthGridButtons(instance);
+                }
+            });
+        }
+
+        initGstJsonMonthPicker();
+
         $(document).on('click', '#confirmGstJsonDownload', function () {
             const monthVal = $('#gstJsonMonth').val();
             if (!monthVal) {
-                alert('Please select a month');
+                if (typeof toastr !== 'undefined') {
+                    toastr.warning('Please select a return period (Month & Year).');
+                } else {
+                    alert('Please select a month');
+                }
                 return;
             }
+
+            const btn = $(this);
+            const originalHtml = btn.html();
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Downloading...');
+
             const url = "{{ route('admin.reports.sales.gst-json') }}?month=" + monthVal;
-            window.location.href = url;
-            const modalEl = document.getElementById('gstJsonModal');
-            if (modalEl) {
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
-            }
+
+            fetch(url, {
+                headers: {
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            })
+            .then(async response => {
+                const contentType = response.headers.get('content-type') || '';
+                if (!response.ok || contentType.includes('application/json')) {
+                    const data = await response.json().catch(() => null);
+                    if (data && data.message) {
+                        throw new Error(data.message);
+                    }
+                    if (!response.ok) {
+                        throw new Error('No GST sales records found for the selected period.');
+                    }
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = `GSTR1_${monthVal}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                if (typeof toastr !== 'undefined') {
+                    toastr.success('GST Report JSON downloaded successfully!');
+                }
+
+                const offcanvasEl = document.getElementById('gstReportOffcanvas');
+                if (offcanvasEl) {
+                    const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasEl);
+                    if (offcanvas) offcanvas.hide();
+                }
+            })
+            .catch(error => {
+                if (typeof toastr !== 'undefined') {
+                    toastr.warning(error.message || 'No GST sales data found for the selected period.');
+                } else {
+                    alert(error.message || 'No GST sales data found.');
+                }
+            })
+            .finally(() => {
+                btn.prop('disabled', false).html(originalHtml);
+            });
         });
     });
     </script>

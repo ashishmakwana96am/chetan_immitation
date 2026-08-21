@@ -1275,7 +1275,14 @@ class ReportController extends Controller
 
         $data = [];
         foreach ($orders as $order) {
-            $pmBadge = '<span class="badge bg-label-info">' . e(ucfirst($order->payment_method ?? 'Cash')) . '</span>';
+            $pmText = match (strtolower((string) ($order->payment_method ?? ''))) {
+                'online_cash' => 'Online + Cash',
+                'cod'         => 'COD',
+                'upi'         => 'UPI',
+                ''            => '-',
+                default       => ucwords(str_replace('_', ' + ', (string) $order->payment_method)),
+            };
+            $pmBadge = '<span class="badge bg-label-info">' . e($pmText) . '</span>';
             $psBadge = '<span class="badge bg-label-success">Paid</span>';
             if ((int) $order->payment_status === Order::PAYMENT_STATUS_PARTIAL) {
                 $psBadge = '<span class="badge bg-label-warning">Partial</span>';
@@ -2291,8 +2298,12 @@ class ReportController extends Controller
             $defaultGstRate = 3.0;
         }
 
-        $orders = Order::with(['customer', 'items.product', 'items.variant'])
+        $user = auth()->user();
+        $userLocationId = ($user->location_id && !$user->hasRole('super-admin')) ? $user->location_id : null;
+
+        $ordersQuery = Order::with(['customer', 'items.product', 'items.variant'])
             ->where('order_type', 'sale')
+            ->where('is_gst', 1)
             ->whereIn('status', [
                 Order::STATUS_APPROVE,
                 Order::STATUS_SHIPPED,
@@ -2300,15 +2311,34 @@ class ReportController extends Controller
                 Order::STATUS_DELIVERED
             ])
             ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->orderBy('created_at', 'asc')
-            ->get();
+            ->whereMonth('created_at', $month);
 
-        $allMonthOrders = Order::where('order_type', 'sale')
+        if ($userLocationId) {
+            $ordersQuery->where('location_id', $userLocationId);
+        }
+
+        $orders = $ordersQuery->orderBy('created_at', 'asc')->get();
+
+        if ($orders->isEmpty()) {
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No GST sales records found for the selected period.'
+                ], 404);
+            }
+            return redirect()->back()->with('error', 'No GST sales records found for the selected period.');
+        }
+
+        $allMonthOrdersQuery = Order::where('order_type', 'sale')
+            ->where('is_gst', 1)
             ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->orderBy('id', 'asc')
-            ->get();
+            ->whereMonth('created_at', $month);
+
+        if ($userLocationId) {
+            $allMonthOrdersQuery->where('location_id', $userLocationId);
+        }
+
+        $allMonthOrders = $allMonthOrdersQuery->orderBy('id', 'asc')->get();
 
         $b2bOrders = [];
         $b2cOrders = [];
@@ -2518,10 +2548,14 @@ class ReportController extends Controller
 
             $docNum = 1;
             foreach ($groupedByPrefix as $prefix => $ordersInGroup) {
-                $fromOrd = $ordersInGroup[0]->order_no;
-                $toOrd = $ordersInGroup[count($ordersInGroup) - 1]->order_no;
-                $totnum = count($ordersInGroup);
-                $cancel = collect($ordersInGroup)->where('status', Order::STATUS_DECLINE)->count();
+                $sortedGroup = collect($ordersInGroup)->sortBy(function ($ord) {
+                    return (int) preg_replace('/\D/', '', (string) $ord->order_no);
+                })->values();
+
+                $fromOrd = $sortedGroup[0]->order_no;
+                $toOrd = $sortedGroup[count($sortedGroup) - 1]->order_no;
+                $totnum = count($sortedGroup);
+                $cancel = $sortedGroup->where('status', Order::STATUS_DECLINE)->count();
                 $netIssue = $totnum - $cancel;
 
                 $docsList[] = [
