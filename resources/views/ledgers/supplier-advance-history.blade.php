@@ -102,7 +102,7 @@
                         <span class="ledger-info-value text-warning">{{ format_price($totalAdvanceUsed) }}</span>
                     </div>
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Current Advance Balance</span>
+                        <span class="ledger-info-label">Current Balance</span>
                         <span class="ledger-info-value text-success fw-bold fs-6">{{ format_price($supplier->advance_balance) }}</span>
                     </div>
                 </div>
@@ -125,7 +125,7 @@
                                 <th>Method</th>
                                 <th class="text-end">Paid Amount</th>
                                 <th class="text-end">Used Amount</th>
-                                <th class="text-end">Remaining Balance</th>
+                                <th class="text-end">Balance</th>
                             </tr>
                         </thead>
                         <tbody>

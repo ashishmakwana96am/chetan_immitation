@@ -96,7 +96,7 @@
                         <th>Paid Amount</th>
                         <th>Due Amount</th>
                         @if($canManageAdvance)
-                            <th>Advance Balance</th>
+                            <th>Balance</th>
                         @endif
                         <th>Action</th>
                     </tr>
@@ -172,7 +172,7 @@
                                 </a>
                                 ${canManageAdvance ? `
                                 <a href="{{ route('admin.ledgers.supplier.advance-history') }}?supplier_id=${row.supplier_id}" class="dropdown-item">
-                                    <i class="ti ti-history me-2"></i>Advance History
+                                    <i class="ti ti-history me-2"></i>Balance History
                                 </a>
                                 ` : ''}
                             </div>
