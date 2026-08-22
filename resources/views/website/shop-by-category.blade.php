@@ -127,12 +127,13 @@
                     @php
                         $sessionFilters = session('shop_filters', []);
                         $selectedCols = !empty($sessionFilters['collection']) ? explode(',', $sessionFilters['collection']) : (!empty(request('collection')) ? [request('collection')] : []);
-                        $isColChecked = in_array((string)$col->id, $selectedCols, true) || in_array((string)$col->short_name, $selectedCols, true);
+                        $isColChecked = in_array((string)$col->id, $selectedCols, true) || in_array((string)$col->short_name, $selectedCols, true) || in_array((string)$col->name, $selectedCols, true);
+                        $colValue = !empty($col->short_name) ? $col->short_name : (string) $col->id;
                     @endphp
                     <div class="{{ $loop->last ? 'border-b-0 py-3' : 'border-b border-[#D5D5D5] py-3' }}">
                         <label class="flex items-center gap-[15px] cursor-pointer select-none">
                             <span class="custom-checkbox shrink-0">
-                                <input type="checkbox" class="collection-checkbox" value="{{ $col->short_name }}" {{ $isColChecked ? 'checked' : '' }} onchange="handleCollectionFilterChange(this)">
+                                <input type="checkbox" class="collection-checkbox" value="{{ $colValue }}" {{ $isColChecked ? 'checked' : '' }} onchange="handleCollectionFilterChange(this)">
                                 <span></span>
                             </span>
                             <h3 class="text-base 2xl:text-[18px] text-[#3D403F]">

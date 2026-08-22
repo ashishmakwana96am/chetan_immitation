@@ -199,7 +199,10 @@ class ShopCategoryController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $collections = Collection::where('status', Collection::STATUS_ACTIVE)
+        $sessionFilters = session('shop_filters', []);
+        $selectedCols = !empty($sessionFilters['collection']) ? array_map('trim', explode(',', $sessionFilters['collection'])) : [];
+
+        $collections = Collection::whereIn('status', [Collection::STATUS_ACTIVE, 1, '1', 'active'])
             ->whereNotNull('name')
             ->where('name', '!=', '')
             ->whereHas('products', function ($q) {
@@ -210,8 +213,12 @@ class ShopCategoryController extends Controller
                   ->forWebsite()
                   ->has('images');
             }])
-            ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(function ($col) use ($selectedCols) {
+                return $col->products_count > 0 || in_array((string)$col->id, $selectedCols, true) || in_array((string)$col->short_name, $selectedCols, true) || in_array((string)$col->name, $selectedCols, true);
+            })
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         $catalogQuery = $this->buildFilteredQuery($slug, false);
         $candidateProducts = $catalogQuery->with('variants')->get();
@@ -344,7 +351,8 @@ class ShopCategoryController extends Controller
             if (!empty($colValues)) {
                 $query->whereHas('collection', function ($cq) use ($colValues) {
                     $cq->whereIn('id', $colValues)
-                       ->orWhereIn('short_name', $colValues);
+                       ->orWhereIn('short_name', $colValues)
+                       ->orWhereIn('name', $colValues);
                 });
             }
         }
