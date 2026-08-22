@@ -111,7 +111,7 @@
                     </div>
                     @if($canManageAdvance)
                     <div class="ledger-info-row">
-                        <span class="ledger-info-label">Advance Balance</span>
+                        <span class="ledger-info-label">Advance Payment</span>
                         <span class="ledger-info-value text-success fw-bold fs-6">{{ format_price($supplier->advance_balance) }}</span>
                     </div>
                     @endif
