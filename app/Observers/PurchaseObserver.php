@@ -17,13 +17,6 @@ class PurchaseObserver
     public function created(Purchase $purchase): void
     {
         if ($purchase->paid_amount > 0) {
-            if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
-                $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
-                if ($suppBal && $suppBal->balance > 0) {
-                    \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
-                }
-            }
-
             $bulkOrAdvancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
             $netDirectPaid = max(0.0, round((float) $purchase->paid_amount - $bulkOrAdvancePaid, 2));
 
@@ -42,14 +35,6 @@ class PurchaseObserver
             !$purchase->wasChanged('payment_status')
         ) {
             return;
-        }
-
-        // If supplier has advance balance and bill has due amount, adjust advance first
-        if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
-            $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
-            if ($suppBal && $suppBal->balance > 0) {
-                \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
-            }
         }
 
         $oldPaid   = (float) $purchase->getOriginal('paid_amount');
