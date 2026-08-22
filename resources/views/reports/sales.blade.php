@@ -321,7 +321,7 @@
     <!-- GST Report Export Offcanvas Sidepanel -->
     <div class="offcanvas offcanvas-end" id="gstReportOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title fw-semibold">Download GST Report (GSTR-1)</h5>
+            <h5 class="offcanvas-title fw-semibold">Download JSON Report</h5>
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
