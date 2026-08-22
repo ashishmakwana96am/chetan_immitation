@@ -962,6 +962,20 @@ class PurchaseController extends Controller
     {
         $this->authorize('view purchases');
 
+        $actualPaid = (float) $purchase->payments()->sum('amount');
+        if (abs((float) $purchase->paid_amount - $actualPaid) > 0.001) {
+            $finalStatus = $actualPaid >= (float) $purchase->total_amount
+                ? Purchase::PAYMENT_STATUS_PAID
+                : ($actualPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+
+            Purchase::withoutActivityLogging(fn () => $purchase->update([
+                'paid_amount'    => min($actualPaid, (float) $purchase->total_amount),
+                'payment_status' => $finalStatus,
+            ]));
+            $purchase->paid_amount = min($actualPaid, (float) $purchase->total_amount);
+            $purchase->payment_status = $finalStatus;
+        }
+
         $payments = $purchase->payments()->with('createdBy')->get()->map(function ($payment) {
             return [
                 'amount' => format_price($payment->amount),
@@ -1044,7 +1058,7 @@ class PurchaseController extends Controller
         $oldPaymentStatus = (int) $purchase->payment_status;
         $oldPaidAmount = (float) $purchase->paid_amount;
 
-        DB::transaction(function () use ($purchase, $newStatus, $request, $balanceDue) {
+        DB::transaction(function () use ($purchase, $newStatus, $request, $balanceDue, $oldPaidAmount) {
             if ($newStatus === Purchase::PAYMENT_STATUS_PAID) {
                 $purchase->payment_status = Purchase::PAYMENT_STATUS_PAID;
                 $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $balanceDue);
@@ -1076,12 +1090,12 @@ class PurchaseController extends Controller
                     ]);
                 }
 
-                $newPaidAmount = round($purchase->paid_amount + $amount, 2);
-                $finalStatus = $newPaidAmount >= $purchase->total_amount ? Purchase::PAYMENT_STATUS_PAID : Purchase::PAYMENT_STATUS_PARTIAL;
+                $newPaidAmount = round($oldPaidAmount + $amount, 2);
+                $finalStatus = $newPaidAmount >= (float) $purchase->total_amount ? Purchase::PAYMENT_STATUS_PAID : Purchase::PAYMENT_STATUS_PARTIAL;
 
                 Purchase::withoutActivityLogging(fn () => $purchase->update([
                     'payment_status' => $finalStatus,
-                    'paid_amount'    => min($newPaidAmount, $purchase->total_amount),
+                    'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
                 ]));
             } else {
                 $purchase->payments()->delete();

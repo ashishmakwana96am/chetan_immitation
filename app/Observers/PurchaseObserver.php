@@ -17,18 +17,14 @@ class PurchaseObserver
     public function created(Purchase $purchase): void
     {
         if ($purchase->paid_amount > 0) {
-            if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
-                $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
-                if ($suppBal && $suppBal->balance > 0) {
-                    \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
-                }
-            }
+            $directPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
+                ->whereNull('bulk_purchase_payment_id')
+                ->where(function ($q) {
+                    $q->where('is_advance', false)->orWhereNull('is_advance');
+                })->sum('amount');
 
-            $bulkOrAdvancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
-            $netDirectPaid = max(0.0, round((float) $purchase->paid_amount - $bulkOrAdvancePaid, 2));
-
-            if ($netDirectPaid > 0) {
-                $this->deductBalance($purchase, $netDirectPaid);
+            if ($directPaid > 0) {
+                $this->deductBalance($purchase, $directPaid);
             }
         }
     }
@@ -42,14 +38,6 @@ class PurchaseObserver
             !$purchase->wasChanged('payment_status')
         ) {
             return;
-        }
-
-        // If supplier has advance balance and bill has due amount, adjust advance first
-        if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
-            $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
-            if ($suppBal && $suppBal->balance > 0) {
-                \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
-            }
         }
 
         $oldPaid   = (float) $purchase->getOriginal('paid_amount');
@@ -119,7 +107,7 @@ class PurchaseObserver
         });
     }
 
-    private function updatePurchaseBalance(float $oldPaid, ?string $oldMethod, Purchase $purchase): void
+    private function updatePurchaseBalance(float $oldPaidInput, ?string $oldMethod, Purchase $purchase): void
     {
         $locationId = $purchase->location_id;
         if (!$locationId) {
@@ -140,11 +128,16 @@ class PurchaseObserver
         $oldCol  = $oldType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
         $newCol  = $newType === LocationBalanceTransaction::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
 
-        // Calculate how much was paid via Bulk Payments or Advance Payments vs Direct Cashbook
-        $bulkOrAdvancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
-        $newPaid = max(0.0, round((float) $purchase->paid_amount - $bulkOrAdvancePaid, 2));
-
         $note = 'Purchase #' . $purchase->invoice_no;
+        $existingTx = LocationBalanceTransaction::where('notes', $note)->first();
+        $oldPaid = $existingTx ? (float) $existingTx->amount : 0.0;
+
+        // Calculate only direct cashbook payments (excluding advance payments and bulk payments)
+        $newPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
+            ->whereNull('bulk_purchase_payment_id')
+            ->where(function ($q) {
+                $q->where('is_advance', false)->orWhereNull('is_advance');
+            })->sum('amount');
 
         DB::transaction(function () use ($locationId, $oldCol, $oldPaid, $newCol, $newPaid, $oldType, $newType, $note, $purchase) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();

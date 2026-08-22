@@ -9,6 +9,7 @@ class PurchasePayment extends Model
     protected $fillable = [
         'purchase_id',
         'bulk_purchase_payment_id',
+        'is_advance',
         'amount',
         'created_by',
     ];
@@ -16,7 +17,8 @@ class PurchasePayment extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount'     => 'decimal:2',
+            'is_advance' => 'boolean',
         ];
     }
 

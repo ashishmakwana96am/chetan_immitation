@@ -100,6 +100,7 @@ class SupplierAdvancePayment extends Model
 
         PurchasePayment::create([
             'purchase_id' => $purchase->id,
+            'is_advance'  => true,
             'amount'      => $adjustAmt,
             'created_by'  => auth()->id(),
         ]);

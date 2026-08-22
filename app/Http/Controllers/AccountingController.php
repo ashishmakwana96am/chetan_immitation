@@ -913,10 +913,10 @@ class AccountingController extends Controller
         // FIFO: Oldest purchases first across suppliers (or selected supplier)
         $purchases = $purchasesQuery->orderBy('created_at', 'asc')->get();
 
-        if ($purchases->isEmpty()) {
+        if ($purchases->isEmpty() && !$request->filled('supplier_id')) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'There are no pending payable balances to process.',
+                'message' => 'There are no pending payable balances to process. Select a specific supplier to make an advance payment.',
             ], 422);
         }
 
