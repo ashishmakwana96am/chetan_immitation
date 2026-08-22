@@ -135,7 +135,6 @@
     </div>
 </div>
 
-<!-- Sales -->
 <div class="card mb-4">
     <div class="card-header"><h5 class="mb-0">Sales</h5></div>
     <div class="card-datatable table-responsive">

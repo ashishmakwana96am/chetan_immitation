@@ -24,7 +24,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class ReportController extends Controller
 {
@@ -1672,11 +1676,11 @@ class ReportController extends Controller
         ]);
     }
 
-    public function exportProducts(Request $request)
+    public function exportProductsExcel(Request $request)
     {
         $this->authorize('view product reports');
 
-        $categoryId = $request->query('category_id');
+        $subCategoryId = $request->query('sub_category_id') ?: $request->query('category_id');
         $status = $request->query('status');
         $stockStatus = $request->query('stock');
 
@@ -1687,23 +1691,20 @@ class ReportController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
+        $query = Product::with(['category', 'subCategory', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
 
-        if ($categoryId) {
-            $query->where('category_id', $categoryId);
+        if ($subCategoryId) {
+            $query->where('sub_category_id', $subCategoryId);
         }
         if ($status) {
             $query->where('status', $status);
         }
 
-        $query->with(['category', 'primaryImage', 'inventories', 'variants.attributeValue.attribute']);
         $products = $query->orderBy('name')->get();
         Product::preloadVariantStock($products);
 
         $productsList = collect();
         foreach ($products as $product) {
-            $imageBase64 = $this->getImageBase64($product);
-
             $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
             if ($pairSize <= 0)
@@ -1711,14 +1712,11 @@ class ReportController extends Controller
 
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
-
                 $parentLocStock = [];
-                $hasVariantStock = false;
                 foreach ($locations as $location) {
                     $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
                     $locParent = (int) ($variantStock[$location->id]['parent'] ?? 0);
                     if ($locVariantSum > 0) {
-                        $hasVariantStock = true;
                         $parentLocStock[$location->id] = $locVariantSum;
                     } else {
                         $parentLocStock[$location->id] = max(0, $locParent);
@@ -1734,29 +1732,19 @@ class ReportController extends Controller
                     $parentStock = array_sum($parentLocStock);
                 }
 
-                $parentPairCount = ($product->pair_product && $parentStock > 0) ? (int) floor($parentStock / $pairSize) : 0;
-                $parentLoosePcs = $product->pair_product ? (int) ($parentStock % $pairSize) : (int) $parentStock;
-
                 $productsList->push([
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'barcode' => $product->barcode,
-                    'category' => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'purchase_price' => $product->purchase_price,
-                    'sale_price' => $product->sale_price,
-                    'total_stock' => $parentStock,
-                    'formatted_stock' => $product->formatStockDisplay($parentStock),
-                    'status' => $product->status,
-                    'is_parent' => true,
-                    'variant_name' => null,
-                    'image_base64' => $imageBase64,
-                    'pair_product' => (bool) $product->pair_product,
-                    'pair_count' => $parentPairCount,
-                    'loose_pcs' => $parentLoosePcs,
+                    'product'        => $product,
+                    'pair_size'      => $pairSize,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'sub_category'   => $product->subCategory->name ?? '-',
+                    'purchase_price' => (float) $product->purchase_price,
+                    'sale_price'     => (float) $product->sale_price,
+                    'total_stock'    => $parentStock,
+                    'status'         => $product->status,
+                    'variant_name'   => null,
                 ]);
 
-                // Variant rows
                 foreach ($product->variants as $v) {
                     $vStock = 0;
                     if ($user->location_id && !$user->hasRole('super-admin')) {
@@ -1766,63 +1754,42 @@ class ReportController extends Controller
                             $vStock += max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
                         }
                     }
-
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
 
-                    $vPairCount = ($product->pair_product && $vStock > 0) ? (int) floor($vStock / $pairSize) : 0;
-                    $vLoosePcs = $product->pair_product ? (int) ($vStock % $pairSize) : (int) $vStock;
-
                     $productsList->push([
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'barcode' => $product->barcode,
-                        'category' => $product->category->name ?? '-',
-                        'category_id' => $product->category_id,
-                        'purchase_price' => $v->purchase_price,
-                        'sale_price' => $v->sale_price,
-                        'total_stock' => $vStock,
-                        'formatted_stock' => $product->formatStockDisplay($vStock),
-                        'status' => $v->status,
-                        'is_parent' => false,
-                        'variant_name' => "{$attrName}: {$valName}",
-                        'image_base64' => $imageBase64,
-                        'pair_product' => (bool) $product->pair_product,
-                        'pair_count' => $vPairCount,
-                        'loose_pcs' => $vLoosePcs,
+                        'product'        => $product,
+                        'pair_size'      => $pairSize,
+                        'name'           => $product->name,
+                        'barcode'        => $product->barcode,
+                        'sub_category'   => $product->subCategory->name ?? '-',
+                        'purchase_price' => (float) $v->purchase_price,
+                        'sale_price'     => (float) $v->sale_price,
+                        'total_stock'    => $vStock,
+                        'status'         => $v->status,
+                        'variant_name'   => "{$attrName}: {$valName}",
                     ]);
                 }
             } else {
-                $totalStock = $product
-                    ->inventories
+                $totalStock = (int) $product->inventories
                     ->when($user->location_id && !$user->hasRole('super-admin'), fn($col) => $col->where('location_id', $user->location_id))
                     ->sum('quantity');
 
-                $pPairCount = ($product->pair_product && $totalStock > 0) ? (int) floor($totalStock / $pairSize) : 0;
-                $pLoosePcs = $product->pair_product ? (int) ($totalStock % $pairSize) : (int) $totalStock;
-
                 $productsList->push([
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'barcode' => $product->barcode,
-                    'category' => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
-                    'purchase_price' => $product->purchase_price,
-                    'sale_price' => $product->sale_price,
-                    'total_stock' => $totalStock,
-                    'formatted_stock' => $product->formatStockDisplay($totalStock),
-                    'status' => $product->status,
-                    'is_parent' => true,
-                    'variant_name' => null,
-                    'image_base64' => $imageBase64,
-                    'pair_product' => (bool) $product->pair_product,
-                    'pair_count' => $pPairCount,
-                    'loose_pcs' => $pLoosePcs,
+                    'product'        => $product,
+                    'pair_size'      => $pairSize,
+                    'name'           => $product->name,
+                    'barcode'        => $product->barcode,
+                    'sub_category'   => $product->subCategory->name ?? '-',
+                    'purchase_price' => (float) $product->purchase_price,
+                    'sale_price'     => (float) $product->sale_price,
+                    'total_stock'    => $totalStock,
+                    'status'         => $product->status,
+                    'variant_name'   => null,
                 ]);
             }
         }
 
-        // Apply filters on the mapped collection
         if ($status) {
             $productsList = $productsList->where('status', $status);
         }
@@ -1836,24 +1803,135 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Products Report',
-                'pdfUrl' => route('admin.reports.products.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Products Report');
+
+        // Headers
+        $headers = ['#', 'Product Name', 'Barcode', 'Sub Category', 'Purchase Price', 'Sale Price', 'Margin', 'Stock', 'Status'];
+        $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers as $colIdx => $headerText) {
+            $colLetter = $columns[$colIdx];
+            $sheet->setCellValue($colLetter . '1', $headerText);
         }
 
-        $categoryName = $categoryId ? (Category::find($categoryId)?->name ?? 'All') : 'All';
+        // Style Header Row
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => '1D2939'],
+                'size' => 11,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'EAECF0'],
+            ],
+            'alignment' => [
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(26);
 
-        $pdf = Pdf::loadView('reports.pdf.products', compact('productsList', 'categoryId', 'categoryName', 'status', 'stockStatus'))
-            ->setPaper('a4', 'landscape');
+        // Populate Data Rows
+        $rowIndex = 2;
+        $totalPairs = 0;
+        $totalLoosePcs = 0;
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Products report exported to PDF');
+        foreach ($productsList as $idx => $item) {
+            $statusText = ($item['status'] == 1 || $item['status'] === 'active') ? 'Active' : 'Inactive';
+            $name = $item['name'] . ($item['variant_name'] ? ' (' . $item['variant_name'] . ')' : '');
 
-        return $pdf->stream('products_report_' . now()->format('Ymd_His') . '.pdf');
+            $purchasePrice = $item['purchase_price'];
+            $salePrice = $item['sale_price'];
+            $marginAmt = $salePrice - $purchasePrice;
+            $marginPct = $purchasePrice > 0 ? round(($marginAmt / $purchasePrice) * 100, 1) : 0;
+            $marginStr = '₹' . number_format($marginAmt, 2) . ' (' . $marginPct . '%)';
+
+            /** @var Product $prod */
+            $prod = $item['product'];
+            $stockQty = (int) $item['total_stock'];
+
+            if ($stockQty > 0) {
+                if ($prod->pair_product) {
+                    $pSize = $item['pair_size'] > 0 ? $item['pair_size'] : 1;
+                    $totalPairs += (int) floor($stockQty / $pSize);
+                    $totalLoosePcs += (int) ($stockQty % $pSize);
+                } else {
+                    $totalLoosePcs += $stockQty;
+                }
+            }
+
+            $stockDisplay = $prod->formatStockDisplay($stockQty);
+
+            $sheet->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet->setCellValue('B' . $rowIndex, $name);
+            $sheet->setCellValue('C' . $rowIndex, $item['barcode'] ?? '');
+            $sheet->setCellValue('D' . $rowIndex, $item['sub_category'] ?? '-');
+            $sheet->setCellValue('E' . $rowIndex, '₹' . number_format($purchasePrice, 2));
+            $sheet->setCellValue('F' . $rowIndex, '₹' . number_format($salePrice, 2));
+            $sheet->setCellValue('G' . $rowIndex, $marginStr);
+            $sheet->setCellValue('H' . $rowIndex, $stockDisplay);
+            $sheet->setCellValue('I' . $rowIndex, $statusText);
+
+            $sheet->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
+        }
+
+        // Totals Row
+        $stockTotalParts = [];
+        if ($totalPairs > 0) {
+            $stockTotalParts[] = number_format($totalPairs) . ' Pair' . ($totalPairs > 1 ? 's' : '');
+        }
+        if ($totalLoosePcs > 0 || empty($stockTotalParts)) {
+            $stockTotalParts[] = number_format($totalLoosePcs) . ' Pcs';
+        }
+        $stockTotalDisplay = implode(' ', $stockTotalParts);
+
+        $sheet->setCellValue('A' . $rowIndex, 'Total');
+        $sheet->setCellValue('H' . $rowIndex, $stockTotalDisplay);
+        $sheet->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getRowDimension($rowIndex)->setRowHeight(24);
+
+        $lastRow = $rowIndex;
+
+        // Thin Border for all cells in table
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+        $sheet->getStyle('A1:I' . $lastRow)->applyFromArray($borderStyle);
+
+        // Alignments
+        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('E2:H' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('I1:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Auto-adjust Column Widths
+        foreach ($columns as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Products report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'products_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
-    public function exportStockInventory(Request $request)
+    public function exportStockInventoryExcel(Request $request)
     {
         $this->authorize('view stock inventory reports');
 
@@ -1867,7 +1945,7 @@ class ReportController extends Controller
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
+        $query = Product::with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
@@ -1886,13 +1964,10 @@ class ReportController extends Controller
             if ($pairSize <= 0)
                 $pairSize = 1.0;
 
-            $imageBase64 = $this->getImageBase64($product);
-
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
 
                 $parentLocStock = [];
-                $parentFormattedLocStock = [];
                 $hasVariantStock = false;
                 foreach ($locations as $location) {
                     $locVariantSum = array_sum($variantStock[$location->id]['variants'] ?? []);
@@ -1904,7 +1979,6 @@ class ReportController extends Controller
                         $pQty = max(0, $locParent);
                     }
                     $parentLocStock[$location->id] = $pQty;
-                    $parentFormattedLocStock[$location->id] = $pQty > 0 ? $product->formatStockDisplay($pQty) : '0';
                 }
                 $parentTotal = array_sum($parentLocStock);
 
@@ -1913,7 +1987,6 @@ class ReportController extends Controller
                         $inventory = $product->inventories->firstWhere('location_id', $location->id);
                         $pQty = $inventory ? (int) $inventory->quantity : 0;
                         $parentLocStock[$location->id] = $pQty;
-                        $parentFormattedLocStock[$location->id] = $pQty > 0 ? $product->formatStockDisplay($pQty) : '0';
                     }
                     $parentTotal = array_sum($parentLocStock);
                     $hasVariantStock = false;
@@ -1921,144 +1994,85 @@ class ReportController extends Controller
 
                 if ($hasVariantStock) {
                     $parentPurchaseVal = 0.0;
-                    $parentSaleVal = 0.0;
                     $parentMrpVal = 0.0;
                 } else {
                     $effectiveTotal = $product->pair_product ? ($parentTotal / $pairSize) : (float) $parentTotal;
                     $parentPurchaseVal = $effectiveTotal * $purchasePrice;
-                    $parentSaleVal = $effectiveTotal * $salePrice;
                     $parentMrpVal = $effectiveTotal * $mrpPrice;
                 }
-                $parentPairCount = 0;
 
                 $variantRows = [];
                 foreach ($product->variants as $v) {
                     $vLocStock = [];
-                    $vFormattedLocStock = [];
                     foreach ($locations as $location) {
                         $vQty = max(0, (int) ($variantStock[$location->id]['variants'][$v->id] ?? 0));
                         $vLocStock[$location->id] = $vQty;
-                        $vFormattedLocStock[$location->id] = $vQty > 0 ? $product->formatStockDisplay($vQty) : '0';
                     }
+                    $vTotal = array_sum($vLocStock);
+
+                    $vPurchasePrice = (float) $v->purchase_price;
+                    $vSalePrice = (float) $v->sale_price;
+                    $vMrpPrice = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $vSalePrice);
+                    $vEffectiveTotal = $product->pair_product ? ($vTotal / $pairSize) : (float) $vTotal;
+
                     $attrName = $v->attributeValue->attribute->name ?? '';
                     $valName = $v->attributeValue->value ?? '';
-                    $vTotal = array_sum($vLocStock);
-                    $vPrice = (float) ($v->purchase_price ?? $purchasePrice);
-                    $vSale = (float) ($v->sale_price ?? $salePrice);
-                    $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
-                    $vEffectiveQty = $product->pair_product ? ($vTotal / $pairSize) : (float) $vTotal;
-
-                    $vPurchVal = $vEffectiveQty * $vPrice;
-                    $vSaleVal = $vEffectiveQty * $vSale;
-                    $vMrpVal = $vEffectiveQty * $vMrp;
-
-                    $vPairCount = ($product->pair_product && $vTotal > 0) ? (int) floor($vTotal / $pairSize) : 0;
-                    $vLoosePcs = $product->pair_product ? (int) ($vTotal % $pairSize) : (int) $vTotal;
-
-                    if ($hasVariantStock) {
-                        $parentPurchaseVal += $vPurchVal;
-                        $parentSaleVal += $vSaleVal;
-                        $parentMrpVal += $vMrpVal;
-                        $parentPairCount += $vPairCount;
-                    }
 
                     $variantRows[] = [
-                        'id' => $product->id,
-                        'name' => $product->name,
+                        'product' => $product,
+                        'pair_size' => $pairSize,
+                        'name' => $product->name . " ({$attrName}: {$valName})",
                         'barcode' => $product->barcode,
                         'category' => $product->category->name ?? '-',
-                        'category_id' => $product->category_id,
                         'stock' => $vLocStock,
-                        'formatted_loc_stock' => $vFormattedLocStock,
                         'total' => $vTotal,
-                        'formatted_stock' => $product->formatStockDisplay($vTotal),
-                        'purchase_value' => $vPurchVal,
-                        'sale_value' => $vSaleVal,
-                        'mrp_value' => $vMrpVal,
+                        'purchase_value' => $vEffectiveTotal * $vPurchasePrice,
+                        'mrp_value' => $vEffectiveTotal * $vMrpPrice,
                         'status' => $v->status,
-                        'is_parent' => false,
-                        'variant_name' => "{$attrName}: {$valName}",
-                        'image_base64' => $imageBase64,
-                        'pair_product' => (bool) $product->pair_product,
-                        'pair_count' => $vPairCount,
-                        'loose_pcs' => $vLoosePcs,
                     ];
                 }
 
-                if (!$hasVariantStock) {
-                    $parentPairCount = ($product->pair_product && $parentTotal > 0) ? (int) floor($parentTotal / $pairSize) : 0;
-                }
-                $parentLoosePcs = $product->pair_product ? (int) ($parentTotal % $pairSize) : (int) $parentTotal;
-
                 $productsList->push([
-                    'id' => $product->id,
+                    'product' => $product,
+                    'pair_size' => $pairSize,
                     'name' => $product->name,
                     'barcode' => $product->barcode,
                     'category' => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
                     'stock' => $parentLocStock,
-                    'formatted_loc_stock' => $parentFormattedLocStock,
                     'total' => $parentTotal,
-                    'formatted_stock' => $product->formatStockDisplay($parentTotal),
                     'purchase_value' => $parentPurchaseVal,
-                    'sale_value' => $parentSaleVal,
                     'mrp_value' => $parentMrpVal,
                     'status' => $product->status,
-                    'is_parent' => true,
-                    'variant_name' => null,
-                    'image_base64' => $imageBase64,
-                    'pair_product' => (bool) $product->pair_product,
-                    'pair_count' => $parentPairCount,
-                    'loose_pcs' => $parentLoosePcs,
                 ]);
 
                 foreach ($variantRows as $vRow) {
                     $productsList->push($vRow);
                 }
             } else {
-                // Normal product
                 $stock = [];
-                $formattedLocStock = [];
                 foreach ($locations as $location) {
                     $inventory = $product->inventories->firstWhere('location_id', $location->id);
-                    $sQty = $inventory ? $inventory->quantity : 0;
+                    $sQty = $inventory ? (int) $inventory->quantity : 0;
                     $stock[$location->id] = $sQty;
-                    $formattedLocStock[$location->id] = $sQty > 0 ? $product->formatStockDisplay($sQty) : '0';
                 }
                 $total = array_sum($stock);
                 $effectiveQty = $product->pair_product ? ($total / $pairSize) : (float) $total;
-                $purchaseVal = $effectiveQty * $purchasePrice;
-                $saleVal = $effectiveQty * $salePrice;
-                $mrpVal = $effectiveQty * $mrpPrice;
-
-                $pPairCount = ($product->pair_product && $total > 0) ? (int) floor($total / $pairSize) : 0;
-                $pLoosePcs = $product->pair_product ? (int) ($total % $pairSize) : (int) $total;
 
                 $productsList->push([
-                    'id' => $product->id,
+                    'product' => $product,
+                    'pair_size' => $pairSize,
                     'name' => $product->name,
                     'barcode' => $product->barcode,
                     'category' => $product->category->name ?? '-',
-                    'category_id' => $product->category_id,
                     'stock' => $stock,
-                    'formatted_loc_stock' => $formattedLocStock,
                     'total' => $total,
-                    'formatted_stock' => $product->formatStockDisplay($total),
-                    'purchase_value' => $purchaseVal,
-                    'sale_value' => $saleVal,
-                    'mrp_value' => $mrpVal,
+                    'purchase_value' => $effectiveQty * $purchasePrice,
+                    'mrp_value' => $effectiveQty * $mrpPrice,
                     'status' => $product->status,
-                    'is_parent' => true,
-                    'variant_name' => null,
-                    'image_base64' => $imageBase64,
-                    'pair_product' => (bool) $product->pair_product,
-                    'pair_count' => $pPairCount,
-                    'loose_pcs' => $pLoosePcs,
                 ]);
             }
         }
 
-        // Apply filters on the mapped collection
         if ($stockStatus === 'in') {
             $productsList = $productsList->where('total', '>', 0);
         } elseif ($stockStatus === 'low') {
@@ -2071,21 +2085,141 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Stock Inventory Report',
-                'pdfUrl' => route('admin.reports.stock-inventory.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Stock Inventory');
+
+        // Headers
+        $headers = ['#', 'Product Name', 'Barcode', 'Category'];
+        foreach ($locations as $location) {
+            $headers[] = $location->name;
+        }
+        $headers[] = 'Total Stock';
+        $headers[] = 'Purchase Value';
+        $headers[] = 'MRP Value';
+
+        $colCount = count($headers);
+        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
+
+        for ($i = 0; $i < $colCount; $i++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue($colLetter . '1', $headers[$i]);
         }
 
-        $categoryName = $categoryId ? (Category::find($categoryId)?->name ?? 'All') : 'All';
+        // Header Styling: Bold, Grey Fill, Height
+        $headerStyle = [
+            'font' => [
+                'bold' => true,
+                'color' => ['rgb' => '1D2939'],
+                'size' => 11,
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'EAECF0'],
+            ],
+            'alignment' => [
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A1:' . $lastColLetter . '1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(26);
 
-        $pdf = Pdf::loadView('reports.pdf.stock-inventory', compact('productsList', 'locations', 'categoryId', 'categoryName', 'stockStatus'))
-            ->setPaper('a4', 'landscape');
+        // Data Rows
+        $rowIndex = 2;
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Stock inventory report exported to PDF');
+        foreach ($productsList as $idx => $item) {
+            /** @var Product $prod */
+            $prod = $item['product'];
 
-        return $pdf->stream('stock_inventory_report_' . now()->format('Ymd_His') . '.pdf');
+            $sheet->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet->setCellValue('B' . $rowIndex, $item['name']);
+            $sheet->setCellValue('C' . $rowIndex, $item['barcode'] ?? '');
+            $sheet->setCellValue('D' . $rowIndex, $item['category'] ?? '-');
+
+            $colIdx = 5;
+            foreach ($locations as $location) {
+                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
+                $lStock = (int) ($item['stock'][$location->id] ?? 0);
+                $lDisplay = $prod->formatStockDisplay($lStock);
+                $sheet->setCellValue($colLetter . $rowIndex, $lDisplay);
+                $colIdx++;
+            }
+
+            $totalCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+            $purchaseValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+            $mrpValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+
+            $totalQty = (int) $item['total'];
+            $totalDisplay = $prod->formatStockDisplay($totalQty);
+
+            $sheet->setCellValue($totalCol . $rowIndex, $totalDisplay);
+            $sheet->setCellValue($purchaseValCol . $rowIndex, '₹' . number_format($item['purchase_value'], 2));
+            $sheet->setCellValue($mrpValCol . $rowIndex, '₹' . number_format($item['mrp_value'], 2));
+
+            $sheet->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
+        }
+
+        // Totals Row via exact computeStockTotals helper
+        $calcQuery = clone $query;
+        $totals = $this->computeStockTotals($calcQuery, $locations, $user->location_id && !$user->hasRole('super-admin') ? $user->location_id : null);
+
+        $sheet->setCellValue('A' . $rowIndex, 'Total');
+
+        $colIdx = 5;
+        foreach ($locations as $location) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
+            $locFormatted = str_replace('<br>', ' ', $totals['location_totals'][$location->id] ?? '0 Pcs');
+            $sheet->setCellValue($colLetter . $rowIndex, $locFormatted);
+            $colIdx++;
+        }
+
+        $totalCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+        $purchaseValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+        $mrpValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
+
+        $overallFormatted = str_replace('<br>', ' ', $totals['qty_total']);
+        $sheet->setCellValue($totalCol . $rowIndex, $overallFormatted);
+        $sheet->setCellValue($purchaseValCol . $rowIndex, '₹' . number_format($totals['purchase_total'], 2));
+        $sheet->setCellValue($mrpValCol . $rowIndex, '₹' . number_format($totals['mrp_total'], 2));
+
+        $sheet->getStyle('A' . $rowIndex . ':' . $lastColLetter . $rowIndex)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $rowIndex . ':' . $lastColLetter . $rowIndex)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getRowDimension($rowIndex)->setRowHeight(26);
+
+        $lastRow = $rowIndex;
+
+        // Thin Borders for all cells in table
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+        $sheet->getStyle('A1:' . $lastColLetter . $lastRow)->applyFromArray($borderStyle);
+
+        // Alignments
+        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Auto-adjust Column Widths
+        for ($i = 1; $i <= $colCount; $i++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Stock inventory report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'stock_inventory_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     private function getImageBase64(?Product $product): string
@@ -2131,7 +2265,7 @@ class ReportController extends Controller
         return '';
     }
 
-    public function exportPurchases(Request $request)
+    public function exportPurchasesExcel(Request $request)
     {
         $this->authorize('view purchase reports');
 
@@ -2177,22 +2311,138 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Purchase Report',
-                'pdfUrl' => route('admin.reports.purchases.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+
+        // Sheet 1: Purchase List
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Purchase List');
+
+        $headers1 = ['#', 'Purchase No', 'Supplier', 'Type', 'Status', 'Date', 'Total Amount'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+        foreach ($headers1 as $colIdx => $headerText) {
+            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
         }
 
-        $pdf = Pdf::loadView('reports.pdf.purchases', compact('invoices', 'productPurchases', 'startDate', 'endDate'))
-            ->setPaper('a4', 'landscape');
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sheet1->getStyle('A1:G1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Purchases report exported to PDF');
+        $purchaseStatuses = [1 => 'Pending', 2 => 'Approve', 3 => 'Rejected'];
+        $rowIndex = 2;
+        $totalAmountSum = 0;
 
-        return $pdf->stream('purchases_report_' . now()->format('Ymd_His') . '.pdf');
+        foreach ($invoices as $idx => $invoice) {
+            $statusLabel = $purchaseStatuses[$invoice->status] ?? 'Unknown';
+            $typeLabel = $invoice->is_gst ? 'GST' : 'Non GST';
+            $amount = (float) $invoice->total_amount;
+            $totalAmountSum += $amount;
+
+            $sheet1->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet1->setCellValue('B' . $rowIndex, $invoice->invoice_no);
+            $sheet1->setCellValue('C' . $rowIndex, $invoice->supplier->name ?? 'Unknown');
+            $sheet1->setCellValue('D' . $rowIndex, $typeLabel);
+            $sheet1->setCellValue('E' . $rowIndex, $statusLabel);
+            $sheet1->setCellValue('F' . $rowIndex, $invoice->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('G' . $rowIndex, '₹' . number_format($amount, 2));
+
+            $sheet1->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
+        }
+
+        // Totals Row
+        $sheet1->setCellValue('A' . $rowIndex, 'Total');
+        $sheet1->setCellValue('G' . $rowIndex, '₹' . number_format($totalAmountSum, 2));
+        $sheet1->getStyle('A' . $rowIndex . ':G' . $rowIndex)->getFont()->setBold(true);
+        $sheet1->getRowDimension($rowIndex)->setRowHeight(22);
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+        $sheet1->getStyle('A1:G' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('D1:F' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('G1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 2: Top Purchased Products
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Top Purchased Products');
+
+        $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Purchased', 'Total Cost'];
+        $columns2 = ['A', 'B', 'C', 'D', 'E'];
+
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+        }
+        $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(26);
+
+        $rowIndex2 = 2;
+        $totalQtySum = 0;
+        $totalCostSum = 0;
+
+        foreach ($productPurchases as $idx => $item) {
+            $qty = (int) $item->qty_purchased;
+            $cost = (float) $item->total_cost;
+            $totalQtySum += $qty;
+            $totalCostSum += $cost;
+
+            $sheet2->setCellValue('A' . $rowIndex2, $idx + 1);
+            $sheet2->setCellValue('B' . $rowIndex2, $item->product->name ?? 'Unknown');
+            $sheet2->setCellValue('C' . $rowIndex2, $item->product->barcode ?? '-');
+            $sheet2->setCellValue('D' . $rowIndex2, $qty);
+            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($cost, 2));
+
+            $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
+            $rowIndex2++;
+        }
+
+        // Totals Row for Sheet 2
+        $sheet2->setCellValue('A' . $rowIndex2, 'Total');
+        $sheet2->setCellValue('D' . $rowIndex2, $totalQtySum);
+        $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($totalCostSum, 2));
+        $sheet2->getStyle('A' . $rowIndex2 . ':E' . $rowIndex2)->getFont()->setBold(true);
+        $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+
+        $sheet2->getStyle('A1:E' . $rowIndex2)->applyFromArray($borderStyle);
+        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('D1:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('E1:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns2 as $colLetter) {
+            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Purchases report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'purchases_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
-    public function exportSales(Request $request)
+    public function exportSalesExcel(Request $request)
     {
         $this->authorize('view sale reports');
 
@@ -2248,19 +2498,136 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Sales Report',
-                'pdfUrl' => route('admin.reports.sales.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+
+        // Sheet 1: Orders List
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Orders List');
+
+        $headers1 = ['#', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Final Amount'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers1 as $colIdx => $headerText) {
+            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
         }
 
-        $pdf = Pdf::loadView('reports.pdf.sales', compact('orders', 'productSales', 'startDate', 'endDate'))
-            ->setPaper('a4', 'landscape');
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sheet1->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Sales report exported to PDF');
+        $paymentStatuses = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
+        $rowIndex = 2;
+        $totalFinalAmountSum = 0;
 
-        return $pdf->stream('sales_report_' . now()->format('Ymd_His') . '.pdf');
+        foreach ($orders as $idx => $order) {
+            $payStatusLabel = $paymentStatuses[$order->payment_status] ?? 'Pending';
+            $payMethodLabel = strtoupper(str_replace('_', ' ', $order->payment_method ?? '-'));
+            $finalAmount = (float) $order->final_amount;
+            $totalFinalAmountSum += $finalAmount;
+
+            $sheet1->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet1->setCellValue('B' . $rowIndex, $order->order_no);
+            $sheet1->setCellValue('C' . $rowIndex, $order->customer->name ?? 'Walk-in');
+            $sheet1->setCellValue('D' . $rowIndex, $order->location->name ?? '-');
+            $sheet1->setCellValue('E' . $rowIndex, $payStatusLabel);
+            $sheet1->setCellValue('F' . $rowIndex, $payMethodLabel);
+            $sheet1->setCellValue('G' . $rowIndex, $order->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($finalAmount, 2));
+
+            $sheet1->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
+        }
+
+        // Totals Row
+        $sheet1->setCellValue('A' . $rowIndex, 'Total');
+        $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($totalFinalAmountSum, 2));
+        $sheet1->getStyle('A' . $rowIndex . ':H' . $rowIndex)->getFont()->setBold(true);
+        $sheet1->getRowDimension($rowIndex)->setRowHeight(22);
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+        $sheet1->getStyle('A1:H' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('E1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('H1:H' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 2: Top Selling Products
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Top Selling Products');
+
+        $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue'];
+        $columns2 = ['A', 'B', 'C', 'D', 'E'];
+
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+        }
+        $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(26);
+
+        $rowIndex2 = 2;
+        $totalQtySoldSum = 0;
+        $totalRevenueSum = 0;
+
+        foreach ($productSales as $idx => $item) {
+            $qty = (int) $item->qty_sold;
+            $rev = (float) $item->total_revenue;
+            $totalQtySoldSum += $qty;
+            $totalRevenueSum += $rev;
+
+            $sheet2->setCellValue('A' . $rowIndex2, $idx + 1);
+            $sheet2->setCellValue('B' . $rowIndex2, $item->product->name ?? 'Unknown');
+            $sheet2->setCellValue('C' . $rowIndex2, $item->product->barcode ?? '-');
+            $sheet2->setCellValue('D' . $rowIndex2, $qty);
+            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
+
+            $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
+            $rowIndex2++;
+        }
+
+        // Totals Row for Sheet 2
+        $sheet2->setCellValue('A' . $rowIndex2, 'Total');
+        $sheet2->setCellValue('D' . $rowIndex2, $totalQtySoldSum);
+        $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($totalRevenueSum, 2));
+        $sheet2->getStyle('A' . $rowIndex2 . ':E' . $rowIndex2)->getFont()->setBold(true);
+        $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+
+        $sheet2->getStyle('A1:E' . $rowIndex2)->applyFromArray($borderStyle);
+        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('D1:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('E1:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns2 as $colLetter) {
+            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Sales report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'sales_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function exportGstJson(Request $request)
@@ -2525,7 +2892,7 @@ class ReportController extends Controller
         ]);
     }
 
-    public function exportProfitLoss(Request $request)
+    public function exportProfitLossExcel(Request $request)
     {
         $this->authorize('view profit loss reports');
 
@@ -2539,126 +2906,213 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
 
-        $salesQuery = Order::where('order_type', 'sale')
-            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+        $salesQuery = Order::query()
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
+
         if ($startDate) {
-            $salesQuery->whereDate('created_at', '>=', $startDate);
+            $salesQuery->whereDate('orders.created_at', '>=', $startDate);
         }
         if ($endDate) {
-            $salesQuery->whereDate('created_at', '<=', $endDate);
+            $salesQuery->whereDate('orders.created_at', '<=', $endDate);
         }
         if ($locationId) {
-            $salesQuery->where('location_id', $locationId);
+            $salesQuery->where('orders.location_id', $locationId);
         }
 
-        $sales = $salesQuery->get();
-        $totalRevenue = (float) $sales->sum(function ($o) {
-            return (float) $o->paid_cash_amount + (float) $o->paid_online_amount;
-        });
+        $totalRevenue = (float) (clone $salesQuery)
+            ->selectRaw('SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev')
+            ->value('total_rev');
 
-        $saleIds = $sales->pluck('id');
-        $orderItems = OrderItem::with(['product', 'variant'])
-            ->whereIn('order_id', $saleIds)
+        $productProfitabilityQuery = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
+
+        if ($startDate) {
+            $productProfitabilityQuery->whereDate('orders.created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $productProfitabilityQuery->whereDate('orders.created_at', '<=', $endDate);
+        }
+        if ($locationId) {
+            $productProfitabilityQuery->where('orders.location_id', $locationId);
+        }
+
+        $productProfitability = $productProfitabilityQuery
+            ->selectRaw('
+                order_items.product_id,
+                products.name,
+                products.barcode,
+                SUM(order_items.quantity) as qty_sold,
+                SUM(order_items.total) as total_revenue,
+                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+            ')
+            ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
+            ->orderByDesc('order_items.product_id')
             ->get();
 
-        $orderItemsGrouped = $orderItems->groupBy('order_id');
+        $totalCogs = (float) $productProfitability->sum('total_cost');
 
-        $totalCogs = 0.0;
-        $productProfitability = [];
-
-        foreach ($orderItemsGrouped as $orderId => $items) {
-            $orderSubtotal = (float) $items->sum('total');
-            $order = $sales->firstWhere('id', $orderId);
-
-            $orderDiscountAmount = 0.0;
-            if ($order && $orderSubtotal > 0) {
-                $discVal = (float) ($order->order_discount_value ?? 0);
-                $discType = $order->order_discount_type;
-                if ($discVal > 0) {
-                    if ($discType === 'percentage') {
-                        $orderDiscountAmount = $orderSubtotal * ($discVal / 100);
-                    } else {
-                        $orderDiscountAmount = $discVal;
-                    }
-                }
-                if ($orderDiscountAmount > $orderSubtotal) {
-                    $orderDiscountAmount = $orderSubtotal;
-                }
-            }
-
-            foreach ($items as $item) {
-                $purchasePrice = $item->variant->purchase_price ?? $item->product->purchase_price ?? 0.0;
-                $itemCost = $item->quantity * $purchasePrice;
-                $totalCogs += $itemCost;
-
-                $itemTotal = (float) $item->total;
-                $effectiveRevenue = $itemTotal;
-                if ($orderSubtotal > 0 && $orderDiscountAmount > 0) {
-                    $itemShareRatio = $itemTotal / $orderSubtotal;
-                    $itemOrderDiscount = $orderDiscountAmount * $itemShareRatio;
-                    $effectiveRevenue = max(0.0, $itemTotal - $itemOrderDiscount);
-                }
-
-                $productId = $item->product_id;
-                if (!isset($productProfitability[$productId])) {
-                    $productProfitability[$productId] = [
-                        'name' => $item->product->name ?? 'Unknown',
-                        'barcode' => $item->product->barcode ?? '-',
-                        'qty_sold' => 0,
-                        'total_revenue' => 0.0,
-                        'total_cost' => 0.0,
-                    ];
-                }
-                $productProfitability[$productId]['qty_sold'] += $item->quantity;
-                $productProfitability[$productId]['total_revenue'] += $effectiveRevenue;
-                $productProfitability[$productId]['total_cost'] += (float) $itemCost;
-            }
-        }
-
-        krsort($productProfitability);
-
-        $expensesQuery = Expense::when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+        $expensesQuery = Expense::query()
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('expenses.location_id', $user->location_id));
         if ($startDate) {
-            $expensesQuery->whereDate('expense_date', '>=', $startDate);
+            $expensesQuery->whereDate('expenses.expense_date', '>=', $startDate);
         }
         if ($endDate) {
-            $expensesQuery->whereDate('expense_date', '<=', $endDate);
+            $expensesQuery->whereDate('expenses.expense_date', '<=', $endDate);
         }
         if ($locationId) {
-            $expensesQuery->where('location_id', $locationId);
+            $expensesQuery->where('expenses.location_id', $locationId);
         }
-        $totalExpenses = (float) $expensesQuery->sum('amount');
+        $totalExpenses = (float) $expensesQuery->sum('expenses.amount');
 
         $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
-        if ($sales->isEmpty() && $totalExpenses <= 0) {
+        if ($totalRevenue <= 0 && $totalExpenses <= 0 && $productProfitability->isEmpty()) {
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Profit & Loss Report',
-                'pdfUrl' => route('admin.reports.profit-loss.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+
+        // Header style
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        // Border style
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: Overview
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('P&L Overview');
+
+        $headers1 = ['Metric', 'Amount'];
+        $sheet1->setCellValue('A1', $headers1[0]);
+        $sheet1->setCellValue('B1', $headers1[1]);
+
+        $sheet1->getStyle('A1:B1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
+
+        $overviewData = [
+            ['Total Revenue', '₹' . number_format($totalRevenue, 2)],
+            ['Cost of Goods Sold (COGS)', '₹' . number_format($totalCogs, 2)],
+            ['Operating Expenses', '₹' . number_format($totalExpenses, 2)],
+            ['Net Profit / (Loss)', '₹' . number_format($netProfit, 2)],
+            ['Profit Margin (%)', number_format($profitMargin, 2) . '%'],
+        ];
+
+        $r = 2;
+        foreach ($overviewData as $row) {
+            $sheet1->setCellValue('A' . $r, $row[0]);
+            $sheet1->setCellValue('B' . $r, $row[1]);
+            $sheet1->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('reports.pdf.profit-loss', compact(
-            'totalRevenue',
-            'totalCogs',
-            'totalExpenses',
-            'netProfit',
-            'profitMargin',
-            'productProfitability',
-            'startDate',
-            'endDate'
-        ))->setPaper('a4', 'portrait');
+        $sheet1->getStyle('A1:B' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('B2:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A4:B5')->getFont()->setBold(true);
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & Loss report exported to PDF');
+        $sheet1->getColumnDimension('A')->setAutoSize(true);
+        $sheet1->getColumnDimension('B')->setAutoSize(true);
 
-        return $pdf->stream('profit_loss_report_' . now()->format('Ymd_His') . '.pdf');
+        // Sheet 2: Product Profitability
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Product Profitability');
+
+        $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Purchase Cost', 'Net Profit', 'Margin (%)'];
+        $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+        }
+
+        $sheet2->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(26);
+
+        $rowIndex2 = 2;
+        $sumQtySold = 0;
+        $sumRevenue = 0;
+        $sumCost = 0;
+        $sumNetProfit = 0;
+
+        $idx = 1;
+        foreach ($productProfitability as $item) {
+            $qty = (int) $item->qty_sold;
+            $rev = (float) $item->total_revenue;
+            $cost = (float) $item->total_cost;
+            $net = $rev - $cost;
+            $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
+
+            $sumQtySold += $qty;
+            $sumRevenue += $rev;
+            $sumCost += $cost;
+            $sumNetProfit += $net;
+
+            $sheet2->setCellValue('A' . $rowIndex2, $idx++);
+            $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
+            $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
+            $sheet2->setCellValue('D' . $rowIndex2, $qty);
+            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
+            $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
+            $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
+            $sheet2->setCellValue('H' . $rowIndex2, $margin . '%');
+
+            $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
+            $rowIndex2++;
+        }
+
+        // Totals Row
+        $overallMargin = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+        $sheet2->setCellValue('A' . $rowIndex2, 'Total');
+        $sheet2->setCellValue('D' . $rowIndex2, $sumQtySold);
+        $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($sumRevenue, 2));
+        $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($sumCost, 2));
+        $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($sumNetProfit, 2));
+        $sheet2->setCellValue('H' . $rowIndex2, $overallMargin . '%');
+
+        $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFont()->setBold(true);
+        $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+
+        $sheet2->getStyle('A1:H' . $rowIndex2)->applyFromArray($borderStyle);
+        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('D1:H' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns2 as $colLetter) {
+            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & Loss report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'profit_loss_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     // ───────────────────────────────────────────────────────
@@ -2853,7 +3307,7 @@ class ReportController extends Controller
         ));
     }
 
-    public function exportPayments(Request $request)
+    public function exportPaymentsExcel(Request $request)
     {
         $this->authorize('view payment reports');
 
@@ -2924,8 +3378,7 @@ class ReportController extends Controller
             ->where('order_type', 'sale')
             ->where('status', Order::STATUS_DECLINE)
             ->whereHas('cancellationRequest', function ($q) {
-                $q
-                    ->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
+                $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
                     ->where('refund_amount', '>', 0);
             });
         $applyCommonFilters($refundQuery);
@@ -2934,34 +3387,136 @@ class ReportController extends Controller
         $refundAmount = (float) $refundedOrders->sum(fn($order) => (float) $order->cancellationRequest->refund_amount);
         $refundCount = $refundedOrders->count();
 
-        $orders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
+        $allOrders = $orders->merge($refundedOrders)->sortByDesc('created_at')->values();
 
-        if ($orders->isEmpty()) {
+        if ($allOrders->isEmpty()) {
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Payment Report',
-                'pdfUrl' => route('admin.reports.payments.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: Payments List (Main Data Table)
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Payments List');
+
+        $headers1 = ['#', 'Order / Refund No', 'Customer Name', 'Source', 'Payment Method', 'Payment Status', 'Date', 'Amount'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers1 as $colIdx => $headerText) {
+            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
         }
 
-        $pdf = Pdf::loadView('reports.pdf.payments', compact(
-            'orders',
-            'totalAmount',
-            'totalCount',
-            'pendingAmount',
-            'pendingCount',
-            'refundAmount',
-            'refundCount',
-            'startDate',
-            'endDate'
-        ))->setPaper('a4', 'landscape');
+        $sheet1->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Payment report exported to PDF');
+        $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
+        $rowIndex1 = 2;
+        $sumAmount = 0;
 
-        return $pdf->stream('payment_report_' . now()->format('Ymd_His') . '.pdf');
+        foreach ($allOrders as $idx => $order) {
+            $isRefund = $order->status === Order::STATUS_DECLINE;
+            $orderNo = $isRefund ? ($order->cancellationRequest->request_no ?? $order->order_no) : $order->order_no;
+            $customerName = $order->customer->name ?? 'Walk-in';
+            $sourceLabel = ucfirst($order->source ?? 'pos');
+            $methodLabel = ucfirst($order->payment_method ?? '-');
+
+            if ($isRefund) {
+                $statusLabel = 'Refunded';
+                $amt = (float) ($order->cancellationRequest->refund_amount ?? 0);
+            } else {
+                $statusLabel = $paymentStatusLabels[$order->payment_status] ?? 'Unknown';
+                $amt = (float) $order->final_amount;
+            }
+            $sumAmount += $amt;
+
+            $sheet1->setCellValue('A' . $rowIndex1, $idx + 1);
+            $sheet1->setCellValue('B' . $rowIndex1, $orderNo);
+            $sheet1->setCellValue('C' . $rowIndex1, $customerName);
+            $sheet1->setCellValue('D' . $rowIndex1, $sourceLabel);
+            $sheet1->setCellValue('E' . $rowIndex1, $methodLabel);
+            $sheet1->setCellValue('F' . $rowIndex1, $statusLabel);
+            $sheet1->setCellValue('G' . $rowIndex1, $order->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($amt, 2));
+
+            $sheet1->getRowDimension($rowIndex1)->setRowHeight(20);
+            $rowIndex1++;
+        }
+
+        // Totals Row
+        $sheet1->setCellValue('A' . $rowIndex1, 'Total');
+        $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($sumAmount, 2));
+        $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
+        $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet1->getRowDimension($rowIndex1)->setRowHeight(24);
+
+        $sheet1->getStyle('A1:H' . $rowIndex1)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('G1:G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('H1:H' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 2: Summary
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Payment Summary');
+
+        $sheet2->setCellValue('A1', 'Metric');
+        $sheet2->setCellValue('B1', 'Count');
+        $sheet2->setCellValue('C1', 'Amount');
+        $sheet2->getStyle('A1:C1')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(26);
+
+        $summaryData = [
+            ['Total Sales Payments', $totalCount, '₹' . number_format($totalAmount, 2)],
+            ['Pending Payments', $pendingCount, '₹' . number_format($pendingAmount, 2)],
+            ['Refunded Payments', $refundCount, '₹' . number_format($refundAmount, 2)],
+        ];
+
+        $r = 2;
+        foreach ($summaryData as $row) {
+            $sheet2->setCellValue('A' . $r, $row[0]);
+            $sheet2->setCellValue('B' . $r, $row[1]);
+            $sheet2->setCellValue('C' . $r, $row[2]);
+            $sheet2->getRowDimension($r)->setRowHeight(20);
+            $r++;
+        }
+
+        $sheet2->getStyle('A1:C' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet2->getStyle('B2:C' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getColumnDimension('A')->setAutoSize(true);
+        $sheet2->getColumnDimension('B')->setAutoSize(true);
+        $sheet2->getColumnDimension('C')->setAutoSize(true);
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Payment report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'payment_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function dailyReport(Request $request)
@@ -2985,7 +3540,7 @@ class ReportController extends Controller
         return response()->json(array_merge(['status' => 'success', 'date' => $date], $this->buildDailyReportData($date, $locationId)));
     }
 
-    public function exportDailyReport(Request $request)
+    public function exportDailyReportExcel(Request $request)
     {
         $this->authorize('view daily reports');
 
@@ -3001,23 +3556,219 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected date. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Daily Report',
-                'pdfUrl' => route('admin.reports.daily-report.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
-        }
+        $spreadsheet = new Spreadsheet();
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: Daily Summary (Always present and populated)
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Daily Summary');
+
+        $sheet1->setCellValue('A1', 'Metric');
+        $sheet1->setCellValue('B1', 'Value');
+        $sheet1->getStyle('A1:B1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
 
         $selectedLocation = $locationId ? Location::find($locationId) : null;
+        $locName = $selectedLocation->name ?? 'All Locations';
 
-        $pdf = Pdf::loadView('reports.pdf.daily-report', array_merge($data, [
-            'date' => $date,
-            'selectedLocation' => $selectedLocation,
-        ]))->setPaper('a4', 'landscape');
+        $summaryData = [
+            ['Report Date', $date],
+            ['Location', $locName],
+            ['Total Sales Amount', '₹' . number_format($data['totalSales'], 2)],
+            ['Pending Sales Amount', '₹' . number_format($data['totalPendingSales'], 2)],
+            ['Sales Orders Count', $data['totalSalesCount']],
+            ['Total Purchases Amount', '₹' . number_format($data['totalPurchases'], 2)],
+            ['Pending Purchases Amount', '₹' . number_format($data['totalPendingPurchases'], 2)],
+            ['Purchases Count', $data['totalPurchasesCount']],
+            ['Total Expenses Amount', '₹' . number_format($data['totalExpenses'], 2)],
+            ['Expenses Count', $data['totalExpensesCount']],
+            ['Transfers Count', $data['totalTransfersCount']],
+            ['Transfers Total Qty', $data['totalTransfersQty']],
+        ];
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Daily report exported to PDF for ' . $date);
+        $r = 2;
+        foreach ($summaryData as $row) {
+            $sheet1->setCellValue('A' . $r, $row[0]);
+            $sheet1->setCellValue('B' . $r, $row[1]);
+            $sheet1->getRowDimension($r)->setRowHeight(20);
+            $r++;
+        }
 
-        return $pdf->stream('daily_report_' . $date . '.pdf');
+        $sheet1->getStyle('A1:B' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('B3:B12')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getColumnDimension('A')->setAutoSize(true);
+        $sheet1->getColumnDimension('B')->setAutoSize(true);
+
+        // Sheet 2: Sales
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Sales');
+
+        $headers2 = ['#', 'Sale No', 'Customer', 'Location', 'Source', 'Status', 'Payment Status', 'Method', 'Amount'];
+        $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers2 as $colIdx => $hText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '1', $hText);
+        }
+        $sheet2->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(26);
+
+        if ($data['salesRows']->isNotEmpty()) {
+            $r2 = 2;
+            $sumTotal = 0;
+            foreach ($data['salesRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumTotal += $amt;
+
+                $sheet2->setCellValue('A' . $r2, $idx + 1);
+                $sheet2->setCellValue('B' . $r2, $row['sale_no'] ?? '-');
+                $sheet2->setCellValue('C' . $r2, $row['customer'] ?? '-');
+                $sheet2->setCellValue('D' . $r2, $row['location'] ?? '-');
+                $sheet2->setCellValue('E' . $r2, $row['source'] ?? '-');
+                $sheet2->setCellValue('F' . $r2, strip_tags($row['status'] ?? '-'));
+                $sheet2->setCellValue('G' . $r2, strip_tags($row['payment_status'] ?? '-'));
+                $sheet2->setCellValue('H' . $r2, $row['method'] ?? '-');
+                $sheet2->setCellValue('I' . $r2, '₹' . number_format($amt, 2));
+                $sheet2->getRowDimension($r2)->setRowHeight(20);
+                $r2++;
+            }
+
+            $sheet2->setCellValue('A' . $r2, 'Total');
+            $sheet2->setCellValue('I' . $r2, '₹' . number_format($sumTotal, 2));
+            $sheet2->getStyle('A' . $r2 . ':I' . $r2)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $r2 . ':I' . $r2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+
+            $sheet2->getStyle('A1:I' . $r2)->applyFromArray($borderStyle);
+            $sheet2->getStyle('I1:I' . $r2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet2->setCellValue('A2', 'No sales data available for the selected date.');
+            $sheet2->mergeCells('A2:I2');
+            $sheet2->getStyle('A1:I2')->applyFromArray($borderStyle);
+        }
+        foreach ($columns2 as $colLetter) {
+            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 3: Purchases
+        $sheet3 = $spreadsheet->createSheet();
+        $sheet3->setTitle('Purchases');
+
+        $headers3 = ['#', 'Purchase No', 'Supplier', 'Status', 'Payment Status', 'Total Amount'];
+        $columns3 = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+        foreach ($headers3 as $colIdx => $hText) {
+            $sheet3->setCellValue($columns3[$colIdx] . '1', $hText);
+        }
+        $sheet3->getStyle('A1:F1')->applyFromArray($headerStyle);
+        $sheet3->getRowDimension(1)->setRowHeight(26);
+
+        if ($data['purchaseRows']->isNotEmpty()) {
+            $r3 = 2;
+            $sumPur = 0;
+            foreach ($data['purchaseRows'] as $idx => $row) {
+                $amt = (float) ($row['total_amount'] ?? 0);
+                $sumPur += $amt;
+
+                $sheet3->setCellValue('A' . $r3, $idx + 1);
+                $sheet3->setCellValue('B' . $r3, $row['purchase_no'] ?? '-');
+                $sheet3->setCellValue('C' . $r3, $row['supplier'] ?? '-');
+                $sheet3->setCellValue('D' . $r3, strip_tags($row['status'] ?? '-'));
+                $sheet3->setCellValue('E' . $r3, strip_tags($row['payment_status'] ?? '-'));
+                $sheet3->setCellValue('F' . $r3, '₹' . number_format($amt, 2));
+                $sheet3->getRowDimension($r3)->setRowHeight(20);
+                $r3++;
+            }
+
+            $sheet3->setCellValue('A' . $r3, 'Total');
+            $sheet3->setCellValue('F' . $r3, '₹' . number_format($sumPur, 2));
+            $sheet3->getStyle('A' . $r3 . ':F' . $r3)->getFont()->setBold(true);
+            $sheet3->getStyle('A' . $r3 . ':F' . $r3)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+
+            $sheet3->getStyle('A1:F' . $r3)->applyFromArray($borderStyle);
+            $sheet3->getStyle('F1:F' . $r3)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet3->setCellValue('A2', 'No purchase data available for the selected date.');
+            $sheet3->mergeCells('A2:F2');
+            $sheet3->getStyle('A1:F2')->applyFromArray($borderStyle);
+        }
+        foreach ($columns3 as $colLetter) {
+            $sheet3->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 4: Expenses
+        $sheet4 = $spreadsheet->createSheet();
+        $sheet4->setTitle('Expenses');
+
+        $headers4 = ['#', 'Title', 'Category', 'Location', 'Expense Date', 'Payment Method', 'Created By', 'Amount'];
+        $columns4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers4 as $colIdx => $hText) {
+            $sheet4->setCellValue($columns4[$colIdx] . '1', $hText);
+        }
+        $sheet4->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet4->getRowDimension(1)->setRowHeight(26);
+
+        if ($data['expenseRows']->isNotEmpty()) {
+            $r4 = 2;
+            $sumExp = 0;
+            foreach ($data['expenseRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumExp += $amt;
+
+                $sheet4->setCellValue('A' . $r4, $idx + 1);
+                $sheet4->setCellValue('B' . $r4, $row['title'] ?? '-');
+                $sheet4->setCellValue('C' . $r4, $row['category'] ?? '-');
+                $sheet4->setCellValue('D' . $r4, $row['location'] ?? '-');
+                $sheet4->setCellValue('E' . $r4, $row['expense_date'] ?? '-');
+                $sheet4->setCellValue('F' . $r4, $row['payment_method'] ?? '-');
+                $sheet4->setCellValue('G' . $r4, $row['created_by'] ?? '-');
+                $sheet4->setCellValue('H' . $r4, '₹' . number_format($amt, 2));
+                $sheet4->getRowDimension($r4)->setRowHeight(20);
+                $r4++;
+            }
+
+            $sheet4->setCellValue('A' . $r4, 'Total');
+            $sheet4->setCellValue('H' . $r4, '₹' . number_format($sumExp, 2));
+            $sheet4->getStyle('A' . $r4 . ':H' . $r4)->getFont()->setBold(true);
+            $sheet4->getStyle('A' . $r4 . ':H' . $r4)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+
+            $sheet4->getStyle('A1:H' . $r4)->applyFromArray($borderStyle);
+            $sheet4->getStyle('H1:H' . $r4)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet4->setCellValue('A2', 'No expense data available for the selected date.');
+            $sheet4->mergeCells('A2:H2');
+            $sheet4->getStyle('A1:H2')->applyFromArray($borderStyle);
+        }
+        foreach ($columns4 as $colLetter) {
+            $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Daily report exported to Excel for ' . $date);
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'daily_report_' . $date . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     private function resolveDailyReportFilters(Request $request): array
@@ -3440,7 +4191,7 @@ class ReportController extends Controller
         return view('reports.customer-report', $this->buildCustomerReportData($request));
     }
 
-    public function exportCustomerReport(Request $request)
+    public function exportCustomerReportExcel(Request $request)
     {
         $this->authorize('view customer report');
 
@@ -3450,18 +4201,136 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title' => 'Customer Credit Report',
-                'pdfUrl' => route('admin.reports.customer-report.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: Transactions
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Transactions');
+
+        $headers1 = ['#', 'Date', 'Customer Name', 'Type', 'Source', 'Amount', 'Balance After', 'Notes', 'Created By'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers1 as $colIdx => $hText) {
+            $sheet1->setCellValue($columns1[$colIdx] . '1', $hText);
+        }
+        $sheet1->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(26);
+
+        $rowIndex = 2;
+        $totalCredit = 0;
+        $totalDebit = 0;
+
+        foreach ($data['transactions'] as $idx => $t) {
+            $typeLabel = ucfirst($t->type);
+            $sourceLabel = ucfirst($t->source);
+            $amt = (float) $t->amount;
+            $bal = (float) $t->balance_after;
+
+            if ($t->type === CustomerBalanceTransaction::TYPE_CREDIT) {
+                $totalCredit += $amt;
+            } else {
+                $totalDebit += $amt;
+            }
+
+            $sheet1->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet1->setCellValue('B' . $rowIndex, $t->created_at->format('d-m-Y H:i'));
+            $sheet1->setCellValue('C' . $rowIndex, $t->customer->name ?? '-');
+            $sheet1->setCellValue('D' . $rowIndex, $typeLabel);
+            $sheet1->setCellValue('E' . $rowIndex, $sourceLabel);
+            $sheet1->setCellValue('F' . $rowIndex, '₹' . number_format($amt, 2));
+            $sheet1->setCellValue('G' . $rowIndex, '₹' . number_format($bal, 2));
+            $sheet1->setCellValue('H' . $rowIndex, $t->notes ?? '-');
+            $sheet1->setCellValue('I' . $rowIndex, $t->createdBy->name ?? '-');
+
+            $sheet1->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
         }
 
-        $pdf = Pdf::loadView('reports.pdf.customer-report', $data)->setPaper('a4', 'landscape');
+        // Totals Row
+        $sheet1->setCellValue('A' . $rowIndex, 'Total Credit: ₹' . number_format($totalCredit, 2) . ' | Total Debit: ₹' . number_format($totalDebit, 2));
+        $sheet1->mergeCells('A' . $rowIndex . ':I' . $rowIndex);
+        $sheet1->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFont()->setBold(true);
+        $sheet1->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet1->getRowDimension($rowIndex)->setRowHeight(24);
 
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Customer credit report exported to PDF');
+        $sheet1->getStyle('A1:I' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('B1:B' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('F1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        return $pdf->stream('customer_report_' . now()->format('Ymd_His') . '.pdf');
+        foreach ($columns1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 2: Customer Balances
+        if ($data['creditCustomers']->isNotEmpty()) {
+            $sheet2 = $spreadsheet->createSheet();
+            $sheet2->setTitle('Customer Balances');
+
+            $headers2 = ['#', 'Customer Name', 'Phone', 'Credit Limit', 'Current Credit Balance'];
+            $columns2 = ['A', 'B', 'C', 'D', 'E'];
+
+            foreach ($headers2 as $colIdx => $hText) {
+                $sheet2->setCellValue($columns2[$colIdx] . '1', $hText);
+            }
+            $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
+            $sheet2->getRowDimension(1)->setRowHeight(26);
+
+            $r2 = 2;
+            $sumBal = 0;
+            foreach ($data['creditCustomers'] as $idx => $c) {
+                $bal = (float) $c->credit_balance;
+                $sumBal += $bal;
+
+                $sheet2->setCellValue('A' . $r2, $idx + 1);
+                $sheet2->setCellValue('B' . $r2, $c->name);
+                $sheet2->setCellValue('C' . $r2, $c->phone ?? '-');
+                $sheet2->setCellValue('D' . $r2, '₹' . number_format((float) ($c->credit_limit ?? 0), 2));
+                $sheet2->setCellValue('E' . $r2, '₹' . number_format($bal, 2));
+                $sheet2->getRowDimension($r2)->setRowHeight(20);
+                $r2++;
+            }
+
+            $sheet2->setCellValue('A' . $r2, 'Total Balance');
+            $sheet2->setCellValue('E' . $r2, '₹' . number_format($sumBal, 2));
+            $sheet2->getStyle('A' . $r2 . ':E' . $r2)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $r2 . ':E' . $r2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+
+            $sheet2->getStyle('A1:E' . $r2)->applyFromArray($borderStyle);
+            $sheet2->getStyle('D1:E' . $r2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            foreach ($columns2 as $colLetter) {
+                $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+            }
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Customer credit report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'customer_credit_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function customerReportDetail(Request $request)

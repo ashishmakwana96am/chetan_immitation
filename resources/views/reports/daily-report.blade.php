@@ -11,8 +11,8 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Daily Report</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
     </div>
 
@@ -183,10 +183,10 @@
                 submitFilters();
             });
 
-            $(document).on('click', '#exportPdfBtn', function () {
+            $(document).on('click', '#exportExcelBtn', function () {
                 const form = $('#filterForm');
-                const url = "{{ route('admin.reports.daily-report.export') }}?" + form.serialize() + "&auto_print=1";
-                window.open(url, '_blank');
+                const url = "{{ route('admin.reports.daily-report.export-excel') }}?" + form.serialize();
+                window.location.href = url;
             });
         });
     </script>

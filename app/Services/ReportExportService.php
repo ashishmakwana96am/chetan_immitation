@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -795,4 +796,17 @@ class ReportExportService
         return (float) ($product->mrp ?? 0);
     }
 
+    /**
+     * Download spreadsheet response helper.
+     */
+    public function downloadResponse(Spreadsheet $spreadsheet, string $filename)
+    {
+        $writer = new Xlsx($spreadsheet);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
 }

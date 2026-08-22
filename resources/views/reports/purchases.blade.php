@@ -42,9 +42,6 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">All Purchase</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
-        </button>
     </div>
 
     <div id="report-results">
@@ -168,7 +165,7 @@
 
     <!-- Detail Table & Top Purchased Products Tabs -->
     <div class="card">
-        <div class="card-header border-bottom">
+        <div class="card-header border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
             <ul class="nav nav-tabs card-header-tabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-invoices" role="tab">
@@ -181,6 +178,9 @@
                     </button>
                 </li>
             </ul>
+            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+            </button>
         </div>
         <div class="card-body tab-content p-0">
             <!-- Invoices Tab -->
@@ -546,10 +546,10 @@
             loadReport(form.attr('action'));
         });
 
-        $('#exportPdfBtn').on('click', function () {
+        $('#exportExcelBtn').on('click', function () {
             const form = $('#filterForm');
-            const url = "{{ route('admin.reports.purchases.export') }}?auto_print=1&" + form.serialize();
-            window.open(url, '_blank');
+            const url = "{{ route('admin.reports.purchases.export-excel') }}?" + form.serialize();
+            window.location.href = url;
         });
     });
     </script>

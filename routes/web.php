@@ -228,36 +228,36 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('products', [ReportController::class, 'products'])->name('products');
             Route::get('products/data', [ReportController::class, 'productsData'])->name('products.data');
-            Route::get('products/export', [ReportController::class, 'exportProducts'])->name('products.export');
+            Route::get('products/export-excel', [ReportController::class, 'exportProductsExcel'])->name('products.export-excel');
             Route::get('stock-inventory', [ReportController::class, 'stockInventory'])->name('stock-inventory');
             Route::get('stock-inventory/data', [ReportController::class, 'stockInventoryData'])->name('stock-inventory.data');
             Route::get('stock-inventory/totals', [ReportController::class, 'stockInventoryTotals'])->name('stock-inventory.totals');
-            Route::get('stock-inventory/export', [ReportController::class, 'exportStockInventory'])->name('stock-inventory.export');
+            Route::get('stock-inventory/export-excel', [ReportController::class, 'exportStockInventoryExcel'])->name('stock-inventory.export-excel');
             Route::get('purchases', [ReportController::class, 'purchases'])->name('purchases');
             Route::get('purchases/data', [ReportController::class, 'purchasesData'])->name('purchases.data');
             Route::get('purchases/products-data', [ReportController::class, 'purchasesProductsData'])->name('purchases.products-data');
-            Route::get('purchases/export', [ReportController::class, 'exportPurchases'])->name('purchases.export');
+            Route::get('purchases/export-excel', [ReportController::class, 'exportPurchasesExcel'])->name('purchases.export-excel');
             Route::get('sales', [ReportController::class, 'sales'])->name('sales');
             Route::get('sales/data', [ReportController::class, 'salesData'])->name('sales.data');
             Route::get('sales/products-data', [ReportController::class, 'salesProductsData'])->name('sales.products-data');
-            Route::get('sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
+            Route::get('sales/export-excel', [ReportController::class, 'exportSalesExcel'])->name('sales.export-excel');
             Route::get('sales/gst-json', [ReportController::class, 'exportGstJson'])->name('sales.gst-json');
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('profit-loss/data', [ReportController::class, 'profitLossData'])->name('profit-loss.data');
-            Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
+            Route::get('profit-loss/export-excel', [ReportController::class, 'exportProfitLossExcel'])->name('profit-loss.export-excel');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
-            Route::get('payments/export', [ReportController::class, 'exportPayments'])->name('payments.export');
+            Route::get('payments/export-excel', [ReportController::class, 'exportPaymentsExcel'])->name('payments.export-excel');
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');
-            Route::get('daily-report/export', [ReportController::class, 'exportDailyReport'])->name('daily-report.export');
+            Route::get('daily-report/export-excel', [ReportController::class, 'exportDailyReportExcel'])->name('daily-report.export-excel');
             Route::get('customer-report', [ReportController::class, 'customerReport'])->name('customer-report');
-            Route::get('customer-report/export', [ReportController::class, 'exportCustomerReport'])->name('customer-report.export');
+            Route::get('customer-report/export-excel', [ReportController::class, 'exportCustomerReportExcel'])->name('customer-report.export-excel');
             Route::get('customer-report/detail', [ReportController::class, 'customerReportDetail'])->name('customer-report.detail');
             Route::get('customer-report/sale-products', [ReportController::class, 'customerReportSaleProducts'])->name('customer-report.sale-products');
 
             // Utility Report
             Route::get('utility/data', [UtilityReportController::class, 'data'])->name('utility.data');
-            Route::get('utility/export', [UtilityReportController::class, 'export'])->name('utility.export');
+            Route::get('utility/export-excel', [UtilityReportController::class, 'exportExcel'])->name('utility.export-excel');
             Route::get('utility/{utilityReport}', [UtilityReportController::class, 'show'])->name('utility.show');
             Route::get('utility', [UtilityReportController::class, 'index'])->name('utility');
         });

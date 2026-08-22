@@ -7,7 +7,11 @@ use App\Models\Location;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class UtilityReportController extends Controller
 {
@@ -114,7 +118,7 @@ class UtilityReportController extends Controller
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
-    public function export(Request $request)
+    public function exportExcel(Request $request)
     {
         $this->authorize('view utility report');
 
@@ -124,22 +128,75 @@ class UtilityReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Utility Report',
-                'pdfUrl' => route('admin.reports.utility.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Activity Logs');
+
+        $headers = ['#', 'Date & Time', 'User Name', 'Role', 'Location', 'Module', 'Action', 'Description', 'IP Address'];
+        $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers as $colIdx => $hText) {
+            $sheet->setCellValue($columns[$colIdx] . '1', $hText);
         }
 
-        $pdf = Pdf::loadView('reports.pdf.utility', [
-            'logs'      => $logs,
-            'startDate' => $request->start_date,
-            'endDate'   => $request->end_date,
-        ])->setPaper('a4', 'landscape');
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(26);
 
-        ActivityLogger::log('Utility Report', 'export', null, null, null, 'Activity log exported to PDF');
+        $rowIndex = 2;
+        foreach ($logs as $idx => $log) {
+            $dateStr = $log->created_at ? $log->created_at->format('d-m-Y H:i') : '-';
+            $userRole = $log->user_role ? ucwords(str_replace('-', ' ', $log->user_role)) : '-';
+            $actionStr = ucwords(str_replace('_', ' ', $log->action));
 
-        return $pdf->stream('utility_report_' . date('Y_m_d_His') . '.pdf');
+            $sheet->setCellValue('A' . $rowIndex, $idx + 1);
+            $sheet->setCellValue('B' . $rowIndex, $dateStr);
+            $sheet->setCellValue('C' . $rowIndex, $log->user_name ?? 'System');
+            $sheet->setCellValue('D' . $rowIndex, $userRole);
+            $sheet->setCellValue('E' . $rowIndex, $log->location_name ?? '-');
+            $sheet->setCellValue('F' . $rowIndex, $log->module);
+            $sheet->setCellValue('G' . $rowIndex, $actionStr);
+            $sheet->setCellValue('H' . $rowIndex, $log->description ?? '-');
+            $sheet->setCellValue('I' . $rowIndex, $log->ip_address ?? '-');
+
+            $sheet->getRowDimension($rowIndex)->setRowHeight(20);
+            $rowIndex++;
+        }
+
+        $lastRow = $rowIndex - 1;
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+        $sheet->getStyle('A1:I' . $lastRow)->applyFromArray($borderStyle);
+
+        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B1:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('I1:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        foreach ($columns as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        ActivityLogger::log('Utility Report', 'export', null, null, null, 'Activity log exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'utility_report_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function show(UtilityReport $utilityReport)

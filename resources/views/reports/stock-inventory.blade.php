@@ -38,12 +38,7 @@
 @endsection
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h4 class="fw-semibold mb-0">Stock Inventory Report</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
-        </button>
-    </div>
+    <h4 class="fw-semibold mb-4">Stock Inventory Report</h4>
 
     <div id="report-results">
         @include('reports.partials.stock-inventory-results')
@@ -308,20 +303,19 @@
             table.ajax.reload();
         });
 
-        $('#exportPdfBtn').on('click', function() {
-            const cat = $('#filterCategory').val();
-            const stock = $('#filterStock').val();
-
-            let url = "{{ route('admin.reports.stock-inventory.export') }}?auto_print=1";
-            let params = [];
-            if (cat) params.push('category_id=' + cat);
-            if (stock) params.push('stock=' + stock);
-
-            if (params.length > 0) {
-                url += '&' + params.join('&');
+        $(document).on('click', '#exportExcelBtn', function() {
+            let params = currentFilters();
+            let url = "{{ route('admin.reports.stock-inventory.export-excel') }}";
+            let queryArr = [];
+            for (let k in params) {
+                if (params[k]) {
+                    queryArr.push(k + '=' + encodeURIComponent(params[k]));
+                }
             }
-
-            window.open(url, '_blank');
+            if (queryArr.length > 0) {
+                url += '?' + queryArr.join('&');
+            }
+            window.location.href = url;
         });
 
         initReport();

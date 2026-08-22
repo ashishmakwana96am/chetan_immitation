@@ -63,9 +63,6 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Payment Report</h4>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
-        </button>
     </div>
 
     <div id="report-results">
@@ -215,8 +212,11 @@
 
         {{-- Payments Table --}}
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0">All Payment Transactions</h5>
+                <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+                </button>
             </div>
             <div class="card-datatable table-responsive">
                 <table class="table border-top" id="paymentsTable">
@@ -527,10 +527,10 @@
             loadReport(form.attr('action'));
         });
 
-        $(document).on('click', '#exportPdfBtn', function () {
+        $(document).on('click', '#exportExcelBtn', function () {
             const form = $('#filterForm');
-            const url = "{{ route('admin.reports.payments.export') }}?" + form.serialize() + "&auto_print=1";
-            window.open(url, '_blank');
+            const url = "{{ route('admin.reports.payments.export-excel') }}?" + form.serialize();
+            window.location.href = url;
         });
     });
     </script>
