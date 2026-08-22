@@ -36,10 +36,14 @@ class SupplierAdvancePayment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public static function adjustAdvanceForPurchase(Purchase $purchase): float
+    public static function adjustAdvanceForPurchase(Purchase $purchase, ?float $maxAmountToDeduct = null): float
     {
         $supplierId = $purchase->supplier_id;
         if (!$supplierId) return 0.0;
+
+        if ((int) $purchase->payment_status === Purchase::PAYMENT_STATUS_PENDING) {
+            return 0.0;
+        }
 
         $suppBalance = SupplierBalance::where('supplier_id', $supplierId)->first();
         if (!$suppBalance || $suppBalance->balance <= 0) return 0.0;
@@ -47,6 +51,11 @@ class SupplierAdvancePayment extends Model
         $billTotal = (float) $purchase->total_amount;
         $currentPaid = (float) PurchasePayment::where('purchase_id', $purchase->id)->sum('amount');
         $dueAmt = round(max(0.0, $billTotal - $currentPaid), 2);
+        if ($dueAmt <= 0) return 0.0;
+
+        if ($maxAmountToDeduct !== null) {
+            $dueAmt = min($dueAmt, max(0.0, round($maxAmountToDeduct, 2)));
+        }
         if ($dueAmt <= 0) return 0.0;
 
         $availAdvance = (float) $suppBalance->balance;
@@ -99,6 +108,9 @@ class SupplierAdvancePayment extends Model
             'paid_amount'    => min($newPaid, $billTotal),
             'payment_status' => $finalStatus,
         ])));
+
+        $purchase->paid_amount = min($newPaid, $billTotal);
+        $purchase->payment_status = $finalStatus;
 
         return $adjustAmt;
     }

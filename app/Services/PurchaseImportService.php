@@ -205,7 +205,9 @@ class PurchaseImportService
                 }
 
                 // Auto-adjust supplier advance balance if available
-                \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
+                if ((int) $purchase->payment_status !== \App\Models\Purchase::PAYMENT_STATUS_PENDING) {
+                    \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
+                }
 
                 foreach ($items as $itemData) {
                     $item = PurchaseItem::create([

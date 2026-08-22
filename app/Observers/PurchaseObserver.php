@@ -17,7 +17,7 @@ class PurchaseObserver
     public function created(Purchase $purchase): void
     {
         if ($purchase->paid_amount > 0) {
-            if ($purchase->supplier_id) {
+            if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
                 $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
                 if ($suppBal && $suppBal->balance > 0) {
                     \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
@@ -45,7 +45,7 @@ class PurchaseObserver
         }
 
         // If supplier has advance balance and bill has due amount, adjust advance first
-        if ($purchase->supplier_id && $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
+        if ($purchase->supplier_id && (int) $purchase->payment_status !== Purchase::PAYMENT_STATUS_PENDING) {
             $suppBal = \App\Models\SupplierBalance::where('supplier_id', $purchase->supplier_id)->first();
             if ($suppBal && $suppBal->balance > 0) {
                 \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase);
