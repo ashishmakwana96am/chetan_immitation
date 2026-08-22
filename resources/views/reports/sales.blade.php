@@ -67,16 +67,33 @@
             border-color: #e2e8f0 !important;
         }
         .gst-flatpickr-month-grid button:not(:disabled):hover {
-            background: #7367f0 !important;
+            background: #B4771E !important;
             color: #fff !important;
-            border-color: #7367f0 !important;
+            border-color: #B4771E !important;
+            box-shadow: none !important;
         }
         .gst-flatpickr-month-grid button.active {
-            background: #7367f0 !important;
+            background: #B4771E !important;
             color: #fff !important;
-            border-color: #7367f0 !important;
+            border-color: #B4771E !important;
             font-weight: 600;
-            box-shadow: 0 2px 4px rgba(115, 103, 240, 0.4);
+            box-shadow: none !important;
+        }
+        #gstJsonMonth:focus,
+        #gstJsonMonth.input-active,
+        #gstJsonMonth.active {
+            border-color: #B4771E !important;
+            box-shadow: none !important;
+            outline: 0 !important;
+        }
+        .flatpickr-calendar .flatpickr-prev-month:hover svg,
+        .flatpickr-calendar .flatpickr-next-month:hover svg {
+            fill: #B4771E !important;
+        }
+        .gst-flatpickr-month-grid button:focus {
+            outline: none !important;
+            border-color: #B4771E !important;
+            box-shadow: none !important;
         }
         #confirmGstJsonDownload:focus,
         #confirmGstJsonDownload:active,
@@ -321,7 +338,7 @@
     <!-- GST Report Export Offcanvas Sidepanel -->
     <div class="offcanvas offcanvas-end" id="gstReportOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title fw-semibold">Download JSON Report</h5>
+            <h5 class="offcanvas-title fw-semibold">Download JSON Report (GSTR-1)</h5>
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
