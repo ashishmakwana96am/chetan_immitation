@@ -241,6 +241,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('sales/data', [ReportController::class, 'salesData'])->name('sales.data');
             Route::get('sales/products-data', [ReportController::class, 'salesProductsData'])->name('sales.products-data');
             Route::get('sales/export', [ReportController::class, 'exportSales'])->name('sales.export');
+            Route::get('sales/gst-json', [ReportController::class, 'exportGstJson'])->name('sales.gst-json');
             Route::get('profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
             Route::get('profit-loss/data', [ReportController::class, 'profitLossData'])->name('profit-loss.data');
             Route::get('profit-loss/export', [ReportController::class, 'exportProfitLoss'])->name('profit-loss.export');
