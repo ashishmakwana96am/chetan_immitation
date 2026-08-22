@@ -92,7 +92,7 @@
         <h4 class="fw-semibold mb-0">Sales Report</h4>
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-warning report-export-btn" data-bs-toggle="offcanvas" data-bs-target="#gstReportOffcanvas">
-                <i class="ti ti-file-code me-1"></i> Download GST Report
+                <i class="ti ti-file-code me-1"></i> JSON Report
             </button>
             <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn" target="_blank">
                 <i class="ti ti-file-text me-1"></i> Export to PDF

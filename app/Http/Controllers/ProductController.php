@@ -782,8 +782,13 @@ class ProductController extends Controller
         }
 
         $messages = [];
+        $attributes = [
+            'collection_id'   => 'collection',
+            'category_id'     => 'category',
+            'sub_category_id' => 'sub category',
+        ];
 
-        $validator = Validator::make($request->all(), $rules, $messages);
+        $validator = Validator::make($request->all(), $rules, $messages, $attributes);
 
         if ($validator->fails()) {
             return response()->json([
@@ -1014,8 +1019,13 @@ class ProductController extends Controller
         }
 
         $messages = [];
+        $attributes = [
+            'collection_id'   => 'collection',
+            'category_id'     => 'category',
+            'sub_category_id' => 'sub category',
+        ];
 
-        $validator = Validator::make($request->all(), $rules, $messages);
+        $validator = Validator::make($request->all(), $rules, $messages, $attributes);
 
         if ($validator->fails()) {
             return response()->json([
