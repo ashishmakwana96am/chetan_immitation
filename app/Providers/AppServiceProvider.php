@@ -55,7 +55,7 @@ class AppServiceProvider extends ServiceProvider
                 }])
                 ->orderBy('sort_order')
                 ->get();
-            $collections = Collection::where('status', Collection::STATUS_ACTIVE)
+            $collections = Collection::whereIn('status', [Collection::STATUS_ACTIVE, 1, '1', 'active'])
                 ->whereNotNull('name')
                 ->where('name', '!=', '')
                 ->orderBy('name')
