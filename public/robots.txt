@@ -1,0 +1,14 @@
+User-agent: *
+
+# Block all Staging URLs
+Disallow: /staging/
+Disallow: /staging
+Disallow: /staging/admin/
+Disallow: /staging/admin
+
+# Block Admin panel
+Disallow: /admin/
+Disallow: /admin
+
+# Allow only Production Website indexing
+Allow: /

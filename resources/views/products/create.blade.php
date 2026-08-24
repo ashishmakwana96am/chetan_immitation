@@ -61,7 +61,7 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Collections</label>
+                                <label class="form-label">Collections <span class="text-danger">*</span></label>
                                 @php
                                     $clonedCols = isset($clonedProduct) ? ($clonedProduct->collections->pluck('id')->toArray() ?: ($clonedProduct->collection_id ? [$clonedProduct->collection_id] : [])) : [];
                                 @endphp
@@ -74,22 +74,22 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Product Code <span class="text-danger">*</span></label>
-                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" required />
+                                <input type="number" name="product_code" id="productCodeInput" class="form-control" placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ isset($clonedProduct) ? $clonedProduct->product_code : '' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
-                                <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_multiplier : '2.5' }}" required />
+                                <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->purchase_multiplier : '2.5' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
-                                <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_multiplier : '4.125' }}" required />
+                                <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->sale_multiplier : '4.125' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
-                                <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp_multiplier : '4.575' }}" required />
+                                <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ isset($clonedProduct) ? $clonedProduct->mrp_multiplier : '4.575' }}" />
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6" id="purchasePriceCol">
@@ -762,29 +762,39 @@
                     error : function (xhr) {
                         $('#submitBtn').prop('disabled', false).html('<i class="ti ti-device-floppy me-1"></i> Save Product');
                         if (xhr.status === 422) {
-                            const errors = xhr.responseJSON?.message || {};
+                            const res = xhr.responseJSON || {};
+                            const errors = res.errors || res.message || {};
                             $.each(errors, function (field, messages) {
+                                const msg = Array.isArray(messages) ? messages[0] : messages;
                                 if (field === 'primary_image_base64') {
-                                    $('#primaryImageError').text(messages[0]);
+                                    $('#primaryImageError').text(msg);
                                     $('#primaryDropZone').css('border-color', '#ea5455');
                                 } else if (field === 'additional_images_base64') {
-                                    $('#additionalImagesError').text(messages[0]);
+                                    $('#additionalImagesError').text(msg);
                                     $('#additionalDropZone').css('border-color', '#ea5455');
                                 } else if (field === 'variants_json') {
                                     $('#variantsJson').siblings('.invalid-feedback').text('Please add at least one attribute & variant.');
                                 } else if (field === 'custom_sizes_json') {
-                                    toastr.error(messages[0]);
+                                    toastr.error(msg);
                                 } else {
-                                    const input = form.find('[name="' + field + '"], [name="' + field + '[]"]');
+                                    let fieldName = field.replace(/\.\d+$/, '');
+                                    let input = form.find('[name="' + fieldName + '"], [name="' + fieldName + '[]"], [name="' + field + '"]');
                                     let feedback = input.siblings('.invalid-feedback');
                                     if (feedback.length === 0 && input.parent('.input-group').length) {
                                         feedback = input.parent('.input-group').siblings('.invalid-feedback');
                                     }
-                                    if (input.length && feedback.length) {
+                                    if (input.length) {
                                         input.addClass('is-invalid');
-                                        feedback.text(messages[0]);
+                                        if (input.hasClass('select2-hidden-accessible')) {
+                                            input.next('.select2-container').find('.select2-selection').css('border-color', '#ea5455');
+                                        }
+                                        if (feedback.length) {
+                                            feedback.text(msg).show();
+                                        } else {
+                                            toastr.error(msg);
+                                        }
                                     } else {
-                                        toastr.error(messages[0]);
+                                        toastr.error(msg);
                                     }
                                 }
                             });

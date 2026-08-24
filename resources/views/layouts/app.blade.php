@@ -8,6 +8,7 @@
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>@yield('title', 'Dashboard') | Chetan Imitation</title>
     <meta name="description" content="" />
+    <meta name="robots" content="noindex, nofollow" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
 
     <link rel="icon" type="image/png" href="{{ asset('assets/img/favicon/favicon.png') }}" />
@@ -519,7 +520,7 @@
                             const totalSelected = selectedValues.length;
                             const totalOptions = selectEl.find('option').length;
                             const $rendered = $container.find('.select2-selection__rendered');
-                            const placeholderText = selectEl.attr('data-placeholder') || 'Select items';
+                            const placeholderText = selectEl.attr('data-placeholder') || selectEl.data('placeholder') || (hasEmptyOpt ? selectEl.find('option[value=""]').text() : 'Select Collections');
                             
                             $rendered.find('.select2-selection__choice').remove();
                             $rendered.find('.select2-search--inline').css('display', 'none');
@@ -537,12 +538,13 @@
                             }
                         };
 
-                        selectEl.on('select2:select select2:unselect change', updateSummary);
+                        selectEl.on('select2:select select2:unselect select2:clear change', function() {
+                            setTimeout(updateSummary, 10);
+                        });
                         selectEl.on('select2:open', function() {
                             const $container = selectEl.next('.select2-container');
                             $container.find('.select2-search--inline').css('display', 'none');
                             
-                            // Inject search box in dropdown if missing (select2 multiple doesn't put search in dropdown by default)
                             const $dropdown = $('.select2-dropdown');
                             if ($dropdown.length && $dropdown.find('.select2-search--dropdown').length === 0) {
                                 const $searchDiv = $('<div class="select2-search select2-search--dropdown" style="padding: 6px 8px;"><input class="select2-search__field" type="search" tabindex="0" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" role="searchbox" aria-autocomplete="list" placeholder="Search..."></div>');

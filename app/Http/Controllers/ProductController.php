@@ -716,7 +716,7 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'collection_ids'           => ['nullable', 'array'],
+            'collection_ids'           => ['required', 'array', 'min:1'],
             'collection_ids.*'         => ['exists:collections,id'],
             'collection_id'            => ['nullable', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
@@ -791,6 +791,7 @@ class ProductController extends Controller
         $messages = [];
         $attributes = [
             'collection_id'   => 'collection',
+            'collection_ids'  => 'collections',
             'category_id'     => 'category',
             'sub_category_id' => 'sub category',
         ];
@@ -961,7 +962,7 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'collection_ids'           => ['nullable', 'array'],
+            'collection_ids'           => ['required', 'array', 'min:1'],
             'collection_ids.*'         => ['exists:collections,id'],
             'collection_id'            => ['nullable', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
@@ -1036,6 +1037,7 @@ class ProductController extends Controller
         $messages = [];
         $attributes = [
             'collection_id'   => 'collection',
+            'collection_ids'  => 'collections',
             'category_id'     => 'category',
             'sub_category_id' => 'sub category',
         ];

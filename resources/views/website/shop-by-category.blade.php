@@ -1,6 +1,6 @@
 @extends('layouts.website')
 
-@section('title', 'Categories - Chetan Imitation')
+@section('title', 'Shop - Chetan Imitation')
 
 @section('content')
 
@@ -25,9 +25,8 @@
 
             </div>
 
-            <div class="relative flex justify-center lg:justify-end lg:col-span-5">
-                <img  src="{{ asset('website/assets/images/shop-media.png') }}" alt="" class="lg:hidden w-full">
-                <img  src="{{ asset('website/assets/images/shopby.png') }}" alt="" class="hidden lg:block">
+            <div class="hidden lg:flex lg:justify-end lg:col-span-5">
+                <img src="{{ asset('website/assets/images/shopby.png') }}" alt="" class="hidden lg:block">
             </div>
 
         </div>
