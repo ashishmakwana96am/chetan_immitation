@@ -769,7 +769,7 @@
                                         </td>
                                         <td class="text-end text-nowrap small">{{ format_price($variant->purchase_price) }}</td>
                                         <td class="text-end text-nowrap small text-success fw-semibold">{{ format_price($variant->sale_price) }}</td>
-                                        <td class="text-end text-nowrap small text-danger">{{ format_price($variant->mrp ?? $variant->sale_price) }}</td>
+                                        <td class="text-end text-nowrap small text-danger">{{ format_price($variant->mrp ?? $product->mrp) }}</td>
                                         @php
                                             $vProfit = (float)$variant->sale_price - (float)$variant->purchase_price;
                                             $vMargin = (float)$variant->sale_price > 0 ? round(($vProfit / (float)$variant->sale_price) * 100, 1) : 0;
