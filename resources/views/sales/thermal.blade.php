@@ -142,10 +142,12 @@
             $storeState = strtolower(trim(\App\Models\Setting::getValue('store_state', 'gujarat')));
             
             if ($isPos || $buyerState === '' || $buyerState === $storeState) {
-                $sgst = $totalTax / 2;
-                $cgst = $totalTax / 2;
+                $sgst = round($totalTax / 2, 2);
+                $cgst = round($totalTax / 2, 2);
+                $totalTax = $sgst + $cgst;
             } else {
-                $igst = $totalTax;
+                $igst = round($totalTax, 2);
+                $totalTax = $igst;
             }
         }
 
