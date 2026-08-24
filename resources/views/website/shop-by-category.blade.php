@@ -11,7 +11,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 items-center">
 
-            <div class="relative z-10 py-10 sm:py-16 lg:py-0 lg:col-span-7 text-center md:text-left">
+            <div class="relative z-10 py-6 sm:py-10 lg:py-0 lg:col-span-7 text-center md:text-left">
 
                 <h1 class="font-moglan hero-heading">
                     Explore Our
@@ -35,7 +35,7 @@
 
 </section>
 
-<div class="container-1440 mx-auto section-space">
+<div class="container-1440 mx-auto pt-4 md:pt-8 pb-[60px] md:pb-[80px] lg:pb-[100px]">
 
     <div class="grid grid-cols-12 lg:gap-5">
 

@@ -41,10 +41,6 @@ class SupplierAdvancePayment extends Model
         $supplierId = $purchase->supplier_id;
         if (!$supplierId) return 0.0;
 
-        if ((int) $purchase->payment_status === Purchase::PAYMENT_STATUS_PENDING) {
-            return 0.0;
-        }
-
         $suppBalance = SupplierBalance::where('supplier_id', $supplierId)->first();
         if (!$suppBalance || $suppBalance->balance <= 0) return 0.0;
 

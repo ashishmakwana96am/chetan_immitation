@@ -662,14 +662,30 @@ class PurchaseController extends Controller
             if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
                 $purchase->payments()->delete();
             } else {
-                $paidAmountDelta = round($paidAmount - $oldPaidAmount, 2);
-                if ($paidAmountDelta >= 0.01) {
-                    PurchasePayment::create([
-                        'purchase_id' => $purchase->id,
-                        'amount'      => $paidAmountDelta,
-                        'created_by'  => auth()->id(),
-                    ]);
+                $targetPay = $paidAmount;
+                $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
+                $remDirect = max(0.0, round($targetPay - $advDeducted, 2));
+
+                if ($remDirect > 0) {
+                    $paidAmountDelta = round($remDirect - $oldPaidAmount, 2);
+                    if ($paidAmountDelta >= 0.01) {
+                        PurchasePayment::create([
+                            'purchase_id' => $purchase->id,
+                            'amount'      => $paidAmountDelta,
+                            'created_by'  => auth()->id(),
+                        ]);
+                    }
                 }
+
+                $finalPaid = round($advDeducted + max($remDirect, $oldPaidAmount), 2);
+                $finalStatus = ($finalPaid >= $grandTotal)
+                    ? Purchase::PAYMENT_STATUS_PAID
+                    : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+
+                Purchase::withoutActivityLogging(fn () => $purchase->update([
+                    'paid_amount'    => min($finalPaid, $grandTotal),
+                    'payment_status' => $finalStatus,
+                ]));
             }
 
             $purchase->items()->delete();
