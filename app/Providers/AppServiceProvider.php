@@ -58,6 +58,11 @@ class AppServiceProvider extends ServiceProvider
             $collections = Collection::whereIn('status', [Collection::STATUS_ACTIVE, 1, '1', 'active'])
                 ->whereNotNull('name')
                 ->where('name', '!=', '')
+                ->whereHas('products', function ($q) {
+                    $q->where('status', Product::STATUS_ACTIVE)
+                      ->where('hide_from_website', false)
+                      ->has('images');
+                })
                 ->orderBy('name')
                 ->get();
             $view->with('sharedCategories', $categories);
