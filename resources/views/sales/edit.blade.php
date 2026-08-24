@@ -1250,15 +1250,21 @@ $(document).ready(function () {
     $(document).on('input change', '.item-total-input', function () {
         const row = $(this).closest('.item-row');
         const enteredTotal = parseFloat($(this).val()) || 0;
-        const price = parseFloat(row.find('.item-price').val()) || 0;
-        const qty = parseInt(row.find('.item-qty').val()) || 0;
-        const subtotal = price * qty;
+        const mrp = parseFloat(row.data('mrp')) || parseFloat(row.find('.item-price').val()) || 0;
+        const qty = parseInt(row.find('.item-qty').val()) || 1;
+        const subtotal = mrp * qty;
 
         let diff = subtotal - enteredTotal;
         if (diff < 0) diff = 0;
 
-        row.find('.item-discount-type').val('flat');
-        row.find('.item-discount-value').val(diff > 0 ? diff.toFixed(2) : 0);
+        if (subtotal > 0 && diff > 0) {
+            const exactPct = (diff / subtotal) * 100;
+            row.find('.item-discount-type').val('percentage');
+            row.find('.item-discount-value').val(Math.round(exactPct * 100) / 100);
+        } else {
+            row.find('.item-discount-type').val('percentage');
+            row.find('.item-discount-value').val(0);
+        }
 
         updateRowTotal(row, true);
     });
