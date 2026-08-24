@@ -315,16 +315,19 @@ class ProductBulkImageUploadService
                         continue;
                     }
 
-                    $extension = strtolower(pathinfo($entryName, PATHINFO_EXTENSION));
-                    $filename = time() . '_' . uniqid() . '.' . $extension;
-                    file_put_contents($destDir . '/' . $filename, $bytes);
+                    $entryFilename = pathinfo($entryName, PATHINFO_BASENAME);
+                    $savedPath = $this->cropAndResizeImage($bytes, $destDir, $entryFilename);
+                    if (!$savedPath) {
+                        $failedImages++;
+                        continue;
+                    }
 
                     $isPrimary = $needsPrimary;
                     $needsPrimary = false;
 
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => 'products/' . $filename,
+                        'image_path' => 'products/' . pathinfo($savedPath, PATHINFO_BASENAME),
                         'is_primary' => $isPrimary,
                         'created_by' => $userId,
                     ]);
@@ -345,5 +348,59 @@ class ProductBulkImageUploadService
             'failed_images'    => $failedImages,
             'saved_any'        => $savedAny,
         ];
+    }
+
+    /**
+     * Auto center crop and resize image bytes into 573x573 JPEG image.
+     */
+    private function cropAndResizeImage(string $bytes, string $destDir, string $originalFilename): ?string
+    {
+        if (!extension_loaded('gd')) {
+            $filename = time() . '_' . uniqid() . '.' . pathinfo($originalFilename, PATHINFO_EXTENSION);
+            $fullPath = $destDir . '/' . $filename;
+            file_put_contents($fullPath, $bytes);
+            return $fullPath;
+        }
+
+        $srcImage = @imagecreatefromstring($bytes);
+        if (!$srcImage) {
+            return null;
+        }
+
+        $origWidth = imagesx($srcImage);
+        $origHeight = imagesy($srcImage);
+
+        if ($origWidth <= 0 || $origHeight <= 0) {
+            imagedestroy($srcImage);
+            return null;
+        }
+
+        $cropSize = min($origWidth, $origHeight);
+        $srcX = (int) max(0, floor(($origWidth - $cropSize) / 2));
+        $srcY = (int) max(0, floor(($origHeight - $cropSize) / 2));
+
+        $targetSize = 573;
+        $dstImage = imagecreatetruecolor($targetSize, $targetSize);
+
+        $white = imagecolorallocate($dstImage, 255, 255, 255);
+        imagefilledrectangle($dstImage, 0, 0, $targetSize, $targetSize, $white);
+
+        imagecopyresampled(
+            $dstImage,
+            $srcImage,
+            0, 0,
+            $srcX, $srcY,
+            $targetSize, $targetSize,
+            $cropSize, $cropSize
+        );
+
+        $filename = time() . '_' . uniqid() . '.jpg';
+        $fullPath = $destDir . '/' . $filename;
+        imagejpeg($dstImage, $fullPath, 92);
+
+        imagedestroy($srcImage);
+        imagedestroy($dstImage);
+
+        return $fullPath;
     }
 }

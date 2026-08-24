@@ -663,6 +663,7 @@ class PurchaseController extends Controller
             Purchase::withoutActivityLogging(fn () => $purchase->update($updateData));
 
             $targetPay = max($paidAmount, $grandTotal);
+            \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
             $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
             $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
@@ -834,6 +835,8 @@ class PurchaseController extends Controller
         $originalInvoiceNo = $purchase->invoice_no;
 
         DB::transaction(function () use ($purchase) {
+            \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
+
             if ($purchase->status == Purchase::STATUS_APPROVE) {
                 PurchaseStockService::reverse($purchase, 'deletion');
             }

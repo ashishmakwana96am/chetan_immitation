@@ -504,7 +504,7 @@ class ReportExportService
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Orders List');
 
-        $headers1 = ['S.No.', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Final Amount'];
+        $headers1 = ['S.No.', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Cash Amount', 'Online Amount', 'Total Amount'];
         $sheet1->fromArray($headers1, null, 'A1');
         $sheet1->getRowDimension(1)->setRowHeight(28);
 
@@ -521,26 +521,55 @@ class ReportExportService
             ];
             $paymentStatusLabel = $paymentStatuses[$order->payment_status] ?? 'Pending';
             $sheet1->setCellValue('E' . $row, $paymentStatusLabel);
-            $sheet1->setCellValue('F' . $row, strtoupper(str_replace('_', ' ', $order->payment_method)));
+
+            $methodStr = strtolower((string) $order->payment_method);
+            if ($methodStr === 'online_cash' || $methodStr === 'cash_online') {
+                $methodLabel = 'Cash + Online';
+            } elseif ($methodStr === 'cash') {
+                $methodLabel = 'Cash';
+            } elseif ($methodStr === 'online') {
+                $methodLabel = 'Online';
+            } else {
+                $methodLabel = ucfirst(str_replace('_', ' ', $methodStr));
+            }
+
+            $cashAmt = (float) ($order->paid_cash_amount ?? 0);
+            $onlineAmt = (float) ($order->paid_online_amount ?? 0);
+            $finalAmt = (float) $order->final_amount;
+
+            // If cash/online split is not set on order record, assign based on payment method
+            if ($cashAmt == 0 && $onlineAmt == 0 && $finalAmt > 0) {
+                if ($methodStr === 'cash') {
+                    $cashAmt = $finalAmt;
+                } elseif ($methodStr === 'online') {
+                    $onlineAmt = $finalAmt;
+                }
+            }
+
+            $sheet1->setCellValue('F' . $row, $methodLabel);
             $sheet1->setCellValue('G' . $row, $order->created_at->format('d M Y'));
-            $sheet1->setCellValue('H' . $row, (float) $order->final_amount);
+            $sheet1->setCellValue('H' . $row, $cashAmt);
+            $sheet1->setCellValue('I' . $row, $onlineAmt);
+            $sheet1->setCellValue('J' . $row, $finalAmt);
             $row++;
         }
 
         $totalRow = $row;
         $sheet1->setCellValue('A' . $totalRow, 'Total');
         $sheet1->setCellValue('H' . $totalRow, "=SUM(H2:H" . ($totalRow - 1) . ")");
+        $sheet1->setCellValue('I' . $totalRow, "=SUM(I2:I" . ($totalRow - 1) . ")");
+        $sheet1->setCellValue('J' . $totalRow, "=SUM(J2:J" . ($totalRow - 1) . ")");
 
-        $sheet1->getStyle('A1:H1')->applyFromArray($this->getHeaderStyle());
-        $sheet1->getStyle('A2:H' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
-        $sheet1->getStyle('A' . $totalRow . ':H' . $totalRow)->applyFromArray($this->getTotalsStyle());
+        $sheet1->getStyle('A1:J1')->applyFromArray($this->getHeaderStyle());
+        $sheet1->getStyle('A2:J' . ($totalRow - 1))->applyFromArray($this->getDataStyle());
+        $sheet1->getStyle('A' . $totalRow . ':J' . $totalRow)->applyFromArray($this->getTotalsStyle());
 
         $sheet1->getStyle('A2:A' . $totalRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('B2:B' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('E2:E' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('F2:F' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('G2:G' . ($totalRow - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('H2:H' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
+        $sheet1->getStyle('H2:J' . $totalRow)->getNumberFormat()->setFormatCode($this->getCurrencyFormatCode());
 
         $this->autoFitColumns($sheet1);
 

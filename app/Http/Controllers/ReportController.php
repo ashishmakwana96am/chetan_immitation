@@ -2504,8 +2504,8 @@ class ReportController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Orders List');
 
-        $headers1 = ['#', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Final Amount'];
-        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $headers1 = ['#', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Cash Amount', 'Online Amount', 'Total Amount'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
         foreach ($headers1 as $colIdx => $headerText) {
             $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
@@ -2516,17 +2516,43 @@ class ReportController extends Controller
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ];
-        $sheet1->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet1->getStyle('A1:J1')->applyFromArray($headerStyle);
         $sheet1->getRowDimension(1)->setRowHeight(26);
 
         $paymentStatuses = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
         $rowIndex = 2;
+        $totalCashSum = 0;
+        $totalOnlineSum = 0;
         $totalFinalAmountSum = 0;
 
         foreach ($orders as $idx => $order) {
             $payStatusLabel = $paymentStatuses[$order->payment_status] ?? 'Pending';
-            $payMethodLabel = strtoupper(str_replace('_', ' ', $order->payment_method ?? '-'));
+            
+            $methodStr = strtolower((string) $order->payment_method);
+            if ($methodStr === 'online_cash' || $methodStr === 'cash_online') {
+                $payMethodLabel = 'Cash + Online';
+            } elseif ($methodStr === 'cash') {
+                $payMethodLabel = 'Cash';
+            } elseif ($methodStr === 'online') {
+                $payMethodLabel = 'Online';
+            } else {
+                $payMethodLabel = ucfirst(str_replace('_', ' ', $methodStr));
+            }
+
+            $cashAmt = (float) ($order->paid_cash_amount ?? 0);
+            $onlineAmt = (float) ($order->paid_online_amount ?? 0);
             $finalAmount = (float) $order->final_amount;
+
+            if ($cashAmt == 0 && $onlineAmt == 0 && $finalAmount > 0) {
+                if ($methodStr === 'cash') {
+                    $cashAmt = $finalAmount;
+                } elseif ($methodStr === 'online') {
+                    $onlineAmt = $finalAmount;
+                }
+            }
+
+            $totalCashSum += $cashAmt;
+            $totalOnlineSum += $onlineAmt;
             $totalFinalAmountSum += $finalAmount;
 
             $sheet1->setCellValue('A' . $rowIndex, $idx + 1);
@@ -2536,7 +2562,9 @@ class ReportController extends Controller
             $sheet1->setCellValue('E' . $rowIndex, $payStatusLabel);
             $sheet1->setCellValue('F' . $rowIndex, $payMethodLabel);
             $sheet1->setCellValue('G' . $rowIndex, $order->created_at->format('d-m-Y'));
-            $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($finalAmount, 2));
+            $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($cashAmt, 2));
+            $sheet1->setCellValue('I' . $rowIndex, '₹' . number_format($onlineAmt, 2));
+            $sheet1->setCellValue('J' . $rowIndex, '₹' . number_format($finalAmount, 2));
 
             $sheet1->getRowDimension($rowIndex)->setRowHeight(20);
             $rowIndex++;
@@ -2544,8 +2572,10 @@ class ReportController extends Controller
 
         // Totals Row
         $sheet1->setCellValue('A' . $rowIndex, 'Total');
-        $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($totalFinalAmountSum, 2));
-        $sheet1->getStyle('A' . $rowIndex . ':H' . $rowIndex)->getFont()->setBold(true);
+        $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($totalCashSum, 2));
+        $sheet1->setCellValue('I' . $rowIndex, '₹' . number_format($totalOnlineSum, 2));
+        $sheet1->setCellValue('J' . $rowIndex, '₹' . number_format($totalFinalAmountSum, 2));
+        $sheet1->getStyle('A' . $rowIndex . ':J' . $rowIndex)->getFont()->setBold(true);
         $sheet1->getRowDimension($rowIndex)->setRowHeight(22);
 
         $borderStyle = [
@@ -2556,10 +2586,10 @@ class ReportController extends Controller
                 ],
             ],
         ];
-        $sheet1->getStyle('A1:H' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:J' . $rowIndex)->applyFromArray($borderStyle);
         $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('E1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('H1:H' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('H1:J' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);

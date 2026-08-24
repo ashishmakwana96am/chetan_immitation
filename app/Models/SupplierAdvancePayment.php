@@ -111,4 +111,65 @@ class SupplierAdvancePayment extends Model
 
         return $adjustAmt;
     }
+
+    /**
+     * Revert advance payment deductions when a Purchase is deleted or updated down.
+     */
+    public static function restoreAdvanceForPurchase(Purchase $purchase): void
+    {
+        $advancePayments = PurchasePayment::where('purchase_id', $purchase->id)
+            ->where('is_advance', true)
+            ->get();
+
+        if ($advancePayments->isEmpty()) {
+            return;
+        }
+
+        $supplierId = $purchase->supplier_id;
+        $totalToRefund = $advancePayments->sum('amount');
+
+        if ($totalToRefund <= 0 || !$supplierId) {
+            PurchasePayment::where('purchase_id', $purchase->id)->where('is_advance', true)->delete();
+            return;
+        }
+
+        $advanceRecords = self::where('supplier_id', $supplierId)
+            ->where('used_amount', '>', 0)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $remToRefund = $totalToRefund;
+        $cashRefunded = 0.0;
+        $bankRefunded = 0.0;
+
+        foreach ($advanceRecords as $adv) {
+            if ($remToRefund <= 0) break;
+            $used = (float) $adv->used_amount;
+            $refund = min($used, $remToRefund);
+
+            $adv->used_amount = round(max(0.0, $used - $refund), 2);
+            $adv->remaining_amount = round((float) $adv->remaining_amount + $refund, 2);
+            $adv->save();
+
+            if ($adv->payment_method === 'cash') {
+                $cashRefunded += $refund;
+            } else {
+                $bankRefunded += $refund;
+            }
+
+            $remToRefund = round($remToRefund - $refund, 2);
+        }
+
+        $suppBalance = SupplierBalance::firstOrCreate(
+            ['supplier_id' => $supplierId],
+            ['balance' => 0, 'cash_balance' => 0, 'bank_balance' => 0]
+        );
+
+        $suppBalance->balance = round((float) $suppBalance->balance + $totalToRefund, 2);
+        $suppBalance->cash_balance = round((float) $suppBalance->cash_balance + $cashRefunded, 2);
+        $suppBalance->bank_balance = round((float) $suppBalance->bank_balance + $bankRefunded, 2);
+        $suppBalance->save();
+
+        PurchasePayment::where('purchase_id', $purchase->id)->where('is_advance', true)->delete();
+    }
 }

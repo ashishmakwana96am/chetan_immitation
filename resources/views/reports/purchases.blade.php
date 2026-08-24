@@ -36,6 +36,34 @@
             display: flex;
             align-items: center;
         }
+        .report-tabs-header {
+            padding: 0 1.25rem !important;
+            background-color: #fff;
+        }
+        .report-tabs-header .nav-tabs,
+        .report-tabs-header .nav-tabs.card-header-tabs {
+            border-bottom: none !important;
+            margin: 0 !important;
+            padding-left: 0 !important;
+        }
+        .report-tabs-header .nav-tabs .nav-link,
+        .report-tabs-header .nav-tabs.card-header-tabs .nav-link {
+            padding: 0.65rem 1rem !important;
+            margin-top: 0 !important;
+            margin-bottom: -1px !important;
+            font-weight: 500;
+            border: none !important;
+            border-bottom: 2px solid transparent !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+        }
+        .report-tabs-header .nav-tabs .nav-link.active,
+        .report-tabs-header .nav-tabs.card-header-tabs .nav-link.active {
+            font-weight: 600;
+            color: #B4771E !important;
+            border-bottom: 2px solid #B4771E !important;
+            background: transparent !important;
+        }
     </style>
 @endsection
 
@@ -165,7 +193,13 @@
 
     <!-- Detail Table & Top Purchased Products Tabs -->
     <div class="card">
-        <div class="card-header border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card-header border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
+            <h5 class="mb-0 fw-semibold">Purchase Details</h5>
+            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+            </button>
+        </div>
+        <div class="border-bottom report-tabs-header">
             <ul class="nav nav-tabs card-header-tabs" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-invoices" role="tab">
@@ -178,9 +212,6 @@
                     </button>
                 </li>
             </ul>
-            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
-                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-            </button>
         </div>
         <div class="card-body tab-content p-0">
             <!-- Invoices Tab -->
