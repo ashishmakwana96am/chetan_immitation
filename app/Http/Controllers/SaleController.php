@@ -914,6 +914,7 @@ class SaleController extends Controller
                 'pair_type' => $item->pair_type ?? 'single',
                 'custom_size_value' => $item->custom_size_value,
                 'price' => $item->price,
+                'mrp' => $item->mrp ?? ($item->product?->mrp ?? 0),
                 'quantity' => $item->quantity,
                 'discount_type' => $item->discount_type ?? 'flat',
                 'discount_value' => $item->discount_value ?? 0,

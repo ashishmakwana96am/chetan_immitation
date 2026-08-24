@@ -827,11 +827,6 @@ $(document).ready(function () {
 
         // Auto convert MRP vs Sale Price difference into Discount Percentage
         function applySmartDiscount(rowEl, mrpVal, saleVal, defaultDiscType, defaultDiscVal) {
-            if (defaultDiscVal > 0) {
-                rowEl.find('.item-discount-type').val(defaultDiscType);
-                rowEl.find('.item-discount-value').val(defaultDiscVal);
-                return;
-            }
             if (mrpVal > 0 && saleVal > 0 && mrpVal > saleVal) {
                 const diff = mrpVal - saleVal;
                 const exactPct = (diff / mrpVal) * 100;
@@ -841,7 +836,9 @@ $(document).ready(function () {
                 rowEl.find('.item-discount-type').val(defaultDiscType || 'percentage');
                 rowEl.find('.item-discount-value').val(defaultDiscVal || 0);
             }
-        }        const rowMrp = parseFloat(row.data('mrp')) || 0;
+        }
+
+        const rowMrp = parseFloat(row.data('mrp')) || 0;
         const salePriceVal = parseFloat(row.find('.item-price').val()) || 0;
         applySmartDiscount(row, rowMrp, salePriceVal, discountType, discountValue);
 
@@ -1155,7 +1152,10 @@ $(document).ready(function () {
 
         if (discount > subtotal) discount = subtotal;
 
-        const total = subtotal - discount;
+        let total = subtotal - discount;
+        if (discType === 'percentage') {
+            total = Math.round(total);
+        }
         if (!isFromTotalInput) {
             row.find('.item-total-input').val(total > 0 ? total.toFixed(2) : '0.00');
         }
@@ -1196,7 +1196,7 @@ $(document).ready(function () {
             if (discType === 'flat') {
                 discount = discVal;
             } else if (discType === 'percentage') {
-                discount = subtotal * (discVal / 100);
+                discount = Math.round(subtotal * (discVal / 100));
             }
 
             if (discount > subtotal) discount = subtotal;

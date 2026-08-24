@@ -824,7 +824,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, prependRow = true, existingMrp = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -862,7 +862,7 @@ $(document).ready(function () {
             const selectedOpt = row.find('.variant-select option:selected');
             const initialVariantId = selectedOpt.val() || '';
             const initialPrice = price != null ? price : (selectedOpt.data('price') || 0);
-            const initialMrp = selectedOpt.data('mrp') || product.mrp || 0;
+            const initialMrp = existingMrp != null ? existingMrp : (selectedOpt.data('mrp') || product.mrp || 0);
 
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
@@ -874,7 +874,7 @@ $(document).ready(function () {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
-            const itemMrp = product.mrp != null ? product.mrp : 0;
+            const itemMrp = existingMrp != null ? existingMrp : (product.mrp != null ? product.mrp : 0);
             row.data('mrp', itemMrp);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
@@ -903,22 +903,15 @@ $(document).ready(function () {
         }
 
         row.find('.item-qty').val(qty);
-        row.find('.item-discount-type').val(discountType);        function applySmartDiscount(rowEl, mrpVal, saleVal, defaultDiscType, defaultDiscVal) {
-            if (defaultDiscVal > 0) {
-                rowEl.find('.item-discount-type').val(defaultDiscType);
-                rowEl.find('.item-discount-value').val(defaultDiscVal);
-                return;
-            }
+        row.find('.item-discount-type').val(discountType);
+
+        // Auto convert MRP vs Sale Price difference into Discount Percentage
+        function applySmartDiscount(rowEl, mrpVal, saleVal, defaultDiscType, defaultDiscVal) {
             if (mrpVal > 0 && saleVal > 0 && mrpVal > saleVal) {
                 const diff = mrpVal - saleVal;
                 const exactPct = (diff / mrpVal) * 100;
-                if (Number.isInteger(Math.round(exactPct * 10000) / 10000)) {
-                    rowEl.find('.item-discount-type').val('percentage');
-                    rowEl.find('.item-discount-value').val(Math.round(exactPct));
-                } else {
-                    rowEl.find('.item-discount-type').val('flat');
-                    rowEl.find('.item-discount-value').val(Math.round(diff * 100) / 100);
-                }
+                rowEl.find('.item-discount-type').val('percentage');
+                rowEl.find('.item-discount-value').val(Math.round(exactPct * 100) / 100);
             } else {
                 rowEl.find('.item-discount-type').val(defaultDiscType || 'percentage');
                 rowEl.find('.item-discount-value').val(defaultDiscVal || 0);
@@ -1095,12 +1088,12 @@ $(document).ready(function () {
                     }
                     
                     if (matchedVariant) {
-                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false);
+                        addItemRow(product, matchedVariant.id, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp);
                     }
                 });
             } else {
                 const item = itemsForProduct[0];
-                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false);
+                addItemRow(product, null, item.quantity, item.price, item.discount_type, item.discount_value, item.pair_type || 'single', item.custom_size_value, false, item.mrp);
             }
         });
     }
@@ -1302,7 +1295,10 @@ $(document).ready(function () {
 
         if (discount > subtotal) discount = subtotal;
 
-        const total = subtotal - discount;
+        let total = subtotal - discount;
+        if (discType === 'percentage') {
+            total = Math.round(total);
+        }
         if (!isFromTotalInput) {
             row.find('.item-total-input').val(total > 0 ? total.toFixed(2) : '0.00');
         }
@@ -1343,7 +1339,7 @@ $(document).ready(function () {
             if (discType === 'flat') {
                 discount = discVal;
             } else if (discType === 'percentage') {
-                discount = subtotal * (discVal / 100);
+                discount = Math.round(subtotal * (discVal / 100));
             }
 
             if (discount > subtotal) discount = subtotal;
