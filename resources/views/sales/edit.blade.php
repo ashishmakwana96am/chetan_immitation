@@ -17,28 +17,27 @@
         min-width: 920px !important;
     }
     
-    /* Column Width Alignments (7 columns: 1:Product, 2:Qty, 3:MRP, 4:Price, 5:Discount, 6:Total, 7:Action) */
+    /* Column Width Alignments (Hidden Price column, 6 visible columns: 1:Product, 2:Qty, 3:MRP, 4:Price(hidden), 5:Discount, 6:Total, 7:Action) */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
-        width: 28% !important;
+        width: 35% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
         width: 8% !important;
         min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
-        width: 12% !important;
+        width: 14% !important;
         min-width: 105px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 13% !important;
-        min-width: 110px !important;
+        display: none !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
-        width: 23% !important;
+        width: 25% !important;
         min-width: 190px !important;
     }
     #itemsTable th:nth-child(6), #itemsTable td:nth-child(6) {
-        width: 12% !important;
+        width: 14% !important;
         min-width: 100px !important;
     }
     #itemsTable th:nth-child(7), #itemsTable td:nth-child(7) {
@@ -240,7 +239,7 @@
                                              <th style="min-width: 200px;">Product</th>
                                              <th style="width: 80px; min-width: 80px;">Qty</th>
                                              <th style="width: 100px; min-width: 100px;">MRP</th>
-                                             <th style="width: 70px; min-width: 70px;">Price</th>
+                                             <th class="d-none" style="width: 70px; min-width: 70px;">Price</th>
                                              <th style="width: 190px; min-width: 190px;">Discount</th>
                                              <th style="width: 110px; min-width: 110px;">Total</th>
                                              <th style="width: 44px;"></th>
@@ -249,7 +248,7 @@
                                  <tbody id="itemsBody"></tbody>
                                  <tfoot>
                                      <tr class="table-light">
-                                         <td colspan="5" class="text-end fw-semibold">Items Total</td>
+                                         <td colspan="4" class="text-end fw-semibold">Items Total</td>
                                         <td class="fw-bold text-primary text-nowrap" id="itemsTotal">{{ format_price($order->final_amount) }}</td>
                                         <td></td>
                                     </tr>
@@ -469,7 +468,7 @@
             <td class="align-middle text-nowrap">
                 <span class="fw-semibold text-heading item-mrp-display text-nowrap" style="min-width: 80px; display: inline-block; white-space: nowrap;">₹0.00</span>
             </td>
-            <td class="align-middle text-nowrap">
+            <td class="align-middle text-nowrap d-none">
                 <span class="fw-semibold text-heading item-price-display text-nowrap" style="min-width: 80px; display: inline-block; white-space: nowrap;">₹0.00</span>
                 <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
