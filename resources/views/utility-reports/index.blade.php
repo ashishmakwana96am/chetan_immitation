@@ -120,7 +120,7 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Activity Logs</h5>
-            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <button type="button" class="btn btn-success report-export-btn" data-bs-toggle="offcanvas" data-bs-target="#utilityExportExcelOffcanvas">
                 <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
             </button>
         </div>
@@ -140,6 +140,38 @@
                     </tr>
                 </thead>
             </table>
+        </div>
+    </div>
+
+    <!-- Export Excel Offcanvas Sidepanel -->
+    <div class="offcanvas offcanvas-end" id="utilityExportExcelOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 450px; max-width: 100vw;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-semibold">Export Utility Report to Excel</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
+            <form id="utilityExportExcelForm" class="d-flex flex-column h-100" style="margin: 0;">
+                <div class="p-4" style="flex: 1 1 auto; overflow-y: auto;">
+                    <p class="text-muted mb-3 fs-6">Select date range to export utility activity to Excel. Default is set to the last 1 month.</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Start Date</label>
+                        <input type="text" id="utility_export_start_date" name="start_date" class="form-control flatpickr-utility-export" placeholder="DD-MM-YYYY" value="{{ \Carbon\Carbon::now()->subMonth()->format('Y-m-d') }}" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">End Date</label>
+                        <input type="text" id="utility_export_end_date" name="end_date" class="form-control flatpickr-utility-export" placeholder="DD-MM-YYYY" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" />
+                    </div>
+                </div>
+
+                <div class="p-3 border-top bg-light d-flex gap-2">
+                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
+                    <button type="button" id="submitUtilityExportBtn" class="btn btn-success flex-fill w-50 m-0">
+                        <i class="ti ti-file-spreadsheet me-1"></i> Export Excel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -296,14 +328,51 @@
                 window.refreshTable();
             });
 
-            $(document).on('click', '#exportExcelBtn', function () {
+            // Initialize utility export sidepanel date pickers
+            if (typeof $.fn.flatpickr !== 'undefined') {
+                const expStartEl = $('#utility_export_start_date')[0];
+                const expEndEl = $('#utility_export_end_date')[0];
+                if (expStartEl && expEndEl) {
+                    const expStartPicker = $(expStartEl).flatpickr({
+                        altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
+                        onChange: function (selectedDates) {
+                            if (selectedDates.length) {
+                                expEndPicker.set('minDate', selectedDates[0]);
+                            } else {
+                                expEndPicker.set('minDate', null);
+                            }
+                        }
+                    });
+                    const expEndPicker = $(expEndEl).flatpickr({
+                        altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
+                        onChange: function (selectedDates) {
+                            if (selectedDates.length) {
+                                expStartPicker.set('maxDate', selectedDates[0]);
+                            } else {
+                                expStartPicker.set('maxDate', 'today');
+                            }
+                        }
+                    });
+                }
+            }
+
+            $(document).on('click', '#submitUtilityExportBtn', function () {
                 const filters = currentFilters();
+                filters.start_date = $('#utility_export_start_date').val();
+                filters.end_date = $('#utility_export_end_date').val();
+
                 const params = new URLSearchParams();
                 for (const key in filters) {
                     if (filters[key]) {
                         params.append(key, filters[key]);
                     }
                 }
+
+                const offcanvasEl = document.getElementById('utilityExportExcelOffcanvas');
+                if (offcanvasEl && typeof bootstrap !== 'undefined' && bootstrap.Offcanvas) {
+                    bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
+                }
+
                 const url = "{{ route('admin.reports.utility.export-excel') }}?" + params.toString();
                 window.location.href = url;
             });

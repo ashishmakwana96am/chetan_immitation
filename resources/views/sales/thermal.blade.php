@@ -105,8 +105,8 @@
 
         $mrpSubtotal = 0.00;
         foreach($order->items as $item) {
-            $itemMrp = $item->mrp ?? ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
-            if ($item->product?->pair_product && $item->custom_size_value && !$item->mrp) {
+            $itemMrp = ((float)($item->mrp ?? 0) > 0) ? (float)$item->mrp : ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
+            if ($item->product?->pair_product && $item->custom_size_value && !(float)($item->mrp ?? 0)) {
                 $customSizes = collect($item->product->custom_sizes ?? []);
                 if ($item->product_variant_id) {
                     $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
@@ -184,9 +184,9 @@
         }
 
         $totalDiscountOnMrp = max(0, round($mrpSubtotal - (float)$order->final_amount, 2));
-        $totalDiscount = $totalDiscountOnMrp;
+        $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount + $couponDiscount, 2));
         $totalQty = $order->items->sum('quantity');
-        $youSaved = $totalDiscountOnMrp;
+        $youSaved = max($totalDiscountOnMrp, $totalDiscount);
     @endphp
 
     <div class="receipt-container">
@@ -278,8 +278,8 @@
             <tbody>
                 @foreach($order->items as $item)
                     @php
-                        $itemMrp = $item->variant?->mrp ?? $item->product?->mrp ?? 0;
-                        if ($item->product?->pair_product && $item->custom_size_value) {
+                        $itemMrp = ((float)($item->mrp ?? 0) > 0) ? (float)$item->mrp : ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
+                        if ($item->product?->pair_product && $item->custom_size_value && !(float)($item->mrp ?? 0)) {
                             $customSizes = collect($item->product->custom_sizes ?? []);
                             if ($item->product_variant_id) {
                                 $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
@@ -334,6 +334,12 @@
                 <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalDiscount, 2) }}</td>
             </tr>
             @endif
+            @if($isGst && $totalTax > 0)
+            <tr>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">GST</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalTax, 2) }}</td>
+            </tr>
+            @endif
             @if($order->shipping_charge > 0)
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Shipping Charge</td>
@@ -357,75 +363,20 @@
 
         <div class="divider-dotted"></div>
 
-        {{-- TAX DETAIL + PAYMENT DETAIL Side-by-Side --}}
+        {{-- PAYMENT DETAIL ONLY --}}
         <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; font-weight: bold; line-height: 1.35; margin-bottom: 2px;">
-            {{-- Header Row --}}
-            <tr style="border-bottom: 1px dashed #000;">
-                @if($isGst)
-                <td style="width: 50%; text-align: left; padding-bottom: 2px; border: none;">TAX DETAIL</td>
-                @else
-                <td style="width: 50%; text-align: left; padding-bottom: 2px; border: none;"></td>
-                @endif
-                <td style="width: 50%; text-align: right; padding-bottom: 2px; border: none;">
-                    <span style="float: left;">CASH :</span> {{ number_format($paymentCash, 2) }}
-                </td>
-            </tr>
-            @if($isGst)
-            {{-- AMOUNT row --}}
             <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    AMOUNT : {{ number_format($taxableAmount, 2) }}
-                </td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">
-                    <span style="float: left;">UPI :</span> {{ number_format($paymentUpi, 2) }}
-                </td>
-            </tr>
-            @if($igst > 0)
-            {{-- IGST --}}
-            <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    IGST : {{ number_format($igst, 2) }}
-                </td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
-            </tr>
-            @else
-            {{-- SGST + CGST --}}
-            <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    SGST : {{ number_format($sgst, 2) }}
-                </td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
+                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">CASH :</td>
+                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">{{ number_format($paymentCash, 2) }}</td>
             </tr>
             <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">
-                    CGST : {{ number_format($cgst, 2) }}
-                </td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;"></td>
+                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;">UPI :</td>
+                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">{{ number_format($paymentUpi, 2) }}</td>
             </tr>
-            @endif
-            {{-- TOTAL Tax row with top border --}}
-            <tr style="border-top: 1px dashed #000; border-bottom: 1px dashed #000;">
-                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;">
-                    TOTAL : {{ number_format($totalTax, 2) }}
-                </td>
-                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;"></td>
-            </tr>
-            @else
-            {{-- Non-GST: only UPI row --}}
-            <tr>
-                <td style="width: 50%; text-align: left; padding: 1px 0; border: none;"></td>
-                <td style="width: 50%; text-align: right; padding: 1px 0; border: none;">
-                    <span style="float: left;">UPI :</span> {{ number_format($paymentUpi, 2) }}
-                </td>
-            </tr>
-            @endif
-            {{-- DUE row — shown for Partially Paid and Pending orders --}}
             @if(($isPartiallyPaid || $isPending) && $dueAmount > 0)
             <tr style="border-top: 1px dashed #000;">
-                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;"></td>
-                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;">
-                    <span style="float: left;">DUE :</span> {{ number_format($dueAmount, 2) }}
-                </td>
+                <td style="width: 50%; text-align: left; padding: 2px 0; border: none;">DUE :</td>
+                <td style="width: 50%; text-align: right; padding: 2px 0; border: none;">{{ number_format($dueAmount, 2) }}</td>
             </tr>
             @endif
         </table>

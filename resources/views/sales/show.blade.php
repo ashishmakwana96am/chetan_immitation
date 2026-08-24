@@ -96,8 +96,8 @@
 
         $mrpSubtotal = 0.00;
         foreach($order->items as $item) {
-            $itemMrp = $item->variant?->mrp ?? $item->product?->mrp ?? 0;
-            if ($item->product?->pair_product && $item->custom_size_value) {
+            $itemMrp = ((float)($item->mrp ?? 0) > 0) ? (float)$item->mrp : ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
+            if ($item->product?->pair_product && $item->custom_size_value && !(float)($item->mrp ?? 0)) {
                 $customSizes = collect($item->product->custom_sizes ?? []);
                 if ($item->product_variant_id) {
                     $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);

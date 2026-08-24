@@ -2530,7 +2530,7 @@ class ReportController extends Controller
             
             $methodStr = strtolower((string) $order->payment_method);
             if ($methodStr === 'online_cash' || $methodStr === 'cash_online') {
-                $payMethodLabel = 'Cash + Online';
+                $payMethodLabel = 'Online + Cash';
             } elseif ($methodStr === 'cash') {
                 $payMethodLabel = 'Cash';
             } elseif ($methodStr === 'online') {
@@ -3444,35 +3444,63 @@ class ReportController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Payments List');
 
-        $headers1 = ['#', 'Order / Refund No', 'Customer Name', 'Source', 'Payment Method', 'Payment Status', 'Date', 'Amount'];
-        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $headers1 = ['#', 'Order / Refund No', 'Customer Name', 'Source', 'Payment Method', 'Payment Status', 'Date', 'Cash Amount', 'Online Amount', 'Total Amount'];
+        $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
         foreach ($headers1 as $colIdx => $headerText) {
             $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
         }
 
-        $sheet1->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet1->getStyle('A1:J1')->applyFromArray($headerStyle);
         $sheet1->getRowDimension(1)->setRowHeight(26);
 
         $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
         $rowIndex1 = 2;
-        $sumAmount = 0;
+        $sumCashAmount = 0;
+        $sumOnlineAmount = 0;
+        $sumTotalAmount = 0;
 
         foreach ($allOrders as $idx => $order) {
             $isRefund = $order->status === Order::STATUS_DECLINE;
             $orderNo = $isRefund ? ($order->cancellationRequest->request_no ?? $order->order_no) : $order->order_no;
             $customerName = $order->customer->name ?? 'Walk-in';
             $sourceLabel = ucfirst($order->source ?? 'pos');
-            $methodLabel = ucfirst($order->payment_method ?? '-');
+
+            $pmRaw = strtolower((string) ($order->payment_method ?? ''));
+            $methodLabel = match ($pmRaw) {
+                'online_cash' => 'Online + Cash',
+                'cod'         => 'COD',
+                'online', 'razorpay' => 'Online',
+                'cash'        => 'Cash',
+                ''            => '-',
+                default       => ucwords(str_replace('_', ' + ', $pmRaw)),
+            };
+
+            $cashAmt = 0.0;
+            $onlineAmt = 0.0;
 
             if ($isRefund) {
                 $statusLabel = 'Refunded';
-                $amt = (float) ($order->cancellationRequest->refund_amount ?? 0);
+                $totAmt = (float) ($order->cancellationRequest->refund_amount ?? 0);
             } else {
                 $statusLabel = $paymentStatusLabels[$order->payment_status] ?? 'Unknown';
-                $amt = (float) $order->final_amount;
+                $totAmt = (float) $order->final_amount;
+
+                if ((int) $order->payment_status === Order::PAYMENT_STATUS_PAID || (int) $order->payment_status === Order::PAYMENT_STATUS_PARTIAL) {
+                    if ((float) $order->paid_cash_amount > 0 || (float) $order->paid_online_amount > 0) {
+                        $cashAmt = (float) $order->paid_cash_amount;
+                        $onlineAmt = (float) $order->paid_online_amount;
+                    } elseif (in_array($pmRaw, ['online', 'razorpay', 'upi', 'online_cash'])) {
+                        $onlineAmt = $totAmt;
+                    } else {
+                        $cashAmt = $totAmt;
+                    }
+                }
             }
-            $sumAmount += $amt;
+
+            $sumCashAmount += $cashAmt;
+            $sumOnlineAmount += $onlineAmt;
+            $sumTotalAmount += $totAmt;
 
             $sheet1->setCellValue('A' . $rowIndex1, $idx + 1);
             $sheet1->setCellValue('B' . $rowIndex1, $orderNo);
@@ -3481,7 +3509,9 @@ class ReportController extends Controller
             $sheet1->setCellValue('E' . $rowIndex1, $methodLabel);
             $sheet1->setCellValue('F' . $rowIndex1, $statusLabel);
             $sheet1->setCellValue('G' . $rowIndex1, $order->created_at->format('d-m-Y'));
-            $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($amt, 2));
+            $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($cashAmt, 2));
+            $sheet1->setCellValue('I' . $rowIndex1, '₹' . number_format($onlineAmt, 2));
+            $sheet1->setCellValue('J' . $rowIndex1, '₹' . number_format($totAmt, 2));
 
             $sheet1->getRowDimension($rowIndex1)->setRowHeight(20);
             $rowIndex1++;
@@ -3489,15 +3519,17 @@ class ReportController extends Controller
 
         // Totals Row
         $sheet1->setCellValue('A' . $rowIndex1, 'Total');
-        $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($sumAmount, 2));
-        $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
-        $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($sumCashAmount, 2));
+        $sheet1->setCellValue('I' . $rowIndex1, '₹' . number_format($sumOnlineAmount, 2));
+        $sheet1->setCellValue('J' . $rowIndex1, '₹' . number_format($sumTotalAmount, 2));
+        $sheet1->getStyle('A' . $rowIndex1 . ':J' . $rowIndex1)->getFont()->setBold(true);
+        $sheet1->getStyle('A' . $rowIndex1 . ':J' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
         $sheet1->getRowDimension($rowIndex1)->setRowHeight(24);
 
-        $sheet1->getStyle('A1:H' . $rowIndex1)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A1:J' . $rowIndex1)->applyFromArray($borderStyle);
         $sheet1->getStyle('A1:A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('G1:G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('H1:H' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('H1:J' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
