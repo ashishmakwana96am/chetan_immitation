@@ -12,14 +12,18 @@ class PurchaseBillItem extends Model
         'product_variant_id',
         'pair_type',
         'custom_size_value',
+        'purchase_price',
+        'mrp',
         'quantity',
     ];
 
     protected function casts(): array
     {
         return [
-            'quantity' => 'integer',
+            'quantity'          => 'integer',
             'custom_size_value' => 'decimal:2',
+            'purchase_price'    => 'decimal:2',
+            'mrp'               => 'decimal:2',
         ];
     }
 

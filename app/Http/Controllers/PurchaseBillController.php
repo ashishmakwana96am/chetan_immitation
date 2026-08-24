@@ -356,14 +356,19 @@ class PurchaseBillController extends Controller
             foreach ($this->normalizeItems($request->items) as $item) {
                 $product = Product::find($item['product_id']);
                 $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+                $variantObj = !empty($item['product_variant_id']) ? ProductVariant::find($item['product_variant_id']) : null;
+                $itemPurchasePrice = $variantObj ? $variantObj->purchase_price : ($product ? $product->purchase_price : 0);
+                $itemMrp = $variantObj ? $variantObj->mrp : ($product ? $product->mrp : null);
 
                 PurchaseBillItem::create([
-                    'purchase_bill_id' => $transfer->id,
-                    'product_id' => $item['product_id'],
+                    'purchase_bill_id'   => $transfer->id,
+                    'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
-                    'pair_type' => $item['pair_type'] ?? 'single',
-                    'custom_size_value' => $customSizeVal,
-                    'quantity' => $item['quantity'],
+                    'pair_type'          => $item['pair_type'] ?? 'single',
+                    'custom_size_value'  => $customSizeVal,
+                    'purchase_price'     => $itemPurchasePrice,
+                    'mrp'                => $itemMrp,
+                    'quantity'           => $item['quantity'],
                 ]);
             }
         });
@@ -500,14 +505,19 @@ class PurchaseBillController extends Controller
             foreach ($this->normalizeItems($request->items) as $item) {
                 $product = Product::find($item['product_id']);
                 $customSizeVal = $this->resolveCustomSizeValue($product, $item);
+                $variantObj = !empty($item['product_variant_id']) ? ProductVariant::find($item['product_variant_id']) : null;
+                $itemPurchasePrice = $variantObj ? $variantObj->purchase_price : ($product ? $product->purchase_price : 0);
+                $itemMrp = $variantObj ? $variantObj->mrp : ($product ? $product->mrp : null);
 
                 PurchaseBillItem::create([
-                    'purchase_bill_id' => $purchaseBill->id,
-                    'product_id' => $item['product_id'],
+                    'purchase_bill_id'   => $purchaseBill->id,
+                    'product_id'         => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
-                    'pair_type' => $item['pair_type'] ?? 'single',
-                    'custom_size_value' => $customSizeVal,
-                    'quantity' => $item['quantity'],
+                    'pair_type'          => $item['pair_type'] ?? 'single',
+                    'custom_size_value'  => $customSizeVal,
+                    'purchase_price'     => $itemPurchasePrice,
+                    'mrp'                => $itemMrp,
+                    'quantity'           => $item['quantity'],
                 ]);
 
                 $newItemsSnapshot[] = [

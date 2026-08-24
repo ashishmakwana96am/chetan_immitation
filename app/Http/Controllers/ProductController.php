@@ -1643,12 +1643,15 @@ class ProductController extends Controller
                     $tItem->update(['product_variant_id' => $variantId, 'quantity' => $qty]);
                     continue;
                 }
+                $variantObj = ProductVariant::find($variantId);
                 \App\Models\PurchaseBillItem::create([
                     'purchase_bill_id'   => $tItem->purchase_bill_id,
                     'product_id'         => $product->id,
                     'product_variant_id' => $variantId,
                     'pair_type'          => $tItem->pair_type,
                     'custom_size_value'  => $tItem->custom_size_value,
+                    'purchase_price'     => $variantObj ? $variantObj->purchase_price : $product->purchase_price,
+                    'mrp'                => $variantObj ? $variantObj->mrp : $product->mrp,
                     'quantity'           => $qty,
                 ]);
             }
