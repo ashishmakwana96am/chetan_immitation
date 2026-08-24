@@ -188,7 +188,7 @@
         $totalDiscountOnMrp = max(0, round($mrpSubtotal - (float)$order->final_amount, 2));
         $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount + $couponDiscount, 2));
         $totalQty = $order->items->sum('quantity');
-        $youSaved = max($totalDiscountOnMrp, $totalDiscount);
+        $youSaved = max($totalDiscountOnMrp, $totalDiscount) + ($isGst ? $totalTax : 0.00);
     @endphp
 
     <div class="receipt-container">
