@@ -116,13 +116,19 @@
 
         $subtotal = $mrpSubtotal;
 
-        $couponDiscount = 0;
-        $couponCode     = null;
-        if ($order->coupon_id && $order->coupon) {
-            $couponCode = $order->coupon->code;
+        $totalDiscountOnMrp = max(0, round($mrpSubtotal - (float)$order->final_amount, 2));
+        $totalItemDiscount = $order->items->sum('discount_amount');
+        $orderDiscountAmount = 0.0;
+        if ($order->order_discount_value > 0) {
+            $itemsTotal = $mrpSubtotal - $totalItemDiscount;
+            if ($order->order_discount_type === 'flat') {
+                $orderDiscountAmount = (float)$order->order_discount_value;
+            } else if ($order->order_discount_type === 'percentage') {
+                $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
+            }
+            $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
         }
-
-        $totalDiscount = max(0, round($subtotal - ((float)$order->final_amount - (float)$order->shipping_charge - (float)($order->tax_amount ?? 0)), 2));
+        $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount, 2));
     @endphp
 
     {{-- ── Page header ────────────────────────────────────────── --}}

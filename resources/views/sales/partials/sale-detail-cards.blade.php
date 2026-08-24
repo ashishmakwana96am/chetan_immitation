@@ -42,7 +42,8 @@
         $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
     }
 
-    $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
+    $totalDiscountOnMrp = max(0, round($subtotal - (float)$order->final_amount, 2));
+    $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount + $couponDiscount, 2));
 
     $showPaidCash = (float)($order->paid_cash_amount ?? 0);
     $showPaidOnline = (float)($order->paid_online_amount ?? 0);
