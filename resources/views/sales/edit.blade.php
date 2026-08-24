@@ -17,27 +17,31 @@
         min-width: 920px !important;
     }
     
-    /* Column Width Alignments */
+    /* Column Width Alignments (7 columns: 1:Product, 2:Qty, 3:MRP, 4:Price, 5:Discount, 6:Total, 7:Action) */
     #itemsTable th:nth-child(1), #itemsTable td:nth-child(1) {
-        width: 26% !important;
+        width: 28% !important;
     }
     #itemsTable th:nth-child(2), #itemsTable td:nth-child(2) {
-        width: 16% !important;
+        width: 8% !important;
         min-width: 80px !important;
     }
     #itemsTable th:nth-child(3), #itemsTable td:nth-child(3) {
         width: 12% !important;
-        min-width: 90px !important;
+        min-width: 105px !important;
     }
     #itemsTable th:nth-child(4), #itemsTable td:nth-child(4) {
-        width: 28% !important;
-        min-width: 210px !important;
+        width: 13% !important;
+        min-width: 110px !important;
     }
     #itemsTable th:nth-child(5), #itemsTable td:nth-child(5) {
-        width: 10% !important;
-        min-width: 70px !important;
+        width: 23% !important;
+        min-width: 190px !important;
     }
     #itemsTable th:nth-child(6), #itemsTable td:nth-child(6) {
+        width: 12% !important;
+        min-width: 100px !important;
+    }
+    #itemsTable th:nth-child(7), #itemsTable td:nth-child(7) {
         width: 44px !important;
         min-width: 44px !important;
         max-width: 44px !important;
@@ -231,20 +235,21 @@
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table mb-0 {{ $order->items->isEmpty() ? 'd-none' : '' }}" id="itemsTable">
-                                    <thead>
-                                        <tr class="table-light">
-                                            <th style="min-width: 250px;">Product</th>
-                                            <th style="width: 100px; min-width: 100px;">Qty</th>
-                                            <th style="width: 120px; min-width: 120px;">Price</th>
-                                            <th style="width: 200px; min-width: 200px;">Discount</th>
-                                            <th style="width: 120px; min-width: 120px;">Total</th>
-                                            <th style="width: 44px;"></th>
-                                        </tr>
-                                    </thead>
-                                <tbody id="itemsBody"></tbody>
-                                <tfoot>
-                                    <tr class="table-light">
-                                        <td colspan="4" class="text-end fw-semibold">Items Total</td>
+                                     <thead>
+                                         <tr class="table-light">
+                                             <th style="min-width: 200px;">Product</th>
+                                             <th style="width: 80px; min-width: 80px;">Qty</th>
+                                             <th style="width: 100px; min-width: 100px;">MRP</th>
+                                             <th style="width: 70px; min-width: 70px;">Price</th>
+                                             <th style="width: 190px; min-width: 190px;">Discount</th>
+                                             <th style="width: 110px; min-width: 110px;">Total</th>
+                                             <th style="width: 44px;"></th>
+                                         </tr>
+                                     </thead>
+                                 <tbody id="itemsBody"></tbody>
+                                 <tfoot>
+                                     <tr class="table-light">
+                                         <td colspan="5" class="text-end fw-semibold">Items Total</td>
                                         <td class="fw-bold text-primary text-nowrap" id="itemsTotal">{{ format_price($order->final_amount) }}</td>
                                         <td></td>
                                     </tr>
@@ -461,10 +466,12 @@
                     class="form-control item-qty"
                     placeholder="1" min="1" value="1" />
             </td>
-            <td class="align-middle">
-                <input type="number" name="items[__INDEX__][price]"
-                    class="form-control item-price"
-                    placeholder="0.00" min="0" step="0.01" value="0" style="min-width: 105px;" />
+            <td class="align-middle text-nowrap">
+                <span class="fw-semibold text-heading item-mrp-display text-nowrap" style="min-width: 80px; display: inline-block; white-space: nowrap;">₹0.00</span>
+            </td>
+            <td class="align-middle text-nowrap">
+                <span class="fw-semibold text-heading item-price-display text-nowrap" style="min-width: 80px; display: inline-block; white-space: nowrap;">₹0.00</span>
+                <input type="hidden" name="items[__INDEX__][price]" class="item-price" value="0" />
             </td>
             <td class="align-middle">
                 <div class="input-group flex-nowrap" style="min-width: 190px;">
@@ -505,6 +512,7 @@ $(document).ready(function () {
     function setItemPrice(row, price) {
         const val = parseFloat(price) || 0;
         row.find('.item-price').val(val > 0 ? val.toFixed(2) : '0.00');
+        row.find('.item-price-display').text(symbol + ' ' + formatPrice(val));
     }
     function getMinAllowedTotal(row) {
         if (row.data('bypass-min-price')) return 0;
@@ -513,7 +521,7 @@ $(document).ready(function () {
         const product = row.data('product');
         const variantId = row.data('variant-id');
         const isPair = row.find('.pair-type-input').val() === 'pair';
-        const itemPrice = parseFloat(row.find('.item-price').val()) || 0;
+        const itemMrp = parseFloat(row.data('mrp')) || parseFloat(row.find('.item-price').val()) || 0;
 
         let purchasePrice = parseFloat(row.data('purchase-price'));
         if ((isNaN(purchasePrice) || purchasePrice <= 0) && product && product.purchase_price) {
@@ -524,19 +532,16 @@ $(document).ready(function () {
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
             if (effectiveSizes && effectiveSizes.length) {
-                const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
-                const maxSize = sizes.length > 0 ? Math.max(...sizes) : 2;
-                const currentSize = parseFloat(row.find('.custom-size-value-input').val()) || maxSize;
-                if (maxSize > 0) {
-                    purchasePrice = purchasePrice * (currentSize / maxSize);
+                if (!isPair) {
+                    purchasePrice = purchasePrice / 2;
                 }
             } else if (!isPair) {
                 purchasePrice = purchasePrice / 2;
             }
         }
 
-        if (itemPrice > 0 && purchasePrice > itemPrice) {
-            purchasePrice = itemPrice / 1.10;
+        if (itemMrp > 0 && purchasePrice > itemMrp) {
+            purchasePrice = itemMrp / 1.10;
         }
 
         return purchasePrice > 0 ? qty * purchasePrice * 1.10 : 0;
@@ -812,7 +817,8 @@ $(document).ready(function () {
         let sizeHtml = `<div class="size-toggle mt-1">`;
         sizes.forEach(cs => {
             const active = defSize && defSize == cs.size ? 'active' : '';
-            sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}">${cs.size} pcs</button>`;
+            const csMrp = cs.mrp != null ? cs.mrp : '';
+            sizeHtml += `<button type="button" class="size-btn ${active}" data-value="${cs.size}" data-price="${cs.sale_price}" data-mrp="${csMrp}">${cs.size} pcs</button>`;
         });
         sizeHtml += `</div>`;
         return sizeHtml;
@@ -844,9 +850,10 @@ $(document).ready(function () {
             selectHtml += `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(v => {
                 const optPrice = v.sale_price != null ? v.sale_price : 0;
+                const optMrp = v.mrp != null ? v.mrp : (product.mrp != null ? product.mrp : 0);
                 const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);
@@ -855,17 +862,23 @@ $(document).ready(function () {
             const selectedOpt = row.find('.variant-select option:selected');
             const initialVariantId = selectedOpt.val() || '';
             const initialPrice = price != null ? price : (selectedOpt.data('price') || 0);
+            const initialMrp = selectedOpt.data('mrp') || product.mrp || 0;
 
             row.attr('data-variant-id', initialVariantId);
             row.data('variant-id', initialVariantId);
+            row.data('mrp', initialMrp);
             row.data('purchase-price', selectedOpt.data('purchase-price') || 0);
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
-            setItemPrice(row, initialPrice);
+            row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(initialMrp));
+            setItemPrice(row, price != null ? price : (initialPrice > 0 ? initialPrice : (selectedOpt.data('price') || 0)));
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
         } else {
             row.find('.product-sku-display').text('Barcode: ' + product.barcode);
+            const itemMrp = product.mrp != null ? product.mrp : 0;
+            row.data('mrp', itemMrp);
             row.data('purchase-price', product.purchase_price != null ? product.purchase_price : 0);
             row.data('bypass-min-price', product.bypass_min_price == 1 || product.bypass_min_price === true);
+            row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(itemMrp));
             setItemPrice(row, price != null ? price : (product.price != null ? product.price : 0));
         }
 
@@ -877,15 +890,44 @@ $(document).ready(function () {
                 row.find('.custom-size-value-input').val(defSize);
 
                 const matchedSize = defSize ? effectiveSizes.find(cs => cs.size == defSize) : null;
-                if (matchedSize && price == null) {
-                    setItemPrice(row, matchedSize.sale_price);
+                if (matchedSize) {
+                    if (matchedSize.mrp != null) {
+                        row.data('mrp', matchedSize.mrp);
+                        row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(matchedSize.mrp));
+                    }
+                    if (price == null) {
+                        setItemPrice(row, matchedSize.sale_price);
+                    }
                 }
             }
         }
 
         row.find('.item-qty').val(qty);
-        row.find('.item-discount-type').val(discountType);
-        row.find('.item-discount-value').val(discountValue);
+        row.find('.item-discount-type').val(discountType);        function applySmartDiscount(rowEl, mrpVal, saleVal, defaultDiscType, defaultDiscVal) {
+            if (defaultDiscVal > 0) {
+                rowEl.find('.item-discount-type').val(defaultDiscType);
+                rowEl.find('.item-discount-value').val(defaultDiscVal);
+                return;
+            }
+            if (mrpVal > 0 && saleVal > 0 && mrpVal > saleVal) {
+                const diff = mrpVal - saleVal;
+                const exactPct = (diff / mrpVal) * 100;
+                if (Number.isInteger(Math.round(exactPct * 10000) / 10000)) {
+                    rowEl.find('.item-discount-type').val('percentage');
+                    rowEl.find('.item-discount-value').val(Math.round(exactPct));
+                } else {
+                    rowEl.find('.item-discount-type').val('flat');
+                    rowEl.find('.item-discount-value').val(Math.round(diff * 100) / 100);
+                }
+            } else {
+                rowEl.find('.item-discount-type').val(defaultDiscType || 'percentage');
+                rowEl.find('.item-discount-value').val(defaultDiscVal || 0);
+            }
+        }
+
+        const rowMrp = parseFloat(row.data('mrp')) || 0;
+        const salePriceVal = parseFloat(row.find('.item-price').val()) || 0;
+        applySmartDiscount(row, rowMrp, salePriceVal, discountType, discountValue);
 
         updateRowTotal(row);
         updateStockInfo(row);
@@ -900,10 +942,24 @@ $(document).ready(function () {
         const selectedOpt = $(this).find('option:selected');
         const variantId = selectedOpt.val();
         const variantPrice = selectedOpt.data('price') || 0;
+        const variantMrp = selectedOpt.data('mrp') || (product ? product.mrp : 0) || 0;
 
         row.attr('data-variant-id', variantId);
         row.data('variant-id', variantId);
+        row.data('mrp', variantMrp);
         row.data('purchase-price', selectedOpt.data('purchase-price'));
+        row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(variantMrp));
+
+        function applySmartDisc(rowEl, mrpVal, saleVal) {
+            if (mrpVal > 0 && saleVal > 0 && mrpVal > saleVal) {
+                const diff = mrpVal - saleVal;
+                const exactPct = (diff / mrpVal) * 100;
+                rowEl.find('.item-discount-type').val('percentage');
+                rowEl.find('.item-discount-value').val(Math.round(exactPct * 100) / 100);
+            } else {
+                rowEl.find('.item-discount-value').val(0);
+            }
+        }
 
         if (product && product.pair_product) {
             const effectiveSizes = getEffectiveCustomSizes(product, variantId);
@@ -914,11 +970,20 @@ $(document).ready(function () {
                 row.find('.pair-type-container').html(buildSizeToggleHtml(effectiveSizes, defSize));
                 row.find('.custom-size-value-input').val(defSize);
                 const matchedSize = effectiveSizes.find(cs => cs.size == defSize);
-                setItemPrice(row, matchedSize ? matchedSize.sale_price : variantPrice);
+                if (matchedSize && matchedSize.mrp != null) {
+                    row.data('mrp', matchedSize.mrp);
+                    row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(matchedSize.mrp));
+                }
+                const targetPrice = matchedSize ? matchedSize.sale_price : variantPrice;
+                const targetMrp = (matchedSize && matchedSize.mrp != null) ? matchedSize.mrp : variantMrp;
+                applySmartDisc(row, targetMrp, targetPrice);
+                setItemPrice(row, targetPrice);
             } else {
+                applySmartDisc(row, variantMrp, variantPrice);
                 setItemPrice(row, variantPrice);
             }
         } else {
+            applySmartDisc(row, variantMrp, variantPrice);
             setItemPrice(row, variantPrice);
         }
 
@@ -951,7 +1016,23 @@ $(document).ready(function () {
         toggle.find('.size-btn').removeClass('active');
         $(this).addClass('active');
         row.find('.custom-size-value-input').val($(this).data('value'));
-        setItemPrice(row, parseFloat($(this).data('price')) || 0);
+        
+        const sizePrice = parseFloat($(this).data('price')) || 0;
+        const sizeMrp = parseFloat($(this).data('mrp')) || parseFloat(row.data('mrp')) || 0;
+
+        if (sizeMrp > 0) {
+            row.data('mrp', sizeMrp);
+            row.find('.item-mrp-display').text(symbol + ' ' + formatPrice(sizeMrp));
+        }
+
+        if (sizeMrp > 0 && sizePrice > 0 && sizeMrp > sizePrice) {
+            const diff = sizeMrp - sizePrice;
+            const exactPct = (diff / sizeMrp) * 100;
+            row.find('.item-discount-type').val('percentage');
+            row.find('.item-discount-value').val(Math.round(exactPct * 100) / 100);
+        }
+        setItemPrice(row, sizePrice);
+
         updateRowTotal(row);
         updateStockInfo(row);
         updateSummary();
@@ -1144,9 +1225,25 @@ $(document).ready(function () {
             .show();
     }
 
+    // -------------------------------------------------------
+    // Price / Qty / Discount change
+    // -------------------------------------------------------
     $(document).on('input change', '.item-price, .item-qty, .item-discount-value, .item-discount-type', function () {
         const row = $(this).closest('.item-row');
         if (row.length > 0) {
+            if ($(this).hasClass('item-price')) {
+                const mrpVal = parseFloat(row.data('mrp')) || 0;
+                const newPriceVal = parseFloat($(this).val()) || 0;
+                if (mrpVal > 0 && newPriceVal > 0 && mrpVal > newPriceVal) {
+                    const diff = mrpVal - newPriceVal;
+                    const exactPct = (diff / mrpVal) * 100;
+                    row.find('.item-discount-type').val('percentage');
+                    row.find('.item-discount-value').val(Math.round(exactPct * 100) / 100);
+                } else if (mrpVal > 0 && newPriceVal >= mrpVal) {
+                    row.find('.item-discount-value').val(0);
+                }
+            }
+
             const discType = row.find('.item-discount-type').val();
             const discValueInput = row.find('.item-discount-value');
             if (discType === 'percentage' && parseFloat(discValueInput.val()) > 100) {
@@ -1188,12 +1285,14 @@ $(document).ready(function () {
     $('#orderDiscountTypeSelect').trigger('change');
 
     function updateRowTotal(row, isFromTotalInput = false) {
+        const mrp      = parseFloat(row.data('mrp')) || 0;
         const price    = parseFloat(row.find('.item-price').val()) || 0;
         const qty      = parseInt(row.find('.item-qty').val()) || 0;
         const discVal  = parseFloat(row.find('.item-discount-value').val()) || 0;
         const discType = row.find('.item-discount-type').val() || 'flat';
 
-        const subtotal = price * qty;
+        const basePrice = mrp > 0 ? mrp : price;
+        const subtotal = basePrice * qty;
         let discount = 0;
         if (discType === 'flat') {
             discount = discVal;
@@ -1233,11 +1332,13 @@ $(document).ready(function () {
             const qty      = parseInt($(this).find('.item-qty').val()) || 0;
             if (qty <= 0) return;
 
+            const mrp      = parseFloat($(this).data('mrp')) || 0;
             const price    = parseFloat($(this).find('.item-price').val()) || 0;
             const discVal  = parseFloat($(this).find('.item-discount-value').val()) || 0;
             const discType = $(this).find('.item-discount-type').val() || 'flat';
 
-            const subtotal = price * qty;
+            const basePrice = mrp > 0 ? mrp : price;
+            const subtotal = basePrice * qty;
             let discount = 0;
             if (discType === 'flat') {
                 discount = discVal;
@@ -1352,11 +1453,13 @@ $(document).ready(function () {
             const qty = parseInt($(this).find('.item-qty').val()) || 0;
             if (qty <= 0) return;
 
+            const mrp = parseFloat($(this).data('mrp')) || 0;
             const price = parseFloat($(this).find('.item-price').val()) || 0;
             const discVal = parseFloat($(this).find('.item-discount-value').val()) || 0;
             const discType = $(this).find('.item-discount-type').val() || 'flat';
 
-            const subtotal = price * qty;
+            const basePrice = mrp > 0 ? mrp : price;
+            const subtotal = basePrice * qty;
             let discount = 0;
             if (discType === 'flat') {
                 discount = discVal;
@@ -1461,11 +1564,13 @@ $(document).ready(function () {
             const qty = parseInt($(this).find('.item-qty').val()) || 0;
             if (qty <= 0) return;
 
+            const mrp      = parseFloat($(this).data('mrp')) || 0;
             const price    = parseFloat($(this).find('.item-price').val()) || 0;
             const discVal  = parseFloat($(this).find('.item-discount-value').val()) || 0;
             const discType = $(this).find('.item-discount-type').val() || 'flat';
 
-            const subtotal = price * qty;
+            const basePrice = mrp > 0 ? mrp : price;
+            const subtotal = basePrice * qty;
             let discount = discType === 'percentage' ? subtotal * (discVal / 100) : discVal;
             if (discount > subtotal) discount = subtotal;
 
@@ -1642,6 +1747,7 @@ $(document).ready(function () {
             const product = row.data('product');
             const qty = parseInt(row.find('.item-qty').val()) || 0;
             const variantId = row.data('variant-id') || '';
+            const mrp = parseFloat(row.data('mrp')) || 0;
             const price = parseFloat(row.find('.item-price').val()) || 0;
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
@@ -1650,6 +1756,7 @@ $(document).ready(function () {
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${row.find('.custom-size-value-input').val() || ''}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][mrp]" value="${mrp}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][quantity]" value="${qty}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][price]" value="${price}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][discount_type]" value="${discountType}">`);

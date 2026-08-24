@@ -21,7 +21,7 @@
     $isOnline          = ($order->source ?? 'POS') === 'ONLINE';
     $totalItemDiscount = $order->items->sum('discount_amount');
     
-    $itemsGross        = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
+    $itemsGross        = $order->items->sum(fn($i) => ((float)($i->mrp ?? $i->price)) * (float)$i->quantity);
     $subtotal          = $itemsGross;
     
     $couponDiscount = 0;
@@ -286,6 +286,7 @@
                         <tr>
                             <th class="col-index">#</th>
                             <th class="col-product">Product</th>
+                            <th class="text-end col-mrp" style="width: 110px;">MRP</th>
                             <th class="text-end col-price">Price</th>
                             <th class="text-end col-qty">Qty</th>
                             <th class="text-end col-discount">Discount</th>
@@ -302,6 +303,20 @@
                                         $displayName .= ' (' . ($v->attributeValue->attribute->name ?? '') . ': ' . ($v->attributeValue->value ?? '') . ')';
                                     }
                                 }
+                                $itemMrp = $item->mrp ?? ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
+                                if ($item->product?->pair_product && $item->custom_size_value && !$item->mrp) {
+                                    $customSizes = collect($item->product->custom_sizes ?? []);
+                                    if ($item->product_variant_id) {
+                                        $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
+                                        if ($vSizes->isNotEmpty()) {
+                                            $customSizes = $vSizes;
+                                        }
+                                    }
+                                    $matchedSize = $customSizes->firstWhere('size', (string)$item->custom_size_value);
+                                    if ($matchedSize && isset($matchedSize['mrp'])) {
+                                        $itemMrp = (float) $matchedSize['mrp'];
+                                    }
+                                }
                             @endphp
                             <tr>
                                 <td class="text-muted small">{{ $index + 1 }}</td>
@@ -316,6 +331,7 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td class="text-end text-nowrap small fw-semibold text-heading">{{ $itemMrp > 0 ? format_price($itemMrp) : '-' }}</td>
                                 <td class="text-end text-nowrap small">{{ format_price($item->price) }}</td>
                                 <td class="text-end text-nowrap small">
                                     <span class="text-nowrap">{{ $item->quantity }}</span>
@@ -345,21 +361,21 @@
                     </tbody>
                     <tfoot>
                         <tr class="table-light">
-                            <td colspan="5" class="text-end tfoot-label">Total Items</td>
+                            <td colspan="6" class="text-end tfoot-label">Total Items</td>
                             <td class="text-end tfoot-amount">{{ $order->items->sum('quantity') }}</td>
                         </tr>
                         <tr class="table-light">
-                            <td colspan="5" class="text-end tfoot-label">Subtotal</td>
+                            <td colspan="6" class="text-end tfoot-label">Subtotal</td>
                             <td class="text-end tfoot-amount">{{ format_price($subtotal) }}</td>
                         </tr>
                         @if($totalDiscount > 0)
                         <tr>
-                            <td colspan="5" class="text-end tfoot-label text-danger">Discount</td>
+                            <td colspan="6" class="text-end tfoot-label text-danger">Discount</td>
                             <td class="text-end tfoot-amount text-danger">-{{ format_price($totalDiscount) }}</td>
                         </tr>
                         @elseif($order->coupon_id && $order->coupon)
                         <tr>
-                            <td colspan="5" class="text-end tfoot-label" style="color:#2e7d32;">
+                            <td colspan="6" class="text-end tfoot-label" style="color:#2e7d32;">
                                 Coupon Applied &nbsp;<code style="color:#2e7d32;">{{ $order->coupon->code }}</code>
                             </td>
                             <td class="text-end tfoot-amount" style="color:#2e7d32;">-</td>
@@ -382,28 +398,28 @@
                                     $halfTax = $taxAmount / 2;
                                 @endphp
                                 <tr>
-                                    <td colspan="5" class="text-end tfoot-label">CGST ({{ $halfRate }}%)</td>
+                                    <td colspan="6" class="text-end tfoot-label">CGST ({{ $halfRate }}%)</td>
                                     <td class="text-end tfoot-amount">{{ format_price($halfTax) }}</td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5" class="text-end tfoot-label">SGST ({{ $halfRate }}%)</td>
+                                    <td colspan="6" class="text-end tfoot-label">SGST ({{ $halfRate }}%)</td>
                                     <td class="text-end tfoot-amount">{{ format_price($halfTax) }}</td>
                                 </tr>
                             @else
                                 <tr>
-                                    <td colspan="5" class="text-end tfoot-label">IGST ({{ $gstRate }}%)</td>
+                                    <td colspan="6" class="text-end tfoot-label">IGST ({{ $gstRate }}%)</td>
                                     <td class="text-end tfoot-amount">{{ format_price($taxAmount) }}</td>
                                 </tr>
                             @endif
                         @endif
                         @if(($order->source ?? 'POS') !== 'POS')
                         <tr>
-                            <td colspan="5" class="text-end tfoot-label">Shipping</td>
+                            <td colspan="6" class="text-end tfoot-label">Shipping</td>
                             <td class="text-end tfoot-amount">{{ $order->shipping_charge > 0 ? format_price($order->shipping_charge) : 'Free' }}</td>
                         </tr>
                         @endif
                         <tr style="border-top:2px solid #B4771E;">
-                            <td colspan="5" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
+                            <td colspan="6" class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">Final Amount</td>
                             <td class="text-end fw-bold" style="font-size:1rem; color:#B4771E;">{{ format_price($order->final_amount) }}</td>
                         </tr>
                     </tfoot>

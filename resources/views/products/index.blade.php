@@ -129,6 +129,17 @@
                         </select>
                     </div>
 
+                    {{-- Product Type Filter --}}
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-medium text-muted mb-1" for="filter-product-type">Product Type</label>
+                        <select id="filter-product-type" class="form-select">
+                            <option value="">All Product Types</option>
+                            <option value="pair">Pair Product</option>
+                            <option value="variable">Variable Product</option>
+                            <option value="normal">Normal Product</option>
+                        </select>
+                    </div>
+
                     {{-- Sale Product Filter --}}
                     <div class="mb-3 text-start">
                         <label class="form-label fw-medium text-muted mb-1" for="filter-sale-product">Sale Products</label>
@@ -324,6 +335,7 @@
                         d.status = $('#filter-status').val();
                         d.stock_status = $('#filter-stock-status').val();
                         d.hide_from_website = $('#filter-hide-from-website').val();
+                        d.product_type = $('#filter-product-type').val();
                         d.sale_product = $('#filter-sale-product').val();
                         d.location_id = $('#filter-location').val();
                     }
@@ -361,6 +373,7 @@
                 $('#filter-status').val('');
                 $('#filter-stock-status').val('');
                 $('#filter-hide-from-website').val('');
+                $('#filter-product-type').val('');
                 $('#filter-sale-product').val('');
                 $('#filter-location').val('');
                 window.refreshTable();

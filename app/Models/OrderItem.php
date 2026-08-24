@@ -14,6 +14,7 @@ class OrderItem extends Model
         'product_variant_id',
         'pair_type',
         'custom_size_value',
+        'mrp',
         'quantity',
         'price',
         'discount_type',
@@ -25,6 +26,7 @@ class OrderItem extends Model
     protected function casts(): array
     {
         return [
+            'mrp' => 'decimal:2',
             'price' => 'decimal:2',
             'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',

@@ -93,30 +93,36 @@
         $paymentLabels = [1 => 'Pending',          2 => 'Paid',         3 => 'Partially Paid'];
 
         $isOnline          = ($order->source ?? 'POS') === 'ONLINE';
-        $totalItemDiscount = $order->items->sum('discount_amount');
-        // True subtotal = sum of (price × qty) for each item, before any discount
-        $itemsGross        = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
-        $subtotal          = $itemsGross;
-        // Coupon discount = actual deducted amount (gross - item discounts - final_amount)
+
+        $mrpSubtotal = 0.00;
+        foreach($order->items as $item) {
+            $itemMrp = $item->variant?->mrp ?? $item->product?->mrp ?? 0;
+            if ($item->product?->pair_product && $item->custom_size_value) {
+                $customSizes = collect($item->product->custom_sizes ?? []);
+                if ($item->product_variant_id) {
+                    $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
+                    if ($vSizes->isNotEmpty()) {
+                        $customSizes = $vSizes;
+                    }
+                }
+                $matchedSize = $customSizes->firstWhere('size', (string)$item->custom_size_value);
+                if ($matchedSize && isset($matchedSize['mrp'])) {
+                    $itemMrp = (float) $matchedSize['mrp'];
+                }
+            }
+            $itemBaseMrp = $itemMrp > 0 ? $itemMrp : (float)$item->price;
+            $mrpSubtotal += ($itemBaseMrp * (float)$item->quantity);
+        }
+
+        $subtotal = $mrpSubtotal;
+
         $couponDiscount = 0;
         $couponCode     = null;
         if ($order->coupon_id && $order->coupon) {
-            $couponCode     = $order->coupon->code;
-            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
+            $couponCode = $order->coupon->code;
         }
 
-        $orderDiscountAmount = 0.0;
-        if ($order->order_discount_value > 0) {
-            $itemsTotal = $subtotal - $totalItemDiscount;
-            if ($order->order_discount_type === 'flat') {
-                $orderDiscountAmount = (float)$order->order_discount_value;
-            } else if ($order->order_discount_type === 'percentage') {
-                $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
-            }
-            $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
-        }
-
-        $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
+        $totalDiscount = max(0, round($subtotal - ((float)$order->final_amount - (float)$order->shipping_charge - (float)($order->tax_amount ?? 0)), 2));
     @endphp
 
     {{-- ── Page header ────────────────────────────────────────── --}}

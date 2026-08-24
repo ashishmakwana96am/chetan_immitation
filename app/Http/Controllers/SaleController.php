@@ -456,7 +456,9 @@ class SaleController extends Controller
             foreach ($request->items as $itemData) {
                 $qty = (int) $itemData['quantity'];
                 $price = (float) $itemData['price'];
-                $subtotal = $qty * $price;
+                $mrp = isset($itemData['mrp']) && $itemData['mrp'] !== '' ? (float) $itemData['mrp'] : null;
+                $basePrice = ($mrp !== null && $mrp > 0) ? $mrp : $price;
+                $subtotal = $qty * $basePrice;
 
                 $discVal = (float) ($itemData['discount_value'] ?? 0);
                 $discType = $itemData['discount_type'] ?? 'flat';
@@ -480,6 +482,7 @@ class SaleController extends Controller
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
                     'pair_type' => $itemData['pair_type'] ?? 'single',
                     'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
+                    'mrp' => $mrp,
                     'quantity' => $qty,
                     'price' => $price,
                     'discount_type' => $discType,
@@ -591,6 +594,7 @@ class SaleController extends Controller
                     'product_variant_id' => $item['product_variant_id'],
                     'pair_type' => $item['pair_type'],
                     'custom_size_value' => $item['custom_size_value'],
+                    'mrp' => $item['mrp'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'discount_type' => $item['discount_type'],
@@ -1084,7 +1088,9 @@ class SaleController extends Controller
                 foreach ($request->items as $itemData) {
                     $qty = (int) $itemData['quantity'];
                     $price = (float) $itemData['price'];
-                    $subtotal = $qty * $price;
+                    $mrp = isset($itemData['mrp']) && $itemData['mrp'] !== '' ? (float) $itemData['mrp'] : null;
+                    $basePrice = ($mrp !== null && $mrp > 0) ? $mrp : $price;
+                    $subtotal = $qty * $basePrice;
 
                     $discVal = (float) ($itemData['discount_value'] ?? 0);
                     $discType = $itemData['discount_type'] ?? 'flat';
@@ -1108,6 +1114,7 @@ class SaleController extends Controller
                         'product_variant_id' => $itemData['product_variant_id'] ?? null,
                         'pair_type' => $itemData['pair_type'] ?? 'single',
                         'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
+                        'mrp' => $mrp,
                         'quantity' => $qty,
                         'price' => $price,
                         'discount_type' => $discType,
@@ -1248,6 +1255,7 @@ class SaleController extends Controller
                         'product_variant_id' => $item['product_variant_id'],
                         'pair_type' => $item['pair_type'],
                         'custom_size_value' => $item['custom_size_value'],
+                        'mrp' => $item['mrp'],
                         'quantity' => $item['quantity'],
                         'price' => $item['price'],
                         'discount_type' => $item['discount_type'],
@@ -1918,6 +1926,7 @@ class SaleController extends Controller
             $variantId = is_array($itemData) ? ($itemData['product_variant_id'] ?? null) : $itemData->product_variant_id;
             $qty = (int) (is_array($itemData) ? $itemData['quantity'] : $itemData->quantity);
             $price = (float) (is_array($itemData) ? $itemData['price'] : $itemData->price);
+            $mrp = isset($itemData['mrp']) && $itemData['mrp'] !== '' ? (float) $itemData['mrp'] : null;
             $discVal = (float) (is_array($itemData) ? ($itemData['discount_value'] ?? 0) : ($itemData->discount_value ?? 0));
             $discType = is_array($itemData) ? ($itemData['discount_type'] ?? 'flat') : ($itemData->discount_type ?? 'flat');
 
@@ -1926,7 +1935,8 @@ class SaleController extends Controller
             }
             $hasItems = true;
 
-            $subtotal = $qty * $price;
+            $basePrice = ($mrp !== null && $mrp > 0) ? $mrp : $price;
+            $subtotal = $qty * $basePrice;
             $discAmount = $discType === 'percentage' ? $subtotal * ($discVal / 100) : $discVal;
             if ($discAmount > $subtotal) {
                 $discAmount = $subtotal;
@@ -2276,6 +2286,7 @@ class SaleController extends Controller
                     'pair_mode'        => $p->pair_mode,
                     'custom_sizes'     => $p->custom_sizes ?? [],
                     'single_price'     => $p->sale_price,
+                    'mrp'              => $p->mrp,
                     'purchase_price'   => $p->purchase_price,
                     'bypass_min_price' => (bool) $p->bypass_min_price,
                 ];
@@ -2289,6 +2300,7 @@ class SaleController extends Controller
                             'attribute_value_id' => $v->attribute_value_id,
                             'purchase_price'     => $v->purchase_price,
                             'sale_price'         => $v->sale_price,
+                            'mrp'                => $v->mrp,
                             'custom_sizes'       => $v->custom_sizes ?? [],
                             'attr_name'          => $v->attributeValue->attribute->name ?? '',
                             'value_name'         => $v->attributeValue->value ?? '',

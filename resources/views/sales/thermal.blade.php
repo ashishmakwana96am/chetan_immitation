@@ -103,12 +103,32 @@
 
         $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
 
+        $mrpSubtotal = 0.00;
+        foreach($order->items as $item) {
+            $itemMrp = $item->mrp ?? ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
+            if ($item->product?->pair_product && $item->custom_size_value && !$item->mrp) {
+                $customSizes = collect($item->product->custom_sizes ?? []);
+                if ($item->product_variant_id) {
+                    $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
+                    if ($vSizes->isNotEmpty()) {
+                        $customSizes = $vSizes;
+                    }
+                }
+                $matchedSize = $customSizes->firstWhere('size', (string)$item->custom_size_value);
+                if ($matchedSize && isset($matchedSize['mrp'])) {
+                    $itemMrp = (float) $matchedSize['mrp'];
+                }
+            }
+            $itemBaseMrp = $itemMrp > 0 ? $itemMrp : (float)$item->price;
+            $mrpSubtotal += ($itemBaseMrp * (float)$item->quantity);
+        }
+
         $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
         $isGst = (bool)$order->is_gst;
         
         $totalTax = $isGst ? (float)$order->tax_amount : 0.00;
         $taxableAmount = (float)$order->final_amount - $totalTax - (float)$order->shipping_charge;
-        
+
         $sgst = 0.00;
         $cgst = 0.00;
         $igst = 0.00;
@@ -163,7 +183,10 @@
             $dueAmount = (float) $order->final_amount;
         }
 
+        $totalDiscountOnMrp = max(0, round($mrpSubtotal - (float)$order->final_amount, 2));
+        $totalDiscount = $totalDiscountOnMrp;
         $totalQty = $order->items->sum('quantity');
+        $youSaved = $totalDiscountOnMrp;
     @endphp
 
     <div class="receipt-container">
@@ -254,6 +277,24 @@
             </thead>
             <tbody>
                 @foreach($order->items as $item)
+                    @php
+                        $itemMrp = $item->variant?->mrp ?? $item->product?->mrp ?? 0;
+                        if ($item->product?->pair_product && $item->custom_size_value) {
+                            $customSizes = collect($item->product->custom_sizes ?? []);
+                            if ($item->product_variant_id) {
+                                $vSizes = collect($item->product->variant_custom_sizes ?? [])->where('product_variant_id', $item->product_variant_id);
+                                if ($vSizes->isNotEmpty()) {
+                                    $customSizes = $vSizes;
+                                }
+                            }
+                            $matchedSize = $customSizes->firstWhere('size', (string)$item->custom_size_value);
+                            if ($matchedSize && isset($matchedSize['mrp'])) {
+                                $itemMrp = (float) $matchedSize['mrp'];
+                            }
+                        }
+                        $rowRate = $itemMrp > 0 ? $itemMrp : (float)$item->price;
+                        $rowAmount = $rowRate * (float)$item->quantity;
+                    @endphp
                     <tr>
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
                             {{ $item->product?->subCategory?->name ?? $item->product?->category?->name ?? '-' }}
@@ -270,10 +311,10 @@
                             @endif
                         </td>
                         <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
-                            {{ number_format($item->price, 2) }}
+                            {{ number_format($rowRate, 2) }}
                         </td>
                         <td style="text-align: right; padding: 3px 0; vertical-align: top; border: none;">
-                            {{ number_format($item->total, 2) }}
+                            {{ number_format($rowAmount, 2) }}
                         </td>
                     </tr>
                 @endforeach
@@ -283,14 +324,14 @@
         <div class="divider-dotted"></div>
 
         <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
+            <tr>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">SUB TOTAL</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($mrpSubtotal, 2) }}</td>
+            </tr>
             @if($totalDiscount > 0)
             <tr>
-                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Subtotal</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($subtotal, 2) }}</td>
-            </tr>
-            <tr>
-                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">Discount Amt</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">-{{ number_format($totalDiscount, 2) }}</td>
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">DISCOUNT</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalDiscount, 2) }}</td>
             </tr>
             @endif
             @if($order->shipping_charge > 0)
@@ -306,6 +347,12 @@
                     {{ number_format((float)$order->final_amount, 2) }}
                 </td>
             </tr>
+            @if($youSaved > 0)
+            <tr style="border-top: 1px dashed #000;">
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding-top: 3px; font-size: 12px; text-transform: uppercase;">YOU SAVED</td>
+                <td style="text-align: right; width: 30%; border: none; padding-top: 3px; font-size: 12px;">{{ number_format($youSaved, 2) }}</td>
+            </tr>
+            @endif
         </table>
 
         <div class="divider-dotted"></div>
