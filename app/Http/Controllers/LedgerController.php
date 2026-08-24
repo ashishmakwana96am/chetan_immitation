@@ -1351,7 +1351,7 @@ class LedgerController extends Controller
     private function purchasePriceForLedgerItem(PurchaseBillItem $item): float
     {
         $product = $item->product;
-        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+        $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
 
         if (!$product || !$product->pair_product) {
             return $basePrice;

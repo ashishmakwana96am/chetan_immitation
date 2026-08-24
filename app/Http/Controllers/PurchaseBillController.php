@@ -330,6 +330,9 @@ class PurchaseBillController extends Controller
             'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
             'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+        ], [], [
+            'from_location_id' => 'source location',
+            'to_location_id'   => 'destination location',
         ]);
 
         if ($validator->fails()) {
@@ -468,6 +471,9 @@ class PurchaseBillController extends Controller
             'items.*.pair_type' => ['nullable', 'string', 'in:single,pair'],
             'items.*.custom_size_value' => ['nullable', 'numeric', 'min:0.01'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+        ], [], [
+            'from_location_id' => 'source location',
+            'to_location_id'   => 'destination location',
         ]);
 
         if ($validator->fails()) {
@@ -1111,7 +1117,7 @@ class PurchaseBillController extends Controller
     private function purchasePriceForPurchaseBillItem(PurchaseBillItem $item): float
     {
         $product = $item->product;
-        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+        $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
 
         if (!$product || !$product->pair_product) {
             return $basePrice;

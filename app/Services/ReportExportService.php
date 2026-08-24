@@ -737,7 +737,7 @@ class ReportExportService
     protected function purchasePriceForPurchaseBillItem($item): float
     {
         $product = $item->product;
-        $basePrice = (float) ($item->variant->purchase_price ?? $product?->purchase_price ?? 0);
+        $basePrice = (float) ((isset($item->purchase_price) && $item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
 
         if (!$product || empty($product->pair_product)) {
             return $basePrice;
