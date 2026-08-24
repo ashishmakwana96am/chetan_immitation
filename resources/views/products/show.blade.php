@@ -259,8 +259,16 @@
                     </div>
                     <div class="info-row">
                         <span class="info-label">Collection</span>
-                        <span class="info-value">
-                            <span class="badge bg-label-warning">{{ $product->collection->display_name ?? '-' }}</span>
+                        <span class="info-value d-flex flex-wrap gap-1 justify-content-end">
+                            @if($product->collections->count())
+                                @foreach($product->collections as $col)
+                                    <span class="badge bg-label-warning">{{ $col->display_name }}</span>
+                                @endforeach
+                            @elseif($product->collection)
+                                <span class="badge bg-label-warning">{{ $product->collection->display_name }}</span>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
                         </span>
                     </div>
                     <div class="info-row">

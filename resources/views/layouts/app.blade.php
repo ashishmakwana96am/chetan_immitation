@@ -84,6 +84,68 @@
         gap: 1.25rem;
     }
 
+    .select2-container--default .select2-selection--multiple {
+        min-height: 38px !important;
+        height: 38px !important;
+        padding: 0 2rem 0 0.75rem !important;
+        display: flex !important;
+        align-items: center !important;
+        position: relative !important;
+        border: 1px solid #dbade9;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--multiple,
+    .select2-container--default.select2-container--open .select2-selection--multiple {
+        border-color: #B4771E !important;
+        box-shadow: 0 0.125rem 0.25rem rgba(180, 119, 30, 0.25) !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+        padding: 0 !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__clear {
+        position: absolute !important;
+        right: 0.6rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        margin: 0 !important;
+        float: none !important;
+        cursor: pointer !important;
+        font-size: 1.1rem !important;
+        color: #a1acb8 !important;
+        line-height: 1 !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__clear:hover {
+        color: #ea5455 !important;
+    }
+    .select2-container--default .select2-selection--multiple .select2-search--inline {
+        display: none !important;
+    }
+    /* Show search box in dropdown for multiple select */
+    .select2-container--open .select2-dropdown--below .select2-search--dropdown,
+    .select2-container--open .select2-dropdown--above .select2-search--dropdown {
+        display: block !important;
+        padding: 8px 12px 6px 12px !important;
+    }
+    .select2-container--default .select2-dropdown .select2-search__field,
+    .select2-container--open .select2-dropdown .select2-search__field {
+        width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        border: 1px solid #d8d6de !important;
+        border-radius: 6px !important;
+        padding: 6px 12px !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    .select2-container--default .select2-dropdown .select2-search__field:focus,
+    .select2-container--open .select2-dropdown .select2-search__field:focus {
+        border-color: #B4771E !important;
+        box-shadow: 0 0.125rem 0.25rem rgba(180, 119, 30, 0.2) !important;
+    }
+
     .loader-visual {
         position: relative;
         width: 80px;
@@ -435,12 +497,76 @@
                     const parentModal = selectEl.closest('#commonModal');
                     const hasEmptyOpt = selectEl.find('option[value=""]').length > 0;
                     
-                    selectEl.select2({
+                    const isMultiple = selectEl.prop('multiple');
+                    
+                    let config = {
                         dropdownParent: parentModal.length ? parentModal : $(document.body),
                         placeholder: hasEmptyOpt ? (selectEl.find('option[value=""]').text() || 'Select an option') : false,
                         allowClear: hasEmptyOpt,
                         width: '100%'
-                    });
+                    };
+
+                    if (isMultiple) {
+                        config.closeOnSelect = false;
+                    }
+
+                    selectEl.select2(config);
+                    
+                    if (isMultiple) {
+                        const updateSummary = function() {
+                            const $container = selectEl.next('.select2-container');
+                            const selectedValues = selectEl.val() || [];
+                            const totalSelected = selectedValues.length;
+                            const totalOptions = selectEl.find('option').length;
+                            const $rendered = $container.find('.select2-selection__rendered');
+                            const placeholderText = selectEl.attr('data-placeholder') || 'Select items';
+                            
+                            $rendered.find('.select2-selection__choice').remove();
+                            $rendered.find('.select2-search--inline').css('display', 'none');
+                            
+                            let textSpan = $rendered.find('.custom-select2-summary');
+                            if (textSpan.length === 0) {
+                                textSpan = $('<span class="custom-select2-summary" style="line-height: 1.5; font-weight: 500; color: #5d596c; display: inline-block; vertical-align: middle;"></span>');
+                                $rendered.prepend(textSpan);
+                            }
+                            
+                            if (totalSelected > 0) {
+                                textSpan.text(totalSelected + ' selected out of ' + totalOptions).css({'color': '#5d596c', 'font-weight': '500'}).show();
+                            } else {
+                                textSpan.text(placeholderText).css({'color': '#a1acb8', 'font-weight': 'normal'}).show();
+                            }
+                        };
+
+                        selectEl.on('select2:select select2:unselect change', updateSummary);
+                        selectEl.on('select2:open', function() {
+                            const $container = selectEl.next('.select2-container');
+                            $container.find('.select2-search--inline').css('display', 'none');
+                            
+                            // Inject search box in dropdown if missing (select2 multiple doesn't put search in dropdown by default)
+                            const $dropdown = $('.select2-dropdown');
+                            if ($dropdown.length && $dropdown.find('.select2-search--dropdown').length === 0) {
+                                const $searchDiv = $('<div class="select2-search select2-search--dropdown" style="padding: 6px 8px;"><input class="select2-search__field" type="search" tabindex="0" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" role="searchbox" aria-autocomplete="list" placeholder="Search..."></div>');
+                                $dropdown.prepend($searchDiv);
+                                
+                                const $searchInput = $searchDiv.find('.select2-search__field');
+                                setTimeout(() => $searchInput.focus(), 50);
+                                
+                                $searchInput.on('keyup input', function() {
+                                    const term = $(this).val().toLowerCase().trim();
+                                    $dropdown.find('.select2-results__option').each(function() {
+                                        const text = $(this).text().toLowerCase();
+                                        if (text.includes(term)) {
+                                            $(this).show();
+                                        } else {
+                                            $(this).hide();
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                        
+                        setTimeout(updateSummary, 50);
+                    }
                 });
             }
 

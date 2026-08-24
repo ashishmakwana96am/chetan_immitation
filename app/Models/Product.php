@@ -93,6 +93,11 @@ class Product extends Model
         return $this->belongsTo(Collection::class)->withTrashed();
     }
 
+    public function collections()
+    {
+        return $this->belongsToMany(Collection::class, 'collection_product')->withTimestamps();
+    }
+
     public function images()
     {
         return $this->hasMany(ProductImage::class)->orderByDesc('is_primary')->orderBy('id');

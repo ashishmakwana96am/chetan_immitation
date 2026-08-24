@@ -343,10 +343,16 @@ class ShopCategoryController extends Controller
         if (!empty($filters['collection'])) {
             $colValues = array_values(array_filter(array_map('trim', explode(',', $filters['collection']))));
             if (!empty($colValues)) {
-                $query->whereHas('collection', function ($cq) use ($colValues) {
-                    $cq->whereIn('id', $colValues)
-                       ->orWhereIn('short_name', $colValues)
-                       ->orWhereIn('name', $colValues);
+                $query->where(function ($q) use ($colValues) {
+                    $q->whereHas('collections', function ($cq) use ($colValues) {
+                        $cq->whereIn('collections.id', $colValues)
+                           ->orWhereIn('collections.short_name', $colValues)
+                           ->orWhereIn('collections.name', $colValues);
+                    })->orWhereHas('collection', function ($cq) use ($colValues) {
+                        $cq->whereIn('id', $colValues)
+                           ->orWhereIn('short_name', $colValues)
+                           ->orWhereIn('name', $colValues);
+                    });
                 });
             }
         }

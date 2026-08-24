@@ -59,7 +59,11 @@ class ProductController extends Controller
                 $q->where('category_id', $request->category_id);
             })
             ->when($request->collection_id, function($q) use ($request) {
-                $q->where('collection_id', $request->collection_id);
+                $q->where(function($subQ) use ($request) {
+                    $subQ->whereHas('collections', function($cq) use ($request) {
+                        $cq->where('collections.id', $request->collection_id);
+                    })->orWhere('products.collection_id', $request->collection_id);
+                });
             })
             ->when($request->status !== null && $request->status !== '', function($q) use ($request) {
                 $q->where('status', $request->status);
@@ -451,6 +455,7 @@ class ProductController extends Controller
             'category',
             'subCategory',
             'collection',
+            'collections',
             'images',
             'createdBy',
             'variants.attributeValue',
@@ -711,7 +716,9 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'collection_id'            => ['required', 'exists:collections,id'],
+            'collection_ids'           => ['nullable', 'array'],
+            'collection_ids.*'         => ['exists:collections,id'],
+            'collection_id'            => ['nullable', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode'],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
@@ -840,7 +847,13 @@ class ProductController extends Controller
                 $productData['mrp']          = $request->mrp;
             }
 
+            $selectedColIds = (array) ($request->collection_ids ?? ($request->collection_id ? [$request->collection_id] : []));
+            $productData['collection_id'] = $selectedColIds[0] ?? null;
+
             $product = Product::create($productData);
+            if (!empty($selectedColIds)) {
+                $product->collections()->sync($selectedColIds);
+            }
 
             // Primary image
             if ($request->filled('primary_image_base64')) {
@@ -936,7 +949,7 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
         $attributes = \Cache::remember('active_attributes_list', 3600, fn() => Attribute::with('values')->where('status', 1)->orderBy('name')->get());
-        $product->load('images', 'variants.attributeValue');
+        $product->load('images', 'variants.attributeValue', 'collections');
         return view('products.edit', compact('product', 'categories', 'collections', 'subCategories', 'attributes'));
     }
 
@@ -948,7 +961,9 @@ class ProductController extends Controller
             'name'                     => ['required', 'string', 'max:200'],
             'category_id'              => ['required', 'exists:categories,id'],
             'sub_category_id'          => ['nullable', 'exists:sub_categories,id'],
-            'collection_id'            => ['required', 'exists:collections,id'],
+            'collection_ids'           => ['nullable', 'array'],
+            'collection_ids.*'         => ['exists:collections,id'],
+            'collection_id'            => ['nullable', 'exists:collections,id'],
             'barcode'                  => ['required', 'string', 'max:100', 'unique:products,barcode,' . $product->id],
             'description'              => ['nullable', 'string'],
             'additional_information'   => ['nullable', 'string'],
@@ -1132,7 +1147,11 @@ class ProductController extends Controller
                 $productData['mrp']          = $request->mrp;
             }
 
+            $selectedColIds = (array) ($request->collection_ids ?? ($request->collection_id ? [$request->collection_id] : []));
+            $productData['collection_id'] = $selectedColIds[0] ?? null;
+
             $product->update($productData);
+            $product->collections()->sync($selectedColIds);
 
             if ($request->filled('primary_image_base64')) {
                 $existing = $product->images()->where('is_primary', true)->first();

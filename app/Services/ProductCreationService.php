@@ -137,21 +137,26 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
-        $collectionId = null;
-        $collectionShortName = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
-        if ($collectionShortName !== '') {
-            $collection = Collection::withTrashed()->firstOrCreate(
-                ['short_name' => $collectionShortName],
-                ['name' => '', 'status' => 1, 'created_by' => $userId]
-            );
-            if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
-                $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+        $collectionIds = [];
+        $rawCollectionStr = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
+        if ($rawCollectionStr !== '') {
+            $shortNames = array_values(array_filter(array_map('trim', explode(',', $rawCollectionStr))));
+            foreach ($shortNames as $shortName) {
+                if ($shortName === '') continue;
+                $collection = Collection::withTrashed()->firstOrCreate(
+                    ['short_name' => $shortName],
+                    ['name' => '', 'status' => 1, 'created_by' => $userId]
+                );
+                if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
+                    $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+                }
+                if ($collection->trashed()) {
+                    $collection->restore();
+                }
+                $collectionIds[] = $collection->id;
             }
-            if ($collection->trashed()) {
-                $collection->restore();
-            }
-            $collectionId = $collection->id;
         }
+        $collectionId = $collectionIds[0] ?? null;
 
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
@@ -230,6 +235,10 @@ class ProductCreationService
             'sort_order'             => ((int) Product::max('sort_order')) + 1,
         ]);
 
+        if (!empty($collectionIds)) {
+            $product->collections()->syncWithoutDetaching($collectionIds);
+        }
+
         if ($group['product_type'] === 'variable' && !empty($group['dimensions'] ?? [])) {
             $this->createVariants($group, $product, $purchasePrice, $salePrice, $customSizes);
         }
@@ -274,21 +283,26 @@ class ProductCreationService
             $subCategoryId = $subCategory->id;
         }
 
-        $collectionId = null;
-        $collectionShortName = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
-        if ($collectionShortName !== '') {
-            $collection = Collection::withTrashed()->firstOrCreate(
-                ['short_name' => $collectionShortName],
-                ['name' => '', 'status' => 1, 'created_by' => $userId]
-            );
-            if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
-                $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+        $collectionIds = [];
+        $rawCollectionStr = trim($group['collection'] ?? ($group['collection_short_name'] ?? ''));
+        if ($rawCollectionStr !== '') {
+            $shortNames = array_values(array_filter(array_map('trim', explode(',', $rawCollectionStr))));
+            foreach ($shortNames as $shortName) {
+                if ($shortName === '') continue;
+                $collection = Collection::withTrashed()->firstOrCreate(
+                    ['short_name' => $shortName],
+                    ['name' => '', 'status' => 1, 'created_by' => $userId]
+                );
+                if ($collection->wasRecentlyCreated && isset($summary['collections_created'])) {
+                    $summary['collections_created'] = ($summary['collections_created'] ?? 0) + 1;
+                }
+                if ($collection->trashed()) {
+                    $collection->restore();
+                }
+                $collectionIds[] = $collection->id;
             }
-            if ($collection->trashed()) {
-                $collection->restore();
-            }
-            $collectionId = $collection->id;
         }
+        $collectionId = $collectionIds[0] ?? null;
 
         $code = (float) $group['product_code'];
         $isPair = $group['pair_product'];
@@ -360,6 +374,10 @@ class ProductCreationService
         }
 
         $product->update($updateData);
+
+        if (!empty($collectionIds)) {
+            $product->collections()->syncWithoutDetaching($collectionIds);
+        }
 
         if ($oldType === 'variable' && $newType === 'normal') {
             $product->variants()->delete();

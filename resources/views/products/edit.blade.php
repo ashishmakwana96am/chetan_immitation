@@ -72,16 +72,21 @@
                                   <div class="invalid-feedback"></div>
                               </div>
                               <div class="col-md-6">
-                                  <label class="form-label">Collection <span class="text-danger">*</span></label>
-                                  <select name="collection_id" id="productCollection" class="form-select">
-                                      <option value="">Select Collection</option>
-                                      @foreach($collections as $collection)
-                                          <option value="{{ $collection->id }}" {{ $product->collection_id === $collection->id ? 'selected' : '' }}>
-                                              {{ $collection->display_name }}
-                                          </option>
-                                      @endforeach
-                                  </select>
-                                  <div class="invalid-feedback"></div>
+                                   <label class="form-label">Collections</label>
+                                   @php
+                                       $assignedCols = $product->collections->pluck('id')->toArray();
+                                       if (empty($assignedCols) && $product->collection_id) {
+                                           $assignedCols = [$product->collection_id];
+                                       }
+                                   @endphp
+                                   <select name="collection_ids[]" id="productCollection" class="form-select select2" multiple data-placeholder="Select Collections">
+                                       @foreach($collections as $collection)
+                                           <option value="{{ $collection->id }}" {{ in_array($collection->id, $assignedCols) ? 'selected' : '' }}>
+                                               {{ $collection->display_name }}
+                                           </option>
+                                       @endforeach
+                                   </select>
+                                   <div class="invalid-feedback"></div>
                               </div>
                               <div class="col-md-6">
                                   <label class="form-label">Product Code <span class="text-danger">*</span></label>
@@ -1779,6 +1784,56 @@
                     this.remove();
                 });
             };
+
+            const $colSelect = $('#productCollection');
+            if ($colSelect.length) {
+                if ($colSelect.hasClass('select2-hidden-accessible')) {
+                    $colSelect.select2('destroy');
+                }
+
+                $colSelect.select2({
+                    placeholder: 'Select Collections',
+                    closeOnSelect: false,
+                    allowClear: true,
+                    dropdownParent: $colSelect.parent(),
+                    templateSelection: function (container) {
+                        if (!container.id) return container.text;
+                        const selected = $colSelect.val() || [];
+                        const total = $colSelect.find('option[value!=""]').length;
+                        if (selected.length > 1) {
+                            if (container.id === selected[0]) {
+                                return selected.length + ' Collections Selected (out of ' + total + ')';
+                            }
+                            return '';
+                        }
+                        return container.text;
+                    }
+                });
+
+                function updateColSummaryBadge() {
+                    const selected = $colSelect.val() || [];
+                    const $rendered = $colSelect.next('.select2-container').find('.select2-selection__rendered');
+                    if (selected.length > 1) {
+                        $rendered.find('.select2-selection__choice').each(function (idx) {
+                            if (idx > 0) {
+                                $(this).addClass('d-none');
+                            } else {
+                                $(this).removeClass('d-none').addClass('bg-warning text-white border-0 px-2 py-1 rounded fw-semibold');
+                                $(this).find('.select2-selection__choice__remove').addClass('d-none');
+                            }
+                        });
+                    } else {
+                        $rendered.find('.select2-selection__choice').removeClass('d-none bg-warning text-white border-0 px-2 py-1 rounded fw-semibold');
+                        $rendered.find('.select2-selection__choice__remove').removeClass('d-none');
+                    }
+                }
+
+                $colSelect.on('change select2:select select2:unselect', function () {
+                    setTimeout(updateColSummaryBadge, 10);
+                });
+
+                setTimeout(updateColSummaryBadge, 100);
+            }
 
         });
     </script>
