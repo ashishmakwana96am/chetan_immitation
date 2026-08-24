@@ -72,7 +72,7 @@
                                   <div class="invalid-feedback"></div>
                               </div>
                               <div class="col-md-6">
-                                   <label class="form-label">Collections <span class="text-danger">*</span></label>
+                                   <label class="form-label">Collections</label>
                                    @php
                                        $assignedCols = $product->collections->pluck('id')->toArray();
                                        if (empty($assignedCols) && $product->collection_id) {

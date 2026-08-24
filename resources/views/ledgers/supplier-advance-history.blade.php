@@ -56,7 +56,12 @@
             <h4 class="fw-semibold mb-0">Supplier Advance Payment History</h4>
             <small class="text-muted">Advance credit payment logs for <strong>{{ $supplier->name }}</strong></small>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            @if(auth()->user()->can('create purchase payment'))
+                <button type="button" class="btn btn-primary" data-bs-toggle="offcanvas" data-bs-target="#payAdvanceOffcanvas">
+                    <i class="ti ti-cash me-1"></i> Make Payment
+                </button>
+            @endif
             <a href="{{ route('admin.ledgers.supplier') }}" class="btn btn-label-secondary">
                 <i class="ti ti-arrow-left me-1"></i> Back to Ledger
             </a>
@@ -155,6 +160,49 @@
             </div>
         </div>
     </div>
+
+    <!-- Pay Advance Offcanvas Sidepanel -->
+    <div class="offcanvas offcanvas-end" id="payAdvanceOffcanvas" tabindex="-1" aria-hidden="true" style="width: 500px; max-width: 100vw;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-semibold">Make Payment</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-4 d-flex flex-column">
+            <form id="payAdvanceForm" action="{{ route('admin.ledgers.supplier.pay-advance') }}" method="POST" class="d-flex flex-column flex-grow-1">
+                @csrf
+                <input type="hidden" name="supplier_id" value="{{ $supplier->id }}">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Supplier Name</label>
+                        <input type="text" class="form-control" value="{{ $supplier->name }}" readonly disabled>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Amount ({{ currency_symbol() }}) <span class="text-danger">*</span></label>
+                        <input type="number" name="amount" class="form-control" placeholder="0.00" step="0.01" min="0.01" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                        <select name="payment_method" class="form-select" required>
+                            <option value="cash">Cash</option>
+                            <option value="online">Bank / Online</option>
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="Optional notes..."></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-auto pt-4 border-top">
+                    <button type="submit" class="btn btn-primary w-50" id="payAdvanceSubmitBtn">Make Payment</button>
+                    <button type="button" class="btn btn-label-secondary w-50" data-bs-dismiss="offcanvas">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 @endsection
 
 @section('page-js')
@@ -168,6 +216,52 @@
                     columnDefs: [{ targets: 0, orderable: false }],
                 });
             }
+
+            $('#payAdvanceForm').on('submit', function (e) {
+                e.preventDefault();
+                const form = $(this);
+                const submitBtn = $('#payAdvanceSubmitBtn');
+
+                form.find('.is-invalid').removeClass('is-invalid');
+                form.find('.invalid-feedback').text('');
+                submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+
+                $.ajax({
+                    url: form.attr('action'),
+                    type: 'POST',
+                    data: form.serialize(),
+                    success: function (res) {
+                        if (res.status === 'success') {
+                            toastr.success(res.message);
+                            setTimeout(function () {
+                                window.location.reload();
+                            }, 600);
+                        } else {
+                            toastr.error(res.message || 'Something went wrong.');
+                            submitBtn.prop('disabled', false).text('Make Payment');
+                        }
+                    },
+                    error: function (xhr) {
+                        submitBtn.prop('disabled', false).text('Make Payment');
+                        if (xhr.status === 422) {
+                            const res = xhr.responseJSON || {};
+                            const errors = res.errors || res.message || {};
+                            $.each(errors, function (field, messages) {
+                                const msg = Array.isArray(messages) ? messages[0] : messages;
+                                const input = form.find('[name="' + field + '"]');
+                                if (input.length) {
+                                    input.addClass('is-invalid');
+                                    input.siblings('.invalid-feedback').text(msg).show();
+                                } else {
+                                    toastr.error(msg);
+                                }
+                            });
+                        } else {
+                            toastr.error(xhr.responseJSON?.message || 'Something went wrong. Please try again.');
+                        }
+                    }
+                });
+            });
         });
     </script>
 @endsection

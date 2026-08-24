@@ -252,6 +252,8 @@ class PurchaseController extends Controller
             'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
             'payment_method'         => ['nullable', 'string', 'in:cash,online'],
             'paid_amount'            => ['nullable', 'numeric', 'min:0.01', 'required_if:payment_status,3'],
+        ], [], [
+            'supplier_id' => 'supplier',
         ]);
 
         if ($validator->fails()) {
@@ -373,30 +375,29 @@ class PurchaseController extends Controller
                 'created_by'      => auth()->id(),
             ]);
 
-            if ($paymentStatus !== Purchase::PAYMENT_STATUS_PENDING) {
-                $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $paidAmount);
-                $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
+            $targetAmountToDeduct = max($paidAmount, $grandTotal);
+            $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $targetAmountToDeduct);
+            $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
-                if ($remDirect > 0) {
-                    PurchasePayment::create([
-                        'purchase_id' => $invoice->id,
-                        'amount'      => $remDirect,
-                        'created_by'  => auth()->id(),
-                    ]);
-                }
-
-                $finalPaid = round($advDeducted + $remDirect, 2);
-                $finalStatus = ($finalPaid >= $grandTotal)
-                    ? Purchase::PAYMENT_STATUS_PAID
-                    : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
-
-                Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $invoice->update([
-                    'paid_amount'    => $finalPaid,
-                    'payment_status' => $finalStatus,
-                ])));
-                $invoice->paid_amount = $finalPaid;
-                $invoice->payment_status = $finalStatus;
+            if ($remDirect > 0) {
+                PurchasePayment::create([
+                    'purchase_id' => $invoice->id,
+                    'amount'      => $remDirect,
+                    'created_by'  => auth()->id(),
+                ]);
             }
+
+            $finalPaid = round($advDeducted + $remDirect, 2);
+            $finalStatus = ($finalPaid >= $grandTotal)
+                ? Purchase::PAYMENT_STATUS_PAID
+                : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+
+            Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $invoice->update([
+                'paid_amount'    => min($finalPaid, $grandTotal),
+                'payment_status' => $finalStatus,
+            ])));
+            $invoice->paid_amount = min($finalPaid, $grandTotal);
+            $invoice->payment_status = $finalStatus;
 
             foreach ($itemsData as $item) {
                 $createdItem = PurchaseItem::create([
@@ -515,6 +516,8 @@ class PurchaseController extends Controller
             'payment_status'         => ['nullable', 'integer', 'in:1,2,3'],
             'payment_method'         => ['nullable', 'string', 'in:cash,online'],
             'paid_amount'            => ['nullable', 'numeric', 'min:0', 'required_if:payment_status,3'],
+        ], [], [
+            'supplier_id' => 'supplier',
         ]);
 
         if ($validator->fails()) {
@@ -659,34 +662,36 @@ class PurchaseController extends Controller
 
             Purchase::withoutActivityLogging(fn () => $purchase->update($updateData));
 
-            if ($paymentStatus === Purchase::PAYMENT_STATUS_PENDING) {
-                $purchase->payments()->delete();
-            } else {
-                $targetPay = $paidAmount;
-                $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
-                $remDirect = max(0.0, round($targetPay - $advDeducted, 2));
+            $targetPay = max($paidAmount, $grandTotal);
+            $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($purchase, $targetPay);
+            $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
-                if ($remDirect > 0) {
-                    $paidAmountDelta = round($remDirect - $oldPaidAmount, 2);
-                    if ($paidAmountDelta >= 0.01) {
-                        PurchasePayment::create([
-                            'purchase_id' => $purchase->id,
-                            'amount'      => $paidAmountDelta,
-                            'created_by'  => auth()->id(),
-                        ]);
-                    }
+            $existingDirectPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
+                ->whereNull('bulk_purchase_payment_id')
+                ->where(function ($q) {
+                    $q->where('is_advance', false)->orWhereNull('is_advance');
+                })->sum('amount');
+
+            if ($remDirect > $existingDirectPaid) {
+                $paidAmountDelta = round($remDirect - $existingDirectPaid, 2);
+                if ($paidAmountDelta >= 0.01) {
+                    PurchasePayment::create([
+                        'purchase_id' => $purchase->id,
+                        'amount'      => $paidAmountDelta,
+                        'created_by'  => auth()->id(),
+                    ]);
                 }
-
-                $finalPaid = round($advDeducted + max($remDirect, $oldPaidAmount), 2);
-                $finalStatus = ($finalPaid >= $grandTotal)
-                    ? Purchase::PAYMENT_STATUS_PAID
-                    : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
-
-                Purchase::withoutActivityLogging(fn () => $purchase->update([
-                    'paid_amount'    => min($finalPaid, $grandTotal),
-                    'payment_status' => $finalStatus,
-                ]));
             }
+
+            $finalPaid = round($advDeducted + max($remDirect, $existingDirectPaid), 2);
+            $finalStatus = ($finalPaid >= $grandTotal)
+                ? Purchase::PAYMENT_STATUS_PAID
+                : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
+
+            Purchase::withoutActivityLogging(fn () => $purchase->update([
+                'paid_amount'    => min($finalPaid, $grandTotal),
+                'payment_status' => $finalStatus,
+            ]));
 
             $purchase->items()->delete();
 

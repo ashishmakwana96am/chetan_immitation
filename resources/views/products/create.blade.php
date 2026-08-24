@@ -61,7 +61,7 @@
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Collections <span class="text-danger">*</span></label>
+                                <label class="form-label">Collections</label>
                                 @php
                                     $clonedCols = isset($clonedProduct) ? ($clonedProduct->collections->pluck('id')->toArray() ?: ($clonedProduct->collection_id ? [$clonedProduct->collection_id] : [])) : [];
                                 @endphp
