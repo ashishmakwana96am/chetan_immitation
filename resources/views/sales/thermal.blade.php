@@ -101,12 +101,13 @@
                 }
             }
             $itemRate = $itemMrp > 0 ? $itemMrp : (float)$item->price;
-            $itemGross = $itemRate * (float)$item->quantity;
+            $itemGross = round($itemRate * (float)$item->quantity, 2);
             $itemDisc = (float)($item->discount_amount ?? 0);
             if ($itemDisc == 0 && (float)$item->price < $itemRate) {
                 $itemDisc = max(0, $itemGross - (float)$item->total);
             }
-            $itemNet = max(0, $itemGross - $itemDisc);
+            $itemDisc = round($itemDisc, 2);
+            $itemNet = round(max(0, $itemGross - $itemDisc), 2);
 
             $mrpSubtotal += $itemGross;
             $totalItemDiscount += $itemDisc;
@@ -130,8 +131,6 @@
 
         $orderLevelDiscount = round($orderDiscountAmount + $couponDiscount, 2);
         $totalDiscount = round($totalItemDiscount + $orderLevelDiscount, 2);
-
-        $displaySubtotal = $totalDiscount > 0 ? $mrpSubtotal : $subtotalAfterItemDiscount;
 
         $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
         $isGst = (bool)$order->is_gst;
@@ -196,7 +195,13 @@
         }
 
         $totalQty = $order->items->sum('quantity');
-        $youSaved = $totalDiscount;
+
+        $calculatedFinal = $subtotalAfterItemDiscount - $orderLevelDiscount + $totalTax + (float)$order->shipping_charge;
+        $realFinal = (float)$order->final_amount;
+        $calcDiff = round($realFinal - $calculatedFinal, 2);
+
+        $totalSavingsOnOrder = max(0, round($mrpSubtotal - ($realFinal - $totalTax - (float)$order->shipping_charge), 2));
+        $youSaved = max($totalSavingsOnOrder, $totalDiscount);
     @endphp
 
     <div class="receipt-container">
@@ -303,12 +308,16 @@
                             }
                         }
                         $rowRate = $itemMrp > 0 ? $itemMrp : (float)$item->price;
-                        $rowGross = $rowRate * (float)$item->quantity;
+                        $rowGross = round($rowRate * (float)$item->quantity, 2);
                         $rowDisc = (float)($item->discount_amount ?? 0);
                         if ($rowDisc == 0 && (float)$item->price < $rowRate) {
                             $rowDisc = max(0, $rowGross - (float)$item->total);
                         }
-                        $rowAmount = max(0, $rowGross - $rowDisc);
+                        $rowDisc = round($rowDisc, 2);
+                        $rowAmount = round(max(0, $rowGross - $rowDisc), 2);
+                        if (abs($rowAmount - round($rowAmount)) < 0.05) {
+                            $rowAmount = round($rowAmount);
+                        }
                     @endphp
                     <tr>
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
