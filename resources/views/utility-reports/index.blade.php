@@ -49,6 +49,9 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Utility Report</h4>
+        <button type="button" class="btn btn-success report-export-btn" data-bs-toggle="offcanvas" data-bs-target="#utilityExportExcelOffcanvas">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
     </div>
 
     <!-- Filters -->
@@ -120,9 +123,6 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Activity Logs</h5>
-            <button type="button" class="btn btn-success report-export-btn" data-bs-toggle="offcanvas" data-bs-target="#utilityExportExcelOffcanvas">
-                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-            </button>
         </div>
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="activityLogTable">

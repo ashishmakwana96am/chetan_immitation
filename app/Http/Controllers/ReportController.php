@@ -1880,7 +1880,7 @@ class ReportController extends Controller
                 }
             }
 
-            $stockDisplay = $prod->formatStockDisplay($stockQty);
+            $stockDisplay = $prod->formatStockDisplay($stockQty, ', ');
 
             $sheet->setCellValue('A' . $rowIndex, $idx + 1);
             $sheet->setCellValue('B' . $rowIndex, $name);
@@ -1896,23 +1896,7 @@ class ReportController extends Controller
             $rowIndex++;
         }
 
-        // Totals Row
-        $stockTotalParts = [];
-        if ($totalPairs > 0) {
-            $stockTotalParts[] = number_format($totalPairs) . ' Pair' . ($totalPairs > 1 ? 's' : '');
-        }
-        if ($totalLoosePcs > 0 || empty($stockTotalParts)) {
-            $stockTotalParts[] = number_format($totalLoosePcs) . ' Pcs';
-        }
-        $stockTotalDisplay = implode(' ', $stockTotalParts);
-
-        $sheet->setCellValue('A' . $rowIndex, 'Total');
-        $sheet->setCellValue('H' . $rowIndex, $stockTotalDisplay);
-        $sheet->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFont()->setBold(true);
-        $sheet->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-        $sheet->getRowDimension($rowIndex)->setRowHeight(24);
-
-        $lastRow = $rowIndex;
+        $lastRow = $rowIndex - 1;
 
         // Thin Border for all cells in table
         $borderStyle = [
@@ -2173,7 +2157,7 @@ class ReportController extends Controller
             foreach ($locations as $location) {
                 $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
                 $lStock = (int) ($item['stock'][$location->id] ?? 0);
-                $lDisplay = $prod->formatStockDisplay($lStock);
+                $lDisplay = $prod->formatStockDisplay($lStock, ', ');
                 $sheet->setCellValue($colLetter . $rowIndex, $lDisplay);
                 $colIdx++;
             }
@@ -2183,7 +2167,7 @@ class ReportController extends Controller
             $mrpValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
 
             $totalQty = (int) $item['total'];
-            $totalDisplay = $prod->formatStockDisplay($totalQty);
+            $totalDisplay = $prod->formatStockDisplay($totalQty, ', ');
 
             $sheet->setCellValue($totalCol . $rowIndex, $totalDisplay);
             $sheet->setCellValue($purchaseValCol . $rowIndex, '₹' . number_format($item['purchase_value'], 2));
@@ -2202,7 +2186,7 @@ class ReportController extends Controller
         $colIdx = 5;
         foreach ($locations as $location) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx);
-            $locFormatted = str_replace('<br>', ' ', $totals['location_totals'][$location->id] ?? '0 Pcs');
+            $locFormatted = str_replace(['<br>', '<br/>', '<br />'], ', ', $totals['location_totals'][$location->id] ?? '0 Pcs');
             $sheet->setCellValue($colLetter . $rowIndex, $locFormatted);
             $colIdx++;
         }
@@ -2211,7 +2195,7 @@ class ReportController extends Controller
         $purchaseValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
         $mrpValCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx++);
 
-        $overallFormatted = str_replace('<br>', ' ', $totals['qty_total']);
+        $overallFormatted = str_replace(['<br>', '<br/>', '<br />'], ', ', $totals['qty_total']);
         $sheet->setCellValue($totalCol . $rowIndex, $overallFormatted);
         $sheet->setCellValue($purchaseValCol . $rowIndex, '₹' . number_format($totals['purchase_total'], 2));
         $sheet->setCellValue($mrpValCol . $rowIndex, '₹' . number_format($totals['mrp_total'], 2));

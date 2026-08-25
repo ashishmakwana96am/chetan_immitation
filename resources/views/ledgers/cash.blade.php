@@ -312,10 +312,17 @@
                     a.click();
                     a.remove();
                     window.URL.revokeObjectURL(url);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success('Excel report downloaded successfully!');
+                    }
                 })
                 .catch(error => {
                     console.error('Export error:', error);
-                    alert('An error occurred while exporting the report.');
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('Failed to export Excel. Please try again.');
+                    } else {
+                        alert('An error occurred while exporting the report.');
+                    }
                 })
                 .finally(() => {
                     if (typeof window.hideAjaxLoader === 'function') {

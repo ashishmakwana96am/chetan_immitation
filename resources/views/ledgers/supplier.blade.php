@@ -272,6 +272,9 @@
                     a.click();
                     a.remove();
                     window.URL.revokeObjectURL(url);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success('Excel report downloaded successfully!');
+                    }
                 })
                 .catch(error => {
                     toastr.error('Failed to export Excel. Please try again.');

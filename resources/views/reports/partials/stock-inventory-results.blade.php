@@ -187,9 +187,6 @@
 <div class="card" id="stockDetailCard">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Stock Detail by Location</h5>
-        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
-            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-        </button>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table border-top" id="stockTable">

@@ -54,7 +54,12 @@
 @endsection
 
 @section('content')
-    <h4 class="fw-semibold mb-4">Products Report</h4>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h4 class="fw-semibold mb-0">Products Report</h4>
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+        </button>
+    </div>
 
     <!-- Stats Cards -->
     <div class="row g-4 mb-4">
@@ -185,9 +190,6 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">Products Detail</h5>
-            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
-                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-            </button>
         </div>
         <div class="card-datatable table-responsive">
             <table class="table border-top" id="productsReportTable">

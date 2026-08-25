@@ -43,6 +43,9 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h4 class="fw-semibold mb-0">Customer Credit Report</h4>
         <div class="d-flex gap-2">
+            <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+                <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
+            </button>
             @can('manage customer balance')
                 <button class="btn btn-primary" data-common-modal="{{ route('admin.accounting.customer-balance.create') }}">
                     <i class="ti ti-plus me-1"></i> Add Credit Balance
@@ -179,9 +182,6 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0">Credit Customer Transactions</h5>
-                <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
-                    <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
-                </button>
             </div>
             <div class="card-datatable table-responsive">
                 <table class="table border-top" id="customerReportTable">
