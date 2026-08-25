@@ -370,17 +370,17 @@
                 <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($order->shipping_charge, 2) }}</td>
             </tr>
             @endif
-            <tr>
-                <td style="text-align: left; width: 50%; border: none; padding-top: 3px;">TOTAL</td>
-                <td style="text-align: center; width: 20%; border: none; padding-top: 3px;">{{ $totalQty }}</td>
-                <td style="text-align: right; width: 30%; border: none; padding-top: 3px;">
+            <tr style="font-family: 'Arial Black', Arial, sans-serif; font-size: 17px; font-weight: bold;">
+                <td style="text-align: left; width: 50%; border: none; padding-top: 4px; font-family: 'Arial Black', Arial, sans-serif; font-size: 17px; font-weight: bold;">TOTAL</td>
+                <td style="text-align: center; width: 20%; border: none; padding-top: 4px; font-family: 'Arial Black', Arial, sans-serif; font-size: 17px; font-weight: bold;">{{ $totalQty }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding-top: 4px; font-family: 'Arial Black', Arial, sans-serif; font-size: 17px; font-weight: bold;">
                     {{ number_format((float)$order->final_amount, 2) }}
                 </td>
             </tr>
             @if($youSaved > 0)
-            <tr style="border-top: 1px dashed #000;">
-                <td colspan="2" style="text-align: left; width: 70%; border: none; padding-top: 3px; font-size: 12px; text-transform: uppercase;">YOU SAVED</td>
-                <td style="text-align: right; width: 30%; border: none; padding-top: 3px; font-size: 12px;">{{ number_format($youSaved, 2) }}</td>
+            <tr style="border-top: 1px dashed #000; font-family: 'Arial Black', Arial, sans-serif; font-size: 16px; font-weight: bold;">
+                <td colspan="2" style="text-align: left; width: 70%; border: none; padding-top: 4px; font-family: 'Arial Black', Arial, sans-serif; font-size: 16px; font-weight: bold; text-transform: uppercase;">YOU SAVED</td>
+                <td style="text-align: right; width: 30%; border: none; padding-top: 4px; font-family: 'Arial Black', Arial, sans-serif; font-size: 16px; font-weight: bold;">{{ number_format($youSaved, 2) }}</td>
             </tr>
             @endif
         </table>
