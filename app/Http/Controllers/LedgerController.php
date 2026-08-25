@@ -408,6 +408,8 @@ class LedgerController extends Controller
 
         $grouped = $purchases->groupBy(fn ($purchase) => $purchase->supplier_id ?? 0);
 
+        $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
+
         $rows = collect();
         foreach ($grouped as $items) {
             $first = $items->first();
@@ -415,11 +417,15 @@ class LedgerController extends Controller
             $paidAmount  = (float) $items->sum('paid_amount');
             $dueAmount   = max(0.0, $totalAmount - $paidAmount);
 
+            $suppObj = Supplier::find($first->supplier_id);
+            $advBal = ($suppObj && $canManageAdvance) ? (float) $suppObj->advance_balance : 0.0;
+
             $rows->push([
                 'supplier_name' => $first->supplier->name ?? '-',
                 'total_amount'  => $totalAmount,
                 'paid_amount'   => $paidAmount,
                 'due_amount'    => $dueAmount,
+                'balance'       => $advBal,
             ]);
         }
 
@@ -430,9 +436,10 @@ class LedgerController extends Controller
             return strcmp($a['supplier_name'], $b['supplier_name']);
         })->values();
 
-        $totalAmount = $rows->sum('total_amount');
-        $totalPaid   = $rows->sum('paid_amount');
-        $totalDue    = $rows->sum('due_amount');
+        $totalAmount  = $rows->sum('total_amount');
+        $totalPaid    = $rows->sum('paid_amount');
+        $totalDue     = $rows->sum('due_amount');
+        $totalBalance = $rows->sum('balance');
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -465,18 +472,23 @@ class LedgerController extends Controller
             ],
         ];
 
-        $sheet->mergeCells('A1:E1');
-        $sheet->setCellValue('A1', 'Supplier Ledger Data (' . $locationName . ')');
-        $sheet->getStyle('A1:E1')->applyFromArray($titleStyle);
-        $sheet->getRowDimension(1)->setRowHeight(30);
-
         $headers = ['#', 'Supplier', 'Total Amount', 'Paid Amount', 'Due Amount'];
         $cols = ['A', 'B', 'C', 'D', 'E'];
+        if ($canManageAdvance) {
+            $headers[] = 'Balance';
+            $cols[] = 'F';
+        }
+
+        $lastCol = end($cols);
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->setCellValue('A1', 'Supplier Ledger Data (' . $locationName . ')');
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
 
         foreach ($headers as $cIdx => $hText) {
             $sheet->setCellValue($cols[$cIdx] . '2', $hText);
         }
-        $sheet->getStyle('A2:E2')->applyFromArray($headerStyle);
+        $sheet->getStyle("A2:{$lastCol}2")->applyFromArray($headerStyle);
         $sheet->getRowDimension(2)->setRowHeight(26);
 
         $r = 3;
@@ -486,6 +498,9 @@ class LedgerController extends Controller
             $sheet->setCellValue('C' . $r, '₹' . number_format($row['total_amount'], 2));
             $sheet->setCellValue('D' . $r, '₹' . number_format($row['paid_amount'], 2));
             $sheet->setCellValue('E' . $r, '₹' . number_format($row['due_amount'], 2));
+            if ($canManageAdvance) {
+                $sheet->setCellValue('F' . $r, '₹' . number_format($row['balance'], 2));
+            }
             $sheet->getRowDimension($r)->setRowHeight(20);
             $r++;
         }
@@ -494,10 +509,13 @@ class LedgerController extends Controller
         $sheet->setCellValue('C' . $r, '₹' . number_format($totalAmount, 2));
         $sheet->setCellValue('D' . $r, '₹' . number_format($totalPaid, 2));
         $sheet->setCellValue('E' . $r, '₹' . number_format($totalDue, 2));
-        $sheet->getStyle("A{$r}:E{$r}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$r}:E{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-        $sheet->getStyle("A2:E{$r}")->applyFromArray($borderStyle);
-        $sheet->getStyle("C2:E{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        if ($canManageAdvance) {
+            $sheet->setCellValue('F' . $r, '₹' . number_format($totalBalance, 2));
+        }
+        $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:{$lastCol}{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("C2:{$lastCol}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($cols as $colLetter) {
             $sheet->getColumnDimension($colLetter)->setAutoSize(true);

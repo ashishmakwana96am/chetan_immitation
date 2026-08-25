@@ -81,29 +81,10 @@
 <body>
 
     @php
-        $totalItemDiscount = $order->items->sum('discount_amount');
-        $itemsGross        = $order->items->sum(fn($i) => (float)$i->price * (float)$i->quantity);
-        $subtotal          = $itemsGross;
-
-        $couponDiscount = 0;
-        if ($order->coupon_id && $order->coupon) {
-            $couponDiscount = max(0, round($subtotal - $totalItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
-        }
-
-        $orderDiscountAmount = 0.0;
-        if ($order->order_discount_value > 0) {
-            $itemsTotal = $subtotal - $totalItemDiscount;
-            if ($order->order_discount_type === 'flat') {
-                $orderDiscountAmount = (float)$order->order_discount_value;
-            } else if ($order->order_discount_type === 'percentage') {
-                $orderDiscountAmount = $itemsTotal * ((float)$order->order_discount_value / 100);
-            }
-            $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
-        }
-
-        $totalDiscount = $totalItemDiscount + $orderDiscountAmount + $couponDiscount;
-
         $mrpSubtotal = 0.00;
+        $totalItemDiscount = 0.00;
+        $subtotalAfterItemDiscount = 0.00;
+
         foreach($order->items as $item) {
             $itemMrp = ((float)($item->mrp ?? 0) > 0) ? (float)$item->mrp : ($item->variant?->mrp ?? ($item->product?->mrp ?? 0));
             if ($item->product?->pair_product && $item->custom_size_value && !(float)($item->mrp ?? 0)) {
@@ -119,9 +100,38 @@
                     $itemMrp = (float) $matchedSize['mrp'];
                 }
             }
-            $itemBaseMrp = $itemMrp > 0 ? $itemMrp : (float)$item->price;
-            $mrpSubtotal += ($itemBaseMrp * (float)$item->quantity);
+            $itemRate = $itemMrp > 0 ? $itemMrp : (float)$item->price;
+            $itemGross = $itemRate * (float)$item->quantity;
+            $itemDisc = (float)($item->discount_amount ?? 0);
+            if ($itemDisc == 0 && (float)$item->price < $itemRate) {
+                $itemDisc = max(0, $itemGross - (float)$item->total);
+            }
+            $itemNet = max(0, $itemGross - $itemDisc);
+
+            $mrpSubtotal += $itemGross;
+            $totalItemDiscount += $itemDisc;
+            $subtotalAfterItemDiscount += $itemNet;
         }
+
+        $couponDiscount = 0.00;
+        if ($order->coupon_id && $order->coupon) {
+            $couponDiscount = max(0, round($subtotalAfterItemDiscount - ((float)$order->final_amount - (float)$order->shipping_charge), 2));
+        }
+
+        $orderDiscountAmount = 0.00;
+        if ($order->order_discount_value > 0) {
+            if ($order->order_discount_type === 'flat') {
+                $orderDiscountAmount = (float)$order->order_discount_value;
+            } else if ($order->order_discount_type === 'percentage') {
+                $orderDiscountAmount = $subtotalAfterItemDiscount * ((float)$order->order_discount_value / 100);
+            }
+            $orderDiscountAmount = min($orderDiscountAmount, $subtotalAfterItemDiscount);
+        }
+
+        $orderLevelDiscount = round($orderDiscountAmount + $couponDiscount, 2);
+        $totalDiscount = round($totalItemDiscount + $orderLevelDiscount, 2);
+
+        $displaySubtotal = $totalDiscount > 0 ? $mrpSubtotal : $subtotalAfterItemDiscount;
 
         $gstRate = (float) \App\Models\Setting::getValue('purchase_gst_rate', 3);
         $isGst = (bool)$order->is_gst;
@@ -185,10 +195,8 @@
             $dueAmount = (float) $order->final_amount;
         }
 
-        $totalDiscountOnMrp = max(0, round($mrpSubtotal - (float)$order->final_amount, 2));
-        $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount + $couponDiscount, 2));
         $totalQty = $order->items->sum('quantity');
-        $youSaved = max($totalDiscountOnMrp, $totalDiscount) + ($isGst ? $totalTax : 0.00);
+        $youSaved = $totalDiscount;
     @endphp
 
     <div class="receipt-container">
@@ -328,7 +336,7 @@
         <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">SUB TOTAL</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($mrpSubtotal, 2) }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($displaySubtotal, 2) }}</td>
             </tr>
             @if($totalDiscount > 0)
             <tr>
