@@ -42,8 +42,11 @@
         $orderDiscountAmount = min($orderDiscountAmount, $itemsTotal);
     }
 
-    $totalDiscountOnMrp = max(0, round($subtotal - (float)$order->final_amount, 2));
+    $totalDiscountOnMrp = max(0, round($subtotal - ((float)$order->final_amount - (float)$order->tax_amount - (float)$order->shipping_charge), 2));
     $totalDiscount = max($totalDiscountOnMrp, round($totalItemDiscount + $orderDiscountAmount + $couponDiscount, 2));
+    if (abs($totalDiscount - round($totalDiscount)) < 0.05) {
+        $totalDiscount = round($totalDiscount);
+    }
 
     $showPaidCash = (float)($order->paid_cash_amount ?? 0);
     $showPaidOnline = (float)($order->paid_online_amount ?? 0);
@@ -356,7 +359,13 @@
                                         <span class="text-muted">-</span>
                                     @endif
                                 </td>
-                                <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($item->total) }}</td>
+                                @php
+                                    $dispItemTotal = (float)$item->total;
+                                    if (abs($dispItemTotal - round($dispItemTotal)) < 0.05) {
+                                        $dispItemTotal = round($dispItemTotal);
+                                    }
+                                @endphp
+                                <td class="text-end text-nowrap fw-semibold" style="color:#B4771E;">{{ format_price($dispItemTotal) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
