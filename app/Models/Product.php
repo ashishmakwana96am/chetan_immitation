@@ -16,6 +16,9 @@ class Product extends Model
 
     public static function clearMappedCaches(): void
     {
+        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_sales');
+        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_purchases');
+        \Illuminate\Support\Facades\Cache::store('file')->forget('all_mapped_products_bills');
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_sales');
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_purchases');
         \Illuminate\Support\Facades\Cache::forget('all_mapped_products_bills');

@@ -1152,7 +1152,7 @@ class PurchaseController extends Controller
 
     private function getMappedProducts()
     {
-        return Cache::remember('all_mapped_products_purchases', 1800, function () {
+        return Cache::store('file')->remember('all_mapped_products_purchases', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
                 'primaryImage',

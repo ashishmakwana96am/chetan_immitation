@@ -1907,6 +1907,9 @@ class ProductController extends Controller
 
     public static function clearMappedProductCaches(): void
     {
+        Cache::store('file')->forget('all_mapped_products_sales');
+        Cache::store('file')->forget('all_mapped_products_purchases');
+        Cache::store('file')->forget('all_mapped_products_bills');
         Cache::forget('all_mapped_products_sales');
         Cache::forget('all_mapped_products_purchases');
         Cache::forget('all_mapped_products_bills');

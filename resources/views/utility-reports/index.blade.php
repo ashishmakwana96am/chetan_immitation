@@ -144,32 +144,30 @@
     </div>
 
     <!-- Export Excel Offcanvas Sidepanel -->
-    <div class="offcanvas offcanvas-end" id="utilityExportExcelOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 450px; max-width: 100vw;">
+    <div class="offcanvas offcanvas-end" id="utilityExportExcelOffcanvas" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" style="width: 500px; max-width: 100vw;">
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title fw-semibold">Export Utility Report to Excel</h5>
             <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body p-0 d-flex flex-column" style="overflow: hidden;">
-            <form id="utilityExportExcelForm" class="d-flex flex-column h-100" style="margin: 0;">
-                <div class="p-4" style="flex: 1 1 auto; overflow-y: auto;">
-                    <p class="text-muted mb-3 fs-6">Select date range to export utility activity to Excel. Default is set to the last 1 month.</p>
-                    
+            <form id="utilityExportExcelForm" class="d-flex flex-column h-100 m-0">
+                <div class="flex-grow-1 p-4" style="overflow-y: auto;">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Start Date</label>
+                        <label class="form-label fw-semibold" for="utility_export_start_date">Start Date</label>
                         <input type="text" id="utility_export_start_date" name="start_date" class="form-control flatpickr-utility-export" placeholder="DD-MM-YYYY" value="{{ \Carbon\Carbon::now()->subMonth()->format('Y-m-d') }}" />
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">End Date</label>
+                        <label class="form-label fw-semibold" for="utility_export_end_date">End Date</label>
                         <input type="text" id="utility_export_end_date" name="end_date" class="form-control flatpickr-utility-export" placeholder="DD-MM-YYYY" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" />
                     </div>
                 </div>
 
-                <div class="p-3 border-top bg-light d-flex gap-2">
-                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
-                    <button type="button" id="submitUtilityExportBtn" class="btn btn-success flex-fill w-50 m-0">
+                <div class="d-flex p-4 border-top gap-3 mt-auto mb-0">
+                    <button type="submit" id="submitUtilityExportBtn" class="btn btn-success flex-fill w-50 m-0">
                         <i class="ti ti-file-spreadsheet me-1"></i> Export Excel
                     </button>
+                    <button type="button" class="btn btn-label-secondary flex-fill w-50 m-0" data-bs-dismiss="offcanvas">Cancel</button>
                 </div>
             </form>
         </div>
@@ -283,10 +281,14 @@
                 },
             });
 
-            // The bundled DataTables build doesn't reliably clear its own
-            // processing indicator on this table (stays display:block after
-            // draw completes), so hide it explicitly once each draw is done.
-            table.on('draw.dt', function () {
+            // Processing loader for DataTables data fetching
+            table.on('preXhr.dt', function () {
+                window.showAjaxLoader && window.showAjaxLoader();
+            });
+
+            // Hide processing loader once draw/xhr completes
+            table.on('xhr.dt draw.dt', function () {
+                window.hideAjaxLoader && window.hideAjaxLoader();
                 $('#activityLogTable_processing').css('display', 'none');
             });
 
@@ -322,8 +324,9 @@
                 $('#filter-action').val('').trigger('change.select2');
                 startPicker.clear();
                 endPicker.clear();
-                startPicker.set('maxDate', null);
+                startPicker.set('maxDate', 'today');
                 endPicker.set('minDate', null);
+                endPicker.set('maxDate', 'today');
                 updateFilterButtonsVisibility();
                 window.refreshTable();
             });
@@ -341,6 +344,7 @@
                             } else {
                                 expEndPicker.set('minDate', null);
                             }
+                            expEndPicker.set('maxDate', 'today');
                         }
                     });
                     const expEndPicker = $(expEndEl).flatpickr({
@@ -356,7 +360,8 @@
                 }
             }
 
-            $(document).on('click', '#submitUtilityExportBtn', function () {
+            $(document).on('submit', '#utilityExportExcelForm', function (e) {
+                e.preventDefault();
                 const filters = currentFilters();
                 filters.start_date = $('#utility_export_start_date').val();
                 filters.end_date = $('#utility_export_end_date').val();
@@ -373,8 +378,58 @@
                     bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
                 }
 
+                // Show the branded theme AJAX loader
+                if (window.showAjaxLoader) {
+                    $('.loader-status').text('Exporting Excel');
+                    window.showAjaxLoader();
+                }
+
                 const url = "{{ route('admin.reports.utility.export-excel') }}?" + params.toString();
-                window.location.href = url;
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    xhrFields: {
+                        responseType: 'blob'
+                    },
+                    success: function (data, status, xhr) {
+                        if (window.hideAjaxLoader) {
+                            window.hideAjaxLoader();
+                            $('.loader-status').text('Loading');
+                        }
+
+                        const disposition = xhr.getResponseHeader('Content-Disposition');
+                        let filename = 'utility_report.xlsx';
+                        if (disposition && disposition.indexOf('filename=') !== -1) {
+                            const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                            if (matches != null && matches[1]) {
+                                filename = matches[1].replace(/['"]/g, '');
+                            }
+                        }
+
+                        const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(downloadUrl);
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success('Excel report downloaded successfully!');
+                        }
+                    },
+                    error: function () {
+                        if (window.hideAjaxLoader) {
+                            window.hideAjaxLoader();
+                            $('.loader-status').text('Loading');
+                        }
+                        if (typeof toastr !== 'undefined') {
+                            toastr.error('Failed to export report. Please try again.');
+                        }
+                    }
+                });
             });
         });
     </script>

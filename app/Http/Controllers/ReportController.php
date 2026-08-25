@@ -1807,13 +1807,30 @@ class ReportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Products Report');
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:I1');
+        $sheet->setCellValue('A1', 'Products Report Data');
+        $sheet->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
         // Headers
         $headers = ['#', 'Product Name', 'Barcode', 'Sub Category', 'Purchase Price', 'Sale Price', 'Margin', 'Stock', 'Status'];
         $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
         foreach ($headers as $colIdx => $headerText) {
             $colLetter = $columns[$colIdx];
-            $sheet->setCellValue($colLetter . '1', $headerText);
+            $sheet->setCellValue($colLetter . '2', $headerText);
         }
 
         // Style Header Row
@@ -1831,11 +1848,11 @@ class ReportController extends Controller
                 'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
-        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
-        $sheet->getRowDimension(1)->setRowHeight(26);
+        $sheet->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
 
         // Populate Data Rows
-        $rowIndex = 2;
+        $rowIndex = 3;
         $totalPairs = 0;
         $totalLoosePcs = 0;
 
@@ -1906,12 +1923,12 @@ class ReportController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:I' . $lastRow)->applyFromArray($borderStyle);
+        $sheet->getStyle('A2:I' . $lastRow)->applyFromArray($borderStyle);
 
         // Alignments
-        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('E2:H' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('I1:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('E3:H' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // Auto-adjust Column Widths
         foreach ($columns as $colLetter) {
@@ -2089,7 +2106,6 @@ class ReportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Stock Inventory');
 
-        // Headers
         $headers = ['#', 'Product Name', 'Barcode', 'Category'];
         foreach ($locations as $location) {
             $headers[] = $location->name;
@@ -2101,9 +2117,26 @@ class ReportController extends Controller
         $colCount = count($headers);
         $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:' . $lastColLetter . '1');
+        $sheet->setCellValue('A1', 'Stock Inventory Data');
+        $sheet->getStyle('A1:' . $lastColLetter . '1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
         for ($i = 0; $i < $colCount; $i++) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
-            $sheet->setCellValue($colLetter . '1', $headers[$i]);
+            $sheet->setCellValue($colLetter . '2', $headers[$i]);
         }
 
         // Header Styling: Bold, Grey Fill, Height
@@ -2121,11 +2154,11 @@ class ReportController extends Controller
                 'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
-        $sheet->getStyle('A1:' . $lastColLetter . '1')->applyFromArray($headerStyle);
-        $sheet->getRowDimension(1)->setRowHeight(26);
+        $sheet->getStyle('A2:' . $lastColLetter . '2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
 
         // Data Rows
-        $rowIndex = 2;
+        $rowIndex = 3;
 
         foreach ($productsList as $idx => $item) {
             /** @var Product $prod */
@@ -2198,10 +2231,10 @@ class ReportController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:' . $lastColLetter . $lastRow)->applyFromArray($borderStyle);
+        $sheet->getStyle('A2:' . $lastColLetter . $lastRow)->applyFromArray($borderStyle);
 
         // Alignments
-        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // Auto-adjust Column Widths
         for ($i = 1; $i <= $colCount; $i++) {
@@ -2313,15 +2346,32 @@ class ReportController extends Controller
 
         $spreadsheet = new Spreadsheet();
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
         // Sheet 1: Purchase List
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Purchase List');
+
+        $sheet1->mergeCells('A1:G1');
+        $sheet1->setCellValue('A1', 'Purchase List Data');
+        $sheet1->getStyle('A1:G1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
 
         $headers1 = ['#', 'Purchase No', 'Supplier', 'Type', 'Status', 'Date', 'Total Amount'];
         $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
         foreach ($headers1 as $colIdx => $headerText) {
-            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
+            $sheet1->setCellValue($columns1[$colIdx] . '2', $headerText);
         }
 
         $headerStyle = [
@@ -2329,11 +2379,11 @@ class ReportController extends Controller
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ];
-        $sheet1->getStyle('A1:G1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $sheet1->getStyle('A2:G2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
         $purchaseStatuses = [1 => 'Pending', 2 => 'Approve', 3 => 'Rejected'];
-        $rowIndex = 2;
+        $rowIndex = 3;
         $totalAmountSum = 0;
 
         foreach ($invoices as $idx => $invoice) {
@@ -2347,7 +2397,7 @@ class ReportController extends Controller
             $sheet1->setCellValue('C' . $rowIndex, $invoice->supplier->name ?? 'Unknown');
             $sheet1->setCellValue('D' . $rowIndex, $typeLabel);
             $sheet1->setCellValue('E' . $rowIndex, $statusLabel);
-            $sheet1->setCellValue('F' . $rowIndex, $invoice->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('F' . $rowIndex, $invoice->created_at->format('d-m-Y h:i A'));
             $sheet1->setCellValue('G' . $rowIndex, '₹' . number_format($amount, 2));
 
             $sheet1->getRowDimension($rowIndex)->setRowHeight(20);
@@ -2368,10 +2418,10 @@ class ReportController extends Controller
                 ],
             ],
         ];
-        $sheet1->getStyle('A1:G' . $rowIndex)->applyFromArray($borderStyle);
-        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('D1:F' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('G1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A2:G' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A2:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('D2:F' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('G2:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
@@ -2381,16 +2431,21 @@ class ReportController extends Controller
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Purchased Products');
 
+        $sheet2->mergeCells('A1:E1');
+        $sheet2->setCellValue('A1', 'Top Purchased Products Data');
+        $sheet2->getStyle('A1:E1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
         $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Purchased', 'Total Cost'];
         $columns2 = ['A', 'B', 'C', 'D', 'E'];
 
         foreach ($headers2 as $colIdx => $headerText) {
-            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+            $sheet2->setCellValue($columns2[$colIdx] . '2', $headerText);
         }
-        $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(26);
+        $sheet2->getStyle('A2:E2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
 
-        $rowIndex2 = 2;
+        $rowIndex2 = 3;
         $totalQtySum = 0;
         $totalCostSum = 0;
 
@@ -2417,11 +2472,11 @@ class ReportController extends Controller
         $sheet2->getStyle('A' . $rowIndex2 . ':E' . $rowIndex2)->getFont()->setBold(true);
         $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
 
-        $sheet2->getStyle('A1:E' . $rowIndex2)->applyFromArray($borderStyle);
-        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('D1:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet2->getStyle('E1:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('A2:E' . $rowIndex2)->applyFromArray($borderStyle);
+        $sheet2->getStyle('A2:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C2:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('D2:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('E2:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns2 as $colLetter) {
             $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
@@ -2446,23 +2501,27 @@ class ReportController extends Controller
     {
         $this->authorize('view sale reports');
 
-        $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locationId = $user->location_id;
-        } else {
-            $locationId = $request->query('location_id');
-        }
-
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
+        $locationId = $request->query('location_id');
+        $source = $request->query('source');
         $paymentStatus = $request->query('payment_status');
         $paymentMethod = $request->query('payment_method');
-        $isGst = $request->query('is_gst');
+        $customerId = $request->query('customer_id');
 
-        $query = Order::with(['customer', 'location', 'user'])
+        $user = auth()->user();
+
+        $query = Order::with(['customer', 'location', 'items.product'])
             ->where('order_type', 'sale')
-            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('location_id', $user->location_id));
+            ->whereIn('status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED,
+            ])
+            ->when($user->location_id && !$user->hasRole('super-admin'), function ($q) use ($user) {
+                $q->where('location_id', $user->location_id);
+            });
 
         if ($startDate) {
             $query->whereDate('created_at', '>=', $startDate);
@@ -2473,14 +2532,21 @@ class ReportController extends Controller
         if ($locationId) {
             $query->where('location_id', $locationId);
         }
+        if ($source) {
+            $query->where('source', $source);
+        }
         if ($paymentStatus) {
             $query->where('payment_status', $paymentStatus);
         }
         if ($paymentMethod) {
-            $query->where('payment_method', $paymentMethod);
+            if ($paymentMethod === 'online') {
+                $query->whereIn('payment_method', ['online', 'razorpay']);
+            } else {
+                $query->where('payment_method', $paymentMethod);
+            }
         }
-        if ($isGst !== null && $isGst !== '') {
-            $query->where('is_gst', (bool) $isGst);
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
         }
 
         $orders = $query->latest()->get();
@@ -2500,15 +2566,32 @@ class ReportController extends Controller
 
         $spreadsheet = new Spreadsheet();
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
         // Sheet 1: Orders List
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Orders List');
+
+        $sheet1->mergeCells('A1:J1');
+        $sheet1->setCellValue('A1', 'Sales Orders List Data');
+        $sheet1->getStyle('A1:J1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
 
         $headers1 = ['#', 'Order No', 'Customer', 'Location', 'Payment Status', 'Payment Method', 'Date', 'Cash Amount', 'Online Amount', 'Total Amount'];
         $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
         foreach ($headers1 as $colIdx => $headerText) {
-            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
+            $sheet1->setCellValue($columns1[$colIdx] . '2', $headerText);
         }
 
         $headerStyle = [
@@ -2516,11 +2599,11 @@ class ReportController extends Controller
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ];
-        $sheet1->getStyle('A1:J1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $sheet1->getStyle('A2:J2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
         $paymentStatuses = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
-        $rowIndex = 2;
+        $rowIndex = 3;
         $totalCashSum = 0;
         $totalOnlineSum = 0;
         $totalFinalAmountSum = 0;
@@ -2561,7 +2644,7 @@ class ReportController extends Controller
             $sheet1->setCellValue('D' . $rowIndex, $order->location->name ?? '-');
             $sheet1->setCellValue('E' . $rowIndex, $payStatusLabel);
             $sheet1->setCellValue('F' . $rowIndex, $payMethodLabel);
-            $sheet1->setCellValue('G' . $rowIndex, $order->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('G' . $rowIndex, $order->created_at->format('d-m-Y h:i A'));
             $sheet1->setCellValue('H' . $rowIndex, '₹' . number_format($cashAmt, 2));
             $sheet1->setCellValue('I' . $rowIndex, '₹' . number_format($onlineAmt, 2));
             $sheet1->setCellValue('J' . $rowIndex, '₹' . number_format($finalAmount, 2));
@@ -2586,10 +2669,10 @@ class ReportController extends Controller
                 ],
             ],
         ];
-        $sheet1->getStyle('A1:J' . $rowIndex)->applyFromArray($borderStyle);
-        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('E1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('H1:J' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A2:J' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A2:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('E2:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('H2:J' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
@@ -2599,16 +2682,21 @@ class ReportController extends Controller
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Top Selling Products');
 
+        $sheet2->mergeCells('A1:E1');
+        $sheet2->setCellValue('A1', 'Top Selling Products Data');
+        $sheet2->getStyle('A1:E1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
         $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue'];
         $columns2 = ['A', 'B', 'C', 'D', 'E'];
 
         foreach ($headers2 as $colIdx => $headerText) {
-            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+            $sheet2->setCellValue($columns2[$colIdx] . '2', $headerText);
         }
-        $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(26);
+        $sheet2->getStyle('A2:E2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
 
-        $rowIndex2 = 2;
+        $rowIndex2 = 3;
         $totalQtySoldSum = 0;
         $totalRevenueSum = 0;
 
@@ -2635,11 +2723,11 @@ class ReportController extends Controller
         $sheet2->getStyle('A' . $rowIndex2 . ':E' . $rowIndex2)->getFont()->setBold(true);
         $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
 
-        $sheet2->getStyle('A1:E' . $rowIndex2)->applyFromArray($borderStyle);
-        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('D1:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet2->getStyle('E1:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('A2:E' . $rowIndex2)->applyFromArray($borderStyle);
+        $sheet2->getStyle('A2:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C2:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('D2:D' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('E2:E' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns2 as $colLetter) {
             $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
@@ -3002,7 +3090,6 @@ class ReportController extends Controller
             $expensesQuery->where('expenses.location_id', $locationId);
         }
         $totalExpenses = (float) $expensesQuery->sum('expenses.amount');
-
         $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
         $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
 
@@ -3010,7 +3097,21 @@ class ReportController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
+        $locationName = $locationId ? (Location::find($locationId)->name ?? 'All Locations') : 'All Locations';
+
         $spreadsheet = new Spreadsheet();
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
 
         // Header style
         $headerStyle = [
@@ -3029,16 +3130,24 @@ class ReportController extends Controller
             ],
         ];
 
-        // Sheet 1: Overview
+        // ============================================================
+        // Sheet 1: Overview & Product Profitability Breakdown
+        // ============================================================
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('P&L Overview');
 
-        $headers1 = ['Metric', 'Amount'];
-        $sheet1->setCellValue('A1', $headers1[0]);
-        $sheet1->setCellValue('B1', $headers1[1]);
+        // Section 1: P&L Overview Header & Table
+        $sheet1->mergeCells('A1:B1');
+        $sheet1->setCellValue('A1', 'P&L Overview Data (' . $locationName . ')');
+        $sheet1->getStyle('A1:B1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
 
-        $sheet1->getStyle('A1:B1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $headers1 = ['Metric', 'Amount'];
+        $sheet1->setCellValue('A2', $headers1[0]);
+        $sheet1->setCellValue('B2', $headers1[1]);
+
+        $sheet1->getStyle('A2:B2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
         $overviewData = [
             ['Total Revenue', '₹' . number_format($totalRevenue, 2)],
@@ -3048,7 +3157,7 @@ class ReportController extends Controller
             ['Profit Margin (%)', number_format($profitMargin, 2) . '%'],
         ];
 
-        $r = 2;
+        $r = 3;
         foreach ($overviewData as $row) {
             $sheet1->setCellValue('A' . $r, $row[0]);
             $sheet1->setCellValue('B' . $r, $row[1]);
@@ -3056,75 +3165,152 @@ class ReportController extends Controller
             $r++;
         }
 
-        $sheet1->getStyle('A1:B' . ($r - 1))->applyFromArray($borderStyle);
-        $sheet1->getStyle('B2:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getStyle('A4:B5')->getFont()->setBold(true);
+        $sheet1->getStyle('A2:B' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('B3:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A5:B6')->getFont()->setBold(true);
 
-        $sheet1->getColumnDimension('A')->setAutoSize(true);
-        $sheet1->getColumnDimension('B')->setAutoSize(true);
-
-        // Sheet 2: Product Profitability
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Product Profitability');
+        // Section 2: Product Profitability Breakdown on Sheet 1 (Row 9+)
+        $r1_breakdown = 9;
+        $sheet1->mergeCells('A' . $r1_breakdown . ':H' . $r1_breakdown);
+        $sheet1->setCellValue('A' . $r1_breakdown, 'Product Profitability Breakdown Data (' . $locationName . ')');
+        $sheet1->getStyle('A' . $r1_breakdown . ':H' . $r1_breakdown)->applyFromArray($titleStyle);
+        $sheet1->getRowDimension($r1_breakdown)->setRowHeight(30);
 
         $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Purchase Cost', 'Net Profit', 'Margin (%)'];
         $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
+        $r1_header = $r1_breakdown + 1;
         foreach ($headers2 as $colIdx => $headerText) {
-            $sheet2->setCellValue($columns2[$colIdx] . '1', $headerText);
+            $sheet1->setCellValue($columns2[$colIdx] . $r1_header, $headerText);
         }
+        $sheet1->getStyle('A' . $r1_header . ':H' . $r1_header)->applyFromArray($headerStyle);
+        $sheet1->getRowDimension($r1_header)->setRowHeight(26);
 
-        $sheet2->getStyle('A1:H1')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(26);
-
-        $rowIndex2 = 2;
+        $rowIndex1 = $r1_header + 1;
         $sumQtySold = 0;
         $sumRevenue = 0;
         $sumCost = 0;
         $sumNetProfit = 0;
 
-        $idx = 1;
-        foreach ($productProfitability as $item) {
-            $qty = (int) $item->qty_sold;
-            $rev = (float) $item->total_revenue;
-            $cost = (float) $item->total_cost;
-            $net = $rev - $cost;
-            $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
+        if ($productProfitability->isNotEmpty()) {
+            $idx = 1;
+            foreach ($productProfitability as $item) {
+                $qty = (int) $item->qty_sold;
+                $rev = (float) $item->total_revenue;
+                $cost = (float) $item->total_cost;
+                $net = $rev - $cost;
+                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
 
-            $sumQtySold += $qty;
-            $sumRevenue += $rev;
-            $sumCost += $cost;
-            $sumNetProfit += $net;
+                $sumQtySold += $qty;
+                $sumRevenue += $rev;
+                $sumCost += $cost;
+                $sumNetProfit += $net;
 
-            $sheet2->setCellValue('A' . $rowIndex2, $idx++);
-            $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
-            $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
-            $sheet2->setCellValue('D' . $rowIndex2, $qty);
-            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
-            $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
-            $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
-            $sheet2->setCellValue('H' . $rowIndex2, $margin . '%');
+                $sheet1->setCellValue('A' . $rowIndex1, $idx++);
+                $sheet1->setCellValue('B' . $rowIndex1, $item->name ?? 'Unknown');
+                $sheet1->setCellValue('C' . $rowIndex1, $item->barcode ?? '-');
+                $sheet1->setCellValue('D' . $rowIndex1, $qty);
+                $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($rev, 2));
+                $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($cost, 2));
+                $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($net, 2));
+                $sheet1->setCellValue('H' . $rowIndex1, $margin . '%');
 
-            $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
-            $rowIndex2++;
+                $sheet1->getRowDimension($rowIndex1)->setRowHeight(20);
+                $rowIndex1++;
+            }
+
+            // Totals Row
+            $overallMargin = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+            $sheet1->setCellValue('A' . $rowIndex1, 'Total');
+            $sheet1->setCellValue('D' . $rowIndex1, $sumQtySold);
+            $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($sumRevenue, 2));
+            $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($sumCost, 2));
+            $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($sumNetProfit, 2));
+            $sheet1->setCellValue('H' . $rowIndex1, $overallMargin . '%');
+
+            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
+            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet1->getRowDimension($rowIndex1)->setRowHeight(22);
+
+            $sheet1->getStyle('A' . $r1_header . ':H' . $rowIndex1)->applyFromArray($borderStyle);
+            $sheet1->getStyle('A' . $r1_header . ':A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle('C' . $r1_header . ':C' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet1->getStyle('D' . $r1_header . ':G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet1->getStyle('H' . $r1_header . ':H' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet1->setCellValue('A' . $rowIndex1, 'No product profitability data found.');
+            $sheet1->mergeCells('A' . $rowIndex1 . ':H' . $rowIndex1);
+            $sheet1->getStyle('A' . $r1_header . ':H' . $rowIndex1)->applyFromArray($borderStyle);
         }
 
-        // Totals Row
-        $overallMargin = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
-        $sheet2->setCellValue('A' . $rowIndex2, 'Total');
-        $sheet2->setCellValue('D' . $rowIndex2, $sumQtySold);
-        $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($sumRevenue, 2));
-        $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($sumCost, 2));
-        $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($sumNetProfit, 2));
-        $sheet2->setCellValue('H' . $rowIndex2, $overallMargin . '%');
+        foreach ($columns2 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-        $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFont()->setBold(true);
-        $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+        // ============================================================
+        // Sheet 2: Product Profitability Breakdown
+        // ============================================================
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Product Profitability');
 
-        $sheet2->getStyle('A1:H' . $rowIndex2)->applyFromArray($borderStyle);
-        $sheet2->getStyle('A1:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('C1:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet2->getStyle('D1:H' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->mergeCells('A1:H1');
+        $sheet2->setCellValue('A1', 'Product Profitability Breakdown Data (' . $locationName . ')');
+        $sheet2->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '2', $headerText);
+        }
+
+        $sheet2->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
+
+        if ($productProfitability->isNotEmpty()) {
+            $rowIndex2 = 3;
+            $idx2 = 1;
+            foreach ($productProfitability as $item) {
+                $qty = (int) $item->qty_sold;
+                $rev = (float) $item->total_revenue;
+                $cost = (float) $item->total_cost;
+                $net = $rev - $cost;
+                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
+
+                $sheet2->setCellValue('A' . $rowIndex2, $idx2++);
+                $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
+                $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
+                $sheet2->setCellValue('D' . $rowIndex2, $qty);
+                $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
+                $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
+                $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
+                $sheet2->setCellValue('H' . $rowIndex2, $margin . '%');
+
+                $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
+                $rowIndex2++;
+            }
+
+            // Totals Row
+            $overallMargin2 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+            $sheet2->setCellValue('A' . $rowIndex2, 'Total');
+            $sheet2->setCellValue('D' . $rowIndex2, $sumQtySold);
+            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($sumRevenue, 2));
+            $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($sumCost, 2));
+            $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($sumNetProfit, 2));
+            $sheet2->setCellValue('H' . $rowIndex2, $overallMargin2 . '%');
+
+            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+
+            $sheet2->getStyle('A2:H' . $rowIndex2)->applyFromArray($borderStyle);
+            $sheet2->getStyle('A2:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle('C2:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle('D2:G' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet2->getStyle('H2:H' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet2->setCellValue('A3', 'No product profitability data found.');
+            $sheet2->mergeCells('A3:H3');
+            $sheet2->getStyle('A2:H3')->applyFromArray($borderStyle);
+        }
 
         foreach ($columns2 as $colLetter) {
             $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
@@ -3425,6 +3611,18 @@ class ReportController extends Controller
 
         $spreadsheet = new Spreadsheet();
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
@@ -3444,18 +3642,23 @@ class ReportController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Payments List');
 
+        $sheet1->mergeCells('A1:J1');
+        $sheet1->setCellValue('A1', 'Payments List Data');
+        $sheet1->getStyle('A1:J1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
+
         $headers1 = ['#', 'Order / Refund No', 'Customer Name', 'Source', 'Payment Method', 'Payment Status', 'Date', 'Cash Amount', 'Online Amount', 'Total Amount'];
         $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
         foreach ($headers1 as $colIdx => $headerText) {
-            $sheet1->setCellValue($columns1[$colIdx] . '1', $headerText);
+            $sheet1->setCellValue($columns1[$colIdx] . '2', $headerText);
         }
 
-        $sheet1->getStyle('A1:J1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $sheet1->getStyle('A2:J2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
         $paymentStatusLabels = [1 => 'Pending', 2 => 'Paid', 3 => 'Partially Paid'];
-        $rowIndex1 = 2;
+        $rowIndex1 = 3;
         $sumCashAmount = 0;
         $sumOnlineAmount = 0;
         $sumTotalAmount = 0;
@@ -3508,7 +3711,7 @@ class ReportController extends Controller
             $sheet1->setCellValue('D' . $rowIndex1, $sourceLabel);
             $sheet1->setCellValue('E' . $rowIndex1, $methodLabel);
             $sheet1->setCellValue('F' . $rowIndex1, $statusLabel);
-            $sheet1->setCellValue('G' . $rowIndex1, $order->created_at->format('d-m-Y'));
+            $sheet1->setCellValue('G' . $rowIndex1, $order->created_at->format('d-m-Y h:i A'));
             $sheet1->setCellValue('H' . $rowIndex1, '₹' . number_format($cashAmt, 2));
             $sheet1->setCellValue('I' . $rowIndex1, '₹' . number_format($onlineAmt, 2));
             $sheet1->setCellValue('J' . $rowIndex1, '₹' . number_format($totAmt, 2));
@@ -3526,10 +3729,10 @@ class ReportController extends Controller
         $sheet1->getStyle('A' . $rowIndex1 . ':J' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
         $sheet1->getRowDimension($rowIndex1)->setRowHeight(24);
 
-        $sheet1->getStyle('A1:J' . $rowIndex1)->applyFromArray($borderStyle);
-        $sheet1->getStyle('A1:A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('G1:G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('H1:J' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A2:J' . $rowIndex1)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A2:A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('G2:G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('H2:J' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
@@ -3539,11 +3742,16 @@ class ReportController extends Controller
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('Payment Summary');
 
-        $sheet2->setCellValue('A1', 'Metric');
-        $sheet2->setCellValue('B1', 'Count');
-        $sheet2->setCellValue('C1', 'Amount');
-        $sheet2->getStyle('A1:C1')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(26);
+        $sheet2->mergeCells('A1:C1');
+        $sheet2->setCellValue('A1', 'Payment Summary Data');
+        $sheet2->getStyle('A1:C1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
+        $sheet2->setCellValue('A2', 'Metric');
+        $sheet2->setCellValue('B2', 'Count');
+        $sheet2->setCellValue('C2', 'Amount');
+        $sheet2->getStyle('A2:C2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
 
         $summaryData = [
             ['Total Sales Payments', $totalCount, '₹' . number_format($totalAmount, 2)],
@@ -3551,7 +3759,7 @@ class ReportController extends Controller
             ['Refunded Payments', $refundCount, '₹' . number_format($refundAmount, 2)],
         ];
 
-        $r = 2;
+        $r = 3;
         foreach ($summaryData as $row) {
             $sheet2->setCellValue('A' . $r, $row[0]);
             $sheet2->setCellValue('B' . $r, $row[1]);
@@ -3560,8 +3768,9 @@ class ReportController extends Controller
             $r++;
         }
 
-        $sheet2->getStyle('A1:C' . ($r - 1))->applyFromArray($borderStyle);
-        $sheet2->getStyle('B2:C' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet2->getStyle('A2:C' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet2->getStyle('B2:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->getStyle('C2:C' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         $sheet2->getColumnDimension('A')->setAutoSize(true);
         $sheet2->getColumnDimension('B')->setAutoSize(true);
         $sheet2->getColumnDimension('C')->setAutoSize(true);
@@ -3571,7 +3780,7 @@ class ReportController extends Controller
         ActivityLogger::log('Reports', 'export', null, null, null, 'Payment report exported to Excel');
 
         $writer = new Xlsx($spreadsheet);
-        $filename = 'payment_report_' . date('Ymd_His') . '.xlsx';
+        $filename = 'payments_report_' . date('Y_m_d_His') . '.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
@@ -3609,16 +3818,19 @@ class ReportController extends Controller
         [$date, $locationId, $locations, $isSuperAdmin] = $this->resolveDailyReportFilters($request);
         $data = $this->buildDailyReportData($date, $locationId);
 
-        if (
-            $data['salesRows']->isEmpty() &&
-            $data['purchaseRows']->isEmpty() &&
-            $data['expenseRows']->isEmpty() &&
-            $data['purchaseBillRows']->isEmpty()
-        ) {
-            return redirect()->back()->with('error', 'No data found for the selected date. Nothing to export.');
-        }
-
         $spreadsheet = new Spreadsheet();
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
 
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
@@ -3635,186 +3847,226 @@ class ReportController extends Controller
             ],
         ];
 
-        // Sheet 1: Daily Summary (Always present and populated)
+        // ============================================================
+        // Sheet 1: Sales
+        // ============================================================
         $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Daily Summary');
+        $sheet1->setTitle('Sales');
 
-        $sheet1->setCellValue('A1', 'Metric');
-        $sheet1->setCellValue('B1', 'Value');
-        $sheet1->getStyle('A1:B1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $sheet1->mergeCells('A1:I1');
+        $sheet1->setCellValue('A1', 'Sales Data');
+        $sheet1->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
 
-        $selectedLocation = $locationId ? Location::find($locationId) : null;
-        $locName = $selectedLocation->name ?? 'All Locations';
+        $headers1 = ['#', 'Sale No', 'Customer', 'Location', 'Source', 'Amount', 'Status', 'Payment Status', 'Method'];
+        $cols1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
-        $summaryData = [
-            ['Report Date', $date],
-            ['Location', $locName],
-            ['Total Sales Amount', '₹' . number_format($data['totalSales'], 2)],
-            ['Pending Sales Amount', '₹' . number_format($data['totalPendingSales'], 2)],
-            ['Sales Orders Count', $data['totalSalesCount']],
-            ['Total Purchases Amount', '₹' . number_format($data['totalPurchases'], 2)],
-            ['Pending Purchases Amount', '₹' . number_format($data['totalPendingPurchases'], 2)],
-            ['Purchases Count', $data['totalPurchasesCount']],
-            ['Total Expenses Amount', '₹' . number_format($data['totalExpenses'], 2)],
-            ['Expenses Count', $data['totalExpensesCount']],
-            ['Transfers Count', $data['totalTransfersCount']],
-            ['Transfers Total Qty', $data['totalTransfersQty']],
-        ];
-
-        $r = 2;
-        foreach ($summaryData as $row) {
-            $sheet1->setCellValue('A' . $r, $row[0]);
-            $sheet1->setCellValue('B' . $r, $row[1]);
-            $sheet1->getRowDimension($r)->setRowHeight(20);
-            $r++;
+        foreach ($headers1 as $cIdx => $hText) {
+            $sheet1->setCellValue($cols1[$cIdx] . '2', $hText);
         }
-
-        $sheet1->getStyle('A1:B' . ($r - 1))->applyFromArray($borderStyle);
-        $sheet1->getStyle('B3:B12')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getColumnDimension('A')->setAutoSize(true);
-        $sheet1->getColumnDimension('B')->setAutoSize(true);
-
-        // Sheet 2: Sales
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Sales');
-
-        $headers2 = ['#', 'Sale No', 'Customer', 'Location', 'Source', 'Status', 'Payment Status', 'Method', 'Amount'];
-        $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-
-        foreach ($headers2 as $colIdx => $hText) {
-            $sheet2->setCellValue($columns2[$colIdx] . '1', $hText);
-        }
-        $sheet2->getStyle('A1:I1')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(26);
+        $sheet1->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
         if ($data['salesRows']->isNotEmpty()) {
-            $r2 = 2;
-            $sumTotal = 0;
+            $r1 = 3;
+            $sumSalesAmount = 0.0;
             foreach ($data['salesRows'] as $idx => $row) {
                 $amt = (float) ($row['amount'] ?? 0);
-                $sumTotal += $amt;
+                $sumSalesAmount += $amt;
+
+                $sheet1->setCellValue('A' . $r1, $idx + 1);
+                $sheet1->setCellValue('B' . $r1, $row['sale_no'] ?? '-');
+                $sheet1->setCellValue('C' . $r1, $row['customer'] ?? '-');
+                $sheet1->setCellValue('D' . $r1, $row['location'] ?? '-');
+                $sheet1->setCellValue('E' . $r1, $row['source'] ?? '-');
+                $sheet1->setCellValue('F' . $r1, '₹' . number_format($amt, 2));
+                $sheet1->setCellValue('G' . $r1, strip_tags($row['status'] ?? '-'));
+                $sheet1->setCellValue('H' . $r1, strip_tags($row['payment_status'] ?? '-'));
+                $sheet1->setCellValue('I' . $r1, $row['method'] ?? '-');
+                $sheet1->getRowDimension($r1)->setRowHeight(20);
+                $r1++;
+            }
+
+            $sheet1->setCellValue('A' . $r1, 'Total');
+            $sheet1->setCellValue('F' . $r1, '₹' . number_format($sumSalesAmount, 2));
+            $sheet1->getStyle("A{$r1}:I{$r1}")->getFont()->setBold(true);
+            $sheet1->getStyle("A{$r1}:I{$r1}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet1->getStyle("A2:I{$r1}")->applyFromArray($borderStyle);
+            $sheet1->getStyle("F2:F{$r1}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet1->setCellValue('A3', 'No sales data available for the selected date.');
+            $sheet1->mergeCells('A3:I3');
+            $sheet1->getStyle('A2:I3')->applyFromArray($borderStyle);
+        }
+
+        foreach ($cols1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // ============================================================
+        // Sheet 2: Purchases
+        // ============================================================
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Purchases');
+
+        $sheet2->mergeCells('A1:F1');
+        $sheet2->setCellValue('A1', 'Purchases Data');
+        $sheet2->getStyle('A1:F1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
+        $headers2 = ['#', 'Purchase No', 'Supplier', 'Total Amount', 'Status', 'Payment Status'];
+        $cols2 = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+        foreach ($headers2 as $cIdx => $hText) {
+            $sheet2->setCellValue($cols2[$cIdx] . '2', $hText);
+        }
+        $sheet2->getStyle('A2:F2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
+
+        if ($data['purchaseRows']->isNotEmpty()) {
+            $r2 = 3;
+            $sumPurAmount = 0.0;
+            foreach ($data['purchaseRows'] as $idx => $row) {
+                $amt = (float) ($row['total_amount'] ?? 0);
+                $sumPurAmount += $amt;
 
                 $sheet2->setCellValue('A' . $r2, $idx + 1);
-                $sheet2->setCellValue('B' . $r2, $row['sale_no'] ?? '-');
-                $sheet2->setCellValue('C' . $r2, $row['customer'] ?? '-');
-                $sheet2->setCellValue('D' . $r2, $row['location'] ?? '-');
-                $sheet2->setCellValue('E' . $r2, $row['source'] ?? '-');
-                $sheet2->setCellValue('F' . $r2, strip_tags($row['status'] ?? '-'));
-                $sheet2->setCellValue('G' . $r2, strip_tags($row['payment_status'] ?? '-'));
-                $sheet2->setCellValue('H' . $r2, $row['method'] ?? '-');
-                $sheet2->setCellValue('I' . $r2, '₹' . number_format($amt, 2));
+                $sheet2->setCellValue('B' . $r2, $row['purchase_no'] ?? '-');
+                $sheet2->setCellValue('C' . $r2, $row['supplier'] ?? '-');
+                $sheet2->setCellValue('D' . $r2, '₹' . number_format($amt, 2));
+                $sheet2->setCellValue('E' . $r2, strip_tags($row['status'] ?? '-'));
+                $sheet2->setCellValue('F' . $r2, strip_tags($row['payment_status'] ?? '-'));
                 $sheet2->getRowDimension($r2)->setRowHeight(20);
                 $r2++;
             }
 
             $sheet2->setCellValue('A' . $r2, 'Total');
-            $sheet2->setCellValue('I' . $r2, '₹' . number_format($sumTotal, 2));
-            $sheet2->getStyle('A' . $r2 . ':I' . $r2)->getFont()->setBold(true);
-            $sheet2->getStyle('A' . $r2 . ':I' . $r2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-
-            $sheet2->getStyle('A1:I' . $r2)->applyFromArray($borderStyle);
-            $sheet2->getStyle('I1:I' . $r2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet2->setCellValue('D' . $r2, '₹' . number_format($sumPurAmount, 2));
+            $sheet2->getStyle("A{$r2}:F{$r2}")->getFont()->setBold(true);
+            $sheet2->getStyle("A{$r2}:F{$r2}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet2->getStyle("A2:F{$r2}")->applyFromArray($borderStyle);
+            $sheet2->getStyle("D2:D{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         } else {
-            $sheet2->setCellValue('A2', 'No sales data available for the selected date.');
-            $sheet2->mergeCells('A2:I2');
-            $sheet2->getStyle('A1:I2')->applyFromArray($borderStyle);
+            $sheet2->setCellValue('A3', 'No purchase data available for the selected date.');
+            $sheet2->mergeCells('A3:F3');
+            $sheet2->getStyle('A2:F3')->applyFromArray($borderStyle);
         }
-        foreach ($columns2 as $colLetter) {
+
+        foreach ($cols2 as $colLetter) {
             $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
-        // Sheet 3: Purchases
+        // ============================================================
+        // Sheet 3: Expenses
+        // ============================================================
         $sheet3 = $spreadsheet->createSheet();
-        $sheet3->setTitle('Purchases');
+        $sheet3->setTitle('Expenses');
 
-        $headers3 = ['#', 'Purchase No', 'Supplier', 'Status', 'Payment Status', 'Total Amount'];
-        $columns3 = ['A', 'B', 'C', 'D', 'E', 'F'];
+        $sheet3->mergeCells('A1:H1');
+        $sheet3->setCellValue('A1', 'Expenses Data');
+        $sheet3->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet3->getRowDimension(1)->setRowHeight(30);
 
-        foreach ($headers3 as $colIdx => $hText) {
-            $sheet3->setCellValue($columns3[$colIdx] . '1', $hText);
+        $headers3 = ['#', 'Title', 'Category', 'Amount', 'Payment Method', 'Location', 'Expense Date', 'Created By'];
+        $cols3 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers3 as $cIdx => $hText) {
+            $sheet3->setCellValue($cols3[$cIdx] . '2', $hText);
         }
-        $sheet3->getStyle('A1:F1')->applyFromArray($headerStyle);
-        $sheet3->getRowDimension(1)->setRowHeight(26);
+        $sheet3->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet3->getRowDimension(2)->setRowHeight(26);
 
-        if ($data['purchaseRows']->isNotEmpty()) {
-            $r3 = 2;
-            $sumPur = 0;
-            foreach ($data['purchaseRows'] as $idx => $row) {
-                $amt = (float) ($row['total_amount'] ?? 0);
-                $sumPur += $amt;
+        if ($data['expenseRows']->isNotEmpty()) {
+            $r3 = 3;
+            $sumExpAmount = 0.0;
+            foreach ($data['expenseRows'] as $idx => $row) {
+                $amt = (float) ($row['amount'] ?? 0);
+                $sumExpAmount += $amt;
 
                 $sheet3->setCellValue('A' . $r3, $idx + 1);
-                $sheet3->setCellValue('B' . $r3, $row['purchase_no'] ?? '-');
-                $sheet3->setCellValue('C' . $r3, $row['supplier'] ?? '-');
-                $sheet3->setCellValue('D' . $r3, strip_tags($row['status'] ?? '-'));
-                $sheet3->setCellValue('E' . $r3, strip_tags($row['payment_status'] ?? '-'));
-                $sheet3->setCellValue('F' . $r3, '₹' . number_format($amt, 2));
+                $sheet3->setCellValue('B' . $r3, $row['title'] ?? '-');
+                $sheet3->setCellValue('C' . $r3, $row['category'] ?? '-');
+                $sheet3->setCellValue('D' . $r3, '₹' . number_format($amt, 2));
+                $sheet3->setCellValue('E' . $r3, $row['payment_method'] ?? '-');
+                $sheet3->setCellValue('F' . $r3, $row['location'] ?? '-');
+                $sheet3->setCellValue('G' . $r3, $row['expense_date'] ?? '-');
+                $sheet3->setCellValue('H' . $r3, $row['created_by'] ?? '-');
                 $sheet3->getRowDimension($r3)->setRowHeight(20);
                 $r3++;
             }
 
             $sheet3->setCellValue('A' . $r3, 'Total');
-            $sheet3->setCellValue('F' . $r3, '₹' . number_format($sumPur, 2));
-            $sheet3->getStyle('A' . $r3 . ':F' . $r3)->getFont()->setBold(true);
-            $sheet3->getStyle('A' . $r3 . ':F' . $r3)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-
-            $sheet3->getStyle('A1:F' . $r3)->applyFromArray($borderStyle);
-            $sheet3->getStyle('F1:F' . $r3)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet3->setCellValue('D' . $r3, '₹' . number_format($sumExpAmount, 2));
+            $sheet3->getStyle("A{$r3}:H{$r3}")->getFont()->setBold(true);
+            $sheet3->getStyle("A{$r3}:H{$r3}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet3->getStyle("A2:H{$r3}")->applyFromArray($borderStyle);
+            $sheet3->getStyle("D2:D{$r3}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         } else {
-            $sheet3->setCellValue('A2', 'No purchase data available for the selected date.');
-            $sheet3->mergeCells('A2:F2');
-            $sheet3->getStyle('A1:F2')->applyFromArray($borderStyle);
+            $sheet3->setCellValue('A3', 'No expense data available for the selected date.');
+            $sheet3->mergeCells('A3:H3');
+            $sheet3->getStyle('A2:H3')->applyFromArray($borderStyle);
         }
-        foreach ($columns3 as $colLetter) {
+
+        foreach ($cols3 as $colLetter) {
             $sheet3->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
-        // Sheet 4: Expenses
+        // ============================================================
+        // Sheet 4: Purchase Bill
+        // ============================================================
         $sheet4 = $spreadsheet->createSheet();
-        $sheet4->setTitle('Expenses');
+        $sheet4->setTitle('Purchase Bill');
 
-        $headers4 = ['#', 'Title', 'Category', 'Location', 'Expense Date', 'Payment Method', 'Created By', 'Amount'];
-        $columns4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $sheet4->mergeCells('A1:H1');
+        $sheet4->setCellValue('A1', 'Purchase Bill Data');
+        $sheet4->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet4->getRowDimension(1)->setRowHeight(30);
 
-        foreach ($headers4 as $colIdx => $hText) {
-            $sheet4->setCellValue($columns4[$colIdx] . '1', $hText);
+        $headers4 = ['#', 'Bill No', 'Source', 'Destination', 'Total Quantity', 'Amount', 'Status', 'Created By'];
+        $cols4 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        foreach ($headers4 as $cIdx => $hText) {
+            $sheet4->setCellValue($cols4[$cIdx] . '2', $hText);
         }
-        $sheet4->getStyle('A1:H1')->applyFromArray($headerStyle);
-        $sheet4->getRowDimension(1)->setRowHeight(26);
+        $sheet4->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet4->getRowDimension(2)->setRowHeight(26);
 
-        if ($data['expenseRows']->isNotEmpty()) {
-            $r4 = 2;
-            $sumExp = 0;
-            foreach ($data['expenseRows'] as $idx => $row) {
+        if ($data['purchaseBillRows']->isNotEmpty()) {
+            $r4 = 3;
+            $sumBillQty = 0;
+            $sumBillAmount = 0.0;
+            foreach ($data['purchaseBillRows'] as $idx => $row) {
+                $qty = (int) ($row['total_quantity'] ?? 0);
                 $amt = (float) ($row['amount'] ?? 0);
-                $sumExp += $amt;
+                $sumBillQty += $qty;
+                $sumBillAmount += $amt;
 
                 $sheet4->setCellValue('A' . $r4, $idx + 1);
-                $sheet4->setCellValue('B' . $r4, $row['title'] ?? '-');
-                $sheet4->setCellValue('C' . $r4, $row['category'] ?? '-');
-                $sheet4->setCellValue('D' . $r4, $row['location'] ?? '-');
-                $sheet4->setCellValue('E' . $r4, $row['expense_date'] ?? '-');
-                $sheet4->setCellValue('F' . $r4, $row['payment_method'] ?? '-');
-                $sheet4->setCellValue('G' . $r4, $row['created_by'] ?? '-');
-                $sheet4->setCellValue('H' . $r4, '₹' . number_format($amt, 2));
+                $sheet4->setCellValue('B' . $r4, $row['bill_no'] ?? '-');
+                $sheet4->setCellValue('C' . $r4, $row['source'] ?? '-');
+                $sheet4->setCellValue('D' . $r4, $row['destination'] ?? '-');
+                $sheet4->setCellValue('E' . $r4, $qty);
+                $sheet4->setCellValue('F' . $r4, '₹' . number_format($amt, 2));
+                $sheet4->setCellValue('G' . $r4, strip_tags($row['status'] ?? '-'));
+                $sheet4->setCellValue('H' . $r4, $row['created_by'] ?? '-');
                 $sheet4->getRowDimension($r4)->setRowHeight(20);
                 $r4++;
             }
 
             $sheet4->setCellValue('A' . $r4, 'Total');
-            $sheet4->setCellValue('H' . $r4, '₹' . number_format($sumExp, 2));
-            $sheet4->getStyle('A' . $r4 . ':H' . $r4)->getFont()->setBold(true);
-            $sheet4->getStyle('A' . $r4 . ':H' . $r4)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-
-            $sheet4->getStyle('A1:H' . $r4)->applyFromArray($borderStyle);
-            $sheet4->getStyle('H1:H' . $r4)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet4->setCellValue('E' . $r4, $sumBillQty);
+            $sheet4->setCellValue('F' . $r4, '₹' . number_format($sumBillAmount, 2));
+            $sheet4->getStyle("A{$r4}:H{$r4}")->getFont()->setBold(true);
+            $sheet4->getStyle("A{$r4}:H{$r4}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet4->getStyle("A2:H{$r4}")->applyFromArray($borderStyle);
+            $sheet4->getStyle("E2:F{$r4}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         } else {
-            $sheet4->setCellValue('A2', 'No expense data available for the selected date.');
-            $sheet4->mergeCells('A2:H2');
-            $sheet4->getStyle('A1:H2')->applyFromArray($borderStyle);
+            $sheet4->setCellValue('A3', 'No purchase bill data available for the selected date.');
+            $sheet4->mergeCells('A3:H3');
+            $sheet4->getStyle('A2:H3')->applyFromArray($borderStyle);
         }
-        foreach ($columns4 as $colLetter) {
+
+        foreach ($cols4 as $colLetter) {
             $sheet4->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
@@ -4240,8 +4492,6 @@ class ReportController extends Controller
             'endDate' => $endDate,
             'customerId' => $customerId,
             'creditCustomers' => $creditCustomers,
-            // Net balance for the currently filtered result set (Credit - Debit),
-            // not the customer's absolute wallet balance, so it moves with the filters.
             'totalWalletBalance' => $totalCredit - $totalDebit,
         ];
     }
@@ -4265,6 +4515,18 @@ class ReportController extends Controller
 
         $spreadsheet = new Spreadsheet();
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
@@ -4284,16 +4546,21 @@ class ReportController extends Controller
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('Transactions');
 
+        $sheet1->mergeCells('A1:I1');
+        $sheet1->setCellValue('A1', 'Customer Credit Transactions Data');
+        $sheet1->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
+
         $headers1 = ['#', 'Date', 'Customer Name', 'Type', 'Source', 'Amount', 'Balance After', 'Notes', 'Created By'];
         $columns1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
         foreach ($headers1 as $colIdx => $hText) {
-            $sheet1->setCellValue($columns1[$colIdx] . '1', $hText);
+            $sheet1->setCellValue($columns1[$colIdx] . '2', $hText);
         }
-        $sheet1->getStyle('A1:I1')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(26);
+        $sheet1->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
 
-        $rowIndex = 2;
+        $rowIndex = 3;
         $totalCredit = 0;
         $totalDebit = 0;
 
@@ -4310,7 +4577,7 @@ class ReportController extends Controller
             }
 
             $sheet1->setCellValue('A' . $rowIndex, $idx + 1);
-            $sheet1->setCellValue('B' . $rowIndex, $t->created_at->format('d-m-Y H:i'));
+            $sheet1->setCellValue('B' . $rowIndex, $t->created_at->format('d-m-Y h:i A'));
             $sheet1->setCellValue('C' . $rowIndex, $t->customer->name ?? '-');
             $sheet1->setCellValue('D' . $rowIndex, $typeLabel);
             $sheet1->setCellValue('E' . $rowIndex, $sourceLabel);
@@ -4330,10 +4597,10 @@ class ReportController extends Controller
         $sheet1->getStyle('A' . $rowIndex . ':I' . $rowIndex)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
         $sheet1->getRowDimension($rowIndex)->setRowHeight(24);
 
-        $sheet1->getStyle('A1:I' . $rowIndex)->applyFromArray($borderStyle);
-        $sheet1->getStyle('A1:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('B1:B' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('F1:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A2:I' . $rowIndex)->applyFromArray($borderStyle);
+        $sheet1->getStyle('A2:A' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('B2:B' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('F2:G' . $rowIndex)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns1 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
@@ -4344,16 +4611,21 @@ class ReportController extends Controller
             $sheet2 = $spreadsheet->createSheet();
             $sheet2->setTitle('Customer Balances');
 
+            $sheet2->mergeCells('A1:E1');
+            $sheet2->setCellValue('A1', 'Customer Credit Balances Data');
+            $sheet2->getStyle('A1:E1')->applyFromArray($titleStyle);
+            $sheet2->getRowDimension(1)->setRowHeight(30);
+
             $headers2 = ['#', 'Customer Name', 'Phone', 'Credit Limit', 'Current Credit Balance'];
             $columns2 = ['A', 'B', 'C', 'D', 'E'];
 
             foreach ($headers2 as $colIdx => $hText) {
-                $sheet2->setCellValue($columns2[$colIdx] . '1', $hText);
+                $sheet2->setCellValue($columns2[$colIdx] . '2', $hText);
             }
-            $sheet2->getStyle('A1:E1')->applyFromArray($headerStyle);
-            $sheet2->getRowDimension(1)->setRowHeight(26);
+            $sheet2->getStyle('A2:E2')->applyFromArray($headerStyle);
+            $sheet2->getRowDimension(2)->setRowHeight(26);
 
-            $r2 = 2;
+            $r2 = 3;
             $sumBal = 0;
             foreach ($data['creditCustomers'] as $idx => $c) {
                 $bal = (float) $c->credit_balance;
@@ -4371,10 +4643,8 @@ class ReportController extends Controller
             $sheet2->setCellValue('A' . $r2, 'Total Balance');
             $sheet2->setCellValue('E' . $r2, '₹' . number_format($sumBal, 2));
             $sheet2->getStyle('A' . $r2 . ':E' . $r2)->getFont()->setBold(true);
-            $sheet2->getStyle('A' . $r2 . ':E' . $r2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-
-            $sheet2->getStyle('A1:E' . $r2)->applyFromArray($borderStyle);
-            $sheet2->getStyle('D1:E' . $r2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet2->getStyle('A2:E' . $r2)->applyFromArray($borderStyle);
+            $sheet2->getStyle('D2:E' . $r2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             foreach ($columns2 as $colLetter) {
                 $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
             }

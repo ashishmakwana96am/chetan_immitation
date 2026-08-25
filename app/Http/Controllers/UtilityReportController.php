@@ -132,11 +132,28 @@ class UtilityReportController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Activity Logs');
 
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:I1');
+        $sheet->setCellValue('A1', 'Activity Log Utility Report Data');
+        $sheet->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
         $headers = ['#', 'Date & Time', 'User Name', 'Role', 'Location', 'Module', 'Action', 'Description', 'IP Address'];
         $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
         foreach ($headers as $colIdx => $hText) {
-            $sheet->setCellValue($columns[$colIdx] . '1', $hText);
+            $sheet->setCellValue($columns[$colIdx] . '2', $hText);
         }
 
         $headerStyle = [
@@ -144,12 +161,12 @@ class UtilityReportController extends Controller
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ];
-        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
-        $sheet->getRowDimension(1)->setRowHeight(26);
+        $sheet->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
 
-        $rowIndex = 2;
+        $rowIndex = 3;
         foreach ($logs as $idx => $log) {
-            $dateStr = $log->created_at ? $log->created_at->format('d-m-Y H:i') : '-';
+            $dateStr = $log->created_at ? $log->created_at->format('d-m-Y h:i A') : '-';
             $userRole = $log->user_role ? ucwords(str_replace('-', ' ', $log->user_role)) : '-';
             $actionStr = ucwords(str_replace('_', ' ', $log->action));
 
@@ -176,11 +193,11 @@ class UtilityReportController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:I' . $lastRow)->applyFromArray($borderStyle);
+        $sheet->getStyle('A2:I' . $lastRow)->applyFromArray($borderStyle);
 
-        $sheet->getStyle('A1:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('B1:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('I1:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B2:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('I2:I' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         foreach ($columns as $colLetter) {
             $sheet->getColumnDimension($colLetter)->setAutoSize(true);

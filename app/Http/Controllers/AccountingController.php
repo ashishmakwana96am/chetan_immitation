@@ -25,6 +25,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class AccountingController extends Controller
 {
@@ -601,25 +606,96 @@ class AccountingController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'General Ledger',
-                'pdfUrl' => route('admin.accounting.general-ledger.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $locationName = $filterLocationId ? (Location::find($filterLocationId)->name ?? 'All Locations') : 'All Locations';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('General Ledger');
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:I1');
+        $sheet->setCellValue('A1', 'General Ledger Data (' . $locationName . ')');
+        $sheet->getStyle('A1:I1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        $headers = ['#', 'Date', 'Source', 'Balance Type', 'Location', 'Particulars', 'In (Credit)', 'Out (Debit)', 'Done By'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        foreach ($headers as $cIdx => $hText) {
+            $sheet->setCellValue($cols[$cIdx] . '2', $hText);
+        }
+        $sheet->getStyle('A2:I2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        foreach ($rows as $idx => $row) {
+            $dateStr = $row['date'] ? $row['date']->format('d-m-Y h:i A') : '-';
+            $inStr = $row['is_credit'] ? '₹' . number_format($row['amount'], 2) : '-';
+            $outStr = !$row['is_credit'] ? '₹' . number_format($row['amount'], 2) : '-';
+
+            $sheet->setCellValue('A' . $r, $idx + 1);
+            $sheet->setCellValue('B' . $r, $dateStr);
+            $sheet->setCellValue('C' . $r, $row['source']);
+            $sheet->setCellValue('D' . $r, $row['balance_type']);
+            $sheet->setCellValue('E' . $r, $row['location']);
+            $sheet->setCellValue('F' . $r, $row['particulars']);
+            $sheet->setCellValue('G' . $r, $inStr);
+            $sheet->setCellValue('H' . $r, $outStr);
+            $sheet->setCellValue('I' . $r, $row['done_by']);
+            $sheet->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('accounting.pdf.general-ledger', compact(
-            'rows',
-            'startDate',
-            'endDate',
-            'totalCredit',
-            'totalDebit',
-            'isRestricted'
-        ))->setPaper('a4', 'landscape');
+        $sheet->setCellValue('A' . $r, 'Total');
+        $sheet->setCellValue('G' . $r, '₹' . number_format($totalCredit, 2));
+        $sheet->setCellValue('H' . $r, '₹' . number_format($totalDebit, 2));
+        $sheet->getStyle("A{$r}:I{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:I{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:I{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("A2:D{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("G2:H{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        ActivityLogger::log('Accounting', 'export', null, null, null, 'General ledger exported to PDF');
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-        return $pdf->stream('general_ledger_' . now()->format('Ymd_His') . '.pdf');
+        ActivityLogger::log('Accounting', 'export', null, null, null, 'General ledger exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'general_ledger_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function outstandingPayables(Request $request)

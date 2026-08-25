@@ -18,8 +18,8 @@
             <h4 class="fw-semibold mb-0">Supplier Ledger</h4>
             <small class="text-muted">Company-wide across all branches</small>
         </div>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
     </div>
 
@@ -240,7 +240,7 @@
                 window.refreshTable();
             });
 
-            $(document).on('click', '#exportPdfBtn', function () {
+            $(document).on('click', '#exportExcelBtn', function () {
                 const params = new URLSearchParams();
                 const filters = currentFilters();
                 Object.keys(filters).forEach(function (key) {
@@ -248,8 +248,39 @@
                         params.append(key, filters[key]);
                     }
                 });
-                params.append('auto_print', '1');
-                window.open("{{ route('admin.ledgers.supplier.export') }}?" + params.toString(), '_blank');
+
+                if (window.showAjaxLoader) {
+                    window.showAjaxLoader();
+                }
+
+                fetch("{{ route('admin.ledgers.supplier.export') }}?" + params.toString(), {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Export failed');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'supplier_ledger_' + ($('#filter-as-on-date').val() || 'report') + '.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    toastr.error('Failed to export Excel. Please try again.');
+                })
+                .finally(() => {
+                    if (window.hideAjaxLoader) {
+                        window.hideAjaxLoader();
+                    }
+                });
             });
 
             // Double click anywhere on row to navigate to details page

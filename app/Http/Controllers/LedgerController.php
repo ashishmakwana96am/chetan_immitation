@@ -19,6 +19,11 @@ use App\Models\SupplierBalance;
 use App\Services\ActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class LedgerController extends Controller
 {
@@ -429,29 +434,86 @@ class LedgerController extends Controller
         $totalPaid   = $rows->sum('paid_amount');
         $totalDue    = $rows->sum('due_amount');
 
-        if ($rows->isEmpty()) {
-            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Supplier Ledger');
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:E1');
+        $sheet->setCellValue('A1', 'Supplier Ledger Data (' . $locationName . ')');
+        $sheet->getStyle('A1:E1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        $headers = ['#', 'Supplier', 'Total Amount', 'Paid Amount', 'Due Amount'];
+        $cols = ['A', 'B', 'C', 'D', 'E'];
+
+        foreach ($headers as $cIdx => $hText) {
+            $sheet->setCellValue($cols[$cIdx] . '2', $hText);
+        }
+        $sheet->getStyle('A2:E2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        foreach ($rows as $idx => $row) {
+            $sheet->setCellValue('A' . $r, $idx + 1);
+            $sheet->setCellValue('B' . $r, $row['supplier_name']);
+            $sheet->setCellValue('C' . $r, '₹' . number_format($row['total_amount'], 2));
+            $sheet->setCellValue('D' . $r, '₹' . number_format($row['paid_amount'], 2));
+            $sheet->setCellValue('E' . $r, '₹' . number_format($row['due_amount'], 2));
+            $sheet->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Supplier Ledger',
-                'pdfUrl' => route('admin.ledgers.supplier.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $sheet->setCellValue('A' . $r, 'Total');
+        $sheet->setCellValue('C' . $r, '₹' . number_format($totalAmount, 2));
+        $sheet->setCellValue('D' . $r, '₹' . number_format($totalPaid, 2));
+        $sheet->setCellValue('E' . $r, '₹' . number_format($totalDue, 2));
+        $sheet->getStyle("A{$r}:E{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:E{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:E{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("C2:E{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
-        $pdf = Pdf::loadView('ledgers.pdf.supplier', compact(
-            'rows',
-            'asOnDate',
-            'locationName',
-            'totalAmount',
-            'totalPaid',
-            'totalDue'
-        ))->setPaper('a4', 'landscape');
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Supplier ledger exported to Excel');
 
-        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Supplier ledger exported to PDF');
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'supplier_ledger_' . $asOnDate . '.xlsx';
 
-        return $pdf->stream('supplier_ledger_' . now()->format('Ymd_His') . '.pdf');
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function cashLedgerDetail(Request $request)
@@ -616,7 +678,6 @@ class LedgerController extends Controller
             ->sortByDesc('date')
             ->values();
 
-        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('cash_balance');
         $locationName = is_int($actionLocationId) ? (Location::find($actionLocationId)->name ?? 'All Locations') : 'All Locations';
 
         $totalIn  = $rows->sum('in');
@@ -626,26 +687,87 @@ class LedgerController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Cash Ledger',
-                'pdfUrl' => route('admin.ledgers.cash.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Cash Ledger');
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:F1');
+        $sheet->setCellValue('A1', 'Cash Ledger Data (' . $locationName . ')');
+        $sheet->getStyle('A1:F1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        $headers = ['#', 'Date', 'Opening Balance', 'Receipt (Cash In)', 'Payment (Cash Out)', 'Closing Balance'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+        foreach ($headers as $cIdx => $hText) {
+            $sheet->setCellValue($cols[$cIdx] . '2', $hText);
+        }
+        $sheet->getStyle('A2:F2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        foreach ($rows as $idx => $row) {
+            $sheet->setCellValue('A' . $r, $idx + 1);
+            $sheet->setCellValue('B' . $r, format_date($row['date']));
+            $sheet->setCellValue('C' . $r, '₹' . number_format($row['opening'], 2));
+            $sheet->setCellValue('D' . $r, '₹' . number_format($row['in'], 2));
+            $sheet->setCellValue('E' . $r, '₹' . number_format($row['out'], 2));
+            $sheet->setCellValue('F' . $r, '₹' . number_format($row['closing'], 2));
+            $sheet->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('ledgers.pdf.cash', compact(
-            'rows',
-            'startDate',
-            'endDate',
-            'locationName',
-            'currentBalance',
-            'totalIn',
-            'totalOut'
-        ))->setPaper('a4', 'landscape');
+        $sheet->setCellValue('A' . $r, 'Total');
+        $sheet->setCellValue('D' . $r, '₹' . number_format($totalIn, 2));
+        $sheet->setCellValue('E' . $r, '₹' . number_format($totalOut, 2));
+        $sheet->getStyle("A{$r}:F{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:F{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:F{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("A2:B{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("C2:F{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Cash ledger exported to PDF');
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-        return $pdf->stream('cash_ledger_' . now()->format('Ymd_His') . '.pdf');
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Cash ledger exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'cash_ledger_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     // -----------------------------------------------------------------
@@ -758,7 +880,6 @@ class LedgerController extends Controller
             ->sortByDesc('date')
             ->values();
 
-        $currentBalance = LocationBalance::whereIn('location_id', $locationIds)->sum('bank_balance');
         $locationName = is_int($actionLocationId) ? (Location::find($actionLocationId)->name ?? 'All Locations') : 'All Locations';
 
         $totalIn  = $rows->sum('in');
@@ -768,26 +889,87 @@ class LedgerController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Bank Ledger',
-                'pdfUrl' => route('admin.ledgers.bank.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Bank Ledger');
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        $sheet->mergeCells('A1:F1');
+        $sheet->setCellValue('A1', 'Bank Ledger Data (' . $locationName . ')');
+        $sheet->getStyle('A1:F1')->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        $headers = ['#', 'Date', 'Opening Balance', 'Receipt (Bank In)', 'Payment (Bank Out)', 'Closing Balance'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+        foreach ($headers as $cIdx => $hText) {
+            $sheet->setCellValue($cols[$cIdx] . '2', $hText);
+        }
+        $sheet->getStyle('A2:F2')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        foreach ($rows as $idx => $row) {
+            $sheet->setCellValue('A' . $r, $idx + 1);
+            $sheet->setCellValue('B' . $r, format_date($row['date']));
+            $sheet->setCellValue('C' . $r, '₹' . number_format($row['opening'], 2));
+            $sheet->setCellValue('D' . $r, '₹' . number_format($row['in'], 2));
+            $sheet->setCellValue('E' . $r, '₹' . number_format($row['out'], 2));
+            $sheet->setCellValue('F' . $r, '₹' . number_format($row['closing'], 2));
+            $sheet->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('ledgers.pdf.bank', compact(
-            'rows',
-            'startDate',
-            'endDate',
-            'locationName',
-            'currentBalance',
-            'totalIn',
-            'totalOut'
-        ))->setPaper('a4', 'landscape');
+        $sheet->setCellValue('A' . $r, 'Total');
+        $sheet->setCellValue('D' . $r, '₹' . number_format($totalIn, 2));
+        $sheet->setCellValue('E' . $r, '₹' . number_format($totalOut, 2));
+        $sheet->getStyle("A{$r}:F{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:F{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:F{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("A2:B{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("C2:F{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Bank ledger exported to PDF');
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-        return $pdf->stream('bank_ledger_' . now()->format('Ymd_His') . '.pdf');
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Bank ledger exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'bank_ledger_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function bankLedgerDetail(Request $request)
@@ -1157,7 +1339,7 @@ class LedgerController extends Controller
     {
         $this->authorizeLedger('view branch ledger');
 
-        [$locationIds] = $this->resolveLocationIds($request);
+        [$locationIds, $actionLocationId] = $this->resolveLocationIds($request);
         [$startDate, $endDate] = $this->resolveDateRange($request);
 
         abort_if(empty($locationIds), 404);
@@ -1165,54 +1347,253 @@ class LedgerController extends Controller
         $getTransferAmount = function ($transferCollection) {
             $total = 0.0;
             foreach ($transferCollection as $transfer) {
+                $billTotal = 0.0;
                 foreach ($transfer->items as $item) {
-                    $total += $this->purchasePriceForLedgerItem($item) * $item->quantity;
+                    $billTotal += $this->purchasePriceForLedgerItem($item) * $item->quantity;
                 }
+                $paid = (float) ($transfer->paid_amount ?? 0);
+                $total += max(0.0, $billTotal - $paid);
             }
             return (float) $total;
         };
 
-        $transfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+        // Stock Transfers (PurchaseBills)
+        $stockTransfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->where('payment_status', PurchaseBill::PAYMENT_STATUS_PENDING)
+            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
             ->whereDate('accepted_at', '>=', $startDate)
             ->whereDate('accepted_at', '<=', $endDate)
-            ->orderByDesc('accepted_at')
             ->get();
 
-        $rows = $transfers->map(function ($transfer) use ($getTransferAmount) {
+        $stockRows = $stockTransfers->map(function ($transfer) use ($getTransferAmount) {
+            $amount = $getTransferAmount([$transfer]);
+            $date = $transfer->accepted_at ? $transfer->accepted_at->format('d-m-Y h:i A') : '-';
+            $rawDate = $transfer->accepted_at ? $transfer->accepted_at->format('Y-m-d H:i:s') : '';
+            $transferNo = str_starts_with($transfer->transfer_no, 'ST-') ? $transfer->transfer_no : 'ST-' . $transfer->transfer_no;
+
+            $statusStr = match ((int) $transfer->status) {
+                PurchaseBill::STATUS_ACCEPTED => 'Accepted',
+                PurchaseBill::STATUS_REJECTED => 'Rejected',
+                default                       => 'Pending',
+            };
+
             return [
-                'date'        => $transfer->accepted_at,
-                'transfer_no' => $transfer->transfer_no,
-                'from'        => $transfer->fromLocation->name ?? '-',
-                'to'          => $transfer->toLocation->name ?? '-',
-                'amount'      => $getTransferAmount([$transfer]),
+                'raw_date'    => $rawDate,
+                'date'        => $date,
+                'transfer_no' => $transferNo,
+                'from_branch' => $transfer->fromLocation->name ?? '-',
+                'to_branch'   => $transfer->toLocation->name ?? '-',
+                'status'      => $statusStr,
+                'amount'      => $amount,
             ];
-        })->values();
+        });
 
-        $totalAmount = $rows->sum('amount');
+        // Balance Transfers (BranchBalanceTransfer)
+        $btTransfers = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
+            })
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $endDate)
+            ->get();
 
-        if ($rows->isEmpty()) {
+        $btRows = $btTransfers->map(function ($bt) {
+            $date = $bt->created_at ? $bt->created_at->format('d-m-Y h:i A') : '-';
+            $rawDate = $bt->created_at ? $bt->created_at->format('Y-m-d H:i:s') : '';
+
+            $statusStr = match ((int) $bt->status) {
+                BranchBalanceTransfer::STATUS_ACCEPTED => 'Accepted',
+                BranchBalanceTransfer::STATUS_REJECTED => 'Rejected',
+                default                                => 'Pending',
+            };
+
+            return [
+                'raw_date'    => $rawDate,
+                'date'        => $date,
+                'transfer_no' => $bt->transfer_no,
+                'from_branch' => $bt->fromLocation->name ?? '-',
+                'to_branch'   => $bt->toLocation->name ?? '-',
+                'status'      => $statusStr,
+                'amount'      => (float) $bt->amount,
+            ];
+        });
+
+        $allMerged = $stockRows->concat($btRows)->sortByDesc('raw_date')->values();
+
+        if ($allMerged->isEmpty()) {
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Branch Ledger',
-                'pdfUrl' => route('admin.ledgers.branch.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $locationName = is_int($actionLocationId) ? (Location::find($actionLocationId)->name ?? 'All Locations') : 'All Locations';
+
+        $spreadsheet = new Spreadsheet();
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: Branch Ledger / Transfers
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Branch Ledger');
+
+        $sheet1->mergeCells('A1:G1');
+        $sheet1->setCellValue('A1', 'Branch Ledger Data (' . $locationName . ')');
+        $sheet1->getStyle('A1:G1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
+
+        $headers1 = ['#', 'Date', 'Bill / Transfer No', 'From Branch', 'To Branch', 'Status', 'Amount'];
+        $cols1 = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+        foreach ($headers1 as $cIdx => $hText) {
+            $sheet1->setCellValue($cols1[$cIdx] . '2', $hText);
+        }
+        $sheet1->getStyle('A2:G2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        $totalAmt = 0.0;
+        foreach ($allMerged as $idx => $row) {
+            $amt = (float) $row['amount'];
+            $totalAmt += $amt;
+
+            $sheet1->setCellValue('A' . $r, $idx + 1);
+            $sheet1->setCellValue('B' . $r, $row['date']);
+            $sheet1->setCellValue('C' . $r, $row['transfer_no']);
+            $sheet1->setCellValue('D' . $r, $row['from_branch']);
+            $sheet1->setCellValue('E' . $r, $row['to_branch']);
+            $sheet1->setCellValue('F' . $r, $row['status']);
+            $sheet1->setCellValue('G' . $r, '₹' . number_format($amt, 2));
+            $sheet1->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('ledgers.pdf.branch', compact('rows', 'startDate', 'endDate', 'totalAmount'))
-            ->setPaper('a4', 'landscape');
+        $sheet1->setCellValue('A' . $r, 'Total');
+        $sheet1->setCellValue('G' . $r, '₹' . number_format($totalAmt, 2));
+        $sheet1->getStyle("A{$r}:G{$r}")->getFont()->setBold(true);
+        $sheet1->getStyle("A{$r}:G{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet1->getStyle("A2:G{$r}")->applyFromArray($borderStyle);
+        $sheet1->getStyle("A2:C{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle("F2:F{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle("G2:G{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Branch ledger exported to PDF');
+        foreach ($cols1 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
 
-        return $pdf->stream('branch_ledger_' . now()->format('Ymd_His') . '.pdf');
+        // Sheet 2: Pending Branch Dues
+        $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+            ->where(function ($q) use ($locationIds) {
+                $q->whereIn('from_location_id', $locationIds)
+                    ->orWhereIn('to_location_id', $locationIds);
+            })
+            ->where('status', PurchaseBill::STATUS_ACCEPTED)
+            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
+            ->whereDate('accepted_at', '>=', $startDate)
+            ->whereDate('accepted_at', '<=', $endDate)
+            ->get();
+
+        $branchDues = $pendingBills
+            ->groupBy(fn ($bill) => $bill->from_location_id . ':' . $bill->to_location_id)
+            ->map(function ($bills) use ($getTransferAmount) {
+                $first = $bills->first();
+                return [
+                    'payable_branch'    => $first->toLocation->name ?? '-',
+                    'receivable_branch' => $first->fromLocation->name ?? '-',
+                    'amount'            => $getTransferAmount($bills),
+                    'bills_count'       => $bills->count(),
+                ];
+            })
+            ->filter(fn ($due) => $due['amount'] > 0)
+            ->sortByDesc('amount')
+            ->values();
+
+        if ($branchDues->isNotEmpty()) {
+            $sheet2 = $spreadsheet->createSheet();
+            $sheet2->setTitle('Pending Branch Dues');
+
+            $sheet2->mergeCells('A1:E1');
+            $sheet2->setCellValue('A1', 'Pending Payments Between Branches (' . $locationName . ')');
+            $sheet2->getStyle('A1:E1')->applyFromArray($titleStyle);
+            $sheet2->getRowDimension(1)->setRowHeight(30);
+
+            $headers2 = ['#', 'Branch That Owes Payment', 'Branch To Be Paid', 'Pending Amount', 'Bills Count'];
+            $cols2 = ['A', 'B', 'C', 'D', 'E'];
+
+            foreach ($headers2 as $cIdx => $hText) {
+                $sheet2->setCellValue($cols2[$cIdx] . '2', $hText);
+            }
+            $sheet2->getStyle('A2:E2')->applyFromArray($headerStyle);
+            $sheet2->getRowDimension(2)->setRowHeight(26);
+
+            $r2 = 3;
+            $sumDues = 0.0;
+            foreach ($branchDues as $idx => $due) {
+                $amt = (float) $due['amount'];
+                $sumDues += $amt;
+
+                $sheet2->setCellValue('A' . $r2, $idx + 1);
+                $sheet2->setCellValue('B' . $r2, $due['payable_branch']);
+                $sheet2->setCellValue('C' . $r2, $due['receivable_branch']);
+                $sheet2->setCellValue('D' . $r2, '₹' . number_format($amt, 2));
+                $sheet2->setCellValue('E' . $r2, $due['bills_count']);
+                $sheet2->getRowDimension($r2)->setRowHeight(20);
+                $r2++;
+            }
+
+            $sheet2->setCellValue('A' . $r2, 'Total Pending Dues');
+            $sheet2->setCellValue('D' . $r2, '₹' . number_format($sumDues, 2));
+            $sheet2->getStyle("A{$r2}:E{$r2}")->getFont()->setBold(true);
+            $sheet2->getStyle("A{$r2}:E{$r2}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet2->getStyle("A2:E{$r2}")->applyFromArray($borderStyle);
+            $sheet2->getStyle("A2:A{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle("D2:E{$r2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+            foreach ($cols2 as $colLetter) {
+                $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+            }
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Branch ledger exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'branch_ledger_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function branchLedgerDetail(Request $request)

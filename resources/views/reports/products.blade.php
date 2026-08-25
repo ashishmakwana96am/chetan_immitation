@@ -248,6 +248,15 @@
             ]
         });
 
+        table.on('preXhr.dt', function () {
+            window.showAjaxLoader && window.showAjaxLoader();
+        });
+
+        table.on('xhr.dt draw.dt', function () {
+            window.hideAjaxLoader && window.hideAjaxLoader();
+            $('#productsReportTable_processing').css('display', 'none');
+        });
+
         $('#productsReportTable tbody').on('click', '.variant-toggle', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -333,7 +342,55 @@
                 url += '?' + params.join('&');
             }
 
-            window.location.href = url;
+            if (window.showAjaxLoader) {
+                $('.loader-status').text('Exporting Excel');
+                window.showAjaxLoader();
+            }
+
+            $.ajax({
+                url: url,
+                type: 'GET',
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function (data, status, xhr) {
+                    if (window.hideAjaxLoader) {
+                        window.hideAjaxLoader();
+                        $('.loader-status').text('Loading');
+                    }
+
+                    const disposition = xhr.getResponseHeader('Content-Disposition');
+                    let filename = 'products_report.xlsx';
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+
+                    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success('Excel report downloaded successfully!');
+                    }
+                },
+                error: function () {
+                    if (window.hideAjaxLoader) {
+                        window.hideAjaxLoader();
+                        $('.loader-status').text('Loading');
+                    }
+                    if (typeof toastr !== 'undefined') {
+                        toastr.error('Failed to export report. Please try again.');
+                    }
+                }
+            });
         });
 
         // -------------------------------------------------------

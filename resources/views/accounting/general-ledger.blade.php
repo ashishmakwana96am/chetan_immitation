@@ -69,8 +69,8 @@
             <h4 class="fw-semibold mb-0">General Ledger</h4>
             <small class="text-muted">Cash · Bank · Expenses · Sales · Purchases · Transfers</small>
         </div>
-        <button type="button" id="exportPdfBtn" class="btn btn-danger report-export-btn">
-            <i class="ti ti-file-text me-1"></i> Export to PDF
+        <button type="button" id="exportExcelBtn" class="btn btn-success report-export-btn">
+            <i class="ti ti-file-spreadsheet me-1"></i> Export to Excel
         </button>
     </div>
 
@@ -386,7 +386,7 @@
             window.refreshTable();
         });
 
-        $(document).on('click', '#exportPdfBtn', function () {
+        $(document).on('click', '#exportExcelBtn', function () {
             const params = new URLSearchParams();
             const filters = currentFilters();
             Object.keys(filters).forEach(function (key) {
@@ -394,8 +394,48 @@
                     params.append(key, filters[key]);
                 }
             });
-            params.append('auto_print', '1');
-            window.open("{{ route('admin.accounting.general-ledger.export') }}?" + params.toString(), '_blank');
+
+            if (typeof window.showAjaxLoader === 'function') {
+                window.showAjaxLoader();
+            }
+
+            fetch("{{ route('admin.accounting.general-ledger.export') }}?" + params.toString(), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Export failed');
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = 'general_ledger_' + new Date().toISOString().slice(0,10) + '.xlsx';
+                if (disposition && disposition.indexOf('filename=') !== -1) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+                return response.blob().then(blob => ({ blob, filename }));
+            })
+            .then(({ blob, filename }) => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Export error:', error);
+                alert('An error occurred while exporting the report.');
+            })
+            .finally(() => {
+                if (typeof window.hideAjaxLoader === 'function') {
+                    window.hideAjaxLoader();
+                }
+            });
         });
     });
     </script>

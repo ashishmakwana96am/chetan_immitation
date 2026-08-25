@@ -1183,7 +1183,7 @@ class PurchaseBillController extends Controller
 
     private function getMappedProductsForPurchaseBills(): array
     {
-        return Cache::remember('all_mapped_products_bills', 1800, function () {
+        return Cache::store('file')->remember('all_mapped_products_bills', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
                 'primaryImage',

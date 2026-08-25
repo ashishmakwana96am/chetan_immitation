@@ -391,6 +391,10 @@ class SaleController extends Controller
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id' => ['nullable', 'exists:coupons,id'],
+        ], [], [
+            'location_id' => 'location',
+            'customer_id' => 'customer',
+            'coupon_id'   => 'coupon',
         ]);
 
         if ($validator->fails()) {
@@ -1004,6 +1008,10 @@ class SaleController extends Controller
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
             'coupon_id' => ['nullable', 'exists:coupons,id'],
+        ], [], [
+            'location_id' => 'location',
+            'customer_id' => 'customer',
+            'coupon_id'   => 'coupon',
         ]);
 
         if ($validator->fails()) {
@@ -1777,6 +1785,7 @@ class SaleController extends Controller
         $inventory->increment('quantity', $delta);
         $newQty = $oldQty + $delta;
 
+        Cache::store('file')->forget('all_mapped_products_sales');
         Cache::forget('all_mapped_products_sales');
 
         ActivityLogger::log('Inventory', 'update', $inventory, ['quantity' => $oldQty], ['quantity' => $newQty], $description);
@@ -2265,7 +2274,7 @@ class SaleController extends Controller
 
     private function getAllMappedProductsForSales()
     {
-        return Cache::remember('all_mapped_products_sales', 1800, function () {
+        return Cache::store('file')->remember('all_mapped_products_sales', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
                 'primaryImage',
