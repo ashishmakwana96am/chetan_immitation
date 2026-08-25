@@ -303,7 +303,12 @@
                             }
                         }
                         $rowRate = $itemMrp > 0 ? $itemMrp : (float)$item->price;
-                        $rowAmount = $rowRate * (float)$item->quantity;
+                        $rowGross = $rowRate * (float)$item->quantity;
+                        $rowDisc = (float)($item->discount_amount ?? 0);
+                        if ($rowDisc == 0 && (float)$item->price < $rowRate) {
+                            $rowDisc = max(0, $rowGross - (float)$item->total);
+                        }
+                        $rowAmount = max(0, $rowGross - $rowDisc);
                     @endphp
                     <tr>
                         <td style="text-align: left; padding: 3px 0; text-transform: uppercase; vertical-align: top; border: none;">
@@ -336,12 +341,12 @@
         <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; font-weight: bold; line-height: 1.3;">
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">SUB TOTAL</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($displaySubtotal, 2) }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($subtotalAfterItemDiscount, 2) }}</td>
             </tr>
-            @if($totalDiscount > 0)
+            @if($orderLevelDiscount > 0)
             <tr>
                 <td colspan="2" style="text-align: left; width: 70%; border: none; padding: 1px 0;">DISCOUNT</td>
-                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($totalDiscount, 2) }}</td>
+                <td style="text-align: right; width: 30%; border: none; padding: 1px 0;">{{ number_format($orderLevelDiscount, 2) }}</td>
             </tr>
             @endif
             @if($isGst && $totalTax > 0)
