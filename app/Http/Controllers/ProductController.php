@@ -867,7 +867,7 @@ class ProductController extends Controller
 
             // Primary image
             if ($request->filled('primary_image_base64')) {
-                $imagePath = $this->saveBase64Image($request->primary_image_base64);
+                $imagePath = $this->saveBase64Image($request->primary_image_base64, 'products', $product->barcode);
                 if ($imagePath) {
                     ProductImage::create([
                         'product_id' => $product->id,
@@ -881,7 +881,7 @@ class ProductController extends Controller
                     ->where('is_primary', true)
                     ->first();
                 if ($originalPrimary) {
-                    $newImagePath = $this->copyProductImageFile($originalPrimary->image_path);
+                    $newImagePath = $this->copyProductImageFile($originalPrimary->image_path, $product->barcode);
                     ProductImage::create([
                         'product_id' => $product->id,
                         'image_path' => $newImagePath ?: $originalPrimary->image_path,
@@ -899,7 +899,7 @@ class ProductController extends Controller
                     ->whereIn('id', $request->existing_cloned_images)
                     ->get();
                 foreach ($originalAdditionals as $originalImg) {
-                    $newImagePath = $this->copyProductImageFile($originalImg->image_path);
+                    $newImagePath = $this->copyProductImageFile($originalImg->image_path, $product->barcode);
                     ProductImage::create([
                         'product_id' => $product->id,
                         'image_path' => $newImagePath ?: $originalImg->image_path,
@@ -912,7 +912,7 @@ class ProductController extends Controller
             // 2. Save newly uploaded ones
             if ($request->filled('additional_images_base64')) {
                 foreach ($request->additional_images_base64 as $base64) {
-                    $imagePath = $this->saveBase64Image($base64);
+                    $imagePath = $this->saveBase64Image($base64, 'products', $product->barcode);
                     if ($imagePath) {
                         ProductImage::create([
                             'product_id' => $product->id,
@@ -1173,7 +1173,7 @@ class ProductController extends Controller
                     }
                     $existing->delete();
                 }
-                $imagePath = $this->saveBase64Image($request->primary_image_base64);
+                $imagePath = $this->saveBase64Image($request->primary_image_base64, 'products', $product->barcode);
                 if ($imagePath) {
                     ProductImage::create([
                         'product_id' => $product->id,
@@ -1195,7 +1195,7 @@ class ProductController extends Controller
 
             if ($request->filled('additional_images_base64')) {
                 foreach ($request->additional_images_base64 as $base64) {
-                    $imagePath = $this->saveBase64Image($base64);
+                    $imagePath = $this->saveBase64Image($base64, 'products', $product->barcode);
                     if ($imagePath) {
                         ProductImage::create([
                             'product_id' => $product->id,
@@ -1739,7 +1739,7 @@ class ProductController extends Controller
         }
     }
 
-    private function saveBase64Image($base64Data, $subDir = 'products')
+    private function saveBase64Image($base64Data, $subDir = 'products', $barcode = null)
     {
         if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
             $dataString = substr($base64Data, strpos($base64Data, ',') + 1);
@@ -1757,20 +1757,25 @@ class ProductController extends Controller
             if (strlen($decodedData) > 52428800) {
                 return null;
             }
+
+            $targetPath = $subDir;
+            if ($barcode) {
+                $targetPath .= '/' . trim($barcode);
+            }
             
-            $dir = public_path('uploads/' . $subDir);
+            $dir = public_path('uploads/' . $targetPath);
             if (!file_exists($dir)) {
                 mkdir($dir, 0755, true);
             }
             
             $filename = time() . '_' . uniqid() . '.' . $type;
             file_put_contents($dir . '/' . $filename, $decodedData);
-            return $subDir . '/' . $filename;
+            return $targetPath . '/' . $filename;
         }
         return null;
     }
 
-    private function copyProductImageFile($originalPath)
+    private function copyProductImageFile($originalPath, $targetBarcode = null)
     {
         if (empty($originalPath)) {
             return null;
@@ -1780,7 +1785,13 @@ class ProductController extends Controller
         if (file_exists($sourceFile)) {
             $pathInfo = pathinfo($originalPath);
             $newFilename = time() . '_' . uniqid() . '.' . ($pathInfo['extension'] ?? 'jpg');
-            $subDir = $pathInfo['dirname'] ?? 'products';
+            
+            if ($targetBarcode) {
+                $subDir = 'products/' . trim($targetBarcode);
+            } else {
+                $subDir = $pathInfo['dirname'] ?? 'products';
+            }
+
             $destDir = public_path('uploads/' . $subDir);
             
             if (!file_exists($destDir)) {

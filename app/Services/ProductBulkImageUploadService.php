@@ -305,8 +305,13 @@ class ProductBulkImageUploadService
         $failedImages = 0;
         $savedAny = false;
 
+        $barcodeDir = $destDir . '/' . trim($product->barcode);
+        if (!file_exists($barcodeDir)) {
+            mkdir($barcodeDir, 0755, true);
+        }
+
         try {
-            DB::transaction(function () use ($zip, $entries, $product, $destDir, $userId, &$needsPrimary, &$primaryAdded, &$additionalAdded, &$failedImages, &$savedAny) {
+            DB::transaction(function () use ($zip, $entries, $product, $barcodeDir, $userId, &$needsPrimary, &$primaryAdded, &$additionalAdded, &$failedImages, &$savedAny) {
                 foreach ($entries as $entryName) {
                     $bytes = $zip->getFromName($entryName);
 
@@ -316,7 +321,7 @@ class ProductBulkImageUploadService
                     }
 
                     $entryFilename = pathinfo($entryName, PATHINFO_BASENAME);
-                    $savedPath = $this->cropAndResizeImage($bytes, $destDir, $entryFilename);
+                    $savedPath = $this->cropAndResizeImage($bytes, $barcodeDir, $entryFilename);
                     if (!$savedPath) {
                         $failedImages++;
                         continue;
@@ -327,7 +332,7 @@ class ProductBulkImageUploadService
 
                     ProductImage::create([
                         'product_id' => $product->id,
-                        'image_path' => 'products/' . pathinfo($savedPath, PATHINFO_BASENAME),
+                        'image_path' => 'products/' . trim($product->barcode) . '/' . pathinfo($savedPath, PATHINFO_BASENAME),
                         'is_primary' => $isPrimary,
                         'created_by' => $userId,
                     ]);
