@@ -71,6 +71,7 @@ class ExpenseObserver
 
             $transaction = LocationBalanceTransaction::create([
                 'location_id'  => $locationId,
+                'expense_id'   => $expense->id,
                 'balance_type' => $balanceType,
                 'type'         => LocationBalanceTransaction::TYPE_DEBIT,
                 'amount'       => $amount,
@@ -137,14 +138,18 @@ class ExpenseObserver
                 }
             }
 
-            $existingTx = LocationBalanceTransaction::where('notes', $oldNote)
-                ->orWhere('notes', $newNote)
-                ->first();
+            $existingTx = LocationBalanceTransaction::where('expense_id', $expense->id)->first();
+            if (!$existingTx) {
+                $existingTx = LocationBalanceTransaction::where(function ($q) use ($oldNote, $newNote) {
+                    $q->where('notes', $oldNote)->orWhere('notes', $newNote);
+                })->where('location_id', $oldLocationId ?: $newLocationId)->first();
+            }
 
             $transaction = $existingTx;
             if ($existingTx) {
                 $existingTx->update([
                     'location_id'  => $newLocationId,
+                    'expense_id'   => $expense->id,
                     'balance_type' => $newType,
                     'amount'       => $newAmount,
                     'balance_after'=> $newBalanceVal,
@@ -153,6 +158,7 @@ class ExpenseObserver
             } else if ($newLocationId && $newAmount > 0) {
                 $transaction = LocationBalanceTransaction::create([
                     'location_id'  => $newLocationId,
+                    'expense_id'   => $expense->id,
                     'balance_type' => $newType,
                     'type'         => LocationBalanceTransaction::TYPE_DEBIT,
                     'amount'       => $newAmount,
@@ -181,7 +187,7 @@ class ExpenseObserver
             : 'cash_balance';
         $note = 'Expense: ' . ($expense->title ?: $expense->category);
 
-        DB::transaction(function () use ($locationId, $balanceCol, $amount, $note) {
+        DB::transaction(function () use ($locationId, $balanceCol, $amount, $note, $expense) {
             $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
             $oldBalance = $balance ? (float) $balance->{$balanceCol} : null;
             $newBalance = $oldBalance;
@@ -190,7 +196,12 @@ class ExpenseObserver
                 $balance->update([$balanceCol => $newBalance]);
             }
 
-            LocationBalanceTransaction::whereIn('notes', [$note, 'Reversal: ' . $note])->delete();
+            $deletedCount = LocationBalanceTransaction::where('expense_id', $expense->id)->delete();
+            if ($deletedCount === 0) {
+                LocationBalanceTransaction::whereIn('notes', [$note, 'Reversal: ' . $note])
+                    ->where('location_id', $locationId)
+                    ->delete();
+            }
 
             ActivityLogger::log(
                 'Accounting',

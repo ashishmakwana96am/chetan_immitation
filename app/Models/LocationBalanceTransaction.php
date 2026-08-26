@@ -16,6 +16,7 @@ class LocationBalanceTransaction extends Model
 
     protected $fillable = [
         'location_id',
+        'expense_id',
         'balance_type',
         'type',
         'amount',
@@ -35,6 +36,11 @@ class LocationBalanceTransaction extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function expense()
+    {
+        return $this->belongsTo(Expense::class);
     }
 
     public function createdBy()
