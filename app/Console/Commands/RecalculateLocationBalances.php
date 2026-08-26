@@ -24,6 +24,7 @@ class RecalculateLocationBalances extends Command
                 foreach ([LocationBalanceTransaction::BALANCE_TYPE_CASH, LocationBalanceTransaction::BALANCE_TYPE_BANK] as $balanceType) {
                     $transactions = LocationBalanceTransaction::where('location_id', $loc->id)
                         ->where('balance_type', $balanceType)
+                        ->orderBy('created_at', 'asc')
                         ->orderBy('id', 'asc')
                         ->get();
 
