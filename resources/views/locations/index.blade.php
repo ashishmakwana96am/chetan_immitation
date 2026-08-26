@@ -58,7 +58,7 @@
                         <th>Phone</th>
                         <th>GST Number</th>
                         <th>Status</th>
-                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
+                        @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
                             <th>Actions</th>
                         @endif
                     </tr>
@@ -94,7 +94,7 @@
                     { data: 'phone' },
                     { data: 'gst_number' },
                     { data: 'status',  orderable: false },
-                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations') || (auth()->user()->hasRole('super-admin') && auth()->user()->can('manage branch balances')))
+                    @if(auth()->user()->can('edit locations') || auth()->user()->can('delete locations'))
                         { data: 'actions', orderable: false },
                     @endif
                 ],
