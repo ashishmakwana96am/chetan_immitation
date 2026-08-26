@@ -52,8 +52,16 @@ class LedgerController extends Controller
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
         $canManageAdvance = $user->hasRole('super-admin') || !$user->location_id || (int) $user->location_id === 1;
 
-        $purchasesQuery = Purchase::with('supplier')
-            ->whereDate('created_at', '<=', $asOnDate);
+        $purchasesQuery = Purchase::with('supplier');
+
+        if ($request->filled('start_date')) {
+            $purchasesQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $purchasesQuery->whereDate('created_at', '<=', $request->end_date);
+        } else {
+            $purchasesQuery->whereDate('created_at', '<=', $asOnDate);
+        }
 
         if ($isRestricted) {
             $locationId = $user->location_id;
@@ -657,13 +665,34 @@ class LedgerController extends Controller
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
             $locChain = $this->buildLedgerChain([$loc->id], LocationBalanceTransaction::BALANCE_TYPE_CASH, $today);
-            $locTodayNode = $locChain->firstWhere('date', $today);
+
+            $filteredNodes = $locChain;
+            if ($request->filled('start_date')) {
+                $filteredNodes = $filteredNodes->where('date', '>=', $request->start_date);
+            }
+            if ($request->filled('end_date')) {
+                $filteredNodes = $filteredNodes->where('date', '<=', $request->end_date);
+            }
+            $filteredNodes = $filteredNodes->values();
+
+            if ($filteredNodes->isNotEmpty()) {
+                $opening = $filteredNodes->first()['opening'];
+                $sale    = $filteredNodes->sum('in');
+                $expense = $filteredNodes->sum('out');
+                $closing = $filteredNodes->last()['closing'];
+            } else {
+                $checkDate = $request->start_date ?: $today;
+                $opening = $this->openingBalance($loc->id, LocationBalanceTransaction::BALANCE_TYPE_CASH, $checkDate);
+                $sale    = 0.0;
+                $expense = 0.0;
+                $closing = $opening;
+            }
 
             $branchSummary[$loc->id] = [
-                'opening' => format_price($locTodayNode['opening']),
-                'sale'    => format_price($locTodayNode['in']),
-                'expense' => format_price($locTodayNode['out']),
-                'closing' => format_price($locTodayNode['closing']),
+                'opening' => format_price($opening),
+                'sale'    => format_price($sale),
+                'expense' => format_price($expense),
+                'closing' => format_price($closing),
             ];
         }
 
@@ -859,13 +888,34 @@ class LedgerController extends Controller
         $branchSummary = [];
         foreach ($branchLocations as $loc) {
             $locChain = $this->buildLedgerChain([$loc->id], LocationBalanceTransaction::BALANCE_TYPE_BANK, $today);
-            $locTodayNode = $locChain->firstWhere('date', $today);
+
+            $filteredNodes = $locChain;
+            if ($request->filled('start_date')) {
+                $filteredNodes = $filteredNodes->where('date', '>=', $request->start_date);
+            }
+            if ($request->filled('end_date')) {
+                $filteredNodes = $filteredNodes->where('date', '<=', $request->end_date);
+            }
+            $filteredNodes = $filteredNodes->values();
+
+            if ($filteredNodes->isNotEmpty()) {
+                $opening = $filteredNodes->first()['opening'];
+                $receipt = $filteredNodes->sum('in');
+                $payment = $filteredNodes->sum('out');
+                $closing = $filteredNodes->last()['closing'];
+            } else {
+                $checkDate = $request->start_date ?: $today;
+                $opening = $this->openingBalance($loc->id, LocationBalanceTransaction::BALANCE_TYPE_BANK, $checkDate);
+                $receipt = 0.0;
+                $payment = 0.0;
+                $closing = $opening;
+            }
 
             $branchSummary[$loc->id] = [
-                'opening' => format_price($locTodayNode['opening']),
-                'receipt' => format_price($locTodayNode['in']),
-                'payment' => format_price($locTodayNode['out']),
-                'closing' => format_price($locTodayNode['closing']),
+                'opening' => format_price($opening),
+                'receipt' => format_price($receipt),
+                'payment' => format_price($payment),
+                'closing' => format_price($closing),
             ];
         }
 
@@ -1134,7 +1184,10 @@ class LedgerController extends Controller
                     $amount += $this->purchasePriceForLedgerItem($item) * $item->quantity;
                 }
 
-                $bill->computed_amount = $amount;
+                $paid = (float) ($bill->paid_amount ?? 0);
+                $dueAmount = max(0.0, $amount - $paid);
+
+                $bill->computed_amount = $dueAmount;
                 $bill->computed_qty_text = $formatStockQtyText($pairs, $pcs);
 
                 return $bill;
@@ -1156,36 +1209,35 @@ class LedgerController extends Controller
             return response()->json(['status' => 'error', 'message' => 'No location available.'], 422);
         }
 
-        $getTransferAmount = function ($transferCollection) {
-            $total = 0.0;
-            foreach ($transferCollection as $transfer) {
-                $billTotal = 0.0;
-                foreach ($transfer->items as $item) {
-                    $billTotal += $this->purchasePriceForLedgerItem($item) * $item->quantity;
-                }
-                $paid = (float) ($transfer->paid_amount ?? 0);
-                $total += max(0.0, $billTotal - $paid);
-            }
-            return (float) $total;
-        };
-
         // One row per bill (not per in/out side) — a transfer between two of the
         // filtered locations only needs listing once, naming both branches.
         // Only unpaid/partial bills belong here; once marked Paid it drops off, same as
         // the Pending Payments Between Branches summary below.
-        $stockTransfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+        $stockTransfersQuery = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
+            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL]);
 
-        $stockRows = $stockTransfers->map(function ($transfer) use ($getTransferAmount) {
-            $amount = $getTransferAmount([$transfer]);
+        if ($request->filled('start_date')) {
+            $stockTransfersQuery->whereDate('accepted_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $stockTransfersQuery->whereDate('accepted_at', '<=', $request->end_date);
+        }
+        $stockTransfers = $stockTransfersQuery->get();
+
+        $stockRows = $stockTransfers->map(function ($transfer) {
+            $billTotal = 0.0;
+            foreach ($transfer->items as $item) {
+                $billTotal += $this->purchasePriceForLedgerItem($item) * $item->quantity;
+            }
+            $paid = (float) ($transfer->paid_amount ?? 0);
+            $amount = max(0.0, $billTotal - $paid);
+            $transfer->computed_due_amount = $amount;
+
             $date = $transfer->accepted_at->format('Y-m-d');
             $rawDate = $transfer->accepted_at->format('Y-m-d H:i:s');
 
@@ -1225,14 +1277,19 @@ class LedgerController extends Controller
         });
 
         // Balance transfers from BranchBalanceTransfer table
-        $btTransfers = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
+        $btTransfersQuery = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
-            })
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
-            ->get();
+            });
+
+        if ($request->filled('start_date')) {
+            $btTransfersQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $btTransfersQuery->whereDate('created_at', '<=', $request->end_date);
+        }
+        $btTransfers = $btTransfersQuery->get();
 
         $user = auth()->user();
         $isSuperAdmin = $user->hasRole('super-admin');
@@ -1311,28 +1368,18 @@ class LedgerController extends Controller
             return $r;
         });
 
-        $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
-            ->where(function ($q) use ($locationIds) {
-                $q->whereIn('from_location_id', $locationIds)
-                    ->orWhereIn('to_location_id', $locationIds);
-            })
-            ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
-
-        $branchDues = $pendingBills
+        $branchDues = $stockTransfers
             ->groupBy(fn ($bill) => $bill->from_location_id . ':' . $bill->to_location_id)
-            ->map(function ($bills) use ($getTransferAmount) {
+            ->map(function ($bills) {
                 $first = $bills->first();
+                $amountRaw = (float) $bills->sum('computed_due_amount');
 
                 return [
                     'from_location_id'  => $first->from_location_id,
                     'to_location_id'    => $first->to_location_id,
                     'payable_branch'    => e($first->toLocation->name ?? '-'),
                     'receivable_branch' => e($first->fromLocation->name ?? '-'),
-                    'amount_raw'        => $getTransferAmount($bills),
+                    'amount_raw'        => $amountRaw,
                     'bills_count'       => $bills->count(),
                 ];
             })
@@ -1376,16 +1423,21 @@ class LedgerController extends Controller
         };
 
         // Stock Transfers (PurchaseBills)
-        $stockTransfers = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+        $stockTransfersQuery = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
+            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL]);
+
+        if ($request->filled('start_date')) {
+            $stockTransfersQuery->whereDate('accepted_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $stockTransfersQuery->whereDate('accepted_at', '<=', $request->end_date);
+        }
+        $stockTransfers = $stockTransfersQuery->get();
 
         $stockRows = $stockTransfers->map(function ($transfer) use ($getTransferAmount) {
             $amount = $getTransferAmount([$transfer]);
@@ -1411,14 +1463,19 @@ class LedgerController extends Controller
         });
 
         // Balance Transfers (BranchBalanceTransfer)
-        $btTransfers = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
+        $btTransfersQuery = BranchBalanceTransfer::with(['fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
-            })
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate)
-            ->get();
+            });
+
+        if ($request->filled('start_date')) {
+            $btTransfersQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $btTransfersQuery->whereDate('created_at', '<=', $request->end_date);
+        }
+        $btTransfers = $btTransfersQuery->get();
 
         $btRows = $btTransfers->map(function ($bt) {
             $date = $bt->created_at ? $bt->created_at->format('d-m-Y h:i A') : '-';
@@ -1527,16 +1584,21 @@ class LedgerController extends Controller
         }
 
         // Sheet 2: Pending Branch Dues
-        $pendingBills = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
+        $pendingBillsQuery = PurchaseBill::with(['items.product', 'items.variant', 'fromLocation', 'toLocation'])
             ->where(function ($q) use ($locationIds) {
                 $q->whereIn('from_location_id', $locationIds)
                     ->orWhereIn('to_location_id', $locationIds);
             })
             ->where('status', PurchaseBill::STATUS_ACCEPTED)
-            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL])
-            ->whereDate('accepted_at', '>=', $startDate)
-            ->whereDate('accepted_at', '<=', $endDate)
-            ->get();
+            ->whereIn('payment_status', [PurchaseBill::PAYMENT_STATUS_PENDING, PurchaseBill::PAYMENT_STATUS_PARTIAL]);
+
+        if ($request->filled('start_date')) {
+            $pendingBillsQuery->whereDate('accepted_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $pendingBillsQuery->whereDate('accepted_at', '<=', $request->end_date);
+        }
+        $pendingBills = $pendingBillsQuery->get();
 
         $branchDues = $pendingBills
             ->groupBy(fn ($bill) => $bill->from_location_id . ':' . $bill->to_location_id)
@@ -2099,9 +2161,14 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::with('customer')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+        $ordersQuery = \App\Models\Order::with('customer');
+
+        if ($request->filled('start_date')) {
+            $ordersQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $ordersQuery->whereDate('created_at', '<=', $request->end_date);
+        }
 
         if ($isRestricted) {
             $ordersQuery->where('location_id', $user->location_id);
@@ -2238,9 +2305,14 @@ class LedgerController extends Controller
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
 
-        $ordersQuery = \App\Models\Order::with('customer')
-            ->whereDate('created_at', '>=', $startDate)
-            ->whereDate('created_at', '<=', $endDate);
+        $ordersQuery = \App\Models\Order::with('customer');
+
+        if ($request->filled('start_date')) {
+            $ordersQuery->whereDate('created_at', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $ordersQuery->whereDate('created_at', '<=', $request->end_date);
+        }
 
         $locationName = 'All Locations';
         if ($isRestricted) {
