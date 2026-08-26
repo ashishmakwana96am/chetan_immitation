@@ -51,7 +51,7 @@ use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
 // Dynamic robots.txt route based on domain / environment / URL path
-Route::get('/robots.txt', function () {
+Route::get('{prefix?}/robots.txt', function () {
     $url = request()->fullUrl();
     $host = request()->getHost();
     $isStaging = str_contains($url, '/staging') || str_contains($host, 'staging') || config('app.env') === 'staging';
@@ -63,7 +63,7 @@ Route::get('/robots.txt', function () {
     }
 
     return response($content, 200)->header('Content-Type', 'text/plain');
-});
+})->where('prefix', '.*');
 
 // Frontend routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
