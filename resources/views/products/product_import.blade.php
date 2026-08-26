@@ -42,7 +42,7 @@
             <button type="button" id="productImportBtnRemoveFile"
             class="btn btn-sm btn-danger rounded-circle d-none d-flex align-items-center justify-content-center"
             style="width:30px;height:30px;min-width:30px;padding:0;" title="Remove file">
-            <i class="ti ti-trash" style="font: size 18px;line: height 18px;"></i>
+            <i class="ti ti-trash" style="font-size: 18px; line-height: 18px;"></i>
             </button>
         </div>
         <div class="invalid-feedback" id="productImportFileErrorFeedback" style="display:none;">Please select a valid Excel file.</div>
