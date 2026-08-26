@@ -433,3 +433,17 @@ Route::get('/set-debug-false', function () {
     Setting::setValue('app_debug', 'false');
     return response()->json(['message' => 'Debug mode disabled. Custom error pages (404/500) will be shown.']);
 });
+
+Route::get('/robots.txt', function () {
+    $appEnv = config('app.env', 'production');
+    $appUrl = config('app.url', request()->root());
+    $isStaging = str_contains(strtolower((string)$appEnv), 'staging') || str_contains(strtolower((string)$appUrl), 'staging');
+
+    if ($isStaging) {
+        $content = "User-agent: *\nDisallow: /\n";
+    } else {
+        $content = "User-agent: *\nDisallow: /admin/\nDisallow: /admin\nAllow: /\n";
+    }
+
+    return response($content, 200)->header('Content-Type', 'text/plain');
+});
