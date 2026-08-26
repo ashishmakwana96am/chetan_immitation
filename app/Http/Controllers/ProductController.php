@@ -743,9 +743,6 @@ class ProductController extends Controller
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
-        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
-        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
-        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -825,9 +822,6 @@ class ProductController extends Controller
                 'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
-                'purchase_multiplier' => $request->purchase_multiplier,
-                'sale_multiplier' => $request->sale_multiplier,
-                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -989,9 +983,6 @@ class ProductController extends Controller
         ];
 
         $rules['product_code'] = ['required', 'numeric', 'min:0.01'];
-        $rules['purchase_multiplier'] = ['required', 'numeric', 'min:0'];
-        $rules['sale_multiplier'] = ['required', 'numeric', 'min:0'];
-        $rules['mrp_multiplier'] = ['required', 'numeric', 'min:0'];
         $rules['purchase_price'] = ['required', 'numeric', 'min:0'];
         $rules['sale_price'] = ['required', 'numeric', 'min:0'];
         $rules['mrp'] = ['required', 'numeric', 'min:0'];
@@ -1125,9 +1116,6 @@ class ProductController extends Controller
                 'collection_id'     => $request->collection_id,
                 'barcode'         => $request->barcode,
                 'product_code'    => $request->product_code,
-                'purchase_multiplier' => $request->purchase_multiplier,
-                'sale_multiplier' => $request->sale_multiplier,
-                'mrp_multiplier'  => $request->mrp_multiplier,
                 'description'     => $request->description,
                 'additional_information' => $request->additional_information,
                 'product_highlights' => $request->product_highlights,
@@ -1161,8 +1149,32 @@ class ProductController extends Controller
             $selectedColIds = (array) ($request->collection_ids ?? ($request->collection_id ? [$request->collection_id] : []));
             $productData['collection_id'] = $selectedColIds[0] ?? null;
 
+            $oldBarcode = trim($product->barcode);
+            $newBarcode = trim($request->barcode);
+
             $product->update($productData);
             $product->collections()->sync($selectedColIds);
+
+            if (!empty($oldBarcode) && !empty($newBarcode) && $oldBarcode !== $newBarcode) {
+                $oldDir = public_path('uploads/products/' . $oldBarcode);
+                $newDir = public_path('uploads/products/' . $newBarcode);
+
+                if (file_exists($oldDir)) {
+                    if (!file_exists(dirname($newDir))) {
+                        mkdir(dirname($newDir), 0755, true);
+                    }
+                    @rename($oldDir, $newDir);
+                }
+
+                $productImages = ProductImage::where('product_id', $product->id)->get();
+                foreach ($productImages as $img) {
+                    $oldPath = $img->image_path;
+                    $updatedPath = str_replace("products/{$oldBarcode}/", "products/{$newBarcode}/", $oldPath);
+                    if ($oldPath !== $updatedPath) {
+                        $img->update(['image_path' => $updatedPath]);
+                    }
+                }
+            }
 
             if ($request->filled('primary_image_base64')) {
                 $existing = $product->images()->where('is_primary', true)->first();

@@ -24,6 +24,10 @@ class OrderObserver
      */
     public function created(Order $order): void
     {
+        \Illuminate\Support\Facades\Cache::forget('dashboard_super_admin_data');
+        if ($order->location_id) {
+            \Illuminate\Support\Facades\Cache::forget("dashboard_location_data_{$order->location_id}");
+        }
         if ($order->order_type !== 'sale') {
             return;
         }
@@ -61,6 +65,10 @@ class OrderObserver
      */
     public function updated(Order $order): void
     {
+        \Illuminate\Support\Facades\Cache::forget('dashboard_super_admin_data');
+        if ($order->location_id) {
+            \Illuminate\Support\Facades\Cache::forget("dashboard_location_data_{$order->location_id}");
+        }
         if ($order->order_type !== 'sale') {
             return;
         }
@@ -378,7 +386,7 @@ class OrderObserver
             return;
         }
 
-        $targetTotal = ($cashAmount + $onlineAmount > 0) ? ($cashAmount + $onlineAmount) : $finalAmount;
+        $targetTotal = (float) $finalAmount;
         $toDebit = min($targetTotal, $totalAvail);
 
         if ($toDebit <= 0) {

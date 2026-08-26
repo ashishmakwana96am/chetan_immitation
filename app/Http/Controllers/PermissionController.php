@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Permission\Models\Permission;
+use App\Models\Permission;
 use App\Models\Module;
 
 class PermissionController extends Controller

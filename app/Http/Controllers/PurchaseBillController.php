@@ -138,18 +138,15 @@ class PurchaseBillController extends Controller
             );
         } elseif ($sortKey === 'total_amount') {
             $query->orderBy(
-                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pv.purchase_price, p.purchase_price, 0)), 0) 
+                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.purchase_price, 0)), 0) 
                           FROM purchase_bill_items pbi 
-                          LEFT JOIN products p ON p.id = pbi.product_id 
-                          LEFT JOIN product_variants pv ON pv.id = pbi.product_variant_id 
                           WHERE pbi.purchase_bill_id = purchase_bills.id)'),
                 $sortDir
             );
         } elseif ($sortKey === 'total_mrp') {
             $query->orderBy(
-                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(p.mrp, 0)), 0) 
+                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.mrp, 0)), 0) 
                           FROM purchase_bill_items pbi 
-                          LEFT JOIN products p ON p.id = pbi.product_id 
                           WHERE pbi.purchase_bill_id = purchase_bills.id)'),
                 $sortDir
             );
@@ -166,12 +163,10 @@ class PurchaseBillController extends Controller
 
         $allFilteredIds = (clone $query)->pluck('purchase_bills.id');
         $grandTotals = DB::table('purchase_bill_items')
-            ->leftJoin('products', 'products.id', '=', 'purchase_bill_items.product_id')
-            ->leftJoin('product_variants', 'product_variants.id', '=', 'purchase_bill_items.product_variant_id')
             ->whereIn('purchase_bill_items.purchase_bill_id', $allFilteredIds)
             ->selectRaw('
-                SUM(purchase_bill_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as grand_total_amount,
-                SUM(purchase_bill_items.quantity * COALESCE(products.mrp, 0)) as grand_total_mrp
+                SUM(purchase_bill_items.quantity * COALESCE(purchase_bill_items.purchase_price, 0)) as grand_total_amount,
+                SUM(purchase_bill_items.quantity * COALESCE(purchase_bill_items.mrp, 0)) as grand_total_mrp
             ')
             ->first();
 

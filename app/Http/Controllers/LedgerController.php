@@ -2127,7 +2127,14 @@ class LedgerController extends Controller
                 if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                     $paidAmount += (float) $order->final_amount;
                 } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
-                    $paidAmount += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                    $paidAmt = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                    if ($first->customer && $first->customer->is_credit_customer) {
+                        $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $first->customer_id)
+                            ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                            ->sum('amount');
+                        $paidAmt += $walletUsed;
+                    }
+                    $paidAmount += min((float) $order->final_amount, $paidAmt);
                 } else {
                     $paidAmount += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
                 }
@@ -2380,7 +2387,14 @@ class LedgerController extends Controller
             if ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
                 $totalPayment += (float) $order->final_amount;
             } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
-                $totalPayment += (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $paidAmt = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                if ($customer && $customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $customer->id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                    $paidAmt += $walletUsed;
+                }
+                $totalPayment += min((float) $order->final_amount, $paidAmt);
             } else {
                 $totalPayment += (float) $order->payments()->where('status', \App\Models\OrderPayment::STATUS_CAPTURED)->sum('amount');
             }

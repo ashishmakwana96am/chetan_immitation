@@ -39,9 +39,6 @@ class Product extends Model
         'collection_id',
         'barcode',
         'product_code',
-        'purchase_multiplier',
-        'sale_multiplier',
-        'mrp_multiplier',
         'description',
         'additional_information',
         'product_highlights',
@@ -63,9 +60,6 @@ class Product extends Model
     {
         return [
             'product_code'    => 'decimal:2',
-            'purchase_multiplier' => 'decimal:3',
-            'sale_multiplier' => 'decimal:3',
-            'mrp_multiplier'  => 'decimal:3',
             'purchase_price'  => 'decimal:2',
             'sale_price'      => 'decimal:2',
             'mrp'             => 'decimal:2',
