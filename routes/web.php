@@ -50,20 +50,6 @@ use App\Http\Controllers\WishlistController;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
-// Dynamic robots.txt route based on domain / environment / URL path
-Route::get('{prefix?}/robots.txt', function () {
-    $url = request()->fullUrl();
-    $host = request()->getHost();
-    $isStaging = str_contains($url, '/staging') || str_contains($host, 'staging') || config('app.env') === 'staging';
-
-    if ($isStaging) {
-        $content = "User-agent: *\nDisallow: /\n";
-    } else {
-        $content = "User-agent: *\nDisallow: /admin/\nDisallow: /admin\nAllow: /\n";
-    }
-
-    return response($content, 200)->header('Content-Type', 'text/plain');
-})->where('prefix', '.*');
 
 // Frontend routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
