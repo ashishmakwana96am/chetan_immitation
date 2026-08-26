@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LocationBalanceTransaction extends Model
 {
+    use SoftDeletes;
     const TYPE_CREDIT = 'credit';
 
     const TYPE_DEBIT = 'debit';

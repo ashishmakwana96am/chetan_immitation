@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UtilityReport extends Model
 {
+    use SoftDeletes;
     protected $table = 'utility_reports';
 
     const UPDATED_AT = null;

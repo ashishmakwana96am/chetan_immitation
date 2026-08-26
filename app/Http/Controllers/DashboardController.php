@@ -60,20 +60,61 @@ class DashboardController extends Controller
             $approvedQuery = Order::where('order_type', 'sale')->whereIn('status', $approvedStatuses);
 
             $todaySales = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('final_amount');
-            $todayPaid = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $todayPaid = (float) (clone $approvedQuery)->whereDate('created_at', today())->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $todayPending = max(0.0, $todaySales - $todayPaid);
 
             $monthSales = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount');
-            $monthPaid = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $monthPaid = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $monthPending = max(0.0, $monthSales - $monthPaid);
 
             $totalSales = (float) (clone $approvedQuery)->sum('final_amount');
-            $totalReceived = (float) (clone $approvedQuery)->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $totalReceived = (float) (clone $approvedQuery)->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $totalPending = max(0.0, $totalSales - $totalReceived);
+
+            $todayCash = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('paid_cash_amount');
+            $todayOnline = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('paid_online_amount');
 
             $salesStats = [
                 'today' => $todaySales,
                 'today_pending_payment' => $todayPending,
+                'today_cash' => $todayCash,
+                'today_online' => $todayOnline,
                 'this_month' => $monthSales,
                 'this_month_pending_payment' => $monthPending,
                 'total' => $totalSales,
@@ -93,11 +134,10 @@ class DashboardController extends Controller
             $totalStockUnits = 0;
             $totalStockPairs = 0;
             $totalStockLoosePcs = 0;
-            $totalStockPurchaseValue = 0.0;
+            $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
             $totalStockMrpValue = 0.0;
 
             foreach ($products as $p) {
-                $purchasePrice = (float) $p->purchase_price;
                 $salePrice = (float) $p->sale_price;
                 $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
@@ -110,7 +150,6 @@ class DashboardController extends Controller
                 $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
                 $totalStockUnits += $pTotalPcs;
-                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
                 $totalStockMrpValue += ($effectiveQty * $mrpPrice);
 
                 if ($p->pair_product && $pTotalPcs > 0) {
@@ -192,20 +231,61 @@ class DashboardController extends Controller
             $approvedQuery = Order::where('order_type', 'sale')->where('location_id', $locationId)->whereIn('status', $approvedStatuses);
 
             $todaySales = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('final_amount');
-            $todayPaid = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $todayPaid = (float) (clone $approvedQuery)->whereDate('created_at', today())->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $todayPending = max(0.0, $todaySales - $todayPaid);
 
             $monthSales = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum('final_amount');
-            $monthPaid = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $monthPaid = (float) (clone $approvedQuery)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $monthPending = max(0.0, $monthSales - $monthPaid);
 
             $totalSales = (float) (clone $approvedQuery)->sum('final_amount');
-            $totalReceived = (float) (clone $approvedQuery)->sum(\DB::raw('COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)'));
+            $totalReceived = (float) (clone $approvedQuery)->get()->sum(function ($order) {
+                if ($order->payment_status == Order::PAYMENT_STATUS_PAID) {
+                    return (float) $order->final_amount;
+                }
+                $cashOnline = (float) $order->paid_cash_amount + (float) $order->paid_online_amount;
+                $walletUsed = 0.0;
+                if ($order->customer_id && $order->customer && $order->customer->is_credit_customer) {
+                    $walletUsed = (float) \App\Models\CustomerBalanceTransaction::where('customer_id', $order->customer_id)
+                        ->where('notes', 'LIKE', '%Sale #' . $order->order_number . '%')
+                        ->sum('amount');
+                }
+                return min((float) $order->final_amount, $cashOnline + $walletUsed);
+            });
             $totalPending = max(0.0, $totalSales - $totalReceived);
+
+            $todayCash = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('paid_cash_amount');
+            $todayOnline = (float) (clone $approvedQuery)->whereDate('created_at', today())->sum('paid_online_amount');
 
             $salesStats = [
                 'today' => $todaySales,
                 'today_pending_payment' => $todayPending,
+                'today_cash' => $todayCash,
+                'today_online' => $todayOnline,
                 'this_month' => $monthSales,
                 'this_month_pending_payment' => $monthPending,
                 'total' => $totalSales,
@@ -223,14 +303,13 @@ class DashboardController extends Controller
             $allProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['category', 'primaryImage', 'inventories'])->get();
             $lowStockInventories = Inventory::where('location_id', $locationId)->where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get();
 
-            $totalStockPurchaseValue = 0.0;
+            $totalStockPurchaseValue = (float) Purchase::where('location_id', $locationId)->where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
             $totalStockMrpValue = 0.0;
             $totalStockPairs = 0;
             $totalStockLoosePcs = 0;
             $totalStockUnits = 0;
 
             foreach ($allProducts as $p) {
-                $purchasePrice = (float) $p->purchase_price;
                 $salePrice = (float) $p->sale_price;
                 $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
@@ -244,7 +323,6 @@ class DashboardController extends Controller
                 $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
                 $totalStockUnits += $pTotalPcs;
-                $totalStockPurchaseValue += ($effectiveQty * $purchasePrice);
                 $totalStockMrpValue += ($effectiveQty * $mrpPrice);
 
                 if ($p->pair_product && $pTotalPcs > 0) {

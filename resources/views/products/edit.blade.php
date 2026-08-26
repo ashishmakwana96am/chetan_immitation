@@ -94,21 +94,6 @@
                                       placeholder="Enter Product Code" step="0.01" min="0.01" value="{{ $product->product_code }}" />
                                   <div class="invalid-feedback"></div>
                               </div>
-                              <div class="col-md-6">
-                                  <label class="form-label">Purchase Multiplier <span class="text-danger">*</span></label>
-                                  <input type="number" name="purchase_multiplier" id="purchaseMultiplierInput" class="form-control" placeholder="Enter Purchase Multiplier" step="0.001" min="0" value="{{ $product->purchase_multiplier }}" />
-                                  <div class="invalid-feedback"></div>
-                              </div>
-                              <div class="col-md-6">
-                                  <label class="form-label">Sale Multiplier <span class="text-danger">*</span></label>
-                                  <input type="number" name="sale_multiplier" id="saleMultiplierInput" class="form-control" placeholder="Enter Sale Multiplier" step="0.001" min="0" value="{{ $product->sale_multiplier }}" />
-                                  <div class="invalid-feedback"></div>
-                              </div>
-                              <div class="col-md-6">
-                                  <label class="form-label">MRP Multiplier <span class="text-danger">*</span></label>
-                                  <input type="number" name="mrp_multiplier" id="mrpMultiplierInput" class="form-control" placeholder="Enter MRP Multiplier" step="0.001" min="0" value="{{ $product->mrp_multiplier }}" />
-                                  <div class="invalid-feedback"></div>
-                              </div>
                               <div class="col-md-6" id="purchasePriceCol">
                                   <label class="form-label">Purchase Price <span class="text-danger">*</span></label>
                                   <div class="input-group has-validation">
@@ -1271,57 +1256,6 @@
             function roundToNearest5(val) {
                 return Math.ceil(parseFloat(val) / 5) * 5;
             }
-
-            function getMultipliers() {
-                return {
-                    purchase: parseFloat($('#purchaseMultiplierInput').val()) || 0,
-                    sale: parseFloat($('#saleMultiplierInput').val()) || 0,
-                    mrp: parseFloat($('#mrpMultiplierInput').val()) || 0,
-                };
-            }
-
-            $('#productCodeInput, #purchaseMultiplierInput, #saleMultiplierInput, #mrpMultiplierInput').on('input change', function () {
-                const code = parseFloat($('#productCodeInput').val()) || 0;
-                const mult = getMultipliers();
-                const purchasePrice = (code * mult.purchase).toFixed(2);
-                const isPair = $('#productPair').is(':checked');
-                const mode = currentPairMode();
-
-                if (isPair) {
-                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
-
-                    const calculatedSalePrice = roundToNearest5(code * mult.sale).toFixed(2);
-                    const calculatedMrp = roundToNearest5(code * mult.mrp).toFixed(2);
-
-                    let maxIndex = 0;
-                    let maxSize = -1;
-
-                    $('#customSizeRows .custom-size-sale-field').each(function () {
-                        const idx = parseInt($(this).data('index'));
-                        const sz = parseFloat($(this).data('size')) || 0;
-                        if (sz > maxSize) {
-                            maxSize = sz;
-                            maxIndex = idx;
-                        }
-                    });
-
-                    const $saleMax = $('#customSizeRows .custom-size-sale-field[data-index="' + maxIndex + '"] .custom-size-sale-price');
-                    const $mrpMax = $('#customSizeRows .custom-size-mrp-field[data-index="' + maxIndex + '"] .custom-size-mrp');
-                    if ($saleMax.length) {
-                        $saleMax.val(calculatedSalePrice).trigger('input');
-                    }
-                    if ($mrpMax.length) {
-                        $mrpMax.val(calculatedMrp).trigger('input');
-                    }
-                } else {
-                    const salePrice = roundToNearest5(code * mult.sale).toFixed(2);
-                    const mrp = roundToNearest5(code * mult.mrp).toFixed(2);
-
-                    $('#purchasePriceInput').val(purchasePrice).trigger('change');
-                    $('#salePriceInput').val(salePrice).trigger('change');
-                    $('#mrpInput').val(mrp);
-                }
-            });
 
             $('#salePriceInput').on('change', function () {
                 const val = parseFloat($(this).val()) || 0;

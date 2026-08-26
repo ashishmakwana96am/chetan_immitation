@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BulkPurchasePayment extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'total_amount',
         'supplier_id',

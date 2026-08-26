@@ -387,9 +387,6 @@ class PurchaseImportService
                     'purchase_price'      => trim($row['purchase_price'] ?? ''),
                     'sale_price'          => trim($row['sale_price'] ?? ''),
                     'mrp'                 => trim($row['mrp'] ?? ''),
-                    'purchase_multiplier' => trim($row['purchase_multiplier'] ?? ''),
-                    'sale_multiplier'     => trim($row['sale_multiplier'] ?? ''),
-                    'mrp_multiplier'      => trim($row['mrp_multiplier'] ?? ''),
                     'pair_product'        => $this->toBool($row['pair_product'] ?? ''),
                     'pair_sizes'          => trim($row['pair_sizes'] ?? ''),
                     'product_type'        => in_array(strtolower(trim($row['product_type'] ?? 'n')), ['variable', 'v']) ? 'variable' : 'normal',
@@ -450,7 +447,7 @@ class PurchaseImportService
         $product = $productsByBarcode[$barcode] ?? null;
 
         if ($product) {
-            $diffFields = ['name', 'category_id', 'sub_category_id', 'purchase_price', 'sale_price', 'mrp', 'purchase_multiplier', 'sale_multiplier', 'mrp_multiplier', 'type'];
+            $diffFields = ['name', 'category_id', 'sub_category_id', 'purchase_price', 'sale_price', 'mrp', 'type'];
             $oldSnapshot = $product->only($diffFields);
             $oldCategoryName = $product->category->name ?? '-';
             $oldSubCategoryName = $product->subCategory->name ?? '-';
@@ -628,7 +625,7 @@ class PurchaseImportService
         }
         $quantity = (int) $quantity;
 
-        $price = round((float) $product->product_code * (float) $product->purchase_multiplier, 2);
+        $price = (float) $product->purchase_price;
 
         if ($product->pair_product) {
             $customSizes = $product->custom_sizes ?? [];

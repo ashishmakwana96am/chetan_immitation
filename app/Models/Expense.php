@@ -4,10 +4,11 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Expense extends Model
 {
-    use LogsActivity;
+    use SoftDeletes, LogsActivity;
 
     const CATEGORIES = [
         'Rent',
