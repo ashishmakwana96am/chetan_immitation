@@ -107,13 +107,31 @@ class AttributeController extends Controller
             ], 422);
         }
 
-        $attribute = Attribute::create([
-            'name'       => trim($request->name),
-            'slug'       => Str::slug(trim($request->name)),
-            'status'     => $request->has('status') ? 1 : 2,
-            'created_by' => auth()->id(),
-            'index'      => (int) Attribute::max('index') + 1,
-        ]);
+        $name = trim($request->name);
+        $slug = Str::slug($name);
+
+        $existing = Attribute::withTrashed()->where('slug', $slug)->first();
+        if ($existing) {
+            if ($existing->trashed()) {
+                $existing->restore();
+                $existing->update([
+                    'name'       => $name,
+                    'status'     => $request->has('status') ? 1 : 2,
+                    'created_by' => auth()->id(),
+                ]);
+                $attribute = $existing;
+            } else {
+                $attribute = $existing;
+            }
+        } else {
+            $attribute = Attribute::create([
+                'name'       => $name,
+                'slug'       => $slug,
+                'status'     => $request->has('status') ? 1 : 2,
+                'created_by' => auth()->id(),
+                'index'      => (int) Attribute::max('index') + 1,
+            ]);
+        }
 
         $values = json_decode($request->values_json, true) ?: [];
         $seen = [];
@@ -392,13 +410,30 @@ class AttributeController extends Controller
         }
 
         $name = trim($request->name);
-        $attribute = Attribute::create([
-            'name'       => $name,
-            'slug'       => Str::slug($name),
-            'status'     => 1,
-            'created_by' => auth()->id(),
-            'index'      => (int) Attribute::max('index') + 1,
-        ]);
+        $slug = Str::slug($name);
+
+        $existing = Attribute::withTrashed()->where('slug', $slug)->first();
+        if ($existing) {
+            if ($existing->trashed()) {
+                $existing->restore();
+                $existing->update([
+                    'name'       => $name,
+                    'status'     => 1,
+                    'created_by' => auth()->id(),
+                ]);
+                $attribute = $existing;
+            } else {
+                $attribute = $existing;
+            }
+        } else {
+            $attribute = Attribute::create([
+                'name'       => $name,
+                'slug'       => $slug,
+                'status'     => 1,
+                'created_by' => auth()->id(),
+                'index'      => (int) Attribute::max('index') + 1,
+            ]);
+        }
 
         $valueLines = array_filter(array_map('trim', explode("\n", $request->values)));
         $seen = [];
