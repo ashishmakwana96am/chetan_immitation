@@ -357,7 +357,8 @@ class DashboardController extends Controller
                     ->whereHas('order', function ($q) use ($locationId) {
                         $q->where('location_id', $locationId)
                           ->where('order_type', 'sale')
-                          ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]);
+                          ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                          ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
                     })
                     ->get();
 
@@ -368,10 +369,11 @@ class DashboardController extends Controller
                     $p = $sItem->product;
                     if (!$p) continue;
 
-                    $multiplier = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
-                    $quantity   = (int) $sItem->quantity;
+                    $multiplier    = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
+                    $quantity      = (int) $sItem->quantity;
+                    $purchasePrice = $this->purchasePriceForOrderItem($sItem);
 
-                    $soldPurchaseValue += $this->purchasePriceForOrderItem($sItem) * $quantity;
+                    $soldPurchaseValue += $purchasePrice * $quantity;
                     $soldMrpValue      += $this->mrpForOrderItem($sItem, $multiplier) * $quantity;
                 }
 
