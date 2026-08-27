@@ -140,7 +140,7 @@ class UserController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name'        => ['required', 'string', 'max:100'],
-            'email'       => ['required', 'email', 'unique:users,email'],
+            'email'       => ['required', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'phone'       => ['nullable', 'string', 'max:20'],
             'password'    => ['required', 'string', 'min:8'],
             'role'        => ['required', 'exists:roles,id'],
@@ -153,6 +153,9 @@ class UserController extends Controller
                 'message' => $validator->errors(),
             ], 422);
         }
+
+        // Clean up any soft-deleted record with the same email
+        User::onlyTrashed()->where('email', $request->email)->forceDelete();
 
         $role = Role::findById($request->role);
 
@@ -208,7 +211,7 @@ class UserController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name'        => ['required', 'string', 'max:100'],
-            'email'       => ['required', 'email', 'unique:users,email,' . $user->id],
+            'email'       => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)->whereNull('deleted_at')],
             'phone'       => ['nullable', 'string', 'max:20'],
             'role'        => ['required', 'exists:roles,id'],
             'location_id' => ['nullable', 'exists:locations,id'],

@@ -326,16 +326,63 @@ class DashboardController extends Controller
                     $totalStockMrpValue += ($effectiveQty * $mrpPrice);
                 }
             } else {
-                $acceptedBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
+                $incomingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
                     ->where('to_location_id', $locationId)
                     ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
                     ->get();
 
-                foreach ($acceptedBills as $bill) {
+                $incomingPurchaseValue = 0.0;
+                $incomingMrpValue      = 0.0;
+                foreach ($incomingBills as $bill) {
                     [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
-                    $totalStockPurchaseValue += $billAmount;
-                    $totalStockMrpValue      += $billMrp;
+                    $incomingPurchaseValue += $billAmount;
+                    $incomingMrpValue      += $billMrp;
                 }
+
+                $outgoingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
+                    ->where('from_location_id', $locationId)
+                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
+                    ->get();
+
+                $outgoingPurchaseValue = 0.0;
+                $outgoingMrpValue      = 0.0;
+                foreach ($outgoingBills as $bill) {
+                    [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
+                    $outgoingPurchaseValue += $billAmount;
+                    $outgoingMrpValue      += $billMrp;
+                }
+
+                $soldOrderItems = \App\Models\OrderItem::with(['product', 'variant'])
+                    ->whereHas('order', function ($q) use ($locationId) {
+                        $q->where('location_id', $locationId)
+                          ->where('order_type', 'sale')
+                          ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]);
+                    })
+                    ->get();
+
+                $soldPurchaseValue = 0.0;
+                $soldMrpValue      = 0.0;
+
+                foreach ($soldOrderItems as $sItem) {
+                    $p = $sItem->product;
+                    if (!$p) continue;
+
+                    $purchasePrice = (float) (($sItem->variant->purchase_price ?? 0) > 0 
+                        ? $sItem->variant->purchase_price 
+                        : ($p->purchase_price ?? 0));
+
+                    $mrpPrice = (float) (($sItem->mrp > 0) 
+                        ? $sItem->mrp 
+                        : ($sItem->variant->mrp ?? $p->mrp ?? $p->sale_price ?? 0));
+
+                    $qty = (int) $sItem->quantity;
+
+                    $soldPurchaseValue += $purchasePrice * $qty;
+                    $soldMrpValue      += $mrpPrice * $qty;
+                }
+
+                $totalStockPurchaseValue = max(0.0, $incomingPurchaseValue - $outgoingPurchaseValue - $soldPurchaseValue);
+                $totalStockMrpValue      = max(0.0, $incomingMrpValue - $outgoingMrpValue - $soldMrpValue);
             }
 
             $totalStockPairs = 0;
