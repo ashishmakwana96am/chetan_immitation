@@ -211,6 +211,7 @@
                     { data: 'to_location' },
                     {
                         data: 'items_count',
+                        type: 'num',
                         render: function (data, type, row) {
                             if (type === 'sort' || type === 'type') {
                                 return parseInt(data, 10) || 0;
@@ -220,18 +221,20 @@
                     },
                     {
                         data: 'total_amount',
+                        type: 'num',
                         render: function (data, type, row) {
                             if (type === 'sort' || type === 'type') {
-                                return row.total_amount_raw !== undefined ? row.total_amount_raw : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                                return row.total_amount_raw !== undefined ? parseFloat(row.total_amount_raw) : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
                             }
                             return data;
                         }
                     },
                     {
                         data: 'total_mrp',
+                        type: 'num',
                         render: function (data, type, row) {
                             if (type === 'sort' || type === 'type') {
-                                return row.total_mrp_raw !== undefined ? row.total_mrp_raw : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
+                                return row.total_mrp_raw !== undefined ? parseFloat(row.total_mrp_raw) : parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0;
                             }
                             return data;
                         }

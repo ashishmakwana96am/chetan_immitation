@@ -83,7 +83,7 @@
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Sales</span>
-                                <h4 class="mb-0 mt-1 text-success">{{ format_price($totalAmount) }}</h4>
+                                <h4 class="mb-0 mt-1 text-success" id="statTotalAmount">{{ format_price($totalAmount) }}</h4>
                             </div>
                             <span class="badge bg-label-success rounded p-2"><i class="ti ti-trending-up ti-sm"></i></span>
                         </div>
@@ -96,7 +96,7 @@
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Pending Amount</span>
-                                <h4 class="mb-0 mt-1 text-warning">{{ format_price($pendingAmount) }}</h4>
+                                <h4 class="mb-0 mt-1 text-warning" id="statPendingAmount">{{ format_price($pendingAmount) }}</h4>
                             </div>
                             <span class="badge bg-label-warning rounded p-2"><i class="ti ti-wallet ti-sm"></i></span>
                         </div>
@@ -109,7 +109,7 @@
                         <div class="d-flex align-items-start justify-content-between">
                             <div>
                                 <span class="text-muted">Total Refunds</span>
-                                <h4 class="mb-0 mt-1 text-danger">{{ format_price($refundAmount) }}</h4>
+                                <h4 class="mb-0 mt-1 text-danger" id="statRefundAmount">{{ format_price($refundAmount) }}</h4>
                             </div>
                             <span class="badge bg-label-danger rounded p-2"><i class="ti ti-receipt-refund ti-sm"></i></span>
                         </div>
@@ -235,71 +235,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($orders as $order)
-                            @php
-                                $payment = $order->payment;
-                                $cancellation = $order->cancellationRequest;
-                                $isRefunded = $cancellation
-                                    && $cancellation->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED
-                                    && (float) $cancellation->refund_amount > 0;
-                                $sourceVal = strtoupper($order->source ?? 'POS');
-                                $normalizedMethod = match ($order->payment_method) {
-                                    'razorpay' => 'online',
-                                    default    => $order->payment_method,
-                                };
-                                $methodLabel = match ($normalizedMethod) {
-                                    'cod'    => 'COD',
-                                    'online' => 'Online',
-                                    'cash'   => 'Cash',
-                                    default  => ucwords(str_replace('_', ' ', $normalizedMethod ?? '')),
-                                };
-                                if ($isRefunded) {
-                                    $statusLabel = 'Refunded';
-                                    $statusClass = 'status-refunded';
-                                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
-                                    $statusLabel = 'Paid';
-                                    $statusClass = 'status-paid';
-                                } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
-                                    $statusLabel = 'Partially Paid';
-                                    $statusClass = 'status-partial';
-                                } elseif ($payment) {
-                                    $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
-                                    $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
-                                } else {
-                                    $statusLabel = 'Pending';
-                                    $statusClass = 'status-pending';
-                                }
-                            @endphp
-                            <tr>
-                                <td></td>
-                                <td>
-                                    <a href="{{ route('admin.sales.show', $order->id) }}">
-                                        <code>{{ $order->order_no }}</code>
-                                    </a>
-                                </td>
-                                <td><span class="fw-semibold">{{ $order->customer?->name ?? 'Walk-in' }}</span></td>
-                                <td>
-                                    <span class="gateway-badge source-{{ strtolower($sourceVal) }}">{{ $sourceVal }}</span>
-                                </td>
-                                <td>
-                                    @if(is_null($order->payment_method))
-                                        <span class="text-muted">-</span>
-                                    @elseif($normalizedMethod === 'online_cash')
-                                        <span class="gateway-badge method-cash">Cash: {{ format_price($order->paid_cash_amount) }}</span>
-                                        <span class="gateway-badge method-online">Online: {{ format_price($order->paid_online_amount) }}</span>
-                                    @else
-                                        <span class="gateway-badge method-{{ $normalizedMethod }}">{{ $methodLabel }}</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <span class="gateway-badge {{ $statusClass }}">{{ $statusLabel }}</span>
-                                </td>
-                                <td class="text-end fw-semibold text-nowrap">{{ format_price($order->final_amount) }}</td>
-                                <td class="text-end fw-semibold text-nowrap text-danger">{{ $isRefunded ? format_price($cancellation->refund_amount) : '-' }}</td>
-                                <td class="d-none">{{ $order->created_at->format('d M Y') }}</td>
-                                <td class="d-none">{{ $order->created_at->format('Ymd') }}</td>
-                            </tr>
-                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -311,108 +246,225 @@
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
     <script>
-    let trendChart = null;
+    let paymentTrendChart  = null;
     let paymentMethodChart = null;
-    let sourceChart = null;
+    let sourceChart        = null;
 
-    function formatChartAmount(value) {
-        return parseFloat(value || 0).toLocaleString('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+    function formatCompactIndian(val) {
+        val = parseFloat(val);
+        if (isNaN(val)) return '{{ currency_symbol() }}0';
+        if (val >= 10000000) {
+            return '{{ currency_symbol() }}' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 2) + ' Cr';
+        } else if (val >= 100000) {
+            return '{{ currency_symbol() }}' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 2) + ' L';
+        } else if (val >= 1000) {
+            return '{{ currency_symbol() }}' + (val / 1000).toFixed(val % 1000 === 0 ? 0 : 2) + ' K';
+        }
+        return '{{ currency_symbol() }}' + val.toLocaleString('en-IN');
     }
 
-    function renderDonutChart(elementId, chartRef, data, colors) {
-        if (chartRef) { chartRef.destroy(); chartRef = null; }
-        const keys = Object.keys(data);
-        const vals = Object.values(data);
-        if (keys.length > 0) {
-            chartRef = new ApexCharts(document.getElementById(elementId), {
-                chart: { type: 'donut', height: 280 },
-                series: vals,
-                labels: keys,
-                legend: { position: 'bottom' },
-                dataLabels: { enabled: true },
+    function renderDonutChart(containerId, chartInstance, dataObj, colors) {
+        const labels = Object.keys(dataObj || {});
+        const values = Object.values(dataObj || {});
+
+        if (chartInstance) {
+            chartInstance.destroy();
+            chartInstance = null;
+        }
+
+        if (labels.length > 0 && values.some(v => v > 0)) {
+            chartInstance = new ApexCharts(document.getElementById(containerId), {
+                chart: { type: 'donut', height: 320 },
+                series: values,
+                labels: labels,
                 colors: colors,
+                legend: { position: 'bottom', labels: { colors: '#5d596c', fontFamily: 'Public Sans' } },
+                dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%' },
                 tooltip: {
                     y: {
-                        formatter: value => formatChartAmount(value)
+                        formatter: (val) => '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     }
                 },
+                noData: { text: 'No data available' }
             });
-            chartRef.render();
+            chartInstance.render();
         } else {
-            document.getElementById(elementId).innerHTML = '<div class="text-center py-5 text-muted">No data available</div>';
+            $('#' + containerId).html('<div class="text-center py-5 text-muted">No data available</div>');
         }
-        return chartRef;
+        return chartInstance;
     }
 
-    function initCharts() {
-        const el = document.getElementById('chart-data');
-        const paymentTrend      = JSON.parse(el.getAttribute('data-payment-trend')       || '{}');
-        const paymentMethodData = JSON.parse(el.getAttribute('data-payment-method-data') || '{}');
-        const sourceData        = JSON.parse(el.getAttribute('data-source-data')         || '{}');
+    function updateCharts(chartsObj) {
+        if (!chartsObj) return;
 
-        if (trendChart)  { trendChart.destroy();  trendChart  = null; }
+        const paymentTrend      = chartsObj.paymentTrend || {};
+        const paymentMethodData = chartsObj.paymentMethodData || {};
+        const sourceData        = chartsObj.sourceData || {};
+
         const months = Object.keys(paymentTrend);
         const values = Object.values(paymentTrend);
+
+        if (paymentTrendChart) {
+            paymentTrendChart.destroy();
+            paymentTrendChart = null;
+        }
+
         if (months.length > 0) {
-            trendChart = new ApexCharts(document.getElementById('paymentTrendChart'), {
-                chart: { type: 'area', height: 300, toolbar: { show: false } },
-                series: [{ name: 'Amount Received', data: values }],
+            paymentTrendChart = new ApexCharts(document.getElementById('paymentTrendChart'), {
+                chart: { type: 'bar', height: 320, toolbar: { show: false } },
+                series: [{ name: 'Payments', data: values }],
                 xaxis: { categories: months },
                 colors: ['#7367f0'],
-                stroke: { curve: 'smooth', width: 3 },
-                fill: {
-                    type: 'gradient',
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.05, stops: [0, 90, 100] }
-                },
+                plotOptions: { bar: { borderRadius: 4, columnWidth: '45%' } },
                 dataLabels: { enabled: false },
                 yaxis: {
                     labels: {
-                        formatter: val => '{{ currency_symbol() }}' + formatChartAmount(val)
+                        formatter: (val) => formatCompactIndian(val)
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: (val) => '{{ currency_symbol() }}' + parseFloat(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     }
                 }
             });
-            trendChart.render();
+            paymentTrendChart.render();
         } else {
-            document.getElementById('paymentTrendChart').innerHTML = '<div class="text-center py-5 text-muted">No data available</div>';
+            $('#paymentTrendChart').html('<div class="text-center py-5 text-muted">No data available</div>');
         }
 
         paymentMethodChart = renderDonutChart('paymentMethodChart', paymentMethodChart, paymentMethodData, ['#0d6efd', '#28c76f', '#ff9f43', '#ea5455']);
         sourceChart        = renderDonutChart('sourceChart', sourceChart, sourceData, ['#5e5873', '#7367f0', '#28c76f']);
     }
 
-    function initTable() {
+    function initCharts() {
+        const chartDataEl = $('#chart-data');
+        const paymentTrend      = JSON.parse(chartDataEl.attr('data-payment-trend') || '{}');
+        const paymentMethodData = JSON.parse(chartDataEl.attr('data-payment-method-data') || '{}');
+        const sourceData        = JSON.parse(chartDataEl.attr('data-source-data') || '{}');
+
+        updateCharts({
+            paymentTrend: paymentTrend,
+            paymentMethodData: paymentMethodData,
+            sourceData: sourceData
+        });
+    }
+
+    function initReport() {
+        initCharts();
+
         if ($.fn.DataTable.isDataTable('#paymentsTable')) {
             $('#paymentsTable').DataTable().destroy();
         }
         $('#paymentsTable').DataTable({
+            processing : true,
+            serverSide : true,
             responsive : false,
-            order      : [[9, 'desc']],
-            columnDefs : [
+            pageLength : 25,
+            ajax: {
+                url: '{{ route("admin.reports.payments.data") }}',
+                data: function (d) {
+                    d.start_date     = $('input[name="start_date"]').val();
+                    d.end_date       = $('input[name="end_date"]').val();
+                    d.location_id    = $('select[name="location_id"]').val();
+                    d.source         = $('select[name="source"]').val();
+                    d.payment_method = $('select[name="payment_method"]').val();
+                    d.payment_status = $('select[name="payment_status"]').val();
+                },
+                dataSrc: function (json) {
+                    if (json.stats) {
+                        $('#statTotalAmount').text(json.stats.totalAmount || '{{ currency_symbol() }}0.00');
+                        $('#statPendingAmount').text(json.stats.pendingAmount || '{{ currency_symbol() }}0.00');
+                        $('#statRefundAmount').text(json.stats.refundAmount || '{{ currency_symbol() }}0.00');
+                    }
+                    if (json.charts) {
+                        updateCharts(json.charts);
+                    }
+                    return json.data || [];
+                }
+            },
+            columns: [
+                { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 {
-                    targets: 0,
-                    orderable: false,
-                    searchable: false,
-                    render: function (data, type, row, meta) {
-                        return meta.row + meta.settings._iDisplayStart + 1;
+                    data: 'invoice_no',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_invoice_no !== undefined ? row.raw_invoice_no : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
                     }
                 },
-                { targets: [8, 9], visible: false }
+                {
+                    data: 'customer',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_customer !== undefined ? row.raw_customer : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'source',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_source !== undefined ? row.raw_source : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'payment_method',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_payment_method !== undefined ? row.raw_payment_method : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'status',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_status !== undefined ? row.raw_status : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'final_amount',
+                    type: 'num',
+                    className: 'text-end fw-semibold text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_final_amount !== undefined ? parseFloat(row.raw_final_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'refund_amount',
+                    type: 'num',
+                    className: 'text-end fw-semibold text-nowrap text-danger',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_refund_amount !== undefined ? parseFloat(row.raw_refund_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                { data: 'date_group', visible: false },
+                { data: 'date_sort', visible: false }
             ],
-            rowGroup   : {
-                dataSrc: 8,
+            columnDefs: [
+                { targets: 0, orderable: false }
+            ],
+            order: [[9, 'desc']],
+            rowGroup: {
+                dataSrc: 'date_group',
                 startRender: function (rows, group) {
                     return $('<tr class="group-header"/>')
                         .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' payment' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                 }
-            },
-            drawCallback: function () {
-                const api = this.api();
-                api.column(0, { page: 'current' }).nodes().each(function (cell, i) {
-                    cell.innerHTML = i + 1;
-                });
             }
         });
     }
@@ -428,7 +480,6 @@
                 const startPicker = $(startEl).flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
-                        $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             endPicker.set('minDate', selectedDates[0]);
                         } else {
@@ -440,7 +491,6 @@
                 const endPicker = $(endEl).flatpickr({
                     altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
                     onChange: function (selectedDates, dateStr, instance) {
-                        $(instance.element).closest('form').trigger('change');
                         if (selectedDates.length) {
                             startPicker.set('maxDate', selectedDates[0]);
                         } else {
@@ -458,10 +508,7 @@
             } else {
                 $('.flatpickr').each(function () { if (this._flatpickr) this._flatpickr.destroy(); });
                 $('.flatpickr').flatpickr({
-                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today',
-                    onChange: function (selectedDates, dateStr, instance) {
-                        $(instance.element).closest('form').trigger('change');
-                    }
+                    altInput: true, altFormat: 'd-m-Y', dateFormat: 'Y-m-d', allowInput: false, maxDate: 'today'
                 });
             }
         }
@@ -481,26 +528,26 @@
         }
     }
 
-    function loadReport(url) {
-        $('#report-results').css('opacity', 0.5);
-        window.showAjaxLoader && window.showAjaxLoader();
-        $.get(url, function (html) {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            $('#report-results').html($(doc).find('#report-results').html());
-            initCharts();
-            initTable();
-            initDatePickers();
-            updateFilterButtonsVisibility();
-        }).always(function () {
-            $('#report-results').css('opacity', 1);
-            window.hideAjaxLoader && window.hideAjaxLoader();
-        });
-    }
-
     $(document).ready(function () {
-        initCharts();
-        initTable();
+        initReport();
         initDatePickers();
+
+        function loadReport(url) {
+            $('#report-results').css('opacity', 0.5);
+
+            $.get(url, function (html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newResults = $(doc).find('#report-results').html();
+
+                $('#report-results').html(newResults);
+                initReport();
+                initDatePickers();
+                updateFilterButtonsVisibility();
+            }).always(function () {
+                $('#report-results').css('opacity', 1);
+            });
+        }
 
         $(document).on('input change', '#filterForm', function () {
             updateFilterButtonsVisibility();
@@ -509,7 +556,9 @@
 
         $(document).on('click', '#applyFiltersBtn', function () {
             isFiltered = true;
-            loadReport($('#filterForm').attr('action') + '?' + $('#filterForm').serialize());
+            const form = $('#filterForm');
+            const url = form.attr('action') + '?' + form.serialize();
+            loadReport(url);
         });
 
         $(document).on('click', '#clearFiltersBtn', function () {
@@ -523,6 +572,8 @@
                     this._flatpickr.set('maxDate', null);
                 }
             });
+            form.find('input').val('');
+            form.find('select').val('').trigger('change.select2');
             updateFilterButtonsVisibility();
             loadReport(form.attr('action'));
         });

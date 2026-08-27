@@ -291,17 +291,86 @@
                     d.location_id = $('select[name="location_id"]').val();
                 }
             },
+            columnDefs: [
+                { targets: 0, orderable: false }
+            ],
             columns: [
                 { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'product' },
-                { data: 'barcode' },
-                { data: 'qty_sold', className: 'text-end' },
-                { data: 'total_revenue', className: 'text-end' },
-                { data: 'total_cost', className: 'text-end' },
-                { data: 'profit', className: 'text-end' },
-                { data: 'margin', className: 'text-end' }
+                {
+                    data: 'product',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_product !== undefined ? row.raw_product : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'barcode',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_barcode !== undefined ? row.raw_barcode : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'qty_sold',
+                    type: 'num',
+                    className: 'text-end text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_qty_sold !== undefined ? parseFloat(row.raw_qty_sold) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'total_revenue',
+                    type: 'num',
+                    className: 'text-end text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_total_revenue !== undefined ? parseFloat(row.raw_total_revenue) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'total_cost',
+                    type: 'num',
+                    className: 'text-end text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_total_cost !== undefined ? parseFloat(row.raw_total_cost) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'profit',
+                    type: 'num',
+                    className: 'text-end text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_profit !== undefined ? parseFloat(row.raw_profit) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'margin',
+                    type: 'num',
+                    className: 'text-end text-nowrap',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_margin !== undefined ? parseFloat(row.raw_margin) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                }
             ],
-            order: []
+            order: [[4, 'desc']]
         });
 
         const chartDataEl = $('#chart-data');

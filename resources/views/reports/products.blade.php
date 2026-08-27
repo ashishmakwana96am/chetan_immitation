@@ -198,7 +198,6 @@
                         <th>#</th>
                         <th>Product</th>
                         <th>Barcode</th>
-                        <th class="d-none">Category</th>
                         <th>Sub Category</th>
                         <th class="text-end">Purchase Price</th>
                         <th class="text-end">Sale Price</th>
@@ -239,19 +238,73 @@
             },
             columns: [
                 { data: 'index', orderable: false, searchable: false },
-                { data: 'name', name: 'name' },
-                { data: 'barcode', name: 'barcode' },
-                { data: 'sub_category', orderable: false },
-                { data: 'purchase_price', className: 'text-end' },
-                { data: 'sale_price', className: 'text-end' },
-                { data: 'margin_badge', className: 'text-end', orderable: false },
-                { data: 'stock_badge', className: 'text-end', orderable: false },
-                { data: 'status_badge', orderable: false },
+                {
+                    data: 'name',
+                    name: 'name',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_name !== undefined ? row.raw_name : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'barcode',
+                    name: 'barcode',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_barcode !== undefined ? row.raw_barcode : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                { data: 'sub_category' },
+                {
+                    data: 'purchase_price',
+                    type: 'num',
+                    className: 'text-end',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_purchase_price !== undefined ? parseFloat(row.raw_purchase_price) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'sale_price',
+                    type: 'num',
+                    className: 'text-end',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_sale_price !== undefined ? parseFloat(row.raw_sale_price) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'margin_badge',
+                    type: 'num',
+                    className: 'text-end',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_margin !== undefined ? parseFloat(row.raw_margin) : 0;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'stock_badge',
+                    type: 'num',
+                    className: 'text-end',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_stock !== undefined ? parseInt(row.raw_stock, 10) : 0;
+                        }
+                        return data;
+                    }
+                },
+                { data: 'status_badge' },
             ]
-        });
-
-        table.on('preXhr.dt', function () {
-            window.showAjaxLoader && window.showAjaxLoader();
         });
 
         table.on('xhr.dt draw.dt', function () {

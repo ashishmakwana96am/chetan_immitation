@@ -49,9 +49,33 @@
             columns.push(
                 { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
                 { data: 'image', orderable: false },
-                { data: 'status', orderable: false },
-                { data: 'created_by', orderable: false },
-                { data: 'created_at' },
+                {
+                    data: 'status',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_status !== undefined ? row.raw_status : 0;
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'created_by',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_created_by !== undefined ? row.raw_created_by : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'created_at',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_created_at !== undefined ? row.raw_created_at : data;
+                        }
+                        return data;
+                    }
+                },
                 @if(auth()->user()->can('edit banners') || auth()->user()->can('delete banners'))
                 { data: 'actions', orderable: false },
                 @endif
@@ -59,7 +83,11 @@
 
             const table = $('#bannersTable').DataTable({
                 responsive : false,
-                order      : [],
+                order      : [[4, 'desc']],
+                columnDefs : [
+                    { targets: 0, orderable: false },
+                    { targets: 1, orderable: false },
+                ],
                 ajax       : {
                     url: '{{ route('admin.banners.data') }}',
                     dataSrc: 'data',

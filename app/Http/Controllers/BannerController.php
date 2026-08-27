@@ -49,13 +49,16 @@ class BannerController extends Controller
             }
 
             return [
-                'id' => $banner->id,
-                'index' => $index + 1,
-                'image' => $image,
-                'status' => $status,
-                'created_by' => $banner->createdBy ? e($banner->createdBy->name) : 'System',
-                'created_at' => format_date($banner->created_at),
-                'actions' => $actions,
+                'id'             => $banner->id,
+                'index'          => $index + 1,
+                'image'          => $image,
+                'status'         => $status,
+                'raw_status'     => (int) $banner->status,
+                'created_by'     => $banner->createdBy ? e($banner->createdBy->name) : 'System',
+                'raw_created_by' => $banner->createdBy ? $banner->createdBy->name : 'System',
+                'created_at'     => format_date($banner->created_at),
+                'raw_created_at' => $banner->created_at ? $banner->created_at->format('YmdHis') : '0',
+                'actions'        => $actions,
             ];
         });
 

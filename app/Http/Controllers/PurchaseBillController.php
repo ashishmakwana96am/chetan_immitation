@@ -128,58 +128,52 @@ class PurchaseBillController extends Controller
             $query->leftJoin('locations as to_loc', 'purchase_bills.to_location_id', '=', 'to_loc.id')
                   ->select('purchase_bills.*')
                   ->orderBy('to_loc.name', $sortDir);
+        } elseif ($sortKey === 'transfer_no') {
+            $query->orderByRaw("LENGTH(purchase_bills.transfer_no) {$sortDir}")
+                  ->orderBy("purchase_bills.transfer_no", $sortDir);
         } elseif ($sortKey === 'created_by') {
             $query->leftJoin('users as u', 'purchase_bills.created_by', '=', 'u.id')
                   ->select('purchase_bills.*')
                   ->orderBy('u.name', $sortDir);
         } elseif ($sortKey === 'items_count') {
-            $query->orderBy(
-                DB::raw('(SELECT COALESCE(SUM(quantity), 0) FROM purchase_bill_items WHERE purchase_bill_items.purchase_bill_id = purchase_bills.id)'),
-                $sortDir
-            );
+            $query->orderByRaw('(SELECT COALESCE(SUM(quantity), 0) FROM purchase_bill_items WHERE purchase_bill_items.purchase_bill_id = purchase_bills.id) ' . $sortDir);
         } elseif ($sortKey === 'total_amount') {
-            $query->orderBy(
-                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.purchase_price, 0)), 0) 
-                          FROM purchase_bill_items pbi 
-                          WHERE pbi.purchase_bill_id = purchase_bills.id)'),
-                $sortDir
-            );
+            $query->orderByRaw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.purchase_price, 0)), 0) FROM purchase_bill_items pbi WHERE pbi.purchase_bill_id = purchase_bills.id) ' . $sortDir);
         } elseif ($sortKey === 'total_mrp') {
-            $query->orderBy(
-                DB::raw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.mrp, 0)), 0) 
-                          FROM purchase_bill_items pbi 
-                          WHERE pbi.purchase_bill_id = purchase_bills.id)'),
-                $sortDir
-            );
+            $query->orderByRaw('(SELECT COALESCE(SUM(pbi.quantity * COALESCE(pbi.mrp, 0)), 0) FROM purchase_bill_items pbi WHERE pbi.purchase_bill_id = purchase_bills.id) ' . $sortDir);
         } else {
             $query->orderBy("purchase_bills.{$sortKey}", $sortDir);
         }
         $query->orderBy('purchase_bills.id', 'desc');
 
-        $transfers = (clone $query)
-            ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
-            ->skip($start)
-            ->take($length)
-            ->get();
+        if (in_array($sortKey, ['total_mrp', 'total_amount', 'items_count'])) {
+            $transfers = (clone $query)
+                ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+                ->get();
+        } else {
+            $transfers = (clone $query)
+                ->with(['fromLocation', 'toLocation', 'createdBy', 'items.product', 'items.variant'])
+                ->skip($start)
+                ->take($length)
+                ->get();
+        }
 
-        $allFilteredIds = (clone $query)->pluck('purchase_bills.id');
-        $grandTotals = DB::table('purchase_bill_items')
-            ->whereIn('purchase_bill_items.purchase_bill_id', $allFilteredIds)
-            ->selectRaw('
-                SUM(purchase_bill_items.quantity * COALESCE(purchase_bill_items.purchase_price, 0)) as grand_total_amount,
-                SUM(purchase_bill_items.quantity * COALESCE(purchase_bill_items.mrp, 0)) as grand_total_mrp
-            ')
-            ->first();
+        $allFilteredBills = (clone $query)->with(['items.product', 'items.variant'])->get();
+        $grandTotalAmount = 0.0;
+        $grandTotalMrp    = 0.0;
 
-        $grandTotalAmount = (float) ($grandTotals->grand_total_amount ?? 0);
-        $grandTotalMrp    = (float) ($grandTotals->grand_total_mrp ?? 0);
+        foreach ($allFilteredBills as $tbill) {
+            [$tAmount, $tMrp] = $this->purchaseBillTotals($tbill);
+            $grandTotalAmount += $tAmount;
+            $grandTotalMrp    += $tMrp;
+        }
 
         $canAccept = auth()->user()->can('accept purchase bills');
         $canReject = auth()->user()->can('reject purchase bills');
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
         $canEdit = auth()->user()->can('edit purchase bills');
 
-        $data = $transfers->map(function ($transfer, $index) use ($start, $canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
+        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
             $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
             $canAcceptRecord = $canAccept;
             $canRejectRecord = $canReject;
@@ -211,22 +205,45 @@ class PurchaseBillController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index' => $start + $index + 1,
-                'transfer_no' => '<code>' . e($transfer->transfer_no) . '</code>',
-                'from_location' => e($transfer->fromLocation->name ?? '-'),
-                'to_location' => e($transfer->toLocation->name ?? '-'),
-                'items_count' => (int) $transfer->items->sum('quantity'),
-                'total_amount' => format_price($totalAmount),
-                'total_amount_raw' => round($totalAmount, 2),
-                'total_mrp' => format_price($totalMrp),
-                'total_mrp_raw' => round($totalMrp, 2),
-                'status' => $statusBadge,
-                'payment_status' => $paymentStatusBadge,
-                'created_by' => e($transfer->createdBy->name ?? '-'),
-                'date_group' => $transfer->created_at->format('d M Y'),
-                'date_sort' => $transfer->created_at->format('YmdHis'),
-                'actions' => $actions,
+                'index'            => 0,
+                'transfer_no'      => '<code>' . e($transfer->transfer_no) . '</code>',
+                'from_location'    => e($transfer->fromLocation->name ?? '-'),
+                'to_location'      => e($transfer->toLocation->name ?? '-'),
+                'items_count'      => (int) $transfer->items->sum('quantity'),
+                'total_amount'     => format_price($totalAmount),
+                'total_amount_raw' => (float) round($totalAmount, 2),
+                'total_mrp'        => format_price($totalMrp),
+                'total_mrp_raw'    => (float) round($totalMrp, 2),
+                'status'           => $statusBadge,
+                'payment_status'   => $paymentStatusBadge,
+                'created_by'       => e($transfer->createdBy->name ?? '-'),
+                'date_group'       => $transfer->created_at->format('d M Y'),
+                'date_sort'        => $transfer->created_at->format('YmdHis'),
+                'actions'          => $actions,
             ];
+        });
+
+        if ($sortKey === 'total_mrp') {
+            $data = $sortDir === 'asc' 
+                ? $data->sortBy('total_mrp_raw')->values() 
+                : $data->sortByDesc('total_mrp_raw')->values();
+        } elseif ($sortKey === 'total_amount') {
+            $data = $sortDir === 'asc' 
+                ? $data->sortBy('total_amount_raw')->values() 
+                : $data->sortByDesc('total_amount_raw')->values();
+        } elseif ($sortKey === 'items_count') {
+            $data = $sortDir === 'asc' 
+                ? $data->sortBy('items_count')->values() 
+                : $data->sortByDesc('items_count')->values();
+        }
+
+        if (in_array($sortKey, ['total_mrp', 'total_amount', 'items_count'])) {
+            $data = $data->slice($start, $length)->values();
+        }
+
+        $data = $data->map(function ($item, $idx) use ($start) {
+            $item['index'] = $start + $idx + 1;
+            return $item;
         });
 
         return response()->json([

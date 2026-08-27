@@ -125,8 +125,43 @@ class ReportController extends Controller
             $length = 25;
         }
 
+        $orderColumnMap = [
+            1 => 'name',
+            2 => 'barcode',
+            3 => 'sub_category',
+            4 => 'purchase_price',
+            5 => 'sale_price',
+            6 => 'margin',
+            7 => 'stock',
+            8 => 'status',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'name';
+        $sortDir = 'asc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'desc' ? 'desc' : 'asc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'sub_category') {
+            $query->leftJoin('sub_categories as sc', 'products.sub_category_id', '=', 'sc.id')
+                  ->select('products.*')
+                  ->orderBy('sc.name', $sortDir);
+        } elseif ($sortKey === 'margin') {
+            $query->orderByRaw('(products.sale_price - products.purchase_price) ' . $sortDir);
+        } elseif ($sortKey === 'stock') {
+            $query->orderByRaw('(SELECT COALESCE(SUM(quantity), 0) FROM inventories WHERE inventories.product_id = products.id) ' . $sortDir);
+        } else {
+            $query->orderBy("products.{$sortKey}", $sortDir);
+        }
+        $query->orderBy('products.id', 'desc');
+
         $products = $query
-            ->orderBy('name')
             ->skip($start)
             ->take($length)
             ->get();
@@ -200,18 +235,24 @@ class ReportController extends Controller
             $nameHtml .= '<a href="' . route('admin.products.show', $product->id) . '" class="fw-semibold mb-0">' . e($product->name) . '</a></div>';
 
             $data[] = [
-                'index' => $index++,
-                'id' => $product->id,
-                'name' => $nameHtml,
-                'barcode' => '<code>' . e($product->barcode) . '</code>',
-                'sub_category' => ($product->subCategory->name ?? null) ? '<span class="badge bg-label-info">' . e($product->subCategory->name) . '</span>' : '<span class="text-muted small">-</span>',
-                'purchase_price' => format_price($product->purchase_price),
-                'sale_price' => format_price($product->sale_price),
-                'margin_badge' => '<span class="badge ' . ($margin >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . format_price($margin) . ' (' . $marginPct . '%)</span>',
-                'stock_badge' => '<span class="badge ' . ($parentStock > 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($parentStock > 0 ? $product->formatStockDisplay($parentStock) : 'SOLD OUT') . '</span>',
-                'status_badge' => status_badge($product->status),
-                'variants' => $variantsData,
-                'has_variants' => $hasVariants
+                'index'              => $index++,
+                'id'                 => $product->id,
+                'name'               => $nameHtml,
+                'raw_name'           => $product->name,
+                'barcode'            => '<code>' . e($product->barcode) . '</code>',
+                'raw_barcode'        => $product->barcode,
+                'sub_category'       => ($product->subCategory->name ?? null) ? '<span class="badge bg-label-info">' . e($product->subCategory->name) . '</span>' : '<span class="text-muted small">-</span>',
+                'purchase_price'     => format_price($product->purchase_price),
+                'raw_purchase_price' => (float) $product->purchase_price,
+                'sale_price'         => format_price($product->sale_price),
+                'raw_sale_price'     => (float) $product->sale_price,
+                'margin_badge'       => '<span class="badge ' . ($margin >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . format_price($margin) . ' (' . $marginPct . '%)</span>',
+                'raw_margin'         => round($margin, 2),
+                'stock_badge'        => '<span class="badge ' . ($parentStock > 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . ($parentStock > 0 ? $product->formatStockDisplay($parentStock) : 'SOLD OUT') . '</span>',
+                'raw_stock'          => (int) $parentStock,
+                'status_badge'       => status_badge($product->status),
+                'variants'           => $variantsData,
+                'has_variants'       => $hasVariants
             ];
         }
 
@@ -444,6 +485,10 @@ class ReportController extends Controller
             $query->orderBy('name', $orderDir);
         } elseif ($columnName === 'barcode') {
             $query->orderBy('barcode', $orderDir);
+        } elseif ($columnName === 'category') {
+            $query->leftJoin('categories as cat', 'products.category_id', '=', 'cat.id')
+                  ->select('products.*')
+                  ->orderBy('cat.name', $orderDir);
         } elseif ($columnName === 'total_qty') {
             $query->orderByRaw("{$stockExprSql} {$orderDir}", $stockExprBindings);
         } elseif ($columnName === 'purchase_value') {
@@ -931,10 +976,39 @@ class ReportController extends Controller
         if ($length <= 0)
             $length = 25;
 
+        $orderColumnMap = [
+            1 => 'invoice_no',
+            2 => 'supplier',
+            3 => 'status',
+            4 => 'total_amount',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'supplier') {
+            $query->leftJoin('suppliers as supp', 'purchases.supplier_id', '=', 'supp.id')
+                  ->select('purchases.*')
+                  ->orderBy('supp.name', $sortDir);
+        } elseif ($sortKey === 'invoice_no') {
+            $query->orderByRaw("LENGTH(purchases.invoice_no) {$sortDir}")
+                  ->orderBy("purchases.invoice_no", $sortDir);
+        } else {
+            $query->orderBy("purchases.{$sortKey}", $sortDir);
+        }
+        $query->orderBy('purchases.id', 'desc');
+
         $invoices = (clone $query)
-            ->select(['purchases.id', 'purchases.invoice_no', 'purchases.supplier_id', 'purchases.status', 'purchases.total_amount', 'purchases.paid_amount', 'purchases.created_at'])
             ->with(['supplier:id,name'])
-            ->latest('purchases.created_at')
             ->skip($start)
             ->take($length)
             ->get();
@@ -955,14 +1029,17 @@ class ReportController extends Controller
                 </div>';
 
             $data[] = [
-                'id' => $invoice->id,
-                'invoice_no' => '<code>' . e($invoice->invoice_no) . '</code>',
-                'supplier' => '<span class="fw-semibold">' . e($invoice->supplier->name ?? 'Unknown') . '</span>',
-                'status' => $statusBadge,
-                'total_amount' => format_price($invoice->total_amount),
-                'actions' => $actions,
-                'date_group' => $invoice->created_at->format('d M Y'),
-                'date_sort' => $invoice->created_at->format('Ymd'),
+                'id'               => $invoice->id,
+                'invoice_no'       => '<code>' . e($invoice->invoice_no) . '</code>',
+                'raw_invoice_no'   => $invoice->invoice_no,
+                'supplier'         => '<span class="fw-semibold">' . e($invoice->supplier->name ?? 'Unknown') . '</span>',
+                'raw_supplier'     => $invoice->supplier->name ?? '',
+                'status'           => $statusBadge,
+                'total_amount'     => format_price($invoice->total_amount),
+                'raw_total_amount' => (float) $invoice->total_amount,
+                'actions'          => $actions,
+                'date_group'       => $invoice->created_at->format('d M Y'),
+                'date_sort'        => $invoice->created_at->format('Ymd'),
             ];
         }
 
@@ -1032,8 +1109,36 @@ class ReportController extends Controller
         if ($length <= 0)
             $length = 25;
 
+        $orderColumnMap = [
+            1 => 'product',
+            2 => 'barcode',
+            3 => 'qty_purchased',
+            4 => 'total_cost',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'qty_purchased';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'product') {
+            $groupedQuery->leftJoin('products as p', 'purchase_items.product_id', '=', 'p.id')
+                         ->orderBy('p.name', $sortDir);
+        } elseif ($sortKey === 'barcode') {
+            $groupedQuery->leftJoin('products as p', 'purchase_items.product_id', '=', 'p.id')
+                         ->orderBy('p.barcode', $sortDir);
+        } else {
+            $groupedQuery->orderBy($sortKey, $sortDir);
+        }
+
         $productPurchases = $groupedQuery
-            ->orderByDesc('qty_purchased')
             ->skip($start)
             ->take($length)
             ->with(['product:id,name,barcode', 'product.primaryImage'])
@@ -1052,10 +1157,14 @@ class ReportController extends Controller
                 </div>';
 
             $data[] = [
-                'product' => $prodHtml,
-                'barcode' => '<code>' . e($item->product->barcode ?? '-') . '</code>',
-                'qty_purchased' => '<span class="fw-bold text-info">' . $item->qty_purchased . '</span>',
-                'total_cost' => '<span class="fw-bold text-success">' . format_price($item->total_cost) . '</span>',
+                'product'          => $prodHtml,
+                'raw_product_name' => $item->product->name ?? '',
+                'barcode'          => '<code>' . e($item->product->barcode ?? '-') . '</code>',
+                'raw_barcode'      => $item->product->barcode ?? '',
+                'qty_purchased'    => '<span class="fw-bold text-info">' . (int) $item->qty_purchased . '</span>',
+                'raw_qty_purchased'=> (int) $item->qty_purchased,
+                'total_cost'       => '<span class="fw-bold text-success">' . format_price($item->total_cost) . '</span>',
+                'raw_total_cost'   => (float) $item->total_cost,
             ];
         }
 
@@ -1269,10 +1378,45 @@ class ReportController extends Controller
         if ($length <= 0)
             $length = 25;
 
+        $orderColumnMap = [
+            1 => 'order_no',
+            2 => 'customer',
+            3 => 'location',
+            4 => 'payment_status',
+            5 => 'payment_method',
+            6 => 'final_amount',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'customer') {
+            $query->leftJoin('customers as cust', 'orders.customer_id', '=', 'cust.id')
+                  ->select('orders.*')
+                  ->orderByRaw("COALESCE(cust.name, 'Walk-in Customer') {$sortDir}");
+        } elseif ($sortKey === 'location') {
+            $query->leftJoin('locations as loc', 'orders.location_id', '=', 'loc.id')
+                  ->select('orders.*')
+                  ->orderBy('loc.name', $sortDir);
+        } elseif ($sortKey === 'order_no') {
+            $query->orderByRaw("LENGTH(orders.order_no) {$sortDir}")
+                  ->orderBy("orders.order_no", $sortDir);
+        } else {
+            $query->orderBy("orders.{$sortKey}", $sortDir);
+        }
+        $query->orderBy('orders.id', 'desc');
+
         $orders = (clone $query)
-            ->select(['orders.id', 'orders.order_no', 'orders.customer_id', 'orders.location_id', 'orders.user_id', 'orders.status', 'orders.payment_status', 'orders.payment_method', 'orders.final_amount', 'orders.paid_cash_amount', 'orders.paid_online_amount', 'orders.created_at'])
             ->with(['customer:id,name', 'location:id,name', 'user:id,name'])
-            ->latest('orders.created_at')
             ->skip($start)
             ->take($length)
             ->get();
@@ -1289,7 +1433,7 @@ class ReportController extends Controller
             $pmBadge = '<span class="badge bg-label-info">' . e($pmText) . '</span>';
             $psBadge = '<span class="badge bg-label-success">Paid</span>';
             if ((int) $order->payment_status === Order::PAYMENT_STATUS_PARTIAL) {
-                $psBadge = '<span class="badge bg-label-warning">Partial</span>';
+                $psBadge = '<span class="badge bg-label-warning">Partially Paid</span>';
             } elseif ((int) $order->payment_status === Order::PAYMENT_STATUS_PENDING) {
                 $psBadge = '<span class="badge bg-label-danger">Pending</span>';
             }
@@ -1307,16 +1451,22 @@ class ReportController extends Controller
                 </div>';
 
             $data[] = [
-                'id' => $order->id,
-                'invoice_no' => '<code>' . e($order->order_no) . '</code>',
-                'customer' => '<span class="fw-semibold">' . e($order->customer->name ?? 'Walk-in Customer') . '</span>',
-                'location' => e($order->location->name ?? '-'),
-                'payment_method' => $pmBadge,
-                'payment_status' => $psBadge,
-                'final_amount' => format_price($order->final_amount),
-                'actions' => $actions,
-                'date_group' => $order->created_at->format('d M Y'),
-                'date_sort' => $order->created_at->format('Ymd'),
+                'id'               => $order->id,
+                'invoice_no'       => '<code>' . e($order->order_no) . '</code>',
+                'raw_invoice_no'   => $order->order_no,
+                'customer'         => '<span class="fw-semibold">' . e($order->customer->name ?? 'Walk-in Customer') . '</span>',
+                'raw_customer'     => $order->customer->name ?? 'Walk-in Customer',
+                'location'         => e($order->location->name ?? '-'),
+                'raw_location'     => $order->location->name ?? '',
+                'payment_method'   => $pmBadge,
+                'raw_payment_method'=> $pmText,
+                'payment_status'   => $psBadge,
+                'raw_payment_status'=> (int) $order->payment_status,
+                'final_amount'     => format_price($order->final_amount),
+                'raw_final_amount' => (float) $order->final_amount,
+                'actions'          => $actions,
+                'date_group'       => $order->created_at->format('d M Y'),
+                'date_sort'        => $order->created_at->format('Ymd'),
             ];
         }
 
@@ -1387,8 +1537,36 @@ class ReportController extends Controller
         if ($length <= 0)
             $length = 25;
 
+        $orderColumnMap = [
+            1 => 'product',
+            2 => 'barcode',
+            3 => 'qty_sold',
+            4 => 'total_revenue',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'qty_sold';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'product') {
+            $groupedQuery->leftJoin('products as p', 'order_items.product_id', '=', 'p.id')
+                         ->orderBy('p.name', $sortDir);
+        } elseif ($sortKey === 'barcode') {
+            $groupedQuery->leftJoin('products as p', 'order_items.product_id', '=', 'p.id')
+                         ->orderBy('p.barcode', $sortDir);
+        } else {
+            $groupedQuery->orderBy($sortKey, $sortDir);
+        }
+
         $productSales = $groupedQuery
-            ->orderByDesc('qty_sold')
             ->skip($start)
             ->take($length)
             ->with(['product:id,name,barcode', 'product.primaryImage'])
@@ -1407,10 +1585,14 @@ class ReportController extends Controller
                 </div>';
 
             $data[] = [
-                'product' => $prodHtml,
-                'barcode' => '<code>' . e($item->product->barcode ?? '-') . '</code>',
-                'qty_sold' => '<span class="fw-bold text-info">' . $item->qty_sold . '</span>',
-                'total_revenue' => '<span class="fw-bold text-success">' . format_price($item->total_revenue) . '</span>',
+                'product'          => $prodHtml,
+                'raw_product_name' => $item->product->name ?? '',
+                'barcode'          => '<code>' . e($item->product->barcode ?? '-') . '</code>',
+                'raw_barcode'      => $item->product->barcode ?? '',
+                'qty_sold'         => '<span class="fw-bold text-info">' . (int) $item->qty_sold . '</span>',
+                'raw_qty_sold'     => (int) $item->qty_sold,
+                'total_revenue'    => '<span class="fw-bold text-success">' . format_price($item->total_revenue) . '</span>',
+                'raw_total_revenue'=> (float) $item->total_revenue,
             ];
         }
 
@@ -1640,8 +1822,47 @@ class ReportController extends Controller
         $length = (int) $request->input('length', 25);
         if ($length <= 0) $length = 25;
 
+        $orderColumnMap = [
+            1 => 'product',
+            2 => 'barcode',
+            3 => 'qty_sold',
+            4 => 'total_revenue',
+            5 => 'total_cost',
+            6 => 'profit',
+            7 => 'margin',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'total_revenue';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'product') {
+            $groupedQuery->orderBy('products.name', $sortDir);
+        } elseif ($sortKey === 'barcode') {
+            $groupedQuery->orderBy('products.barcode', $sortDir);
+        } elseif ($sortKey === 'profit') {
+            $groupedQuery->orderByRaw("(SUM(order_items.total) - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) {$sortDir}");
+        } elseif ($sortKey === 'margin') {
+            $groupedQuery->orderByRaw("
+                CASE 
+                    WHEN SUM(order_items.total) > 0 THEN 
+                        ((SUM(order_items.total) - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) / SUM(order_items.total)) * 100 
+                    ELSE 0 
+                END {$sortDir}
+            ");
+        } else {
+            $groupedQuery->orderBy($sortKey, $sortDir);
+        }
+
         $rows = $groupedQuery
-            ->orderByDesc('order_items.product_id')
             ->skip($start)
             ->take($length)
             ->get();
@@ -1714,13 +1935,20 @@ class ReportController extends Controller
             $formattedQty = format_stock_quantity($productObj, (float) $row->qty_sold);
 
             $data[] = [
-                'product'       => $prodHtml,
-                'barcode'       => '<code>' . e($row->barcode ?? '-') . '</code>',
-                'qty_sold'      => '<span class="fw-semibold">' . $formattedQty . '</span>' . $breakdownHtml,
-                'total_revenue' => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
-                'total_cost'    => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
-                'profit'        => $profitBadge,
-                'margin'        => $marginBadge,
+                'product'          => $prodHtml,
+                'raw_product'      => $row->name ?? '',
+                'barcode'          => '<code>' . e($row->barcode ?? '-') . '</code>',
+                'raw_barcode'      => $row->barcode ?? '',
+                'qty_sold'         => '<span class="fw-semibold">' . $formattedQty . '</span>' . $breakdownHtml,
+                'raw_qty_sold'     => (float) $row->qty_sold,
+                'total_revenue'    => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
+                'raw_total_revenue'=> (float) $row->total_revenue,
+                'total_cost'       => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
+                'raw_total_cost'   => (float) $row->total_cost,
+                'profit'           => $profitBadge,
+                'raw_profit'       => (float) $prodProfit,
+                'margin'           => $marginBadge,
+                'raw_margin'       => (float) $prodMargin,
             ];
         }
 
@@ -3571,6 +3799,294 @@ class ReportController extends Controller
             'locationId',
             'isSuperAdmin'
         ));
+    }
+
+    public function paymentsData(Request $request)
+    {
+        $this->authorize('view payment reports');
+
+        $startDate     = $request->query('start_date');
+        $endDate       = $request->query('end_date');
+        $locationId    = $request->query('location_id');
+        $source        = $request->query('source');
+        $paymentMethod = $request->query('payment_method');
+        $paymentStatus = $request->query('payment_status');
+        $searchValue   = $request->input('search.value');
+
+        $user = auth()->user();
+        $isSuperAdmin = $user->hasRole('super-admin');
+
+        $applyCommonFilters = function ($q) use ($user, $isSuperAdmin, $locationId, $startDate, $endDate, $source, $paymentMethod) {
+            if ($user->location_id && !$isSuperAdmin) {
+                $q->where('orders.location_id', $user->location_id);
+            } elseif ($locationId) {
+                $q->where('orders.location_id', $locationId);
+            }
+
+            if ($startDate) {
+                $q->whereDate('orders.created_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $q->whereDate('orders.created_at', '<=', $endDate);
+            }
+            if ($source) {
+                $q->where('orders.source', $source);
+            }
+            if ($paymentMethod) {
+                if ($paymentMethod === 'online') {
+                    $q->whereIn('orders.payment_method', ['online', 'razorpay']);
+                } else {
+                    $q->where('orders.payment_method', $paymentMethod);
+                }
+            }
+
+            return $q;
+        };
+
+        $query = Order::with(['customer', 'payment'])
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [
+                Order::STATUS_APPROVE,
+                Order::STATUS_SHIPPED,
+                Order::STATUS_OUT_FOR_DELIVERY,
+                Order::STATUS_DELIVERED,
+            ]);
+        $applyCommonFilters($query);
+
+        if ($paymentStatus) {
+            $query->where('orders.payment_status', $paymentStatus);
+        }
+
+        if ($searchValue) {
+            $query->where(function ($sub) use ($searchValue) {
+                $sub->where('orders.order_no', 'like', "%{$searchValue}%")
+                    ->orWhereHas('customer', function ($cq) use ($searchValue) {
+                        $cq->where('name', 'like', "%{$searchValue}%");
+                    });
+            });
+        }
+
+        $refundQuery = Order::with(['customer', 'payment', 'cancellationRequest'])
+            ->where('orders.order_type', 'sale')
+            ->where('orders.status', Order::STATUS_DECLINE)
+            ->whereHas('cancellationRequest', function ($q) {
+                $q->where('status', \App\Models\OrderCancellationRequest::STATUS_APPROVED)
+                  ->where('refund_amount', '>', 0);
+            });
+        $applyCommonFilters($refundQuery);
+
+        if ($searchValue) {
+            $refundQuery->where(function ($sub) use ($searchValue) {
+                $sub->where('orders.order_no', 'like', "%{$searchValue}%")
+                    ->orWhereHas('customer', function ($cq) use ($searchValue) {
+                        $cq->where('name', 'like', "%{$searchValue}%");
+                    });
+            });
+        }
+
+        $orderColumnMap = [
+            1 => 'order_no',
+            2 => 'customer',
+            3 => 'source',
+            4 => 'payment_method',
+            5 => 'payment_status',
+            6 => 'final_amount',
+            7 => 'refund_amount',
+        ];
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'customer') {
+            $query->leftJoin('customers as cust', 'orders.customer_id', '=', 'cust.id')
+                  ->select('orders.*')
+                  ->orderByRaw("COALESCE(cust.name, 'Walk-in Customer') {$sortDir}");
+            $refundQuery->leftJoin('customers as cust', 'orders.customer_id', '=', 'cust.id')
+                        ->select('orders.*')
+                        ->orderByRaw("COALESCE(cust.name, 'Walk-in Customer') {$sortDir}");
+        } elseif ($sortKey === 'order_no') {
+            $query->orderByRaw("LENGTH(orders.order_no) {$sortDir}")->orderBy("orders.order_no", $sortDir);
+            $refundQuery->orderByRaw("LENGTH(orders.order_no) {$sortDir}")->orderBy("orders.order_no", $sortDir);
+        } else {
+            $query->orderBy("orders.{$sortKey}", $sortDir);
+            $refundQuery->orderBy("orders.{$sortKey}", $sortDir);
+        }
+
+        $orders = $query->get();
+        $refundedOrders = $refundQuery->get();
+
+        $allOrders = $orders->merge($refundedOrders);
+
+        if ($sortKey === 'customer') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'))
+                : $allOrders->sortByDesc(fn($o) => strtolower($o->customer?->name ?? 'Walk-in Customer'));
+        } elseif ($sortKey === 'order_no') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no))
+                : $allOrders->sortByDesc(fn($o) => sprintf('%10d_%s', strlen($o->order_no), $o->order_no));
+        } elseif ($sortKey === 'final_amount') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => (float) $o->final_amount)
+                : $allOrders->sortByDesc(fn($o) => (float) $o->final_amount);
+        } elseif ($sortKey === 'refund_amount') {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => (float) ($o->cancellationRequest?->refund_amount ?? 0))
+                : $allOrders->sortByDesc(fn($o) => (float) ($o->cancellationRequest?->refund_amount ?? 0));
+        } else {
+            $allOrders = $sortDir === 'asc'
+                ? $allOrders->sortBy(fn($o) => $o->created_at)
+                : $allOrders->sortByDesc(fn($o) => $o->created_at);
+        }
+
+        $recordsTotal = $allOrders->count();
+        $recordsFiltered = $recordsTotal;
+
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0) $length = 25;
+
+        $pagedOrders = $allOrders->slice($start, $length);
+
+        $data = [];
+        foreach ($pagedOrders as $order) {
+            $payment = $order->payment;
+            $cancellation = $order->cancellationRequest;
+            $isRefunded = $cancellation
+                && $cancellation->status === \App\Models\OrderCancellationRequest::STATUS_APPROVED
+                && (float) $cancellation->refund_amount > 0;
+            $sourceVal = strtoupper($order->source ?? 'POS');
+            $normalizedMethod = match ($order->payment_method) {
+                'razorpay' => 'online',
+                default    => $order->payment_method,
+            };
+            $methodLabel = match ($normalizedMethod) {
+                'cod'    => 'COD',
+                'online' => 'Online',
+                'cash'   => 'Cash',
+                default  => ucwords(str_replace('_', ' ', $normalizedMethod ?? '')),
+            };
+            if ($isRefunded) {
+                $statusLabel = 'Refunded';
+                $statusClass = 'status-refunded';
+            } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PAID) {
+                $statusLabel = 'Paid';
+                $statusClass = 'status-paid';
+            } elseif ($order->payment_status == \App\Models\Order::PAYMENT_STATUS_PARTIAL) {
+                $statusLabel = 'Partially Paid';
+                $statusClass = 'status-partial';
+            } elseif ($payment) {
+                $statusLabel = $payment->status === 'captured' ? 'Paid' : ucfirst($payment->status);
+                $statusClass = $payment->status === 'captured' ? 'status-paid' : 'status-' . $payment->status;
+            } else {
+                $statusLabel = 'Pending';
+                $statusClass = 'status-pending';
+            }
+
+            $methodHtml = '';
+            if (is_null($order->payment_method)) {
+                $methodHtml = '<span class="text-muted">-</span>';
+            } elseif ($normalizedMethod === 'online_cash') {
+                $methodHtml = '<span class="gateway-badge method-cash">Cash: ' . format_price($order->paid_cash_amount) . '</span> '
+                            . '<span class="gateway-badge method-online">Online: ' . format_price($order->paid_online_amount) . '</span>';
+            } else {
+                $methodHtml = '<span class="gateway-badge method-' . $normalizedMethod . '">' . e($methodLabel) . '</span>';
+            }
+
+            $orderNoHtml = '<a href="' . route('admin.sales.show', $order->id) . '"><code>' . e($order->order_no) . '</code></a>';
+
+            $data[] = [
+                'id'                 => $order->id,
+                'invoice_no'         => $orderNoHtml,
+                'raw_invoice_no'     => $order->order_no,
+                'customer'           => '<span class="fw-semibold">' . e($order->customer?->name ?? 'Walk-in') . '</span>',
+                'raw_customer'       => $order->customer?->name ?? 'Walk-in Customer',
+                'source'             => '<span class="gateway-badge source-' . strtolower($sourceVal) . '">' . e($sourceVal) . '</span>',
+                'raw_source'         => $sourceVal,
+                'payment_method'     => $methodHtml,
+                'raw_payment_method' => $methodLabel,
+                'status'             => '<span class="gateway-badge ' . $statusClass . '">' . e($statusLabel) . '</span>',
+                'raw_status'         => $statusLabel,
+                'final_amount'       => format_price($order->final_amount),
+                'raw_final_amount'   => (float) $order->final_amount,
+                'refund_amount'      => $isRefunded ? format_price($cancellation->refund_amount) : '-',
+                'raw_refund_amount'  => $isRefunded ? (float) $cancellation->refund_amount : 0,
+                'date_group'         => $order->created_at->format('d M Y'),
+                'date_sort'          => $order->created_at->format('Ymd'),
+            ];
+        }
+
+        $totalAmount = (float) $orders->sum('final_amount');
+        $pendingOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PENDING);
+        $pendingFullAmount = (float) $pendingOrders->sum('final_amount');
+        $partialOrders = $orders->where('payment_status', Order::PAYMENT_STATUS_PARTIAL);
+        $partialDueAmount = (float) $partialOrders->sum(function ($order) {
+            $paid = (float) ($order->paid_cash_amount ?? 0) + (float) ($order->paid_online_amount ?? 0);
+            return max(0, (float) $order->final_amount - $paid);
+        });
+        $pendingAmount = $pendingFullAmount + $partialDueAmount;
+
+        $refundAmount = (float) $refundedOrders->sum(fn($order) => (float) ($order->cancellationRequest?->refund_amount ?? 0));
+
+        $paymentTrend = [];
+        $trendGroup = $orders->groupBy(fn($order) => $order->created_at->format('Y-m'))->sortKeys();
+        foreach ($trendGroup as $month => $grp) {
+            $paymentTrend[$month] = (float) $grp->sum('final_amount');
+        }
+
+        $cashTotal = 0.0;
+        $onlineTotal = 0.0;
+        foreach ($orders as $order) {
+            $pStatus = (int) $order->payment_status;
+            if (!in_array($pStatus, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)) {
+                continue;
+            }
+            $cashAmt = (float) $order->paid_cash_amount;
+            $onlineAmt = (float) $order->paid_online_amount;
+            if ($cashAmt <= 0 && $onlineAmt <= 0 && $pStatus === Order::PAYMENT_STATUS_PAID) {
+                if (match ($order->payment_method) { 'razorpay' => 'online', default => (string)$order->payment_method } === 'online') {
+                    $onlineAmt = (float) $order->final_amount;
+                } else {
+                    $cashAmt = (float) $order->final_amount;
+                }
+            }
+            $cashTotal += $cashAmt;
+            $onlineTotal += $onlineAmt;
+        }
+        $paymentMethodData = [];
+        if ($cashTotal > 0) $paymentMethodData['Cash'] = $cashTotal;
+        if ($onlineTotal > 0) $paymentMethodData['Online'] = $onlineTotal;
+
+        $sourceData = [];
+        foreach ($orders->groupBy(fn($order) => $order->source ?? 'POS') as $src => $grp) {
+            $sourceData[strtoupper($src)] = (float) $grp->sum('final_amount');
+        }
+
+        return response()->json([
+            'draw'            => (int) $request->input('draw', 1),
+            'recordsTotal'    => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data'            => $data,
+            'stats'           => [
+                'totalAmount'   => format_price($totalAmount),
+                'pendingAmount' => format_price($pendingAmount),
+                'refundAmount'  => format_price($refundAmount),
+            ],
+            'charts'          => [
+                'paymentTrend'      => $paymentTrend,
+                'paymentMethodData' => $paymentMethodData,
+                'sourceData'        => $sourceData,
+            ],
+        ]);
     }
 
     public function exportPaymentsExcel(Request $request)

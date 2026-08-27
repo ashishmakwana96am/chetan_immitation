@@ -30,19 +30,61 @@
             let dailyOverviewChart = null;
 
             function initDailyTables() {
-                dailyTableIds.forEach(function (id) {
-                    if ($.fn.DataTable.isDataTable(id)) {
-                        $(id).DataTable().destroy();
-                    }
-                    $(id).DataTable({
-                        responsive: false,
-                        deferRender: true,
-                        pageLength: 25,
-                        order: [],
-                        columnDefs: [
-                            { targets: 0, orderable: false, searchable: false },
-                        ],
-                    });
+                if ($.fn.DataTable.isDataTable('#dailySalesTable')) {
+                    $('#dailySalesTable').DataTable().destroy();
+                }
+                $('#dailySalesTable').DataTable({
+                    responsive: false,
+                    deferRender: true,
+                    pageLength: 25,
+                    order: [],
+                    columnDefs: [
+                        { targets: 0, orderable: false, searchable: false },
+                        { targets: 5, type: 'num' }
+                    ],
+                });
+
+                if ($.fn.DataTable.isDataTable('#dailyPurchasesTable')) {
+                    $('#dailyPurchasesTable').DataTable().destroy();
+                }
+                $('#dailyPurchasesTable').DataTable({
+                    responsive: false,
+                    deferRender: true,
+                    pageLength: 25,
+                    order: [],
+                    columnDefs: [
+                        { targets: 0, orderable: false, searchable: false },
+                        { targets: 3, type: 'num' }
+                    ],
+                });
+
+                if ($.fn.DataTable.isDataTable('#dailyExpensesTable')) {
+                    $('#dailyExpensesTable').DataTable().destroy();
+                }
+                $('#dailyExpensesTable').DataTable({
+                    responsive: false,
+                    deferRender: true,
+                    pageLength: 25,
+                    order: [],
+                    columnDefs: [
+                        { targets: 0, orderable: false, searchable: false },
+                        { targets: 3, type: 'num' }
+                    ],
+                });
+
+                if ($.fn.DataTable.isDataTable('#dailyPurchaseBillTable')) {
+                    $('#dailyPurchaseBillTable').DataTable().destroy();
+                }
+                $('#dailyPurchaseBillTable').DataTable({
+                    responsive: false,
+                    deferRender: true,
+                    pageLength: 25,
+                    order: [],
+                    columnDefs: [
+                        { targets: 0, orderable: false, searchable: false },
+                        { targets: 4, type: 'num' },
+                        { targets: 5, type: 'num' }
+                    ],
                 });
             }
 

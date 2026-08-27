@@ -302,16 +302,35 @@ class DashboardController extends Controller
 
             $allProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['category', 'primaryImage', 'inventories'])->get();
             $lowStockInventories = Inventory::where('location_id', $locationId)->where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get();
+            
+            $currentLocation   = Location::find($locationId);
+            $isDefaultLocation = $currentLocation && (bool) $currentLocation->is_default;
 
-            $totalStockPurchaseValue = (float) Purchase::where('location_id', $locationId)->where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
-            $totalStockMrpValue = 0.0;
+            $totalStockPurchaseValue = 0.0;
+            $totalStockMrpValue      = 0.0;
+
+            if ($isDefaultLocation) {
+                $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
+            } else {
+                $acceptedBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
+                    ->where('to_location_id', $locationId)
+                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
+                    ->get();
+
+                foreach ($acceptedBills as $bill) {
+                    [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
+                    $totalStockPurchaseValue += $billAmount;
+                    $totalStockMrpValue      += $billMrp;
+                }
+            }
+
             $totalStockPairs = 0;
             $totalStockLoosePcs = 0;
             $totalStockUnits = 0;
 
             foreach ($allProducts as $p) {
                 $salePrice = (float) $p->sale_price;
-                $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+                $mrpPrice  = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
                 $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
                 $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
@@ -323,7 +342,9 @@ class DashboardController extends Controller
                 $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
                 $totalStockUnits += $pTotalPcs;
-                $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+                if ($isDefaultLocation) {
+                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+                }
 
                 if ($p->pair_product && $pTotalPcs > 0) {
                     $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
@@ -423,5 +444,104 @@ class DashboardController extends Controller
             ];
         }
         return $months;
+    }
+
+    private function purchaseBillTotals(\App\Models\PurchaseBill $transfer): array
+    {
+        $totalAmount = 0.0;
+        $totalMrp = 0.0;
+
+        foreach ($transfer->items as $item) {
+            $multiplier = $this->stockMultiplierFor($item->product, $item->pair_type, $item->custom_size_value);
+            $quantity = (int) $item->quantity;
+
+            $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $quantity;
+            $totalMrp += $this->mrpForPurchaseBillItem($item, $multiplier) * $quantity;
+        }
+
+        return [$totalAmount, $totalMrp];
+    }
+
+    private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
+    {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
+        if (!$product->pair_product) {
+            return 1.0;
+        }
+
+        $customSizes = $product->custom_sizes;
+        if (is_array($customSizes) && count($customSizes) > 0) {
+            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            if ($sizes->count() > 0) {
+                return (float) $sizes->max();
+            }
+        }
+
+        return 2.0;
+    }
+
+    private function purchasePriceForPurchaseBillItem(\App\Models\PurchaseBillItem $item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
+    }
+
+    private function mrpForPurchaseBillItem(\App\Models\PurchaseBillItem $item, float $multiplier): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0.0;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        if (!empty($sizes)) {
+            $value = (float) $item->custom_size_value;
+            $matched = null;
+
+            if ($value > 0) {
+                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+            }
+
+            if (!$matched) {
+                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+            }
+
+            if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
+                return (float) $matched['mrp'];
+            }
+        }
+
+        return (float) ($product->mrp ?? 0);
     }
 }

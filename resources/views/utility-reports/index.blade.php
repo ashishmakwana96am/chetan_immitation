@@ -262,15 +262,66 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
-                    { data: 'created_at',  orderable: false },
-                    { data: 'user',        orderable: false },
-                    { data: 'location',    orderable: false },
-                    { data: 'module',      orderable: false },
-                    { data: 'action',      orderable: false },
-                    { data: 'description', orderable: false },
+                    {
+                        data: 'created_at',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.date_sort !== undefined ? row.date_sort : data;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'user',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_user_name !== undefined ? row.raw_user_name : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'location',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_location_name !== undefined ? row.raw_location_name : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'module',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_module !== undefined ? row.raw_module : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'action',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_action !== undefined ? row.raw_action : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'description',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_description !== undefined ? row.raw_description : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'actions', orderable: false, searchable: false },
-                    { data: 'date_group', visible: false, orderable: false },
-                    { data: 'date_sort', visible: false, orderable: false },
+                    { data: 'date_group', visible: false },
+                    { data: 'date_sort', visible: false },
+                ],
+                columnDefs: [
+                    { targets: 0, orderable: false }
                 ],
                 rowGroup: {
                     dataSrc: 'date_group',
@@ -279,11 +330,6 @@
                             .append('<td colspan="8"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' log' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
                     }
                 },
-            });
-
-            // Processing loader for DataTables data fetching
-            table.on('preXhr.dt', function () {
-                window.showAjaxLoader && window.showAjaxLoader();
             });
 
             // Hide processing loader once draw/xhr completes

@@ -203,17 +203,42 @@
                 },
                 columns: [
                     { data: 'index', orderable: false, width: '5%' },
-                    { data: 'customer' },
-                    { data: 'total_amount' },
-                    { 
-                        data: 'paid_amount',
+                    {
+                        data: 'customer',
                         render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_customer !== undefined ? row.raw_customer : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'total_amount',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_total_amount !== undefined ? parseFloat(row.raw_total_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'paid_amount',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_paid_amount !== undefined ? parseFloat(row.raw_paid_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
                             return `<span class="text-success fw-semibold">${data}</span>`;
                         }
                     },
-                    { 
+                    {
                         data: 'due_amount',
+                        type: 'num',
                         render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_due_amount !== undefined ? parseFloat(row.raw_due_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
                             return `<span class="text-danger fw-semibold">${data}</span>`;
                         }
                     },

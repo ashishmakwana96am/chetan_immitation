@@ -335,7 +335,15 @@
                         orderable: false,
                         searchable: false,
                     },
-                    { data: 'order_no' },
+                    {
+                        data: 'order_no',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_order_no !== undefined ? row.raw_order_no : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'customer' },
                     ...(isSuperAdmin ? [{ data: 'location' }] : []),
                     { data: 'source', orderable: false },

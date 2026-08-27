@@ -140,23 +140,23 @@
                             @forelse($transactions as $index => $transaction)
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
-                                    <td>{{ $transaction->created_at->format('h:i A') }}</td>
+                                    <td data-order="{{ $transaction->created_at->format('H:i:s') }}">{{ $transaction->created_at->format('h:i A') }}</td>
                                     @if(!$location)
-                                        <td>{{ $transaction->location->name ?? '-' }}</td>
+                                        <td data-order="{{ $transaction->location->name ?? '-' }}">{{ $transaction->location->name ?? '-' }}</td>
                                     @endif
-                                    <td>{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}</td>
-                                    <td>
+                                    <td data-order="{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}">{{ !empty($transaction->notes) ? $transaction->notes : 'Manual Balance Adjustment' }}</td>
+                                    <td data-order="{{ $transaction->type }}">
                                         @if($transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT)
                                             <span class="badge bg-label-success">Credit</span>
                                         @else
                                             <span class="badge bg-label-danger">Debit</span>
                                         @endif
                                     </td>
-                                    <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}">
+                                    <td class="text-end fw-semibold {{ $transaction->type === \App\Models\LocationBalanceTransaction::TYPE_CREDIT ? 'text-success' : 'text-danger' }}" data-order="{{ (float) $transaction->amount }}">
                                         {{ format_price($transaction->amount) }}
                                     </td>
-                                    <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
-                                    <td>{{ $transaction->createdBy->name ?? '-' }}</td>
+                                    <td class="text-end {{ $transaction->balance_after < 0 ? 'text-danger fw-bold' : 'text-heading' }}" data-order="{{ (float) $transaction->balance_after }}">{{ format_price($transaction->balance_after) }}</td>
+                                    <td data-order="{{ $transaction->createdBy?->name ?? '-' }}">{{ $transaction->createdBy->name ?? '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
@@ -181,7 +181,11 @@
                 $('#cashTransactionsTable').DataTable({
                     responsive: true,
                     order: [],
-                    columnDefs: [{ targets: 0, orderable: false }],
+                    columnDefs: [
+                        { targets: 0, orderable: false },
+                        { targets: {{ !$location ? 5 : 4 }}, type: 'num' },
+                        { targets: {{ !$location ? 6 : 5 }}, type: 'num' }
+                    ],
                 });
             }
         });

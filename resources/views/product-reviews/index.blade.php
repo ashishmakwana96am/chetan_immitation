@@ -46,12 +46,37 @@
                 },
                 columns    : [
                     { data: 'index', orderable: false, width: '5%', render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                    { data: 'product' },
+                    {
+                        data: 'product',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_product_name !== undefined ? row.raw_product_name : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
                     { data: 'customer' },
-                    { data: 'rating',     orderable: false },
-                    { data: 'comment',    orderable: false },
-                    { data: 'photo',      orderable: false },
-                    { data: 'created_at' }
+                    {
+                        data: 'rating',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_rating !== undefined ? parseFloat(row.raw_rating) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
+                    { data: 'comment', orderable: false },
+                    { data: 'photo',   orderable: false },
+                    {
+                        data: 'created_at',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.date_sort !== undefined ? row.date_sort : data;
+                            }
+                            return data;
+                        }
+                    }
                 ],
             });
 

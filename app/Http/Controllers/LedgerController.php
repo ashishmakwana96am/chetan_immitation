@@ -1812,32 +1812,7 @@ class LedgerController extends Controller
     private function purchasePriceForLedgerItem(PurchaseBillItem $item): float
     {
         $product = $item->product;
-        $basePrice = (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
-
-        if (!$product || !$product->pair_product) {
-            return $basePrice;
-        }
-
-        $selectedSize = (float) $item->custom_size_value;
-        if ($selectedSize <= 0) {
-            return $basePrice;
-        }
-
-        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
-            ? $item->variant->custom_sizes
-            : ($product->custom_sizes ?? []);
-
-        $maxSize = collect($sizes)
-            ->pluck('size')
-            ->map(fn ($size) => (float) $size)
-            ->filter(fn ($size) => $size > 0)
-            ->max();
-
-        if (!$maxSize || $maxSize <= 0) {
-            return $basePrice;
-        }
-
-        return round($basePrice * ($selectedSize / (float) $maxSize));
+        return (float) (($item->purchase_price > 0) ? $item->purchase_price : ($item->variant->purchase_price ?? $product?->purchase_price ?? 0));
     }
 
     private function resolveLocations(): array

@@ -206,27 +206,27 @@
                         @foreach($transactions as $transaction)
                             <tr @if($transaction->linked_order) data-modal-url="{{ route('admin.reports.customer-report.sale-products', ['order_id' => $transaction->linked_order->id]) }}" data-modal-size="half" style="cursor: pointer;" @endif>
                                 <td></td>
-                                <td class="fw-semibold">{{ $transaction->customer->name ?? '-' }}</td>
-                                <td>{{ $transaction->customer->phone ?? '-' }}</td>
-                                <td>
+                                <td class="fw-semibold" data-order="{{ $transaction->customer?->name ?? '-' }}">{{ $transaction->customer->name ?? '-' }}</td>
+                                <td data-order="{{ $transaction->customer?->phone ?? '-' }}">{{ $transaction->customer->phone ?? '-' }}</td>
+                                <td data-order="{{ $transaction->source }}">
                                     @if($transaction->source === 'bank')
                                         <span class="badge bg-label-info">Bank</span>
                                     @else
                                         <span class="badge bg-label-warning">Cash</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td data-order="{{ $transaction->type }}">
                                     @if($transaction->type === 'credit')
                                         <span class="badge bg-label-success">Credit</span>
                                     @else
                                         <span class="badge bg-label-danger">Debit</span>
                                     @endif
                                 </td>
-                                <td class="text-end fw-semibold {{ $transaction->type === 'credit' ? 'text-success' : 'text-danger' }}">{{ format_price($transaction->amount) }}</td>
-                                <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}">{{ format_price($transaction->balance_after) }}</td>
-                                <td>{{ $transaction->notes ?? '-' }}</td>
-                                <td>{{ $transaction->createdBy->name ?? '-' }}</td>
-                                <td>{{ $transaction->created_at->format('h:i A') }}</td>
+                                <td class="text-end fw-semibold {{ $transaction->type === 'credit' ? 'text-success' : 'text-danger' }}" data-order="{{ (float) $transaction->amount }}">{{ format_price($transaction->amount) }}</td>
+                                <td class="text-end fw-semibold {{ $transaction->balance_after < 0 ? 'text-danger' : 'text-heading' }}" data-order="{{ (float) $transaction->balance_after }}">{{ format_price($transaction->balance_after) }}</td>
+                                <td data-order="{{ $transaction->notes ?? '-' }}">{{ $transaction->notes ?? '-' }}</td>
+                                <td data-order="{{ $transaction->createdBy?->name ?? '-' }}">{{ $transaction->createdBy->name ?? '-' }}</td>
+                                <td data-order="{{ $transaction->created_at->format('H:i:s') }}">{{ $transaction->created_at->format('h:i A') }}</td>
                                 <td>
                                     <div class="dropdown table-action-dropdown">
                                         <button class="btn btn-sm btn-label-primary action-dropdown-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
@@ -290,6 +290,8 @@
                             return meta.row + meta.settings._iDisplayStart + 1;
                         }
                     },
+                    { targets: 5, type: 'num' },
+                    { targets: 6, type: 'num' },
                     { targets: 10, orderable: false, searchable: false },
                     { targets: [11, 12], visible: false, searchable: false }
                 ],

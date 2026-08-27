@@ -322,7 +322,7 @@
                 { data: 'source_type',
                   render: function (data) { return sourceBadge(data); }
                 },
-                { data: 'balance_type', render: function (data, type, row) { return type === 'sort' ? data : row.balance_type_badge; } },
+                { data: 'balance_type', defaultContent: '', render: function (data, type, row) { return type === 'sort' ? (data || '') : (row.balance_type_badge || ''); } },
                 @if(!$isRestricted)
                 { data: 'location' },
                 @endif

@@ -58,10 +58,39 @@ class UtilityReportController extends Controller
             $length = 25;
         }
 
-        $logs = $this->filteredQuery($request)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->skip($start)
+        $orderColumnMap = [
+            1 => 'created_at',
+            2 => 'user_name',
+            3 => 'location_name',
+            4 => 'module',
+            5 => 'action',
+            6 => 'description',
+        ];
+
+        $query = $this->filteredQuery($request);
+
+        $orderArr = $request->input('order', []);
+        $sortKey = 'created_at';
+        $sortDir = 'desc';
+        if (!empty($orderArr) && isset($orderArr[0]['column'], $orderArr[0]['dir'])) {
+            $colIdx = (int) $orderArr[0]['column'];
+            $dir = strtolower($orderArr[0]['dir']) === 'asc' ? 'asc' : 'desc';
+            if (isset($orderColumnMap[$colIdx])) {
+                $sortKey = $orderColumnMap[$colIdx];
+                $sortDir = $dir;
+            }
+        }
+
+        if ($sortKey === 'user_name') {
+            $query->orderByRaw("COALESCE(user_name, 'System') {$sortDir}");
+        } elseif ($sortKey === 'location_name') {
+            $query->orderByRaw("COALESCE(location_name, '-') {$sortDir}");
+        } else {
+            $query->orderBy($sortKey, $sortDir);
+        }
+        $query->orderBy('id', $sortDir);
+
+        $logs = $query->skip($start)
             ->take($length)
             ->get();
 
@@ -91,18 +120,23 @@ class UtilityReportController extends Controller
             $actions .= '</div></div>';
 
             return [
-                'index'       => $start + $index + 1,
-                'created_at'  => format_date($log->created_at, 'h:i A'),
-                'date_group'  => $log->created_at ? format_date($log->created_at, 'd M Y') : '-',
-                'date_sort'   => $log->created_at?->format('YmdHis'),
-                'user'        => $userHtml,
-                'location'    => e($log->location_name ?? '-'),
-                'module'      => '<span class="badge bg-label-primary">' . e($log->module) . '</span>',
-                'action'      => $actionBadge,
-                'description' => e($log->description ?? '-'),
-                'ip_address'  => e($log->ip_address ?? '-'),
-                'actions'     => $actions,
-                'view_url'    => route('admin.reports.utility.show', $log),
+                'index'           => $start + $index + 1,
+                'created_at'      => format_date($log->created_at, 'h:i A'),
+                'date_group'      => $log->created_at ? format_date($log->created_at, 'd M Y') : '-',
+                'date_sort'       => $log->created_at?->format('YmdHis'),
+                'user'            => $userHtml,
+                'raw_user_name'   => $log->user_name ?? 'System',
+                'location'        => e($log->location_name ?? '-'),
+                'raw_location_name'=> $log->location_name ?? '-',
+                'module'          => '<span class="badge bg-label-primary">' . e($log->module) . '</span>',
+                'raw_module'      => $log->module,
+                'action'          => $actionBadge,
+                'raw_action'      => $log->action,
+                'description'     => e($log->description ?? '-'),
+                'raw_description' => $log->description ?? '-',
+                'ip_address'      => e($log->ip_address ?? '-'),
+                'actions'         => $actions,
+                'view_url'        => route('admin.reports.utility.show', $log),
             ];
         });
 

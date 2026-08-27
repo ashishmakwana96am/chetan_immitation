@@ -63,16 +63,19 @@ class ProductReviewController extends Controller
             $productBarcodeDisplay = $review->product?->barcode;
 
             return [
-                'index'      => $index + 1,
-                'product'    => '<div class="d-flex align-items-center">' . $productImageHtml
-                              . '<div><span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
-                              . ($productBarcodeDisplay ? '<br><small class="text-muted">' . e($productBarcodeDisplay) . '</small>' : '')
-                              . '</div></div>',
-                'customer'   => e($review->customer->name ?? '-'),
-                'rating'     => $starsHtml,
-                'comment'    => $commentHtml,
-                'photo'      => $photoHtml,
-                'created_at' => format_date($review->created_at),
+                'index'            => $index + 1,
+                'product'          => '<div class="d-flex align-items-center">' . $productImageHtml
+                                    . '<div><span class="fw-semibold">' . e($review->product->name ?? '-') . '</span>'
+                                    . ($productBarcodeDisplay ? '<br><small class="text-muted">' . e($productBarcodeDisplay) . '</small>' : '')
+                                    . '</div></div>',
+                'raw_product_name' => $review->product->name ?? '',
+                'customer'         => e($review->customer->name ?? '-'),
+                'rating'           => $starsHtml,
+                'raw_rating'       => (float) $review->rating,
+                'comment'          => $commentHtml,
+                'photo'            => $photoHtml,
+                'created_at'       => format_date($review->created_at),
+                'date_sort'        => $review->created_at?->format('YmdHis'),
             ];
         });
 

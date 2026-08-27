@@ -135,6 +135,7 @@
     </div>
 </div>
 
+<!-- Sales -->
 <div class="card mb-4">
     <div class="card-header"><h5 class="mb-0">Sales</h5></div>
     <div class="card-datatable table-responsive">
@@ -156,14 +157,14 @@
                 @foreach($salesRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
-                        <td><code>{{ $row['sale_no'] }}</code></td>
-                        <td>{{ $row['customer'] }}</td>
-                        <td>{{ $row['location'] }}</td>
-                        <td><span class="badge {{ strtoupper($row['source']) === 'ONLINE' ? 'bg-label-primary' : 'bg-label-secondary' }}">{{ $row['source'] }}</span></td>
-                        <td class="text-end">{{ format_price($row['amount']) }}</td>
-                        <td>{!! $row['status'] !!}</td>
-                        <td>{!! $row['payment_status'] !!}</td>
-                        <td>{{ $row['method'] }}</td>
+                        <td data-order="{{ $row['sale_no'] }}"><code>{{ $row['sale_no'] }}</code></td>
+                        <td data-order="{{ strip_tags($row['customer']) }}">{{ $row['customer'] }}</td>
+                        <td data-order="{{ $row['location'] }}">{{ $row['location'] }}</td>
+                        <td data-order="{{ strtoupper($row['source']) }}"><span class="badge {{ strtoupper($row['source']) === 'ONLINE' ? 'bg-label-primary' : 'bg-label-secondary' }}">{{ $row['source'] }}</span></td>
+                        <td class="text-end" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
+                        <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
+                        <td data-order="{{ strip_tags($row['payment_status']) }}">{!! $row['payment_status'] !!}</td>
+                        <td data-order="{{ $row['method'] }}">{{ $row['method'] }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -190,11 +191,11 @@
                 @foreach($purchaseRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
-                        <td><code>{{ $row['purchase_no'] }}</code></td>
-                        <td>{{ $row['supplier'] }}</td>
-                        <td class="text-end">{{ format_price($row['total_amount']) }}</td>
-                        <td>{!! $row['status'] !!}</td>
-                        <td>{!! $row['payment_status'] !!}</td>
+                        <td data-order="{{ $row['purchase_no'] }}"><code>{{ $row['purchase_no'] }}</code></td>
+                        <td data-order="{{ strip_tags($row['supplier']) }}">{{ $row['supplier'] }}</td>
+                        <td class="text-end" data-order="{{ (float) $row['total_amount'] }}">{{ format_price($row['total_amount']) }}</td>
+                        <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
+                        <td data-order="{{ strip_tags($row['payment_status']) }}">{!! $row['payment_status'] !!}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -223,13 +224,13 @@
                 @foreach($expenseRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
-                        <td>{{ $row['title'] }}</td>
-                        <td>{{ $row['category'] }}</td>
-                        <td class="text-end">{{ format_price($row['amount']) }}</td>
-                        <td>{{ $row['payment_method'] }}</td>
-                        <td>{{ $row['location'] }}</td>
-                        <td>{{ $row['expense_date'] }}</td>
-                        <td>{{ $row['created_by'] }}</td>
+                        <td data-order="{{ $row['title'] }}">{{ $row['title'] }}</td>
+                        <td data-order="{{ $row['category'] }}">{{ $row['category'] }}</td>
+                        <td class="text-end" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
+                        <td data-order="{{ $row['payment_method'] }}">{{ $row['payment_method'] }}</td>
+                        <td data-order="{{ $row['location'] }}">{{ $row['location'] }}</td>
+                        <td data-order="{{ $row['expense_date'] }}">{{ $row['expense_date'] }}</td>
+                        <td data-order="{{ $row['created_by'] }}">{{ $row['created_by'] }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -258,13 +259,13 @@
                 @foreach($purchaseBillRows as $row)
                     <tr>
                         <td>{{ $row['index'] }}</td>
-                        <td><code>{{ $row['bill_no'] }}</code></td>
-                        <td>{{ $row['source'] }}</td>
-                        <td>{{ $row['destination'] }}</td>
-                        <td>{{ number_format($row['total_quantity']) }}</td>
-                        <td class="text-end">{{ format_price($row['amount']) }}</td>
-                        <td>{!! $row['status'] !!}</td>
-                        <td>{{ $row['created_by'] }}</td>
+                        <td data-order="{{ $row['bill_no'] }}"><code>{{ $row['bill_no'] }}</code></td>
+                        <td data-order="{{ $row['source'] }}">{{ $row['source'] }}</td>
+                        <td data-order="{{ $row['destination'] }}">{{ $row['destination'] }}</td>
+                        <td data-order="{{ (int) $row['total_quantity'] }}">{{ number_format($row['total_quantity']) }}</td>
+                        <td class="text-end" data-order="{{ (float) $row['amount'] }}">{{ format_price($row['amount']) }}</td>
+                        <td data-order="{{ strip_tags($row['status']) }}">{!! $row['status'] !!}</td>
+                        <td data-order="{{ $row['created_by'] }}">{{ $row['created_by'] }}</td>
                     </tr>
                 @endforeach
             </tbody>

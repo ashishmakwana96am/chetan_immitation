@@ -105,6 +105,9 @@ class PurchaseController extends Controller
             $query->leftJoin('suppliers as supp', 'purchases.supplier_id', '=', 'supp.id')
                   ->select('purchases.*')
                   ->orderBy('supp.name', $sortDir);
+        } else if ($sortKey === 'invoice_no') {
+            $query->orderByRaw("LENGTH(purchases.invoice_no) {$sortDir}")
+                  ->orderBy("purchases.invoice_no", $sortDir);
         } else {
             $query->orderBy("purchases.{$sortKey}", $sortDir);
         }
@@ -174,6 +177,7 @@ class PurchaseController extends Controller
             return [
                 'index'          => $start + $index + 1,
                 'invoice_no'     => '<code>' . e($invoice->invoice_no) . '</code>',
+                'raw_invoice_no' => $invoice->invoice_no,
                 'supplier'       => e($invoice->supplier->name ?? '-'),
                 'status'         => $statusBadge,
                 'payment_status' => $paymentStatusBadge,

@@ -437,6 +437,7 @@ class AccountingController extends Controller
                 'date_sort'          => $tx->created_at->format('YmdHis'),
                 'source'             => $sourceLabels[$detectedSource] ?? $detectedSource,
                 'source_type'        => $detectedSource,
+                'balance_type'       => $tx->balance_type ?? 'cash',
                 'balance_type_badge' => $balanceTypeBadge,
                 'location'           => $tx->location->name ?? '-',
                 'location_id'        => $tx->location_id,

@@ -424,15 +424,68 @@
             },
             columns: [
                 { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'invoice_no' },
-                { data: 'customer' },
-                { data: 'location' },
-                { data: 'payment_status' },
-                { data: 'payment_method' },
-                { data: 'final_amount', className: 'text-end text-nowrap fw-semibold' },
+                {
+                    data: 'invoice_no',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_invoice_no !== undefined ? row.raw_invoice_no : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'customer',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_customer !== undefined ? row.raw_customer : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'location',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_location !== undefined ? row.raw_location : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'payment_status',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_payment_status !== undefined ? row.raw_payment_status : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'payment_method',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_payment_method !== undefined ? row.raw_payment_method : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'final_amount',
+                    type: 'num',
+                    className: 'text-end text-nowrap fw-semibold',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_final_amount !== undefined ? parseFloat(row.raw_final_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
                 { data: 'actions', orderable: false, searchable: false },
                 { data: 'date_group', visible: false },
                 { data: 'date_sort', visible: false }
+            ],
+            columnDefs: [
+                { targets: 0, orderable: false }
             ],
             order: [[9, 'desc']],
             rowGroup: {
@@ -470,12 +523,51 @@
                             d.is_gst         = $('select[name="is_gst"]').val();
                         }
                     },
+                    columnDefs: [
+                        { targets: 0, orderable: false }
+                    ],
                     columns: [
                         { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                        { data: 'product' },
-                        { data: 'barcode' },
-                        { data: 'qty_sold', className: 'text-end text-nowrap' },
-                        { data: 'total_revenue', className: 'text-end text-nowrap' }
+                        {
+                            data: 'product',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_product_name !== undefined ? row.raw_product_name : String(data).replace(/<[^>]*>/g, '');
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'barcode',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_barcode !== undefined ? row.raw_barcode : String(data).replace(/<[^>]*>/g, '');
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'qty_sold',
+                            type: 'num',
+                            className: 'text-end text-nowrap',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_qty_sold !== undefined ? parseInt(row.raw_qty_sold, 10) : (parseInt(String(data).replace(/[^0-9.-]+/g, ''), 10) || 0);
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'total_revenue',
+                            type: 'num',
+                            className: 'text-end text-nowrap',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_total_revenue !== undefined ? parseFloat(row.raw_total_revenue) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                                }
+                                return data;
+                            }
+                        }
                     ],
                     order: [[3, 'desc']]
                 });

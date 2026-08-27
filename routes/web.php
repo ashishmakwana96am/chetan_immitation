@@ -247,6 +247,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('profit-loss/data', [ReportController::class, 'profitLossData'])->name('profit-loss.data');
             Route::get('profit-loss/export-excel', [ReportController::class, 'exportProfitLossExcel'])->name('profit-loss.export-excel');
             Route::get('payments', [ReportController::class, 'payments'])->name('payments');
+            Route::get('payments/data', [ReportController::class, 'paymentsData'])->name('payments.data');
             Route::get('payments/export-excel', [ReportController::class, 'exportPaymentsExcel'])->name('payments.export-excel');
             Route::get('daily-report', [ReportController::class, 'dailyReport'])->name('daily-report');
             Route::get('daily-report/data', [ReportController::class, 'dailyReportData'])->name('daily-report.data');

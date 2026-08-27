@@ -126,17 +126,42 @@
 
             const columns = [
                 { data: 'index', orderable: false, width: '5%' },
-                { data: 'supplier' },
-                { data: 'total_amount' },
+                {
+                    data: 'supplier',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_supplier !== undefined ? row.raw_supplier : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'total_amount',
+                    type: 'num',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_total_amount !== undefined ? parseFloat(row.raw_total_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
                 { 
                     data: 'paid_amount',
+                    type: 'num',
                     render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_paid_amount !== undefined ? parseFloat(row.raw_paid_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
                         return `<span class="text-success fw-semibold">${data}</span>`;
                     }
                 },
                 { 
                     data: 'due_amount',
+                    type: 'num',
                     render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_due_amount !== undefined ? parseFloat(row.raw_due_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
                         return `<span class="text-danger fw-semibold">${data}</span>`;
                     }
                 }
@@ -145,7 +170,11 @@
             if (canManageAdvance) {
                 columns.push({
                     data: 'advance_balance',
+                    type: 'num',
                     render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_advance_balance !== undefined ? parseFloat(row.raw_advance_balance) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
                         if (row.raw_advance_balance > 0) {
                             return `<span class="badge bg-label-success fw-bold fs-6">${data}</span>`;
                         }

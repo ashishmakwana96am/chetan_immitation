@@ -131,7 +131,7 @@
                     { data: 'name', name: 'name', orderable: true },
                     { data: 'last_purchase_display', name: 'last_purchase', orderable: true },
                     { data: 'barcode', name: 'barcode', orderable: true },
-                    { data: 'category', name: 'category', orderable: false },
+                    { data: 'category', name: 'category', orderable: true },
                     ...Array.from({ length: locationCount }, function () {
                         return { data: null, defaultContent: '', orderable: false, searchable: false };
                     }),
@@ -150,10 +150,6 @@
                 drawCallback: function () {
                     refreshTotals();
                 }
-            });
-
-            table.on('preXhr.dt', function () {
-                window.showAjaxLoader && window.showAjaxLoader();
             });
 
             table.on('xhr.dt draw.dt', function () {

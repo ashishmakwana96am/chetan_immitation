@@ -232,14 +232,47 @@
                     },
                 },
                 columns: [
-                    { data: 'index',       orderable: false, width: '5%' },
-                    { data: 'transfer_no', orderable: false },
-                    { data: 'branch',      orderable: false },
-                    { data: 'status',      orderable: false },
-                    { data: 'amount',      orderable: false },
-                    { data: 'actions',     orderable: false },
-                    { data: 'date_group',  visible: false },
-                    { data: 'date_sort',   visible: false },
+                    { data: 'index', orderable: false, width: '5%' },
+                    {
+                        data: 'transfer_no',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_transfer_no !== undefined ? row.raw_transfer_no : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'branch',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_branch !== undefined ? row.raw_branch : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'status',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_status !== undefined ? row.raw_status : String(data).replace(/<[^>]*>/g, '');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'amount',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_amount !== undefined ? parseFloat(row.raw_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
+                    { data: 'actions', orderable: false },
+                    { data: 'date_group', visible: false },
+                    { data: 'date_sort', visible: false },
                 ],
                 drawCallback: function () {
                     const api = this.api();

@@ -303,13 +303,42 @@
             },
             columns: [
                 { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                { data: 'invoice_no' },
-                { data: 'supplier' },
+                {
+                    data: 'invoice_no',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_invoice_no !== undefined ? row.raw_invoice_no : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
+                {
+                    data: 'supplier',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_supplier !== undefined ? row.raw_supplier : String(data).replace(/<[^>]*>/g, '');
+                        }
+                        return data;
+                    }
+                },
                 { data: 'status' },
-                { data: 'total_amount', className: 'text-end text-nowrap fw-semibold' },
+                {
+                    data: 'total_amount',
+                    type: 'num',
+                    className: 'text-end text-nowrap fw-semibold',
+                    render: function (data, type, row) {
+                        if (type === 'sort' || type === 'type') {
+                            return row.raw_total_amount !== undefined ? parseFloat(row.raw_total_amount) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                        }
+                        return data;
+                    }
+                },
                 { data: 'actions', orderable: false, searchable: false },
                 { data: 'date_group', visible: false },
                 { data: 'date_sort', visible: false }
+            ],
+            columnDefs: [
+                { targets: 0, orderable: false }
             ],
             order: [[7, 'desc']],
             rowGroup: {
@@ -345,12 +374,51 @@
                             d.is_gst      = $('select[name="is_gst"]').val();
                         }
                     },
+                    columnDefs: [
+                        { targets: 0, orderable: false }
+                    ],
                     columns: [
                         { data: null, orderable: false, searchable: false, render: function (data, type, row, meta) { return meta.row + meta.settings._iDisplayStart + 1; } },
-                        { data: 'product' },
-                        { data: 'barcode' },
-                        { data: 'qty_purchased', className: 'text-end text-nowrap' },
-                        { data: 'total_cost', className: 'text-end text-nowrap' }
+                        {
+                            data: 'product',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_product_name !== undefined ? row.raw_product_name : String(data).replace(/<[^>]*>/g, '');
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'barcode',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_barcode !== undefined ? row.raw_barcode : String(data).replace(/<[^>]*>/g, '');
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'qty_purchased',
+                            type: 'num',
+                            className: 'text-end text-nowrap',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_qty_purchased !== undefined ? parseInt(row.raw_qty_purchased, 10) : (parseInt(String(data).replace(/[^0-9.-]+/g, ''), 10) || 0);
+                                }
+                                return data;
+                            }
+                        },
+                        {
+                            data: 'total_cost',
+                            type: 'num',
+                            className: 'text-end text-nowrap',
+                            render: function (data, type, row) {
+                                if (type === 'sort' || type === 'type') {
+                                    return row.raw_total_cost !== undefined ? parseFloat(row.raw_total_cost) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                                }
+                                return data;
+                            }
+                        }
                     ],
                     order: [[3, 'desc']]
                 });

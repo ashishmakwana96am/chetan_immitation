@@ -126,6 +126,9 @@ class SaleController extends Controller
             $query->leftJoin('locations as loc', 'orders.location_id', '=', 'loc.id')
                   ->select('orders.*')
                   ->orderBy('loc.name', $sortDir);
+        } elseif ($sortKey === 'order_no') {
+            $query->orderByRaw("LENGTH(orders.order_no) {$sortDir}")
+                  ->orderBy("orders.order_no", $sortDir);
         } else {
             $query->orderBy("orders.{$sortKey}", $sortDir);
         }
@@ -301,6 +304,7 @@ class SaleController extends Controller
                 'is_default' => (bool) $order->is_default,
                 'stock_warning' => $stockWarningHtml,
                 'order_no' => '<code>' . $order->order_no . '</code>' . ($order->is_gst ? ' <span class="badge bg-label-success ms-1 fs-tiny" style="font-size: 0.65rem;">GST</span>' : ''),
+                'raw_order_no' => $order->order_no,
                 'customer' => $order->customer->name ?? '<span class="text-muted">Walk-in</span>',
                 'location' => $order->location->name ?? '-',
                 'source' => $sourceBadge,

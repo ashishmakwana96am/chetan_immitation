@@ -91,7 +91,7 @@
                 { data: 'name' },
                 { data: 'is_featured', orderable: false },
                 { data: 'status',     orderable: false },
-                { data: 'low_stock_threshold', orderable: false },
+                { data: 'low_stock_threshold', type: 'num' },
                 { data: 'created_at' },
                 @if(auth()->user()->can('edit categories') || auth()->user()->can('delete categories'))
                 { data: 'actions', orderable: false },

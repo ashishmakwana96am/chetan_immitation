@@ -245,8 +245,11 @@
             var loader = document.getElementById('pageLoader');
             if (loader) {
                 document.addEventListener('DOMContentLoaded', function() {
-                    loader.classList.add('fade-out');
-                    setTimeout(function() { if (loader && loader.parentNode) loader.parentNode.removeChild(loader); }, 150);
+                    var hasDataTable = document.querySelector('.card-datatable, table.dataTable, table[id*="Table"]');
+                    if (!hasDataTable) {
+                        loader.classList.add('fade-out');
+                        setTimeout(function() { if (loader && loader.parentNode) loader.parentNode.removeChild(loader); }, 150);
+                    }
                 });
             }
         })();
@@ -372,6 +375,7 @@
             };
 
             window.showAjaxLoader = function(btn) {
+                window.isExplicitFilterReload = true;
                 if (btn && typeof disableBtn === 'function') {
                     disableBtn($(btn), 'Processing...');
                 } else {
@@ -401,7 +405,19 @@
                 window.hideAjaxLoader();
             }
 
+            window.isExplicitFilterReload = false;
+
+            $(document).on('preXhr.dt', function(e, settings, data) {
+                var isFirstLoad = !data || !data.draw || data.draw === 1;
+                var isFilterReload = window.isExplicitFilterReload === true;
+
+                if ((isFirstLoad || isFilterReload) && typeof window.showAjaxLoader === 'function') {
+                    window.showAjaxLoader();
+                }
+            });
+
             $(document).on('draw.dt init.dt error.dt xhr.dt', function(e, settings) {
+                window.isExplicitFilterReload = false;
                 checkAndHideLoader();
             });
 

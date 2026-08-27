@@ -18,7 +18,7 @@ class SupplierController extends Controller
     {
         $this->authorize('view suppliers');
 
-        $query = Supplier::with('createdBy')->orderBy('id', 'desc');
+        $query = Supplier::with('createdBy');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -36,11 +36,29 @@ class SupplierController extends Controller
         $recordsTotal = Supplier::count();
         $recordsFiltered = (clone $query)->count();
 
+        $columnsMap = [
+            1 => 'name',
+            2 => 'phone',
+            3 => 'state',
+            4 => 'gst_no',
+            5 => 'address',
+            7 => 'created_at',
+        ];
+
+        $orderColumn = $request->input('order.0.column');
+        $orderDir    = strtolower($request->input('order.0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($orderColumn !== null && isset($columnsMap[$orderColumn])) {
+            $query->orderBy($columnsMap[$orderColumn], $orderDir);
+        } else {
+            $query->orderBy('id', 'desc');
+        }
+
         $start = (int) $request->input('start', 0);
         $length = (int) $request->input('length', 25);
         if ($length <= 0) $length = 25;
 
-        $suppliers = (clone $query)
+        $suppliers = $query
             ->skip($start)
             ->take($length)
             ->get();

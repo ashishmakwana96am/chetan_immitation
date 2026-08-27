@@ -184,7 +184,8 @@
                 responsive: false,
                 order: [[7, 'desc']],
                 columnDefs: [
-                    { targets: [5], orderable: false },
+                    { targets: 0, orderable: false },
+                    { targets: 5, orderable: false },
                     { targets: [6, 7], visible: false }
                 ],
                 rowGroup: {
@@ -217,14 +218,50 @@
                     },
                 },
                 columns: [
-                    { data: 'index',     orderable: false, width: '5%' },
-                    { data: 'opening',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
-                    { data: 'receipt',   orderable: false },
-                    { data: 'payment',   orderable: false },
-                    { data: 'closing',   orderable: false, render: function(d) { return d.includes('-') ? '<span class="text-danger fw-bold">' + d + '</span>' : d; } },
-                    { data: 'actions',   orderable: false },
+                    { data: 'index', orderable: false, width: '5%' },
+                    {
+                        data: 'opening',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_opening !== undefined ? parseFloat(row.raw_opening) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data.includes('-') ? '<span class="text-danger fw-bold">' + data + '</span>' : data;
+                        }
+                    },
+                    {
+                        data: 'receipt',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_receipt !== undefined ? parseFloat(row.raw_receipt) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'payment',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_payment !== undefined ? parseFloat(row.raw_payment) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: 'closing',
+                        type: 'num',
+                        render: function (data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return row.raw_closing !== undefined ? parseFloat(row.raw_closing) : (parseFloat(String(data).replace(/[^0-9.-]+/g, '')) || 0);
+                            }
+                            return data.includes('-') ? '<span class="text-danger fw-bold">' + data + '</span>' : data;
+                        }
+                    },
+                    { data: 'actions', orderable: false },
                     { data: 'date_group', visible: false },
-                    { data: 'date_sort',  visible: false },
+                    { data: 'date_sort', visible: false },
                 ],
                 drawCallback: function () {
                     const api = this.api();
