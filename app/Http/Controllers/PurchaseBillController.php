@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\PurchaseBill;
 use App\Models\PurchaseBillItem;
 use App\Services\ActivityLogger;
