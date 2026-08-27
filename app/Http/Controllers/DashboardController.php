@@ -30,6 +30,7 @@ class DashboardController extends Controller
             // Ignore if locations table not yet ready
         }
     }
+
     public function index()
     {
         $user = auth()->user();
@@ -302,26 +303,28 @@ class DashboardController extends Controller
 
             $allProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['category', 'primaryImage', 'inventories'])->get();
             $lowStockInventories = Inventory::where('location_id', $locationId)->where('quantity', '<=', 10)->where('quantity', '>', 0)->with(['product.category', 'product.primaryImage'])->orderBy('quantity')->take(10)->get();
-            
-            $currentLocation   = Location::find($locationId);
+
+            $currentLocation = Location::find($locationId);
             $isDefaultLocation = $currentLocation && (bool) $currentLocation->is_default;
 
             $totalStockPurchaseValue = 0.0;
-            $totalStockMrpValue      = 0.0;
+            $totalStockMrpValue = 0.0;
 
             if ($isDefaultLocation) {
                 $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
-                $defaultProducts = Product::whereHas('inventories', fn($q) => $q->where('quantity', '>', 0))->with(['inventories'])->get();
+                $defaultProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['inventories'])->get();
 
                 foreach ($defaultProducts as $p) {
                     $salePrice = (float) $p->sale_price;
-                    $mrpPrice  = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+                    $mrpPrice = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
                     $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
                     $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
-                    if ($pairSize <= 0) $pairSize = 1.0;
+                    if ($pairSize <= 0)
+                        $pairSize = 1.0;
 
-                    $pTotalPcs = (int) $p->inventories->sum('quantity');
+                    $inventory = $p->inventories->firstWhere('location_id', $locationId);
+                    $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
                     $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
                     $totalStockMrpValue += ($effectiveQty * $mrpPrice);
                 }
@@ -332,11 +335,11 @@ class DashboardController extends Controller
                     ->get();
 
                 $incomingPurchaseValue = 0.0;
-                $incomingMrpValue      = 0.0;
+                $incomingMrpValue = 0.0;
                 foreach ($incomingBills as $bill) {
                     [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
                     $incomingPurchaseValue += $billAmount;
-                    $incomingMrpValue      += $billMrp;
+                    $incomingMrpValue += $billMrp;
                 }
 
                 $outgoingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
@@ -345,41 +348,47 @@ class DashboardController extends Controller
                     ->get();
 
                 $outgoingPurchaseValue = 0.0;
-                $outgoingMrpValue      = 0.0;
+                $outgoingMrpValue = 0.0;
                 foreach ($outgoingBills as $bill) {
                     [$billAmount, $billMrp] = $this->purchaseBillTotals($bill);
                     $outgoingPurchaseValue += $billAmount;
-                    $outgoingMrpValue      += $billMrp;
+                    $outgoingMrpValue += $billMrp;
                 }
 
-                // 3. Sold Items Purchase Cost & MRP (Sales made by this branch)
+                $soldPurchaseValue = (float) \App\Models\OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+                    ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
+                    ->whereNull('orders.deleted_at')
+                    ->where('orders.location_id', $locationId)
+                    ->where('orders.order_type', 'sale')
+                    ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                    ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+                    ->selectRaw('SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost')
+                    ->value('total_cost');
+
                 $soldOrderItems = \App\Models\OrderItem::with(['product', 'variant'])
                     ->whereHas('order', function ($q) use ($locationId) {
-                        $q->where('location_id', $locationId)
-                          ->where('order_type', 'sale')
-                          ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                          ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
+                        $q
+                            ->where('location_id', $locationId)
+                            ->where('order_type', 'sale')
+                            ->whereIn('status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                            ->whereIn('payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
                     })
                     ->get();
 
-                $soldPurchaseValue = 0.0;
-                $soldMrpValue      = 0.0;
-
+                $soldMrpValue = 0.0;
                 foreach ($soldOrderItems as $sItem) {
                     $p = $sItem->product;
-                    if (!$p) continue;
-
-                    $multiplier    = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
-                    $quantity      = (int) $sItem->quantity;
-                    $purchasePrice = $this->purchasePriceForOrderItem($sItem);
-
-                    $soldPurchaseValue += $purchasePrice * $quantity;
-                    $soldMrpValue      += $this->mrpForOrderItem($sItem, $multiplier) * $quantity;
+                    if (!$p)
+                        continue;
+                    $multiplier = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
+                    $quantity = (int) $sItem->quantity;
+                    $soldMrpValue += $this->mrpForOrderItem($sItem, $multiplier) * $quantity;
                 }
 
-                // Formula: Incoming - Outgoing - Sold Items
                 $totalStockPurchaseValue = max(0.0, $incomingPurchaseValue - $outgoingPurchaseValue - $soldPurchaseValue);
-                $totalStockMrpValue      = max(0.0, $incomingMrpValue - $outgoingMrpValue - $soldMrpValue);
+                $totalStockMrpValue = max(0.0, $incomingMrpValue - $outgoingMrpValue - $soldMrpValue);
             }
 
             $totalStockPairs = 0;
@@ -465,16 +474,17 @@ class DashboardController extends Controller
             $query->where('location_id', $locationId);
         }
 
-        $monthlyData = $query->selectRaw('
+        $monthlyData = $query
+            ->selectRaw('
             YEAR(created_at) as yr,
             MONTH(created_at) as mnth,
             COUNT(*) as total_count,
             SUM(final_amount) as total_amount,
             SUM(COALESCE(paid_cash_amount,0) + COALESCE(paid_online_amount,0)) as total_paid
         ')
-        ->groupBy('yr', 'mnth')
-        ->get()
-        ->keyBy(fn($row) => $row->yr . '-' . $row->mnth);
+            ->groupBy('yr', 'mnth')
+            ->get()
+            ->keyBy(fn($row) => $row->yr . '-' . $row->mnth);
 
         $months = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -487,11 +497,11 @@ class DashboardController extends Controller
             $pending = max(0.0, $amount - $received);
 
             $months[] = [
-                'month'    => $date->format('M Y'),
-                'amount'   => $amount,
+                'month' => $date->format('M Y'),
+                'amount' => $amount,
                 'received' => $received,
-                'pending'  => $pending,
-                'count'    => (int) ($row->total_count ?? 0),
+                'pending' => $pending,
+                'count' => (int) ($row->total_count ?? 0),
             ];
         }
         return $months;
@@ -515,7 +525,7 @@ class DashboardController extends Controller
 
     private function stockMultiplierFor(Product $product, ?string $pairType, $customSizeValue = null): float
     {
-        if ($customSizeValue !== null && $customSizeValue !== '' && (float)$customSizeValue > 0) {
+        if ($customSizeValue !== null && $customSizeValue !== '' && (float) $customSizeValue > 0) {
             return (float) $customSizeValue;
         }
 
@@ -554,8 +564,8 @@ class DashboardController extends Controller
 
         $maxSize = collect($sizes)
             ->pluck('size')
-            ->map(fn ($size) => (float) $size)
-            ->filter(fn ($size) => $size > 0)
+            ->map(fn($size) => (float) $size)
+            ->filter(fn($size) => $size > 0)
             ->max();
 
         if (!$maxSize || $maxSize <= 0) {
@@ -581,11 +591,11 @@ class DashboardController extends Controller
             $matched = null;
 
             if ($value > 0) {
-                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+                $matched = collect($sizes)->first(fn($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
             }
 
             if (!$matched) {
-                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+                $matched = collect($sizes)->sortBy(fn($row) => (float) ($row['size'] ?? 0))->last();
             }
 
             if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
@@ -616,8 +626,8 @@ class DashboardController extends Controller
 
         $maxSize = collect($sizes)
             ->pluck('size')
-            ->map(fn ($size) => (float) $size)
-            ->filter(fn ($size) => $size > 0)
+            ->map(fn($size) => (float) $size)
+            ->filter(fn($size) => $size > 0)
             ->max();
 
         if (!$maxSize || $maxSize <= 0) {
@@ -643,11 +653,11 @@ class DashboardController extends Controller
             $matched = null;
 
             if ($value > 0) {
-                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+                $matched = collect($sizes)->first(fn($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
             }
 
             if (!$matched) {
-                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+                $matched = collect($sizes)->sortBy(fn($row) => (float) ($row['size'] ?? 0))->last();
             }
 
             if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
