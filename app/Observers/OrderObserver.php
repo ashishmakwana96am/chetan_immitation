@@ -54,7 +54,9 @@ class OrderObserver
             (float) $order->final_amount,
             $order->payment_method,
             $order->order_no,
-            $order->user_id ?? $order->created_by
+            $order->user_id ?? $order->created_by,
+            null,
+            (bool) $order->use_credit_balance
         );
     }
 
@@ -98,7 +100,9 @@ class OrderObserver
                 (float) $order->final_amount,
                 $order->payment_method,
                 $order->order_no,
-                $order->user_id ?? $order->created_by
+                $order->user_id ?? $order->created_by,
+                null,
+                (bool) $order->use_credit_balance
             );
             return;
         }
@@ -136,6 +140,7 @@ class OrderObserver
                 || $order->wasChanged('paid_cash_amount')
                 || $order->wasChanged('paid_online_amount')
                 || $order->wasChanged('payment_status')
+                || $order->wasChanged('use_credit_balance')
             ) {
                 // Reverse the previously recorded allocation, then credit the new one.
                 $this->removeSaleBalance(
@@ -181,7 +186,8 @@ class OrderObserver
                     $order->payment_method,
                     $order->order_no,
                     $order->user_id ?? $order->created_by,
-                    $editDesc
+                    $editDesc,
+                    (bool) $order->use_credit_balance
                 );
             }
         }
@@ -370,9 +376,9 @@ class OrderObserver
      * Debit a credit customer's wallet by the amount actually paid on a sale.
      * No-op for walk-in sales or non-credit customers.
      */
-    private function debitCustomerWalletForSale(?int $customerId, float $cashAmount, float $onlineAmount, float $finalAmount, ?string $paymentMethod, string $orderNo, ?int $userId, ?string $customLogDescription = null): void
+    private function debitCustomerWalletForSale(?int $customerId, float $cashAmount, float $onlineAmount, float $finalAmount, ?string $paymentMethod, string $orderNo, ?int $userId, ?string $customLogDescription = null, bool $useCreditBalance = true): void
     {
-        if (!$customerId) {
+        if (!$customerId || !$useCreditBalance) {
             return;
         }
 
@@ -386,8 +392,7 @@ class OrderObserver
             return;
         }
 
-        $targetTotal = (float) $finalAmount;
-        $toDebit = min($targetTotal, $totalAvail);
+        $toDebit = min((float) $finalAmount, $totalAvail);
 
         if ($toDebit <= 0) {
             return;

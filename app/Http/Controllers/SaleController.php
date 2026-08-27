@@ -387,6 +387,7 @@ class SaleController extends Controller
             'discount_value' => ['nullable', 'numeric', 'min:0'],
             'order_discount_type' => ['nullable', 'string', 'in:flat,percentage'],
             'order_discount_value' => ['nullable', 'numeric', 'min:0'],
+            'use_credit_balance' => ['nullable', 'boolean'],
             'status' => ['nullable', 'integer', 'in:1,2,6'],
             'payment_status' => ['nullable', 'integer', 'in:1,2,3'],
             'source' => ['nullable', 'string', 'in:POS,ONLINE'],
@@ -530,12 +531,16 @@ class SaleController extends Controller
 
             $grandTotal = round($finalAmount + $taxAmount);
 
+            $useCreditBalance = $request->boolean('use_credit_balance', false);
+
             [$cappedStatus, $cappedCashInput, $cappedOnlineInput] = $this->capPaymentToCustomerBalance(
                 $request->customer_id,
                 (int) ($request->payment_status ?? Order::PAYMENT_STATUS_PAID),
                 $grandTotal,
                 (float) ($request->paid_cash_amount ?? 0),
-                (float) ($request->paid_online_amount ?? 0)
+                (float) ($request->paid_online_amount ?? 0),
+                0.0,
+                $useCreditBalance
             );
 
             [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
@@ -553,6 +558,7 @@ class SaleController extends Controller
                 'order_type' => 'sale',
                 'status' => $request->status ?? 2,
                 'payment_status' => $cappedStatus,
+                'use_credit_balance' => $useCreditBalance,
                 'payment_method' => $paymentMethod,
                 'paid_cash_amount' => $paidCash,
                 'paid_online_amount' => $paidOnline,
@@ -1176,13 +1182,16 @@ class SaleController extends Controller
                     $alreadyDebitedForThisSale = (float) $sale->paid_cash_amount + (float) $sale->paid_online_amount;
                 }
 
+                $useCreditBalance = $request->boolean('use_credit_balance', false);
+
                 [$resolvedPaymentStatus, $cappedCashInput, $cappedOnlineInput] = $this->capPaymentToCustomerBalance(
                     $request->customer_id,
                     (int) $resolvedPaymentStatus,
                     $grandTotal,
                     (float) ($request->paid_cash_amount ?? 0),
                     (float) ($request->paid_online_amount ?? 0),
-                    $alreadyDebitedForThisSale
+                    $alreadyDebitedForThisSale,
+                    $useCreditBalance
                 );
 
                 [$paymentMethod, $paidCash, $paidOnline] = $this->resolvePaymentSplit(
@@ -1195,6 +1204,7 @@ class SaleController extends Controller
                 $updateData = [
                     'customer_id' => $request->customer_id,
                     'location_id' => $request->location_id,
+                    'use_credit_balance' => $useCreditBalance,
                     'payment_method' => $paymentMethod,
                     'paid_cash_amount' => $paidCash,
                     'paid_online_amount' => $paidOnline,
@@ -1695,7 +1705,7 @@ class SaleController extends Controller
         ]);
     }
 
-    private function capPaymentToCustomerBalance(?int $customerId, int $requestedStatus, float $grandTotal, float $cashInput, float $onlineInput, float $alreadyDebitedForThisSale = 0.0): array
+    private function capPaymentToCustomerBalance(?int $customerId, int $requestedStatus, float $grandTotal, float $cashInput, float $onlineInput, float $alreadyDebitedForThisSale = 0.0, bool $useCreditBalance = true): array
     {
         if (!$customerId || !in_array($requestedStatus, [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL], true)) {
             return [$requestedStatus, $cashInput, $onlineInput];
@@ -1704,7 +1714,7 @@ class SaleController extends Controller
         $reqCash = round(max($cashInput, 0), 2);
         $reqBank = round(max($onlineInput, 0), 2);
 
-        if ($requestedStatus === Order::PAYMENT_STATUS_PARTIAL) {
+        if (!$useCreditBalance) {
             $allocatedCash = $reqCash;
             $allocatedBank = $reqBank;
             $totalAllocated = round($allocatedCash + $allocatedBank, 2);
@@ -1719,7 +1729,14 @@ class SaleController extends Controller
 
         $customer = Customer::find($customerId);
         if (!$customer || !$customer->is_credit_customer) {
-            return [$requestedStatus, $cashInput, $onlineInput];
+            $totalAllocated = round($reqCash + $reqBank, 2);
+            if ($totalAllocated <= 0) {
+                return [Order::PAYMENT_STATUS_PENDING, 0.0, 0.0];
+            }
+            if ($totalAllocated >= (round($grandTotal, 2) - 0.01)) {
+                return [Order::PAYMENT_STATUS_PAID, $reqCash, $reqBank];
+            }
+            return [Order::PAYMENT_STATUS_PARTIAL, $reqCash, $reqBank];
         }
 
         $totalAvail = max(0.0, (float) $customer->balance);
