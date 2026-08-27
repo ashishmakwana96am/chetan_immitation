@@ -311,7 +311,46 @@ class DashboardController extends Controller
             $totalStockMrpValue = 0.0;
 
             if ($isDefaultLocation) {
-                $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
+                $totalPurchases = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
+
+                // Transfers out of default location to other branches
+                $outgoingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
+                    ->where('from_location_id', $locationId)
+                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
+                    ->get();
+                $outgoingPurchaseValue = 0.0;
+                foreach ($outgoingBills as $bill) {
+                    [$billAmount] = $this->purchaseBillTotals($bill);
+                    $outgoingPurchaseValue += $billAmount;
+                }
+
+                // Transfers in from other branches to default location
+                $incomingBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
+                    ->where('to_location_id', $locationId)
+                    ->where('status', \App\Models\PurchaseBill::STATUS_ACCEPTED)
+                    ->get();
+                $incomingPurchaseValue = 0.0;
+                foreach ($incomingBills as $bill) {
+                    [$billAmount] = $this->purchaseBillTotals($bill);
+                    $incomingPurchaseValue += $billAmount;
+                }
+
+                // Sales made directly from default location
+                $soldPurchaseValue = (float) \App\Models\OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+                    ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
+                    ->whereNull('orders.deleted_at')
+                    ->where('orders.location_id', $locationId)
+                    ->where('orders.order_type', 'sale')
+                    ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                    ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+                    ->selectRaw('SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost')
+                    ->value('total_cost');
+
+                // Formula: Total Purchase - Outgoing Transfer + Incoming Transfer - Sales
+                $totalStockPurchaseValue = max(0.0, $totalPurchases - $outgoingPurchaseValue + $incomingPurchaseValue - $soldPurchaseValue);
+
                 $defaultProducts = Product::whereHas('inventories', fn($q) => $q->where('location_id', $locationId)->where('quantity', '>', 0))->with(['inventories'])->get();
 
                 foreach ($defaultProducts as $p) {
