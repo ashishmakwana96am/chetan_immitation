@@ -1672,12 +1672,51 @@ class ReportController extends Controller
             $profitBadge = '<span class="' . ($prodProfit >= 0 ? 'text-success' : 'text-danger') . ' fw-semibold">' . format_price($prodProfit) . '</span>';
             $marginBadge = '<span class="badge ' . ($prodProfit >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . round($prodMargin, 1) . '%</span>';
 
+            $breakdownHtml = '';
+            $orderItems = OrderItem::where('product_id', $row->product_id)
+                ->whereHas('order', function ($q) use ($user, $startDate, $endDate, $locationId) {
+                    $q->whereNull('orders.deleted_at')
+                      ->where('orders.order_type', 'sale')
+                      ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+                      ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
+                    if ($startDate) $q->whereDate('orders.created_at', '>=', $startDate);
+                    if ($endDate) $q->whereDate('orders.created_at', '<=', $endDate);
+                    if ($locationId) $q->where('orders.location_id', $locationId);
+                })->get();
+
+            $pairItems = $orderItems->filter(function($item) use ($productObj) {
+                return ($item->custom_size_value && (float)$item->custom_size_value > 0) ||
+                       ($item->pair_type === 'pair') ||
+                       ($productObj && $productObj->pair_product);
+            });
+
+            if ($pairItems->isNotEmpty()) {
+                $fallbackSize = (float) (collect($productObj?->custom_sizes ?? [])->pluck('size')->max() ?: 2);
+                $bdText = $pairItems->groupBy(function($item) use ($fallbackSize) {
+                    if ($item->custom_size_value && (float)$item->custom_size_value > 0) {
+                        return (float)$item->custom_size_value;
+                    }
+                    return $fallbackSize;
+                })
+                ->sortKeys()
+                ->map(function ($sizeGroup, $size) {
+                    $sizeLabel = rtrim(rtrim(number_format((float) $size, 2), '0'), '.');
+                    $packCount = $sizeGroup->sum('quantity');
+                    return $packCount . ' Pair' . ($packCount > 1 ? 's' : '') . ' × ' . $sizeLabel . 'pcs';
+                })
+                ->implode(', ');
+
+                if ($bdText !== '') {
+                    $breakdownHtml = '<br><small class="text-muted">' . e($bdText) . '</small>';
+                }
+            }
+
             $formattedQty = format_stock_quantity($productObj, (float) $row->qty_sold);
 
             $data[] = [
                 'product'       => $prodHtml,
                 'barcode'       => '<code>' . e($row->barcode ?? '-') . '</code>',
-                'qty_sold'      => '<span class="fw-semibold">' . $formattedQty . '</span>',
+                'qty_sold'      => '<span class="fw-semibold">' . $formattedQty . '</span>' . $breakdownHtml,
                 'total_revenue' => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
                 'total_cost'    => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
                 'profit'        => $profitBadge,

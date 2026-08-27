@@ -190,7 +190,9 @@
                                         @foreach($customers as $customer)
                                             <option value="{{ $customer->id }}" {{ $order->customer_id === $customer->id ? 'selected' : '' }}
                                                 data-state="{{ $customer->state ?? '' }}"
-                                                data-gst="{{ $customer->gst_no ?? '' }}">
+                                                data-gst="{{ $customer->gst_no ?? '' }}"
+                                                data-is-credit="{{ $customer->is_credit_customer ? '1' : '0' }}"
+                                                data-credit-balance="{{ (float) $customer->balance }}">
                                                 {{ $customer->name }}{{ $customer->phone ? ' - ' . $customer->phone : '' }}
                                             </option>
                                         @endforeach
@@ -341,6 +343,14 @@
                 <div class="card mb-4">
                     <div class="card-header"><h5 class="mb-0">Payment Details</h5></div>
                     <div class="card-body">
+                        <div class="form-check form-switch mb-3 mt-1" id="useCreditBalanceWrapper" style="display: none;">
+                            <input type="hidden" name="use_credit_balance" value="0" />
+                            <input class="form-check-input" type="checkbox" id="useCreditBalanceSwitch" name="use_credit_balance" value="1" {{ ($order->use_credit_balance ?? true) ? 'checked' : '' }} />
+                            <label class="form-check-label fw-semibold" for="useCreditBalanceSwitch">
+                                Use Customer Credit Balance
+                                <span class="badge bg-label-success ms-1" id="creditBalanceBadge">{{ currency_symbol() }} 0.00</span>
+                            </label>
+                        </div>
                         <select name="payment_status" id="paymentStatusSelect" class="form-select no-select2">
                             <option value="1" {{ ($order->payment_status ?? 1) == 1 ? 'selected' : '' }} {{ ($order->payment_status ?? 1) == 3 ? 'disabled' : '' }}>Pending</option>
                             <option value="3" {{ ($order->payment_status ?? 1) == 3 ? 'selected' : '' }}>Partially Paid</option>
@@ -1502,6 +1512,32 @@ $(document).ready(function () {
         updateSummary();
     });
 
+    function checkCustomerCreditBalance() {
+        const selectedOpt = $('#customerSelect').find('option:selected');
+        const isCredit = selectedOpt.data('is-credit') == '1';
+        const balance = parseFloat(selectedOpt.data('credit-balance')) || 0;
+
+        if (isCredit && balance > 0) {
+            $('#creditBalanceBadge').text(symbol + ' ' + formatPrice(balance));
+            $('#useCreditBalanceWrapper').show();
+            $('#useCreditBalanceSwitch').prop('disabled', false);
+        } else {
+            $('#useCreditBalanceWrapper').hide();
+            $('#useCreditBalanceSwitch').prop('checked', false).prop('disabled', true);
+        }
+        updatePaymentSplit();
+    }
+
+    $(document).on('change', '#customerSelect', function () {
+        checkCustomerCreditBalance();
+    });
+
+    $(document).on('change', '#useCreditBalanceSwitch', function () {
+        updatePaymentSplit();
+    });
+
+    checkCustomerCreditBalance();
+
     function updatePaymentSplit() {
         const val = $('#paymentStatusSelect').val();
         const isPaid = val === '2';
@@ -1532,17 +1568,28 @@ $(document).ready(function () {
             return;
         }
 
+        let effectivePayable = total;
+        const selectedOpt = $('#customerSelect').find('option:selected');
+        const isCredit = selectedOpt.data('is-credit') == '1';
+        const balance = parseFloat(selectedOpt.data('credit-balance')) || 0;
+        const useCredit = $('#useCreditBalanceSwitch').is(':checked') && isCredit && balance > 0;
+
+        if (useCredit) {
+            const creditDeduct = Math.min(balance, total);
+            effectivePayable = Math.max(0, total - creditDeduct);
+        }
+
         if (isPaid) {
             if (source === 'cash') {
                 let cash = parseFloat($('#paidCashAmountInput').val()) || 0;
-                cash = Math.min(Math.max(cash, 0), total);
+                cash = Math.min(Math.max(cash, 0), effectivePayable);
                 $('#paidCashAmountInput').val(cash);
-                $('#paidOnlineAmountInput').val(Math.round((total - cash) * 100) / 100);
+                $('#paidOnlineAmountInput').val(Math.round((effectivePayable - cash) * 100) / 100);
             } else {
                 let online = parseFloat($('#paidOnlineAmountInput').val()) || 0;
-                online = Math.min(Math.max(online, 0), total);
+                online = Math.min(Math.max(online, 0), effectivePayable);
                 $('#paidOnlineAmountInput').val(online);
-                $('#paidCashAmountInput').val(Math.round((total - online) * 100) / 100);
+                $('#paidCashAmountInput').val(Math.round((effectivePayable - online) * 100) / 100);
             }
         }
     }

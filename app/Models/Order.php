@@ -49,6 +49,7 @@ class Order extends Model
         'order_type',
         'status',
         'payment_status',
+        'use_credit_balance',
         'payment_method',
         'paid_cash_amount',
         'paid_online_amount',
@@ -76,6 +77,7 @@ class Order extends Model
         return [
             'is_default' => 'boolean',
             'is_gst' => 'boolean',
+            'use_credit_balance' => 'boolean',
             'final_amount' => 'decimal:2',
             'paid_cash_amount' => 'decimal:2',
             'paid_online_amount' => 'decimal:2',
