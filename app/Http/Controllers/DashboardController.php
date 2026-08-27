@@ -311,6 +311,25 @@ class DashboardController extends Controller
 
             if ($isDefaultLocation) {
                 $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
+
+                $approvedPurchaseItems = \App\Models\PurchaseItem::whereHas('invoice', fn($q) => $q->where('status', Purchase::STATUS_APPROVE))
+                    ->with(['product'])
+                    ->get();
+
+                foreach ($approvedPurchaseItems as $pitem) {
+                    $p = $pitem->product;
+                    if (!$p) continue;
+
+                    $salePrice = (float) $p->sale_price;
+                    $mrpPrice  = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
+
+                    $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+                    $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
+                    if ($pairSize <= 0) $pairSize = 1.0;
+
+                    $effectiveQty = $p->pair_product ? ($pitem->quantity / $pairSize) : (float) $pitem->quantity;
+                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
+                }
             } else {
                 $acceptedBills = \App\Models\PurchaseBill::with(['items.product', 'items.variant'])
                     ->where('to_location_id', $locationId)
@@ -329,9 +348,6 @@ class DashboardController extends Controller
             $totalStockUnits = 0;
 
             foreach ($allProducts as $p) {
-                $salePrice = (float) $p->sale_price;
-                $mrpPrice  = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
-
                 $sizes = collect($p->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
                 $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
                 if ($pairSize <= 0)
@@ -339,12 +355,8 @@ class DashboardController extends Controller
 
                 $inventory = $p->inventories->firstWhere('location_id', $locationId);
                 $pTotalPcs = (int) ($inventory ? $inventory->quantity : 0);
-                $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
 
                 $totalStockUnits += $pTotalPcs;
-                if ($isDefaultLocation) {
-                    $totalStockMrpValue += ($effectiveQty * $mrpPrice);
-                }
 
                 if ($p->pair_product && $pTotalPcs > 0) {
                     $totalStockPairs += (int) floor($pTotalPcs / $pairSize);
