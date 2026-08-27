@@ -311,15 +311,9 @@ class DashboardController extends Controller
 
             if ($isDefaultLocation) {
                 $totalStockPurchaseValue = (float) Purchase::where('status', Purchase::STATUS_APPROVE)->sum('total_amount');
+                $defaultProducts = Product::whereHas('inventories', fn($q) => $q->where('quantity', '>', 0))->with(['inventories'])->get();
 
-                $approvedPurchaseItems = \App\Models\PurchaseItem::whereHas('invoice', fn($q) => $q->where('status', Purchase::STATUS_APPROVE))
-                    ->with(['product'])
-                    ->get();
-
-                foreach ($approvedPurchaseItems as $pitem) {
-                    $p = $pitem->product;
-                    if (!$p) continue;
-
+                foreach ($defaultProducts as $p) {
                     $salePrice = (float) $p->sale_price;
                     $mrpPrice  = (float) (($p->mrp ?? 0) > 0 ? $p->mrp : $salePrice);
 
@@ -327,7 +321,8 @@ class DashboardController extends Controller
                     $pairSize = ($p->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
                     if ($pairSize <= 0) $pairSize = 1.0;
 
-                    $effectiveQty = $p->pair_product ? ($pitem->quantity / $pairSize) : (float) $pitem->quantity;
+                    $pTotalPcs = (int) $p->inventories->sum('quantity');
+                    $effectiveQty = $p->pair_product ? ($pTotalPcs / $pairSize) : (float) $pTotalPcs;
                     $totalStockMrpValue += ($effectiveQty * $mrpPrice);
                 }
             } else {
