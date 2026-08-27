@@ -352,6 +352,7 @@ class DashboardController extends Controller
                     $outgoingMrpValue      += $billMrp;
                 }
 
+                // 3. Sold Items Purchase Cost & MRP (Sales made by this branch)
                 $soldOrderItems = \App\Models\OrderItem::with(['product', 'variant'])
                     ->whereHas('order', function ($q) use ($locationId) {
                         $q->where('location_id', $locationId)
@@ -367,20 +368,14 @@ class DashboardController extends Controller
                     $p = $sItem->product;
                     if (!$p) continue;
 
-                    $purchasePrice = (float) (($sItem->variant->purchase_price ?? 0) > 0 
-                        ? $sItem->variant->purchase_price 
-                        : ($p->purchase_price ?? 0));
+                    $multiplier = $this->stockMultiplierFor($p, $sItem->pair_type, $sItem->custom_size_value);
+                    $quantity   = (int) $sItem->quantity;
 
-                    $mrpPrice = (float) (($sItem->mrp > 0) 
-                        ? $sItem->mrp 
-                        : ($sItem->variant->mrp ?? $p->mrp ?? $p->sale_price ?? 0));
-
-                    $qty = (int) $sItem->quantity;
-
-                    $soldPurchaseValue += $purchasePrice * $qty;
-                    $soldMrpValue      += $mrpPrice * $qty;
+                    $soldPurchaseValue += $this->purchasePriceForOrderItem($sItem) * $quantity;
+                    $soldMrpValue      += $this->mrpForOrderItem($sItem, $multiplier) * $quantity;
                 }
 
+                // Formula: Incoming - Outgoing - Sold Items
                 $totalStockPurchaseValue = max(0.0, $incomingPurchaseValue - $outgoingPurchaseValue - $soldPurchaseValue);
                 $totalStockMrpValue      = max(0.0, $incomingMrpValue - $outgoingMrpValue - $soldMrpValue);
             }
@@ -597,5 +592,67 @@ class DashboardController extends Controller
         }
 
         return (float) ($product->mrp ?? 0);
+    }
+
+    private function purchasePriceForOrderItem(\App\Models\OrderItem $item): float
+    {
+        $product = $item->product;
+        $basePrice = (float) (($item->variant->purchase_price ?? 0) > 0 ? $item->variant->purchase_price : ($product?->purchase_price ?? 0));
+
+        if (!$product || !$product->pair_product) {
+            return $basePrice;
+        }
+
+        $selectedSize = (float) $item->custom_size_value;
+        if ($selectedSize <= 0) {
+            return $basePrice;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        $maxSize = collect($sizes)
+            ->pluck('size')
+            ->map(fn ($size) => (float) $size)
+            ->filter(fn ($size) => $size > 0)
+            ->max();
+
+        if (!$maxSize || $maxSize <= 0) {
+            return $basePrice;
+        }
+
+        return (float) ($basePrice * ($selectedSize / (float) $maxSize));
+    }
+
+    private function mrpForOrderItem(\App\Models\OrderItem $item, float $multiplier): float
+    {
+        $product = $item->product;
+        if (!$product) {
+            return 0.0;
+        }
+
+        $sizes = ($item->variant && !empty($item->variant->custom_sizes))
+            ? $item->variant->custom_sizes
+            : ($product->custom_sizes ?? []);
+
+        if (!empty($sizes)) {
+            $value = (float) $item->custom_size_value;
+            $matched = null;
+
+            if ($value > 0) {
+                $matched = collect($sizes)->first(fn ($row) => abs((float) ($row['size'] ?? 0) - $value) < 0.001);
+            }
+
+            if (!$matched) {
+                $matched = collect($sizes)->sortBy(fn ($row) => (float) ($row['size'] ?? 0))->last();
+            }
+
+            if ($matched && isset($matched['mrp']) && is_numeric($matched['mrp'])) {
+                return (float) $matched['mrp'];
+            }
+        }
+
+        return (float) (($item->mrp > 0) ? $item->mrp : ($product->mrp ?? 0));
     }
 }
