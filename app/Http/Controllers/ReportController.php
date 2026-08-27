@@ -1635,6 +1635,7 @@ class ReportController extends Controller
             ->get();
 
         $productIds = $rows->pluck('product_id')->filter()->unique();
+        $productsMap = Product::whereIn('id', $productIds)->get()->keyBy('id');
         $productImagesMap = ProductImage::whereIn('product_id', $productIds)
             ->where('is_primary', true)
             ->pluck('image_path', 'product_id');
@@ -1645,6 +1646,7 @@ class ReportController extends Controller
             $prodUrl = route('admin.products.show', $row->product_id);
             $imgPath = $productImagesMap[$row->product_id] ?? null;
             $imgUrl = $imgPath ? asset('uploads/'.$imgPath) : asset('website/assets/images/placeholder.png');
+            $productObj = $productsMap->get($row->product_id);
 
             $prodProfit = (float)$row->total_revenue - (float)$row->total_cost;
             $prodMargin = (float)$row->total_revenue > 0 ? ($prodProfit / (float)$row->total_revenue) * 100 : 0.0;
@@ -1658,10 +1660,12 @@ class ReportController extends Controller
             $profitBadge = '<span class="' . ($prodProfit >= 0 ? 'text-success' : 'text-danger') . ' fw-semibold">' . format_price($prodProfit) . '</span>';
             $marginBadge = '<span class="badge ' . ($prodProfit >= 0 ? 'bg-label-success' : 'bg-label-danger') . '">' . round($prodMargin, 1) . '%</span>';
 
+            $formattedQty = format_stock_quantity($productObj, (float) $row->qty_sold);
+
             $data[] = [
                 'product'       => $prodHtml,
                 'barcode'       => '<code>' . e($row->barcode ?? '-') . '</code>',
-                'qty_sold'      => '<span class="fw-semibold">' . (int)$row->qty_sold . '</span>',
+                'qty_sold'      => '<span class="fw-semibold">' . $formattedQty . '</span>',
                 'total_revenue' => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
                 'total_cost'    => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
                 'profit'        => $profitBadge,
@@ -3179,9 +3183,14 @@ class ReportController extends Controller
         $sumNetProfit = 0;
 
         if ($productProfitability->isNotEmpty()) {
+            $productIds = $productProfitability->pluck('product_id')->filter()->unique();
+            $productsMap = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
             $idx = 1;
             foreach ($productProfitability as $item) {
+                $productObj = $productsMap->get($item->product_id);
                 $qty = (int) $item->qty_sold;
+                $formattedQty = format_stock_quantity($productObj, (float) $qty);
                 $rev = (float) $item->total_revenue;
                 $cost = (float) $item->total_cost;
                 $net = $rev - $cost;
@@ -3195,7 +3204,7 @@ class ReportController extends Controller
                 $sheet1->setCellValue('A' . $rowIndex1, $idx++);
                 $sheet1->setCellValue('B' . $rowIndex1, $item->name ?? 'Unknown');
                 $sheet1->setCellValue('C' . $rowIndex1, $item->barcode ?? '-');
-                $sheet1->setCellValue('D' . $rowIndex1, $qty);
+                $sheet1->setCellValue('D' . $rowIndex1, $formattedQty);
                 $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($rev, 2));
                 $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($cost, 2));
                 $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($net, 2));
@@ -3206,28 +3215,24 @@ class ReportController extends Controller
             }
 
             // Totals Row
-            $overallMargin = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+            $overallMargin1 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
             $sheet1->setCellValue('A' . $rowIndex1, 'Total');
-            $sheet1->setCellValue('D' . $rowIndex1, $sumQtySold);
+            $sheet1->setCellValue('D' . $rowIndex1, $sumQtySold . ' Pcs');
             $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($sumRevenue, 2));
             $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($sumCost, 2));
             $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($sumNetProfit, 2));
-            $sheet1->setCellValue('H' . $rowIndex1, $overallMargin . '%');
+            $sheet1->setCellValue('H' . $rowIndex1, $overallMargin1 . '%');
 
             $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
             $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
             $sheet1->getRowDimension($rowIndex1)->setRowHeight(22);
-
-            $sheet1->getStyle('A' . $r1_header . ':H' . $rowIndex1)->applyFromArray($borderStyle);
-            $sheet1->getStyle('A' . $r1_header . ':A' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet1->getStyle('C' . $r1_header . ':C' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet1->getStyle('D' . $r1_header . ':G' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet1->getStyle('H' . $r1_header . ':H' . $rowIndex1)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        } else {
-            $sheet1->setCellValue('A' . $rowIndex1, 'No product profitability data found.');
-            $sheet1->mergeCells('A' . $rowIndex1 . ':H' . $rowIndex1);
-            $sheet1->getStyle('A' . $r1_header . ':H' . $rowIndex1)->applyFromArray($borderStyle);
+            $rowIndex1++;
         }
+
+        $sheet1->getStyle('A' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('A' . $r1_header . ':A' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('C' . $r1_header . ':C' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('D' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($columns2 as $colLetter) {
             $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
@@ -3255,7 +3260,9 @@ class ReportController extends Controller
             $rowIndex2 = 3;
             $idx2 = 1;
             foreach ($productProfitability as $item) {
+                $productObj = $productsMap->get($item->product_id);
                 $qty = (int) $item->qty_sold;
+                $formattedQty = format_stock_quantity($productObj, (float) $qty);
                 $rev = (float) $item->total_revenue;
                 $cost = (float) $item->total_cost;
                 $net = $rev - $cost;
@@ -3264,7 +3271,7 @@ class ReportController extends Controller
                 $sheet2->setCellValue('A' . $rowIndex2, $idx2++);
                 $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
                 $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
-                $sheet2->setCellValue('D' . $rowIndex2, $qty);
+                $sheet2->setCellValue('D' . $rowIndex2, $formattedQty);
                 $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
                 $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
                 $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
