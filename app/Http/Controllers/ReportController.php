@@ -1621,6 +1621,7 @@ class ReportController extends Controller
         $endDate   = $request->query('end_date');
 
         $salesQuery = Order::query()
+            ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
@@ -1646,6 +1647,7 @@ class ReportController extends Controller
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
             ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
+            ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
             ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
@@ -1957,6 +1959,328 @@ class ReportController extends Controller
             'recordsTotal'    => $recordsTotal,
             'recordsFiltered' => $recordsFiltered,
             'data'            => $data,
+        ]);
+    }
+
+    public function exportProfitLossExcel(Request $request)
+    {
+        $this->authorize('view profit loss reports');
+
+        $user = auth()->user();
+        if ($user->location_id && !$user->hasRole('super-admin')) {
+            $locationId = $user->location_id;
+        } else {
+            $locationId = $request->query('location_id');
+        }
+
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+
+        $salesQuery = Order::query()
+            ->whereNull('orders.deleted_at')
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
+
+        if ($startDate) {
+            $salesQuery->whereDate('orders.created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $salesQuery->whereDate('orders.created_at', '<=', $endDate);
+        }
+        if ($locationId) {
+            $salesQuery->where('orders.location_id', $locationId);
+        }
+
+        $totalRevenue = (float) (clone $salesQuery)
+            ->selectRaw('SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev')
+            ->value('total_rev');
+
+        $productProfitabilityQuery = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
+            ->whereNull('orders.deleted_at')
+            ->where('orders.order_type', 'sale')
+            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
+            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
+
+        if ($startDate) {
+            $productProfitabilityQuery->whereDate('orders.created_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $productProfitabilityQuery->whereDate('orders.created_at', '<=', $endDate);
+        }
+        if ($locationId) {
+            $productProfitabilityQuery->where('orders.location_id', $locationId);
+        }
+
+        $productProfitability = $productProfitabilityQuery
+            ->selectRaw('
+                order_items.product_id,
+                products.name,
+                products.barcode,
+                SUM(
+                    order_items.quantity * CASE 
+                        WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                        WHEN products.pair_product = 1 AND (order_items.pair_type = "pair" OR order_items.pair_type IS NULL) THEN 2.0
+                        ELSE 1.0
+                    END
+                ) as qty_sold,
+                SUM(order_items.total) as total_revenue,
+                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+            ')
+            ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
+            ->orderByDesc('order_items.product_id')
+            ->get();
+
+        $totalCogs = (float) $productProfitability->sum('total_cost');
+
+        $expensesQuery = Expense::query()
+            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('expenses.location_id', $user->location_id));
+        if ($startDate) {
+            $expensesQuery->whereDate('expenses.expense_date', '>=', $startDate);
+        }
+        if ($endDate) {
+            $expensesQuery->whereDate('expenses.expense_date', '<=', $endDate);
+        }
+        if ($locationId) {
+            $expensesQuery->where('expenses.location_id', $locationId);
+        }
+        $totalExpenses = (float) $expensesQuery->sum('expenses.amount');
+        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
+        $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
+
+        if ($totalRevenue <= 0 && $totalExpenses <= 0 && $productProfitability->isEmpty()) {
+            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
+        }
+
+        $locationName = $locationId ? (Location::find($locationId)->name ?? 'All Locations') : 'All Locations';
+
+        $spreadsheet = new Spreadsheet();
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        // Sheet 1: P&L Overview & Product Profitability
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('P&L Overview');
+
+        $sheet1->mergeCells('A1:B1');
+        $sheet1->setCellValue('A1', 'P&L Overview Data (' . $locationName . ')');
+        $sheet1->getStyle('A1:B1')->applyFromArray($titleStyle);
+        $sheet1->getRowDimension(1)->setRowHeight(30);
+
+        $headers1 = ['Metric', 'Amount'];
+        $sheet1->setCellValue('A2', $headers1[0]);
+        $sheet1->setCellValue('B2', $headers1[1]);
+
+        $sheet1->getStyle('A2:B2')->applyFromArray($headerStyle);
+        $sheet1->getRowDimension(2)->setRowHeight(26);
+
+        $overviewData = [
+            ['Total Revenue', '₹' . number_format($totalRevenue, 2)],
+            ['Cost of Goods Sold (COGS)', '₹' . number_format($totalCogs, 2)],
+            ['Operating Expenses', '₹' . number_format($totalExpenses, 2)],
+            ['Net Profit / (Loss)', '₹' . number_format($netProfit, 2)],
+            ['Profit Margin (%)', number_format($profitMargin, 2) . '%'],
+        ];
+
+        $r = 3;
+        foreach ($overviewData as $row) {
+            $sheet1->setCellValue('A' . $r, $row[0]);
+            $sheet1->setCellValue('B' . $r, $row[1]);
+            $sheet1->getRowDimension($r)->setRowHeight(20);
+            $r++;
+        }
+
+        $sheet1->getStyle('A2:B' . ($r - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('B3:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet1->getStyle('A5:B6')->getFont()->setBold(true);
+
+        $r1_breakdown = 9;
+        $sheet1->mergeCells('A' . $r1_breakdown . ':H' . $r1_breakdown);
+        $sheet1->setCellValue('A' . $r1_breakdown, 'Product Profitability Breakdown Data (' . $locationName . ')');
+        $sheet1->getStyle('A' . $r1_breakdown . ':H' . $r1_breakdown)->applyFromArray($titleStyle);
+        $sheet1->getRowDimension($r1_breakdown)->setRowHeight(30);
+
+        $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Purchase Cost', 'Net Profit', 'Margin (%)'];
+        $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        $r1_header = $r1_breakdown + 1;
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet1->setCellValue($columns2[$colIdx] . $r1_header, $headerText);
+        }
+        $sheet1->getStyle('A' . $r1_header . ':H' . $r1_header)->applyFromArray($headerStyle);
+        $sheet1->getRowDimension($r1_header)->setRowHeight(26);
+
+        $rowIndex1 = $r1_header + 1;
+        $sumQtySold = 0;
+        $sumRevenue = 0;
+        $sumCost = 0;
+        $sumNetProfit = 0;
+
+        if ($productProfitability->isNotEmpty()) {
+            $productIds = $productProfitability->pluck('product_id')->filter()->unique();
+            $productsMap = Product::whereIn('id', $productIds)->get()->keyBy('id');
+
+            $idx = 1;
+            foreach ($productProfitability as $item) {
+                $productObj = $productsMap->get($item->product_id);
+                $qty = (int) $item->qty_sold;
+                $formattedQty = format_stock_quantity($productObj, (float) $qty);
+                $rev = (float) $item->total_revenue;
+                $cost = (float) $item->total_cost;
+                $net = $rev - $cost;
+                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
+
+                $sumQtySold += $qty;
+                $sumRevenue += $rev;
+                $sumCost += $cost;
+                $sumNetProfit += $net;
+
+                $sheet1->setCellValue('A' . $rowIndex1, $idx++);
+                $sheet1->setCellValue('B' . $rowIndex1, $item->name ?? 'Unknown');
+                $sheet1->setCellValue('C' . $rowIndex1, $item->barcode ?? '-');
+                $sheet1->setCellValue('D' . $rowIndex1, $formattedQty);
+                $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($rev, 2));
+                $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($cost, 2));
+                $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($net, 2));
+                $sheet1->setCellValue('H' . $rowIndex1, $margin . '%');
+
+                $sheet1->getRowDimension($rowIndex1)->setRowHeight(20);
+                $rowIndex1++;
+            }
+
+            $overallMargin1 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+            $sheet1->setCellValue('A' . $rowIndex1, 'Total');
+            $sheet1->setCellValue('D' . $rowIndex1, $sumQtySold . ' Pcs');
+            $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($sumRevenue, 2));
+            $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($sumCost, 2));
+            $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($sumNetProfit, 2));
+            $sheet1->setCellValue('H' . $rowIndex1, $overallMargin1 . '%');
+
+            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
+            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet1->getRowDimension($rowIndex1)->setRowHeight(22);
+            $rowIndex1++;
+        }
+
+        $sheet1->getStyle('A' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->applyFromArray($borderStyle);
+        $sheet1->getStyle('A' . $r1_header . ':A' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('C' . $r1_header . ':C' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet1->getStyle('D' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        foreach ($columns2 as $colLetter) {
+            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        // Sheet 2: Product Profitability Breakdown
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Product Profitability');
+
+        $sheet2->mergeCells('A1:H1');
+        $sheet2->setCellValue('A1', 'Product Profitability Breakdown Data (' . $locationName . ')');
+        $sheet2->getStyle('A1:H1')->applyFromArray($titleStyle);
+        $sheet2->getRowDimension(1)->setRowHeight(30);
+
+        foreach ($headers2 as $colIdx => $headerText) {
+            $sheet2->setCellValue($columns2[$colIdx] . '2', $headerText);
+        }
+
+        $sheet2->getStyle('A2:H2')->applyFromArray($headerStyle);
+        $sheet2->getRowDimension(2)->setRowHeight(26);
+
+        if ($productProfitability->isNotEmpty()) {
+            $rowIndex2 = 3;
+            $idx2 = 1;
+            foreach ($productProfitability as $item) {
+                $productObj = $productsMap->get($item->product_id);
+                $qty = (int) $item->qty_sold;
+                $formattedQty = format_stock_quantity($productObj, (float) $qty);
+                $rev = (float) $item->total_revenue;
+                $cost = (float) $item->total_cost;
+                $net = $rev - $cost;
+                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
+
+                $sheet2->setCellValue('A' . $rowIndex2, $idx2++);
+                $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
+                $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
+                $sheet2->setCellValue('D' . $rowIndex2, $formattedQty);
+                $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
+                $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
+                $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
+                $sheet2->setCellValue('H' . $rowIndex2, $margin . '%');
+
+                $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
+                $rowIndex2++;
+            }
+
+            $overallMargin2 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
+            $sheet2->setCellValue('A' . $rowIndex2, 'Total');
+            $sheet2->setCellValue('D' . $rowIndex2, $sumQtySold);
+            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($sumRevenue, 2));
+            $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($sumCost, 2));
+            $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($sumNetProfit, 2));
+            $sheet2->setCellValue('H' . $rowIndex2, $overallMargin2 . '%');
+
+            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+            $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
+
+            $sheet2->getStyle('A2:H' . $rowIndex2)->applyFromArray($borderStyle);
+            $sheet2->getStyle('A2:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle('C2:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle('D2:G' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet2->getStyle('H2:H' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        } else {
+            $sheet2->setCellValue('A3', 'No product profitability data found.');
+            $sheet2->mergeCells('A3:H3');
+            $sheet2->getStyle('A2:H3')->applyFromArray($borderStyle);
+        }
+
+        foreach ($columns2 as $colLetter) {
+            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & Loss report exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'profit_loss_report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
         ]);
     }
 
@@ -3278,336 +3602,6 @@ class ReportController extends Controller
         ]);
     }
 
-    public function exportProfitLossExcel(Request $request)
-    {
-        $this->authorize('view profit loss reports');
-
-        $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locationId = $user->location_id;
-        } else {
-            $locationId = $request->query('location_id');
-        }
-
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
-
-        $salesQuery = Order::query()
-            ->where('orders.order_type', 'sale')
-            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
-
-        if ($startDate) {
-            $salesQuery->whereDate('orders.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $salesQuery->whereDate('orders.created_at', '<=', $endDate);
-        }
-        if ($locationId) {
-            $salesQuery->where('orders.location_id', $locationId);
-        }
-
-        $totalRevenue = (float) (clone $salesQuery)
-            ->selectRaw('SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev')
-            ->value('total_rev');
-
-        $productProfitabilityQuery = OrderItem::query()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-            ->leftJoin('product_variants', 'product_variants.id', '=', 'order_items.product_variant_id')
-            ->whereNull('orders.deleted_at')
-            ->where('orders.order_type', 'sale')
-            ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
-
-        if ($startDate) {
-            $productProfitabilityQuery->whereDate('orders.created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $productProfitabilityQuery->whereDate('orders.created_at', '<=', $endDate);
-        }
-        if ($locationId) {
-            $productProfitabilityQuery->where('orders.location_id', $locationId);
-        }
-
-        $productProfitability = $productProfitabilityQuery
-            ->selectRaw('
-                order_items.product_id,
-                products.name,
-                products.barcode,
-                SUM(
-                    order_items.quantity * CASE 
-                        WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
-                        WHEN products.pair_product = 1 AND (order_items.pair_type = "pair" OR order_items.pair_type IS NULL) THEN 2.0
-                        ELSE 1.0
-                    END
-                ) as qty_sold,
-                SUM(order_items.total) as total_revenue,
-                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
-            ')
-            ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
-            ->orderByDesc('order_items.product_id')
-            ->get();
-
-        $totalCogs = (float) $productProfitability->sum('total_cost');
-
-        $expensesQuery = Expense::query()
-            ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('expenses.location_id', $user->location_id));
-        if ($startDate) {
-            $expensesQuery->whereDate('expenses.expense_date', '>=', $startDate);
-        }
-        if ($endDate) {
-            $expensesQuery->whereDate('expenses.expense_date', '<=', $endDate);
-        }
-        if ($locationId) {
-            $expensesQuery->where('expenses.location_id', $locationId);
-        }
-        $totalExpenses = (float) $expensesQuery->sum('expenses.amount');
-        $netProfit = $totalRevenue - $totalCogs - $totalExpenses;
-        $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0.0;
-
-        if ($totalRevenue <= 0 && $totalExpenses <= 0 && $productProfitability->isEmpty()) {
-            return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
-        }
-
-        $locationName = $locationId ? (Location::find($locationId)->name ?? 'All Locations') : 'All Locations';
-
-        $spreadsheet = new Spreadsheet();
-
-        $titleStyle = [
-            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical'   => Alignment::VERTICAL_CENTER,
-            ],
-            'fill' => [
-                'fillType'   => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => 'F2F4F7'],
-            ],
-        ];
-
-        // Header style
-        $headerStyle = [
-            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
-            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
-        ];
-
-        // Border style
-        $borderStyle = [
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['rgb' => 'D0D5DD'],
-                ],
-            ],
-        ];
-
-        // ============================================================
-        // Sheet 1: Overview & Product Profitability Breakdown
-        // ============================================================
-        $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('P&L Overview');
-
-        // Section 1: P&L Overview Header & Table
-        $sheet1->mergeCells('A1:B1');
-        $sheet1->setCellValue('A1', 'P&L Overview Data (' . $locationName . ')');
-        $sheet1->getStyle('A1:B1')->applyFromArray($titleStyle);
-        $sheet1->getRowDimension(1)->setRowHeight(30);
-
-        $headers1 = ['Metric', 'Amount'];
-        $sheet1->setCellValue('A2', $headers1[0]);
-        $sheet1->setCellValue('B2', $headers1[1]);
-
-        $sheet1->getStyle('A2:B2')->applyFromArray($headerStyle);
-        $sheet1->getRowDimension(2)->setRowHeight(26);
-
-        $overviewData = [
-            ['Total Revenue', '₹' . number_format($totalRevenue, 2)],
-            ['Cost of Goods Sold (COGS)', '₹' . number_format($totalCogs, 2)],
-            ['Operating Expenses', '₹' . number_format($totalExpenses, 2)],
-            ['Net Profit / (Loss)', '₹' . number_format($netProfit, 2)],
-            ['Profit Margin (%)', number_format($profitMargin, 2) . '%'],
-        ];
-
-        $r = 3;
-        foreach ($overviewData as $row) {
-            $sheet1->setCellValue('A' . $r, $row[0]);
-            $sheet1->setCellValue('B' . $r, $row[1]);
-            $sheet1->getRowDimension($r)->setRowHeight(20);
-            $r++;
-        }
-
-        $sheet1->getStyle('A2:B' . ($r - 1))->applyFromArray($borderStyle);
-        $sheet1->getStyle('B3:B' . ($r - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet1->getStyle('A5:B6')->getFont()->setBold(true);
-
-        // Section 2: Product Profitability Breakdown on Sheet 1 (Row 9+)
-        $r1_breakdown = 9;
-        $sheet1->mergeCells('A' . $r1_breakdown . ':H' . $r1_breakdown);
-        $sheet1->setCellValue('A' . $r1_breakdown, 'Product Profitability Breakdown Data (' . $locationName . ')');
-        $sheet1->getStyle('A' . $r1_breakdown . ':H' . $r1_breakdown)->applyFromArray($titleStyle);
-        $sheet1->getRowDimension($r1_breakdown)->setRowHeight(30);
-
-        $headers2 = ['#', 'Product Name', 'Barcode', 'Qty Sold', 'Total Revenue', 'Purchase Cost', 'Net Profit', 'Margin (%)'];
-        $columns2 = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-        $r1_header = $r1_breakdown + 1;
-        foreach ($headers2 as $colIdx => $headerText) {
-            $sheet1->setCellValue($columns2[$colIdx] . $r1_header, $headerText);
-        }
-        $sheet1->getStyle('A' . $r1_header . ':H' . $r1_header)->applyFromArray($headerStyle);
-        $sheet1->getRowDimension($r1_header)->setRowHeight(26);
-
-        $rowIndex1 = $r1_header + 1;
-        $sumQtySold = 0;
-        $sumRevenue = 0;
-        $sumCost = 0;
-        $sumNetProfit = 0;
-
-        if ($productProfitability->isNotEmpty()) {
-            $productIds = $productProfitability->pluck('product_id')->filter()->unique();
-            $productsMap = Product::whereIn('id', $productIds)->get()->keyBy('id');
-
-            $idx = 1;
-            foreach ($productProfitability as $item) {
-                $productObj = $productsMap->get($item->product_id);
-                $qty = (int) $item->qty_sold;
-                $formattedQty = format_stock_quantity($productObj, (float) $qty);
-                $rev = (float) $item->total_revenue;
-                $cost = (float) $item->total_cost;
-                $net = $rev - $cost;
-                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
-
-                $sumQtySold += $qty;
-                $sumRevenue += $rev;
-                $sumCost += $cost;
-                $sumNetProfit += $net;
-
-                $sheet1->setCellValue('A' . $rowIndex1, $idx++);
-                $sheet1->setCellValue('B' . $rowIndex1, $item->name ?? 'Unknown');
-                $sheet1->setCellValue('C' . $rowIndex1, $item->barcode ?? '-');
-                $sheet1->setCellValue('D' . $rowIndex1, $formattedQty);
-                $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($rev, 2));
-                $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($cost, 2));
-                $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($net, 2));
-                $sheet1->setCellValue('H' . $rowIndex1, $margin . '%');
-
-                $sheet1->getRowDimension($rowIndex1)->setRowHeight(20);
-                $rowIndex1++;
-            }
-
-            // Totals Row
-            $overallMargin1 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
-            $sheet1->setCellValue('A' . $rowIndex1, 'Total');
-            $sheet1->setCellValue('D' . $rowIndex1, $sumQtySold . ' Pcs');
-            $sheet1->setCellValue('E' . $rowIndex1, '₹' . number_format($sumRevenue, 2));
-            $sheet1->setCellValue('F' . $rowIndex1, '₹' . number_format($sumCost, 2));
-            $sheet1->setCellValue('G' . $rowIndex1, '₹' . number_format($sumNetProfit, 2));
-            $sheet1->setCellValue('H' . $rowIndex1, $overallMargin1 . '%');
-
-            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFont()->setBold(true);
-            $sheet1->getStyle('A' . $rowIndex1 . ':H' . $rowIndex1)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-            $sheet1->getRowDimension($rowIndex1)->setRowHeight(22);
-            $rowIndex1++;
-        }
-
-        $sheet1->getStyle('A' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->applyFromArray($borderStyle);
-        $sheet1->getStyle('A' . $r1_header . ':A' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('C' . $r1_header . ':C' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet1->getStyle('D' . ($r1_header + 1) . ':H' . ($rowIndex1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-        foreach ($columns2 as $colLetter) {
-            $sheet1->getColumnDimension($colLetter)->setAutoSize(true);
-        }
-
-        // ============================================================
-        // Sheet 2: Product Profitability Breakdown
-        // ============================================================
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Product Profitability');
-
-        $sheet2->mergeCells('A1:H1');
-        $sheet2->setCellValue('A1', 'Product Profitability Breakdown Data (' . $locationName . ')');
-        $sheet2->getStyle('A1:H1')->applyFromArray($titleStyle);
-        $sheet2->getRowDimension(1)->setRowHeight(30);
-
-        foreach ($headers2 as $colIdx => $headerText) {
-            $sheet2->setCellValue($columns2[$colIdx] . '2', $headerText);
-        }
-
-        $sheet2->getStyle('A2:H2')->applyFromArray($headerStyle);
-        $sheet2->getRowDimension(2)->setRowHeight(26);
-
-        if ($productProfitability->isNotEmpty()) {
-            $rowIndex2 = 3;
-            $idx2 = 1;
-            foreach ($productProfitability as $item) {
-                $productObj = $productsMap->get($item->product_id);
-                $qty = (int) $item->qty_sold;
-                $formattedQty = format_stock_quantity($productObj, (float) $qty);
-                $rev = (float) $item->total_revenue;
-                $cost = (float) $item->total_cost;
-                $net = $rev - $cost;
-                $margin = $rev > 0 ? round(($net / $rev) * 100, 1) : 0;
-
-                $sheet2->setCellValue('A' . $rowIndex2, $idx2++);
-                $sheet2->setCellValue('B' . $rowIndex2, $item->name ?? 'Unknown');
-                $sheet2->setCellValue('C' . $rowIndex2, $item->barcode ?? '-');
-                $sheet2->setCellValue('D' . $rowIndex2, $formattedQty);
-                $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($rev, 2));
-                $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($cost, 2));
-                $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($net, 2));
-                $sheet2->setCellValue('H' . $rowIndex2, $margin . '%');
-
-                $sheet2->getRowDimension($rowIndex2)->setRowHeight(20);
-                $rowIndex2++;
-            }
-
-            // Totals Row
-            $overallMargin2 = $sumRevenue > 0 ? round(($sumNetProfit / $sumRevenue) * 100, 1) : 0;
-            $sheet2->setCellValue('A' . $rowIndex2, 'Total');
-            $sheet2->setCellValue('D' . $rowIndex2, $sumQtySold);
-            $sheet2->setCellValue('E' . $rowIndex2, '₹' . number_format($sumRevenue, 2));
-            $sheet2->setCellValue('F' . $rowIndex2, '₹' . number_format($sumCost, 2));
-            $sheet2->setCellValue('G' . $rowIndex2, '₹' . number_format($sumNetProfit, 2));
-            $sheet2->setCellValue('H' . $rowIndex2, $overallMargin2 . '%');
-
-            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFont()->setBold(true);
-            $sheet2->getStyle('A' . $rowIndex2 . ':H' . $rowIndex2)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
-            $sheet2->getRowDimension($rowIndex2)->setRowHeight(22);
-
-            $sheet2->getStyle('A2:H' . $rowIndex2)->applyFromArray($borderStyle);
-            $sheet2->getStyle('A2:A' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet2->getStyle('C2:C' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet2->getStyle('D2:G' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet2->getStyle('H2:H' . $rowIndex2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        } else {
-            $sheet2->setCellValue('A3', 'No product profitability data found.');
-            $sheet2->mergeCells('A3:H3');
-            $sheet2->getStyle('A2:H3')->applyFromArray($borderStyle);
-        }
-
-        foreach ($columns2 as $colLetter) {
-            $sheet2->getColumnDimension($colLetter)->setAutoSize(true);
-        }
-
-        $spreadsheet->setActiveSheetIndex(0);
-
-        ActivityLogger::log('Reports', 'export', null, null, null, 'Profit & Loss report exported to Excel');
-
-        $writer = new Xlsx($spreadsheet);
-        $filename = 'profit_loss_report_' . date('Ymd_His') . '.xlsx';
-
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
-    }
 
     // ───────────────────────────────────────────────────────
     //  PAYMENT REPORT
