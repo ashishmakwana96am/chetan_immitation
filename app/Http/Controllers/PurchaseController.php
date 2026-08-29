@@ -396,10 +396,10 @@ class PurchaseController extends Controller
                 ? Purchase::PAYMENT_STATUS_PAID
                 : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
 
-            Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $invoice->update([
+            $invoice->update([
                 'paid_amount'    => min($finalPaid, $grandTotal),
                 'payment_status' => $finalStatus,
-            ])));
+            ]);
             $invoice->paid_amount = min($finalPaid, $grandTotal);
             $invoice->payment_status = $finalStatus;
 
@@ -693,10 +693,10 @@ class PurchaseController extends Controller
                 ? Purchase::PAYMENT_STATUS_PAID
                 : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
 
-            Purchase::withoutActivityLogging(fn () => $purchase->update([
+            $purchase->update([
                 'paid_amount'    => min($finalPaid, $grandTotal),
                 'payment_status' => $finalStatus,
-            ]));
+            ]);
 
             $purchase->items()->delete();
 
