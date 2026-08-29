@@ -103,10 +103,20 @@ class ProductController extends Controller
 
         $computeStock = function ($product) use ($locationId) {
             if ($locationId) {
+                if ($product->type === 'variable') {
+                    $stockData = $product->getVariantStock($locationId);
+                    $sum = 0;
+                    if (!empty($stockData['variants'])) {
+                        foreach ($stockData['variants'] as $vStock) {
+                            $sum += (int) $vStock;
+                        }
+                    }
+                    return $sum > 0 ? $sum : (int) ($stockData['parent'] ?? 0);
+                }
                 $inv = $product->inventories->firstWhere('location_id', $locationId);
                 return (int) ($inv ? $inv->quantity : 0);
             }
-            return (int) $product->inventories->sum('quantity');
+            return (int) $product->totalAvailableStock();
         };
 
         $hasStockFilter = in_array($request->stock_status, ['in_stock', 'out_of_stock'], true);
@@ -206,6 +216,8 @@ class ProductController extends Controller
                 ->take($length)
                 ->get();
         }
+
+        Product::preloadVariantStock($products);
 
         $canEdit   = auth()->user()->can('edit products');
         $canDelete = auth()->user()->can('delete products');
@@ -654,7 +666,11 @@ class ProductController extends Controller
                 $first = $group->first();
 
                 $totalQty = $group->sum(function ($item) use ($isPairProduct, $fallbackSize) {
-                    return $isPairProduct ? ($item->quantity * (float) ($item->custom_size_value ?: $fallbackSize)) : $item->quantity;
+                    if (!$isPairProduct) {
+                        return (float) $item->quantity;
+                    }
+                    $sizeVal = (float) ($item->custom_size_value ?: $fallbackSize);
+                    return (float) $item->quantity * ($sizeVal > 0 ? $sizeVal : 2.0);
                 });
 
                 $totalAmount = $group->sum(function ($item) {
@@ -674,12 +690,12 @@ class ProductController extends Controller
 
                 $breakdown = null;
                 if ($isPairProduct) {
-                    $breakdown = $group->groupBy(fn($item) => (float) ($item->custom_size_value ?: $fallbackSize))
+                    $breakdown = $group->groupBy(fn($item) => (float) ($item->custom_size_value ?: 2.0))
                         ->sortKeys()
                         ->map(function ($sizeGroup, $size) {
                             $sizeLabel = rtrim(rtrim(number_format((float) $size, 2), '0'), '.');
                             $packCount = $sizeGroup->sum('quantity');
-                            return $packCount . ' Pair' . ($packCount > 1 ? 's' : '') . ' × ' . $sizeLabel . 'pcs';
+                            return $packCount . ' Pair' . ($packCount > 1 ? 's' : '') . ' (Size ' . $sizeLabel . ')';
                         })
                         ->implode(', ');
                 }
