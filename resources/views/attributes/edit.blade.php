@@ -78,7 +78,7 @@ $(document).ready(function () {
     }
 
     @foreach($attribute->values as $v)
-        values.push({ value: '{{ $v->value }}' });
+        values.push({ value: {!! json_encode($v->value) !!} });
     @endforeach
     renderValues();
 
