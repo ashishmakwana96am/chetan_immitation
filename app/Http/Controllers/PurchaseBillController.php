@@ -618,6 +618,9 @@ class PurchaseBillController extends Controller
                 $totalAmount += $this->purchasePriceForPurchaseBillItem($item) * $item->quantity;
             }
 
+            $fromLocName = $purchaseBill->fromLocation?->name ?? 'Source Branch';
+            $toLocName   = $purchaseBill->toLocation?->name ?? 'Destination Branch';
+
             foreach ($purchaseBill->items as $item) {
                 $source = Inventory::firstOrCreate(
                     [
@@ -635,7 +638,7 @@ class PurchaseBillController extends Controller
 
                 $oldQty = $source->quantity;
                 $source->decrement('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock issued/moved out for purchase bill #' . $purchaseBill->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $source, ['quantity' => $oldQty], ['quantity' => $oldQty - $stockQty], 'Stock moved out from ' . $fromLocName . ' to ' . $toLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
 
                 $destination = Inventory::firstOrCreate(
                     [
@@ -649,7 +652,7 @@ class PurchaseBillController extends Controller
                 );
                 $destOldQty = $destination->quantity;
                 $destination->increment('quantity', $stockQty);
-                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock received/moved in for purchase bill #' . $purchaseBill->transfer_no);
+                ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
             }
 
             if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {

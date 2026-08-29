@@ -23,23 +23,15 @@ class PurchaseObserver
                     $q->where('is_advance', false)->orWhereNull('is_advance');
                 })->sum('amount');
 
-            if ($directPaid > 0) {
-                $this->deductBalance($purchase, $directPaid);
+            $amountToDeduct = $directPaid > 0 ? $directPaid : (float) $purchase->paid_amount;
+            if ($amountToDeduct > 0) {
+                $this->deductBalance($purchase, $amountToDeduct);
             }
         }
     }
 
     public function updated(Purchase $purchase): void
     {
-        if (
-            !$purchase->wasChanged('paid_amount') &&
-            !$purchase->wasChanged('payment_method') &&
-            !$purchase->wasChanged('location_id') &&
-            !$purchase->wasChanged('payment_status')
-        ) {
-            return;
-        }
-
         $oldPaid   = (float) $purchase->getOriginal('paid_amount');
         $oldMethod = $purchase->getOriginal('payment_method');
 

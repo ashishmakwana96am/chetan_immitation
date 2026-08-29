@@ -45,7 +45,7 @@
 
     // Filter out system columns we don't want to show
     $keys = array_filter($keys, function($k) {
-        return !in_array($k, ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token']);
+        return !in_array($k, ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token', 'sort_order']);
     });
 
     // Closure to rename columns
@@ -76,6 +76,7 @@
             'is_active' => 'Active Status',
             'is_default' => 'Default Location',
             'is_featured' => 'Featured',
+            'custom_sizes' => 'Pair Size',
         ];
         return $map[$key] ?? ucwords(str_replace('_', ' ', $key));
     };
@@ -222,7 +223,7 @@
         }
 
         // Handle Monetary / Currency fields
-        if (in_array($key, ['total_amount', 'tax_amount', 'paid_amount', 'discount_amount', 'final_amount', 'shipping_charge', 'price', 'total', 'mrp', 'unit_price', 'subtotal'])) {
+        if (in_array($key, ['total_amount', 'tax_amount', 'paid_amount', 'discount_amount', 'final_amount', 'shipping_charge', 'price', 'total', 'mrp', 'unit_price', 'subtotal', 'sale_price', 'purchase_price', 'display_sale_price', 'display_mrp'])) {
             return is_numeric($val) ? format_price($val) : ($val ?: '-');
         }
 
@@ -244,6 +245,20 @@
         }
 
         return $val;
+    };
+
+    $formatSingleValue = function($key, $val, $log) use ($resolveValue) {
+        if (is_null($val) || $val === '') {
+            return '<span class="text-muted small">-</span>';
+        }
+
+        $resolved = $resolveValue($key, $val, $log);
+
+        if (is_string($resolved) && str_contains($resolved, '<') && str_contains($resolved, '>')) {
+            return strip_tags($resolved, '<p><br><ul><ol><li><strong><b><em><i><span><div><a><code>');
+        }
+
+        return e($resolved);
     };
 
     // Helper closure to format any array/JSON value into clean human-readable HTML (NO raw JSON dumps)
@@ -358,6 +373,51 @@
         </div>
     </div>
 </div>
+
+@php
+    $transferSubject = null;
+    if ($log->module === 'Purchase Bill' && $subject instanceof \App\Models\PurchaseBill) {
+        $transferSubject = $subject;
+    } elseif ($log->description && preg_match('/#([A-Za-z0-9-]+)/i', $log->description, $matches)) {
+        $trNo = $matches[1];
+        $transferSubject = \App\Models\PurchaseBill::with(['fromLocation', 'toLocation', 'createdBy', 'acceptedBy'])->where('transfer_no', $trNo)->first();
+    }
+@endphp
+
+<!-- Stock Transfer Summary Card -->
+@if($transferSubject)
+    <div class="card border shadow-none mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body p-3">
+            <h6 class="card-title fw-bold mb-3 d-flex align-items-center text-info fs-5 border-bottom pb-2">
+                <i class="ti ti-arrows-exchange me-2 fs-4"></i> Stock Transfer Details (#{{ $transferSubject->transfer_no }})
+            </h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">From Branch (Source)</small>
+                    <span class="badge bg-label-secondary fs-6"><i class="ti ti-building me-1"></i>{{ $transferSubject->fromLocation?->name ?? '-' }}</span>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">To Branch (Destination)</small>
+                    <span class="badge bg-label-info fs-6"><i class="ti ti-building me-1"></i>{{ $transferSubject->toLocation?->name ?? '-' }}</span>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Transfer Status</small>
+                    @php
+                        $tStatusColors = [1 => 'bg-label-warning', 2 => 'bg-label-success', 3 => 'bg-label-danger'];
+                        $tStatusLabels = [1 => 'Pending', 2 => 'Accepted', 3 => 'Rejected'];
+                    @endphp
+                    <span class="badge {{ $tStatusColors[$transferSubject->status] ?? 'bg-label-secondary' }}">
+                        {{ $tStatusLabels[$transferSubject->status] ?? 'Unknown' }}
+                    </span>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted d-block text-uppercase fw-semibold fs-tiny">Transfer Date</small>
+                    <span class="fw-bold text-dark fs-6">{{ format_date($transferSubject->created_at, 'd M Y h:i A') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
 
 <!-- Purchase Summary Card -->
 @if($log->module === 'Purchase' && $subject)
@@ -727,8 +787,8 @@
                              <td class="text-success fw-semibold">{!! $renderArrayValue($key, $newVal, $log) !!}</td>
                         @else
                             <!-- Standard single attribute fields with resolved names -->
-                            <td class="text-danger fw-semibold">{{ $resolveValue($key, $oldVal, $log) }}</td>
-                            <td class="text-success fw-semibold">{{ $resolveValue($key, $newVal, $log) }}</td>
+                            <td class="text-danger fw-semibold">{!! $formatSingleValue($key, $oldVal, $log) !!}</td>
+                            <td class="text-success fw-semibold">{!! $formatSingleValue($key, $newVal, $log) !!}</td>
                         @endif
                     </tr>
                 @endforeach

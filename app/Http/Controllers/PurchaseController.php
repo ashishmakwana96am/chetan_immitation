@@ -362,6 +362,8 @@ class PurchaseController extends Controller
                 (float) ($request->paid_amount ?? 0)
             );
 
+            $targetAmountToDeduct = max($paidAmount, $grandTotal);
+
             $invoice = Purchase::create([
                 'supplier_id'     => $request->supplier_id,
                 'location_id'     => $defaultLocation->id,
@@ -375,11 +377,10 @@ class PurchaseController extends Controller
                 'status'          => $request->status ?? 2,
                 'payment_status'  => $paymentStatus,
                 'payment_method'  => $request->payment_method ?? 'cash',
-                'paid_amount'     => 0,
+                'paid_amount'     => $paidAmount,
                 'created_by'      => auth()->id(),
             ]);
 
-            $targetAmountToDeduct = max($paidAmount, $grandTotal);
             $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $targetAmountToDeduct);
             $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
@@ -396,12 +397,16 @@ class PurchaseController extends Controller
                 ? Purchase::PAYMENT_STATUS_PAID
                 : ($finalPaid > 0 ? Purchase::PAYMENT_STATUS_PARTIAL : Purchase::PAYMENT_STATUS_PENDING);
 
-            $invoice->update([
-                'paid_amount'    => min($finalPaid, $grandTotal),
-                'payment_status' => $finalStatus,
-            ]);
-            $invoice->paid_amount = min($finalPaid, $grandTotal);
-            $invoice->payment_status = $finalStatus;
+            if ($invoice->paid_amount != $finalPaid || $invoice->payment_status != $finalStatus) {
+                Purchase::withoutEvents(fn () => $invoice->update([
+                    'paid_amount'    => min($finalPaid, $grandTotal),
+                    'payment_status' => $finalStatus,
+                ]));
+                $invoice->paid_amount = min($finalPaid, $grandTotal);
+                $invoice->payment_status = $finalStatus;
+            }
+
+            (new \App\Observers\PurchaseObserver())->updated($invoice);
 
             foreach ($itemsData as $item) {
                 $createdItem = PurchaseItem::create([
@@ -664,7 +669,7 @@ class PurchaseController extends Controller
 
             $oldFieldsSnapshot = $purchase->only(array_keys($updateData));
 
-            Purchase::withoutActivityLogging(fn () => $purchase->update($updateData));
+            Purchase::withoutEvents(fn () => Purchase::withoutActivityLogging(fn () => $purchase->update($updateData)));
 
             $targetPay = $paidAmount;
             \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
@@ -726,6 +731,8 @@ class PurchaseController extends Controller
                 'paid_amount'    => min($finalPaid, $grandTotal),
                 'payment_status' => $finalStatus,
             ]);
+
+            (new \App\Observers\PurchaseObserver())->updated($purchase);
 
             $purchase->items()->delete();
 
@@ -1129,10 +1136,10 @@ class PurchaseController extends Controller
                     ]);
                 }
 
-                Purchase::withoutActivityLogging(fn () => $purchase->update([
+                $purchase->update([
                     'payment_status' => Purchase::PAYMENT_STATUS_PAID,
                     'paid_amount'    => $purchase->total_amount,
-                ]));
+                ]);
             } elseif ($newStatus === Purchase::PAYMENT_STATUS_PARTIAL) {
                 $amount = (float) $request->amount;
                 $purchase->payment_status = Purchase::PAYMENT_STATUS_PARTIAL;
@@ -1150,16 +1157,17 @@ class PurchaseController extends Controller
                 $newPaidAmount = round($oldPaidAmount + $amount, 2);
                 $finalStatus = $newPaidAmount >= (float) $purchase->total_amount ? Purchase::PAYMENT_STATUS_PAID : Purchase::PAYMENT_STATUS_PARTIAL;
 
-                Purchase::withoutActivityLogging(fn () => $purchase->update([
+                $purchase->update([
                     'payment_status' => $finalStatus,
                     'paid_amount'    => min($newPaidAmount, (float) $purchase->total_amount),
-                ]));
+                ]);
             } else {
+                \App\Models\SupplierAdvancePayment::restoreAdvanceForPurchase($purchase);
                 $purchase->payments()->delete();
-                Purchase::withoutActivityLogging(fn () => $purchase->update([
+                $purchase->update([
                     'payment_status' => Purchase::PAYMENT_STATUS_PENDING,
                     'paid_amount'    => 0,
-                ]));
+                ]);
             }
         });
 
