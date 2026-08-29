@@ -4719,13 +4719,16 @@ class ReportController extends Controller
             ->get()
             ->keyBy('location_id');
 
-        $purchasesByLocation = DB::table('purchase_allocations')
-            ->join('purchase_items', 'purchase_items.id', '=', 'purchase_allocations.purchase_item_id')
-            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
-            ->whereDate('purchases.created_at', $date)
-            ->whereIn('purchase_allocations.location_id', $locationIds)
-            ->groupBy('purchase_allocations.location_id')
-            ->selectRaw('purchase_allocations.location_id as location_id, COUNT(DISTINCT purchases.id) as cnt, SUM(purchase_items.total) as total')
+        $purchasesByLocation = Purchase::query()
+            ->whereDate('created_at', $date)
+            ->when($locationId, function ($q) use ($locationId) {
+                $q->where(function ($subQ) use ($locationId) {
+                    $subQ->where('location_id', $locationId)
+                         ->orWhereHas('items.allocations', fn($a) => $a->where('location_id', $locationId));
+                });
+            })
+            ->selectRaw('COALESCE(location_id, ' . ($locationIds->first() ?? 1) . ') as location_id, COUNT(*) as cnt, SUM(total_amount) as total')
+            ->groupBy('location_id')
             ->get()
             ->keyBy('location_id');
 
