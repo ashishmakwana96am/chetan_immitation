@@ -407,6 +407,7 @@
                         </div>
                         <div class="variant-select-container"></div>
                         <div class="pair-type-container mt-1"></div>
+                        <div class="batch-select-container mt-1"></div>
                     </div>
                 </div>
                 <input type="hidden" name="items[__INDEX__][product_id]" class="product-id-input" value="">
@@ -757,7 +758,39 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null) {
+    function loadProductBatches(row, selectedBatchId = null) {
+        const product = row.data('product');
+        if (!product) return;
+
+        const variantId = row.data('variant-id') || null;
+        const locationId = $('#filter-location').val() || null;
+        const container = row.find('.batch-select-container');
+
+        container.html('<small class="text-muted"><i class="ti ti-loader spinner-border spinner-border-sm me-1"></i>Loading...</small>');
+
+        $.get('{{ route("admin.sales.product-batches") }}', {
+            product_id: product.id,
+            product_variant_id: variantId,
+            location_id: locationId
+        }, function(res) {
+            if (res.status === 'success' && res.batches && res.batches.length > 0) {
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                res.batches.forEach(b => {
+                    const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
+                    html += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" ${sel}>${b.label}</option>`;
+                });
+                html += '</select></div>';
+                container.html(html);
+            } else {
+                const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
+                container.html('<small class="text-muted" style="font-size: 0.75rem;"><i class="ti ti-tag me-1"></i>Purchase Price: ' + defPrice + '</small><select class="batch-select d-none"><option value="" data-purchase-price="' + (product.purchase_price || 0) + '" selected>' + defPrice + '</option></select>');
+            }
+        }).fail(function() {
+            container.empty();
+        });
+    }
+
+    function addItemRow(product, selectedVariantId = null, qty = 1, price = null, discountType = 'percentage', discountValue = 0, pairType = 'single', customSizeValue = null, purchaseItemId = null) {
         const template = document.getElementById('itemRowTemplate').innerHTML
             .replaceAll('__INDEX__', itemIndex);
 
@@ -853,6 +886,7 @@ $(document).ready(function () {
 
         updateRowTotal(row);
         updateStockInfo(row);
+        loadProductBatches(row, purchaseItemId);
 
         itemIndex++;
         updateSummary();
@@ -898,19 +932,20 @@ $(document).ready(function () {
                 }
                 const targetPrice = matchedSize ? matchedSize.sale_price : variantPrice;
                 const targetMrp = (matchedSize && matchedSize.mrp != null) ? matchedSize.mrp : variantMrp;
-                applySmartDisc(row, targetMrp, targetPrice);
                 setItemPrice(row, targetPrice);
+                applySmartDisc(row, targetMrp, targetPrice);
             } else {
-                applySmartDisc(row, variantMrp, variantPrice);
                 setItemPrice(row, variantPrice);
+                applySmartDisc(row, variantMrp, variantPrice);
             }
         } else {
-            applySmartDisc(row, variantMrp, variantPrice);
             setItemPrice(row, variantPrice);
+            applySmartDisc(row, variantMrp, variantPrice);
         }
 
         updateRowTotal(row);
         updateStockInfo(row);
+        loadProductBatches(row);
         updateSummary();
     });
 
@@ -1642,8 +1677,14 @@ $(document).ready(function () {
             const discountType = row.find('.item-discount-type').val() || 'flat';
             const discountValue = parseFloat(row.find('.item-discount-value').val()) || 0;
 
+            const batchSelect = row.find('.batch-select');
+            const purchaseItemId = batchSelect.length ? (batchSelect.val() || '') : '';
+            const purchasePrice = batchSelect.length ? (batchSelect.find('option:selected').data('purchase-price') || '') : '';
+
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_variant_id]" value="${variantId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${purchaseItemId}">`);
+            hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${purchasePrice}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][pair_type]" value="${row.find('.pair-type-input').val() || 'single'}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${row.find('.custom-size-value-input').val() || ''}">`);
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][mrp]" value="${mrp}">`);

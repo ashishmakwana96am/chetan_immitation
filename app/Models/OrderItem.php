@@ -12,6 +12,8 @@ class OrderItem extends Model
         'order_id',
         'product_id',
         'product_variant_id',
+        'purchase_item_id',
+        'purchase_price',
         'pair_type',
         'custom_size_value',
         'mrp',
@@ -27,6 +29,7 @@ class OrderItem extends Model
     {
         return [
             'mrp' => 'decimal:2',
+            'purchase_price' => 'decimal:2',
             'price' => 'decimal:2',
             'discount_value' => 'decimal:2',
             'discount_amount' => 'decimal:2',
@@ -48,5 +51,10 @@ class OrderItem extends Model
     public function variant()
     {
         return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+    }
+
+    public function purchaseItem()
+    {
+        return $this->belongsTo(PurchaseItem::class, 'purchase_item_id');
     }
 }

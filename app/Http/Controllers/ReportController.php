@@ -740,13 +740,38 @@ class ReportController extends Controller
     private function computeStockTotals($productQuery, $locations, ?int $locationId): array
     {
         $products = $productQuery
-            ->select('id', 'pair_product', 'custom_sizes', 'purchase_price', 'sale_price', 'mrp')
+            ->with('variants')
+            ->select('id', 'type', 'pair_product', 'custom_sizes', 'purchase_price', 'sale_price', 'mrp')
             ->get();
 
-        $invByProduct = Inventory::whereIn('product_id', $products->pluck('id'))
+        $productIds = $products->pluck('id');
+
+        $invByProduct = Inventory::whereIn('product_id', $productIds)
             ->when($locationId, fn($q) => $q->where('location_id', $locationId))
             ->get()
             ->groupBy('product_id');
+
+        // Fetch latest purchase prices from approved purchase_items
+        $purchasePrices = DB::table('purchase_items')
+            ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+            ->whereIn('purchase_items.product_id', $productIds)
+            ->whereNull('purchase_items.deleted_at')
+            ->whereNull('purchases.deleted_at')
+            ->where('purchases.status', 2)
+            ->select('purchase_items.product_id', 'purchase_items.product_variant_id', 'purchase_items.purchase_price')
+            ->orderBy('purchase_items.id', 'desc')
+            ->get();
+
+        $variantPurchPriceMap = [];
+        $productPurchPriceMap = [];
+        foreach ($purchasePrices as $pp) {
+            if ($pp->product_variant_id && !isset($variantPurchPriceMap[$pp->product_variant_id])) {
+                $variantPurchPriceMap[$pp->product_variant_id] = (float) $pp->purchase_price;
+            }
+            if (!isset($productPurchPriceMap[$pp->product_id])) {
+                $productPurchPriceMap[$pp->product_id] = (float) $pp->purchase_price;
+            }
+        }
 
         $locationPairTotals = [];
         $locationLooseTotals = [];
@@ -798,7 +823,11 @@ class ReportController extends Controller
 
             $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
             $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
-            $totalPurchaseValue += $effectiveQty * (float) $product->purchase_price;
+
+            // Priority: actual purchase batch price -> variant purchase price -> product purchase price
+            $purchPrice = $productPurchPriceMap[$product->id] ?? (float) ($product->purchase_price ?? 0);
+
+            $totalPurchaseValue += $effectiveQty * $purchPrice;
             $totalMrpValue += $effectiveQty * $mrpPrice;
         }
 
@@ -1637,7 +1666,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1652,7 +1680,7 @@ class ReportController extends Controller
 
         // Total Revenue via direct SQL sum
         $totalRevenue = (float) (clone $salesQuery)
-            ->selectRaw('SUM(COALESCE(orders.paid_cash_amount, 0) + COALESCE(orders.paid_online_amount, 0)) as total_rev')
+            ->selectRaw('SUM(COALESCE(orders.final_amount, 0)) as total_rev')
             ->value('total_rev');
 
         // Direct SQL aggregation for COGS and Product Profitability (without loading all sales into memory)
@@ -1663,7 +1691,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1693,12 +1720,12 @@ class ReportController extends Controller
                         WHEN orders.final_amount > 0 THEN 
                             order_items.total * (
                                 orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)
                             )
                         ELSE order_items.total
                     END
                 ) as total_revenue,
-                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
             ->orderByDesc('order_items.product_id')
@@ -1800,7 +1827,6 @@ class ReportController extends Controller
             ->whereNull('orders.deleted_at')
             ->where('orders.order_type', 'sale')
             ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-            ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL])
             ->when($user->location_id && !$user->hasRole('super-admin'), fn($q) => $q->where('orders.location_id', $user->location_id));
 
         if ($startDate) {
@@ -1837,12 +1863,12 @@ class ReportController extends Controller
                         WHEN orders.final_amount > 0 THEN 
                             order_items.total * (
                                 orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)
                             )
                         ELSE order_items.total
                     END
                 ) as total_revenue,
-                SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
+                SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
 
@@ -1877,19 +1903,19 @@ class ReportController extends Controller
             }
         }
 
-        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)) ELSE order_items.total END)';
+        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)) ELSE order_items.total END)';
 
         if ($sortKey === 'product') {
             $groupedQuery->orderBy('products.name', $sortDir);
         } elseif ($sortKey === 'barcode') {
             $groupedQuery->orderBy('products.barcode', $sortDir);
         } elseif ($sortKey === 'profit') {
-            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) {$sortDir}");
+            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0))) {$sortDir}");
         } elseif ($sortKey === 'margin') {
             $groupedQuery->orderByRaw("
                 CASE 
                     WHEN {$proratedRevenueExpr} > 0 THEN 
-                        (({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) / {$proratedRevenueExpr}) * 100 
+                        (({$proratedRevenueExpr} - SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0))) / {$proratedRevenueExpr}) * 100 
                     ELSE 0 
                 END {$sortDir}
             ");
@@ -1915,9 +1941,10 @@ class ReportController extends Controller
             $imgPath = $productImagesMap[$row->product_id] ?? null;
             $imgUrl = $imgPath ? asset('uploads/'.$imgPath) : asset('website/assets/images/placeholder.png');
             $productObj = $productsMap->get($row->product_id);
-
-            $prodProfit = (float)$row->total_revenue - (float)$row->total_cost;
-            $prodMargin = (float)$row->total_revenue > 0 ? ($prodProfit / (float)$row->total_revenue) * 100 : 0.0;
+            $prodRevenue = (float)$row->total_revenue;
+            $prodCost = (float)$row->total_cost;
+            $prodProfit = $prodRevenue - $prodCost;
+            $prodMargin = $prodRevenue > 0 ? ($prodProfit / $prodRevenue) * 100 : 0.0;
 
             $prodHtml = '
                 <div class="d-flex align-items-center">
@@ -1933,8 +1960,7 @@ class ReportController extends Controller
                 ->whereHas('order', function ($q) use ($user, $startDate, $endDate, $locationId) {
                     $q->whereNull('orders.deleted_at')
                       ->where('orders.order_type', 'sale')
-                      ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED])
-                      ->whereIn('orders.payment_status', [Order::PAYMENT_STATUS_PAID, Order::PAYMENT_STATUS_PARTIAL]);
+                      ->whereIn('orders.status', [Order::STATUS_APPROVE, Order::STATUS_SHIPPED, Order::STATUS_OUT_FOR_DELIVERY, Order::STATUS_DELIVERED]);
                     if ($startDate) $q->whereDate('orders.created_at', '>=', $startDate);
                     if ($endDate) $q->whereDate('orders.created_at', '<=', $endDate);
                     if ($locationId) $q->where('orders.location_id', $locationId);
@@ -1963,7 +1989,7 @@ class ReportController extends Controller
                 ->implode(', ');
 
                 if ($bdText !== '') {
-                    $breakdownHtml = '<br><small class="text-muted">' . e($bdText) . '</small>';
+                    $breakdownHtml = '<br><small class="text-muted" style="font-size:0.75rem;">(' . e($bdText) . ')</small>';
                 }
             }
 
@@ -1976,10 +2002,10 @@ class ReportController extends Controller
                 'raw_barcode'      => $row->barcode ?? '',
                 'qty_sold'         => '<span class="fw-semibold">' . $formattedQty . '</span>' . $breakdownHtml,
                 'raw_qty_sold'     => (float) $row->qty_sold,
-                'total_revenue'    => '<span class="text-success fw-semibold">' . format_price($row->total_revenue) . '</span>',
-                'raw_total_revenue'=> (float) $row->total_revenue,
-                'total_cost'       => '<span class="text-danger fw-semibold">' . format_price($row->total_cost) . '</span>',
-                'raw_total_cost'   => (float) $row->total_cost,
+                'total_revenue'    => '<span class="text-success fw-semibold">' . format_price($prodRevenue) . '</span>',
+                'raw_total_revenue'=> (float) $prodRevenue,
+                'total_cost'       => '<span class="text-danger fw-semibold">' . format_price($prodCost) . '</span>',
+                'raw_total_cost'   => (float) $prodCost,
                 'profit'           => $profitBadge,
                 'raw_profit'       => (float) $prodProfit,
                 'margin'           => $marginBadge,

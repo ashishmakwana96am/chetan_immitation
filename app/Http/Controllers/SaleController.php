@@ -486,9 +486,17 @@ class SaleController extends Controller
                 $itemTotal = $subtotal - $discAmount;
                 $totalAmount += $itemTotal;
 
+                $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
+                $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
+                    ? (float) $itemData['purchase_price']
+                    : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
+                $purchasePrice = $unitPurchasePrice !== null ? ($qty * $unitPurchasePrice) : null;
+
                 $itemsData[] = [
                     'product_id' => $itemData['product_id'],
                     'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                    'purchase_item_id' => $purchaseItemId,
+                    'purchase_price' => $purchasePrice,
                     'pair_type' => $itemData['pair_type'] ?? 'single',
                     'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                     'mrp' => $mrp,
@@ -606,6 +614,8 @@ class SaleController extends Controller
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'product_variant_id' => $item['product_variant_id'],
+                    'purchase_item_id' => $item['purchase_item_id'],
+                    'purchase_price' => $item['purchase_price'],
                     'pair_type' => $item['pair_type'],
                     'custom_size_value' => $item['custom_size_value'],
                     'mrp' => $item['mrp'],
@@ -1128,9 +1138,16 @@ class SaleController extends Controller
                     $itemTotal = $subtotal - $discAmount;
                     $totalAmount += $itemTotal;
 
+                    $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
+                    $purchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
+                        ? (float) $itemData['purchase_price']
+                        : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
+
                     $itemsData[] = [
                         'product_id' => $itemData['product_id'],
                         'product_variant_id' => $itemData['product_variant_id'] ?? null,
+                        'purchase_item_id' => $purchaseItemId,
+                        'purchase_price' => $purchasePrice,
                         'pair_type' => $itemData['pair_type'] ?? 'single',
                         'custom_size_value' => (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null,
                         'mrp' => $mrp,
@@ -1276,6 +1293,8 @@ class SaleController extends Controller
                         'order_id' => $sale->id,
                         'product_id' => $item['product_id'],
                         'product_variant_id' => $item['product_variant_id'],
+                        'purchase_item_id' => $item['purchase_item_id'],
+                        'purchase_price' => $item['purchase_price'],
                         'pair_type' => $item['pair_type'],
                         'custom_size_value' => $item['custom_size_value'],
                         'mrp' => $item['mrp'],
@@ -2362,5 +2381,24 @@ class SaleController extends Controller
 
             return $allProducts;
         });
+    }
+
+    public function getProductBatches(\Illuminate\Http\Request $request)
+    {
+        $productId = (int) $request->input('product_id');
+        $variantId = $request->filled('product_variant_id') ? (int) $request->input('product_variant_id') : null;
+        $locationId = $request->filled('location_id') ? (int) $request->input('location_id') : null;
+        $excludeOrderId = $request->filled('exclude_order_id') ? (int) $request->input('exclude_order_id') : null;
+
+        if (!$productId) {
+            return response()->json(['status' => 'error', 'batches' => []]);
+        }
+
+        $batches = \App\Services\PurchaseBatchService::getAvailableBatches($productId, $variantId, $locationId, $excludeOrderId);
+
+        return response()->json([
+            'status' => 'success',
+            'batches' => $batches
+        ]);
     }
 }

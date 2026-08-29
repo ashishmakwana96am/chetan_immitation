@@ -266,6 +266,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Sales
         Route::get('sales/products-json', [SaleController::class, 'getAllMappedProductsJson'])->name('sales.products-json');
+        Route::get('sales/product-batches', [SaleController::class, 'getProductBatches'])->name('sales.product-batches');
         Route::get('sales/data', [SaleController::class, 'data'])->name('sales.data');
         Route::resource('sales', SaleController::class)->except(['show', 'destroy']);
         Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
