@@ -349,9 +349,13 @@ class ReportController extends Controller
         ]);
     }
 
-    private function stockInventoryFilteredQuery(Request $request, ?int $locationId)
+    private function stockInventoryFilteredQuery(Request $request, ?int $locationId = null)
     {
-        [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($locationId);
+        $user = auth()->user();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $effectiveLocationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : $locationId);
+
+        [$stockExprSql, $stockExprBindings] = $this->stockTotalSubquery($effectiveLocationId);
         [$lastPurchaseExprSql, $lastPurchaseExprBindings] = $this->lastPurchaseSubquery();
 
         $categoryId = $request->input('category_id');
@@ -372,11 +376,11 @@ class ReportController extends Controller
                 });
             });
 
-        if ($stockFilter === 'in') {
+        if ($stockFilter === 'in' || $stockFilter === 'in_stock') {
             $query->whereRaw("{$stockExprSql} > 0", $stockExprBindings);
-        } elseif ($stockFilter === 'low') {
+        } elseif ($stockFilter === 'low' || $stockFilter === 'low_stock') {
             $query->whereRaw("{$stockExprSql} > 0 AND {$stockExprSql} <= 5", array_merge($stockExprBindings, $stockExprBindings));
-        } elseif ($stockFilter === 'out') {
+        } elseif ($stockFilter === 'out' || $stockFilter === 'out_of_stock') {
             $query->whereRaw("{$stockExprSql} <= 0", $stockExprBindings);
         }
 
@@ -411,7 +415,7 @@ class ReportController extends Controller
 
     private function stockTotalSubquery(?int $locationId): array
     {
-        $sql = '(select coalesce(sum(quantity), 0) from inventories where inventories.product_id = products.id';
+        $sql = '(select coalesce(sum(quantity), 0) from inventories where inventories.product_id = products.id and inventories.deleted_at is null';
         $bindings = [];
         if ($locationId) {
             $sql .= ' and location_id = ?';
@@ -461,7 +465,7 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId = $isRestricted ? $user->location_id : null;
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
 
         $locations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
@@ -714,19 +718,70 @@ class ReportController extends Controller
 
         $user = auth()->user();
         $isRestricted = $user->location_id && !$user->hasRole('super-admin');
-        $locationId = $isRestricted ? $user->location_id : null;
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
 
         $locations = $isRestricted
             ? Location::where('id', $user->location_id)->get()
             : Location::where('status', 1)->orderBy('name')->get();
 
-        $totals = $this->computeStockTotals($this->stockInventoryFilteredQuery($request, $locationId), $locations, $locationId);
+        $filteredQuery = $this->stockInventoryFilteredQuery($request, $locationId);
+        $totals = $this->computeStockTotals($filteredQuery, $locations, $locationId);
+
+        $filteredIds = (clone $filteredQuery)->pluck('id');
+        $productCount = $filteredIds->count();
+
+        $soldoutCount = Product::whereIn('id', $filteredIds)
+            ->whereDoesntHave('inventories', function ($q) use ($locationId) {
+                $q->where('quantity', '>', 0);
+                if ($locationId) {
+                    $q->where('location_id', $locationId);
+                }
+            })
+            ->count();
+
+        $locationChartData = [];
+        foreach ($locations as $location) {
+            $locationChartData[] = [
+                'name' => $location->name,
+                'stock' => (int) Inventory::whereIn('product_id', $filteredIds)
+                    ->where('location_id', $location->id)
+                    ->sum('quantity'),
+            ];
+        }
+
+        $top10Products = Product::select('products.id', 'products.name', DB::raw('COALESCE(SUM(inventories.quantity), 0) as stock'))
+            ->leftJoin('inventories', 'products.id', '=', 'inventories.product_id')
+            ->whereIn('products.id', $filteredIds)
+            ->when($locationId, fn($q) => $q->where('inventories.location_id', $locationId))
+            ->groupBy('products.id', 'products.name')
+            ->orderByDesc('stock')
+            ->take(10)
+            ->get();
+
+        $top10Breakdown = Inventory::whereIn('product_id', $top10Products->pluck('id'))
+            ->when($locationId, fn($q) => $q->where('location_id', $locationId))
+            ->get()
+            ->groupBy('product_id');
+
+        $stackedChartData = [];
+        foreach ($top10Products as $p) {
+            $row = ['name' => $p->name];
+            $productInv = $top10Breakdown->get($p->id, collect());
+            foreach ($locations as $location) {
+                $row[$location->id] = (int) $productInv->where('location_id', $location->id)->sum('quantity');
+            }
+            $stackedChartData[] = $row;
+        }
 
         return response()->json([
             'location_totals' => $totals['location_totals'],
             'qty_total' => $totals['qty_total'],
             'purchase_total' => format_price($totals['purchase_total']),
             'mrp_total' => format_price($totals['mrp_total']),
+            'product_count' => number_format($productCount),
+            'soldout_count' => number_format($soldoutCount),
+            'location_chart_data' => $locationChartData,
+            'stacked_chart_data' => $stackedChartData,
         ]);
     }
 
@@ -751,7 +806,6 @@ class ReportController extends Controller
             ->get()
             ->groupBy('product_id');
 
-        // Fetch latest purchase prices from approved purchase_items
         $purchasePrices = DB::table('purchase_items')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
             ->whereIn('purchase_items.product_id', $productIds)
@@ -821,14 +875,33 @@ class ReportController extends Controller
                 $totalLoosePcs += $totalQty;
             }
 
+            $purchasePrice = $productPurchPriceMap[$product->id] ?? (float) ($product->purchase_price ?? 0);
             $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
-            $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
 
-            // Priority: actual purchase batch price -> variant purchase price -> product purchase price
-            $purchPrice = $productPurchPriceMap[$product->id] ?? (float) ($product->purchase_price ?? 0);
-
-            $totalPurchaseValue += $effectiveQty * $purchPrice;
-            $totalMrpValue += $effectiveQty * $mrpPrice;
+            if ($product->variants && $product->variants->isNotEmpty()) {
+                $hasVarStock = false;
+                foreach ($product->variants as $v) {
+                    $vInv = $invRows->where('product_variant_id', $v->id);
+                    $vQty = (int) $vInv->sum('quantity');
+                    if ($vQty > 0) {
+                        $hasVarStock = true;
+                        $vPrice = $variantPurchPriceMap[$v->id] ?? (float) (($v->purchase_price ?? 0) > 0 ? $v->purchase_price : $purchasePrice);
+                        $vMrp = (float) (($v->mrp ?? 0) > 0 ? $v->mrp : $mrpPrice);
+                        $vEffective = $product->pair_product ? ($vQty / $pairSize) : (float) $vQty;
+                        $totalPurchaseValue += $vEffective * $vPrice;
+                        $totalMrpValue += $vEffective * $vMrp;
+                    }
+                }
+                if (!$hasVarStock) {
+                    $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
+                    $totalPurchaseValue += $effectiveQty * $purchasePrice;
+                    $totalMrpValue += $effectiveQty * $mrpPrice;
+                }
+            } else {
+                $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
+                $totalPurchaseValue += $effectiveQty * $purchasePrice;
+                $totalMrpValue += $effectiveQty * $mrpPrice;
+            }
         }
 
         $formatPairsPcs = function ($pairs, $pcs) {
@@ -2612,22 +2685,22 @@ class ReportController extends Controller
     {
         $this->authorize('view stock inventory reports');
 
-        $categoryId = $request->query('category_id');
-        $stockStatus = $request->query('stock');
-
         $user = auth()->user();
-        if ($user->location_id && !$user->hasRole('super-admin')) {
-            $locations = Location::where('id', $user->location_id)->get();
+        $isRestricted = $user->location_id && !$user->hasRole('super-admin');
+        $locationId = $isRestricted ? $user->location_id : ($request->input('location_id') ? (int) $request->input('location_id') : null);
+
+        if ($locationId) {
+            $locations = Location::where('id', $locationId)->get();
         } else {
             $locations = Location::where('status', 1)->orderBy('name')->get();
         }
 
-        $query = Product::with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
-        if ($categoryId) {
-            $query->where('category_id', $categoryId);
-        }
+        $stockStatus = $request->input('stock');
 
-        $products = $query->orderBy('name')->get();
+        $query = $this->stockInventoryFilteredQuery($request, $locationId);
+        $query->with(['category', 'subCategory', 'primaryImage', 'inventories.location', 'variants.attributeValue.attribute']);
+
+        $products = $query->get();
         Product::preloadVariantStock($products);
 
         $productsList = collect();

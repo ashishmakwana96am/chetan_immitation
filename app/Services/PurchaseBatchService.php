@@ -171,4 +171,107 @@ class PurchaseBatchService
 
         return array_values($batches);
     }
+
+    /**
+     * Calculate exact total cost price for a sold line item by allocating quantity across
+     * available purchase batches (multi-batch FIFO allocation if selected batch quantity is exceeded).
+     *
+     * @param int $productId
+     * @param int|null $productVariantId
+     * @param int|null $locationId
+     * @param float $totalQtySold Physical quantity sold
+     * @param int|null $selectedPurchaseItemId Selected batch ID
+     * @param float|null $selectedUnitCost Selected unit cost price
+     * @param int|null $excludeOrderId
+     * @return array ['total_cost' => float, 'primary_purchase_item_id' => int|null]
+     */
+    public static function calculateTotalCostPrice(
+        int $productId,
+        ?int $productVariantId,
+        ?int $locationId,
+        float $totalQtySold,
+        ?int $selectedPurchaseItemId = null,
+        ?float $selectedUnitCost = null,
+        ?int $excludeOrderId = null
+    ): array {
+        if ($totalQtySold <= 0) {
+            return ['total_cost' => 0.0, 'primary_purchase_item_id' => $selectedPurchaseItemId];
+        }
+
+        $batches = self::getAvailableBatches($productId, $productVariantId, $locationId, $excludeOrderId);
+
+        if (empty($batches)) {
+            // Fallback if no batches exist
+            $unitCost = $selectedUnitCost ?? 0.0;
+            if ($unitCost <= 0) {
+                if ($productVariantId) {
+                    $unitCost = (float) (ProductVariant::where('id', $productVariantId)->value('purchase_price') ?? 0);
+                }
+                if ($unitCost <= 0) {
+                    $unitCost = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
+                }
+            }
+            return [
+                'total_cost' => round($totalQtySold * $unitCost, 2),
+                'primary_purchase_item_id' => $selectedPurchaseItemId,
+            ];
+        }
+
+        $qtyRemaining = $totalQtySold;
+        $totalCost = 0.0;
+        $primaryItemId = $selectedPurchaseItemId;
+
+        // 1. If user selected a specific batch, consume its available stock first
+        if ($selectedPurchaseItemId || $selectedUnitCost) {
+            $matchedIndex = null;
+            foreach ($batches as $idx => $b) {
+                if (($selectedPurchaseItemId && (int)$b['purchase_item_id'] === (int)$selectedPurchaseItemId) ||
+                    ($selectedUnitCost && abs((float)$b['purchase_price'] - (float)$selectedUnitCost) < 0.01)) {
+                    $matchedIndex = $idx;
+                    break;
+                }
+            }
+
+            if ($matchedIndex !== null) {
+                $batch = $batches[$matchedIndex];
+                $primaryItemId = $batch['purchase_item_id'];
+                $takeQty = min($qtyRemaining, (float)$batch['available_qty']);
+                $totalCost += $takeQty * (float)$batch['purchase_price'];
+                $qtyRemaining -= $takeQty;
+
+                // Remove selected batch from remaining batches pool
+                array_splice($batches, $matchedIndex, 1);
+            }
+        }
+
+        // 2. Allocate remaining sold quantity across other available batches (FIFO)
+        foreach ($batches as $b) {
+            if ($qtyRemaining <= 0) {
+                break;
+            }
+            if ($primaryItemId === null) {
+                $primaryItemId = $b['purchase_item_id'];
+            }
+            $takeQty = min($qtyRemaining, (float)$b['available_qty']);
+            $totalCost += $takeQty * (float)$b['purchase_price'];
+            $qtyRemaining -= $takeQty;
+        }
+
+        // 3. If quantity requested exceeds total available batch stock, compute unallocated balance at fallback unit cost
+        if ($qtyRemaining > 0) {
+            $fallbackUnitCost = $selectedUnitCost ?? 0.0;
+            if ($fallbackUnitCost <= 0 && $productVariantId) {
+                $fallbackUnitCost = (float) (ProductVariant::where('id', $productVariantId)->value('purchase_price') ?? 0);
+            }
+            if ($fallbackUnitCost <= 0) {
+                $fallbackUnitCost = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
+            }
+            $totalCost += $qtyRemaining * $fallbackUnitCost;
+        }
+
+        return [
+            'total_cost' => round($totalCost, 2),
+            'primary_purchase_item_id' => $primaryItemId,
+        ];
+    }
 }

@@ -9,7 +9,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total Products</span>
-                        <h4 class="mb-0 mt-1">{{ $activeProductCount }}</h4>
+                        <h4 class="mb-0 mt-1" id="statActiveProductCount">{{ $activeProductCount }}</h4>
                     </div>
                     <span class="badge bg-label-primary rounded p-2"><i class="ti ti-box ti-sm"></i></span>
                 </div>
@@ -22,7 +22,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total Stock Units</span>
-                        <div class="mb-0 mt-1 text-info fw-bold lh-sm" style="font-size: 0.95rem; line-height: 1.2;">{!! $totalStockDisplay !!}</div>
+                        <div class="mb-0 mt-1 text-info fw-bold lh-sm" id="statTotalStockDisplay" style="font-size: 0.95rem; line-height: 1.2;">{!! $totalStockDisplay !!}</div>
                     </div>
                     <span class="badge bg-label-info rounded p-2"><i class="ti ti-stack ti-sm"></i></span>
                 </div>
@@ -35,7 +35,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total Purchase Value</span>
-                        <h4 class="mb-0 mt-1 text-primary">{{ $totalPurchaseValueDisplay }}</h4>
+                        <h4 class="mb-0 mt-1 text-primary" id="statTotalPurchaseValueDisplay">{{ $totalPurchaseValueDisplay }}</h4>
                     </div>
                     <span class="badge bg-label-warning rounded p-2"><i class="ti ti-currency-rupee ti-sm"></i></span>
                 </div>
@@ -48,7 +48,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">Total MRP Value</span>
-                        <h4 class="mb-0 mt-1 text-success">{{ $totalMrpValueDisplay }}</h4>
+                        <h4 class="mb-0 mt-1 text-success" id="statTotalMrpValueDisplay">{{ $totalMrpValueDisplay }}</h4>
                     </div>
                     <span class="badge bg-label-success rounded p-2"><i class="ti ti-chart-dots ti-sm"></i></span>
                 </div>
@@ -61,7 +61,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div>
                         <span class="text-muted small">SOLD OUT</span>
-                        <h4 class="mb-0 mt-1 text-danger">{{ $soldoutProductCount }}</h4>
+                        <h4 class="mb-0 mt-1 text-danger" id="statSoldoutProductCount">{{ $soldoutProductCount }}</h4>
                     </div>
                     <span class="badge bg-label-danger rounded p-2"><i class="ti ti-alert-triangle ti-sm"></i></span>
                 </div>
@@ -138,6 +138,17 @@
                     @endforeach
                 </select>
             </div>
+            @if(!$isRestricted && $locations->count() > 1)
+            <div class="col-md-3">
+                <label class="form-label">Filter by Branch / Location</label>
+                <select id="filterLocation" class="form-select">
+                    <option value="">All Branches</option>
+                    @foreach($locations as $loc)
+                        <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="col-md-3">
                 <label class="form-label">Filter by Stock</label>
                 <select id="filterStock" class="form-select">
@@ -171,7 +182,7 @@
                     <option value="age_asc">Inventory Age (Newest First)</option>
                 </select>
             </div>
-            <div class="col-12 d-flex justify-content-end gap-2 mt-4 d-none" id="filterActionButtons">
+            <div class="col-12 d-flex justify-content-end gap-2 mt-4" id="filterActionButtons">
                 <button type="button" id="clearFiltersBtn" class="btn btn-outline-primary">
                     <i class="ti ti-refresh me-1"></i> Clear
                 </button>

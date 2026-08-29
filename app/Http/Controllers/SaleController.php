@@ -486,11 +486,26 @@ class SaleController extends Controller
                 $itemTotal = $subtotal - $discAmount;
                 $totalAmount += $itemTotal;
 
+                $pairType = $itemData['pair_type'] ?? 'single';
+                $customSizeVal = (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null;
+                $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
+
                 $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
                 $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
                     ? (float) $itemData['purchase_price']
                     : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
-                $purchasePrice = $unitPurchasePrice !== null ? ($qty * $unitPurchasePrice) : null;
+
+                $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                    (int) $itemData['product_id'],
+                    !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
+                    (int) $request->location_id,
+                    $physicalQty,
+                    $purchaseItemId,
+                    $unitPurchasePrice
+                );
+
+                $purchasePrice = $batchAlloc['total_cost'];
+                $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
 
                 $itemsData[] = [
                     'product_id' => $itemData['product_id'],
@@ -1138,10 +1153,27 @@ class SaleController extends Controller
                     $itemTotal = $subtotal - $discAmount;
                     $totalAmount += $itemTotal;
 
+                    $pairType = $itemData['pair_type'] ?? 'single';
+                    $customSizeVal = (isset($itemData['custom_size_value']) && $itemData['custom_size_value'] !== '') ? (float) $itemData['custom_size_value'] : null;
+                    $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
+
                     $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                    $purchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
+                    $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
                         ? (float) $itemData['purchase_price']
                         : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
+
+                    $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
+                        (int) $itemData['product_id'],
+                        !empty($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : null,
+                        (int) $request->location_id,
+                        $physicalQty,
+                        $purchaseItemId,
+                        $unitPurchasePrice,
+                        (int) $sale->id
+                    );
+
+                    $purchasePrice = $batchAlloc['total_cost'];
+                    $purchaseItemId = $batchAlloc['primary_purchase_item_id'];
 
                     $itemsData[] = [
                         'product_id' => $itemData['product_id'],
