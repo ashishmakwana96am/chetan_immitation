@@ -113,15 +113,17 @@ $(document).ready(function () {
         }
     });
 
-    $(document).on('click', '.remove-value', function () {
+    $('#valuesTable').on('click', '.remove-value', function () {
         const idx = $(this).data('index');
+        if (typeof idx === 'undefined' || values[idx] === undefined) return;
         if (editIndex === idx) resetAddInput();
         values.splice(idx, 1);
         renderValues();
     });
 
-    $(document).on('click', '.edit-value', function () {
+    $('#valuesTable').on('click', '.edit-value', function () {
         const idx = $(this).data('index');
+        if (typeof idx === 'undefined' || values[idx] === undefined) return;
         $('#valueInput').val(values[idx].value).focus();
         $('#addValueBtn').text('Update').removeClass('btn-outline-primary').addClass('btn-warning');
         editIndex = idx;
