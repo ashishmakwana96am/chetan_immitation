@@ -129,7 +129,7 @@
                     <div class="d-flex align-items-start justify-content-between">
                         <div>
                             <span class="text-muted">Profit Margin</span>
-                            <h4 class="mb-0 mt-1">{{ round($profitMargin, 1) }}%</h4>
+                            <h4 class="mb-0 mt-1">{{ number_format($profitMargin, 2) }}%</h4>
                         </div>
                         <span class="badge bg-label-info rounded p-2"><i class="ti ti-percentage ti-sm"></i></span>
                     </div>
