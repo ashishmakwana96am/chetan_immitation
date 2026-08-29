@@ -273,12 +273,42 @@ class UtilityReportController extends Controller
             ->when($request->filled('module'), fn ($q) => $q->where('module', $request->module))
             ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action))
             ->when($request->input('search.value'), function ($q, $search) {
-                $q->where(function ($sub) use ($search) {
+                $search = trim($search);
+
+                $matchingProductIds = \App\Models\Product::where('barcode', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
+                    ->pluck('id')
+                    ->toArray();
+
+                $matchingInventoryIds = [];
+                if (!empty($matchingProductIds)) {
+                    $matchingInventoryIds = \App\Models\Inventory::whereIn('product_id', $matchingProductIds)
+                        ->pluck('id')
+                        ->toArray();
+                }
+
+                $q->where(function ($sub) use ($search, $matchingProductIds, $matchingInventoryIds) {
                     $sub->where('user_name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
                         ->orWhere('module', 'like', "%{$search}%")
                         ->orWhere('action', 'like', "%{$search}%")
-                        ->orWhere('location_name', 'like', "%{$search}%");
+                        ->orWhere('location_name', 'like', "%{$search}%")
+                        ->orWhere('old_values', 'like', "%{$search}%")
+                        ->orWhere('new_values', 'like', "%{$search}%");
+
+                    if (!empty($matchingInventoryIds)) {
+                        $sub->orWhere(function ($invSub) use ($matchingInventoryIds) {
+                            $invSub->where('subject_type', 'App\\Models\\Inventory')
+                                   ->whereIn('subject_id', $matchingInventoryIds);
+                        });
+                    }
+
+                    if (!empty($matchingProductIds)) {
+                        $sub->orWhere(function ($prodSub) use ($matchingProductIds) {
+                            $prodSub->where('subject_type', 'App\\Models\\Product')
+                                    ->whereIn('subject_id', $matchingProductIds);
+                        });
+                    }
                 });
             });
 

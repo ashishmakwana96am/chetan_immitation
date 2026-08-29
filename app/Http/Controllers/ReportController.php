@@ -1524,7 +1524,20 @@ class ReportController extends Controller
         }
 
         $groupedQuery = (clone $productSalesQuery)
-            ->selectRaw('order_items.product_id, SUM(order_items.quantity) as qty_sold, SUM(order_items.total) as total_revenue')
+            ->selectRaw('
+                order_items.product_id, 
+                SUM(order_items.quantity) as qty_sold, 
+                SUM(
+                    CASE 
+                        WHEN orders.final_amount > 0 THEN 
+                            order_items.total * (
+                                orders.final_amount / 
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                            )
+                        ELSE order_items.total
+                    END
+                ) as total_revenue
+            ')
             ->groupBy('order_items.product_id');
 
         $recordsTotal = DB::table('order_items')->distinct('product_id')->count('product_id');
@@ -1675,7 +1688,16 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(order_items.total) as total_revenue,
+                SUM(
+                    CASE 
+                        WHEN orders.final_amount > 0 THEN 
+                            order_items.total * (
+                                orders.final_amount / 
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                            )
+                        ELSE order_items.total
+                    END
+                ) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
@@ -1810,7 +1832,16 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(order_items.total) as total_revenue,
+                SUM(
+                    CASE 
+                        WHEN orders.final_amount > 0 THEN 
+                            order_items.total * (
+                                orders.final_amount / 
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                            )
+                        ELSE order_items.total
+                    END
+                ) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
@@ -1846,17 +1877,19 @@ class ReportController extends Controller
             }
         }
 
+        $proratedRevenueExpr = 'SUM(CASE WHEN orders.final_amount > 0 THEN order_items.total * (orders.final_amount / NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)) ELSE order_items.total END)';
+
         if ($sortKey === 'product') {
             $groupedQuery->orderBy('products.name', $sortDir);
         } elseif ($sortKey === 'barcode') {
             $groupedQuery->orderBy('products.barcode', $sortDir);
         } elseif ($sortKey === 'profit') {
-            $groupedQuery->orderByRaw("(SUM(order_items.total) - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) {$sortDir}");
+            $groupedQuery->orderByRaw("({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) {$sortDir}");
         } elseif ($sortKey === 'margin') {
             $groupedQuery->orderByRaw("
                 CASE 
-                    WHEN SUM(order_items.total) > 0 THEN 
-                        ((SUM(order_items.total) - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) / SUM(order_items.total)) * 100 
+                    WHEN {$proratedRevenueExpr} > 0 THEN 
+                        (({$proratedRevenueExpr} - SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0))) / {$proratedRevenueExpr}) * 100 
                     ELSE 0 
                 END {$sortDir}
             ");
@@ -2029,7 +2062,16 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(order_items.total) as total_revenue,
+                SUM(
+                    CASE 
+                        WHEN orders.final_amount > 0 THEN 
+                            order_items.total * (
+                                orders.final_amount / 
+                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
+                            )
+                        ELSE order_items.total
+                    END
+                ) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
