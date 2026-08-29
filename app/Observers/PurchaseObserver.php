@@ -70,6 +70,10 @@ class PurchaseObserver
                 ?->location_id;
         }
 
+        if (!$locationId) {
+            $locationId = \App\Models\Location::where('is_default', true)->first()?->id ?? \App\Models\Location::first()?->id;
+        }
+
         if (!$locationId || $amount <= 0) {
             return;
         }
@@ -80,7 +84,14 @@ class PurchaseObserver
             : 'cash_balance';
 
         DB::transaction(function () use ($locationId, $balanceType, $balanceCol, $amount, $purchase) {
-            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->firstOrFail();
+            $balance = LocationBalance::where('location_id', $locationId)->lockForUpdate()->first();
+            if (!$balance) {
+                $balance = LocationBalance::create([
+                    'location_id'  => $locationId,
+                    'cash_balance' => 0,
+                    'bank_balance' => 0,
+                ]);
+            }
 
             $oldBalance = (float) $balance->{$balanceCol};
             $newBalance = $oldBalance - $amount;
@@ -117,6 +128,10 @@ class PurchaseObserver
                 ->flatMap(fn($item) => $item->allocations)
                 ->first()
                 ?->location_id;
+        }
+
+        if (!$locationId) {
+            $locationId = \App\Models\Location::where('is_default', true)->first()?->id ?? \App\Models\Location::first()?->id;
         }
 
         if (!$locationId) {
