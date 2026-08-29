@@ -760,6 +760,7 @@
                                 @foreach($product->variants as $idx => $variant)
                                     @php
                                         $vQty = $vStockMap[$variant->id] ?? 0;
+                                        $vCustomSizes = !empty($variant->custom_sizes) ? $variant->custom_sizes : ($product->custom_sizes ?? []);
                                     @endphp
                                     <tr>
                                         <td class="text-muted small">{{ $idx + 1 }}</td>
@@ -767,17 +768,45 @@
                                             <span class="fw-semibold">{{ $variant->attributeValue->value ?? '-' }}</span>
                                             <small class="text-muted">({{ $variant->attributeValue->attribute->name ?? '-' }})</small>
                                         </td>
-                                        <td class="text-end text-nowrap small">{{ format_price($variant->purchase_price) }}</td>
-                                        <td class="text-end text-nowrap small text-success fw-semibold">{{ format_price($variant->sale_price) }}</td>
-                                        <td class="text-end text-nowrap small text-danger">{{ format_price($variant->mrp ?? $product->mrp) }}</td>
-                                        @php
-                                            $vProfit = (float)$variant->sale_price - (float)$variant->purchase_price;
-                                            $vMargin = (float)$variant->sale_price > 0 ? round(($vProfit / (float)$variant->sale_price) * 100, 1) : 0;
-                                        @endphp
-                                        <td class="text-end text-nowrap small {{ $vProfit > 0 ? 'text-success' : 'text-danger' }} fw-semibold">
-                                            {{ format_price($vProfit) }}
-                                            <small class="text-muted">({{ $vMargin }}%)</small>
-                                        </td>
+                                        <td class="text-end text-nowrap small">{{ format_price($variant->purchase_price ?? $product->purchase_price) }}</td>
+                                        
+                                        @if($product->pair_product && !empty($vCustomSizes))
+                                            @php
+                                                $maxSize = (float) (collect($vCustomSizes)->pluck('size')->max() ?: 1);
+                                                $vPurch = (float) ($variant->purchase_price ?? $product->purchase_price);
+                                            @endphp
+                                            <td colspan="3" class="text-end small p-1">
+                                                @foreach(collect($vCustomSizes)->sortBy('size') as $cs)
+                                                    @php
+                                                        $csSale = (float)($cs['sale_price'] ?? 0);
+                                                        $csMrp = (float)($cs['mrp'] ?? 0);
+                                                        $csSize = (float)($cs['size'] ?? 0);
+                                                        $csPurchase = $maxSize > 0 ? ($vPurch * ($csSize / $maxSize)) : $vPurch;
+                                                        $csProfit = $csSale - $csPurchase;
+                                                        $csMargin = $csSale > 0 ? round(($csProfit / $csSale) * 100, 1) : 0;
+                                                        $csSizeLabel = rtrim(rtrim(number_format($csSize, 2), '0'), '.');
+                                                    @endphp
+                                                    <div class="d-flex justify-content-end align-items-center gap-2 my-1">
+                                                        <span class="badge bg-label-secondary" style="font-size:0.7rem;">{{ $csSizeLabel }} pcs</span>
+                                                        <span class="text-success fw-semibold">Sale: {{ format_price($csSale) }}</span>
+                                                        <span class="text-danger">MRP: {{ format_price($csMrp) }}</span>
+                                                        <span class="{{ $csProfit > 0 ? 'text-success' : 'text-danger' }} fw-semibold">Profit: {{ format_price($csProfit) }} ({{ $csMargin }}%)</span>
+                                                    </div>
+                                                @endforeach
+                                            </td>
+                                        @else
+                                            <td class="text-end text-nowrap small text-success fw-semibold">{{ format_price($variant->sale_price) }}</td>
+                                            <td class="text-end text-nowrap small text-danger">{{ format_price($variant->mrp ?? $product->mrp) }}</td>
+                                            @php
+                                                $vProfit = (float)$variant->sale_price - (float)$variant->purchase_price;
+                                                $vMargin = (float)$variant->sale_price > 0 ? round(($vProfit / (float)$variant->sale_price) * 100, 1) : 0;
+                                            @endphp
+                                            <td class="text-end text-nowrap small {{ $vProfit > 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                                                {{ format_price($vProfit) }}
+                                                <small class="text-muted">({{ $vMargin }}%)</small>
+                                            </td>
+                                        @endif
+
                                         <td class="text-end">
                                             @if($isParentOnlyStock)
                                                 @if($idx === 0)
