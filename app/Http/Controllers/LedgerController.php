@@ -2352,26 +2352,91 @@ class LedgerController extends Controller
             return redirect()->back()->with('error', 'No data found for the selected filters. Nothing to export.');
         }
 
-        if ($request->boolean('auto_print') && !$request->boolean('stream')) {
-            return view('sales.pdf-print-wrapper', [
-                'title'  => 'Customer Ledger',
-                'pdfUrl' => route('admin.ledgers.customer.export', array_merge($request->all(), ['stream' => 1])),
-            ]);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Customer Ledger');
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '111827']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F2F4F7'],
+            ],
+        ];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '1D2939'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAECF0']],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+
+        $borderStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D5DD'],
+                ],
+            ],
+        ];
+
+        $headers = ['#', 'Customer Name', 'Last Order Date', 'Total Amount', 'Paid Amount', 'Due Amount'];
+        $cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+        $lastCol = 'F';
+
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->setCellValue('A1', 'Customer Ledger Data (' . $locationName . ')');
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray($titleStyle);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        foreach ($headers as $cIdx => $hText) {
+            $sheet->setCellValue($cols[$cIdx] . '2', $hText);
+        }
+        $sheet->getStyle("A2:{$lastCol}2")->applyFromArray($headerStyle);
+        $sheet->getRowDimension(2)->setRowHeight(26);
+
+        $r = 3;
+        foreach ($rows as $idx => $row) {
+            $sheet->setCellValue('A' . $r, $idx + 1);
+            $sheet->setCellValue('B' . $r, $row['customer_name']);
+            $sheet->setCellValue('C' . $r, $row['date'] ? \Carbon\Carbon::parse($row['date'])->format('d-m-Y') : '-');
+            $sheet->setCellValue('D' . $r, '₹' . number_format($row['total_amount'], 2));
+            $sheet->setCellValue('E' . $r, '₹' . number_format($row['paid_amount'], 2));
+            $sheet->setCellValue('F' . $r, '₹' . number_format($row['due_amount'], 2));
+            $sheet->getRowDimension($r)->setRowHeight(20);
+            $r++;
         }
 
-        $pdf = Pdf::loadView('ledgers.pdf.customer', compact(
-            'rows',
-            'startDate',
-            'endDate',
-            'locationName',
-            'totalAmount',
-            'totalPaid',
-            'totalDue'
-        ))->setPaper('a4', 'landscape');
+        $sheet->setCellValue('A' . $r, 'Total');
+        $sheet->setCellValue('D' . $r, '₹' . number_format($totalAmount, 2));
+        $sheet->setCellValue('E' . $r, '₹' . number_format($totalPaid, 2));
+        $sheet->setCellValue('F' . $r, '₹' . number_format($totalDue, 2));
 
-        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Customer ledger exported to PDF');
+        $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:{$lastCol}{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('EAECF0');
+        $sheet->getStyle("A2:{$lastCol}{$r}")->applyFromArray($borderStyle);
+        $sheet->getStyle("A2:A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("C2:C{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("D2:{$lastCol}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        return $pdf->stream('customer_ledger_' . now()->format('Ymd_His') . '.pdf');
+        foreach ($cols as $colLetter) {
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+
+        ActivityLogger::log('Ledgers', 'export', null, null, null, 'Customer ledger exported to Excel');
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'customer_ledger_' . date('Y_m_d_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     public function customerLedgerDetail(Request $request)
