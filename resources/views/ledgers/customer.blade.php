@@ -332,13 +332,21 @@
                     if (!response.ok) {
                         throw new Error('Export failed');
                     }
-                    return response.blob();
+                    let filename = 'customer_ledger.xlsx';
+                    const disposition = response.headers.get('Content-Disposition');
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+                    return response.blob().then(blob => ({ blob, filename }));
                 })
-                .then(blob => {
+                .then(({ blob, filename }) => {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'customer_ledger_' + (startPicker ? startPicker.input.value : 'report') + '.xlsx';
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
