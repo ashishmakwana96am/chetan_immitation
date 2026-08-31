@@ -316,6 +316,27 @@ $(document).ready(function () {
         const method    = form.find('input[name="_method"]').val() || 'POST';
         const submitBtn = form.find('[type="submit"]');
 
+        const dateInput = form.find('input[name="expense_date"], input[name="date"], input[name="purchase_date"], input[name="order_date"], input[name="transfer_date"]').val();
+        if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
+            let partyName = form.find('input[name="title"]').val() || form.find('select[name="category"]').val() || '';
+            let amountVal = form.find('input[name="amount"]').val() ? ('₹' + form.find('input[name="amount"]').val()) : '';
+            let moduleName = 'Expense / Record Entry';
+            if (form.find('input[name="expense_date"]').length) moduleName = 'Expense Record';
+
+            const confirmed = window.checkAndConfirmDateSubmission(this, dateInput, {
+                module: moduleName,
+                partyLabel: 'Title / Category:',
+                partyName: partyName,
+                amount: amountVal,
+                dateFormatted: dateInput,
+                submitBtn: submitBtn
+            });
+
+            if (!confirmed) {
+                return false;
+            }
+        }
+
         clearFormErrors(form);
         disableBtn(submitBtn, 'Saving...');
 

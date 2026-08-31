@@ -381,6 +381,17 @@ class PurchaseController extends Controller
                 'created_by'      => auth()->id(),
             ]);
 
+            $dateInput = $request->input('created_at') ?: $request->input('purchase_date');
+            if ($dateInput && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
+                $timeStr = now()->format('H:i:s');
+                try {
+                    $pDate = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', trim($dateInput) . ' ' . $timeStr);
+                } catch (\Throwable $e) {
+                    $pDate = \Carbon\Carbon::parse(trim($dateInput) . ' ' . $timeStr);
+                }
+                \Illuminate\Support\Facades\DB::table('purchases')->where('id', $invoice->id)->update(['created_at' => $pDate->toDateTimeString()]);
+            }
+
             $advDeducted = \App\Models\SupplierAdvancePayment::adjustAdvanceForPurchase($invoice, $targetAmountToDeduct);
             $remDirect = max(0.0, round($paidAmount - $advDeducted, 2));
 
@@ -665,6 +676,17 @@ class PurchaseController extends Controller
 
             if ($purchase->is_gst !== $isGst) {
                 $updateData['invoice_no'] = generate_invoice_no($invoicePrefix, Purchase::class);
+            }
+
+            $dateInput = $request->input('created_at') ?: $request->input('purchase_date');
+            if ($dateInput && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
+                $timeStr = $purchase->created_at ? $purchase->created_at->format('H:i:s') : now()->format('H:i:s');
+                try {
+                    $pDate = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', trim($dateInput) . ' ' . $timeStr);
+                } catch (\Throwable $e) {
+                    $pDate = \Carbon\Carbon::parse(trim($dateInput) . ' ' . $timeStr);
+                }
+                $updateData['created_at'] = $pDate;
             }
 
             $oldFieldsSnapshot = $purchase->only(array_keys($updateData));

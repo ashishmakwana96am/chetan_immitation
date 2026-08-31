@@ -67,6 +67,8 @@ class ExpenseController extends Controller
                     $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.expenses.destroy', $expense) . '" data-row-id="expense-row-' . $expense->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
                 }
                 $actions .= '</div></div>';
+            } else {
+                $actions = '<span class="text-muted fw-semibold">-</span>';
             }
 
             return [
@@ -78,10 +80,10 @@ class ExpenseController extends Controller
                 'raw_amount' => (float) $expense->amount,
                 'payment_method' => e($expense->payment_method),
                 'location' => e($expense->location->name ?? '-'),
-                'expense_date' => format_date($expense->expense_date),
-                'expense_date_sort' => $expense->expense_date ? $expense->expense_date->format('Ymd') : '',
                 'created_by' => e($expense->createdBy->name ?? '-'),
                 'actions' => $actions,
+                'date_group' => $expense->expense_date ? $expense->expense_date->format('d-m-Y') : '-',
+                'date_sort' => $expense->expense_date ? $expense->expense_date->format('Ymd') : '',
             ];
         });
 
@@ -132,6 +134,13 @@ class ExpenseController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $validator->errors(),
+            ], 422);
+        }
+
+        if (!can_modify_past_date_record($request->expense_date)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => ['expense_date' => ['You do not have permission to create records for past or future dates.']],
             ], 422);
         }
 

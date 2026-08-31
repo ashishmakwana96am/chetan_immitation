@@ -859,6 +859,74 @@
             </div>
         </div>
     </div>
+    <script>
+        window.checkAndConfirmDateSubmission = function(form, dateVal, options) {
+            if (!dateVal) return true;
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${year}-${month}-${day}`;
+
+            let selectedDateStr = dateVal.trim();
+            if (selectedDateStr.includes('-')) {
+                const parts = selectedDateStr.split(' ')[0].split('-');
+                if (parts[0].length === 2 && parts[2].length === 4) { // DD-MM-YYYY
+                    selectedDateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+
+            if (selectedDateStr === todayStr) {
+                return true;
+            }
+
+            if ($(form).data('date-confirmed') == 1 || $(form).data('date-confirmed') === '1') {
+                return true;
+            }
+
+            const isPast = selectedDateStr < todayStr;
+            const dateTypeLabel = isPast ? 'PAST DATE' : 'FUTURE DATE';
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Confirm Date Change',
+                    html: `You are saving an entry for a <strong class="text-danger">${dateTypeLabel} (${dateVal})</strong>.<br>Are you sure you want to proceed?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Save Entry',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn btn-warning me-3',
+                        cancelButton: 'btn btn-label-secondary'
+                    },
+                    buttonsStyling: false
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        const $form = $(form);
+                        $form.data('date-confirmed', 1);
+                        
+                        const $submitBtn = options && options.submitBtn ? $(options.submitBtn) : null;
+                        if ($submitBtn && $submitBtn.length) {
+                            $submitBtn.trigger('click');
+                        } else {
+                            $form.trigger('submit');
+                        }
+                    } else {
+                        const $form = $(form);
+                        $form.data('date-confirmed', 0);
+                    }
+                });
+            } else {
+                if (confirm(`You are saving an entry for a ${dateTypeLabel} (${dateVal}). Do you want to proceed?`)) {
+                    $(form).data('date-confirmed', 1);
+                    return true;
+                }
+            }
+
+            return false;
+        };
+    </script>
 </body>
 
 </html>

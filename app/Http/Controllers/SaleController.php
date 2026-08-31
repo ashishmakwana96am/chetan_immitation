@@ -576,7 +576,7 @@ class SaleController extends Controller
                 'coupon_id' => $request->input('coupon_id', null),
             ]);
 
-            if ($request->filled('order_date') && auth()->user()->hasRole('super-admin')) {
+            if ($request->filled('order_date') && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
                 $timeStr = now()->format('H:i:s');
                 try {
                     $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
@@ -1231,7 +1231,7 @@ class SaleController extends Controller
                     $updateData['order_no'] = generate_invoice_no($orderPrefix, Order::class, 'order_no');
                 }
 
-                if ($request->filled('order_date') && auth()->user()->hasRole('super-admin')) {
+                if ($request->filled('order_date') && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
                     $timeStr = $sale->created_at ? $sale->created_at->format('H:i:s') : now()->format('H:i:s');
                     try {
                         $orderDate = \Carbon\Carbon::createFromFormat('d-m-Y H:i:s', trim($request->order_date) . ' ' . $timeStr);
@@ -1774,12 +1774,23 @@ class SaleController extends Controller
             return [null, 0.0, 0.0];
         }
 
+        $cash = round(max($cashAmountInput, 0), 2);
+        $online = round(max($onlineAmountInput, 0), 2);
+
         if ($status === Order::PAYMENT_STATUS_PAID) {
-            $paidOnline = round(min(max($onlineAmountInput, 0), $grandTotal), 2);
-            $paidCash = round($grandTotal - $paidOnline, 2);
+            if ($cash > 0 && $online > 0) {
+                $paidCash = round(min($cash, $grandTotal), 2);
+                $paidOnline = round(max(0, $grandTotal - $paidCash), 2);
+            } elseif ($online > 0 && $cash <= 0) {
+                $paidOnline = round($grandTotal, 2);
+                $paidCash = 0.0;
+            } else {
+                $paidCash = round($grandTotal, 2);
+                $paidOnline = 0.0;
+            }
         } else {
-            $paidCash = round(min(max($cashAmountInput, 0), $grandTotal), 2);
-            $paidOnline = round(min(max($onlineAmountInput, 0), max(0, $grandTotal - $paidCash)), 2);
+            $paidCash = round(min($cash, $grandTotal), 2);
+            $paidOnline = round(min($online, max(0, $grandTotal - $paidCash)), 2);
         }
 
         $paymentMethod = 'cash';
@@ -2248,12 +2259,16 @@ class SaleController extends Controller
 
         if ($dbPayments->isNotEmpty()) {
             $payments = $dbPayments->map(function ($payment) {
-                $methodParts = [];
                 $c = (float)($payment->cash_amount ?? 0);
                 $o = (float)($payment->online_amount ?? 0);
-                if ($c > 0) $methodParts[] = 'Cash: ' . format_price($c);
-                if ($o > 0) $methodParts[] = 'Online: ' . format_price($o);
-                $methodStr = count($methodParts) > 0 ? ' (' . implode(' + ', $methodParts) . ')' : '';
+                $methodStr = '';
+                if ($c > 0 && $o > 0) {
+                    $methodStr = ' (Cash: ' . format_price($c) . ' + Online: ' . format_price($o) . ')';
+                } elseif ($o > 0) {
+                    $methodStr = ' (Online)';
+                } elseif ($c > 0) {
+                    $methodStr = ' (Cash)';
+                }
 
                 return [
                     'amount' => format_price($payment->amount) . $methodStr,
@@ -2264,10 +2279,14 @@ class SaleController extends Controller
             $payments = [];
             if ($totalPaid > 0) {
                 $paymentDate = $sale->updated_at ? $sale->updated_at->format('d M Y, h:i A') : $sale->created_at->format('d M Y, h:i A');
-                $methodParts = [];
-                if ($paidCash > 0) $methodParts[] = 'Cash: ' . format_price($paidCash);
-                if ($paidOnline > 0) $methodParts[] = 'Online: ' . format_price($paidOnline);
-                $methodStr = count($methodParts) > 0 ? ' (' . implode(' + ', $methodParts) . ')' : '';
+                $methodStr = '';
+                if ($paidCash > 0 && $paidOnline > 0) {
+                    $methodStr = ' (Cash: ' . format_price($paidCash) . ' + Online: ' . format_price($paidOnline) . ')';
+                } elseif ($paidOnline > 0) {
+                    $methodStr = ' (Online)';
+                } elseif ($paidCash > 0) {
+                    $methodStr = ' (Cash)';
+                }
 
                 $payments[] = [
                     'amount' => format_price($totalPaid) . $methodStr,

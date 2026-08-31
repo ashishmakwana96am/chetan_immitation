@@ -1587,7 +1587,9 @@ $(document).ready(function () {
         return validateDiscounts();
     }
 
+    let activeSubmitBtn = null;
     $('#submitBtnPrint, #submitBtnNoPrint').on('click', function (e) {
+        activeSubmitBtn = $(this);
         printAfterSave = $(this).data('print') == 1;
 
         const validationError = getClientValidationError();
@@ -1616,6 +1618,26 @@ $(document).ready(function () {
         if (!checkCustomerGstDetails()) {
             closePendingPrintTab();
             return;
+        }
+
+        const dateInput = $('#order_date').val();
+        if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
+            const customerName = $('#customer_id option:selected').text() || 'Customer';
+            const finalAmount = $('#grandTotalText').text() || ('₹' + $('#grandTotal').val());
+
+            const confirmed = window.checkAndConfirmDateSubmission(this, dateInput, {
+                module: 'Sale Invoice',
+                partyLabel: 'Customer:',
+                partyName: customerName,
+                amount: finalAmount,
+                dateFormatted: dateInput,
+                submitBtn: activeSubmitBtn || $('#submitBtnPrint')
+            });
+
+            if (!confirmed) {
+                closePendingPrintTab();
+                return;
+            }
         }
 
         const form = $(this);
