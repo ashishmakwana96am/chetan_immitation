@@ -467,7 +467,7 @@ $(document).ready(function () {
 
     function loadTransferProductBatches(row, selectedBatchId = null) {
         const product = row.data('product');
-        const variantId = row.find('.variant-select').val() || '';
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || '';
         const locationId = $('#fromLocation').val();
         const batchContainer = row.find('.batch-select-container');
 
@@ -502,7 +502,14 @@ $(document).ready(function () {
                 updateRowPrice(row);
             } else {
                 row.data('batches', []);
-                batchContainer.empty();
+                const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                html += `<option value="" data-purchase-price="${product.purchase_price || 0}" data-available-qty="0" selected>${defPrice}</option>`;
+                html += '</select></div>';
+                batchContainer.html(html);
+
+                row.data('available-pcs', 0);
+                updateRowAvailableStockDisplay(row);
                 updateRowPrice(row);
             }
         }).fail(function() {

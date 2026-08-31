@@ -846,7 +846,7 @@ $(document).ready(function () {
         const product = row.data('product');
         if (!product) return;
 
-        const variantId = row.data('variant-id') || null;
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
         const locationId = $('#locationSelect').val() || $('input[name="location_id"]').val() || null;
         const container = row.find('.batch-select-container');
 
@@ -874,7 +874,13 @@ $(document).ready(function () {
                 }
             } else {
                 const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
-                container.html('<small class="text-muted" style="font-size: 0.75rem;"><i class="ti ti-tag me-1"></i>Purchase Price: ' + defPrice + '</small><select class="batch-select d-none"><option value="" data-purchase-price="' + (product.purchase_price || 0) + '" selected>' + defPrice + '</option></select>');
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                html += `<option value="" data-purchase-price="${product.purchase_price || 0}" data-available-qty="0" selected>${defPrice}</option>`;
+                html += '</select></div>';
+                container.html(html);
+
+                row.data('available-pcs', 0);
+                updateStockInfo(row);
             }
         }).fail(function() {
             container.empty();

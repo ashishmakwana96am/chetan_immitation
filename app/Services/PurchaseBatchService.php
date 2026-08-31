@@ -105,7 +105,16 @@ class PurchaseBatchService
                     ->where('location_id', $locationId);
                 $allocatedQty = (float) $allocQuery->sum('quantity');
                 if ($allocatedQty <= 0) {
-                    $allocatedQty = (float) $item->quantity;
+                    $purchaseLocationId = DB::table('purchases')
+                        ->join('purchase_items', 'purchases.id', '=', 'purchase_items.purchase_id')
+                        ->where('purchase_items.id', $item->purchase_item_id)
+                        ->value('purchases.location_id');
+
+                    if ((int)$purchaseLocationId === (int)$locationId) {
+                        $allocatedQty = (float) $item->quantity;
+                    } else {
+                        $allocatedQty = 0.0;
+                    }
                 }
             }
 
@@ -197,7 +206,25 @@ class PurchaseBatchService
         self::ensureBatchStocksTable();
 
         if (!$locationId) {
-            return [];
+            $rows = DB::table('purchase_batch_stocks')
+                ->where('product_id', $productId)
+                ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->where('quantity', '>', 0)
+                ->select('purchase_price', DB::raw('SUM(quantity) as total_qty'), DB::raw('MAX(purchase_item_id) as purchase_item_id'))
+                ->groupBy('purchase_price')
+                ->orderBy('purchase_price', 'asc')
+                ->get();
+
+            $batches = [];
+            foreach ($rows as $b) {
+                $batches[] = [
+                    'purchase_item_id' => $b->purchase_item_id,
+                    'purchase_price'   => (float) $b->purchase_price,
+                    'available_qty'    => (int) $b->total_qty,
+                    'label'            => '₹' . number_format((float)$b->purchase_price, 2),
+                ];
+            }
+            return array_values($batches);
         }
 
         // Check if batch records exist for this location and product; if not, auto-sync once!
