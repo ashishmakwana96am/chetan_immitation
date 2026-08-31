@@ -139,14 +139,13 @@ $(document).ready(function () {
     // panel; every other [data-common-modal] trigger keeps the default width.
     // -------------------------------------------------------
     window.openCommonModal = function (url, size) {
-        showAjaxLoader();
+        $('#commonModalBody').html(showSpinner());
+        $('#commonModal').css('width', size === 'half' ? '50vw' : '600px');
+        $('#commonModal').offcanvas('show');
 
         $.get(url)
             .done(function (html) {
-                hideAjaxLoader();
                 $('#commonModalBody').html(html);
-                $('#commonModal').css('width', size === 'half' ? '50vw' : '600px');
-                $('#commonModal').offcanvas('show');
 
                 let body = $('#commonModalBody');
 
@@ -223,7 +222,7 @@ $(document).ready(function () {
                 }
             })
             .fail(function (xhr) {
-                hideAjaxLoader();
+                $('#commonModal').offcanvas('hide');
                 let msg = 'Failed to load content.';
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     msg = typeof xhr.responseJSON.message === 'string' ? xhr.responseJSON.message : Object.values(xhr.responseJSON.message).flat().join(' ');
