@@ -645,6 +645,7 @@ class SaleController extends Controller
                 if ($isApprove) {
                     $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                     $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for new sale #' . $order->order_no);
+                    \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, (float)$item['purchase_price'], (float)$stockDeduct);
                 }
             }
         });
@@ -694,6 +695,7 @@ class SaleController extends Controller
                 foreach ($sale->items as $item) {
                     $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                     $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for deleted sale #' . $sale->order_no);
+                    \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, (float)$item->purchase_price, (float)$stockRestore);
                 }
             }
 
@@ -1121,6 +1123,7 @@ class SaleController extends Controller
                         $multiplier = $this->stockMultiplierFor((int) $old['product_id'], $old['pair_type'], $old['custom_size_value'] ? (float) $old['custom_size_value'] : null);
                         $stockRestore = (int) round($old['quantity'] * $multiplier);
                         $this->logInventoryChange((int) $old['product_id'], $oldLocationId, $stockRestore, 'Stock restored for edited sale #' . $sale->order_no);
+                        \App\Services\PurchaseBatchService::addBatchStock($oldLocationId, (int)$old['product_id'], !empty($old['product_variant_id']) ? (int)$old['product_variant_id'] : null, $old['purchase_item_id'] ?? null, (float)($old['purchase_price'] ?? 0), (float)$stockRestore);
                     }
                 }
 
@@ -1341,6 +1344,7 @@ class SaleController extends Controller
                     if ($isApprove) {
                         $stockDeduct = (int) round($item['quantity'] * $this->stockMultiplierFor((int) $item['product_id'], $item['pair_type'], $item['custom_size_value']));
                         $this->logInventoryChange((int) $item['product_id'], (int) $request->location_id, -$stockDeduct, 'Stock deducted for updated sale #' . $sale->order_no);
+                        \App\Services\PurchaseBatchService::deductBatchStock((int)$request->location_id, (int)$item['product_id'], !empty($item['product_variant_id']) ? (int)$item['product_variant_id'] : null, (float)$item['purchase_price'], (float)$stockDeduct);
                     }
                 }
 
@@ -1485,6 +1489,7 @@ class SaleController extends Controller
                             foreach ($sale->items as $item) {
                                 $stockDeduct = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, -$stockDeduct, 'Stock deducted for sale #' . $sale->order_no . ' status change');
+                                \App\Services\PurchaseBatchService::deductBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$item->purchase_price, (float)$stockDeduct);
                             }
                         }
                         // Transition from Deducted to Restored group: restore stock
@@ -1493,6 +1498,7 @@ class SaleController extends Controller
                             foreach ($sale->items as $item) {
                                 $stockRestore = (int) round($item->quantity * $this->stockMultiplierFor((int) $item->product_id, $item->pair_type, $item->custom_size_value));
                                 $this->logInventoryChange((int) $item->product_id, (int) $sale->location_id, $stockRestore, 'Stock restored for sale #' . $sale->order_no . ' status change');
+                                \App\Services\PurchaseBatchService::addBatchStock((int)$sale->location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->purchase_item_id, (float)$item->purchase_price, (float)$stockRestore);
                             }
                         }
 

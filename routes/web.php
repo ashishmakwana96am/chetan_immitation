@@ -52,6 +52,11 @@ use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
 
+Route::get('/run-batch-stocks-migration-sync', function() {
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    return response()->json(['status' => 'migrated', 'output' => \Illuminate\Support\Facades\Artisan::output()]);
+});
+
 // Frontend routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about-us', [HomeController::class, 'about'])->name('about');

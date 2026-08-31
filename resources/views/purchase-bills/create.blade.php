@@ -219,6 +219,7 @@
                         <small class="product-sku-display text-muted"></small>
                         <div class="variant-select-container mt-2"></div>
                         <div class="size-select-container"></div>
+                        <div class="batch-select-container"></div>
                     </div>
                 </div>
             </td>
@@ -432,11 +433,66 @@ $(document).ready(function () {
                     titleText += `\n- ${item.location_name}: ${item.quantity}`;
                 });
             }
-            row.data('available-pcs', qty);
+            const selOpt = row.find('.batch-select option:selected');
+            const availAttr = selOpt.attr('data-available-qty');
+            if (selOpt.length && availAttr !== undefined && availAttr !== false) {
+                row.data('available-pcs', parseInt(availAttr) || 0);
+            } else {
+                row.data('available-pcs', qty);
+            }
             updateRowAvailableStockDisplay(row);
             row.find('.stock-info-display').attr('title', titleText).css('cursor', 'help');
         }).fail(function () {
             row.find('.stock-info-display').removeClass('bg-label-success bg-label-secondary').addClass('bg-label-danger').text('N/A');
+        });
+
+        loadTransferProductBatches(row);
+    }
+
+    function loadTransferProductBatches(row, selectedBatchId = null) {
+        const product = row.data('product');
+        const variantId = row.find('.variant-select').val() || '';
+        const locationId = $('#fromLocation').val();
+        const batchContainer = row.find('.batch-select-container');
+
+        if (!product || !locationId) {
+            batchContainer.empty();
+            updateRowPrice(row);
+            return;
+        }
+
+        $.get('{{ route("admin.sales.product-batches") }}', {
+            product_id: product.id,
+            product_variant_id: variantId,
+            location_id: locationId
+        }, function(res) {
+            if (res.status === 'success' && res.batches && res.batches.length > 0) {
+                row.data('batches', res.batches);
+                let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                res.batches.forEach(b => {
+                    const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
+                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-available-qty="${b.available_qty}" ${sel}>${b.label}</option>`;
+                });
+                html += '</select></div>';
+                batchContainer.html(html);
+
+                const selOpt = batchContainer.find('.batch-select option:selected');
+                const availAttr = selOpt.attr('data-available-qty');
+                if (selOpt.length && availAttr !== undefined && availAttr !== false) {
+                    row.data('available-pcs', parseInt(availAttr) || 0);
+                    updateRowAvailableStockDisplay(row);
+                }
+
+                updateRowPrice(row);
+            } else {
+                row.data('batches', []);
+                batchContainer.empty();
+                updateRowPrice(row);
+            }
+        }).fail(function() {
+            row.data('batches', []);
+            batchContainer.empty();
+            updateRowPrice(row);
         });
     }
 
@@ -473,12 +529,18 @@ $(document).ready(function () {
         const product = row.data('product');
         if (!product) return 0;
         let basePrice = 0;
-        const variantId = row.find('.variant-select').val() || null;
-        if (variantId && product.variants) {
-            const variant = product.variants.find(v => String(v.id) === String(variantId));
-            if (variant) basePrice = parseFloat(variant.purchase_price || 0);
+
+        const batchSelect = row.find('.batch-select');
+        if (batchSelect.length && batchSelect.val()) {
+            basePrice = parseFloat(batchSelect.val() || 0);
         } else {
-            basePrice = parseFloat(product.purchase_price || 0);
+            const variantId = row.find('.variant-select').val() || null;
+            if (variantId && product.variants) {
+                const variant = product.variants.find(v => String(v.id) === String(variantId));
+                if (variant) basePrice = parseFloat(variant.purchase_price || 0);
+            } else {
+                basePrice = parseFloat(product.purchase_price || 0);
+            }
         }
         
         let multiplier = 1.0;
@@ -722,6 +784,24 @@ $(document).ready(function () {
         updateRowPrice(row);
     });
 
+    $(document).on('change', '.batch-select', function() {
+        const row = $(this).closest('.item-row');
+        const selOpt = $(this).find('option:selected');
+        const availAttr = selOpt.attr('data-available-qty');
+        if (selOpt.length && availAttr !== undefined && availAttr !== false) {
+            row.data('available-pcs', parseInt(availAttr) || 0);
+            updateRowAvailableStockDisplay(row);
+        }
+        updateRowPrice(row);
+        updateSummary();
+    });
+
+    $('#fromLocation').on('change', function() {
+        $('.item-row').each(function() {
+            refreshRowStock($(this));
+        });
+    });
+
     $(document).on('input', '.item-qty', updateSummary);
     $(document).on('click', '.remove-item-btn', function () {
         $(this).closest('.item-row').remove();
@@ -816,6 +896,14 @@ $(document).ready(function () {
                     return false;
                 }
                 hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][custom_size_value]" value="${customSizeValue}">`);
+            }
+
+            const batchSel = row.find('.batch-select');
+            if (batchSel.length) {
+                const selPrice = batchSel.val();
+                const selItemId = batchSel.find('option:selected').data('purchase-item-id');
+                if (selPrice) hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${selPrice}">`);
+                if (selItemId) hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${selItemId}">`);
             }
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);

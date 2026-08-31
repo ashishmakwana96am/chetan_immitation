@@ -847,7 +847,7 @@ $(document).ready(function () {
         if (!product) return;
 
         const variantId = row.data('variant-id') || null;
-        const locationId = $('#filter-location').val() || null;
+        const locationId = $('#locationSelect').val() || $('input[name="location_id"]').val() || null;
         const container = row.find('.batch-select-container');
 
         container.html('<small class="text-muted"><i class="ti ti-loader spinner-border spinner-border-sm me-1"></i>Loading...</small>');
@@ -861,10 +861,17 @@ $(document).ready(function () {
                 let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
                 res.batches.forEach(b => {
                     const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
-                    html += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" ${sel}>${b.label}</option>`;
+                    html += `<option value="${b.purchase_item_id}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel}>${b.label}</option>`;
                 });
                 html += '</select></div>';
                 container.html(html);
+
+                const selOpt = container.find('.batch-select option:selected');
+                const availAttr = selOpt.attr('data-available-qty');
+                if (selOpt.length && availAttr !== undefined && availAttr !== false) {
+                    row.data('available-pcs', parseInt(availAttr) || 0);
+                    updateStockInfo(row);
+                }
             } else {
                 const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
                 container.html('<small class="text-muted" style="font-size: 0.75rem;"><i class="ti ti-tag me-1"></i>Purchase Price: ' + defPrice + '</small><select class="batch-select d-none"><option value="" data-purchase-price="' + (product.purchase_price || 0) + '" selected>' + defPrice + '</option></select>');
@@ -1082,6 +1089,18 @@ $(document).ready(function () {
         updateSummary();
     });
 
+    $(document).on('change', '.batch-select', function () {
+        const row = $(this).closest('.item-row');
+        const selOpt = $(this).find('option:selected');
+        const availAttr = selOpt.attr('data-available-qty');
+        if (selOpt.length && availAttr !== undefined && availAttr !== false) {
+            row.data('available-pcs', parseInt(availAttr) || 0);
+            updateStockInfo(row);
+        }
+        updateRowTotal(row);
+        updateSummary();
+    });
+
     // -------------------------------------------------------
     // Remove Item Row
     // -------------------------------------------------------
@@ -1176,9 +1195,14 @@ $(document).ready(function () {
         return $('#locationSelect').val() || $('input[name="location_id"]').val() || '';
     }
 
-    $(document).on('change', '#locationSelect', function () {
-        $('#itemsBody .item-row').each(function () { updateStockInfo($(this)); });
-    });    function updateStockInfo(row) {
+    $(document).on('change', '#locationSelect, select[name="location_id"]', function () {
+        $('#itemsBody .item-row').each(function () {
+            loadProductBatches($(this));
+            updateStockInfo($(this));
+        });
+    });
+
+    function updateStockInfo(row) {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
@@ -1215,7 +1239,10 @@ $(document).ready(function () {
         let breakdownText = 'Stock Breakdown:\n';
         let hasStock = false;
 
-        if (locationId) {
+        const rowAvailPcs = row.data('available-pcs');
+        if (rowAvailPcs !== undefined && rowAvailPcs !== null && rowAvailPcs !== '') {
+            qty = parseInt(rowAvailPcs) || 0;
+        } else if (locationId) {
             qty = rawQtyAt(locationId);
         } else {
             Object.keys(stockByLocation).forEach(locId => {
