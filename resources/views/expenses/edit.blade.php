@@ -37,7 +37,7 @@
 
         <div class="col-12">
             <label class="form-label" for="expenseDate">Expense Date <span class="text-danger">*</span></label>
-            <input type="date" id="expenseDate" name="expense_date" class="form-control flatpickr" value="{{ $expense->expense_date->format('Y-m-d') }}" data-max-date="today" />
+            <input type="text" id="expenseDate" name="expense_date" class="form-control flatpickr" value="{{ $expense->expense_date ? $expense->expense_date->format('Y-m-d') : date('Y-m-d') }}" data-min-date="{{ can_modify_past_date_record() ? '' : date('Y-m-d') }}" data-max-date="today" placeholder="DD-MM-YYYY" readonly />
             <div class="invalid-feedback"></div>
         </div>
 

@@ -157,11 +157,13 @@ $(document).ready(function () {
                             dateFormat: 'Y-m-d',
                             allowInput: false
                         };
-                        if ($(this).attr('data-max-date')) {
-                            config.maxDate = $(this).attr('data-max-date');
+                        let minVal = $(this).attr('data-min-date');
+                        if (minVal && minVal.length > 0) {
+                            config.minDate = minVal === 'today' ? new Date() : minVal;
                         }
-                        if ($(this).attr('data-min-date')) {
-                            config.minDate = $(this).attr('data-min-date');
+                        let maxVal = $(this).attr('data-max-date');
+                        if (maxVal && maxVal.length > 0) {
+                            config.maxDate = maxVal === 'today' ? new Date() : maxVal;
                         }
                         $(this).flatpickr(config);
                     });
@@ -219,8 +221,19 @@ $(document).ready(function () {
                     }
                 }
             })
-            .fail(function () {
-                $('#commonModalBody').html('<p class="text-center text-danger p-4">Failed to load content.</p>');
+            .fail(function (xhr) {
+                $('#commonModal').offcanvas('hide');
+                let msg = 'Failed to load content.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    msg = typeof xhr.responseJSON.message === 'string' ? xhr.responseJSON.message : Object.values(xhr.responseJSON.message).flat().join(' ');
+                } else if (xhr.responseText) {
+                    let temp = $('<div>').html(xhr.responseText);
+                    let alertText = temp.find('.alert').text().trim() || temp.text().trim();
+                    if (alertText.length > 0 && alertText.length < 300) {
+                        msg = alertText;
+                    }
+                }
+                toastr.error(msg);
             });
     };
 
@@ -374,16 +387,35 @@ $(document).ready(function () {
             error : function (xhr) {
                 enableBtn(submitBtn);
                 const json = xhr.responseJSON;
-                if (xhr.status === 422 && json) {
+                if (json) {
                     if (json.in_use || (json.products && json.products.length)) {
                         window.showInUseProductsModal(json);
-                    } else {
-                        const errors = json.message || json.errors || {};
-                        showFormErrors(form, errors);
+                        return;
                     }
-                } else {
-                    toastr.error('Something went wrong. Please try again.');
+
+                    if (typeof json.message === 'string' && json.message.length > 0) {
+                        toastr.error(json.message);
+                        return;
+                    }
+
+                    const errors = json.errors || json.message || {};
+                    if (typeof errors === 'object' && Object.keys(errors).length > 0) {
+                        showFormErrors(form, errors);
+                        return;
+                    }
                 }
+
+                if (xhr.responseText) {
+                    try {
+                        const parsed = JSON.parse(xhr.responseText);
+                        if (parsed && typeof parsed.message === 'string') {
+                            toastr.error(parsed.message);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+
+                toastr.error('Something went wrong. Please try again.');
             }
         });
     });
