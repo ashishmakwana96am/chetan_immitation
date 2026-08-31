@@ -2070,16 +2070,7 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
+                SUM(order_items.total) as total_revenue,
                 SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')
@@ -2213,16 +2204,7 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id AND oi.deleted_at IS NULL), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
+                SUM(order_items.total) as total_revenue,
                 SUM(COALESCE(order_items.purchase_price, order_items.quantity * product_variants.purchase_price, order_items.quantity * products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode');
@@ -2443,16 +2425,7 @@ class ReportController extends Controller
                         ELSE 1.0
                     END
                 ) as qty_sold,
-                SUM(
-                    CASE 
-                        WHEN orders.final_amount > 0 THEN 
-                            order_items.total * (
-                                orders.final_amount / 
-                                NULLIF((SELECT SUM(oi.total) FROM order_items oi WHERE oi.order_id = orders.id), 0)
-                            )
-                        ELSE order_items.total
-                    END
-                ) as total_revenue,
+                SUM(order_items.total) as total_revenue,
                 SUM(order_items.quantity * COALESCE(product_variants.purchase_price, products.purchase_price, 0)) as total_cost
             ')
             ->groupBy('order_items.product_id', 'products.name', 'products.barcode')

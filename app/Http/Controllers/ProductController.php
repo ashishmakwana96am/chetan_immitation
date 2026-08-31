@@ -674,18 +674,7 @@ class ProductController extends Controller
                 });
 
                 $totalAmount = $group->sum(function ($item) {
-                    $parent = $item->invoice ?? $item->order ?? null;
-                    if ($parent) {
-                        $parentFinal = (float) ($parent->total_amount ?? $parent->final_amount ?? 0);
-                        if ($parentFinal > 0) {
-                            $parentItemsSum = (float) $parent->items->sum('total');
-                            if ($parentItemsSum > 0) {
-                                return ($item->total / $parentItemsSum) * $parentFinal;
-                            }
-                            return $parentFinal;
-                        }
-                    }
-                    return $item->total;
+                    return (float) $item->total;
                 });
 
                 $breakdown = null;
