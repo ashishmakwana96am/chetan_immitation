@@ -1786,7 +1786,7 @@ $(document).ready(function () {
             return;
         }
 
-        const dateInput = $('#order_date').val() || '{{ $sale->created_at ? $sale->created_at->format("Y-m-d") : date("Y-m-d") }}';
+        const dateInput = $('#order_date').val() || '{{ isset($order) && $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format("Y-m-d") : (isset($order) && $order->created_at ? $order->created_at->format("Y-m-d") : date("Y-m-d")) }}';
         if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
             const customerName = $('#customer_id option:selected').text() || 'Customer';
             const finalAmount = $('#grandTotalText').text() || ('₹' + $('#grandTotal').val());
