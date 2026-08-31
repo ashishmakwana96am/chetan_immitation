@@ -553,12 +553,18 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
             $salePrice = (float) $product->sale_price;
-            $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
-
             $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
             if ($pairSize <= 0)
                 $pairSize = 1.0;
+
+            $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+            if ($product->pair_product && !empty($product->custom_sizes)) {
+                $maxSizeRow = collect($product->custom_sizes)->sortBy(fn($s) => (float)($s['size'] ?? 0))->last();
+                if ($maxSizeRow && isset($maxSizeRow['mrp']) && (float)$maxSizeRow['mrp'] > 0) {
+                    $mrpPrice = (float) $maxSizeRow['mrp'];
+                }
+            }
 
             $variantsData = [];
 
@@ -797,6 +803,12 @@ class ReportController extends Controller
             }
 
             $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+            if ($product->pair_product && !empty($product->custom_sizes)) {
+                $maxSizeRow = collect($product->custom_sizes)->sortBy(fn($s) => (float)($s['size'] ?? 0))->last();
+                if ($maxSizeRow && isset($maxSizeRow['mrp']) && (float)$maxSizeRow['mrp'] > 0) {
+                    $mrpPrice = (float) $maxSizeRow['mrp'];
+                }
+            }
             $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
             $totalPurchaseValue += $effectiveQty * (float) $product->purchase_price;
             $totalMrpValue += $effectiveQty * $mrpPrice;
@@ -2608,12 +2620,18 @@ class ReportController extends Controller
         foreach ($products as $product) {
             $purchasePrice = (float) $product->purchase_price;
             $salePrice = (float) $product->sale_price;
-            $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
-
             $sizes = collect($product->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
             $pairSize = ($product->pair_product && $sizes->count() > 0) ? (float) $sizes->max() : 1.0;
             if ($pairSize <= 0)
                 $pairSize = 1.0;
+
+            $mrpPrice = (float) (($product->mrp ?? 0) > 0 ? $product->mrp : $product->sale_price);
+            if ($product->pair_product && !empty($product->custom_sizes)) {
+                $maxSizeRow = collect($product->custom_sizes)->sortBy(fn($s) => (float)($s['size'] ?? 0))->last();
+                if ($maxSizeRow && isset($maxSizeRow['mrp']) && (float)$maxSizeRow['mrp'] > 0) {
+                    $mrpPrice = (float) $maxSizeRow['mrp'];
+                }
+            }
 
             if ($product->type === 'variable') {
                 $variantStock = $product->getVariantStock();
