@@ -30,7 +30,7 @@ class ProductCollectionSubCategoryUpdateService
 
         // Dynamically find the header row
         $header = null;
-        $dataRows = [];
+        $rawRows = [];
 
         foreach ($sheetData as $i => $row) {
             $normalizedCandidate = $this->normalizeHeader($row);
@@ -46,7 +46,7 @@ class ProductCollectionSubCategoryUpdateService
                 continue;
             }
 
-            $dataRows[] = [
+            $rawRows[] = [
                 'excel_row_num' => $i + 1,
                 'row'           => $row,
             ];
@@ -68,37 +68,131 @@ class ProductCollectionSubCategoryUpdateService
         ];
         $details = [];
 
+        // Pre-fetch all products by barcode and product_name for fast and accurate lookup
+        $barcodes = [];
+        $names = [];
+
+        $parsedRows = [];
+        foreach ($rawRows as $item) {
+            $rowNum = $item['excel_row_num'];
+            $row = $item['row'];
+
+            if (count($row) < count($header)) {
+                $row = array_pad($row, count($header), '');
+            } elseif (count($row) > count($header)) {
+                $row = array_slice($row, 0, count($header));
+            }
+
+            $rowData = array_combine($header, array_map(fn ($v) => trim((string) $v), $row));
+
+            $productName = $rowData['product_name'] ?? '';
+            $barcode = $rowData['barcode'] ?? '';
+            $subCategoryName = $rowData['sub_category'] ?? '';
+            $collectionStr = $rowData['collection'] ?? '';
+
+            if ($productName === '' && $barcode === '' && $subCategoryName === '' && $collectionStr === '') {
+                $summary['skipped_rows']++;
+                continue;
+            }
+
+            $summary['total_rows']++;
+
+            if ($barcode !== '') {
+                $barcodes[] = $barcode;
+            }
+            if ($productName !== '') {
+                $names[] = mb_strtolower(trim($productName));
+            }
+
+            $parsedRows[] = [
+                'row_num'           => $rowNum,
+                'product_name'      => $productName,
+                'barcode'           => $barcode,
+                'sub_category_name' => $subCategoryName,
+                'collection_str'    => $collectionStr,
+            ];
+        }
+
+        // Batch product lookup
+        $productsByBarcode = [];
+        if (!empty($barcodes)) {
+            Product::withTrashed()->whereIn('barcode', array_unique($barcodes))->get()
+                ->each(function (Product $p) use (&$productsByBarcode) {
+                    $productsByBarcode[$p->barcode] = $p;
+                });
+        }
+
+        $productsByName = [];
+        if (!empty($names)) {
+            Product::withTrashed()->whereIn('name', array_unique($names))->get()
+                ->each(function (Product $p) use (&$productsByName) {
+                    $productsByName[mb_strtolower(trim($p->name))] = $p;
+                });
+        }
+
+        // Group rows by Product so main product row and variant rows (sharing same barcode/product) are merged!
+        $groups = [];
+
+        foreach ($parsedRows as $pRow) {
+            $product = null;
+            $barcode = $pRow['barcode'];
+            $productName = $pRow['product_name'];
+
+            if ($barcode !== '' && isset($productsByBarcode[$barcode])) {
+                $product = $productsByBarcode[$barcode];
+            } elseif ($productName !== '' && isset($productsByName[mb_strtolower(trim($productName))])) {
+                $product = $productsByName[mb_strtolower(trim($productName))];
+            }
+
+            if ($product) {
+                $groupKey = 'product_' . $product->id;
+            } else {
+                $groupKey = 'unmatched_' . ($barcode ?: $productName);
+            }
+
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [
+                    'product'           => $product,
+                    'row_nums'          => [],
+                    'product_name'      => '',
+                    'barcode'           => '',
+                    'sub_category_name' => '',
+                    'collection_str'    => '',
+                ];
+            }
+
+            $groups[$groupKey]['row_nums'][] = $pRow['row_num'];
+
+            if ($groups[$groupKey]['product_name'] === '' && $productName !== '') {
+                $groups[$groupKey]['product_name'] = $productName;
+            }
+            if ($groups[$groupKey]['barcode'] === '' && $barcode !== '') {
+                $groups[$groupKey]['barcode'] = $barcode;
+            }
+            if ($groups[$groupKey]['sub_category_name'] === '' && $pRow['sub_category_name'] !== '' && $pRow['sub_category_name'] !== '-') {
+                $groups[$groupKey]['sub_category_name'] = $pRow['sub_category_name'];
+            }
+            if ($groups[$groupKey]['collection_str'] === '' && $pRow['collection_str'] !== '' && $pRow['collection_str'] !== '-') {
+                $groups[$groupKey]['collection_str'] = $pRow['collection_str'];
+            }
+        }
+
         if ($isDryRun) {
             DB::beginTransaction();
         }
 
         try {
-            foreach ($dataRows as $item) {
-                $rowNum = $item['excel_row_num'];
-                $row = $item['row'];
-
-                if (count($row) < count($header)) {
-                    $row = array_pad($row, count($header), '');
-                } elseif (count($row) > count($header)) {
-                    $row = array_slice($row, 0, count($header));
-                }
-
-                $rowData = array_combine($header, array_map(fn ($v) => trim((string) $v), $row));
-
-                $productName = $rowData['product_name'] ?? '';
-                $barcode = $rowData['barcode'] ?? '';
-                $subCategoryName = $rowData['sub_category'] ?? '';
-                $collectionStr = $rowData['collection'] ?? '';
-
-                if ($productName === '' && $barcode === '' && $subCategoryName === '' && $collectionStr === '') {
-                    $summary['skipped_rows']++;
-                    continue;
-                }
-
-                $summary['total_rows']++;
+            foreach ($groups as $groupKey => $group) {
+                $product = $group['product'];
+                $productName = $group['product_name'] ?: ($product ? $product->name : 'N/A');
+                $barcode = $group['barcode'] ?: ($product ? $product->barcode : 'N/A');
+                $subCategoryName = $group['sub_category_name'];
+                $collectionStr = $group['collection_str'];
+                $rowNumStr = implode(', ', $group['row_nums']);
 
                 try {
                     $actionCallback = function () use (
+                        $product,
                         $productName,
                         $barcode,
                         $subCategoryName,
@@ -106,29 +200,13 @@ class ProductCollectionSubCategoryUpdateService
                         $userId,
                         &$summary,
                         &$details,
-                        $rowNum,
+                        $rowNumStr,
                         $isDryRun
                     ) {
-                        $product = null;
-
-                        if ($barcode !== '') {
-                            $product = Product::withTrashed()->where('barcode', $barcode)->first();
-                            if (!$product) {
-                                // Try with leading zeros stripped or padded if barcode is numeric
-                                $product = Product::withTrashed()->whereRaw('TRIM(barcode) = ?', [$barcode])->first();
-                            }
-                        }
-
-                        if (!$product && $productName !== '') {
-                            $product = Product::withTrashed()
-                                ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($productName)])
-                                ->first();
-                        }
-
                         if (!$product) {
-                            $summary['failed_rows']++;
+                            $summary['failed_rows'] += count(explode(',', $rowNumStr));
                             $details[] = [
-                                'row'          => $rowNum,
+                                'row'          => $rowNumStr,
                                 'barcode'      => $barcode ?: 'N/A',
                                 'product'      => $productName ?: 'N/A',
                                 'status'       => 'Failed',
@@ -237,7 +315,7 @@ class ProductCollectionSubCategoryUpdateService
 
                         $summary['products_updated']++;
                         $details[] = [
-                            'row'          => $rowNum,
+                            'row'          => $rowNumStr,
                             'barcode'      => $product->barcode ?: ($barcode ?: 'N/A'),
                             'product'      => $product->name,
                             'status'       => 'Success',
@@ -254,10 +332,10 @@ class ProductCollectionSubCategoryUpdateService
                         DB::transaction($actionCallback);
                     }
                 } catch (\Throwable $e) {
-                    Log::error("Product Collection/SubCategory Update failed for row {$rowNum}: " . $e->getMessage());
-                    $summary['failed_rows']++;
+                    Log::error("Product Collection/SubCategory Update failed for group '{$groupKey}': " . $e->getMessage());
+                    $summary['failed_rows'] += count(explode(',', $rowNumStr));
                     $details[] = [
-                        'row'          => $rowNum,
+                        'row'          => $rowNumStr,
                         'barcode'      => $barcode ?: 'N/A',
                         'product'      => $productName ?: 'N/A',
                         'status'       => 'Failed',
