@@ -30,6 +30,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductBulkImageUploadController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductImportController;
+use App\Http\Controllers\ProductCollectionSubCategoryUpdateController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\PurchaseImportController;
 use App\Http\Controllers\PurchaseBillController;
@@ -149,6 +150,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Products
         Route::get('products/import/sample', [ProductImportController::class, 'sample'])->name('products.import.sample');
         Route::post('products/import', [ProductImportController::class, 'store'])->name('products.import');
+        Route::post('products/update-collection-subcategory', [ProductCollectionSubCategoryUpdateController::class, 'update'])->name('products.update-collection-subcategory');
         Route::get('products/bulk-images/sample', [ProductBulkImageUploadController::class, 'sample'])->name('products.bulk-images.sample');
         Route::get('products/bulk-images', [ProductBulkImageUploadController::class, 'form'])->name('products.bulk-images.form');
         Route::post('products/bulk-images', [ProductBulkImageUploadController::class, 'store'])->name('products.bulk-images.store');
