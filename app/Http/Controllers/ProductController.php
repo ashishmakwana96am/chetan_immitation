@@ -377,7 +377,7 @@ class ProductController extends Controller
                     }
 
                     if (!$matchedSizeRow) {
-                        $sizesList = collect($product->custom_sizes)->sortBy('size')->values();
+                        $sizesList = collect($product->custom_sizes)->sortByDesc('size')->values();
                         $matchedSizeRow = $sizesList->first();
                     }
 
