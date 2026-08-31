@@ -1083,6 +1083,18 @@ $(document).ready(function () {
             return;
         }
 
+        const recordDate = '{{ $purchase->created_at ? $purchase->created_at->format("Y-m-d") : date("Y-m-d") }}';
+        if (recordDate && typeof window.checkAndConfirmDateSubmission === 'function') {
+            const confirmed = window.checkAndConfirmDateSubmission(this, recordDate, {
+                module: 'Purchase Invoice',
+                dateFormatted: '{{ $purchase->created_at ? $purchase->created_at->format("d-m-Y") : date("d-m-Y") }}'
+            });
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
         const form = $(this);
         form.find('.is-invalid').removeClass('is-invalid');
         form.find('.select2-container .select2-selection').css('border-color', '');

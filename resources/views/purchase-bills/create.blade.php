@@ -760,6 +760,24 @@ $(document).ready(function () {
             return;
         }
 
+        const dateInput = $('#created_at').val() || $('#transfer_date').val() || $('#invoice_date').val();
+        if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
+            const toLocName = $('#toLocation option:selected').text() || 'Location';
+            const totalAmt = $('#footerTotalAmountText').text() || ('₹' + $('#grandTotal').val());
+
+            const confirmed = window.checkAndConfirmDateSubmission(this, dateInput, {
+                module: 'Purchase Bill / Stock Transfer',
+                partyLabel: 'To Location:',
+                partyName: toLocName,
+                amount: totalAmt,
+                dateFormatted: dateInput
+            });
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
         let valid = true;
         form.find('.is-invalid').removeClass('is-invalid');
         $('#hiddenSubmitContainer').remove();

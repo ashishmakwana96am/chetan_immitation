@@ -74,6 +74,8 @@ class CustomerController extends Controller
                     $actions .= '<button class="dropdown-item text-danger" data-common-delete="' . route('admin.customers.destroy', $customer) . '" data-row-id="customer-row-' . $customer->id . '"><i class="ti ti-trash me-2"></i>Delete</button>';
                 }
                 $actions .= '</div></div>';
+            } else {
+                $actions = '<span class="text-muted fw-semibold">-</span>';
             }
 
             return [

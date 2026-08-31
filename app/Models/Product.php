@@ -217,6 +217,20 @@ class Product extends Model
         return (float) ($this->mrp ?? 0);
     }
 
+    public function getPairPackSize(): float
+    {
+        if (!$this->pair_product) {
+            return 1.0;
+        }
+
+        $sizes = collect($this->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+        if ($sizes->count() > 0) {
+            return (float) $sizes->max();
+        }
+
+        return 2.0;
+    }
+
     /**
      * Format stock into Pairs and Pcs format if pair_product is true.
      */
@@ -228,8 +242,7 @@ class Product extends Model
         }
 
         if ($this->pair_product) {
-            $sizes = collect($this->custom_sizes ?? [])->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
-            $pairSize = $sizes->count() > 0 ? (float) $sizes->max() : 1.0;
+            $pairSize = $this->getPairPackSize();
             $pairsCount = $pairSize > 0 ? (int) floor($pieces / $pairSize) : 0;
             $remPcsCount = $pairSize > 0 ? (int) ($pieces % $pairSize) : 0;
 

@@ -389,15 +389,19 @@
                                     <table class="table table-sm mb-0" style="font-size: 0.75rem;">
                                         <thead class="table-light"><tr><th>DATE</th><th class="text-end">AMOUNT</th></tr></thead>
                                         <tbody>
-                                            @if($editPayments->isNotEmpty())
+                                             @if($editPayments->isNotEmpty())
                                                 @foreach($editPayments as $p)
                                                     @php
-                                                        $epMethodParts = [];
                                                         $epc = (float)($p->cash_amount ?? 0);
                                                         $epo = (float)($p->online_amount ?? 0);
-                                                        if ($epc > 0) $epMethodParts[] = 'Cash: ' . format_price($epc);
-                                                        if ($epo > 0) $epMethodParts[] = 'Online: ' . format_price($epo);
-                                                        $epMethodStr = count($epMethodParts) > 0 ? ' (' . implode(' + ', $epMethodParts) . ')' : '';
+                                                        $epMethodStr = '';
+                                                        if ($epc > 0 && $epo > 0) {
+                                                            $epMethodStr = ' (Cash: ' . format_price($epc) . ' + Online: ' . format_price($epo) . ')';
+                                                        } elseif ($epo > 0) {
+                                                            $epMethodStr = ' (Online)';
+                                                        } elseif ($epc > 0) {
+                                                            $epMethodStr = ' (Cash)';
+                                                        }
                                                     @endphp
                                                     <tr>
                                                         <td class="text-nowrap">{{ format_date($p->created_at, 'd M Y, h:i A') }}</td>
@@ -406,10 +410,14 @@
                                                 @endforeach
                                             @else
                                                 @php
-                                                    $editMethodParts = [];
-                                                    if ($editPrevCash > 0) $editMethodParts[] = 'Cash: ' . format_price($editPrevCash);
-                                                    if ($editPrevOnline > 0) $editMethodParts[] = 'Online: ' . format_price($editPrevOnline);
-                                                    $editMethodStr = count($editMethodParts) > 0 ? ' (' . implode(' + ', $editMethodParts) . ')' : '';
+                                                    $editMethodStr = '';
+                                                    if ($editPrevCash > 0 && $editPrevOnline > 0) {
+                                                        $editMethodStr = ' (Cash: ' . format_price($editPrevCash) . ' + Online: ' . format_price($editPrevOnline) . ')';
+                                                    } elseif ($editPrevOnline > 0) {
+                                                        $editMethodStr = ' (Online)';
+                                                    } elseif ($editPrevCash > 0) {
+                                                        $editMethodStr = ' (Cash)';
+                                                    }
                                                 @endphp
                                                 <tr>
                                                     <td class="text-nowrap">{{ $order->updated_at ? format_date($order->updated_at, 'd M Y, h:i A') : format_date($order->created_at, 'd M Y, h:i A') }}</td>
@@ -1779,7 +1787,9 @@ $(document).ready(function () {
         return validateDiscounts();
     }
 
+    let activeSubmitBtn = null;
     $('#submitBtnPrint, #submitBtnNoPrint').on('click', function (e) {
+        activeSubmitBtn = $(this);
         printAfterSave = $(this).data('print') == 1;
 
         const validationError = getClientValidationError();
@@ -1808,6 +1818,26 @@ $(document).ready(function () {
         if (!checkCustomerGstDetails()) {
             closePendingPrintTab();
             return;
+        }
+
+        const dateInput = $('#order_date').val() || '{{ isset($order) && $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format("Y-m-d") : (isset($order) && $order->created_at ? $order->created_at->format("Y-m-d") : date("Y-m-d")) }}';
+        if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
+            const customerName = $('#customer_id option:selected').text() || 'Customer';
+            const finalAmount = $('#grandTotalText').text() || ('₹' + $('#grandTotal').val());
+
+            const confirmed = window.checkAndConfirmDateSubmission(this, dateInput, {
+                module: 'Sale Invoice',
+                partyLabel: 'Customer:',
+                partyName: customerName,
+                amount: finalAmount,
+                dateFormatted: dateInput,
+                submitBtn: activeSubmitBtn || $('#submitBtnPrint')
+            });
+
+            if (!confirmed) {
+                closePendingPrintTab();
+                return;
+            }
         }
 
         const form = $(this);
