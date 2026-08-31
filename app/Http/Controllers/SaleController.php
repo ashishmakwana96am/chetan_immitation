@@ -491,9 +491,9 @@ class SaleController extends Controller
                 $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
 
                 $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
+                $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
                     ? (float) $itemData['purchase_price']
-                    : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
+                    : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
 
                 $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
                     (int) $itemData['product_id'],
@@ -1158,9 +1158,9 @@ class SaleController extends Controller
                     $physicalQty = ($customSizeVal !== null && $customSizeVal > 0) ? ($qty * $customSizeVal) : ($pairType === 'pair' ? ($qty * 2.0) : (float) $qty);
 
                     $purchaseItemId = !empty($itemData['purchase_item_id']) ? (int) $itemData['purchase_item_id'] : null;
-                    $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']))
+                    $unitPurchasePrice = (isset($itemData['purchase_price']) && is_numeric($itemData['purchase_price']) && (float)$itemData['purchase_price'] > 0)
                         ? (float) $itemData['purchase_price']
-                        : ($purchaseItemId ? (float) \App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') : null);
+                        : ($purchaseItemId ? (float) (\App\Models\PurchaseItem::where('id', $purchaseItemId)->value('purchase_price') ?? \App\Models\PurchaseBillItem::where('id', $purchaseItemId)->value('purchase_price')) : null);
 
                     $batchAlloc = \App\Services\PurchaseBatchService::calculateTotalCostPrice(
                         (int) $itemData['product_id'],

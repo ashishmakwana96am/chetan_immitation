@@ -36,27 +36,44 @@ class PurchaseBatchService
             return [];
         }
 
-        // 2. Fetch distinct purchase prices from approved purchases
-        $query = DB::table('purchase_items')
+        // 2. Fetch distinct purchase prices from approved purchases AND transfer bills sent to this location
+        $purchaseItems = DB::table('purchase_items')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
             ->where('purchase_items.product_id', $productId)
             ->whereNull('purchase_items.deleted_at')
             ->whereNull('purchases.deleted_at')
-            ->where('purchases.status', 2);
+            ->where('purchases.status', 2)
+            ->when($productVariantId, fn($q) => $q->where('purchase_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_items.product_variant_id'))
+            ->select(
+                DB::raw("'purchase' as batch_type"),
+                'purchase_items.id as purchase_item_id',
+                'purchase_items.quantity',
+                'purchase_items.purchase_price',
+                'purchase_items.created_at'
+            )
+            ->get();
 
-        if ($productVariantId) {
-            $query->where('purchase_items.product_variant_id', $productVariantId);
-        } else {
-            $query->whereNull('purchase_items.product_variant_id');
+        $transferItems = collect();
+        if ($locationId) {
+            $transferItems = DB::table('purchase_bill_items')
+                ->join('purchase_bills', 'purchase_bills.id', '=', 'purchase_bill_items.purchase_bill_id')
+                ->where('purchase_bill_items.product_id', $productId)
+                ->whereNull('purchase_bill_items.deleted_at')
+                ->whereNull('purchase_bills.deleted_at')
+                ->where('purchase_bills.status', 2)
+                ->where('purchase_bills.to_location_id', $locationId)
+                ->when($productVariantId, fn($q) => $q->where('purchase_bill_items.product_variant_id', $productVariantId), fn($q) => $q->whereNull('purchase_bill_items.product_variant_id'))
+                ->select(
+                    DB::raw("'transfer' as batch_type"),
+                    'purchase_bill_items.id as purchase_item_id',
+                    'purchase_bill_items.quantity',
+                    'purchase_bill_items.purchase_price',
+                    'purchase_bills.created_at'
+                )
+                ->get();
         }
 
-        $items = $query->select(
-            'purchase_items.id as purchase_item_id',
-            'purchase_items.purchase_price',
-            'purchase_items.created_at'
-        )
-        ->orderBy('purchase_items.created_at', 'desc')
-        ->get();
+        $items = $purchaseItems->merge($transferItems)->sortByDesc('created_at')->values();
 
         // 3. Fallback if no purchase items exist: use product/variant default purchase price
         if ($items->isEmpty()) {
@@ -104,32 +121,61 @@ class PurchaseBatchService
         $allocatedSum = 0;
 
         foreach ($items as $item) {
-            $allocQuery = DB::table('purchase_allocations')
-                ->where('purchase_item_id', $item->purchase_item_id);
-            if ($locationId) {
-                $allocQuery->where('location_id', $locationId);
+            if ($item->batch_type === 'transfer') {
+                $allocatedQty = (float) $item->quantity;
+
+                $soldQuery = DB::table('order_items')
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.product_id', $productId)
+                    ->whereNull('order_items.deleted_at')
+                    ->whereNull('orders.deleted_at')
+                    ->where('orders.status', Order::STATUS_APPROVE);
+
+                if ($locationId) {
+                    $soldQuery->where('orders.location_id', $locationId);
+                }
+                if ($excludeOrderId) {
+                    $soldQuery->where('orders.id', '!=', $excludeOrderId);
+                }
+
+                $soldQuery->where('order_items.purchase_price', (float)$item->purchase_price);
+
+                $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
+                    WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                    WHEN order_items.pair_type = "pair" THEN 2.0
+                    ELSE 1.0
+                END'));
+            } else {
+                $allocQuery = DB::table('purchase_allocations')
+                    ->where('purchase_item_id', $item->purchase_item_id);
+                if ($locationId) {
+                    $allocQuery->where('location_id', $locationId);
+                }
+                $allocatedQty = (float) $allocQuery->sum('quantity');
+                if ($allocatedQty <= 0) {
+                    $allocatedQty = (float) $item->quantity;
+                }
+
+                $soldQuery = DB::table('order_items')
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.purchase_item_id', $item->purchase_item_id)
+                    ->whereNull('order_items.deleted_at')
+                    ->whereNull('orders.deleted_at')
+                    ->where('orders.status', Order::STATUS_APPROVE);
+
+                if ($excludeOrderId) {
+                    $soldQuery->where('orders.id', '!=', $excludeOrderId);
+                }
+
+                $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
+                    WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                    WHEN order_items.pair_type = "pair" THEN 2.0
+                    ELSE 1.0
+                END'));
             }
-            $allocatedQty = (float) $allocQuery->sum('quantity');
-
-            $soldQuery = DB::table('order_items')
-                ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.purchase_item_id', $item->purchase_item_id)
-                ->whereNull('order_items.deleted_at')
-                ->whereNull('orders.deleted_at')
-                ->where('orders.status', Order::STATUS_APPROVE);
-
-            if ($excludeOrderId) {
-                $soldQuery->where('orders.id', '!=', $excludeOrderId);
-            }
-
-            $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
-                WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
-                WHEN order_items.pair_type = "pair" THEN 2.0
-                ELSE 1.0
-            END'));
 
             $remainingQty = max(0, $allocatedQty - $soldQty);
-            if ($remainingQty > 0) {
+            if ($remainingQty > 0 || count($priceGroups) > 1) {
                 $priceKey = (string) number_format((float) $item->purchase_price, 2, '.', '');
                 if (!isset($groupedByPrice[$priceKey])) {
                     $groupedByPrice[$priceKey] = [
@@ -144,13 +190,13 @@ class PurchaseBatchService
         }
 
         if (empty($groupedByPrice)) {
-            $latestItem = $items->first();
-            return [[
-                'purchase_item_id' => (int) $latestItem->purchase_item_id,
-                'purchase_price'   => (float) $latestItem->purchase_price,
-                'available_qty'    => $totalLiveStock,
-                'label'            => '₹' . number_format((float) $latestItem->purchase_price, 2),
-            ]];
+            foreach ($priceGroups as $pg) {
+                $groupedByPrice[] = [
+                    'purchase_item_id' => $pg['purchase_item_id'],
+                    'purchase_price'   => $pg['purchase_price'],
+                    'available_qty'    => $totalLiveStock,
+                ];
+            }
         }
 
         $batches = [];
