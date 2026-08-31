@@ -330,7 +330,7 @@ if (!function_exists('format_stock_quantity')) {
 
 if (!function_exists('can_modify_past_date_record')) {
     /**
-     * Check if current authenticated user has permission to edit/delete past date records.
+     * Check if current authenticated user has permission to edit/create/delete past or future date records.
      */
     function can_modify_past_date_record($date): bool
     {
@@ -351,7 +351,7 @@ if (!function_exists('can_modify_past_date_record')) {
             ? $date->format('Y-m-d')
             : date('Y-m-d', strtotime($date));
 
-        if ($formattedDate < date('Y-m-d')) {
+        if ($formattedDate !== date('Y-m-d')) {
             return false;
         }
 

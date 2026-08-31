@@ -415,6 +415,7 @@ $(document).ready(function () {
         }
         refreshRowStock(row);
         updateSummary();
+        return row;
     }
 
     function refreshRowStock(row) {
@@ -794,6 +795,18 @@ $(document).ready(function () {
         if (variantMissing) {
             toastr.error('Please select a variant for each variable product before saving.');
             return;
+        }
+
+        const dateInput = '{{ $purchaseBill->created_at ? $purchaseBill->created_at->format("Y-m-d") : date("Y-m-d") }}';
+        if (dateInput && typeof window.checkAndConfirmDateSubmission === 'function') {
+            const confirmed = window.checkAndConfirmDateSubmission(this, dateInput, {
+                module: 'Purchase Bill / Stock Transfer',
+                dateFormatted: '{{ $purchaseBill->created_at ? $purchaseBill->created_at->format("d-m-Y") : date("d-m-Y") }}'
+            });
+
+            if (!confirmed) {
+                return;
+            }
         }
 
         let valid = true;

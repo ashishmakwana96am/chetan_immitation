@@ -174,12 +174,16 @@
                         @if($showPayments->isNotEmpty())
                             @foreach($showPayments as $p)
                                 @php
-                                    $pMethodParts = [];
                                     $pc = (float)($p->cash_amount ?? 0);
                                     $po = (float)($p->online_amount ?? 0);
-                                    if ($pc > 0) $pMethodParts[] = 'Cash: ' . format_price($pc);
-                                    if ($po > 0) $pMethodParts[] = 'Online: ' . format_price($po);
-                                    $pMethodStr = count($pMethodParts) > 0 ? ' (' . implode(' + ', $pMethodParts) . ')' : '';
+                                    $pMethodStr = '';
+                                    if ($pc > 0 && $po > 0) {
+                                        $pMethodStr = ' (Cash: ' . format_price($pc) . ' + Online: ' . format_price($po) . ')';
+                                    } elseif ($po > 0) {
+                                        $pMethodStr = ' (Online)';
+                                    } elseif ($pc > 0) {
+                                        $pMethodStr = ' (Cash)';
+                                    }
                                 @endphp
                                 <tr>
                                     <td class="small text-nowrap">{{ format_date($p->created_at) }}</td>
@@ -188,10 +192,14 @@
                             @endforeach
                         @else
                             @php
-                                $showMethodParts = [];
-                                if ($showPaidCash > 0) $showMethodParts[] = 'Cash: ' . format_price($showPaidCash);
-                                if ($showPaidOnline > 0) $showMethodParts[] = 'Online: ' . format_price($showPaidOnline);
-                                $showMethodStr = count($showMethodParts) > 0 ? ' (' . implode(' + ', $showMethodParts) . ')' : '';
+                                $showMethodStr = '';
+                                if ($showPaidCash > 0 && $showPaidOnline > 0) {
+                                    $showMethodStr = ' (Cash: ' . format_price($showPaidCash) . ' + Online: ' . format_price($showPaidOnline) . ')';
+                                } elseif ($showPaidOnline > 0) {
+                                    $showMethodStr = ' (Online)';
+                                } elseif ($showPaidCash > 0) {
+                                    $showMethodStr = ' (Cash)';
+                                }
                             @endphp
                             <tr>
                                 <td class="small text-nowrap">{{ $order->updated_at ? format_date($order->updated_at) : format_date($order->created_at) }}</td>

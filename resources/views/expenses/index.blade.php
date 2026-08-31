@@ -5,6 +5,25 @@
 @section('page-css')
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-bs5/datatables.bootstrap5.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-responsive-bs5/responsive.bootstrap5.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/rowgroup.bootstrap5.css') }}" />
+    <style>
+        #expensesTable tbody tr.group-header td {
+            background-color: #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #566a7f;
+            padding: 8px 14px;
+            letter-spacing: 0.3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        #expensesTable tbody tr.group-header td .group-header-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -91,7 +110,6 @@
                         @if(!$isRestricted)
                             <th>Location</th>
                         @endif
-                        <th>Expense Date</th>
                         <th>Created By</th>
                         @if(auth()->user()->can('edit expenses') || auth()->user()->can('delete expenses'))
                             <th>Actions</th>
@@ -105,11 +123,16 @@
 
 @section('page-js')
     <script src="{{ asset('assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/datatables-rowgroup-bs5/datatables-rowgroup.js') }}"></script>
     <script>
         $(document).ready(function () {
+            const getColCount = function() {
+                return $('#expensesTable thead tr th').length;
+            };
+
             const table = $('#expensesTable').DataTable({
                 responsive: false,
-                order: [],
+                order: [[getColCount() + 1, 'desc']],
                 ajax: {
                     url: '{{ route('admin.expenses.data') }}',
                     dataSrc: 'data',
@@ -136,17 +159,21 @@
                     @if(!$isRestricted)
                         { data: 'location' },
                     @endif
-                    { data: 'expense_date', render: function (data, type, row) {
-                        if (type === 'sort' || type === 'type') {
-                            return row.expense_date_sort || data;
-                        }
-                        return data;
-                    } },
                     { data: 'created_by' },
                     @if(auth()->user()->can('edit expenses') || auth()->user()->can('delete expenses'))
                         { data: 'actions', orderable: false },
                     @endif
+                    { data: 'date_group', visible: false },
+                    { data: 'date_sort', visible: false },
                 ],
+                rowGroup: {
+                    dataSrc: 'date_group',
+                    startRender: function (rows, group) {
+                        const colSpan = getColCount();
+                        return $('<tr class="group-header"/>')
+                            .append('<td colspan="' + colSpan + '"><div class="group-header-inner"><i class="ti ti-calendar-event"></i><span>' + group + '</span><span class="badge bg-label-primary">' + rows.count() + ' expense' + (rows.count() > 1 ? 's' : '') + '</span></div></td>');
+                    }
+                }
             });
 
             window.refreshTable = function () {
