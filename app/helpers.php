@@ -332,18 +332,20 @@ if (!function_exists('can_modify_past_date_record')) {
     /**
      * Check if current authenticated user has permission to edit/create/delete past or future date records.
      */
-    function can_modify_past_date_record($date): bool
+    function can_modify_past_date_record($date = null): bool
     {
         $user = auth()->user();
         if (!$user) {
             return false;
         }
 
-        if ($user->hasRole('super-admin') || $user->can('edit past date records')) {
-            return true;
-        }
+        $hasPermission = $user->hasRole('super-admin') || $user->can('edit past date records');
 
         if (!$date) {
+            return $hasPermission;
+        }
+
+        if ($hasPermission) {
             return true;
         }
 

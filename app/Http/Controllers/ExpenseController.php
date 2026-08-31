@@ -215,6 +215,13 @@ class ExpenseController extends Controller
             ], 422);
         }
 
+        if (!can_modify_past_date_record($request->expense_date)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => ['expense_date' => ['You do not have permission to select past dates.']],
+            ], 422);
+        }
+
         $expense->update([
             'title' => $request->title,
             'category' => $request->category,
