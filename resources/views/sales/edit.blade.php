@@ -909,6 +909,7 @@ $(document).ready(function () {
 
         if (product.type === 'variable') {
             // Build variant select dropdown
+            const activeLocId = getLocationId();
             let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
             selectHtml += `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(v => {
@@ -916,7 +917,15 @@ $(document).ready(function () {
                 const optMrp = v.mrp != null ? v.mrp : (product.mrp != null ? product.mrp : 0);
                 const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
-                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" ${selected}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})</option>`;
+
+                let vStock = 0;
+                if (activeLocId && product.stock_by_location && product.stock_by_location[activeLocId] && product.stock_by_location[activeLocId].variants) {
+                    vStock = parseInt(product.stock_by_location[activeLocId].variants[v.id]) || 0;
+                }
+                const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                const stockLabel = activeLocId ? (vStock > 0 ? ` (${vStock} Pcs)` : ' (Out of stock)') : '';
+
+                selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
             });
             selectHtml += `</select>`;
             row.find('.variant-select-container').html(selectHtml);

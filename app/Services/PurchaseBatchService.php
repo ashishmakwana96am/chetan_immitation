@@ -89,6 +89,7 @@ class PurchaseBatchService
         $purchaseItems = DB::table('purchase_items')
             ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
             ->where('purchase_items.product_id', $productId)
+            ->where('purchases.location_id', $locationId)
             ->whereNull('purchase_items.deleted_at')
             ->whereNull('purchases.deleted_at')
             ->whereIn('purchases.status', [1, 2])

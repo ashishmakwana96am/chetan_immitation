@@ -379,12 +379,21 @@ $(document).ready(function () {
         setProductImage(row.find('.product-image-container'), product);
 
         if (product.type === 'variable' && product.variants && product.variants.length) {
+            const activeLocId = $('#fromLocation').val();
             let options = `<option value="" disabled ${!selectedVariantId ? 'selected' : ''}>-- Select Variant --</option>`;
             product.variants.forEach(function (variant) {
                 const selected = selectedVariantId && selectedVariantId == variant.id ? 'selected' : '';
                 const price = variant.purchase_price != null ? variant.purchase_price : 0;
-                const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})`;
-                options += `<option value="${variant.id}" ${selected}>${label}</option>`;
+
+                let vStock = 0;
+                if (activeLocId && product.stock_by_location && product.stock_by_location[activeLocId] && product.stock_by_location[activeLocId].variants) {
+                    vStock = parseInt(product.stock_by_location[activeLocId].variants[variant.id]) || 0;
+                }
+                const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                const stockLabel = activeLocId ? (vStock > 0 ? ` (${vStock} Pcs)` : ' (Out of stock)') : '';
+
+                const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
+                options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
             });
             row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
             const currentVarVal = row.find('.variant-select').val() || null;
