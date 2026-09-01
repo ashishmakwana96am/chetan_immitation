@@ -1064,7 +1064,7 @@ class ReportController extends Controller
                     $mrpPrice = (float) $maxSizeRow['mrp'];
                 }
             }
-            $effectiveQty = $product->pair_product ? ($totalQty / $pairSize) : (float) $totalQty;
+            $effectiveQty = $product->pair_product ? ($targetQty / $pairSize) : (float) $targetQty;
             $totalPurchaseValue += $effectiveQty * (float) $product->purchase_price;
             $totalMrpValue += $effectiveQty * $mrpPrice;
             // 3. FIFO batch netting stock valuation for physical stock on hand at this location
