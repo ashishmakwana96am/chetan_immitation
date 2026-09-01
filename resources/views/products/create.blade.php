@@ -673,7 +673,7 @@
                 e.preventDefault();
 
                 if ($('#productType').val() === 'variable') {
-                    if ($('.attribute-select:checked').length === 0 || !variantsData || variantsData.length === 0) {
+                    if (!variantsData || variantsData.length === 0) {
                         $('#variantsJson').addClass('is-invalid');
                         $('#variantsJson').siblings('.invalid-feedback').text('Please add at least one attribute & variant.');
                         toastr.error('Please add at least one attribute & variant.');

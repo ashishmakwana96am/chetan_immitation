@@ -346,7 +346,7 @@ $(document).ready(function () {
         return sizeHtml;
     }
 
-    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null, prependRow = true) {
+    function addItemRow(product, selectedVariantId = null, qty = 1, pairType = 'single', customSizeValue = null, prependRow = true, selectedPurchasePrice = null, selectedBatchId = null) {
         let initialVariantId = null;
 
         if (product.type !== 'variable' && !(product.pair_product && product.custom_sizes && product.custom_sizes.length) && hasDuplicate(product.id, null)) {
@@ -367,6 +367,12 @@ $(document).ready(function () {
         const row = $(html);
         row.data('product', product);
         row.data('product-id', product.id);
+        if (selectedPurchasePrice !== null && selectedPurchasePrice !== undefined) {
+            row.data('selected-purchase-price', parseFloat(selectedPurchasePrice));
+        }
+        if (selectedBatchId !== null && selectedBatchId !== undefined) {
+            row.data('selected-batch-id', selectedBatchId);
+        }
         row.find('.product-name-display').text(product.name);
         row.find('.product-sku-display').text(product.barcode ? 'Barcode: ' + product.barcode : '');
         row.find('.item-qty').val(qty);
@@ -462,14 +468,21 @@ $(document).ready(function () {
             row.find('.stock-info-display').removeClass('bg-label-success bg-label-secondary').addClass('bg-label-danger').text('N/A');
         });
 
-        loadTransferProductBatches(row);
+        loadTransferProductBatches(row, row.data('selected-batch-id'), row.data('selected-purchase-price'));
     }
 
-    function loadTransferProductBatches(row, selectedBatchId = null) {
+    function loadTransferProductBatches(row, selectedBatchId = null, selectedPrice = null) {
         const product = row.data('product');
         const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || '';
         const locationId = $('#fromLocation').val();
         const batchContainer = row.find('.batch-select-container');
+
+        if (selectedBatchId === null || selectedBatchId === undefined) {
+            selectedBatchId = row.data('selected-batch-id') || null;
+        }
+        if (selectedPrice === null || selectedPrice === undefined) {
+            selectedPrice = row.data('selected-purchase-price') !== undefined ? row.data('selected-purchase-price') : null;
+        }
 
         if (!product || !locationId) {
             batchContainer.empty();
@@ -485,29 +498,56 @@ $(document).ready(function () {
             if (res.status === 'success' && res.batches && res.batches.length > 0) {
                 row.data('batches', res.batches);
                 let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
+                
+                let foundSelected = false;
                 res.batches.forEach(b => {
-                    const sel = (selectedBatchId && selectedBatchId == b.purchase_item_id) ? 'selected' : '';
-                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-available-qty="${b.available_qty}" ${sel}>${b.label}</option>`;
+                    let sel = false;
+                    if (selectedBatchId && b.purchase_item_id == selectedBatchId) {
+                        sel = true;
+                    } else if (!foundSelected && selectedPrice !== null && selectedPrice !== undefined && Math.abs(parseFloat(b.purchase_price) - parseFloat(selectedPrice)) < 0.001) {
+                        sel = true;
+                    }
+                    if (sel) foundSelected = true;
+                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel ? 'selected' : ''}>${b.label}</option>`;
                 });
+
+                if (!foundSelected && selectedPrice !== null && selectedPrice !== undefined && parseFloat(selectedPrice) > 0) {
+                    const formatted = symbol + ' ' + formatPrice(selectedPrice);
+                    html += `<option value="${selectedPrice}" data-purchase-price="${selectedPrice}" data-available-qty="0" selected>${formatted}</option>`;
+                }
+
                 html += '</select></div>';
                 batchContainer.html(html);
 
                 const selOpt = batchContainer.find('.batch-select option:selected');
-                const availAttr = selOpt.attr('data-available-qty');
-                if (selOpt.length && availAttr !== undefined && availAttr !== false) {
-                    row.data('available-pcs', parseInt(availAttr) || 0);
-                    updateRowAvailableStockDisplay(row);
+                if (selOpt.length) {
+                    const pVal = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                    if (pVal !== undefined && pVal !== null && pVal !== '') {
+                        row.data('selected-purchase-price', parseFloat(pVal));
+                    }
+                    const bId = selOpt.attr('data-purchase-item-id');
+                    if (bId) row.data('selected-batch-id', bId);
+
+                    const availAttr = selOpt.attr('data-available-qty');
+                    if (availAttr !== undefined && availAttr !== false) {
+                        row.data('available-pcs', parseInt(availAttr) || 0);
+                        updateRowAvailableStockDisplay(row);
+                    }
                 }
 
                 updateRowPrice(row);
             } else {
                 row.data('batches', []);
-                const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
+                let targetPrice = (selectedPrice !== null && selectedPrice !== undefined)
+                    ? parseFloat(selectedPrice)
+                    : (product.purchase_price ? parseFloat(product.purchase_price) : 0);
+                const defPrice = symbol + ' ' + formatPrice(targetPrice);
                 let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
-                html += `<option value="" data-purchase-price="${product.purchase_price || 0}" data-available-qty="0" selected>${defPrice}</option>`;
+                html += `<option value="${targetPrice}" data-purchase-price="${targetPrice}" data-available-qty="0" selected>${defPrice}</option>`;
                 html += '</select></div>';
                 batchContainer.html(html);
 
+                row.data('selected-purchase-price', targetPrice);
                 row.data('available-pcs', 0);
                 updateRowAvailableStockDisplay(row);
                 updateRowPrice(row);
@@ -553,11 +593,24 @@ $(document).ready(function () {
         if (!product) return 0;
         let basePrice = 0;
 
+        const variantId = row.find('.variant-select').val() || row.attr('data-variant-id') || row.data('variant-id') || null;
+
         const batchSelect = row.find('.batch-select');
-        if (batchSelect.length && batchSelect.val()) {
-            basePrice = parseFloat(batchSelect.val() || 0);
-        } else {
-            const variantId = row.find('.variant-select').val() || null;
+        if (batchSelect.length) {
+            const selOpt = batchSelect.find('option:selected');
+            if (selOpt.length) {
+                const optPrice = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                if (optPrice !== undefined && optPrice !== null && optPrice !== '') {
+                    basePrice = parseFloat(optPrice) || 0;
+                }
+            }
+        }
+
+        if (basePrice === 0 && row.data('selected-purchase-price') !== undefined) {
+            basePrice = parseFloat(row.data('selected-purchase-price')) || 0;
+        }
+
+        if (basePrice === 0) {
             if (variantId && product.variants) {
                 const variant = product.variants.find(v => String(v.id) === String(variantId));
                 if (variant) basePrice = parseFloat(variant.purchase_price || 0);
@@ -803,10 +856,20 @@ $(document).ready(function () {
     $(document).on('change', '.batch-select', function() {
         const row = $(this).closest('.item-row');
         const selOpt = $(this).find('option:selected');
-        const availAttr = selOpt.attr('data-available-qty');
-        if (selOpt.length && availAttr !== undefined && availAttr !== false) {
-            row.data('available-pcs', parseInt(availAttr) || 0);
-            updateRowAvailableStockDisplay(row);
+        if (selOpt.length) {
+            const pVal = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+            if (pVal !== undefined && pVal !== null && pVal !== '') {
+                row.data('selected-purchase-price', parseFloat(pVal));
+            }
+            const bId = selOpt.attr('data-purchase-item-id');
+            if (bId) {
+                row.data('selected-batch-id', bId);
+            }
+            const availAttr = selOpt.attr('data-available-qty');
+            if (availAttr !== undefined && availAttr !== false) {
+                row.data('available-pcs', parseInt(availAttr) || 0);
+                updateRowAvailableStockDisplay(row);
+            }
         }
         updateRowPrice(row);
         updateSummary();
@@ -844,10 +907,10 @@ $(document).ready(function () {
                     matchedVariant = product.variants[0];
                 }
                 if (matchedVariant) {
-                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value, false);
+                    addItemRow(product, matchedVariant.id, item.quantity, item.pair_type, item.custom_size_value, false, item.purchase_price, item.purchase_item_id);
                 }
             } else {
-                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value, false);
+                addItemRow(product, null, item.quantity, item.pair_type, item.custom_size_value, false, item.purchase_price, item.purchase_item_id);
             }
         });
     }
@@ -937,11 +1000,23 @@ $(document).ready(function () {
             }
 
             const batchSel = row.find('.batch-select');
+            let selPrice = null;
+            let selItemId = null;
             if (batchSel.length) {
-                const selPrice = batchSel.val();
-                const selItemId = batchSel.find('option:selected').data('purchase-item-id');
-                if (selPrice) hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${selPrice}">`);
-                if (selItemId) hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${selItemId}">`);
+                const selOpt = batchSel.find('option:selected');
+                if (selOpt.length) {
+                    selPrice = selOpt.attr('data-purchase-price') !== undefined ? selOpt.attr('data-purchase-price') : selOpt.val();
+                    selItemId = selOpt.attr('data-purchase-item-id');
+                }
+            }
+            if ((selPrice === null || selPrice === undefined || selPrice === '') && row.data('selected-purchase-price') !== undefined) {
+                selPrice = row.data('selected-purchase-price');
+            }
+            if (selPrice !== null && selPrice !== undefined && selPrice !== '') {
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_price]" value="${selPrice}">`);
+            }
+            if (selItemId) {
+                hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][purchase_item_id]" value="${selItemId}">`);
             }
 
             hiddenContainer.append(`<input type="hidden" name="items[${submitIdx}][product_id]" value="${product.id}">`);

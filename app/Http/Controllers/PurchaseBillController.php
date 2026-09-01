@@ -426,6 +426,8 @@ class PurchaseBillController extends Controller
                 'pair_type' => $item->pair_type ?? 'single',
                 'custom_size_value' => $item->custom_size_value,
                 'quantity' => $item->quantity,
+                'purchase_price' => (float) $item->purchase_price,
+                'purchase_item_id' => $item->purchase_item_id ?? null,
                 'product' => $product ? [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -662,7 +664,17 @@ class PurchaseBillController extends Controller
                 ActivityLogger::log('Inventory', 'update', $destination, ['quantity' => $destOldQty], ['quantity' => $destOldQty + $stockQty], 'Stock moved in to ' . $toLocName . ' from ' . $fromLocName . ' for purchase bill #' . $purchaseBill->transfer_no);
 
                 // Update purchase_batch_stocks: Deduct from source branch, Add to destination branch on ACCEPT
-                $unitPrice = $this->purchasePriceForPurchaseBillItem($item);
+                $sourceBatchPrice = DB::table('purchase_batch_stocks')
+                    ->where('location_id', $purchaseBill->from_location_id)
+                    ->where('product_id', $item->product_id)
+                    ->when($item->product_variant_id, fn($q) => $q->where('product_variant_id', $item->product_variant_id), fn($q) => $q->whereNull('product_variant_id'))
+                    ->where('quantity', '>', 0)
+                    ->value('purchase_price');
+
+                $unitPrice = ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0)
+                    ? (float) $sourceBatchPrice
+                    : ((float)$item->purchase_price > 0 ? (float)$item->purchase_price : $this->purchasePriceForPurchaseBillItem($item));
+
                 \App\Services\PurchaseBatchService::deductBatchStock((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$unitPrice, (float)$stockQty);
                 \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, (float)$unitPrice, (float)$stockQty);
             }
@@ -852,8 +864,11 @@ class PurchaseBillController extends Controller
             $quantity = (int) (is_array($item) ? $item['quantity'] : $item->quantity);
             $pairType = is_array($item) ? ($item['pair_type'] ?? 'single') : ($item->pair_type ?? 'single');
             $customSizeValue = is_array($item) ? ($item['custom_size_value'] ?? null) : ($item->custom_size_value ?? null);
+            $purchasePrice = is_array($item) ? ($item['purchase_price'] ?? null) : ($item->purchase_price ?? null);
+            $purchaseItemId = is_array($item) ? ($item['purchase_item_id'] ?? null) : ($item->purchase_item_id ?? null);
 
-            $key = $productId . ':' . ($variantId ?? 0) . ':' . $pairType . ':' . ($customSizeValue ?? '');
+            $priceStr = ($purchasePrice !== null && $purchasePrice !== '') ? (string)(float)$purchasePrice : '';
+            $key = $productId . ':' . ($variantId ?? 0) . ':' . $pairType . ':' . ($customSizeValue ?? '') . ':' . $priceStr . ':' . ($purchaseItemId ?? '');
 
             if (!isset($normalized[$key])) {
                 $normalized[$key] = [
@@ -861,6 +876,8 @@ class PurchaseBillController extends Controller
                     'product_variant_id' => $variantId,
                     'pair_type' => $pairType,
                     'custom_size_value' => $customSizeValue,
+                    'purchase_price' => $purchasePrice,
+                    'purchase_item_id' => $purchaseItemId,
                     'quantity' => 0,
                 ];
             }

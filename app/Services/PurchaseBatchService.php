@@ -22,9 +22,51 @@ class PurchaseBatchService
     /**
      * Synchronize and populate purchase_batch_stocks for a specific product/variant at a location.
      */
+    /**
+     * Calculate physical pcs stock multiplier for a product item.
+     */
+    public static function multiplierForProduct(?Product $product, ?string $pairType = null, $customSizeValue = null): float
+    {
+        if (!$product || !$product->pair_product) {
+            return 1.0;
+        }
+
+        if ($customSizeValue !== null && (float)$customSizeValue > 0) {
+            return (float) $customSizeValue;
+        }
+
+        $customSizes = $product->custom_sizes;
+        if (is_array($customSizes) && count($customSizes) > 0) {
+            $sizes = collect($customSizes)->pluck('size')->map(fn($s) => (float) $s)->filter(fn($s) => $s > 0);
+            if ($sizes->count() > 0) {
+                return (float) $sizes->max();
+            }
+        }
+
+        return 2.0;
+    }
+
+    /**
+     * Synchronize and populate purchase_batch_stocks for a specific product/variant at a location.
+     */
     public static function syncProductBatchStocks(int $locationId, int $productId, ?int $productVariantId = null): void
     {
         self::ensureBatchStocksTable();
+
+        $product = Product::find($productId);
+
+        if ($product && $product->type === 'variable' && $productVariantId === null) {
+            DB::table('purchase_batch_stocks')
+                ->where('location_id', $locationId)
+                ->where('product_id', $productId)
+                ->whereNull('product_variant_id')
+                ->delete();
+
+            foreach ($product->variants as $variant) {
+                self::syncProductBatchStocks($locationId, $productId, $variant->id);
+            }
+            return;
+        }
 
         // 1. Get total live physical stock from inventories
         $liveStockQuery = DB::table('inventories')
@@ -56,6 +98,7 @@ class PurchaseBatchService
                 'purchase_items.id as purchase_item_id',
                 'purchase_items.quantity',
                 'purchase_items.purchase_price',
+                'purchase_items.custom_size_value',
                 'purchase_items.created_at'
             )
             ->get();
@@ -73,6 +116,8 @@ class PurchaseBatchService
                 'purchase_bill_items.id as purchase_item_id',
                 'purchase_bill_items.quantity',
                 'purchase_bill_items.purchase_price',
+                'purchase_bill_items.custom_size_value',
+                'purchase_bill_items.pair_type',
                 'purchase_bills.created_at'
             )
             ->get();
@@ -96,14 +141,15 @@ class PurchaseBatchService
         $groupedByPrice = [];
         foreach ($items as $item) {
             $priceKey = (string) number_format((float) $item->purchase_price, 2, '.', '');
+            $multiplier = self::multiplierForProduct($product, $item->pair_type ?? null, $item->custom_size_value ?? null);
 
             if ($item->batch_type === 'transfer') {
-                $allocatedQty = (float) $item->quantity;
+                $allocatedQty = (float) $item->quantity * $multiplier;
             } else {
                 $allocQuery = DB::table('purchase_allocations')
                     ->where('purchase_item_id', $item->purchase_item_id)
                     ->where('location_id', $locationId);
-                $allocatedQty = (float) $allocQuery->sum('quantity');
+                $allocatedQty = (float) $allocQuery->sum('quantity') * $multiplier;
                 if ($allocatedQty <= 0) {
                     $purchaseLocationId = DB::table('purchases')
                         ->join('purchase_items', 'purchases.id', '=', 'purchase_items.purchase_id')
@@ -111,7 +157,7 @@ class PurchaseBatchService
                         ->value('purchases.location_id');
 
                     if ((int)$purchaseLocationId === (int)$locationId) {
-                        $allocatedQty = (float) $item->quantity;
+                        $allocatedQty = (float) $item->quantity * $multiplier;
                     } else {
                         $allocatedQty = 0.0;
                     }
@@ -205,6 +251,11 @@ class PurchaseBatchService
     {
         self::ensureBatchStocksTable();
 
+        $product = Product::find($productId);
+        if ($product && $product->type === 'variable' && !$productVariantId) {
+            $productVariantId = DB::table('product_variants')->where('product_id', $productId)->value('id');
+        }
+
         if (!$locationId) {
             $rows = DB::table('purchase_batch_stocks')
                 ->where('product_id', $productId)
@@ -273,7 +324,27 @@ class PurchaseBatchService
             ->where('product_id', $productId)
             ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
             ->where('purchase_price', $priceVal)
+            ->where('quantity', '>', 0)
             ->first();
+
+        if (!$row) {
+            $row = DB::table('purchase_batch_stocks')
+                ->where('location_id', $locationId)
+                ->where('product_id', $productId)
+                ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->where('quantity', '>', 0)
+                ->orderBy('quantity', 'desc')
+                ->first();
+        }
+
+        if (!$row) {
+            $row = DB::table('purchase_batch_stocks')
+                ->where('location_id', $locationId)
+                ->where('product_id', $productId)
+                ->when($productVariantId, fn($q) => $q->where('product_variant_id', $productVariantId), fn($q) => $q->whereNull('product_variant_id'))
+                ->orderBy('id', 'desc')
+                ->first();
+        }
 
         if ($row) {
             $newQty = max(0, (float)$row->quantity - $qty);
@@ -384,6 +455,62 @@ class PurchaseBatchService
         return [
             'total_cost' => round($totalCost, 2),
             'primary_purchase_item_id' => $primaryPurchaseItemId ?? $selectedPurchaseItemId,
+        ];
+    }
+
+    /**
+     * Calculate cost price and determine primary purchase item id for sale items.
+     */
+    public static function calculateTotalCostPrice(
+        int $productId,
+        ?int $productVariantId,
+        int $locationId,
+        float $physicalQty,
+        ?int $purchaseItemId = null,
+        ?float $unitPurchasePrice = null,
+        ?int $excludeOrderId = null
+    ): array {
+        self::ensureBatchStocksTable();
+
+        $chosenPrice = null;
+        $primaryItemId = $purchaseItemId;
+
+        if ($unitPurchasePrice !== null && is_numeric($unitPurchasePrice) && (float) $unitPurchasePrice > 0) {
+            $chosenPrice = (float) $unitPurchasePrice;
+        }
+
+        if ($chosenPrice === null && $purchaseItemId) {
+            $price = DB::table('purchase_items')->where('id', $purchaseItemId)->value('purchase_price');
+            if ($price === null) {
+                $price = DB::table('purchase_bill_items')->where('id', $purchaseItemId)->value('purchase_price');
+            }
+            if ($price !== null && (float) $price > 0) {
+                $chosenPrice = (float) $price;
+            }
+        }
+
+        if ($chosenPrice === null) {
+            $batches = self::getAvailableBatches($productId, $productVariantId, $locationId, $excludeOrderId);
+            if (!empty($batches)) {
+                $chosenPrice = (float) $batches[0]['purchase_price'];
+                if (!$primaryItemId && !empty($batches[0]['purchase_item_id'])) {
+                    $primaryItemId = (int) $batches[0]['purchase_item_id'];
+                }
+            }
+        }
+
+        if ($chosenPrice === null || $chosenPrice <= 0) {
+            if ($productVariantId) {
+                $chosenPrice = (float) (ProductVariant::where('id', $productVariantId)->value('purchase_price') ?? 0);
+            }
+            if (!$chosenPrice || $chosenPrice <= 0) {
+                $chosenPrice = (float) (Product::where('id', $productId)->value('purchase_price') ?? 0);
+            }
+        }
+
+        return [
+            'total_cost' => (float) $chosenPrice,
+            'primary_purchase_item_id' => $primaryItemId,
         ];
     }
 }

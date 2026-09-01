@@ -765,8 +765,8 @@ class ProductController extends Controller
                     }
                     foreach ($decoded as $row) {
                         $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
-                        if (isset($row['size']) && ((float)$row['size'] > 4 || (float)$row['size'] <= 0)) {
-                            $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
+                        if (isset($row['size']) && ((float)$row['size'] > 8 || (float)$row['size'] <= 0)) {
+                            $fail("Pair size ({$sizeText}) cannot be greater than 8 pcs.");
                             return;
                         }
                         if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
@@ -1005,8 +1005,8 @@ class ProductController extends Controller
                     }
                     foreach ($decoded as $row) {
                         $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
-                        if (isset($row['size']) && ((float)$row['size'] > 4 || (float)$row['size'] <= 0)) {
-                            $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
+                        if (isset($row['size']) && ((float)$row['size'] > 8 || (float)$row['size'] <= 0)) {
+                            $fail("Pair size ({$sizeText}) cannot be greater than 8 pcs.");
                             return;
                         }
                         if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float)$row['sale_price'] <= 0) {
@@ -1740,8 +1740,8 @@ class ProductController extends Controller
             }
             foreach ($sizes as $row) {
                 $sizeText = isset($row['size']) ? ($row['size'] . ' pcs') : 'pair size';
-                if (isset($row['size']) && ((float) $row['size'] > 4 || (float) $row['size'] <= 0)) {
-                    $fail("Pair size ({$sizeText}) cannot be greater than 4 pcs.");
+                if (isset($row['size']) && ((float) $row['size'] > 8 || (float) $row['size'] <= 0)) {
+                    $fail("Pair size ({$sizeText}) cannot be greater than 8 pcs.");
                     return;
                 }
                 if (!isset($row['sale_price']) || $row['sale_price'] === null || $row['sale_price'] === '' || !is_numeric($row['sale_price']) || (float) $row['sale_price'] <= 0) {
