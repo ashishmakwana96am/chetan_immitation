@@ -171,7 +171,11 @@ class PurchaseBatchService
                 ->whereNull('order_items.deleted_at')
                 ->whereNull('orders.deleted_at')
                 ->where('orders.status', Order::STATUS_APPROVE)
-                ->where('order_items.purchase_price', (float)$item->purchase_price);
+                ->whereRaw('ABS(ROUND(order_items.purchase_price / NULLIF(order_items.quantity * CASE 
+                    WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
+                    WHEN order_items.pair_type = "pair" THEN 2.0
+                    ELSE 1.0
+                END, 0), 2) - ?) < 0.05', [(float)$item->purchase_price]);
 
             $soldQty = (float) $soldQuery->sum(DB::raw('order_items.quantity * CASE 
                 WHEN order_items.custom_size_value IS NOT NULL AND order_items.custom_size_value > 0 THEN order_items.custom_size_value
