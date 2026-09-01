@@ -377,8 +377,12 @@ $(document).ready(function () {
                 const price = variant.purchase_price != null ? variant.purchase_price : 0;
 
                 let vStock = 0;
-                if (activeLocId && product.stock_by_location && product.stock_by_location[activeLocId] && product.stock_by_location[activeLocId].variants) {
-                    vStock = parseInt(product.stock_by_location[activeLocId].variants[variant.id]) || 0;
+                if (activeLocId && product.stock_by_location) {
+                    const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                    if (locData && locData.variants) {
+                        const vVal = locData.variants[variant.id] !== undefined ? locData.variants[variant.id] : locData.variants[String(variant.id)];
+                        vStock = parseInt(vVal) || 0;
+                    }
                 }
                 const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
                 const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
@@ -448,13 +452,7 @@ $(document).ready(function () {
                     titleText += `\n- ${item.location_name}: ${item.quantity}`;
                 });
             }
-            const selOpt = row.find('.batch-select option:selected');
-            const availAttr = selOpt.attr('data-available-qty');
-            if (selOpt.length && availAttr !== undefined && availAttr !== false) {
-                row.data('available-pcs', parseInt(availAttr) || 0);
-            } else {
-                row.data('available-pcs', qty);
-            }
+            row.data('available-pcs', qty);
             updateRowAvailableStockDisplay(row);
             row.find('.stock-info-display').attr('title', titleText).css('cursor', 'help');
         }).fail(function () {
@@ -504,7 +502,7 @@ $(document).ready(function () {
 
                     const bStock = parseInt(b.available_qty) || 0;
                     const isDisabled = (bStock <= 0 && !sel) ? 'disabled' : '';
-                    const stockTag = bStock > 0 ? ` (${bStock} Pcs)` : ' (Out of stock)';
+                    const stockTag = bStock > 0 ? '' : ' (Out of stock)';
 
                     html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel ? 'selected' : ''} ${isDisabled}>${b.label}${stockTag}</option>`;
                 });
@@ -526,11 +524,6 @@ $(document).ready(function () {
                     const bId = selOpt.attr('data-purchase-item-id');
                     if (bId) row.data('selected-batch-id', bId);
 
-                    const availAttr = selOpt.attr('data-available-qty');
-                    if (availAttr !== undefined && availAttr !== false) {
-                        row.data('available-pcs', parseInt(availAttr) || 0);
-                        updateRowAvailableStockDisplay(row);
-                    }
                 }
 
                 updateRowPrice(row);
@@ -546,7 +539,6 @@ $(document).ready(function () {
                 batchContainer.html(html);
 
                 row.data('selected-purchase-price', targetPrice);
-                row.data('available-pcs', 0);
                 updateRowAvailableStockDisplay(row);
                 updateRowPrice(row);
             }
@@ -560,16 +552,21 @@ $(document).ready(function () {
     function updateRowAvailableStockDisplay(row) {
         const qtyPcs = parseInt(row.data('available-pcs') || 0);
         const product = row.data('product');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
+        const customSizeValue = parseFloat(row.data('custom-size-value')) || parseFloat(row.find('.custom-size-value-input').val()) || 0;
         
         let stockText = qtyPcs + ' Pcs';
         let displayQty = qtyPcs;
         
         if (product && product.pair_product) {
-            let pairSize = 2;
-            if (product.custom_sizes && Array.isArray(product.custom_sizes) && product.custom_sizes.length > 0) {
-                const sizes = product.custom_sizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(Boolean);
+            const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+            let pairSize = customSizeValue > 0 ? customSizeValue : 0;
+            if (!pairSize && effectiveSizes && effectiveSizes.length > 0) {
+                const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
                 if (sizes.length > 0) pairSize = Math.max(...sizes);
             }
+            if (!pairSize) pairSize = 2;
+
             const pairsCount = Math.floor(qtyPcs / pairSize);
             const remPcs = qtyPcs % pairSize;
             let parts = [];
@@ -579,7 +576,7 @@ $(document).ready(function () {
             displayQty = pairsCount;
         }
         
-        row.data('available', displayQty);
+        row.data('available', qtyPcs);
         row.find('.stock-info-display')
             .html('Stock: ' + stockText)
             .removeClass('bg-label-secondary bg-label-warning bg-label-danger bg-label-success')
@@ -965,8 +962,13 @@ $(document).ready(function () {
                 valid = false;
                 return false;
             }
-            const available = parseInt(row.data('available') || 0);
-            if (qty > available) {
+            const pairType = row.find('.pair-type-input').val() || 'single';
+            const customSizeVal = parseFloat(row.find('.custom-size-value-input').val()) || 0;
+            const multiplier = (customSizeVal > 0) ? customSizeVal : (pairType === 'pair' ? 2.0 : 1.0);
+            const neededPcs = Math.round(qty * multiplier);
+            const availPcs = parseInt(row.data('available-pcs') || row.data('available') || 0);
+
+            if (neededPcs > availPcs) {
                 toastr.error('Transfer quantity cannot be greater than available source stock.');
                 valid = false;
                 return false;
@@ -1099,8 +1101,12 @@ $(document).ready(function () {
                     const price = variant.purchase_price != null ? variant.purchase_price : 0;
 
                     let vStock = 0;
-                    if (sourceLocId && product.stock_by_location && product.stock_by_location[sourceLocId] && product.stock_by_location[sourceLocId].variants) {
-                        vStock = parseInt(product.stock_by_location[sourceLocId].variants[variant.id]) || 0;
+                    if (sourceLocId && product.stock_by_location) {
+                        const locData = product.stock_by_location[sourceLocId] || product.stock_by_location[String(sourceLocId)] || product.stock_by_location[Number(sourceLocId)];
+                        if (locData && locData.variants) {
+                            const vVal = locData.variants[variant.id] !== undefined ? locData.variants[variant.id] : locData.variants[String(variant.id)];
+                            vStock = parseInt(vVal) || 0;
+                        }
                     }
                     const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
                     const stockLabel = (sourceLocId && vStock <= 0) ? ' (Out of stock)' : '';

@@ -783,11 +783,7 @@ $(document).ready(function () {
                 container.html(html);
 
                 const selOpt = container.find('.batch-select option:selected');
-                const availAttr = selOpt.attr('data-available-qty');
-                if (selOpt.length && availAttr !== undefined && availAttr !== false) {
-                    row.data('available-pcs', parseInt(availAttr) || 0);
-                    updateStockInfo(row);
-                }
+                updateStockInfo(row);
             } else {
                 const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
                 let html = '<div class="d-flex align-items-center gap-1 mt-1"><span class="badge bg-label-info text-nowrap" style="font-size: 0.7rem;">Purchase Price:</span><select class="form-select form-select-sm batch-select no-select2" style="font-size: 0.78rem; padding-top: 2px; padding-bottom: 2px;">';
@@ -795,7 +791,6 @@ $(document).ready(function () {
                 html += '</select></div>';
                 container.html(html);
 
-                row.data('available-pcs', 0);
                 updateStockInfo(row);
             }
         }).fail(function() {
@@ -831,8 +826,12 @@ $(document).ready(function () {
                 const selected = selectedVariantId && selectedVariantId == v.id ? 'selected' : '';
 
                 let vStock = 0;
-                if (activeLocId && product.stock_by_location && product.stock_by_location[activeLocId] && product.stock_by_location[activeLocId].variants) {
-                    vStock = parseInt(product.stock_by_location[activeLocId].variants[v.id]) || 0;
+                if (activeLocId && product.stock_by_location) {
+                    const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                    if (locData && locData.variants) {
+                        const vVal = locData.variants[v.id] !== undefined ? locData.variants[v.id] : locData.variants[String(v.id)];
+                        vStock = parseInt(vVal) || 0;
+                    }
                 }
                 const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
                 const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
@@ -1049,9 +1048,37 @@ $(document).ready(function () {
     // Stock info display
     // -------------------------------------------------------
     $(document).on('change', '#locationSelect, select[name="location_id"]', function () {
+        const activeLocId = getLocationId();
         $('#itemsBody .item-row').each(function () {
-            loadProductBatches($(this));
-            updateStockInfo($(this));
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable' && product.variants) {
+                const currentVarId = row.find('.variant-select').val();
+                let selectHtml = `<select class="form-select form-select-sm variant-select mt-2 no-select2">`;
+                selectHtml += `<option value="" disabled ${!currentVarId ? 'selected' : ''}>-- Select Variant --</option>`;
+                product.variants.forEach(v => {
+                    const optPrice = v.sale_price != null ? v.sale_price : 0;
+                    const optMrp = v.mrp != null ? v.mrp : (product.mrp != null ? product.mrp : 0);
+                    const optPurchasePrice = v.purchase_price != null ? v.purchase_price : 0;
+                    const selected = currentVarId && currentVarId == v.id ? 'selected' : '';
+
+                    let vStock = 0;
+                    if (activeLocId && product.stock_by_location) {
+                        const locData = product.stock_by_location[activeLocId] || product.stock_by_location[String(activeLocId)] || product.stock_by_location[Number(activeLocId)];
+                        if (locData && locData.variants) {
+                            const vVal = locData.variants[v.id] !== undefined ? locData.variants[v.id] : locData.variants[String(v.id)];
+                            vStock = parseInt(vVal) || 0;
+                        }
+                    }
+                    const isDisabled = (activeLocId && vStock <= 0 && !selected) ? 'disabled' : '';
+                    const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
+                    selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
+                });
+                selectHtml += `</select>`;
+                row.find('.variant-select-container').html(selectHtml);
+            }
+            loadProductBatches(row);
+            updateStockInfo(row);
         });
     });
 
@@ -1059,10 +1086,10 @@ $(document).ready(function () {
         const productId  = row.find('.product-id-input').val();
         const locationId = getLocationId();
         const stockDisplay = row.find('.stock-display');
-        const variantId = row.attr('data-variant-id') || row.data('variant-id');
+        const variantId = row.attr('data-variant-id') || row.data('variant-id') || row.find('.variant-select').val() || null;
         const product = row.data('product');
         const isPair = row.find('.pair-type-input').val() === 'pair';
-        const customSizeValue = parseFloat(row.find('.custom-size-value-input').val()) || 0;
+        const customSizeValue = parseFloat(row.find('.custom-size-value-input').val()) || parseFloat(row.data('custom-size-value')) || 0;
 
         if (!productId || !product) {
             stockDisplay.text('').removeAttr('title').css('cursor', '').hide();
@@ -1084,22 +1111,12 @@ $(document).ready(function () {
             }
             return Math.ceil(parseFloat(raw) || 0);
         }
-        function displayQtyAt(locId) {
-            const raw = rawQtyAt(locId);
-            if (product.pair_product && customSizeValue > 0) {
-                return Math.floor(raw / customSizeValue);
-            }
-            return raw;
-        }
 
         let qty = 0;
         let breakdownText = 'Stock Breakdown:\n';
         let hasStock = false;
 
-        const rowAvailPcs = row.data('available-pcs');
-        if (rowAvailPcs !== undefined && rowAvailPcs !== null && rowAvailPcs !== '') {
-            qty = parseInt(rowAvailPcs) || 0;
-        } else if (locationId) {
+        if (locationId) {
             qty = rawQtyAt(locationId);
         } else {
             Object.keys(stockByLocation).forEach(locId => {
@@ -1112,7 +1129,23 @@ $(document).ready(function () {
             const loc = locations.find(l => l.id == locId);
             const locName = loc ? loc.name : 'Unknown';
             if (lQty > 0) {
-                breakdownText += `- ${locName}: ${lQty} Pcs\n`;
+                let lDisplay = lQty + ' Pcs';
+                if (product.pair_product) {
+                    const effectiveSizes = getEffectiveCustomSizes(product, variantId);
+                    let pairSize = customSizeValue > 0 ? customSizeValue : 0;
+                    if (!pairSize && effectiveSizes && effectiveSizes.length > 0) {
+                        const sizes = effectiveSizes.map(s => typeof s === 'object' && s !== null ? parseFloat(s.size) : parseFloat(s)).filter(s => s > 0);
+                        if (sizes.length > 0) pairSize = Math.max(...sizes);
+                    }
+                    if (!pairSize) pairSize = 1;
+                    const pCnt = Math.floor(lQty / pairSize);
+                    const rPcs = lQty % pairSize;
+                    let pArr = [];
+                    if (pCnt > 0) pArr.push(pCnt + (pCnt > 1 ? ' Pairs' : ' Pair'));
+                    if (rPcs > 0) pArr.push(rPcs + ' Pcs');
+                    lDisplay = pArr.length > 0 ? pArr.join(' ') : '0 Pcs';
+                }
+                breakdownText += `- ${locName}: ${lDisplay}\n`;
                 hasStock = true;
             }
         });

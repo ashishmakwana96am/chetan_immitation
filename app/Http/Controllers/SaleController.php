@@ -2389,6 +2389,7 @@ class SaleController extends Controller
 
     private function getAllMappedProductsForSales()
     {
+        Cache::store('file')->forget('all_mapped_products_sales');
         return Cache::store('file')->remember('all_mapped_products_sales', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
@@ -2437,9 +2438,23 @@ class SaleController extends Controller
                 if ($p->type === 'variable') {
                     $variantStock = $p->getVariantStock();
                     foreach ($variantStock as $locId => $locData) {
+                        $vData = $locData['variants'] ?? [];
+                        $allVarZero = true;
+                        foreach ($vData as $vId => $vStk) {
+                            if ($vStk > 0) { $allVarZero = false; break; }
+                        }
+                        if ($allVarZero) {
+                            $invQty = (int) ($p->inventories->firstWhere('location_id', $locId)->quantity ?? 0);
+                            $fallbackQty = max($invQty, (int) ($locData['parent'] ?? 0));
+                            if ($fallbackQty > 0) {
+                                foreach ($vData as $vId => $vStk) {
+                                    $vData[$vId] = $fallbackQty;
+                                }
+                            }
+                        }
                         $stockByLocation[$locId] = [
                             'parent'   => $locData['parent'],
-                            'variants' => $locData['variants'],
+                            'variants' => $vData,
                         ];
                     }
                 } else {

@@ -267,18 +267,18 @@
                                          </div>
                                      </td>
                                      <td class="text-end fw-semibold qty-cell text-nowrap">
-                                        <span class="text-nowrap">{{ $item->quantity }}</span>
-                                        @php
-                                            $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
-                                        @endphp
-                                        @if($szVal)
-                                            <span class="small text-muted text-nowrap">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
-                                        @elseif(($item->pair_type ?? 'single') === 'pair')
-                                            <span class="small text-muted text-nowrap">&times; 2pcs</span>
-                                        @else
-                                            <span class="small text-muted text-nowrap">Pcs</span>
-                                        @endif
-                                    </td>
+                                         <span class="text-nowrap">{{ $item->quantity }}</span>
+                                         @php
+                                             $szVal = ($item->calculated_multiplier ?? 1) > 1 ? $item->calculated_multiplier : null;
+                                         @endphp
+                                         @if($szVal)
+                                             <span class="small text-muted text-nowrap">&times; {{ rtrim(rtrim(number_format((float) $szVal, 2), '0'), '.') }}pcs</span>
+                                         @elseif(($item->pair_type ?? 'single') === 'pair')
+                                             <span class="small text-muted text-nowrap">&times; 2pcs</span>
+                                         @else
+                                             <span class="small text-muted text-nowrap">Pcs</span>
+                                         @endif
+                                     </td>
                                     <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($price, 2) }}</td>
                                     <td class="text-end fw-semibold money-cell">{{ currency_symbol() }} {{ number_format($lineTotal, 2) }}</td>
                                     <td class="text-end money-cell">{{ currency_symbol() }} {{ number_format($unitMrp, 2) }}</td>

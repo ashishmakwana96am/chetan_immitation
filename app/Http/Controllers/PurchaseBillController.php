@@ -1228,13 +1228,17 @@ class PurchaseBillController extends Controller
 
     private function getMappedProductsForPurchaseBills(): array
     {
+        Cache::store('file')->forget('all_mapped_products_bills');
         return Cache::store('file')->remember('all_mapped_products_bills', 1800, function () {
             $products = Product::with([
                 'variants.attributeValue.attribute',
                 'primaryImage',
+                'inventories',
             ])->where('status', 1)->orderBy('name')->get();
 
-            return $products->map(function ($p) {
+            Product::preloadVariantStock($products);
+
+            $allProducts = $products->map(function ($p) {
                 $data = [
                     'id'             => $p->id,
                     'name'           => $p->name,
@@ -1256,8 +1260,43 @@ class PurchaseBillController extends Controller
                         ];
                     })->all();
                 }
+
+                $stockByLocation = [];
+                if ($p->type === 'variable') {
+                    $variantStock = $p->getVariantStock();
+                    foreach ($variantStock as $locId => $locData) {
+                        $vData = $locData['variants'] ?? [];
+                        $allVarZero = true;
+                        foreach ($vData as $vId => $vStk) {
+                            if ($vStk > 0) { $allVarZero = false; break; }
+                        }
+                        if ($allVarZero) {
+                            $invQty = (int) ($p->inventories->firstWhere('location_id', $locId)->quantity ?? 0);
+                            $fallbackQty = max($invQty, (int) ($locData['parent'] ?? 0));
+                            if ($fallbackQty > 0) {
+                                foreach ($vData as $vId => $vStk) {
+                                    $vData[$vId] = $fallbackQty;
+                                }
+                            }
+                        }
+                        $stockByLocation[$locId] = [
+                            'parent'   => $locData['parent'],
+                            'variants' => $vData,
+                        ];
+                    }
+                } else {
+                    foreach ($p->inventories as $inv) {
+                        $stockByLocation[$inv->location_id] = $inv->quantity;
+                    }
+                }
+                $data['stock_by_location'] = $stockByLocation;
+
                 return $data;
             })->values()->all();
+
+            Product::clearPreloadedVariantStock();
+
+            return $allProducts;
         });
     }
 }
