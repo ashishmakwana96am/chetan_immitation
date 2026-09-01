@@ -390,7 +390,7 @@ $(document).ready(function () {
                     vStock = parseInt(product.stock_by_location[activeLocId].variants[variant.id]) || 0;
                 }
                 const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
-                const stockLabel = activeLocId ? (vStock > 0 ? ` (${vStock} Pcs)` : ' (Out of stock)') : '';
+                const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
 
                 const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
                 options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
@@ -517,12 +517,17 @@ $(document).ready(function () {
                         sel = true;
                     }
                     if (sel) foundSelected = true;
-                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel ? 'selected' : ''}>${b.label}</option>`;
+
+                    const bStock = parseInt(b.available_qty) || 0;
+                    const isDisabled = (bStock <= 0 && !sel) ? 'disabled' : '';
+                    const stockTag = bStock > 0 ? ` (${bStock} Pcs)` : ' (Out of stock)';
+
+                    html += `<option value="${b.purchase_price}" data-purchase-item-id="${b.purchase_item_id || ''}" data-purchase-price="${b.purchase_price}" data-available-qty="${b.available_qty}" ${sel ? 'selected' : ''} ${isDisabled}>${b.label}${stockTag}</option>`;
                 });
 
                 if (!foundSelected && selectedPrice !== null && selectedPrice !== undefined && parseFloat(selectedPrice) > 0) {
                     const formatted = symbol + ' ' + formatPrice(selectedPrice);
-                    html += `<option value="${selectedPrice}" data-purchase-price="${selectedPrice}" data-available-qty="0" selected>${formatted}</option>`;
+                    html += `<option value="${selectedPrice}" data-purchase-price="${selectedPrice}" data-available-qty="0" selected disabled>${formatted} (Out of stock)</option>`;
                 }
 
                 html += '</select></div>';
@@ -1111,8 +1116,30 @@ $(document).ready(function () {
 
     $(document).on('change', 'select#fromLocation', function () {
         syncDestinationOptions();
+        const sourceLocId = $('#fromLocation').val();
         $('#itemsBody .item-row').each(function () {
-            refreshRowStock($(this));
+            const row = $(this);
+            const product = row.data('product');
+            if (product && product.type === 'variable' && product.variants) {
+                const currentVarId = row.find('.variant-select').val();
+                let options = `<option value="" disabled ${!currentVarId ? 'selected' : ''}>-- Select Variant --</option>`;
+                product.variants.forEach(function (variant) {
+                    const selected = currentVarId && currentVarId == variant.id ? 'selected' : '';
+                    const price = variant.purchase_price != null ? variant.purchase_price : 0;
+
+                    let vStock = 0;
+                    if (sourceLocId && product.stock_by_location && product.stock_by_location[sourceLocId] && product.stock_by_location[sourceLocId].variants) {
+                        vStock = parseInt(product.stock_by_location[sourceLocId].variants[variant.id]) || 0;
+                    }
+                    const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
+                    const stockLabel = (sourceLocId && vStock <= 0) ? ' (Out of stock)' : '';
+
+                    const label = `${variant.attr_name}: ${variant.value_name} (${symbol}${price})${stockLabel}`;
+                    options += `<option value="${variant.id}" ${selected} ${isDisabled}>${label}</option>`;
+                });
+                row.find('.variant-select-container').html(`<select class="form-select form-select-sm variant-select mt-2 no-select2">${options}</select>`);
+            }
+            refreshRowStock(row);
         });
     });
 

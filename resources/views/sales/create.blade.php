@@ -835,8 +835,7 @@ $(document).ready(function () {
                     vStock = parseInt(product.stock_by_location[activeLocId].variants[v.id]) || 0;
                 }
                 const isDisabled = (vStock <= 0 && !selected) ? 'disabled' : '';
-                const stockLabel = activeLocId ? (vStock > 0 ? ` (${vStock} Pcs)` : ' (Out of stock)') : '';
-
+                const stockLabel = (activeLocId && vStock <= 0) ? ' (Out of stock)' : '';
                 selectHtml += `<option value="${v.id}" data-price="${optPrice}" data-mrp="${optMrp}" data-purchase-price="${optPurchasePrice}" data-stock="${vStock}" ${selected} ${isDisabled}>${v.attr_name}: ${v.value_name} (${symbol}${optPrice})${stockLabel}</option>`;
             });
             selectHtml += `</select>`;
