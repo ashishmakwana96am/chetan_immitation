@@ -251,7 +251,7 @@ class SaleController extends Controller
                 !$cancellationRequested;
             $canEditRecord = $canEdit && can_modify_past_date_record($order->created_at);
             $canEditSalesStatusRecord = $canEditSalesStatus && can_modify_past_date_record($order->created_at);
-            $canEditSalesPaymentStatusRecord = $canEditSalesPaymentStatus && can_modify_past_date_record($order->created_at);
+            $canEditSalesPaymentStatusRecord = $canEditSalesPaymentStatus;
             $canDeleteRecord = $canDelete && can_modify_past_date_record($order->created_at);
 
             if ($canEditRecord && $isEditable) {
@@ -1323,11 +1323,13 @@ class SaleController extends Controller
 
     public function updateStatus(Request $request, Order $sale)
     {
-        if (!can_modify_past_date_record($sale->created_at)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'You do not have permission to edit past date records.',
-            ], 403);
+        if ($request->filled('status') || !$request->filled('payment_status')) {
+            if (!can_modify_past_date_record($sale->created_at)) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'You do not have permission to edit past date records.',
+                ], 403);
+            }
         }
 
         if ($request->filled('status')) {

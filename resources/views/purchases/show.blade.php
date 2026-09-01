@@ -113,7 +113,7 @@
                     </button>
                 @endif
                 @can('edit purchases payment status')
-                    @if(($purchase->status == 1 || ($purchase->status == 2 && $purchase->payment_status != 2)) && can_modify_past_date_record($purchase->created_at))
+                    @if($purchase->status == 1 || ($purchase->status == 2 && $purchase->payment_status != 2))
                         <button class="btn btn-success change-purchase-payment-status-btn"
                             data-url="{{ route('admin.purchases.update-payment-status', $purchase) }}"
                             data-history-url="{{ route('admin.purchases.payment-history', $purchase) }}"

@@ -173,11 +173,14 @@ class PurchaseBillController extends Controller
         $canEditPaymentStatus = auth()->user()->can('edit purchase bills payment status');
         $canEdit = auth()->user()->can('edit purchase bills');
 
-        $data = $transfers->map(function ($transfer, $index) use ($canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
+        $user = auth()->user();
+
+        $data = $transfers->map(function ($transfer, $index) use ($user, $canAccept, $canReject, $canEditPaymentStatus, $canEdit) {
             $canEditRecord = $canEdit && can_modify_past_date_record($transfer->created_at);
-            $canAcceptRecord = $canAccept;
-            $canRejectRecord = $canReject;
-            $canPaymentStatusRecord = $canEditPaymentStatus && can_modify_past_date_record($transfer->created_at);
+            $isDestinationUserOrAdmin = !$user->location_id || $user->hasRole('super-admin') || (int) $transfer->to_location_id === (int) $user->location_id;
+            $canAcceptRecord = $canAccept && $isDestinationUserOrAdmin;
+            $canRejectRecord = $canReject && $isDestinationUserOrAdmin;
+            $canPaymentStatusRecord = $canEditPaymentStatus;
 
             $statusBadge = $this->statusBadge($transfer->status);
             $paymentStatusBadge = $this->paymentStatusBadge((int) ($transfer->payment_status ?? PurchaseBill::PAYMENT_STATUS_PENDING));
@@ -600,7 +603,7 @@ class PurchaseBillController extends Controller
     public function accept(PurchaseBill $purchaseBill)
     {
         $this->authorize('accept purchase bills');
-        $this->guardLocationAccess($purchaseBill);
+        $this->guardLocationAccess($purchaseBill, true);
 
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be accepted.'], 422);
@@ -711,12 +714,6 @@ class PurchaseBillController extends Controller
         $this->authorize('edit purchase bills payment status');
         $this->guardLocationAccess($purchaseBill);
 
-        if (!can_modify_past_date_record($purchaseBill->created_at)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'You do not have permission to edit past date records.',
-            ], 403);
-        }
 
         $validator = Validator::make($request->all(), [
             'payment_status' => ['required', 'in:1,2,3'],
@@ -805,7 +802,7 @@ class PurchaseBillController extends Controller
     public function reject(PurchaseBill $purchaseBill)
     {
         $this->authorize('reject purchase bills');
-        $this->guardLocationAccess($purchaseBill);
+        $this->guardLocationAccess($purchaseBill, true);
 
         if ($purchaseBill->status != PurchaseBill::STATUS_PENDING) {
             return response()->json(['status' => 'error', 'message' => 'Only pending purchase bills can be rejected.'], 422);

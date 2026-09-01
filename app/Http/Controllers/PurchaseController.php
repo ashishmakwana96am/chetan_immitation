@@ -128,7 +128,7 @@ class PurchaseController extends Controller
             $canEditRecord = $canEdit && can_modify_past_date_record($invoice->created_at);
             $canDeleteRecord = $canDelete && can_modify_past_date_record($invoice->created_at);
             $canStatusRecord = $canEditPurchasesStatus && can_modify_past_date_record($invoice->created_at);
-            $canPaymentStatusRecord = $canEditPurchasesPaymentStatus && can_modify_past_date_record($invoice->created_at);
+            $canPaymentStatusRecord = $canEditPurchasesPaymentStatus;
 
             $statusColors = [
                 1 => 'bg-label-secondary',
@@ -1112,12 +1112,6 @@ class PurchaseController extends Controller
     {
         $this->authorize('edit purchases payment status');
 
-        if (!can_modify_past_date_record($purchase->created_at)) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'You do not have permission to edit past date records.',
-            ], 403);
-        }
 
         $validator = Validator::make($request->all(), [
             'payment_status' => ['required', 'in:1,2,3'],
