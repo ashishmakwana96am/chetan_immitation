@@ -168,7 +168,7 @@
             @endcan
 
             @can('edit sales payment status')
-                @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID && can_modify_past_date_record($order->created_at))
+                @if(($order->payment_status ?? 1) != \App\Models\Order::PAYMENT_STATUS_PAID)
                     <button class="btn btn-success mark-as-paid-btn"
                         data-url="{{ route('admin.sales.status', $order) }}"
                         data-history-url="{{ route('admin.sales.payment-history', $order) }}"

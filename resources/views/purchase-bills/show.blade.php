@@ -87,25 +87,31 @@
                     </a>
                     @endif
                 @endcan
-                @can('accept purchase bills')
-                    <button class="btn btn-success purchase-bill-action"
-                        data-url="{{ route('admin.purchase-bills.accept', $transfer) }}"
-                        data-title="Accept Purchase Bill"
-                        data-text="Stock will move from source to destination location.">
-                        <i class="ti ti-check me-1"></i> Accept
-                    </button>
-                @endcan
-                @can('reject purchase bills')
-                    <button class="btn btn-label-danger purchase-bill-action"
-                        data-url="{{ route('admin.purchase-bills.reject', $transfer) }}"
-                        data-title="Reject Purchase Bill"
-                        data-text="No inventory stock will be changed.">
-                        <i class="ti ti-x me-1"></i> Reject
-                    </button>
-                @endcan
+                @php
+                    $authUser = auth()->user();
+                    $isDestinationUserOrAdmin = !$authUser->location_id || $authUser->hasRole('super-admin') || (int) $transfer->to_location_id === (int) $authUser->location_id;
+                @endphp
+                @if($isDestinationUserOrAdmin)
+                    @can('accept purchase bills')
+                        <button class="btn btn-success purchase-bill-action"
+                            data-url="{{ route('admin.purchase-bills.accept', $transfer) }}"
+                            data-title="Accept Purchase Bill"
+                            data-text="Stock will move from source to destination location.">
+                            <i class="ti ti-check me-1"></i> Accept
+                        </button>
+                    @endcan
+                    @can('reject purchase bills')
+                        <button class="btn btn-label-danger purchase-bill-action"
+                            data-url="{{ route('admin.purchase-bills.reject', $transfer) }}"
+                            data-title="Reject Purchase Bill"
+                            data-text="No inventory stock will be changed.">
+                            <i class="ti ti-x me-1"></i> Reject
+                        </button>
+                    @endcan
+                @endif
             @endif
             @can('edit purchase bills payment status')
-                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID && can_modify_past_date_record($transfer->created_at))
+                @if($transfer->status == \App\Models\PurchaseBill::STATUS_ACCEPTED && $currentPaymentStatus !== \App\Models\PurchaseBill::PAYMENT_STATUS_PAID)
                     <button class="btn btn-label-primary change-purchase-bill-payment-status-btn"
                         data-url="{{ route('admin.purchase-bills.update-payment-status', $transfer) }}"
                         data-history-url="{{ route('admin.purchase-bills.payment-history', $transfer) }}"
