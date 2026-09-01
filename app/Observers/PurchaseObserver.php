@@ -17,13 +17,17 @@ class PurchaseObserver
     public function created(Purchase $purchase): void
     {
         if ($purchase->paid_amount > 0) {
+            $advancePaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
+                ->where('is_advance', true)
+                ->sum('amount');
+
             $directPaid = (float) \App\Models\PurchasePayment::where('purchase_id', $purchase->id)
                 ->whereNull('bulk_purchase_payment_id')
                 ->where(function ($q) {
                     $q->where('is_advance', false)->orWhereNull('is_advance');
                 })->sum('amount');
 
-            $amountToDeduct = $directPaid > 0 ? $directPaid : (float) $purchase->paid_amount;
+            $amountToDeduct = $directPaid > 0 ? $directPaid : max(0.0, (float) $purchase->paid_amount - $advancePaid);
             if ($amountToDeduct > 0) {
                 $this->deductBalance($purchase, $amountToDeduct);
             }
@@ -48,23 +52,21 @@ class PurchaseObserver
     // ─────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────
+
+    private function resolvePurchaseLocationId(Purchase $purchase): int
+    {
+        $defaultLoc = \App\Models\Location::where('is_default', true)->first()
+            ?? \App\Models\Location::where('status', 1)->first()
+            ?? \App\Models\Location::first();
+
+        return $defaultLoc ? (int) $defaultLoc->id : 1;
+    }
 
     private function deductBalance(Purchase $purchase, float $amount): void
     {
-        $locationId = $purchase->location_id;
-
-        if (!$locationId) {
-            $locationId = $purchase->items()
-                ->with('allocations')
-                ->get()
-                ->flatMap(fn($item) => $item->allocations)
-                ->first()
-                ?->location_id;
-        }
-
-        if (!$locationId) {
-            $locationId = \App\Models\Location::where('is_default', true)->first()?->id ?? \App\Models\Location::first()?->id;
-        }
+        $locationId = $this->resolvePurchaseLocationId($purchase);
 
         if (!$locationId || $amount <= 0) {
             return;
@@ -108,23 +110,13 @@ class PurchaseObserver
                 'Balance deducted for Purchase #' . $purchase->invoice_no . ' (' . format_price($amount) . ')'
             );
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
     private function updatePurchaseBalance(float $oldPaidInput, ?string $oldMethod, Purchase $purchase): void
     {
-        $locationId = $purchase->location_id;
-        if (!$locationId) {
-            $locationId = $purchase->items()
-                ->with('allocations')
-                ->get()
-                ->flatMap(fn($item) => $item->allocations)
-                ->first()
-                ?->location_id;
-        }
-
-        if (!$locationId) {
-            $locationId = \App\Models\Location::where('is_default', true)->first()?->id ?? \App\Models\Location::first()?->id;
-        }
+        $locationId = $this->resolvePurchaseLocationId($purchase);
 
         if (!$locationId) {
             return;
@@ -209,20 +201,16 @@ class PurchaseObserver
                 );
             }
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $oldType);
+        if ($oldType !== $newType) {
+            LocationBalanceTransaction::syncLocationBalance($locationId, $newType);
+        }
     }
 
     private function refundBalance(Purchase $purchase, float $amount): void
     {
-        $locationId = $purchase->location_id;
-
-        if (!$locationId) {
-            $locationId = $purchase->items()
-                ->with('allocations')
-                ->get()
-                ->flatMap(fn($item) => $item->allocations)
-                ->first()
-                ?->location_id;
-        }
+        $locationId = $this->resolvePurchaseLocationId($purchase);
 
         if (!$locationId || $amount <= 0) {
             return;
@@ -255,6 +243,8 @@ class PurchaseObserver
                 'Balance refunded on deletion of Purchase #' . $cleanInvoiceNo . ' (' . format_price($amount) . ')'
             );
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
     /**

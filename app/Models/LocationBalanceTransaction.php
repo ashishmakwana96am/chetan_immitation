@@ -68,4 +68,33 @@ class LocationBalanceTransaction extends Model
 
         return User::orderBy('id', 'asc')->value('id');
     }
+
+    public static function syncLocationBalance(?int $locationId, ?string $balanceType): void
+    {
+        if (!$locationId || !$balanceType) return;
+
+        $transactions = self::where('location_id', $locationId)
+            ->where('balance_type', $balanceType)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $runningBalance = 0.0;
+        foreach ($transactions as $tx) {
+            $amt = (float) $tx->amount;
+            if ($tx->type === self::TYPE_CREDIT) {
+                $runningBalance += $amt;
+            } else {
+                $runningBalance -= $amt;
+            }
+
+            if (abs((float)$tx->balance_after - round($runningBalance, 2)) > 0.001) {
+                self::withoutEvents(fn() => $tx->update(['balance_after' => round($runningBalance, 2)]));
+            }
+        }
+
+        $balanceCol = $balanceType === self::BALANCE_TYPE_BANK ? 'bank_balance' : 'cash_balance';
+        $balanceRecord = LocationBalance::firstOrCreate(['location_id' => $locationId]);
+        $balanceRecord->update([$balanceCol => round($runningBalance, 2)]);
+    }
 }
