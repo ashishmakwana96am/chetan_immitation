@@ -349,6 +349,8 @@ class OrderObserver
                 $logDesc
             );
         });
+
+        LocationBalanceTransaction::syncLocationBalance($locationId, $balanceType);
     }
 
     /**

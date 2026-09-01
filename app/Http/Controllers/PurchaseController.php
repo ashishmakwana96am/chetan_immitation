@@ -364,22 +364,23 @@ class PurchaseController extends Controller
 
             $targetAmountToDeduct = max($paidAmount, $grandTotal);
 
-            $invoice = Purchase::create([
-                'supplier_id'     => $request->supplier_id,
-                'location_id'     => $defaultLocation->id,
-                'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
-                'is_gst'          => $isGst,
-                'tax_amount'      => $taxAmount,
-                'total_amount'    => $grandTotal,
-                'discount_type'   => $orderDiscType,
-                'discount_value'  => $orderDiscVal,
-                'discount_amount' => $orderDiscountAmount,
-                'status'          => $request->status ?? 2,
-                'payment_status'  => $paymentStatus,
-                'payment_method'  => $request->payment_method ?? 'cash',
-                'paid_amount'     => $paidAmount,
-                'created_by'      => auth()->id(),
-            ]);
+            $invoice = Purchase::withoutEvents(function () use ($request, $invoicePrefix, $isGst, $taxAmount, $grandTotal, $orderDiscType, $orderDiscVal, $orderDiscountAmount, $paymentStatus, $paidAmount) {
+                return Purchase::create([
+                    'supplier_id'     => $request->supplier_id,
+                    'invoice_no'      => generate_invoice_no($invoicePrefix, Purchase::class),
+                    'is_gst'          => $isGst,
+                    'tax_amount'      => $taxAmount,
+                    'total_amount'    => $grandTotal,
+                    'discount_type'   => $orderDiscType,
+                    'discount_value'  => $orderDiscVal,
+                    'discount_amount' => $orderDiscountAmount,
+                    'status'          => $request->status ?? 2,
+                    'payment_status'  => $paymentStatus,
+                    'payment_method'  => $request->payment_method ?? 'cash',
+                    'paid_amount'     => $paidAmount,
+                    'created_by'      => auth()->id(),
+                ]);
+            });
 
             $dateInput = $request->input('created_at') ?: $request->input('purchase_date');
             if ($dateInput && (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit past date records'))) {
@@ -417,7 +418,7 @@ class PurchaseController extends Controller
                 $invoice->payment_status = $finalStatus;
             }
 
-            (new \App\Observers\PurchaseObserver())->updated($invoice);
+            (new \App\Observers\PurchaseObserver())->created($invoice);
 
             foreach ($itemsData as $item) {
                 $createdItem = PurchaseItem::create([
