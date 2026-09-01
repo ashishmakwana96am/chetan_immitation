@@ -633,6 +633,12 @@ class PurchaseBillController extends Controller
             $fromLocName = $purchaseBill->fromLocation?->name ?? 'Source Branch';
             $toLocName   = $purchaseBill->toLocation?->name ?? 'Destination Branch';
 
+            PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
+                'status' => PurchaseBill::STATUS_ACCEPTED,
+                'accepted_by' => auth()->id(),
+                'accepted_at' => now(),
+            ]));
+
             foreach ($purchaseBill->items as $item) {
                 $source = Inventory::firstOrCreate(
                     [
@@ -674,23 +680,20 @@ class PurchaseBillController extends Controller
                     ->where('quantity', '>', 0)
                     ->value('purchase_price');
 
-                $unitPrice = ($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0)
-                    ? (float) $sourceBatchPrice
-                    : ((float)$item->purchase_price > 0 ? (float)$item->purchase_price : $this->purchasePriceForPurchaseBillItem($item));
+                $unitPrice = ((float)$item->purchase_price > 0)
+                    ? (float) $item->purchase_price
+                    : (($sourceBatchPrice !== null && (float)$sourceBatchPrice > 0) ? (float)$sourceBatchPrice : $this->purchasePriceForPurchaseBillItem($item));
 
                 \App\Services\PurchaseBatchService::deductBatchStock((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, (float)$unitPrice, (float)$stockQty);
                 \App\Services\PurchaseBatchService::addBatchStock((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null, $item->id, (float)$unitPrice, (float)$stockQty);
+
+                \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->to_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
+                \App\Services\PurchaseBatchService::syncProductBatchStocks((int)$purchaseBill->from_location_id, (int)$item->product_id, !empty($item->product_variant_id) ? (int)$item->product_variant_id : null);
             }
 
             if ($purchaseBill->payment_status == PurchaseBill::PAYMENT_STATUS_PAID) {
                 $this->applyLocationBalanceTransfer($purchaseBill, $totalAmount);
             }
-
-            PurchaseBill::withoutActivityLogging(fn () => $purchaseBill->update([
-                'status' => PurchaseBill::STATUS_ACCEPTED,
-                'accepted_by' => auth()->id(),
-                'accepted_at' => now(),
-            ]));
         });
 
         ActivityLogger::log(

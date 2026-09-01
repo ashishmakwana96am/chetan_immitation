@@ -783,6 +783,12 @@ $(document).ready(function () {
                 container.html(html);
 
                 const selOpt = container.find('.batch-select option:selected');
+                if (selOpt.length) {
+                    const availAttr = selOpt.attr('data-available-qty');
+                    if (availAttr !== undefined && availAttr !== false) {
+                        row.data('available-pcs', parseInt(availAttr) || 0);
+                    }
+                }
                 updateStockInfo(row);
             } else {
                 const defPrice = symbol + ' ' + (product.purchase_price ? formatPrice(product.purchase_price) : '0.00');
@@ -1117,7 +1123,14 @@ $(document).ready(function () {
         let hasStock = false;
 
         if (locationId) {
-            qty = rawQtyAt(locationId);
+            const batchSelOpt = row.find('.batch-select option:selected');
+            if (batchSelOpt.length && batchSelOpt.attr('data-available-qty') !== undefined) {
+                qty = parseInt(batchSelOpt.attr('data-available-qty')) || 0;
+            } else if (row.data('available-pcs') !== undefined && row.data('available-pcs') !== null) {
+                qty = parseInt(row.data('available-pcs')) || 0;
+            } else {
+                qty = rawQtyAt(locationId);
+            }
         } else {
             Object.keys(stockByLocation).forEach(locId => {
                 qty += rawQtyAt(locId);
